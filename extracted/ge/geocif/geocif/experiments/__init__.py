@@ -1098,8 +1098,14 @@ def _plot_heatmap(df_metrics, experiment_name, dir_plots):
     if pivot.empty:
         return
 
+    # Cap colormap at 100 so a single drought-year outlier doesn't
+    # flatten everything else to the same dim color. Annotations still
+    # display the actual numeric value — readers see "423.1" in a cell
+    # but the cell color stops saturating at 100.
     fig, ax = plt.subplots(figsize=(max(8, len(pivot.columns) * 1.5), max(4, len(pivot) * 0.8)))
-    sns.heatmap(pivot, annot=True, fmt=".1f", cmap="YlOrRd", ax=ax, linewidths=0.5)
+    sns.heatmap(pivot, annot=True, fmt=".1f", cmap="YlOrRd", ax=ax,
+                linewidths=0.5, vmin=0, vmax=100,
+                cbar_kws={"label": "MAPE (%, color capped at 100)"})
     ax.set_title(f"Mean MAPE by Country — {experiment_name}")
     ax.set_xlabel("Parameter Value")
     ax.set_ylabel("Country")
@@ -1172,7 +1178,46 @@ def _plot_regional_mape(df_metrics, df_exp_data, experiment_name, dir_plots):
             pivot = _order_by_production(pivot, prod_pct, ascending=True)
 
             fig, ax = plt.subplots(figsize=(max(10, len(pivot.columns) * 1.2), max(5, len(pivot) * 0.4)))
-            pivot.plot(kind="barh", ax=ax, color=bar_colors)
+
+            # Conditional cap: only clip + break when an actual MAPE
+            # value exceeds the cap by a LARGE amount (>= 1.5x). Winner
+            # star fires regardless of capping.
+            MAPE_CAP = 100.0
+            mape_max = float(np.nanmax(pivot.values)) if not pivot.empty else 0.0
+            do_cap = mape_max > MAPE_CAP * 1.5
+            pivot_plot = pivot.clip(upper=MAPE_CAP) if do_cap else pivot
+            pivot_plot.plot(kind="barh", ax=ax, color=bar_colors)
+            if do_cap:
+                for m_idx, container in enumerate(ax.containers):
+                    for r_idx, patch in enumerate(container):
+                        actual = pivot.iloc[r_idx, m_idx]
+                        if pd.notna(actual) and actual > MAPE_CAP:
+                            ax.annotate(
+                                f"{actual:.0f}→",
+                                xy=(MAPE_CAP,
+                                    patch.get_y() + patch.get_height() / 2),
+                                xytext=(2, 0), textcoords="offset points",
+                                fontsize=7, fontweight="bold", color="#b53b3b",
+                                va="center", ha="left",
+                            )
+                ax.set_xlim(0, MAPE_CAP + 10)
+                from geocif.viz.diagnostics import _draw_axis_break as _brk
+                _brk(ax, axis="x", position=MAPE_CAP)
+            # Winner per region (lowest MAPE) — independent of capping
+            winners = pivot.idxmin(axis=1)
+            col_to_idx = {c: i for i, c in enumerate(pivot.columns)}
+            for r_idx in range(len(pivot.index)):
+                winner_col = winners.iloc[r_idx]
+                if pd.isna(winner_col):
+                    continue
+                m_idx = col_to_idx[winner_col]
+                winner_val = pivot.iloc[r_idx, m_idx]
+                patch = ax.containers[m_idx][r_idx]
+                x_star = (min(winner_val, MAPE_CAP) if do_cap else winner_val) + 1.5
+                y_star = patch.get_y() + patch.get_height() / 2
+                ax.scatter(x_star, y_star, marker="*", s=70,
+                           color="gold", edgecolors="black",
+                           linewidths=0.5, zorder=10)
             ax.set_title(f"Mean MAPE by Region — {experiment_name} — {country}")
             ax.set_xlabel("Mean Absolute Percentage Error (%)")
             ax.set_ylabel("")
@@ -1207,19 +1252,40 @@ def _plot_overall_comparison(df_metrics, experiments, dir_plots):
         return
 
     df_best = pd.DataFrame(rows)
+    # Conditional cap: only clip + break when an actual MAPE exceeds
+    # the cap by a LARGE amount (>= 1.5x). Below that, draw bars
+    # naturally with no break and no "capped" suffix on the label.
+    MAPE_CAP = 100.0
+    actual_max = float(df_best["MAPE"].max()) if not df_best.empty else 0.0
+    do_cap = actual_max > MAPE_CAP * 1.5
+    df_best["MAPE_plot"] = (
+        df_best["MAPE"].clip(upper=MAPE_CAP) if do_cap else df_best["MAPE"]
+    )
     fig, ax = plt.subplots(figsize=(max(10, len(df_best) * 0.6), 6))
-    sns.barplot(data=df_best, x="Experiment", y="MAPE", hue="Country", ax=ax)
+    sns.barplot(data=df_best, x="Experiment", y="MAPE_plot", hue="Country", ax=ax)
 
-    # Annotate bars with the best value
-    for container in ax.containers:
-        for bar in container:
+    countries_order = df_best["Country"].drop_duplicates().tolist()
+    for c_idx, container in enumerate(ax.containers):
+        country = countries_order[c_idx] if c_idx < len(countries_order) else None
+        for b_idx, bar in enumerate(container):
+            actual_row = df_best[df_best["Country"] == country].iloc[b_idx] \
+                if country else None
+            actual = actual_row["MAPE"] if actual_row is not None else bar.get_height()
             h = bar.get_height()
-            if h > 0:
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2, h,
-                    f"{h:.1f}", ha="center", va="bottom", fontsize=7
-                )
+            if h <= 0:
+                continue
+            if do_cap and actual > MAPE_CAP:
+                ax.text(bar.get_x() + bar.get_width() / 2, h,
+                        f"{actual:.0f}↑", ha="center", va="bottom",
+                        fontsize=7, fontweight="bold", color="#b53b3b")
+            else:
+                ax.text(bar.get_x() + bar.get_width() / 2, h,
+                        f"{actual:.1f}", ha="center", va="bottom", fontsize=7)
 
+    if do_cap:
+        ax.set_ylim(0, MAPE_CAP + 8)
+        from geocif.viz.diagnostics import _draw_axis_break as _brk
+        _brk(ax, axis="y", position=MAPE_CAP)
     ax.set_title("Best MAPE Across Experiments by Country")
     ax.set_xlabel("Experiment")
     ax.set_ylabel("Mean Absolute Percentage Error (%)")
@@ -1331,13 +1397,33 @@ def _plot_mape_by_year(df_exp_data, experiment_name, dir_plots):
     )
     mape_by_year = mape_by_year.sort_values("Harvest Year")
 
+    MAPE_CAP = 100.0
+    actual_max = float(mape_by_year["MAPE"].max()) if not mape_by_year.empty else 0.0
+    do_cap = actual_max > MAPE_CAP * 1.5
     with plt.style.context(["science", "no-latex"]):
         fig, ax = plt.subplots(figsize=(10, 5))
         pv_list = sorted(mape_by_year["param_value"].unique())
         for i, pv in enumerate(pv_list):
-            grp = mape_by_year[mape_by_year["param_value"] == pv]
-            ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o",
-                    label=_fmt(pv), color=_FIXED_PALETTE[i % len(_FIXED_PALETTE)])
+            grp = mape_by_year[mape_by_year["param_value"] == pv].copy()
+            color = _FIXED_PALETTE[i % len(_FIXED_PALETTE)]
+            y_vals = (
+                np.minimum(grp["MAPE"], MAPE_CAP) if do_cap else grp["MAPE"]
+            )
+            ax.plot(grp["Harvest Year"], y_vals, marker="o",
+                    label=_fmt(pv), color=color)
+            if do_cap:
+                for _, r in grp[grp["MAPE"] > MAPE_CAP].iterrows():
+                    ax.annotate(
+                        f"{r['MAPE']:.0f}↑",
+                        xy=(r["Harvest Year"], MAPE_CAP),
+                        xytext=(0, 4), textcoords="offset points",
+                        fontsize=7, fontweight="bold", color=color,
+                        ha="center", va="bottom",
+                    )
+        if do_cap:
+            ax.set_ylim(0, MAPE_CAP + 8)
+            from geocif.viz.diagnostics import _draw_axis_break as _brk
+            _brk(ax, axis="y", position=MAPE_CAP)
         ax.set_xlabel("")
         ax.set_ylabel("Mean Absolute Percentage Error (%)")
         ax.set_title(f"MAPE by Year — {experiment_name}")
@@ -1571,14 +1657,20 @@ def _generate_diagnostics_for_experiment(df_exp_data, exp_name, dg, dir_experime
     # Scatter
     diag.scatter_obs_pred(df_exp, exp_name, dir_plots, f"scatter_{exp_name}.png")
 
-    # MAPE bar chart
-    df_mape = df_exp.assign(
+    # MAPE box plot per region (distribution across years, with jittered
+    # individual (Region, Year) points). df_mape_raw keeps the raw per-row
+    # MAPE for the box; df_mape (per-region mean) is built below for the
+    # choropleth that needs a single value per region.
+    df_mape_raw = df_exp.assign(
         MAPE=lambda d: (
             (d["Predicted Yield (tn per ha)"] - d["Observed Yield (tn per ha)"]).abs()
             / d["Observed Yield (tn per ha)"].replace(0, np.nan) * 100
         )
-    ).groupby("Region", as_index=False)["MAPE"].mean()
-    diag.mape_bar_chart(df_mape, exp_name, dir_plots, f"mape_bar_{exp_name}.png")
+    ).dropna(subset=["MAPE"])
+    diag.mape_box_by_region(
+        df_mape_raw, exp_name, dir_plots, f"mape_box_region_{exp_name}.png",
+    )
+    df_mape = df_mape_raw.groupby("Region", as_index=False)["MAPE"].mean()
 
     # MAPE choropleth map
     if dg is not None and not dg.empty and not df_mape.empty:

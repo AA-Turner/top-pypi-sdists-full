@@ -430,19 +430,25 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
                     index=False,
                 )
 
-        df_mape = (
-            df.assign(
-                MAPE=lambda d: (
-                    (d[pred_col] - d[obs_col]).abs() / d[obs_col].replace(0, np.nan) * 100
-                )
+        # Per-(Region, Harvest Year) MAPE rows — feeds the box plot
+        # directly (distribution per region) and is aggregated to per-region
+        # mean below for the choropleth that needs one value per region.
+        df_mape_raw = df.assign(
+            MAPE=lambda d: (
+                (d[pred_col] - d[obs_col]).abs() / d[obs_col].replace(0, np.nan) * 100
             )
-            .groupby("Region", as_index=False)["MAPE"].mean()
-        )
+        ).dropna(subset=["MAPE"])
         prod_pct = diag.compute_production_pct(df, country)
-        diag.mape_bar_chart(df_mape, title, dir_plots,
-                            f"mape_bar_{country}_{crop}_{model}{stage_suffix}.png",
-                            production_pct=prod_pct)
-        df_mape.to_csv(dir_csvs / f"mape_bar_{country}_{crop}_{model}{stage_suffix}.csv", index=False)
+        diag.mape_box_by_region(
+            df_mape_raw, title, dir_plots,
+            f"mape_box_region_{country}_{crop}_{model}{stage_suffix}.png",
+            production_pct=prod_pct,
+        )
+        df_mape_raw.to_csv(
+            dir_csvs / f"mape_box_region_{country}_{crop}_{model}{stage_suffix}.csv",
+            index=False,
+        )
+        df_mape = df_mape_raw.groupby("Region", as_index=False)["MAPE"].mean()
 
     df_mape["Country Region"] = (
         country.lower().replace("_", " ") + " " + df_mape["Region"].str.lower()
@@ -467,17 +473,24 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
 def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
                             dir_out, fname, title, prod_pct,
                             forecast_year=None, admin_level="admin_1"):
-    """Side-by-side: predicted yield choropleth (left) + MAPE bar chart (right).
+    """Side-by-side: predicted yield choropleth (left) + MAPE box plot (right).
 
-    Reuses ``viz.plot.plot_map`` with ``ax=`` for the map panel.
+    Reuses ``viz.plot.plot_map`` with ``ax=`` for the map panel. The
+    right panel mirrors ``diag.mape_box_by_region`` (boxes + jittered
+    per-(Region, Year) dots) so year-to-year MAPE variability stays
+    visible — the legacy mean-bar variant collapsed that distribution.
+
+    df_mape is unused (kept for backward signature compat); the box
+    panel pulls per-(Region, Year) MAPE directly from raw ``df``.
     """
     import cartopy.crs as ccrs
     import matplotlib.pyplot as plt
     import palettable as pal
     import scienceplots  # noqa: F401
-    from .viz.diagnostics import _label_with_pct, _sort_by_production
+    from .viz.diagnostics import _label_with_pct
 
     pred_col = "Predicted Yield (tn per ha)"
+    obs_col = "Observed Yield (tn per ha)"
 
     # Use forecast_year if provided, else latest year in data
     if forecast_year and "Harvest Year" in df.columns:
@@ -498,26 +511,35 @@ def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
     )
     df_pred_region = df_latest.groupby(["Region", "Country Region"])[pred_col].mean().reset_index()
 
-    # MAPE bar data — sort by production share descending (largest at top)
-    mape_col = "Mean Absolute Percentage Error"
-    if mape_col not in df_mape.columns:
+    # Per-(Region, Harvest Year) MAPE for the right-panel box distribution.
+    df_box = df.dropna(subset=[obs_col, pred_col]).copy()
+    df_box = df_box[df_box[obs_col] != 0]
+    if df_box.empty:
         return
-    df_bar = df_mape.groupby("Region")[mape_col].mean()
+    df_box["MAPE"] = (df_box[pred_col] - df_box[obs_col]).abs() / df_box[obs_col] * 100
+    by_region = {r: g["MAPE"].dropna().values for r, g in df_box.groupby("Region")}
+    by_region = {r: v for r, v in by_region.items() if len(v) > 0}
+    if not by_region:
+        return
+
+    # Sort by production share descending (largest at top of horizontal box).
     if prod_pct:
-        order = sorted(df_bar.index, key=lambda r: prod_pct.get(r, 0), reverse=True)
-        df_bar = df_bar.reindex(order)
-        df_bar.index = _label_with_pct(df_bar.index, prod_pct)
+        regions_sorted = sorted(by_region.keys(),
+                                key=lambda r: prod_pct.get(r, 0))
+        labels = _label_with_pct(regions_sorted, prod_pct)
     else:
-        df_bar = df_bar.sort_values(ascending=False)
+        regions_sorted = sorted(by_region.keys(),
+                                key=lambda r: float(np.median(by_region[r])),
+                                reverse=True)
+        labels = list(regions_sorted)
 
     countries_display = [country.title().replace("_", " ")]
-    # Annotation column based on admin level
     annot_col = "ADM2_NAME" if admin_level == "admin_2" else "ADM1_NAME"
 
     with plt.style.context(["science", "no-latex"]):
-        fig = plt.figure(figsize=(14, max(5, len(df_bar) * 0.5)))
+        fig = plt.figure(figsize=(14, max(5, len(regions_sorted) * 0.5)))
         ax_map = fig.add_subplot(1, 2, 1, projection=ccrs.PlateCarree())
-        ax_bar = fig.add_subplot(1, 2, 2)
+        ax_box = fig.add_subplot(1, 2, 2)
 
         # Left: predicted yield map via plot_map
         plot.plot_map(
@@ -537,14 +559,53 @@ def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
             ax=ax_map,
         )
 
-        # Right: MAPE bar chart
-        bars = ax_bar.barh(df_bar.index, df_bar.values, color="steelblue")
-        for bar, val in zip(bars, df_bar.values):
-            ax_bar.text(val + 0.3, bar.get_y() + bar.get_height() / 2,
-                        f"{val:.1f}%", va="center", fontsize=8)
-        ax_bar.set_xlabel("Mean Absolute Percentage Error (%)")
-        ax_bar.set_title("MAPE by Region", fontsize=10, fontweight="bold")
-        ax_bar.tick_params(axis='y', which='minor', length=0)
+        # Right: MAPE distribution per region (box + jittered dots). Only
+        # cap+break when a per-(Region, Year) MAPE exceeds MAPE_CAP*1.5.
+        MAPE_CAP = 100.0
+        overall_max = float(max(
+            (np.nanmax(v) for v in by_region.values() if len(v)),
+            default=0.0,
+        ))
+        do_cap = overall_max > MAPE_CAP * 1.5
+        data_clipped = [
+            (np.minimum(by_region[r], MAPE_CAP) if do_cap else by_region[r])
+            for r in regions_sorted
+        ]
+        bp = ax_box.boxplot(
+            data_clipped, vert=False, labels=labels,
+            patch_artist=True, widths=0.6, showfliers=False,
+            medianprops={"color": "black", "linewidth": 1.4},
+        )
+        for patch in bp["boxes"]:
+            patch.set_facecolor("steelblue")
+            patch.set_alpha(0.35)
+            patch.set_edgecolor("steelblue")
+
+        rng = np.random.default_rng(42)
+        for i, vals in enumerate(data_clipped):
+            if len(vals) == 0:
+                continue
+            ys = (i + 1) + rng.uniform(-0.18, 0.18, size=len(vals))
+            ax_box.scatter(
+                vals, ys, s=14, color="#1f4e79", alpha=0.65,
+                edgecolors="none", zorder=3,
+            )
+
+        if do_cap:
+            for i, r in enumerate(regions_sorted):
+                rmax = float(np.max(by_region[r]))
+                if rmax > MAPE_CAP:
+                    ax_box.text(
+                        MAPE_CAP + 1, i + 1, f"max={rmax:.0f}% →",
+                        va="center", fontsize=7, color="#b53b3b",
+                        fontweight="bold",
+                    )
+            ax_box.set_xlim(0, MAPE_CAP + 18)
+            diag._draw_axis_break(ax_box, axis="x", position=MAPE_CAP)
+        ax_box.set_xlabel("Mean Absolute Percentage Error (%)")
+        ax_box.set_title("MAPE Distribution by Region", fontsize=10, fontweight="bold")
+        ax_box.tick_params(axis='y', which='minor', length=0)
+        ax_box.grid(True, axis='x', linestyle=':', alpha=0.4)
 
         fig.suptitle(title, fontsize=12, fontweight="bold", y=1.02)
         fig.subplots_adjust(wspace=0.3)
@@ -1958,7 +2019,59 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 bar_colors = [_MODEL_COLORS.get(m, "steelblue") for m in pivot.columns]
                 pivot.columns = [_display_model_name(m) for m in pivot.columns]
                 fig, ax = plt.subplots(figsize=(10, max(4, len(pivot) * 0.5)))
-                pivot.plot.barh(ax=ax, color=bar_colors)
+
+                # Conditional cap: only clip + break when MAPE/RRMSE
+                # exceeds the cap by a LARGE amount (>= 1.5x). Below
+                # that, just draw bars naturally. Winner star + clip
+                # annotations only fire when we actually cap.
+                METRIC_CAP = 100.0
+                metric_max = float(np.nanmax(pivot.values)) if not pivot.empty else 0.0
+                do_cap = metric in ("MAPE", "RRMSE") and metric_max > METRIC_CAP * 1.5
+                pivot_plot = pivot.clip(upper=METRIC_CAP) if do_cap else pivot
+                pivot_plot.plot.barh(ax=ax, color=bar_colors)
+
+                if do_cap:
+                    # Annotate clipped bars with their actual values
+                    for m_idx, container in enumerate(ax.containers):
+                        for r_idx, patch in enumerate(container):
+                            actual = pivot.iloc[r_idx, m_idx]
+                            if pd.notna(actual) and actual > METRIC_CAP:
+                                ax.annotate(
+                                    f"{actual:.0f}→",
+                                    xy=(METRIC_CAP,
+                                        patch.get_y() + patch.get_height() / 2),
+                                    xytext=(2, 0), textcoords="offset points",
+                                    fontsize=7, fontweight="bold",
+                                    color="#b53b3b",
+                                    va="center", ha="left",
+                                )
+                    ax.set_xlim(0, METRIC_CAP + 10)
+                    diag._draw_axis_break(ax, axis="x", position=METRIC_CAP)
+
+                # Winner star per region (lowest metric) — fires for any
+                # MAPE/RRMSE/RMSE plot regardless of capping. Skip R²
+                # because higher is better there.
+                if metric != "R2":
+                    winners = pivot.idxmin(axis=1)
+                    col_to_idx = {c: i for i, c in enumerate(pivot.columns)}
+                    for r_idx, region in enumerate(pivot.index):
+                        winner_col = winners.iloc[r_idx]
+                        if pd.isna(winner_col):
+                            continue
+                        m_idx = col_to_idx[winner_col]
+                        winner_val = pivot.iloc[r_idx, m_idx]
+                        patch = ax.containers[m_idx][r_idx]
+                        x_star = (
+                            min(winner_val, METRIC_CAP) + 1.5
+                            if do_cap else winner_val + 1.5
+                        )
+                        y_star = patch.get_y() + patch.get_height() / 2
+                        ax.scatter(
+                            x_star, y_star, marker="*", s=70,
+                            color="gold", edgecolors="black",
+                            linewidths=0.5, zorder=10,
+                        )
+
                 # Per-model mean across regions (dashed vertical line, same
                 # color as bars, numeric value annotated at the top edge).
                 # Arithmetic mean of the plotted values — not area-weighted.
@@ -1966,12 +2079,15 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 for col, c in zip(pivot.columns, bar_colors):
                     m_mean = pivot[col].dropna().mean()
                     if pd.notna(m_mean):
-                        ax.axvline(m_mean, color=c, linestyle="--",
+                        # Keep the line on-axis when capping; annotation
+                        # still shows the actual mean value.
+                        line_x = min(m_mean, METRIC_CAP) if do_cap else m_mean
+                        ax.axvline(line_x, color=c, linestyle="--",
                                    linewidth=1.2, alpha=0.8)
                         unit = "%" if metric in ("MAPE", "RRMSE") else ""
                         ax.annotate(
                             f"{m_mean:.1f}{unit}",
-                            xy=(m_mean, y_top),
+                            xy=(line_x, y_top),
                             xytext=(3, -3),
                             textcoords="offset points",
                             color=c, fontsize=8, ha="left", va="top",
@@ -2002,7 +2118,30 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 bar_colors = [_MODEL_COLORS.get(m, "steelblue") for m in pivot.columns]
                 pivot.columns = [_display_model_name(m) for m in pivot.columns]
                 fig, ax = plt.subplots(figsize=(12, 5))
-                pivot.plot.bar(ax=ax, color=bar_colors)
+
+                # Conditional cap: only clip + break when an actual
+                # MAPE/RRMSE value exceeds the cap by a LARGE amount.
+                METRIC_CAP = 100.0
+                metric_max = float(np.nanmax(pivot.values)) if not pivot.empty else 0.0
+                do_cap = metric in ("MAPE", "RRMSE") and metric_max > METRIC_CAP * 1.5
+                pivot_plot = pivot.clip(upper=METRIC_CAP) if do_cap else pivot
+                pivot_plot.plot.bar(ax=ax, color=bar_colors)
+
+                if do_cap:
+                    for m_idx, container in enumerate(ax.containers):
+                        for r_idx, patch in enumerate(container):
+                            actual = pivot.iloc[r_idx, m_idx]
+                            if pd.notna(actual) and actual > METRIC_CAP:
+                                ax.annotate(
+                                    f"{actual:.0f}↑",
+                                    xy=(patch.get_x() + patch.get_width() / 2,
+                                        METRIC_CAP + 1.5),
+                                    fontsize=7, fontweight="bold",
+                                    color="#b53b3b",
+                                    ha="center", va="bottom",
+                                )
+                    ax.set_ylim(0, METRIC_CAP + 8)
+                    diag._draw_axis_break(ax, axis="y", position=METRIC_CAP)
                 ax.set_ylabel(ylabel)
                 ax.set_title(f"{ylabel} by Year — {base_title}", fontweight="bold")
                 ax.legend(title="Model", fontsize=8)
@@ -2425,6 +2564,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("Yield Trend feature",
                 parser.get("ML", "use_yield_trend_as_feature", fallback="False").strip()
                 or "False"),
+            ("CI (estimate_ci)",
+                str(parser.getboolean("ML", "estimate_ci", fallback=False))),
+            ("XAI (do_xai)",
+                str(parser.getboolean("ML", "do_xai", fallback=False))),
         ]
         for c, yf in yield_files.items():
             params.append((f"  {c} yield file", yf))
@@ -2760,21 +2903,31 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                         reverse=True,
                     )
                     df_table = df_table.set_index("Region").loc[order].reset_index()
-                    df_table["Region"] = [
-                        f"{r} ({prod_pct.get(r, 0):.1f}%)" for r in df_table["Region"]
+                    # Production share goes in its own column so the Region
+                    # name keeps its native width (no parenthetical suffix
+                    # that pushed the column to truncate region names).
+                    df_table["% of Production"] = [
+                        f"{prod_pct.get(r, 0):.1f}%" for r in df_table["Region"]
                     ]
                 ci_has_values = (
                     df_table["lower CI"].notna().any()
                     or df_table["upper CI"].notna().any()
                 )
-                cols_order = ["Predicted Yield"]
+                cols_order = []
+                if prod_pct:
+                    cols_order.append("% of Production")
+                cols_order += ["Predicted Yield"]
                 if ci_has_values:
                     cols_order += ["lower CI", "upper CI"]
                 cols_order += ["Last Obs Yield", "Last Obs Year"]
                 diag.yield_table(
                     df_table[["Region"] + cols_order],
                     out_path=plot_dir / f"yield_table_{country_lower}_{crop}_{model}.png",
-                    title=f"Yield Forecast Summary \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model}, {current_year})",
+                    title=(
+                        f"Yield Forecast Summary \u2014 "
+                        f"{country.title().replace('_', ' ')} "
+                        f"{crop.title().replace('_', ' ')} ({current_year})"
+                    ),
                     columns=cols_order,
                 )
 
@@ -2794,12 +2947,29 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     .groupby(["Region", "Harvest Year"], as_index=False).last()
                 )
 
-                diag.mape_bar_chart(
+                # Distribution-aware box plots with jittered individual
+                # (Region, Year) points so year-to-year spread per region
+                # (and region-to-region spread per year) is visible.
+                diag.mape_box_by_region(
                     df_mape,
-                    title=f"Mean MAPE by Region \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})",
+                    title=(
+                        f"MAPE Distribution by Region \u2014 "
+                        f"{country.title().replace('_', ' ')} "
+                        f"{crop.title().replace('_', ' ')} ({model})"
+                    ),
                     dir_out=plot_dir,
-                    fname=f"mape_bar_{country_lower}_{crop}_{model}.png",
+                    fname=f"mape_box_region_{country_lower}_{crop}_{model}.png",
                     production_pct=prod_pct,
+                )
+                diag.mape_box_by_year(
+                    df_mape,
+                    title=(
+                        f"MAPE Distribution by Year \u2014 "
+                        f"{country.title().replace('_', ' ')} "
+                        f"{crop.title().replace('_', ' ')} ({model})"
+                    ),
+                    dir_out=plot_dir,
+                    fname=f"mape_box_year_{country_lower}_{crop}_{model}.png",
                 )
                 diag.mape_by_year(
                     df_mape,

@@ -7,7 +7,7 @@ from __future__ import annotations
 # tir script
 # TODO(lei): remove this import once the
 # upstream tir script is fully compatible
-from tvm.script.parser.tir import *
+from tvm.tirx.script.parser import *
 from . import overrides as _overrides  # noqa: F401
 
 # from .tir import prim_func, macro,  # noqa: F401
@@ -43,6 +43,7 @@ from .allocate import (
     alloc_local,  # noqa: F401
     alloc_shared,  # noqa: F401
     alloc_fragment,  # noqa: F401
+    alloc_global,  # noqa: F401
     alloc_barrier,  # noqa: F401
     alloc_cluster_barrier,  # noqa: F401
     alloc_tmem,  # noqa: F401
@@ -52,13 +53,33 @@ from .allocate import (
     alloc_tcgen05_smem_desc,  # noqa: F401
     alloc_tcgen05_instr_desc,  # noqa: F401
     empty,  # noqa: F401
-    alloc_global,  # noqa: F401
 )
-from tvm.script.parser.tir import allocate as allocate  # noqa: F401
-from .copy_op import copy, async_copy, tma_copy, transpose, c2d_im2col  # noqa: F401
+from tvm.tirx.script.builder.ir import alloc_buffer as allocate  # noqa: F401
+from .copy_op import (  # noqa: F401
+    copy,
+    async_copy,
+    tma_copy,
+    tma_gather4,
+    tma_gather4_bytes,
+    tma_scatter4,
+    transpose,
+    im2col,
+    c2d_im2col,
+    copy_cluster,
+)
 from tilelang.tileop.base import GemmWarpPolicy  # noqa: F401
-from .gemm_op import gemm, wgmma_gemm, tcgen05_gemm  # noqa: F401
-from .experimental.gemm_sp import gemm_sp, gemm_sp_v2  # noqa: F401
+from .gemm_op import (  # noqa: F401
+    gemm,
+    wgmma_gemm,
+    tcgen05_gemm,
+    tcgen05_gemm_blockscaled,
+    make_blockscaled_gemm_layout,
+)
+from .experimental.gemm_sp_op import (  # noqa: F401
+    gemm_sp,
+    wgmma_gemm_sp,
+    tcgen05_gemm_sp,
+)
 from .fill_op import fill, clear  # noqa: F401
 from .reduce_op import (
     reduce,  # noqa: F401
@@ -96,6 +117,8 @@ from .customize import (
 from .logical import any_of, all_of  # noqa: F401
 from .builtin import *  # noqa: F401
 from .builtin import __ldg as __ldg  # noqa: F401
+from .builtin import ds_read_tr16_b64 as ds_read_tr16_b64  # noqa: F401
+from .builtin import ds_read_tr8_b64 as ds_read_tr8_b64  # noqa: F401
 from .builtin import ldg32 as ldg32  # noqa: F401
 from .builtin import ldg64 as ldg64  # noqa: F401
 from .builtin import ldg128 as ldg128  # noqa: F401
@@ -153,4 +176,6 @@ from .cluster import (
 
 def import_source(source: str | None = None):
     # source is the source code to be imported
-    return block_attr({"pragma_import_c": source}) if source is not None else None
+    from tvm.tirx.script.builder.ir import sblock_attr
+
+    return sblock_attr({"pragma_import_c": source}) if source is not None else None

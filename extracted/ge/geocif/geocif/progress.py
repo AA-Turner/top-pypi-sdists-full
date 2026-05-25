@@ -12,6 +12,9 @@ code. Keep raw `tqdm(...)` only at the parent-process orchestrator level
 import sys
 import time
 
+# TqdmExperimentalWarning is silenced once in geocif/__init__.py so the filter
+# is active before any of the 17 submodules that import from tqdm.rich.
+
 _IN_WORKER = False
 _TOTAL = None
 
@@ -79,12 +82,28 @@ class _NoopBar:
 
 
 def pbar(iterable=None, **kwargs):
-    """`tqdm.rich.tqdm` wrapper that disables itself inside workers."""
+    """`tqdm.rich.tqdm` wrapper that disables itself inside workers.
+
+    tqdm.rich.tqdm.__init__ calls warn("rich is experimental/alpha",
+    TqdmExperimentalWarning, stacklevel=2) on EVERY instantiation, not
+    just at module import. The package-level filter in geocif/__init__.py
+    catches first hit, but downstream libraries (pandas/scipy) often call
+    warnings.simplefilter(...) which resets the filter table — after
+    that, the warning starts firing again on every pbar() call. Wrap
+    each instantiation in catch_warnings so the suppression survives
+    regardless of what other libraries do to warnings.filters.
+    """
     if _IN_WORKER:
         return _NoopBar(iterable)
+    import warnings as _w
     from tqdm.rich import tqdm as rich_tqdm
-
-    return rich_tqdm(iterable, **kwargs)
+    with _w.catch_warnings():
+        try:
+            from tqdm import TqdmExperimentalWarning as _TEW
+            _w.simplefilter("ignore", _TEW)
+        except ImportError:
+            _w.simplefilter("ignore")
+        return rich_tqdm(iterable, **kwargs)
 
 
 def pwrite(msg):

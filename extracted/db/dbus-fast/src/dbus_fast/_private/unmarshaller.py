@@ -11,7 +11,7 @@ from collections.abc import Callable, Iterable
 from struct import Struct
 from typing import TYPE_CHECKING, Any
 
-from ..constants import MESSAGE_FLAG_MAP, MESSAGE_TYPE_MAP, MessageFlag
+from ..constants import MESSAGE_FLAG_MAP, MESSAGE_TYPE_MAP, MessageFlag, MessageType
 from ..errors import InvalidMessageError
 from ..message import Message
 from ..signature import SignatureType, Variant, get_signature_tree
@@ -99,6 +99,24 @@ _MAX_MESSAGE_SIZE = MAX_MESSAGE_SIZE
 # _MAX_CONTAINER_DEPTH is the cdef unsigned int form used internally per .pxd.
 MAX_CONTAINER_DEPTH = 64
 _MAX_CONTAINER_DEPTH = MAX_CONTAINER_DEPTH
+
+# Valid message-type bytes span the contiguous MessageType enum (1-4 today).
+# Derive the bounds from the enum so a new member updates them automatically.
+# _read_header range-checks against these so it compiles to a C compare rather
+# than a PySequence_Contains call on MESSAGE_TYPE_MAP; the range compare only
+# matches "valid type" while the enum values stay contiguous. Declared cdef
+# unsigned int in the .pxd to match the unsigned local and stay sign-clean.
+_MESSAGE_TYPE_MIN = min(t.value for t in MessageType)
+_MESSAGE_TYPE_MAX = max(t.value for t in MessageType)
+
+# Value-indexed lookup paired with the uint self._message_type slot; _read_body
+# resolves the enum via _MESSAGE_TYPE_BY_VALUE[self._message_type], which
+# Cython emits as a C array index (__Pyx_GetItemInt_Tuple_Fast) instead of the
+# PyObject_GetItem + hash a dict lookup would cost. _read_header guarantees
+# the index is in range and non-None before _read_body runs.
+_MESSAGE_TYPE_BY_VALUE = tuple(
+    MESSAGE_TYPE_MAP.get(i) for i in range(_MESSAGE_TYPE_MAX + 1)
+)
 
 
 # Most common signatures
@@ -189,6 +207,9 @@ HEADER_SIGNATURE_IDX = HEADER_IDX_TO_ARG_NAME.index("signature")
 HEADER_UNIX_FDS_IDX = HEADER_IDX_TO_ARG_NAME.index("unix_fds")
 
 _EMPTY_HEADERS: list[Any | None] = [None] * len(HEADER_IDX_TO_ARG_NAME)
+
+HEADER_FIELDS_LEN = len(HEADER_IDX_TO_ARG_NAME)  # Python-importable
+_HEADER_FIELDS_LEN = HEADER_FIELDS_LEN  # cdef'd C int alias
 
 _SignatureType = SignatureType
 _int = int
@@ -682,7 +703,10 @@ class Unmarshaller:
         self._pos += -self._pos & 7  # align 8
         readers = self._readers
         result = tuple(
-            readers[child_type.token](self, child_type) for child_type in type_.children
+            [
+                readers[child_type.token](self, child_type)
+                for child_type in type_.children
+            ]
         )
         self._container_depth -= 1
         return result
@@ -824,18 +848,22 @@ class Unmarshaller:
             # Strings and signatures are the most common types
             # so we inline them for performance
             if token_as_int == TOKEN_O_AS_INT or token_as_int == TOKEN_S_AS_INT:
-                headers[field_0] = self._read_string_unpack()
+                value = self._read_string_unpack()
             elif token_as_int == TOKEN_G_AS_INT:
-                headers[field_0] = self._read_signature()
+                value = self._read_signature()
             elif token_as_int == TOKEN_U_AS_INT:
-                headers[field_0] = self._read_uint32_unpack()
+                value = self._read_uint32_unpack()
             else:  # pragma: no cover
                 token = self._buf_ustr[o : o + signature_len].decode()
                 # There shouldn't be any other types in the header
                 # but just in case, we'll read it using the slow path
-                headers[field_0] = self._readers[token](
-                    self, get_signature_tree(token).root_type
-                )
+                value = self._readers[token](self, get_signature_tree(token).root_type)
+            # D-Bus spec: ignore header fields with an unrecognized code. Codes
+            # are defined only for 1..9; a forged frame can carry 0 or a code
+            # past the known range — consume the value to stay aligned, but
+            # don't store it (index 0 is a placeholder, >= len is out of range).
+            if 0 < field_0 < _HEADER_FIELDS_LEN:
+                headers[field_0] = value
         return headers
 
     def _read_header(self) -> None:
@@ -857,6 +885,12 @@ class Unmarshaller:
             raise InvalidMessageError(
                 f"Expecting endianness as the first byte, got {endian} from {self._buf}"
             )
+
+        if (
+            self._message_type < _MESSAGE_TYPE_MIN
+            or self._message_type > _MESSAGE_TYPE_MAX
+        ):
+            raise InvalidMessageError(f"got unknown message type: {self._message_type}")
 
         if cython.compiled:
             self._body_len = _ustr_uint32(self._buf_ustr, 4, endian)
@@ -954,7 +988,7 @@ class Unmarshaller:
             header_fields[HEADER_PATH_IDX],
             header_fields[HEADER_INTERFACE_IDX],
             header_fields[HEADER_MEMBER_IDX],
-            MESSAGE_TYPE_MAP[self._message_type],
+            _MESSAGE_TYPE_BY_VALUE[self._message_type],
             flags,
             header_fields[HEADER_ERROR_NAME_IDX],
             reply_serial if reply_serial is not None else 0,

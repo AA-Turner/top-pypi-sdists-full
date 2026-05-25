@@ -238,7 +238,7 @@ class Geoanalysis:
         self._plot_scatter_by_region(df)
         if self.country == "pooled":
             self._plot_scatter_by_country(df)
-        self._plot_mape_by_region(df_regional_metrics)
+        self._plot_mape_by_region(df_regional_metrics_by_year)
 
         return df_metrics, df_regional_metrics, df_national_yield
 
@@ -603,12 +603,20 @@ class Geoanalysis:
         fig.savefig(self.dir_plots / fname, dpi=250)
         plt.close(fig)
 
-    def _plot_mape_by_region(self, df_regional_metrics):
-        """Horizontal bar chart of average MAPE by region."""
+    def _plot_mape_by_region(self, df_regional_metrics_by_year):
+        """Horizontal MAPE box plot per region with jittered (Region, Year) dots.
+
+        Takes the per-(Region, Year) frame so the box shows the full
+        year-to-year distribution per region, not just the mean a bar
+        chart would collapse it to.
+        """
         from .viz import diagnostics as diag
-        fname = f"mape_bar_{self.country}_{self.crop}.png"
-        title = f"Mean MAPE by Region — {self.country} {self.crop}"
-        diag.mape_bar_chart(df_regional_metrics, title, self.dir_country_plots, fname)
+        fname = f"mape_box_region_{self.country}_{self.crop}.png"
+        title = f"MAPE Distribution by Region — {self.country} {self.crop}"
+        diag.mape_box_by_region(
+            df_regional_metrics_by_year, title, self.dir_country_plots, fname,
+            mape_col="Mean Absolute Percentage Error",
+        )
 
     def _plot_yield_with_ci(self, df):
         """Forest plot of predicted yield with CI and median yield reference."""

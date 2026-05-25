@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: slackify_markdown
-Version: 0.2.2
+Version: 0.2.3
 Summary: Convert markdown to Slack-compatible formatting
 Author-email: Manthan Surkar <manthan1674@gmail.com>
 License: MIT License
@@ -35,6 +35,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Developers

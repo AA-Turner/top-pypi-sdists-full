@@ -20,6 +20,7 @@ import sys
 from Cython.Build import cythonize
 from Cython.Distutils.build_ext import new_build_ext as build_ext
 from setuptools import Extension, setup
+from setuptools_rust import Binding, RustExtension
 
 TRACE = bool(int(os.getenv('TRACE', 0)))
 DEBUG = bool(int(os.getenv('DEBUG', 0))) or TRACE
@@ -109,26 +110,38 @@ def get_cython_args():
 
 def get_ext_modules():
     fastwarc_extensions = [
-        Extension('fastwarc.warc', sources=['fastwarc/warc.pyx']),
-        Extension('fastwarc.stream_io', sources=['fastwarc/stream_io.pyx'],
+        Extension('fastwarc.legacy.warc', sources=['fastwarc/legacy/warc.pyx']),
+        Extension('fastwarc.legacy.stream_io', sources=['fastwarc/legacy/stream_io.pyx'],
                   libraries=['z', 'lz4']),
-        Extension('fastwarc.tools', sources=['fastwarc/tools.pyx'])
+        Extension('fastwarc.legacy.tools', sources=['fastwarc/legacy/tools.pyx'])
     ]
 
     return cythonize(fastwarc_extensions, **get_cython_args())
 
 
-# Copy Resiliparse header files
-if os.path.isdir(os.path.join(ROOT_DIR, '..', 'resiliparse-py', 'resiliparse_inc')):
-    copytree(os.path.join(ROOT_DIR, '..', 'resiliparse-py', 'resiliparse_inc'),
-             os.path.join(ROOT_DIR, 'resiliparse_inc'), dirs_exist_ok=True)
-    copytree(os.path.join(ROOT_DIR, '..', 'resiliparse-py', 'resiliparse_common'),
-             os.path.join(ROOT_DIR, 'resiliparse_common'), dirs_exist_ok=True)
+def main():
+    # Copy Resiliparse header files
+    if os.path.isdir(os.path.join(ROOT_DIR, '..', 'resiliparse-py', 'resiliparse_inc')):
+        copytree(os.path.join(ROOT_DIR, '..', 'resiliparse-py', 'resiliparse_inc'),
+                 os.path.join(ROOT_DIR, 'resiliparse_inc'), dirs_exist_ok=True)
+        copytree(os.path.join(ROOT_DIR, '..', 'resiliparse-py', 'resiliparse_common'),
+                 os.path.join(ROOT_DIR, 'resiliparse_common'), dirs_exist_ok=True)
 
-setup(
-    ext_modules=get_ext_modules(),
-    cmdclass=dict(build_ext=resiliparse_build_ext),
-    exclude_package_data={
-        '': [] if 'sdist' in sys.argv else ['*.pxd', '*.pxi', '*.pyx', '*.h', '*.cpp']
-    }
-)
+    setup(
+        ext_modules=get_ext_modules(),
+        rust_extensions=[
+            RustExtension(
+                target="fastwarc._fastwarc",
+                path="fastwarc/Cargo.toml",
+                binding=Binding.PyO3
+            )
+        ],
+        cmdclass=dict(build_ext=resiliparse_build_ext),
+        exclude_package_data={
+            '': [] if 'sdist' in sys.argv else ['*.pxd', '*.pxi', '*.pyx', '*.h', '*.cpp']
+        }
+    )
+
+
+if __name__ == '__main__':
+    main()

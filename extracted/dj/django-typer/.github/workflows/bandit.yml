@@ -14,13 +14,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: bandit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   bandit-analysis:
     name: Run Bandit
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
+      security-events: write  # allow uploading code scanning results
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -33,11 +37,11 @@ jobs:
           python-version: '3.x'
           allow-prereleases: true
       - name: Install uv
-        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
         with:
           enable-cache: false
       - name: Install Just
-        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
 
       - name: Run Bandit
         run: |
@@ -45,7 +49,7 @@ jobs:
 
       - name: Upload analysis results
         if: ${{ always() }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: bandit-results
           path: bandit.sarif
@@ -53,6 +57,6 @@ jobs:
 
       - name: Upload to code-scanning
         if: ${{ always() }}
-        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13
+        uses: github/codeql-action/upload-sarif@e46ed2cbd01164d986452f91f178727624ae40d7
         with:
           sarif_file: bandit.sarif

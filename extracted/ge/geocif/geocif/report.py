@@ -50,11 +50,13 @@ _DESC = {
         "hindcast years. Points close to the diagonal line indicate good "
         "model performance. R², RMSE, and MAPE metrics are annotated."
     ),
-    "mape_bar": (
-        "This horizontal bar chart shows the Mean Absolute Percentage Error "
-        "(MAPE) for each region. Lower values indicate better model "
-        "accuracy. Regions are labeled with their share of national "
-        "production in parentheses."
+    "mape_box_region": (
+        "Horizontal box plot of the Mean Absolute Percentage Error (MAPE) "
+        "distribution per region, with jittered dots for individual "
+        "(region, year) values. Box = IQR with median line; whiskers = "
+        "1.5×IQR. Regions are labeled with their share of national "
+        "production in parentheses. Reveals year-to-year variability "
+        "that a mean bar chart would hide."
     ),
     "mape_year": (
         "This bar chart shows how model accuracy (MAPE) varies across "
@@ -462,10 +464,10 @@ def generate_report(
                     _add_image(scatter[0], caption="Observed vs Predicted yield",
                                description=_DESC["scatter"])
 
-            mape_bar = list(plot_dir.glob(f"mape_bar_*_{model}.png"))
-            if mape_bar:
-                _add_image(mape_bar[0], caption="MAPE by region",
-                           description=_DESC["mape_bar"])
+            mape_box = list(plot_dir.glob(f"mape_box_region_*_{model}.png"))
+            if mape_box:
+                _add_image(mape_box[0], caption="MAPE distribution by region",
+                           description=_DESC["mape_box_region"])
 
             mape_year = list(plot_dir.glob(f"mape_year_*_{model}.png"))
             if mape_year:

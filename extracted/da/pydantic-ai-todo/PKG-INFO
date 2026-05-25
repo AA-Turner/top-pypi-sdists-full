@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-todo
-Version: 0.2.1
+Version: 0.2.3
 Summary: Todo/task planning toolset for pydantic-ai agents
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-ai-todo
 Project-URL: Documentation, https://github.com/vstorm-co/pydantic-ai-todo#readme
@@ -46,6 +46,7 @@ Requires-Python: >=3.10
 Requires-Dist: asyncpg>=0.29.0
 Requires-Dist: pydantic-ai-slim>=1.74.0
 Requires-Dist: pydantic>=2.0
+Requires-Dist: redis>=7.4.0
 Description-Content-Type: text/markdown
 
 <h1 align="center">Todo Toolset for Pydantic AI</h1>

@@ -328,7 +328,7 @@ class DrydockApp(App):  # noqa: PLR0904
             # model thinking (collapsed by default). Always-on because
             # checking widget state per render is more code than the
             # hint costs.
-            yield NoMarkupStatic("Ctrl+O: details", id="keybind-hint")
+            yield NoMarkupStatic("Ctrl+O: details · Shift+↑: scroll", id="keybind-hint")
             yield ContextProgress()
 
     async def on_mount(self) -> None:
@@ -1348,15 +1348,48 @@ class DrydockApp(App):  # noqa: PLR0904
 
     async def _show_status(self) -> None:
         stats = self.agent_loop.stats
+        # Compute tool-call totals for the curiosity section.
+        tc_total = (
+            stats.tool_calls_succeeded + stats.tool_calls_failed
+            + stats.tool_calls_rejected
+        )
+        # Read the in-progress readonly streak directly off the agent
+        # loop instance; lazy-init means it might not be set yet.
+        streak = getattr(self.agent_loop, "_readonly_streak", 0)
+        # Show curiosity section only if any of the curiosity-engine
+        # mechanisms have fired this session — otherwise it's noise.
+        curiosity_fired = any([
+            stats.prompt_pattern_fires,
+            stats.reflection_fires,
+            stats.adaptive_budget_stops,
+            stats.legacy_stubs_upgraded,
+        ])
+        curiosity_block = ""
+        if curiosity_fired or streak > 0:
+            curiosity_block = (
+                "\n### Curiosity Engine\n"
+                f"- **Prompt-pattern injections**: {stats.prompt_pattern_fires}  "
+                f"_(targeted guidance fired for test-count / rename / abstraction / migration patterns)_\n"
+                f"- **Reflection nudges**: {stats.reflection_fires}  "
+                f"_(write-commitment prompts when stuck in read-only streaks)_\n"
+                f"- **Adaptive-budget stops**: {stats.adaptive_budget_stops}  "
+                f"_(hard-stop at streak ≥18 to preserve final-response time)_\n"
+                f"- **Legacy stubs upgraded**: {stats.legacy_stubs_upgraded}  "
+                f"_(repair of pre-2026-05-24 compaction markers in resumed sessions)_\n"
+                f"- **Current read-only streak**: {streak}  "
+                f"_(reflection threshold 6, hard-stop 18)_\n"
+            )
         status_text = f"""## Agent Statistics
 
+### Session
 - **Steps**: {stats.steps:,}
+- **Tool calls**: {tc_total:,} _(✓{stats.tool_calls_succeeded} ✗{stats.tool_calls_failed} ⊘{stats.tool_calls_rejected})_
 - **Session Prompt Tokens**: {stats.session_prompt_tokens:,}
 - **Session Completion Tokens**: {stats.session_completion_tokens:,}
 - **Session Total LLM Tokens**: {stats.session_total_llm_tokens:,}
 - **Last Turn Tokens**: {stats.last_turn_total_tokens:,}
 - **Cost**: ${stats.session_cost:.4f}
-"""
+{curiosity_block}"""
         await self._mount_and_scroll(UserCommandMessage(status_text))
 
     async def _consult_command(self, question: str = "") -> None:

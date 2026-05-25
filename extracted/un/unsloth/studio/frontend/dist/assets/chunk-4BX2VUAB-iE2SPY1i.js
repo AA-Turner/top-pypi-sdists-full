@@ -1,0 +1,1 @@
+import{Br as e}from"./index-pomq9fot.js";function t(e,t){e.accDescr&&t.setAccDescription?.(e.accDescr),e.accTitle&&t.setAccTitle?.(e.accTitle),e.title&&t.setDiagramTitle?.(e.title)}e(t,`populateCommonDb`);export{t};

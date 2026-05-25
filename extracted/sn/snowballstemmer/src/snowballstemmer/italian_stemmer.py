@@ -1,5 +1,4 @@
-#-*- coding: utf-8 -*-
-# Generated from italian.sbl by Snowball 3.0.1 - https://snowballstem.org/
+# Generated from italian.sbl by Snowball 3.1.0 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,18 +7,30 @@ from .among import Among
 class ItalianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from italian.sbl by Snowball 3.0.1 - https://snowballstem.org/
+    Generated from italian.sbl by Snowball 3.1.0 - https://snowballstem.org/
     '''
 
-    g_v = {u"a", u"e", u"i", u"o", u"u", u"à", u"è", u"ì", u"ò", u"ù"}
+    g_v = {"a", "e", "i", "o", "u", "à", "è", "ì", "ò", "ù"}
 
-    g_AEIO = {u"a", u"e", u"i", u"o", u"à", u"è", u"ì", u"ò"}
+    g_AEIO = {"a", "e", "i", "o", "à", "è", "ì", "ò"}
 
-    g_CG = {u"c", u"g"}
-
+    g_CG = "cg"
     I_p2 = 0
     I_p1 = 0
     I_pV = 0
+
+    def __r_elisions(self):
+        self.bra = self.cursor
+        if self.find_among(ItalianStemmer.a_0) == 0:
+            return False
+        self.ket = self.cursor
+        try:
+            if self.cursor < self.limit:
+                raise lab0()
+            return False
+        except lab0: pass
+        self.slice_del()
+        return True
 
     def __r_prelude(self):
         v_1 = self.cursor
@@ -27,26 +38,20 @@ class ItalianStemmer(BaseStemmer):
             v_2 = self.cursor
             try:
                 self.bra = self.cursor
-                among_var = self.find_among(ItalianStemmer.a_0)
+                among_var = self.find_among(ItalianStemmer.a_1)
                 self.ket = self.cursor
                 if among_var == 1:
-                    if not self.slice_from(u"à"):
-                        return False
+                    self.slice_from("à")
                 elif among_var == 2:
-                    if not self.slice_from(u"è"):
-                        return False
+                    self.slice_from("è")
                 elif among_var == 3:
-                    if not self.slice_from(u"ì"):
-                        return False
+                    self.slice_from("ì")
                 elif among_var == 4:
-                    if not self.slice_from(u"ò"):
-                        return False
+                    self.slice_from("ò")
                 elif among_var == 5:
-                    if not self.slice_from(u"ù"):
-                        return False
+                    self.slice_from("ù")
                 elif among_var == 6:
-                    if not self.slice_from(u"qU"):
-                        return False
+                    self.slice_from("qU")
                 else:
                     if self.cursor >= self.limit:
                         raise lab0()
@@ -59,44 +64,42 @@ class ItalianStemmer(BaseStemmer):
         while True:
             v_3 = self.cursor
             try:
-                try:
-                    while True:
-                        v_4 = self.cursor
-                        try:
-                            if not self.in_grouping(ItalianStemmer.g_v):
-                                raise lab3()
-                            self.bra = self.cursor
+                while True:
+                    v_4 = self.cursor
+                    try:
+                        if not self.in_grouping(ItalianStemmer.g_v):
+                            raise lab1()
+                        self.bra = self.cursor
+                        while True:
+                            v_5 = self.cursor
                             try:
-                                v_5 = self.cursor
-                                try:
-                                    if not self.eq_s(u"u"):
-                                        raise lab5()
-                                    self.ket = self.cursor
-                                    if not self.in_grouping(ItalianStemmer.g_v):
-                                        raise lab5()
-                                    if not self.slice_from(u"U"):
-                                        return False
-                                    raise lab4()
-                                except lab5: pass
-                                self.cursor = v_5
-                                if not self.eq_s(u"i"):
-                                    raise lab3()
+                                if self.cursor == self.limit or self.current[self.cursor] != "u":
+                                    raise lab2()
+                                self.cursor += 1
                                 self.ket = self.cursor
                                 if not self.in_grouping(ItalianStemmer.g_v):
-                                    raise lab3()
-                                if not self.slice_from(u"I"):
-                                    return False
-                            except lab4: pass
-                            self.cursor = v_4
-                            raise lab2()
-                        except lab3: pass
+                                    raise lab2()
+                                self.slice_from("U")
+                                break
+                            except lab2: pass
+                            self.cursor = v_5
+                            if self.cursor == self.limit or self.current[self.cursor] != "i":
+                                raise lab1()
+                            self.cursor += 1
+                            self.ket = self.cursor
+                            if not self.in_grouping(ItalianStemmer.g_v):
+                                raise lab1()
+                            self.slice_from("I")
+                            break
                         self.cursor = v_4
-                        if self.cursor >= self.limit:
-                            raise lab1()
-                        self.cursor += 1
-                except lab2: pass
+                        break
+                    except lab1: pass
+                    self.cursor = v_4
+                    if self.cursor >= self.limit:
+                        raise lab0()
+                    self.cursor += 1
                 continue
-            except lab1: pass
+            except lab0: pass
             self.cursor = v_3
             break
         return True
@@ -107,77 +110,77 @@ class ItalianStemmer(BaseStemmer):
         self.I_p2 = self.limit
         v_1 = self.cursor
         try:
-            try:
+            while True:
                 v_2 = self.cursor
                 try:
                     if not self.in_grouping(ItalianStemmer.g_v):
-                        raise lab2()
-                    try:
+                        raise lab1()
+                    while True:
                         v_3 = self.cursor
                         try:
                             if not self.out_grouping(ItalianStemmer.g_v):
-                                raise lab4()
+                                raise lab2()
                             if not self.go_out_grouping(ItalianStemmer.g_v):
-                                raise lab4()
+                                raise lab2()
                             self.cursor += 1
-                            raise lab3()
-                        except lab4: pass
+                            break
+                        except lab2: pass
                         self.cursor = v_3
                         if not self.in_grouping(ItalianStemmer.g_v):
-                            raise lab2()
+                            raise lab1()
                         if not self.go_in_grouping(ItalianStemmer.g_v):
-                            raise lab2()
+                            raise lab1()
                         self.cursor += 1
-                    except lab3: pass
-                    raise lab1()
-                except lab2: pass
+                        break
+                    break
+                except lab1: pass
                 self.cursor = v_2
                 try:
-                    if not self.eq_s(u"divan"):
-                        raise lab5()
-                    raise lab1()
-                except lab5: pass
+                    if not self.eq_s("divan"):
+                        raise lab1()
+                    break
+                except lab1: pass
                 self.cursor = v_2
                 if not self.out_grouping(ItalianStemmer.g_v):
                     raise lab0()
-                try:
+                while True:
                     v_4 = self.cursor
                     try:
                         if not self.out_grouping(ItalianStemmer.g_v):
-                            raise lab7()
+                            raise lab1()
                         if not self.go_out_grouping(ItalianStemmer.g_v):
-                            raise lab7()
+                            raise lab1()
                         self.cursor += 1
-                        raise lab6()
-                    except lab7: pass
+                        break
+                    except lab1: pass
                     self.cursor = v_4
                     if not self.in_grouping(ItalianStemmer.g_v):
                         raise lab0()
                     if self.cursor >= self.limit:
                         raise lab0()
                     self.cursor += 1
-                except lab6: pass
-            except lab1: pass
+                    break
+                break
             self.I_pV = self.cursor
         except lab0: pass
         self.cursor = v_1
         v_5 = self.cursor
         try:
             if not self.go_out_grouping(ItalianStemmer.g_v):
-                raise lab8()
+                raise lab0()
             self.cursor += 1
             if not self.go_in_grouping(ItalianStemmer.g_v):
-                raise lab8()
+                raise lab0()
             self.cursor += 1
             self.I_p1 = self.cursor
             if not self.go_out_grouping(ItalianStemmer.g_v):
-                raise lab8()
+                raise lab0()
             self.cursor += 1
             if not self.go_in_grouping(ItalianStemmer.g_v):
-                raise lab8()
+                raise lab0()
             self.cursor += 1
             self.I_p2 = self.cursor
-        except lab8: pass
+        except lab0: pass
         self.cursor = v_5
         return True
 
@@ -186,14 +189,12 @@ class ItalianStemmer(BaseStemmer):
             v_1 = self.cursor
             try:
                 self.bra = self.cursor
-                among_var = self.find_among(ItalianStemmer.a_1)
+                among_var = self.find_among(ItalianStemmer.a_2)
                 self.ket = self.cursor
                 if among_var == 1:
-                    if not self.slice_from(u"i"):
-                        return False
+                    self.slice_from("i")
                 elif among_var == 2:
-                    if not self.slice_from(u"u"):
-                        return False
+                    self.slice_from("u")
                 else:
                     if self.cursor >= self.limit:
                         raise lab0()
@@ -215,160 +216,130 @@ class ItalianStemmer(BaseStemmer):
 
     def __r_attached_pronoun(self):
         self.ket = self.cursor
-        if self.find_among_b(ItalianStemmer.a_2) == 0:
+        if self.find_among_b(ItalianStemmer.a_3) == 0:
             return False
         self.bra = self.cursor
-        among_var = self.find_among_b(ItalianStemmer.a_3)
+        among_var = self.find_among_b(ItalianStemmer.a_4)
         if among_var == 0:
             return False
         if not self.__r_RV():
             return False
         if among_var == 1:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         else:
-            if not self.slice_from(u"e"):
-                return False
+            self.slice_from("e")
         return True
 
     def __r_standard_suffix(self):
         self.ket = self.cursor
-        among_var = self.find_among_b(ItalianStemmer.a_6)
+        among_var = self.find_among_b(ItalianStemmer.a_7)
         if among_var == 0:
             return False
         self.bra = self.cursor
         if among_var == 1:
             if not self.__r_R2():
                 return False
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         elif among_var == 2:
             if not self.__r_R2():
                 return False
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
             v_1 = self.limit - self.cursor
             try:
                 self.ket = self.cursor
-                if not self.eq_s_b(u"ic"):
+                if not self.eq_s_b("ic"):
                     self.cursor = self.limit - v_1
                     raise lab0()
                 self.bra = self.cursor
                 if not self.__r_R2():
                     self.cursor = self.limit - v_1
                     raise lab0()
-                if not self.slice_del():
-                    return False
-
+                self.slice_del()
             except lab0: pass
         elif among_var == 3:
             if not self.__r_R2():
                 return False
-            if not self.slice_from(u"log"):
-                return False
+            self.slice_from("log")
         elif among_var == 4:
             if not self.__r_R2():
                 return False
-            if not self.slice_from(u"u"):
-                return False
+            self.slice_from("u")
         elif among_var == 5:
             if not self.__r_R2():
                 return False
-            if not self.slice_from(u"ente"):
-                return False
+            self.slice_from("ente")
         elif among_var == 6:
             if not self.__r_RV():
                 return False
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         elif among_var == 7:
             if not self.__r_R1():
                 return False
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
             v_2 = self.limit - self.cursor
             try:
                 self.ket = self.cursor
-                among_var = self.find_among_b(ItalianStemmer.a_4)
+                among_var = self.find_among_b(ItalianStemmer.a_5)
                 if among_var == 0:
                     self.cursor = self.limit - v_2
-                    raise lab1()
+                    raise lab0()
                 self.bra = self.cursor
                 if not self.__r_R2():
                     self.cursor = self.limit - v_2
-                    raise lab1()
-                if not self.slice_del():
-                    return False
-
+                    raise lab0()
+                self.slice_del()
                 if among_var == 1:
                     self.ket = self.cursor
-                    if not self.eq_s_b(u"at"):
+                    if not self.eq_s_b("at"):
                         self.cursor = self.limit - v_2
-                        raise lab1()
+                        raise lab0()
                     self.bra = self.cursor
                     if not self.__r_R2():
                         self.cursor = self.limit - v_2
-                        raise lab1()
-                    if not self.slice_del():
-                        return False
-
-            except lab1: pass
+                        raise lab0()
+                    self.slice_del()
+            except lab0: pass
         elif among_var == 8:
             if not self.__r_R2():
                 return False
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
             v_3 = self.limit - self.cursor
             try:
                 self.ket = self.cursor
-                if self.find_among_b(ItalianStemmer.a_5) == 0:
+                if self.find_among_b(ItalianStemmer.a_6) == 0:
                     self.cursor = self.limit - v_3
-                    raise lab2()
+                    raise lab0()
                 self.bra = self.cursor
                 if not self.__r_R2():
                     self.cursor = self.limit - v_3
-                    raise lab2()
-                if not self.slice_del():
-                    return False
-
-            except lab2: pass
+                    raise lab0()
+                self.slice_del()
+            except lab0: pass
         else:
             if not self.__r_R2():
                 return False
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
             v_4 = self.limit - self.cursor
             try:
                 self.ket = self.cursor
-                if not self.eq_s_b(u"at"):
+                if not self.eq_s_b("at"):
                     self.cursor = self.limit - v_4
-                    raise lab3()
+                    raise lab0()
                 self.bra = self.cursor
                 if not self.__r_R2():
                     self.cursor = self.limit - v_4
-                    raise lab3()
-                if not self.slice_del():
-                    return False
-
+                    raise lab0()
+                self.slice_del()
                 self.ket = self.cursor
-                if not self.eq_s_b(u"ic"):
+                if not self.eq_s_b("ic"):
                     self.cursor = self.limit - v_4
-                    raise lab3()
+                    raise lab0()
                 self.bra = self.cursor
                 if not self.__r_R2():
                     self.cursor = self.limit - v_4
-                    raise lab3()
-                if not self.slice_del():
-                    return False
-
-            except lab3: pass
+                    raise lab0()
+                self.slice_del()
+            except lab0: pass
         return True
 
     def __r_verb_suffix(self):
@@ -377,13 +348,11 @@ class ItalianStemmer(BaseStemmer):
         v_2 = self.limit_backward
         self.limit_backward = self.I_pV
         self.ket = self.cursor
-        if self.find_among_b(ItalianStemmer.a_7) == 0:
+        if self.find_among_b(ItalianStemmer.a_8) == 0:
             self.limit_backward = v_2
             return False
         self.bra = self.cursor
-        if not self.slice_del():
-            return False
-
+        self.slice_del()
         self.limit_backward = v_2
         return True
 
@@ -398,44 +367,43 @@ class ItalianStemmer(BaseStemmer):
             if not self.__r_RV():
                 self.cursor = self.limit - v_1
                 raise lab0()
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
             self.ket = self.cursor
-            if not self.eq_s_b(u"i"):
+            if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "i":
                 self.cursor = self.limit - v_1
                 raise lab0()
+            self.cursor -= 1
             self.bra = self.cursor
             if not self.__r_RV():
                 self.cursor = self.limit - v_1
                 raise lab0()
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         except lab0: pass
         v_2 = self.limit - self.cursor
         try:
             self.ket = self.cursor
-            if not self.eq_s_b(u"h"):
+            if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "h":
                 self.cursor = self.limit - v_2
-                raise lab1()
+                raise lab0()
+            self.cursor -= 1
             self.bra = self.cursor
             if not self.in_grouping_b(ItalianStemmer.g_CG):
                 self.cursor = self.limit - v_2
-                raise lab1()
+                raise lab0()
             if not self.__r_RV():
                 self.cursor = self.limit - v_2
-                raise lab1()
-            if not self.slice_del():
-                return False
-
-        except lab1: pass
+                raise lab0()
+            self.slice_del()
+        except lab0: pass
         return True
 
     def _stem(self):
         v_1 = self.cursor
-        self.__r_prelude()
+        self.__r_elisions()
         self.cursor = v_1
+        v_2 = self.cursor
+        self.__r_prelude()
+        self.cursor = v_2
         self.__r_mark_regions()
         self.limit_backward = self.cursor
         self.cursor = self.limit
@@ -444,17 +412,17 @@ class ItalianStemmer(BaseStemmer):
         self.cursor = self.limit - v_3
         v_4 = self.limit - self.cursor
         try:
-            try:
+            while True:
                 v_5 = self.limit - self.cursor
                 try:
                     if not self.__r_standard_suffix():
-                        raise lab2()
-                    raise lab1()
-                except lab2: pass
+                        raise lab1()
+                    break
+                except lab1: pass
                 self.cursor = self.limit - v_5
                 if not self.__r_verb_suffix():
                     raise lab0()
-            except lab1: pass
+                break
         except lab0: pass
         self.cursor = self.limit - v_4
         v_6 = self.limit - self.cursor
@@ -467,224 +435,243 @@ class ItalianStemmer(BaseStemmer):
         return True
 
     a_0 = [
-        Among(u"", -1, 7),
-        Among(u"qu", 0, 6),
-        Among(u"á", 0, 1),
-        Among(u"é", 0, 2),
-        Among(u"í", 0, 3),
-        Among(u"ó", 0, 4),
-        Among(u"ú", 0, 5)
+        Among("all'", -1, -1),
+        Among("d'", -1, -1),
+        Among("dall'", -1, -1),
+        Among("dell'", -1, -1),
+        Among("gl'", -1, -1),
+        Among("l'", -1, -1),
+        Among("m'", -1, -1),
+        Among("nell'", -1, -1),
+        Among("quell'", -1, -1),
+        Among("quest'", -1, -1),
+        Among("s'", -1, -1),
+        Among("sull'", -1, -1),
+        Among("t'", -1, -1),
+        Among("tutt'", -1, -1),
+        Among("un'", -1, -1),
+        Among("v'", -1, -1)
     ]
 
     a_1 = [
-        Among(u"", -1, 3),
-        Among(u"I", 0, 1),
-        Among(u"U", 0, 2)
+        Among("", -1, 7),
+        Among("qu", 0, 6),
+        Among("á", 0, 1),
+        Among("é", 0, 2),
+        Among("í", 0, 3),
+        Among("ó", 0, 4),
+        Among("ú", 0, 5)
     ]
 
     a_2 = [
-        Among(u"la", -1, -1),
-        Among(u"cela", 0, -1),
-        Among(u"gliela", 0, -1),
-        Among(u"mela", 0, -1),
-        Among(u"tela", 0, -1),
-        Among(u"vela", 0, -1),
-        Among(u"le", -1, -1),
-        Among(u"cele", 6, -1),
-        Among(u"gliele", 6, -1),
-        Among(u"mele", 6, -1),
-        Among(u"tele", 6, -1),
-        Among(u"vele", 6, -1),
-        Among(u"ne", -1, -1),
-        Among(u"cene", 12, -1),
-        Among(u"gliene", 12, -1),
-        Among(u"mene", 12, -1),
-        Among(u"sene", 12, -1),
-        Among(u"tene", 12, -1),
-        Among(u"vene", 12, -1),
-        Among(u"ci", -1, -1),
-        Among(u"li", -1, -1),
-        Among(u"celi", 20, -1),
-        Among(u"glieli", 20, -1),
-        Among(u"meli", 20, -1),
-        Among(u"teli", 20, -1),
-        Among(u"veli", 20, -1),
-        Among(u"gli", 20, -1),
-        Among(u"mi", -1, -1),
-        Among(u"si", -1, -1),
-        Among(u"ti", -1, -1),
-        Among(u"vi", -1, -1),
-        Among(u"lo", -1, -1),
-        Among(u"celo", 31, -1),
-        Among(u"glielo", 31, -1),
-        Among(u"melo", 31, -1),
-        Among(u"telo", 31, -1),
-        Among(u"velo", 31, -1)
+        Among("", -1, 3),
+        Among("I", 0, 1),
+        Among("U", 0, 2)
     ]
 
     a_3 = [
-        Among(u"ando", -1, 1),
-        Among(u"endo", -1, 1),
-        Among(u"ar", -1, 2),
-        Among(u"er", -1, 2),
-        Among(u"ir", -1, 2)
+        Among("la", -1, -1),
+        Among("cela", 0, -1),
+        Among("gliela", 0, -1),
+        Among("mela", 0, -1),
+        Among("tela", 0, -1),
+        Among("vela", 0, -1),
+        Among("le", -1, -1),
+        Among("cele", 6, -1),
+        Among("gliele", 6, -1),
+        Among("mele", 6, -1),
+        Among("tele", 6, -1),
+        Among("vele", 6, -1),
+        Among("ne", -1, -1),
+        Among("cene", 12, -1),
+        Among("gliene", 12, -1),
+        Among("mene", 12, -1),
+        Among("sene", 12, -1),
+        Among("tene", 12, -1),
+        Among("vene", 12, -1),
+        Among("ci", -1, -1),
+        Among("li", -1, -1),
+        Among("celi", 20, -1),
+        Among("glieli", 20, -1),
+        Among("meli", 20, -1),
+        Among("teli", 20, -1),
+        Among("veli", 20, -1),
+        Among("gli", 20, -1),
+        Among("mi", -1, -1),
+        Among("si", -1, -1),
+        Among("ti", -1, -1),
+        Among("vi", -1, -1),
+        Among("lo", -1, -1),
+        Among("celo", 31, -1),
+        Among("glielo", 31, -1),
+        Among("melo", 31, -1),
+        Among("telo", 31, -1),
+        Among("velo", 31, -1)
     ]
 
     a_4 = [
-        Among(u"ic", -1, -1),
-        Among(u"abil", -1, -1),
-        Among(u"os", -1, -1),
-        Among(u"iv", -1, 1)
+        Among("ando", -1, 1),
+        Among("endo", -1, 1),
+        Among("ar", -1, 2),
+        Among("er", -1, 2),
+        Among("ir", -1, 2)
     ]
 
     a_5 = [
-        Among(u"ic", -1, 1),
-        Among(u"abil", -1, 1),
-        Among(u"iv", -1, 1)
+        Among("ic", -1, -1),
+        Among("abil", -1, -1),
+        Among("os", -1, -1),
+        Among("iv", -1, 1)
     ]
 
     a_6 = [
-        Among(u"ica", -1, 1),
-        Among(u"logia", -1, 3),
-        Among(u"osa", -1, 1),
-        Among(u"ista", -1, 1),
-        Among(u"iva", -1, 9),
-        Among(u"anza", -1, 1),
-        Among(u"enza", -1, 5),
-        Among(u"ice", -1, 1),
-        Among(u"atrice", 7, 1),
-        Among(u"iche", -1, 1),
-        Among(u"logie", -1, 3),
-        Among(u"abile", -1, 1),
-        Among(u"ibile", -1, 1),
-        Among(u"usione", -1, 4),
-        Among(u"azione", -1, 2),
-        Among(u"uzione", -1, 4),
-        Among(u"atore", -1, 2),
-        Among(u"ose", -1, 1),
-        Among(u"ante", -1, 1),
-        Among(u"mente", -1, 1),
-        Among(u"amente", 19, 7),
-        Among(u"iste", -1, 1),
-        Among(u"ive", -1, 9),
-        Among(u"anze", -1, 1),
-        Among(u"enze", -1, 5),
-        Among(u"ici", -1, 1),
-        Among(u"atrici", 25, 1),
-        Among(u"ichi", -1, 1),
-        Among(u"abili", -1, 1),
-        Among(u"ibili", -1, 1),
-        Among(u"ismi", -1, 1),
-        Among(u"usioni", -1, 4),
-        Among(u"azioni", -1, 2),
-        Among(u"uzioni", -1, 4),
-        Among(u"atori", -1, 2),
-        Among(u"osi", -1, 1),
-        Among(u"anti", -1, 1),
-        Among(u"amenti", -1, 6),
-        Among(u"imenti", -1, 6),
-        Among(u"isti", -1, 1),
-        Among(u"ivi", -1, 9),
-        Among(u"ico", -1, 1),
-        Among(u"ismo", -1, 1),
-        Among(u"oso", -1, 1),
-        Among(u"amento", -1, 6),
-        Among(u"imento", -1, 6),
-        Among(u"ivo", -1, 9),
-        Among(u"ità", -1, 8),
-        Among(u"istà", -1, 1),
-        Among(u"istè", -1, 1),
-        Among(u"istì", -1, 1)
+        Among("ic", -1, 1),
+        Among("abil", -1, 1),
+        Among("iv", -1, 1)
     ]
 
     a_7 = [
-        Among(u"isca", -1, 1),
-        Among(u"enda", -1, 1),
-        Among(u"ata", -1, 1),
-        Among(u"ita", -1, 1),
-        Among(u"uta", -1, 1),
-        Among(u"ava", -1, 1),
-        Among(u"eva", -1, 1),
-        Among(u"iva", -1, 1),
-        Among(u"erebbe", -1, 1),
-        Among(u"irebbe", -1, 1),
-        Among(u"isce", -1, 1),
-        Among(u"ende", -1, 1),
-        Among(u"are", -1, 1),
-        Among(u"ere", -1, 1),
-        Among(u"ire", -1, 1),
-        Among(u"asse", -1, 1),
-        Among(u"ate", -1, 1),
-        Among(u"avate", 16, 1),
-        Among(u"evate", 16, 1),
-        Among(u"ivate", 16, 1),
-        Among(u"ete", -1, 1),
-        Among(u"erete", 20, 1),
-        Among(u"irete", 20, 1),
-        Among(u"ite", -1, 1),
-        Among(u"ereste", -1, 1),
-        Among(u"ireste", -1, 1),
-        Among(u"ute", -1, 1),
-        Among(u"erai", -1, 1),
-        Among(u"irai", -1, 1),
-        Among(u"isci", -1, 1),
-        Among(u"endi", -1, 1),
-        Among(u"erei", -1, 1),
-        Among(u"irei", -1, 1),
-        Among(u"assi", -1, 1),
-        Among(u"ati", -1, 1),
-        Among(u"iti", -1, 1),
-        Among(u"eresti", -1, 1),
-        Among(u"iresti", -1, 1),
-        Among(u"uti", -1, 1),
-        Among(u"avi", -1, 1),
-        Among(u"evi", -1, 1),
-        Among(u"ivi", -1, 1),
-        Among(u"isco", -1, 1),
-        Among(u"ando", -1, 1),
-        Among(u"endo", -1, 1),
-        Among(u"Yamo", -1, 1),
-        Among(u"iamo", -1, 1),
-        Among(u"avamo", -1, 1),
-        Among(u"evamo", -1, 1),
-        Among(u"ivamo", -1, 1),
-        Among(u"eremo", -1, 1),
-        Among(u"iremo", -1, 1),
-        Among(u"assimo", -1, 1),
-        Among(u"ammo", -1, 1),
-        Among(u"emmo", -1, 1),
-        Among(u"eremmo", 54, 1),
-        Among(u"iremmo", 54, 1),
-        Among(u"immo", -1, 1),
-        Among(u"ano", -1, 1),
-        Among(u"iscano", 58, 1),
-        Among(u"avano", 58, 1),
-        Among(u"evano", 58, 1),
-        Among(u"ivano", 58, 1),
-        Among(u"eranno", -1, 1),
-        Among(u"iranno", -1, 1),
-        Among(u"ono", -1, 1),
-        Among(u"iscono", 65, 1),
-        Among(u"arono", 65, 1),
-        Among(u"erono", 65, 1),
-        Among(u"irono", 65, 1),
-        Among(u"erebbero", -1, 1),
-        Among(u"irebbero", -1, 1),
-        Among(u"assero", -1, 1),
-        Among(u"essero", -1, 1),
-        Among(u"issero", -1, 1),
-        Among(u"ato", -1, 1),
-        Among(u"ito", -1, 1),
-        Among(u"uto", -1, 1),
-        Among(u"avo", -1, 1),
-        Among(u"evo", -1, 1),
-        Among(u"ivo", -1, 1),
-        Among(u"ar", -1, 1),
-        Among(u"ir", -1, 1),
-        Among(u"erà", -1, 1),
-        Among(u"irà", -1, 1),
-        Among(u"erò", -1, 1),
-        Among(u"irò", -1, 1)
+        Among("ica", -1, 1),
+        Among("logia", -1, 3),
+        Among("osa", -1, 1),
+        Among("ista", -1, 1),
+        Among("iva", -1, 9),
+        Among("anza", -1, 1),
+        Among("enza", -1, 5),
+        Among("ice", -1, 1),
+        Among("atrice", 7, 1),
+        Among("iche", -1, 1),
+        Among("logie", -1, 3),
+        Among("abile", -1, 1),
+        Among("ibile", -1, 1),
+        Among("usione", -1, 4),
+        Among("azione", -1, 2),
+        Among("uzione", -1, 4),
+        Among("atore", -1, 2),
+        Among("ose", -1, 1),
+        Among("ante", -1, 1),
+        Among("mente", -1, 1),
+        Among("amente", 19, 7),
+        Among("iste", -1, 1),
+        Among("ive", -1, 9),
+        Among("anze", -1, 1),
+        Among("enze", -1, 5),
+        Among("ici", -1, 1),
+        Among("atrici", 25, 1),
+        Among("ichi", -1, 1),
+        Among("abili", -1, 1),
+        Among("ibili", -1, 1),
+        Among("ismi", -1, 1),
+        Among("usioni", -1, 4),
+        Among("azioni", -1, 2),
+        Among("uzioni", -1, 4),
+        Among("atori", -1, 2),
+        Among("osi", -1, 1),
+        Among("anti", -1, 1),
+        Among("amenti", -1, 6),
+        Among("imenti", -1, 6),
+        Among("isti", -1, 1),
+        Among("ivi", -1, 9),
+        Among("ico", -1, 1),
+        Among("ismo", -1, 1),
+        Among("oso", -1, 1),
+        Among("amento", -1, 6),
+        Among("imento", -1, 6),
+        Among("ivo", -1, 9),
+        Among("ità", -1, 8),
+        Among("istà", -1, 1),
+        Among("istè", -1, 1),
+        Among("istì", -1, 1)
+    ]
+
+    a_8 = [
+        Among("isca", -1, 1),
+        Among("enda", -1, 1),
+        Among("ata", -1, 1),
+        Among("ita", -1, 1),
+        Among("uta", -1, 1),
+        Among("ava", -1, 1),
+        Among("eva", -1, 1),
+        Among("iva", -1, 1),
+        Among("erebbe", -1, 1),
+        Among("irebbe", -1, 1),
+        Among("isce", -1, 1),
+        Among("ende", -1, 1),
+        Among("are", -1, 1),
+        Among("ere", -1, 1),
+        Among("ire", -1, 1),
+        Among("asse", -1, 1),
+        Among("ate", -1, 1),
+        Among("avate", 16, 1),
+        Among("evate", 16, 1),
+        Among("ivate", 16, 1),
+        Among("ete", -1, 1),
+        Among("erete", 20, 1),
+        Among("irete", 20, 1),
+        Among("ite", -1, 1),
+        Among("ereste", -1, 1),
+        Among("ireste", -1, 1),
+        Among("ute", -1, 1),
+        Among("erai", -1, 1),
+        Among("irai", -1, 1),
+        Among("isci", -1, 1),
+        Among("endi", -1, 1),
+        Among("erei", -1, 1),
+        Among("irei", -1, 1),
+        Among("assi", -1, 1),
+        Among("ati", -1, 1),
+        Among("iti", -1, 1),
+        Among("eresti", -1, 1),
+        Among("iresti", -1, 1),
+        Among("uti", -1, 1),
+        Among("avi", -1, 1),
+        Among("evi", -1, 1),
+        Among("ivi", -1, 1),
+        Among("isco", -1, 1),
+        Among("ando", -1, 1),
+        Among("endo", -1, 1),
+        Among("Yamo", -1, 1),
+        Among("iamo", -1, 1),
+        Among("avamo", -1, 1),
+        Among("evamo", -1, 1),
+        Among("ivamo", -1, 1),
+        Among("eremo", -1, 1),
+        Among("iremo", -1, 1),
+        Among("assimo", -1, 1),
+        Among("ammo", -1, 1),
+        Among("emmo", -1, 1),
+        Among("eremmo", 54, 1),
+        Among("iremmo", 54, 1),
+        Among("immo", -1, 1),
+        Among("ano", -1, 1),
+        Among("iscano", 58, 1),
+        Among("avano", 58, 1),
+        Among("evano", 58, 1),
+        Among("ivano", 58, 1),
+        Among("eranno", -1, 1),
+        Among("iranno", -1, 1),
+        Among("ono", -1, 1),
+        Among("iscono", 65, 1),
+        Among("arono", 65, 1),
+        Among("erono", 65, 1),
+        Among("irono", 65, 1),
+        Among("erebbero", -1, 1),
+        Among("irebbero", -1, 1),
+        Among("assero", -1, 1),
+        Among("essero", -1, 1),
+        Among("issero", -1, 1),
+        Among("ato", -1, 1),
+        Among("ito", -1, 1),
+        Among("uto", -1, 1),
+        Among("avo", -1, 1),
+        Among("evo", -1, 1),
+        Among("ivo", -1, 1),
+        Among("ar", -1, 1),
+        Among("ir", -1, 1),
+        Among("erà", -1, 1),
+        Among("irà", -1, 1),
+        Among("erò", -1, 1),
+        Among("irò", -1, 1)
     ]
 
 
@@ -695,21 +682,3 @@ class lab1(BaseException): pass
 
 
 class lab2(BaseException): pass
-
-
-class lab3(BaseException): pass
-
-
-class lab4(BaseException): pass
-
-
-class lab5(BaseException): pass
-
-
-class lab6(BaseException): pass
-
-
-class lab7(BaseException): pass
-
-
-class lab8(BaseException): pass

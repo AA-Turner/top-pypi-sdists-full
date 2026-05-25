@@ -260,6 +260,20 @@ def build_db_dataframe(
         # (it runs make_serializable on it). Keep NaN for non-ML models.
         "Best Hyperparameters": [np.nan] * n,
     })
+    # Globally unique Index per (country, region, crop, season, year, stage,
+    # experiment) so pangres.upsert(if_row_exists='update') doesn't clobber
+    # earlier years' rows. Mirrors the catboost convention in the existing
+    # yield_outlook DB:
+    #   outlook_<model>_<country>_<region>_<crop>_<season>_<year>_<stage>_...
+    # Includes experiment_name so the raw 'aquacrop' rows and the
+    # 'aquacrop_v1_calibrated' offset rows can coexist in the same table.
+    # Deterministic (no timestamp) so re-running a combo overwrites cleanly
+    # instead of polluting the table with duplicates.
+    df.index = [
+        f"outlook_aquacrop_{country}_{region}_{crop}_s{season}_"
+        f"{harvest_year}_{stage_name}_{experiment_name}"
+        for region in df["Region"]
+    ]
     df.index.set_names(["Index"], inplace=True)
     return df
 

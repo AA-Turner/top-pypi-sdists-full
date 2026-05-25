@@ -1,32 +1,42 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tmdbsimple
-Version: 2.9.1
+Version: 2.9.4
 Summary: A Python wrapper for The Movie Database API v3
 Home-page: https://github.com/celiao/tmdbsimple
+Download-URL: https://github.com/celiao/tmdbsimple/tarball/2.9.4
 Author: Celia Oakley
 Author-email: celia.oakley@alumni.stanford.edu
-License: UNKNOWN
-Download-URL: https://github.com/celiao/tmdbsimple/tarball/2.9.1
 Keywords: movie,the movie database,movie database,tmdb,wrapper,database,themoviedb,moviedb,api
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Utilities
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: requests
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 tmdbsimple
 ==========
 
 ![Python package](https://github.com/celiao/tmdbsimple/workflows/build/badge.svg)
 ![codecov](https://img.shields.io/codecov/c/github/celiao/tmdbsimple)
-![pypi](https://img.shields.io/pypi/pyversions/tmdbsimple)
-![pypi](https://img.shields.io/pypi/v/tmdbsimple)
+![pypi](https://img.shields.io/pypi/pyversions/tmdbsimple?v=2.9.4)
+![pypi](https://img.shields.io/pypi/v/tmdbsimple?v=2.9.4)
 
 A wrapper for The Movie Database API v3
 ---------------------------------------
@@ -43,7 +53,7 @@ Features
 - Supports only [Python versions with TLS
   1.2](http://pyfound.blogspot.com/2017/01/time-to-upgrade-your-python-tls-v12.html).
   Keep it simple!
-- Tested with Python 3.6, 3.7, and 3.8.
+- Tested with Python 3.9, 3.10, and 3.11.
 - One-to-one mapping between *tmdbsimple* methods and TMDb endpoints.
 - Implements all TMDb methods, including Accounts and Authentication.
 - Easy to access data using Python class attributes.
@@ -189,10 +199,8 @@ object.
 ```
 
 If you use Authentication to access a user Account, be sure to check out
-https://www.themoviedb.org/documentation/api/sessions.
+https://developer.themoviedb.org/docs/authentication-user.
 
 If you like this wrapper, and would like access to even more movie and TV data,
 check out *rtsimple* https://pypi.python.org/pypi/rtsimple, a wrapper for the
 Rotten Tomatoes API.
-
-

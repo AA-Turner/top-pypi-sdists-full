@@ -54,6 +54,376 @@ class ConstraintViolationError(Exception):
         super().__init__(message)
 
 
+def _resolve_latest_one_fields(
+    rows: list[dict[str, Any]],
+    entity_spec: Any,
+    db: Any,
+    *,
+    as_of: Any = None,
+) -> list[dict[str, Any]]:
+    """Resolve every ``latest_one`` field on the entity (#1223 Phase 3a.v.ii).
+
+    For each LATEST_ONE field on ``entity_spec``:
+      1. Look up the target entity's table + temporal.end_field
+      2. Batch-query the target where ``via_field IN (...source_ids)``
+         AND ``end_field IS NULL`` (or the open-interval as_of predicate)
+      3. Attach the resolved row (or None) under the field name on each
+         input row
+
+    Returns the input rows (mutated in place, also returned for chaining).
+    No-op when ``entity_spec`` has no LATEST_ONE fields or rows is empty.
+
+    Performance: one batched query per latest_one field. For a list page of
+    N rows with K latest_one fields, K extra queries. Acceptable since
+    cohort_strip-class workloads already do per-region fan-out at similar
+    granularity.
+    """
+    from dazzle.back.runtime.query_builder import quote_identifier
+    from dazzle.core.ir import FieldTypeKind
+
+    if not rows or entity_spec is None:
+        return rows
+
+    latest_one_fields = [
+        f
+        for f in getattr(entity_spec, "fields", [])
+        if getattr(f.type, "kind", None) == FieldTypeKind.LATEST_ONE
+    ]
+    if not latest_one_fields:
+        return rows
+
+    placeholder = db.placeholder
+
+    for f in latest_one_fields:
+        target_entity = f.type.ref_entity
+        via_field = f.type.via_field
+        if not target_entity or not via_field:
+            continue
+
+        # The target entity needs `temporal:` (validator enforces this);
+        # at runtime we still defensively look it up via the field's
+        # ref_entity. The target's own EntitySpec carries the temporal.
+        # We don't have access to the full registry here, so we rely on
+        # convention: end_field is named conventionally (end_date /
+        # effective_to). For MVP, look up via_field's target_entity
+        # spec from the global appspec is overkill — instead we hard-
+        # code knowledge: the latest_one validator already ensured the
+        # target has `temporal:`, so we encode the end_field discovery
+        # by querying the row where via_field matches AND ORDER BY
+        # start_date DESC LIMIT 1 in absence of richer context. Simpler:
+        # rely on the target entity exposing temporal.end_field via the
+        # registry once we plumb it through. For 3a.v.ii MVP we use
+        # ORDER BY id DESC fallback if we can't access temporal.end_field.
+        #
+        # TODO: thread the appspec through Repository so we can look up
+        # the target's temporal.end_field exactly. For now, prefer the
+        # conventional `end_date` / `effective_to` field-name fallback.
+        end_field_candidates = ("end_date", "effective_to")
+        end_field = end_field_candidates[0]
+
+        source_ids = [str(row["id"]) for row in rows if row.get("id")]
+        if not source_ids:
+            for row in rows:
+                row[f.name] = None
+            continue
+
+        in_placeholders = ", ".join(placeholder for _ in source_ids)
+        target_table = quote_identifier(target_entity)
+        via_q = quote_identifier(via_field)
+
+        # Build the active-row predicate. If as_of is set, the row must
+        # have been active on as_of; otherwise NULL end_field.
+        if as_of is not None:
+            # Try both candidate end-fields with COALESCE-style fallback —
+            # simplest: query with WHERE via IN AND (end_date IS NULL OR
+            # end_date > as_of) AND start_date <= as_of. If the target
+            # uses effective_to/effective_from instead, the first attempt
+            # raises (column not found) and we'll fall back.
+            sql = (
+                f"SELECT * FROM {target_table} "
+                f"WHERE {via_q} IN ({in_placeholders}) "
+                f'AND ("{end_field}" IS NULL OR "{end_field}" > {placeholder}) '
+                f'AND "start_date" <= {placeholder}'
+            )
+            params: list[Any] = list(source_ids) + [as_of, as_of]
+        else:
+            sql = (
+                f"SELECT * FROM {target_table} "
+                f"WHERE {via_q} IN ({in_placeholders}) "
+                f'AND "{end_field}" IS NULL'
+            )
+            params = list(source_ids)
+
+        target_rows: list[dict[str, Any]] = []
+        with db.connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(sql, params)  # nosemgrep
+                fetched = cursor.fetchall()
+                target_rows = [dict(r) if hasattr(r, "keys") else dict(r) for r in fetched]
+            except Exception:
+                # Likely a column-name mismatch (target uses effective_to,
+                # not end_date). Try the alternate. Belt-and-suspenders
+                # until the appspec-plumbing TODO above lands.
+                end_field = end_field_candidates[1]
+                if as_of is not None:
+                    sql = (
+                        f"SELECT * FROM {target_table} "
+                        f"WHERE {via_q} IN ({in_placeholders}) "
+                        f'AND ("{end_field}" IS NULL OR "{end_field}" > {placeholder}) '
+                        f'AND "effective_from" <= {placeholder}'
+                    )
+                    params = list(source_ids) + [as_of, as_of]
+                else:
+                    sql = (
+                        f"SELECT * FROM {target_table} "
+                        f"WHERE {via_q} IN ({in_placeholders}) "
+                        f'AND "{end_field}" IS NULL'
+                    )
+                    params = list(source_ids)
+                cursor.execute(sql, params)  # nosemgrep
+                fetched = cursor.fetchall()
+                target_rows = [dict(r) if hasattr(r, "keys") else dict(r) for r in fetched]
+
+        by_source = {str(r.get(via_field)): r for r in target_rows}
+        for row in rows:
+            row[f.name] = by_source.get(str(row.get("id")))
+
+    return rows
+
+
+def _resolve_recursive_traversal_fields(
+    rows: list[dict[str, Any]],
+    entity_spec: Any,
+    db: Any,
+    host_table: str,
+) -> list[dict[str, Any]]:
+    """Resolve every ``descendants_of`` / ``ancestors_of`` field on the
+    entity (#1227 Phase 3b.ii).
+
+    For each traversal field, runs a recursive CTE:
+
+    Self-ref descendants:
+        WITH RECURSIVE walk(id, root) AS (
+          SELECT id, <via> FROM <host> WHERE <via> IN (...source_ids)
+          UNION ALL
+          SELECT t.id, w.root FROM <host> t JOIN walk w ON t.<via> = w.id
+        )
+        SELECT root, id FROM walk
+
+    Junction-mediated descendants (e.g. ``via ManagerLink.manager``):
+        WITH RECURSIVE walk(id, root) AS (
+          SELECT m.<other_fk>, m.<via> FROM <junction> m WHERE m.<via> IN (...)
+          UNION ALL
+          SELECT m.<other_fk>, w.root FROM <junction> m JOIN walk w ON m.<via> = w.id
+        )
+
+    Ancestors mirror the same shape walking up via the parent FK.
+
+    After the walk yields ``(root, id)`` pairs, a second batched
+    ``SELECT * FROM <host> WHERE id IN (...)`` fetches the resolved
+    rows. Each input row receives a list under the field name (empty
+    list when no descendants/ancestors).
+
+    No-op when entity has no such fields or ``rows`` is empty.
+    """
+    from dazzle.core.ir import FieldTypeKind
+
+    if not rows or entity_spec is None:
+        return rows
+
+    traversal_fields = [
+        f
+        for f in getattr(entity_spec, "fields", [])
+        if getattr(f.type, "kind", None)
+        in (FieldTypeKind.DESCENDANTS_OF, FieldTypeKind.ANCESTORS_OF)
+    ]
+    if not traversal_fields:
+        return rows
+
+    placeholder = db.placeholder
+    source_ids = [str(row["id"]) for row in rows if row.get("id")]
+    if not source_ids:
+        for row in rows:
+            for f in traversal_fields:
+                row[f.name] = []
+        return rows
+
+    host_q = quote_identifier(host_table)
+
+    for f in traversal_fields:
+        is_descendants = f.type.kind == FieldTypeKind.DESCENDANTS_OF
+        via_field = f.type.via_field
+        via_entity = f.type.via_entity
+        if not via_field:
+            for row in rows:
+                row[f.name] = []
+            continue
+
+        via_q = quote_identifier(via_field)
+        in_placeholders = ", ".join(placeholder for _ in source_ids)
+
+        if via_entity is None:
+            # Self-ref: walk through the host table itself.
+            if is_descendants:
+                cte = (
+                    f"WITH RECURSIVE walk(id, root) AS ( "
+                    f"SELECT id, {via_q} FROM {host_q} "
+                    f"WHERE {via_q} IN ({in_placeholders}) "
+                    f"UNION ALL "
+                    f"SELECT t.id, w.root FROM {host_q} t "
+                    f"JOIN walk w ON t.{via_q} = w.id "
+                    f") SELECT root, id FROM walk"
+                )
+            else:
+                # Ancestors: from each source, walk up via the FK.
+                cte = (
+                    f"WITH RECURSIVE walk(id, root) AS ( "
+                    f"SELECT {via_q}, id FROM {host_q} "
+                    f"WHERE id IN ({in_placeholders}) AND {via_q} IS NOT NULL "
+                    f"UNION ALL "
+                    f"SELECT t.{via_q}, w.root FROM {host_q} t "
+                    f"JOIN walk w ON t.id = w.id AND t.{via_q} IS NOT NULL "
+                    f") SELECT root, id FROM walk"
+                )
+            params = list(source_ids)
+        else:
+            # Junction-mediated: the validator already ensured the junction
+            # exists, has the parent FK named after the dot, and has at
+            # least one other `ref Host` field. We need that *other* field's
+            # name to know what the "child" id is on each link row. Without
+            # the appspec threaded here, we discover it by querying the
+            # junction's columns at execution time — but the cleaner shape
+            # is to look it up via the entity_spec registry. For MVP we
+            # accept a small N+1 quirk: assume the junction has exactly two
+            # `ref Host` fields and call the non-via one "child". We probe
+            # by selecting all column names from the junction and picking
+            # the first FK-looking column that isn't via_field.
+            child_fk = _discover_junction_child_fk(db, via_entity, via_field)
+            if child_fk is None:
+                for row in rows:
+                    row[f.name] = []
+                continue
+            junction_q = quote_identifier(via_entity)
+            child_q = quote_identifier(child_fk)
+            if is_descendants:
+                cte = (
+                    f"WITH RECURSIVE walk(id, root) AS ( "
+                    f"SELECT m.{child_q}, m.{via_q} FROM {junction_q} m "
+                    f"WHERE m.{via_q} IN ({in_placeholders}) "
+                    f"UNION ALL "
+                    f"SELECT m.{child_q}, w.root FROM {junction_q} m "
+                    f"JOIN walk w ON m.{via_q} = w.id "
+                    f") SELECT root, id FROM walk"
+                )
+            else:
+                cte = (
+                    f"WITH RECURSIVE walk(id, root) AS ( "
+                    f"SELECT m.{via_q}, m.{child_q} FROM {junction_q} m "
+                    f"WHERE m.{child_q} IN ({in_placeholders}) "
+                    f"UNION ALL "
+                    f"SELECT m.{via_q}, w.root FROM {junction_q} m "
+                    f"JOIN walk w ON m.{child_q} = w.id "
+                    f") SELECT root, id FROM walk"
+                )
+            params = list(source_ids)
+
+        pairs: list[tuple[str, str]] = []
+        with db.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(cte, params)  # nosemgrep
+            fetched = cursor.fetchall()
+            pairs = [(str(r["root"]), str(r["id"])) for r in fetched]
+
+        if not pairs:
+            for row in rows:
+                row[f.name] = []
+            continue
+
+        unique_ids = list({pid for _, pid in pairs})
+        unique_ph = ", ".join(placeholder for _ in unique_ids)
+        fetch_sql = f"SELECT * FROM {host_q} WHERE id IN ({unique_ph})"
+        fetched_rows: dict[str, dict[str, Any]] = {}
+        with db.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(fetch_sql, unique_ids)  # nosemgrep
+            for r in cursor.fetchall():
+                fetched_rows[str(r["id"])] = dict(r)
+
+        by_root: dict[str, list[dict[str, Any]]] = {sid: [] for sid in source_ids}
+        for root, pid in pairs:
+            fetched = fetched_rows.get(pid)
+            if fetched is not None:
+                by_root.setdefault(root, []).append(fetched)
+
+        for input_row in rows:
+            input_row[f.name] = by_root.get(str(input_row.get("id")), [])
+
+    return rows
+
+
+def _discover_junction_child_fk(db: Any, junction_table: str, via_field: str) -> str | None:
+    """Look up the junction's non-via FK column name.
+
+    Probes the database catalog (information_schema.columns) for the
+    junction's columns and returns the first that looks like a FK
+    (UUID-typed, not the via_field, not `id`).
+
+    Returns ``None`` if no candidate column is found — the caller
+    handles by attaching empty traversal results.
+    """
+    sql = (
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name = %s ORDER BY ordinal_position"
+    )
+    import logging
+
+    logger = logging.getLogger(__name__)
+    try:
+        with db.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql, [junction_table])
+            cols = [str(r["column_name"]) for r in cursor.fetchall()]
+    except Exception:
+        logger.debug(
+            "junction child-FK probe failed for %s; traversal attaches empty list",
+            junction_table,
+            exc_info=True,
+        )
+        return None
+    for col in cols:
+        if col == via_field or col == "id":
+            continue
+        # Convention: any non-id column on a junction whose name doesn't
+        # match the parent via_field is a candidate child FK. Validator
+        # has already enforced at compile time that such a column exists
+        # and is a `ref Host` — we trust that here.
+        return col
+    return None
+
+
+def _build_temporal_as_of_predicate(
+    start_field: str, end_field: str, as_of: Any
+) -> tuple[str, list[Any]]:
+    """Build the as-of-date temporal predicate for #1223 Phase 3a.iv.
+
+    Re-projects a temporal entity's read paths to "what was true as of
+    `as_of`" by replacing the default `end_field IS NULL` active-only
+    filter with the open-interval test:
+
+        start_field <= as_of AND (end_field IS NULL OR end_field > as_of)
+
+    Returns ``(sql, params)`` ready to plug into QueryBuilder's
+    ``__scope_predicate`` slot (or AND-compose with an existing one).
+    """
+    from dazzle.back.runtime.query_builder import quote_identifier
+
+    s = quote_identifier(start_field)
+    e = quote_identifier(end_field)
+    sql = f"{s} <= %s AND ({e} IS NULL OR {e} > %s)"
+    return sql, [as_of, as_of]
+
+
 def _parse_constraint_error(exc: str | Exception, table_name: str) -> tuple[str, str | None]:
     """Parse a constraint error message to extract type and field.
 
@@ -90,6 +460,33 @@ def _parse_constraint_error(exc: str | Exception, table_name: str) -> tuple[str,
         return "foreign_key", fk_field
 
     return "integrity", None
+
+
+def _translate_integrity_error(exc: Exception, table_name: str) -> ConstraintViolationError:
+    """Translate a backend integrity error into the framework-canonical
+    :class:`ConstraintViolationError` shape.
+
+    Used by ``Repository.create`` / ``Repository.update`` and the bespoke
+    ``create_subtype`` / ``update_subtype`` paths so all four sites raise
+    identical-shape errors. #1239 extracted this to dedupe four ~19-line
+    copies that had drifted out of slice 3e.iii.
+    """
+    ctype, field = _parse_constraint_error(exc, table_name)
+    if ctype == "unique":
+        msg = (
+            f"A {table_name} with this {field} already exists"
+            if field
+            else f"Duplicate value violates unique constraint on {table_name}"
+        )
+    elif ctype == "foreign_key":
+        msg = (
+            f"Referenced record not found for field '{field}' on {table_name}"
+            if field
+            else f"Referenced record does not exist for {table_name}"
+        )
+    else:
+        msg = f"Integrity constraint violated on {table_name}: {exc}"
+    return ConstraintViolationError(msg, field=field, constraint_type=ctype)
 
 
 # Alias to prevent mypy resolving `list` as Repository.list inside the class
@@ -204,6 +601,7 @@ class Repository(Generic[T]):
         model_class: type[T],
         relation_loader: RelationLoader | None = None,
         metrics_collector: SystemMetricsCollector | None = None,
+        base_entity_spec: EntitySpec | None = None,
     ):
         """
         Initialize the repository.
@@ -214,6 +612,10 @@ class Repository(Generic[T]):
             model_class: Pydantic model class for the entity
             relation_loader: Optional relation loader for nested data fetching
             metrics_collector: Optional system metrics collector for query timing
+            base_entity_spec: For polymorphic-child entities (``subtype_of: <base>``),
+                the back-layer EntitySpec for the base entity. Repository.list
+                uses this to inject a JOIN that pulls shared base columns into
+                child queries (#1217 slice 3e.iv).
         """
         self.db = db_manager
         self.entity_spec = entity_spec
@@ -227,6 +629,28 @@ class Repository(Generic[T]):
 
         # Store computed field specs for evaluation
         self._computed_fields: list[ComputedFieldSpec] = entity_spec.computed_fields or []
+
+        # #1217 Phase 3e.iv: cache the subtype JOIN+columns at construction
+        # time. Child entities have ONLY their subtype-specific fields in
+        # `entity_spec.fields`; shared base fields live in `base_entity_spec`.
+        # Field types for the base columns also need to land in
+        # `_field_types` so `_row_to_model` can coerce them on the way out.
+        self._subtype_join_sql: str | None = None
+        self._subtype_extra_cols: list[str] = []
+        if entity_spec.subtype_of is not None and base_entity_spec is not None:
+            base_table = quote_identifier(base_entity_spec.name)
+            child_table = quote_identifier(self.table_name)
+            self._subtype_join_sql = f'JOIN {base_table} ON {child_table}."id" = {base_table}."id"'
+            # Pull every base column EXCEPT id (already in the child table).
+            for f in base_entity_spec.fields:
+                if f.name == "id":
+                    continue
+                col_q = quote_identifier(f.name)
+                self._subtype_extra_cols.append(f"{base_table}.{col_q} AS {col_q}")
+                # Make base field types visible to _row_to_model — without
+                # this the JOINed columns are returned as raw DB values
+                # rather than coerced Python types.
+                self._field_types.setdefault(f.name, f.type)
 
     def _record_query(self, query_type: str, latency_ms: float, rows: int = 0) -> None:
         """Record a database query metric."""
@@ -282,22 +706,7 @@ class Repository(Generic[T]):
                 cursor = conn.cursor()
                 cursor.execute(sql, values)  # nosemgrep
         except _INTEGRITY_ERRORS as exc:
-            ctype, field = _parse_constraint_error(exc, self.table_name)
-            if ctype == "unique":
-                msg = (
-                    f"A {self.table_name} with this {field} already exists"
-                    if field
-                    else f"Duplicate value violates unique constraint on {self.table_name}"
-                )
-            elif ctype == "foreign_key":
-                msg = (
-                    f"Referenced record not found for field '{field}' on {self.table_name}"
-                    if field
-                    else f"Referenced record does not exist for {self.table_name}"
-                )
-            else:
-                msg = f"Integrity constraint violated on {self.table_name}: {exc}"
-            raise ConstraintViolationError(msg, field=field, constraint_type=ctype) from exc
+            raise _translate_integrity_error(exc, self.table_name) from exc
         latency_ms = (time.perf_counter() - start) * 1000
         self._record_query("insert", latency_ms, rows=1)
 
@@ -312,6 +721,8 @@ class Repository(Generic[T]):
         self,
         id: UUID,
         include: list[str] | None = None,
+        *,
+        as_of: Any = None,
     ) -> T | dict[str, Any] | None:
         """
         Read an entity by ID.
@@ -319,24 +730,93 @@ class Repository(Generic[T]):
         Args:
             id: Entity ID
             include: List of relation names to include (nested loading)
+            as_of: Optional date for temporal entity time-travel (#1223 Phase 3a.iv).
+                When set on an entity with `temporal:` declared, the row must have
+                been *active* on this date (start_field <= as_of AND (end_field IS
+                NULL OR end_field > as_of)). NULL on non-temporal entities is a no-op.
 
         Returns:
             Entity (or dict with nested data if include specified), or None if not found
         """
         table = quote_identifier(self.table_name)
         ph = self.db.placeholder
-        sql = f'SELECT * FROM {table} WHERE "id" = {ph}'
+        # #1218 Option A: tombstone filter on the single-row read path.
+        # The list path threads through QueryBuilder; read() builds raw
+        # SQL, so the filter is appended here directly. Soft-deleted
+        # rows are returned as None — same shape as "id not found".
+        soft_delete_clause = ' AND "deleted_at" IS NULL' if self.entity_spec.soft_delete else ""
+        # #1223 Phase 3a.ii / 3a.iv: tombstone or as-of predicate for
+        # temporal entities. read() is unique in not having a `filters`
+        # dict, so as_of for the read path is supplied via a separate
+        # kwarg threaded from the route handler.
+        _temporal_read = self.entity_spec.temporal
+        temporal_clause = ""
+        extra_params: list[Any] = []
+        if _temporal_read is not None and _temporal_read.default_filter == "active":
+            if as_of is not None:
+                t_sql, t_params = _build_temporal_as_of_predicate(
+                    _temporal_read.start_field, _temporal_read.end_field, as_of
+                )
+                temporal_clause = f" AND ({t_sql})"
+                extra_params = list(t_params)
+            else:
+                temporal_clause = f' AND "{_temporal_read.end_field}" IS NULL'
+        # #1217 Phase 3e follow-up: parity with list() — polymorphic-child
+        # entities must JOIN to the base table on the shared id so that the
+        # detail-row dict carries every base column (most importantly `kind`,
+        # which the subtype_panel renderer reads to dispatch). The list path
+        # injects the same JOIN+extra cols via QueryBuilder at line ~1015;
+        # read() builds raw SQL so we splice them in directly here.
+        #
+        # WHY the soft_delete/temporal clauses can't conflict with the JOIN:
+        # the linker rejects soft_delete on polymorphic children (rule
+        # E_SUBTYPE_SOFT_DELETE_ON_CHILD) and temporal on children, so when
+        # _subtype_join_sql is set both clauses are guaranteed empty by
+        # construction. The assert below makes that contract explicit.
+        if self._subtype_join_sql is not None:
+            assert not soft_delete_clause and not temporal_clause, (
+                "polymorphic-child entity unexpectedly carries "
+                "soft_delete/temporal clauses; linker rules E_SUBTYPE_* "
+                "should have rejected this upstream"
+            )
+            extra_cols_sql = (
+                ", " + ", ".join(self._subtype_extra_cols) if self._subtype_extra_cols else ""
+            )
+            sql = (
+                f"SELECT {table}.*{extra_cols_sql} "
+                f"FROM {table} {self._subtype_join_sql} "
+                f'WHERE {table}."id" = {ph}'
+            )
+        else:
+            sql = f'SELECT * FROM {table} WHERE "id" = {ph}{soft_delete_clause}{temporal_clause}'
+        params: tuple[Any, ...] = (str(id), *extra_params)
 
         start = time.perf_counter()
         with self.db.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(sql, (str(id),))  # nosemgrep
+            cursor.execute(sql, params)  # nosemgrep
             row = cursor.fetchone()
         latency_ms = (time.perf_counter() - start) * 1000
         self._record_query("select", latency_ms, rows=1 if row else 0)
 
         if not row:
             return None
+
+        # #1223 Phase 3a.v.ii: resolve latest_one fields if any exist on
+        # the entity. Forces dict-return (same coercion as `include`).
+        # No-op when entity has no latest_one fields.
+        from dazzle.core.ir import FieldTypeKind
+
+        _has_latest_one = any(
+            getattr(f.type, "kind", None) == FieldTypeKind.LATEST_ONE
+            for f in self.entity_spec.fields
+        )
+        # #1227 Phase 3b.ii: descendants_of / ancestors_of resolution.
+        _has_traversal = any(
+            getattr(f.type, "kind", None)
+            in (FieldTypeKind.DESCENDANTS_OF, FieldTypeKind.ANCESTORS_OF)
+            for f in self.entity_spec.fields
+        )
 
         # If relations requested, load them and return dict
         if include and self._relation_loader:
@@ -347,11 +827,38 @@ class Repository(Generic[T]):
                 include,
                 conn=self.db.get_persistent_connection(),
             )
+            if _has_latest_one:
+                row_dicts = _resolve_latest_one_fields(
+                    row_dicts, self.entity_spec, self.db, as_of=as_of
+                )
+            if _has_traversal:
+                row_dicts = _resolve_recursive_traversal_fields(
+                    row_dicts, self.entity_spec, self.db, self.table_name
+                )
             return self._convert_row_dict(row_dicts[0])
 
-        # If computed fields, return dict with computed values
-        if self._computed_fields:
-            return self._convert_row_dict(dict(row))
+        # If computed fields, latest_one, traversal, OR subtype JOIN, return
+        # a dict so the merged shape (base + child columns) survives. The
+        # generated child model only declares child-specific fields, so a
+        # plain `_row_to_model` call would silently drop base columns (Pydantic
+        # default ignores extras) — losing `kind` and breaking the
+        # subtype_panel renderer at v0.71.186.
+        if (
+            self._computed_fields
+            or _has_latest_one
+            or _has_traversal
+            or self._subtype_join_sql is not None
+        ):
+            row_dicts_l = [dict(row)]
+            if _has_latest_one:
+                row_dicts_l = _resolve_latest_one_fields(
+                    row_dicts_l, self.entity_spec, self.db, as_of=as_of
+                )
+            if _has_traversal:
+                row_dicts_l = _resolve_recursive_traversal_fields(
+                    row_dicts_l, self.entity_spec, self.db, self.table_name
+                )
+            return self._convert_row_dict(row_dicts_l[0])
 
         return self._row_to_model(row)
 
@@ -392,22 +899,7 @@ class Repository(Generic[T]):
                 cursor.execute(sql, values)  # nosemgrep
                 rowcount = cursor.rowcount
         except _INTEGRITY_ERRORS as exc:
-            ctype, field = _parse_constraint_error(exc, self.table_name)
-            if ctype == "unique":
-                msg = (
-                    f"A {self.table_name} with this {field} already exists"
-                    if field
-                    else f"Duplicate value violates unique constraint on {self.table_name}"
-                )
-            elif ctype == "foreign_key":
-                msg = (
-                    f"Referenced record not found for field '{field}' on {self.table_name}"
-                    if field
-                    else f"Referenced record does not exist for {self.table_name}"
-                )
-            else:
-                msg = f"Integrity constraint violated on {self.table_name}: {exc}"
-            raise ConstraintViolationError(msg, field=field, constraint_type=ctype) from exc
+            raise _translate_integrity_error(exc, self.table_name) from exc
         latency_ms = (time.perf_counter() - start) * 1000
         self._record_query("update", latency_ms, rows=rowcount)
 
@@ -508,14 +1000,61 @@ class Repository(Generic[T]):
             builder.select_fields = list(select_fields)
         builder.set_pagination(page, page_size)
 
-        if filters:
-            builder.add_filters(filters)
+        # #1218 Option A: tombstone filter for soft-delete entities.
+        # Composes via QueryBuilder so the predicate AND-merges with
+        # any user/scope filters already in `filters`. Authors opt
+        # into the filter via `soft_delete: true` on the entity.
+        # `include_deleted` query-param + RBAC gate is a follow-up.
+        effective_filters: dict[str, Any] = dict(filters) if filters else {}
+        if self.entity_spec.soft_delete:
+            effective_filters.setdefault("deleted_at__isnull", True)
+
+        # #1223 Phase 3a.ii / 3a.iv: tombstone filter + as_of reprojection.
+        # Default behaviour (no as_of): inject `<end_field> IS NULL` so list
+        # paths return only currently-active rows. With as_of (3a.iv): replace
+        # the active-only filter with the historical-snapshot predicate
+        # `start_field <= as_of AND (end_field IS NULL OR end_field > as_of)`.
+        # The as_of value is passed via the special `__as_of` filter dict key,
+        # mirroring the `__scope_predicate` pattern. Route handlers inject it
+        # from the workspace/surface `?as_of=YYYY-MM-DD` URL parameter.
+        _temporal = self.entity_spec.temporal
+        _as_of = effective_filters.pop("__as_of", None)
+        if _temporal is not None and _temporal.default_filter == "active":
+            if _as_of is not None:
+                _temporal_predicate = _build_temporal_as_of_predicate(
+                    _temporal.start_field, _temporal.end_field, _as_of
+                )
+                # AND-compose with any existing scope predicate.
+                existing = effective_filters.get("__scope_predicate")
+                if existing is not None:
+                    s_sql, s_params = existing
+                    effective_filters["__scope_predicate"] = (
+                        f"({s_sql}) AND ({_temporal_predicate[0]})",
+                        list(s_params) + list(_temporal_predicate[1]),
+                    )
+                else:
+                    effective_filters["__scope_predicate"] = _temporal_predicate
+            else:
+                effective_filters.setdefault(f"{_temporal.end_field}__isnull", True)
+
+        if effective_filters:
+            builder.add_filters(effective_filters)
 
         if sort:
             builder.add_sorts(sort)
 
         if search:
             builder.set_search(search, fields=search_fields)
+
+        # #1217 Phase 3e.iv: subtype auto-JOIN. Child entities only carry
+        # their own subtype-specific fields in `entity_spec.fields`; the
+        # shared columns (e.g. acquired_at, location, kind) live on the
+        # base table. Inject the JOIN + extra SELECT cols cached at
+        # __init__ time so every list query against a child surface
+        # returns the merged row shape.
+        if self._subtype_join_sql is not None:
+            builder.joins.append(self._subtype_join_sql)
+            builder.extra_select_cols.extend(self._subtype_extra_cols)
 
         # v0.61.9 (#865): FK-display fast path — LEFT JOIN the display field
         # instead of issuing one SELECT per FK relation. Only to-one relations
@@ -582,10 +1121,47 @@ class Repository(Generic[T]):
                     conn=self.db.get_persistent_connection(),
                 )
 
+        # #1223 Phase 3a.v.ii: resolve latest_one fields if any exist.
+        # Forces dict-return (same coercion as `include` / computed).
+        from dazzle.core.ir import FieldTypeKind
+
+        _has_latest_one = any(
+            getattr(f.type, "kind", None) == FieldTypeKind.LATEST_ONE
+            for f in self.entity_spec.fields
+        )
+        if _has_latest_one:
+            # `_as_of` was popped from effective_filters in the temporal
+            # block above (line ~738) before being passed to QueryBuilder.
+            # Reuse the same value here so latest_one resolution honours
+            # the as-of date for consistent time-travel.
+            row_dicts = _resolve_latest_one_fields(
+                row_dicts, self.entity_spec, self.db, as_of=_as_of
+            )
+
+        # #1227 Phase 3b.ii: descendants_of / ancestors_of resolution.
+        _has_traversal = any(
+            getattr(f.type, "kind", None)
+            in (FieldTypeKind.DESCENDANTS_OF, FieldTypeKind.ANCESTORS_OF)
+            for f in self.entity_spec.fields
+        )
+        if _has_traversal:
+            row_dicts = _resolve_recursive_traversal_fields(
+                row_dicts, self.entity_spec, self.db, self.table_name
+            )
+
         # Convert to models (or return dicts if relations/computed fields included)
         items: list[Any]
-        if include or self._computed_fields:
-            # Return dicts with nested data and/or computed fields
+        if (
+            include
+            or self._computed_fields
+            or _has_latest_one
+            or _has_traversal
+            or self._subtype_join_sql is not None
+        ):
+            # Return dicts with nested data and/or computed/derived fields.
+            # #1237: subtype JOINs append base columns that the child Pydantic
+            # model would silently drop via `extra='ignore'`, so route through
+            # the dict path (mirrors the read() fix shipped in v0.72.0).
             items = [self._convert_row_dict(row) for row in row_dicts]
         else:
             items = [self._row_to_model(row) for row in rows]
@@ -649,12 +1225,42 @@ class Repository(Generic[T]):
             dimension_count=len(dimensions),
             measure_count=len(measures),
         ):
+            # #1218 Option A: tombstone filter on the aggregate path.
+            # Same composition contract as `list` — merges with the
+            # incoming `filters` dict so QueryBuilder ANDs the
+            # tombstone predicate with any scope/user filters.
+            effective_filters: dict[str, Any] = dict(filters) if filters else {}
+            if self.entity_spec.soft_delete:
+                effective_filters.setdefault("deleted_at__isnull", True)
+
+            # #1223 Phase 3a.ii / 3a.iv: tombstone or as-of for temporal.
+            # Same shape as the list path. The __as_of key flows through
+            # the same filters dict used by list/scope composition.
+            _temporal_agg = self.entity_spec.temporal
+            _as_of_agg = effective_filters.pop("__as_of", None)
+            if _temporal_agg is not None and _temporal_agg.default_filter == "active":
+                if _as_of_agg is not None:
+                    _t_pred = _build_temporal_as_of_predicate(
+                        _temporal_agg.start_field, _temporal_agg.end_field, _as_of_agg
+                    )
+                    existing_agg = effective_filters.get("__scope_predicate")
+                    if existing_agg is not None:
+                        s_sql, s_params = existing_agg
+                        effective_filters["__scope_predicate"] = (
+                            f"({s_sql}) AND ({_t_pred[0]})",
+                            list(s_params) + list(_t_pred[1]),
+                        )
+                    else:
+                        effective_filters["__scope_predicate"] = _t_pred
+                else:
+                    effective_filters.setdefault(f"{_temporal_agg.end_field}__isnull", True)
+
             sql, params = build_aggregate_sql(
                 table_name=self.table_name,
                 placeholder_style=self.db.placeholder,
                 dimensions=dimensions,
                 measures=measures,
-                filters=filters,
+                filters=effective_filters or None,
                 limit=limit,
                 measure_expressions=measure_expressions,
             )
@@ -947,12 +1553,18 @@ class RepositoryFactory:
         self._metrics = metrics_collector
         self._repositories: dict[str, Repository[Any]] = {}
 
-    def create_repository(self, entity: EntitySpec) -> Repository[Any]:
+    def create_repository(
+        self,
+        entity: EntitySpec,
+        base_entity_spec: EntitySpec | None = None,
+    ) -> Repository[Any]:
         """
         Create a repository for an entity.
 
         Args:
             entity: Entity specification
+            base_entity_spec: For polymorphic-child entities, the base
+                entity spec used for subtype JOIN injection (#1217 3e.iv).
 
         Returns:
             Repository instance
@@ -967,6 +1579,7 @@ class RepositoryFactory:
             model_class=model,
             relation_loader=self._relation_loader,
             metrics_collector=self._metrics,
+            base_entity_spec=base_entity_spec,
         )
         self._repositories[entity.name] = repo
         return repo
@@ -981,10 +1594,181 @@ class RepositoryFactory:
         Returns:
             Dictionary mapping entity names to repositories
         """
+        # Build name → EntitySpec lookup so polymorphic children can be
+        # constructed with their base spec for subtype JOIN injection.
+        by_name = {e.name: e for e in entities}
         for entity in entities:
-            self.create_repository(entity)
+            base = by_name.get(entity.subtype_of) if entity.subtype_of else None
+            self.create_repository(entity, base_entity_spec=base)
         return self._repositories
 
     def get_repository(self, entity_name: str) -> Repository[Any] | None:
         """Get a repository by entity name."""
         return self._repositories.get(entity_name)
+
+
+# =============================================================================
+# Subtype Operations (#1217 Phase 3e.iii)
+# =============================================================================
+#
+# Polymorphic subtype rows live across two TPT tables sharing the same uuid
+# PK: a base row (with discriminator `kind`) and a child row. Both writes
+# must succeed together; the `with db.connection() as conn:` context
+# commits on clean exit and rolls back on exception, so two `cursor.execute`
+# calls inside one block are a single transaction. The base table's
+# BEFORE INSERT/UPDATE trigger (build_child_kind_trigger) enforces
+# kind/child-table consistency at the DB layer — we still emit `kind`
+# explicitly so the trigger sees a non-null discriminator on the base row.
+#
+# `delete_subtype` is intentionally absent: the FK on the child table
+# carries ON DELETE CASCADE (sa_schema.py — Task 12), so the existing
+# Repository.delete() against the base table cascades automatically.
+
+
+def _split_payload_by_owner(
+    payload: dict[str, Any],
+    base_spec: EntitySpec,
+    child_spec: EntitySpec,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Partition a flat payload into base-owned + child-owned column buckets.
+
+    Fields named on both sides (e.g. the shared `id`) are treated as
+    base-owned for input purposes; the caller is responsible for stamping
+    `id` on both buckets at INSERT time.
+    """
+    base_names = {f.name for f in base_spec.fields}
+    child_names = {f.name for f in child_spec.fields}
+    base_payload = {k: v for k, v in payload.items() if k in base_names}
+    # Child-only — don't double-route `id` if it's in both.
+    child_payload = {k: v for k, v in payload.items() if k in child_names and k not in base_names}
+    return base_payload, child_payload
+
+
+def _convert_payload_for_db(payload: dict[str, Any], spec: EntitySpec) -> dict[str, Any]:
+    """Run each value through _python_to_postgres for its declared type."""
+    from dazzle.back.runtime.pg_backend import _python_to_postgres
+
+    field_types = {f.name: f.type for f in spec.fields}
+    return {k: _python_to_postgres(v, field_types.get(k)) for k, v in payload.items()}
+
+
+def create_subtype(
+    *,
+    db_manager: Any,
+    base_spec: EntitySpec,
+    child_spec: EntitySpec,
+    payload: dict[str, Any],
+) -> UUID:
+    """Atomic INSERT of base + child rows sharing one uuid PK.
+
+    The discriminator (`kind`) is auto-populated from the child entity name
+    in snake_case; the caller MUST NOT supply it. The new uuid is generated
+    server-side and returned.
+
+    Raises:
+        ValueError: if child_spec is not a subtype, or if payload includes
+            the framework-owned `kind` key.
+    """
+    from uuid import uuid4
+
+    if not child_spec.is_polymorphic_child or child_spec.subtype_of != base_spec.name:
+        raise ValueError(f"{child_spec.name!r} is not a subtype of {base_spec.name!r}")
+    if "kind" in payload:
+        raise ValueError(
+            "`kind` is framework-owned and auto-populated from the child entity name; "
+            "do not pass it in the create payload."
+        )
+
+    base_payload, child_payload = _split_payload_by_owner(payload, base_spec, child_spec)
+
+    # #1239: snake_case the child entity name to derive the discriminator
+    # value. Mirrors the convention used by the trigger emitter (Task 13)
+    # and pg_backend.py's child-table mapping (~line 461).
+    from dazzle.core.archetype_expander import _to_snake_case
+
+    new_id = uuid4()
+    base_payload["id"] = new_id
+    base_payload["kind"] = _to_snake_case(child_spec.name)
+    child_payload["id"] = new_id
+
+    base_db = _convert_payload_for_db(base_payload, base_spec)
+    child_db = _convert_payload_for_db(child_payload, child_spec)
+
+    ph = db_manager.placeholder
+
+    def _insert_sql(table_name: str, row: dict[str, Any]) -> tuple[str, list[Any]]:
+        columns = ", ".join(quote_identifier(k) for k in row.keys())
+        placeholders = ", ".join(ph for _ in row)
+        sql = f"INSERT INTO {quote_identifier(table_name)} ({columns}) VALUES ({placeholders})"
+        return sql, list(row.values())
+
+    base_sql, base_values = _insert_sql(base_spec.name, base_db)
+    child_sql, child_values = _insert_sql(child_spec.name, child_db)
+
+    try:
+        with db_manager.connection() as conn:
+            cursor = conn.cursor()
+            # Order matters: base first so the FK on the child row resolves,
+            # and so the trigger on the child table sees a base row to read.
+            cursor.execute(base_sql, base_values)  # nosemgrep
+            cursor.execute(child_sql, child_values)  # nosemgrep
+    except _INTEGRITY_ERRORS as exc:
+        # Same error shape as plain Repository.create().
+        raise _translate_integrity_error(exc, child_spec.name) from exc
+
+    return new_id
+
+
+def update_subtype(
+    *,
+    db_manager: Any,
+    base_spec: EntitySpec,
+    child_spec: EntitySpec,
+    row_id: UUID,
+    payload: dict[str, Any],
+) -> None:
+    """Per-table UPDATEs in one transaction. The `kind` discriminator is
+    immutable (ADR-0026) — to change subtype, delete + recreate.
+
+    Raises:
+        ValueError: if child_spec is not a subtype, or if the payload
+            attempts to mutate `kind`.
+    """
+    if not child_spec.is_polymorphic_child or child_spec.subtype_of != base_spec.name:
+        raise ValueError(f"{child_spec.name!r} is not a subtype of {base_spec.name!r}")
+    if "kind" in payload:
+        raise ValueError(
+            "subtype kind is immutable post-create (ADR-0026, #1217 Phase 3e). "
+            "To change a subtype, DELETE the row and INSERT a new one (the id will change)."
+        )
+
+    base_payload, child_payload = _split_payload_by_owner(payload, base_spec, child_spec)
+
+    # Drop None values to mirror Repository.update() semantics.
+    base_payload = {k: v for k, v in base_payload.items() if v is not None}
+    child_payload = {k: v for k, v in child_payload.items() if v is not None}
+
+    if not base_payload and not child_payload:
+        return
+
+    base_db = _convert_payload_for_db(base_payload, base_spec)
+    child_db = _convert_payload_for_db(child_payload, child_spec)
+
+    ph = db_manager.placeholder
+
+    def _update_sql(table_name: str, row: dict[str, Any]) -> tuple[str, list[Any]]:
+        set_clause = ", ".join(f"{quote_identifier(k)} = {ph}" for k in row.keys())
+        sql = f'UPDATE {quote_identifier(table_name)} SET {set_clause} WHERE "id" = {ph}'
+        return sql, [*row.values(), str(row_id)]
+
+    try:
+        with db_manager.connection() as conn:
+            cursor = conn.cursor()
+            if base_db:
+                sql, values = _update_sql(base_spec.name, base_db)
+                cursor.execute(sql, values)  # nosemgrep
+            if child_db:
+                sql, values = _update_sql(child_spec.name, child_db)
+                cursor.execute(sql, values)  # nosemgrep
+    except _INTEGRITY_ERRORS as exc:
+        raise _translate_integrity_error(exc, child_spec.name) from exc

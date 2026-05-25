@@ -14151,6 +14151,102 @@ def run(
     run_repl(sage_agent, _repl_execute)
 
 @app.command()
+def ask(
+    prompt: Annotated[str, typer.Argument(help="Prompt/question to ask")],
+    model: Annotated[str | None, typer.Option("--model", "-m", help="Model ID")] = None,
+    temperature: Annotated[float | None, typer.Option("--temperature", "-t")] = None,
+    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+    no_agent: Annotated[
+        bool,
+        typer.Option(
+            "--no-agent/--agent",
+            help="Disable agentic capabilities (one-shot chat only)",
+        ),
+    ] = True,
+    raw: Annotated[
+        bool,
+        typer.Option(
+            "--raw",
+            help="Output raw response only without styling or metadata",
+        ),
+    ] = False,
+) -> None:
+    """Ask Sage a question or run a one-shot task."""
+    if not no_agent:
+        # Delegate to the run command for the full agentic loop
+        run(
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            prompt=prompt,
+            quiet=raw,
+        )
+        return
+
+    # One-shot chat/ask path
+    import sys
+    cfg = load_config()
+    router = _build_router(cfg)
+
+    # Determine model ID
+    last_used_model = _get_last_used_model(Path.cwd())
+    model_id = model or last_used_model or cfg.default_model
+    try:
+        cfg, model_id = _prepare_model_for_use(cfg, model_id)
+    except RuntimeError as exc:
+        if raw:
+            print(f"Error: {exc}")
+        else:
+            renderer.error(str(exc))
+        raise typer.Exit(1) from exc
+
+    # Rebuild router with updated config
+    router = _build_router(cfg)
+    model_id = _auto_upgrade_model_if_possible(
+        router, cfg, model_id, explicit_model=model, last_used_model=last_used_model
+    )
+    try:
+        cfg, model_id = _prepare_model_for_use(cfg, model_id)
+    except RuntimeError as exc:
+        if raw:
+            print(f"Error: {exc}")
+        else:
+            renderer.error(str(exc))
+        raise typer.Exit(1) from exc
+    router = _build_router(cfg)
+
+    temp = temperature if temperature is not None else 0.1
+    tokens = max_tokens if max_tokens is not None else cfg.max_tokens
+
+    # Build prompt messages
+    from sage.providers.base import Message
+    system_prompt = "You are Sage, a helpful AI coding assistant. Answer the user's question directly."
+    messages = [
+        Message(role="system", content=system_prompt),
+        Message(role="user", content=prompt)
+    ]
+
+    try:
+        if raw:
+            # Stream tokens directly to stdout
+            for chunk in router.stream(messages, model_id, temp, tokens):
+                sys.stdout.write(chunk)
+                sys.stdout.flush()
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+        else:
+            # Styled output using the renderer
+            with renderer.status_spinner("Thinking...", "reading"):
+                response = router.generate(messages, model_id, temp, tokens)
+            renderer.console.print(response)
+    except Exception as exc:
+        if raw:
+            print(f"Error: {exc}")
+        else:
+            renderer.error(str(exc))
+        raise typer.Exit(1) from exc
+
+@app.command()
 def models(
     category: Annotated[
         str | None,

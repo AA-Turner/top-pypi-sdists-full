@@ -83,6 +83,7 @@ class GenerateConfig(BaseModel):
     snake_case_field: bool = False
     strip_default_none: bool = False
     aliases: Mapping[str, str | list[str]] | None = None
+    serialization_aliases: Mapping[str, str] | None = None
     disable_timestamp: bool = False
     enable_version_header: bool = False
     enable_command_header: bool = False
@@ -132,6 +133,7 @@ class GenerateConfig(BaseModel):
     openapi_scopes: list[OpenAPIScope] | None = None
     include_path_parameters: bool = False
     openapi_include_paths: list[str] | None = None
+    openapi_include_info_version: bool = False
     graphql_scopes: list[GraphQLScope] | None = None
     graphql_no_typename: bool = False
     wrap_string_literal: bool | None = None
@@ -170,6 +172,7 @@ class GenerateConfig(BaseModel):
     custom_formatters_kwargs: dict[str, Any] | None = None
     use_pendulum: bool = False
     use_standard_primitive_types: bool = False
+    use_object_type: bool = False
     http_query_parameters: Sequence[tuple[str, str]] | None = None
     treat_dot_as_module: bool | None = None
     use_exact_imports: bool = False
@@ -227,6 +230,7 @@ class ParserConfig(BaseModel):
     snake_case_field: bool = False
     strip_default_none: bool = False
     aliases: Mapping[str, str | list[str]] | None = None
+    serialization_aliases: Mapping[str, str] | None = None
     allow_population_by_field_name: bool = False
     apply_default_values_for_required_fields: bool = False
     allow_extra_fields: bool = False
@@ -306,6 +310,7 @@ class ParserConfig(BaseModel):
     custom_formatters_kwargs: dict[str, Any] | None = None
     use_pendulum: bool = False
     use_standard_primitive_types: bool = False
+    use_object_type: bool = False
     http_query_parameters: Sequence[tuple[str, str]] | None = None
     treat_dot_as_module: bool | None = None
     use_exact_imports: bool = False
@@ -356,6 +361,7 @@ class OpenAPIParserConfig(JSONSchemaParserConfig):
     include_path_parameters: bool = False
     use_status_code_in_response_name: bool = False
     openapi_include_paths: list[str] | None = None
+    openapi_include_info_version: bool = False
     openapi_version: OpenAPIVersion | None = None
 
 

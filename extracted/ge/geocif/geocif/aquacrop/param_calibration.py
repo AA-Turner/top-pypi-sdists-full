@@ -39,10 +39,44 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from . import grid_simulator as _grid
 from .grid_simulator import CellTask
 from .param_spec import AquaCropParamSpec
 
 logger = logging.getLogger(__name__)
+
+
+# Module-level registry for the active per-country multiprocessing Pool +
+# the static run_grid args. PyGMO deepcopies the problem when constructing
+# the initial population (and may do so again during evolve()); storing
+# Pool / callables on the problem instance triggers
+# `NotImplementedError: pool objects cannot be passed between processes or
+# pickled`. Globals sidestep that — the problem only holds picklable data.
+# Lifecycle is controlled by ``set_active_run_context`` / ``clear_active_run_context``.
+_ACTIVE_POOL = None
+_ACTIVE_CONFIG_FILES: list[str] = []
+_ACTIVE_COUNTRY: str = ""
+_ACTIVE_COUNTRY_BOUNDS = None
+
+
+def set_active_run_context(pool, config_files: list[str], country: str, country_bounds):
+    """Stash the per-country Pool + run_grid args at module level so
+    AquaCropPygmoProblem.fitness can use them without storing them on
+    `self` (and thus tripping PyGMO's deepcopy on Pool)."""
+    global _ACTIVE_POOL, _ACTIVE_CONFIG_FILES, _ACTIVE_COUNTRY, _ACTIVE_COUNTRY_BOUNDS
+    _ACTIVE_POOL = pool
+    _ACTIVE_CONFIG_FILES = list(config_files)
+    _ACTIVE_COUNTRY = country
+    _ACTIVE_COUNTRY_BOUNDS = country_bounds
+
+
+def clear_active_run_context():
+    """Release the Pool reference at module level after calibration finishes."""
+    global _ACTIVE_POOL, _ACTIVE_CONFIG_FILES, _ACTIVE_COUNTRY, _ACTIVE_COUNTRY_BOUNDS
+    _ACTIVE_POOL = None
+    _ACTIVE_CONFIG_FILES = []
+    _ACTIVE_COUNTRY = ""
+    _ACTIVE_COUNTRY_BOUNDS = None
 
 
 # ----------------------------------------------------------------------
@@ -138,12 +172,14 @@ class AquaCropPygmoProblem:
             overwritten per fitness eval.
         observed: pd.DataFrame indexed by (admin_id, year) with column
             'observed_yield' (tn/ha). The MAE is computed against this.
-        run_grid_fn: callable(tasks, pool=...) → iterable of CellResult.
-            Injected so we can use the existing ``grid_simulator.run_grid``
-            with the per-country Pool the caller already holds.
-        pool: optional multiprocessing.Pool. Forwarded to run_grid_fn.
         cell_to_admin: dict[(row, col) -> admin_id]. Used to aggregate
             per-cell yields into per-(admin, year) means.
+
+    All four are picklable — PyGMO deepcopies this object during
+    population construction. The Pool + run_grid invocation args live in
+    module-level globals (set via ``set_active_run_context``) so they
+    don't trip ``NotImplementedError: pool objects cannot be passed
+    between processes or pickled``.
 
     The PyGMO contract requires:
       - fitness(x) returns a list/tuple of objectives (we return [scalar])
@@ -156,8 +192,6 @@ class AquaCropPygmoProblem:
         specs: list[AquaCropParamSpec],
         base_tasks_by_year: dict[int, list[CellTask]],
         observed: pd.DataFrame,
-        run_grid_fn,
-        pool=None,
         cell_to_admin: Optional[dict] = None,
     ):
         if not specs:
@@ -165,8 +199,6 @@ class AquaCropPygmoProblem:
         self.specs = specs
         self.base_tasks_by_year = base_tasks_by_year
         self.observed = observed
-        self.run_grid_fn = run_grid_fn
-        self.pool = pool
         self.cell_to_admin = cell_to_admin or {}
 
         # Split point indices so we can slice x back across specs.
@@ -189,14 +221,38 @@ class AquaCropPygmoProblem:
         for spec, vals in zip(self.specs, split):
             spec.edit(vals)
 
+        # Per-eval log so the user can correlate progress bar position
+        # with PSO state (which individual is being evaluated, what
+        # parameter values are being tested).
+        _overrides_preview = ", ".join(
+            f"{p}={v:.3f}"
+            for spec in self.specs
+            for p, v in (spec.overrides_dict() or {}).items()
+        )
+        logger.info(
+            f"PSO fitness eval #{self._eval_count + 1}: {_overrides_preview}"
+        )
+
         # For each training year, replace crop_param_overrides on every
         # task with the current spec's overrides. Assumes single-crop
         # calibration for Tier 1; multi-crop would need a per-task lookup
         # by crop_aquacrop_name.
         overrides_by_crop = {s.crop_name: s.overrides_dict() for s in self.specs}
 
+        # Defer geocif progress import so this module stays importable
+        # without geocif installed.
+        try:
+            from geocif.progress import pbar as _pbar
+        except ImportError:
+            from tqdm import tqdm as _pbar
+
         sims: list[tuple[int, int, int, float]] = []  # (year, row, col, yield)
-        for year, base_tasks in self.base_tasks_by_year.items():
+        years_items = list(self.base_tasks_by_year.items())
+        for year, base_tasks in _pbar(
+            years_items,
+            desc=f"eval#{self._eval_count + 1} years",
+            leave=False,
+        ):
             tasks = [
                 replace(
                     t,
@@ -204,7 +260,17 @@ class AquaCropPygmoProblem:
                 )
                 for t in base_tasks
             ]
-            for res in self.run_grid_fn(tasks, pool=self.pool):
+            # Read the active Pool + run_grid args from module-level
+            # globals (set once per calibration via set_active_run_context).
+            # Not stored on `self` to keep the problem picklable for PyGMO.
+            for res in _grid.run_grid(
+                tasks,
+                _ACTIVE_CONFIG_FILES,
+                _ACTIVE_COUNTRY,
+                country_bounds=_ACTIVE_COUNTRY_BOUNDS,
+                pool=_ACTIVE_POOL,
+                progress_desc=f"eval#{self._eval_count + 1} y{year}",
+            ):
                 if res.success and np.isfinite(res.yield_tha):
                     sims.append((year, res.row, res.col, res.yield_tha))
 
@@ -413,11 +479,22 @@ class AquaCropCalibrator:
 # ----------------------------------------------------------------------
 
 def fitted_params_path(dir_output: Path, country: str, crop: str) -> Path:
-    """Canonical JSON path for one (country, crop) calibration result."""
+    """Canonical JSON path for one (country, crop) calibration result.
+
+    Layout: ``${dir_output}/aquacrop/calibrated_params/{country}_{crop}.json``
+
+    Note: the caller passes ``dir_output / project_name`` already (see
+    ``aquacrop_runner._maybe_calibrate_params``), so this function must
+    NOT also add a hard-coded "geocif" segment. Pre-0.4.674 it did,
+    producing the duplicate-segment path
+    ``outputs/geocif/geocif/aquacrop/calibrated_params/...``. Existing
+    runs that wrote JSONs at that path need a one-time `mv` to the
+    correct location to be picked up by the cache.
+    """
     country_slug = country.lower().replace(" ", "_")
     crop_slug = crop.lower().replace(" ", "_")
     return (
-        Path(dir_output) / "geocif" / "aquacrop" / "calibrated_params"
+        Path(dir_output) / "aquacrop" / "calibrated_params"
         / f"{country_slug}_{crop_slug}.json"
     )
 

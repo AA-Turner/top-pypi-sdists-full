@@ -1,6 +1,6 @@
 // based on https://github.com/rust-lang/rust-analyzer/blob/d8887c0758bbd2d5f752d5bd405d4491e90e7ed6/crates/parser/src/lexed_str.rs
 
-use std::ops;
+use std::{num::IntErrorKind, ops};
 
 use squawk_lexer::tokenize;
 
@@ -15,7 +15,7 @@ pub struct LexedStr<'a> {
 
 struct LexError {
     msg: String,
-    token: u32,
+    range: ops::Range<u32>,
 }
 
 impl<'a> LexedStr<'a> {
@@ -105,10 +105,8 @@ impl<'a> LexedStr<'a> {
     //     Some(self.error[err].msg.as_str())
     // }
 
-    pub fn errors(&self) -> impl Iterator<Item = (usize, &str)> + '_ {
-        self.error
-            .iter()
-            .map(|it| (it.token as usize, it.msg.as_str()))
+    pub fn errors(&self) -> impl Iterator<Item = (&ops::Range<u32>, &str)> + '_ {
+        self.error.iter().map(|it| (&it.range, it.msg.as_str()))
     }
 
     fn push(&mut self, kind: SyntaxKind, offset: usize) {
@@ -120,6 +118,18 @@ impl<'a> LexedStr<'a> {
 struct Converter<'a> {
     res: LexedStr<'a>,
     offset: usize,
+}
+
+fn is_empty_quoted_ident(token_text: &str) -> bool {
+    let inner = if let Some(stripped) = token_text
+        .strip_prefix(['u', 'U'])
+        .and_then(|s| s.strip_prefix('&'))
+    {
+        stripped
+    } else {
+        token_text
+    };
+    inner == "\"\""
 }
 
 impl<'a> Converter<'a> {
@@ -140,14 +150,16 @@ impl<'a> Converter<'a> {
         self.res
     }
 
-    fn push(&mut self, kind: SyntaxKind, len: usize, err: Option<&str>) {
+    fn push(&mut self, kind: SyntaxKind, len: usize, err: Option<(&str, ops::Range<u32>)>) {
+        let token_start = self.offset as u32;
         self.res.push(kind, self.offset);
         self.offset += len;
 
-        if let Some(err) = err {
-            let token = self.res.len() as u32;
-            let msg = err.to_owned();
-            self.res.error.push(LexError { msg, token });
+        if let Some((msg, err_range)) = err {
+            self.res.error.push(LexError {
+                msg: msg.to_owned(),
+                range: token_start + err_range.start..token_start + err_range.end,
+            });
         }
     }
 
@@ -157,6 +169,7 @@ impl<'a> Converter<'a> {
         // Storing that info in `SyntaxKind` is not possible due to its layout requirements of
         // being `u16` that come from `rowan::SyntaxKind`.
         let mut err = "";
+        let mut err_range: Option<ops::Range<u32>> = None;
 
         let syntax_kind = {
             match kind {
@@ -209,10 +222,30 @@ impl<'a> Converter<'a> {
                 }
                 squawk_lexer::TokenKind::Eof => SyntaxKind::EOF,
                 squawk_lexer::TokenKind::Backtick => SyntaxKind::BACKTICK,
-                squawk_lexer::TokenKind::PositionalParam => SyntaxKind::POSITIONAL_PARAM,
+                squawk_lexer::TokenKind::PositionalParam {
+                    trailing_junk_start,
+                } => {
+                    let digits = &token_text[1..*trailing_junk_start as usize];
+                    if digits.is_empty() {
+                        err = "missing parameter number";
+                        err_range = Some(0..1);
+                    } else if digits
+                        .parse::<i32>()
+                        .is_err_and(|err| matches!(err.kind(), IntErrorKind::PosOverflow))
+                    {
+                        err = "parameter number too large";
+                        err_range = Some(0..*trailing_junk_start);
+                    } else if (*trailing_junk_start as usize) < token_text.len() {
+                        err = "trailing junk after positional parameter";
+                        err_range = Some(*trailing_junk_start..token_text.len() as u32);
+                    }
+                    SyntaxKind::POSITIONAL_PARAM
+                }
                 squawk_lexer::TokenKind::QuotedIdent { terminated } => {
                     if !terminated {
                         err = "Missing trailing \" to terminate the quoted identifier"
+                    } else if is_empty_quoted_ident(token_text) {
+                        err = "empty delimited identifier";
                     }
                     SyntaxKind::IDENT
                 }
@@ -220,27 +253,59 @@ impl<'a> Converter<'a> {
         };
 
         let err = if err.is_empty() { None } else { Some(err) };
+        let err = err.map(|msg| (msg, err_range.unwrap_or(0..token_text.len() as u32)));
         self.push(syntax_kind, token_text.len(), err);
     }
 
     fn extend_literal(&mut self, token_text: &str, kind: &squawk_lexer::LiteralKind) {
         let mut err: Option<String> = None;
+        let mut err_range: Option<ops::Range<u32>> = None;
 
         let syntax_kind = match *kind {
-            squawk_lexer::LiteralKind::Int { empty_int, base: _ } => {
+            squawk_lexer::LiteralKind::Int {
+                empty_int,
+                base,
+                trailing_junk_start,
+            } => {
                 if empty_int {
                     err = Some("Missing digits after the integer base prefix".into());
+                } else {
+                    if matches!(base, squawk_lexer::Base::Binary | squawk_lexer::Base::Octal) {
+                        let prefix_len = 2u32;
+                        let digits = &token_text[prefix_len as usize..trailing_junk_start as usize];
+                        let base = base as u32;
+                        let token_start = self.offset as u32;
+                        for (i, c) in digits.char_indices() {
+                            if c != '_' && c.to_digit(base).is_none() {
+                                let start = token_start + prefix_len + i as u32;
+                                let end = start + c.len_utf8() as u32;
+                                self.res.error.push(LexError {
+                                    msg: format!("invalid digit for a base {base} literal"),
+                                    range: start..end,
+                                });
+                            }
+                        }
+                    }
+                    if (trailing_junk_start as usize) < token_text.len() {
+                        err = Some("trailing junk after numeric literal".into());
+                        err_range = Some(trailing_junk_start..token_text.len() as u32);
+                    }
                 }
                 SyntaxKind::INT_NUMBER
             }
-            squawk_lexer::LiteralKind::Float {
-                empty_exponent,
+            squawk_lexer::LiteralKind::Numeric {
+                empty_exponent_start,
                 base: _,
+                trailing_junk_start,
             } => {
-                if empty_exponent {
+                if let Some(exponent_start) = empty_exponent_start {
                     err = Some("Missing digits after the exponent symbol".into());
+                    err_range = Some(exponent_start..exponent_start + 1);
+                } else if (trailing_junk_start as usize) < token_text.len() {
+                    err = Some("trailing junk after numeric literal".into());
+                    err_range = Some(trailing_junk_start..token_text.len() as u32);
                 }
-                SyntaxKind::FLOAT_NUMBER
+                SyntaxKind::NUMERIC_NUMBER
             }
             squawk_lexer::LiteralKind::Str { terminated } => {
                 if !terminated {
@@ -296,7 +361,10 @@ impl<'a> Converter<'a> {
             }
         };
 
-        self.push(syntax_kind, token_text.len(), err.as_deref());
+        let err = err
+            .as_deref()
+            .map(|msg| (msg, err_range.unwrap_or(0..token_text.len() as u32)));
+        self.push(syntax_kind, token_text.len(), err);
     }
 }
 
@@ -312,11 +380,12 @@ mod tests {
         let renderer = Renderer::plain().decor_style(DecorStyle::Unicode);
         let mut res = String::new();
 
-        for (token, msg) in lexed.errors() {
+        for (range, msg) in lexed.errors() {
+            let span = range.start as usize..range.end as usize;
             let group = Level::ERROR.primary_title(msg).element(
                 Snippet::source(text)
                     .fold(true)
-                    .annotation(AnnotationKind::Primary.span(lexed.text_range(token))),
+                    .annotation(AnnotationKind::Primary.span(span)),
             );
             res.push_str(&renderer.render(&[group]).to_string());
             res.push('\n');
@@ -336,12 +405,76 @@ mod tests {
     }
 
     #[test]
+    fn empty_int_with_trailing_ident_error() {
+        assert_snapshot!(lex("select 0xg;"), @"
+        error: trailing junk after numeric literal
+          ╭▸ 
+        1 │ select 0xg;
+          ╰╴         ━
+        ");
+    }
+
+    #[test]
+    fn invalid_octal_digits_error() {
+        assert_snapshot!(lex("select 0o999;"), @"
+        error: invalid digit for a base 8 literal
+          ╭▸ 
+        1 │ select 0o999;
+          ╰╴         ━
+        error: invalid digit for a base 8 literal
+          ╭▸ 
+        1 │ select 0o999;
+          ╰╴          ━
+        error: invalid digit for a base 8 literal
+          ╭▸ 
+        1 │ select 0o999;
+          ╰╴           ━
+        ");
+    }
+
+    #[test]
+    fn invalid_binary_digits_error() {
+        assert_snapshot!(lex("select 0b234;"), @"
+        error: invalid digit for a base 2 literal
+          ╭▸ 
+        1 │ select 0b234;
+          ╰╴         ━
+        error: invalid digit for a base 2 literal
+          ╭▸ 
+        1 │ select 0b234;
+          ╰╴          ━
+        error: invalid digit for a base 2 literal
+          ╭▸ 
+        1 │ select 0b234;
+          ╰╴           ━
+        ");
+    }
+
+    #[test]
+    fn invalid_octal_digits_after_valid_error() {
+        assert_snapshot!(lex("select 0o7889;"), @"
+        error: invalid digit for a base 8 literal
+          ╭▸ 
+        1 │ select 0o7889;
+          ╰╴          ━
+        error: invalid digit for a base 8 literal
+          ╭▸ 
+        1 │ select 0o7889;
+          ╰╴           ━
+        error: invalid digit for a base 8 literal
+          ╭▸ 
+        1 │ select 0o7889;
+          ╰╴            ━
+        ");
+    }
+
+    #[test]
     fn empty_exponent_error() {
         assert_snapshot!(lex("select 1e;"), @"
         error: Missing digits after the exponent symbol
           ╭▸ 
         1 │ select 1e;
-          ╰╴       ━━
+          ╰╴        ━
         ");
     }
 

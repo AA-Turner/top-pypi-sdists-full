@@ -1,11 +1,11 @@
 [project]
 name = "bluetooth-adapters"
-version = "2.1.1"
+version = "2.2.0"
 license = "Apache-2.0"
 description = "Tools to enumerate and find Bluetooth Adapters"
 authors = [{ name = "J. Nick Koston", email = "nick@koston.org" }]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dynamic = ["classifiers", "dependencies", "optional-dependencies"]
 
 [project.urls]
@@ -13,6 +13,7 @@ dynamic = ["classifiers", "dependencies", "optional-dependencies"]
 "Repository" = "https://github.com/bluetooth-devices/bluetooth-adapters"
 "Bug Tracker" = "https://github.com/bluetooth-devices/bluetooth-adapters/issues"
 "Changelog" = "https://github.com/bluetooth-devices/bluetooth-adapters/blob/main/CHANGELOG.md"
+
 
 [tool.poetry]
 classifiers = [
@@ -27,7 +28,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.14"
+python = ">=3.10,<3.14"
 
 # Documentation Dependencies
 Sphinx = {version = ">=5,<8", optional = true}
@@ -50,7 +51,7 @@ docs = [
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4"
 pytest-cov = "^6.3"
-pytest-asyncio = "^1.1.0"
+pytest-asyncio = "^1.2.0"
 
 [tool.semantic_release]
 branch = "main"
@@ -106,7 +107,8 @@ module = "docs.*"
 ignore_errors = true
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
+
 
 [build-system]
 requires = ["poetry-core>=2.0.0"]

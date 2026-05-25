@@ -639,6 +639,22 @@ class SearchReplace(
             read_state,
         )
 
+        # Auto-rename path: intercept performed the rename atomically — return
+        # success immediately so the model knows it's done and doesn't retry.
+        if (
+            not block_result.errors
+            and block_result.warnings
+            and block_result.warnings[0].startswith("APPLIED:")
+        ):
+            yield SearchReplaceResult(
+                file=str(file_path),
+                blocks_applied=block_result.applied,
+                lines_changed=-1,  # unknown — rename touched N files
+                warnings=[],
+                content=block_result.warnings[0],
+            )
+            return
+
         if block_result.errors:
             error_message = "SEARCH/REPLACE blocks failed:\n" + "\n\n".join(
                 block_result.errors
@@ -647,6 +663,29 @@ class SearchReplace(
                 error_message += "\n\nWarnings encountered:\n" + "\n".join(
                     block_result.warnings
                 )
+
+            # Multi-file rename REFUSED loop-breaker: if the model keeps
+            # retrying a search_replace that was REFUSED due to multi-file
+            # identifier rename detection, escalate to HARD-STOP on the 3rd
+            # consecutive REFUSED on the same file.  This makes the agent_loop
+            # HARD-STOP detector (344b6a1) mute search_replace for 1 turn so
+            # the model is forced to use mechanical_rename or write_file.
+            if block_result.errors and block_result.errors[0].startswith("REFUSED:"):
+                refused_state = self.state.__dict__.setdefault("_sr_refused_history", {})
+                refused_key = str(file_path)
+                refused_entry = refused_state.get(refused_key, {"count": 0})
+                refused_entry["count"] += 1
+                refused_state[refused_key] = refused_entry
+                if refused_entry["count"] >= 3:
+                    error_message += (
+                        f"\n\n[HARD-STOP: #{refused_entry['count']} consecutive "
+                        f"REFUSED on {file_path.name}. DO NOT retry search_replace "
+                        f"on this file. Use `mechanical_rename` with explicit "
+                        f"old_name and new_name instead.]"
+                    )
+            else:
+                refused_state = self.state.__dict__.setdefault("_sr_refused_history", {})
+                refused_state.pop(str(file_path), None)  # reset on non-REFUSED failure
 
             # Mechanical loop-breaker: if search_replace has failed with
             # "Search text not found" on the SAME file 2+ times in a row,
@@ -828,12 +867,78 @@ class SearchReplace(
                         import ast as _ast
                         _ast.parse(modified_content)
                     except SyntaxError as e:
+                        mod_lines_full = modified_content.splitlines()
                         snippet = "\n".join(
-                            modified_content.splitlines()[
+                            mod_lines_full[
                                 max(0, (e.lineno or 1) - 3):
                                 ((e.lineno or 1) + 2)
                             ]
                         )
+                        # 2026-05-24: indent-mismatch errors are the
+                        # most common Gemma 4 failure on search_replace
+                        # — the model writes the right code but at the
+                        # wrong indent level (drops a parent with/try
+                        # scope, or mixes tabs+spaces). Compute the
+                        # actual indent of the broken line vs the
+                        # nearest preceding non-blank line so the model
+                        # sees the numeric difference directly.
+                        indent_hint = ""
+                        if e.msg and (
+                            "indent" in e.msg.lower()
+                            or "dedent" in e.msg.lower()
+                        ):
+                            try:
+                                bad_idx = (e.lineno or 1) - 1
+                                if 0 <= bad_idx < len(mod_lines_full):
+                                    bad_line = mod_lines_full[bad_idx]
+                                    bad_lead = (
+                                        len(bad_line)
+                                        - len(bad_line.lstrip(" \t"))
+                                    )
+                                    bad_tabs = "\t" in bad_line[:bad_lead]
+                                    prev_lead, prev_tabs = None, None
+                                    for i in range(
+                                        bad_idx - 1,
+                                        max(-1, bad_idx - 8), -1,
+                                    ):
+                                        ln = mod_lines_full[i]
+                                        if ln.strip():
+                                            prev_lead = (
+                                                len(ln)
+                                                - len(ln.lstrip(" \t"))
+                                            )
+                                            prev_tabs = "\t" in ln[:prev_lead]
+                                            break
+                                    if (prev_lead is not None
+                                            and prev_lead != bad_lead):
+                                        if bad_tabs != prev_tabs:
+                                            indent_hint = (
+                                                f"\n\nINDENT MISMATCH: "
+                                                f"line {e.lineno} uses "
+                                                f"{'tabs' if bad_tabs else 'spaces'} "
+                                                f"({bad_lead} char(s)); "
+                                                f"previous non-blank line "
+                                                f"uses "
+                                                f"{'tabs' if prev_tabs else 'spaces'} "
+                                                f"({prev_lead} char(s)). "
+                                                f"Match the file's existing "
+                                                f"indent style."
+                                            )
+                                        else:
+                                            indent_hint = (
+                                                f"\n\nINDENT MISMATCH: "
+                                                f"line {e.lineno} has "
+                                                f"{bad_lead}-char indent; "
+                                                f"previous non-blank line "
+                                                f"has {prev_lead}-char "
+                                                f"indent. Your REPLACE "
+                                                f"block likely dropped a "
+                                                f"parent scope (with/try/"
+                                                f"if/def) or was written "
+                                                f"at the wrong level."
+                                            )
+                            except Exception:
+                                pass
                         # Truncation heuristic: if every REPLACE block's
                         # last non-blank line looks incomplete (ends
                         # mid-statement: trailing `.`, `(`, `=`, `,`, or
@@ -884,13 +989,15 @@ class SearchReplace(
                                 f"REPLACE block, missing colon/paren, "
                                 f"unbalanced brackets, indentation drift. "
                                 f"File NOT modified.\n\nContext around the "
-                                f"broken line:\n{snippet}{truncation_hint}"
+                                f"broken line:\n{snippet}"
+                                f"{indent_hint}{truncation_hint}"
                             ],
                             content=(
                                 f"{file_path.name}: edit REJECTED "
                                 f"(would break syntax at line {e.lineno}: "
                                 f"{e.msg}). File NOT modified. "
                                 + (truncation_hint.strip() if truncation_hint
+                                   else indent_hint.strip() if indent_hint
                                    else "Re-read the file, fix the REPLACE "
                                    "block's indentation/syntax, and retry.")
                             ),
@@ -1178,7 +1285,7 @@ class SearchReplace(
         """
         import os as _os
         if _os.environ.get(
-            "DRYDOCK_MULTIFILE_INTERCEPT", "0"
+            "DRYDOCK_MULTIFILE_INTERCEPT", "1"
         ).strip().lower() not in ("1", "true", "yes"):
             return None
 
@@ -1215,6 +1322,11 @@ class SearchReplace(
             "if", "else", "elif", "for", "while", "try", "except",
             "import", "from", "as", "def", "class", "return", "in", "is",
             "lambda", "with", "yield", "pass", "break", "continue",
+            # missing Python keywords that triggered false-positive multi-file
+            # rename detection (e.g. model removes `raise` statements, `raise`
+            # was not in noise list so was treated as a user identifier)
+            "raise", "del", "global", "nonlocal", "assert", "async", "await",
+            "finally", "except", "match", "case",
             "int", "str", "float", "bool", "list", "dict", "set", "tuple",
             "len", "range", "print", "open", "type", "isinstance",
             "Path", "json", "os", "re", "sys",
@@ -1258,42 +1370,66 @@ class SearchReplace(
         if best_count < 2:
             return None  # the removed token isn't in 2+ other files — proceed
 
-        # Build the suggestion. If there's exactly one added token,
-        # propose old→new explicitly.
+        # If exactly one new token, we can auto-apply the rename across the
+        # package rather than refusing and hoping the model switches tools.
+        # Prefix "APPLIED:" so the caller returns success instead of error.
         added_candidates = {
             t for t in only_in_replace
             if len(t) >= 4 and t not in _NOISE_TOKENS
         }
-        suggestion = ""
         if len(added_candidates) == 1:
             new_name = next(iter(added_candidates))
-            rel_root = pkg_root.name
-            suggestion = (
-                f"\n\nSuggested call (the rename appears to be "
-                f"`{best_token}` → `{new_name}`):\n"
-                f"  mechanical_rename(\n"
-                f"      old_name=\"{best_token}\",\n"
-                f"      new_name=\"{new_name}\",\n"
-                f"      scope=\"{rel_root}/\",\n"
-                f"      kind=\"field\",  # or function/class — pick based on what {best_token} is\n"
-                f"  )"
-            )
+            word_pat = _re.compile(rf"\b{_re.escape(best_token)}\b")
+            files_changed: list[str] = []
+            for fp in pkg_root.rglob("*.py"):
+                parts = set(fp.parts)
+                if parts & {"__pycache__", ".git", ".venv", "venv"}:
+                    continue
+                try:
+                    old_text = fp.read_text(errors="replace")
+                    new_text = word_pat.sub(new_name, old_text)
+                    if new_text != old_text:
+                        fp.write_text(new_text)
+                        files_changed.append(str(fp.relative_to(pkg_root.parent)))
+                except OSError:
+                    continue
+            if files_changed:
+                return (
+                    f"APPLIED: auto-renamed `{best_token}` → `{new_name}` "
+                    f"across {len(files_changed)} file(s): "
+                    f"{', '.join(files_changed[:8])}"
+                    + (f" (+{len(files_changed)-8} more)" if len(files_changed) > 8 else "")
+                    + ". Run pytest to verify."
+                )
 
         other_files_summary = ", ".join(
             str(fp.relative_to(pkg_root.parent)) for fp in best_files[:5]
         )
         more = f" (+{best_count-5} more)" if best_count > 5 else ""
-
+        added_hint = (
+            f" (rename target is ambiguous — multiple new tokens: "
+            f"{', '.join(sorted(added_candidates)[:4])})"
+            if len(added_candidates) != 1 else ""
+        )
+        # Embed first 20 lines of the target file so the model has context
+        # and stops retrying the same REFUSED search_replace.
+        try:
+            file_lines = filepath.read_text(errors="replace").splitlines()
+            head_lines = file_lines[:20]
+            file_head = "\n".join(
+                f"{i+1}: {l}" for i, l in enumerate(head_lines)
+            )
+            file_hint = f"\n\nCurrent {filepath.name} (first 20 lines):\n{file_head}"
+        except OSError:
+            file_hint = ""
         return (
             f"REFUSED: this search_replace removes the identifier "
             f"`{best_token}`, which appears in {best_count+1} files across "
             f"the `{pkg_root.name}` package ({filepath.name}, "
-            f"{other_files_summary}{more}). That's a multi-file identifier "
-            f"rename — search_replace will fix only ONE file at a time, "
-            f"and the model historically loses track after 3-4 files. "
-            f"Use `mechanical_rename` instead — it applies the rename "
-            f"atomically across the package, runs pytest, and rolls back "
-            f"if the suite goes red.{suggestion}"
+            f"{other_files_summary}{more}).{added_hint} That's a multi-file "
+            f"identifier rename — use `mechanical_rename` with explicit "
+            f"old_name and new_name so the rename is unambiguous."
+            f"{file_hint}"
         )
 
     @staticmethod
@@ -1319,6 +1455,15 @@ class SearchReplace(
                 search, replace, filepath,
             )
             if redirect:
+                if redirect.startswith("APPLIED:"):
+                    # Auto-rename succeeded — return as a warning (not error)
+                    # so the model knows it's done and doesn't retry.
+                    return BlockApplyResult(
+                        content=content,
+                        applied=len(blocks),
+                        errors=[],
+                        warnings=[redirect],
+                    )
                 return BlockApplyResult(
                     content=content,
                     applied=0,

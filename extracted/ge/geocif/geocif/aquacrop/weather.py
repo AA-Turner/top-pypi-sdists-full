@@ -11,9 +11,13 @@ Existing geoprepare outputs we consume:
         Solar Radiation Flux in J m-2 day-1.
         process_agERA5 reprojects but DOES NOT unit-convert.
 
-    ${dir_intermed}/chirps/global/{year}/chirps-v3.0.{disagg}.{Y}.{M}.{D}.tif
+    ${dir_intermed}/chirps/{version}/global/{year}/chirps_{version_str}_{year}{doy:03d}_global.tif
         int32 at 0.05°, global. Native: mm × 100 (divide by 100 → mm).
         Nodata = -2147483648 (geobase [CHIRPS] fill_value).
+        version ∈ {v2, v3}; version_str ∈ {v2.0, v3.0}. Read from
+        [CHIRPS] version in geobase.txt. Matches the canonical name
+        process_to_global writes — disagg suffix is collapsed at that
+        stage, so this consumer doesn't need to know about it.
 
 We expose:
     WeatherReader(parser, country, country_bounds)
@@ -124,15 +128,30 @@ def _agera5_path(intermed_dir: Path, country: str, var: str, d: _date) -> Path:
     )
 
 
-def _chirps_path(intermed_dir: Path, d: _date, disagg: str = "sat") -> Path:
-    """CHIRPS v3 TIF path.
+def _chirps_path(intermed_dir: Path, version: str, d: _date) -> Path:
+    """CHIRPS daily TIF path.
 
-    Follows the CHIRPS.py output convention:
-        ${dir_intermed}/chirps/global/{year}/chirps-v3.0.{disagg}.{Y}.{M}.{D}.tif
+    Matches the output convention of geoprepare CHIRPS.process_to_global
+    (CHIRPS.py:_process_to_global, ~line 405):
+        ${dir_intermed}/chirps/{version}/global/{year}/chirps_{version_str}_{year}{doy:03d}_global.tif
+
+    Args:
+        intermed_dir: Root intermed dir from [PATHS] dir_intermed.
+        version: 'v2' or 'v3' — from [CHIRPS] version in geobase.txt.
+            Determines BOTH the directory segment and the filename's
+            version string (v2→'v2.0', v3→'v3.0').
+        d: Date of the daily TIF to locate.
+
+    (Earlier versions of this helper constructed the *source server*
+    filename `chirps-v3.0.{disagg}.{Y}.{M}.{D}.tif` and omitted the
+    version subdirectory — both wrong vs the on-disk layout
+    process_to_global writes.)
     """
+    version_str = "v2.0" if version == "v2" else "v3.0"
+    doy = d.timetuple().tm_yday
     return (
-        intermed_dir / "chirps" / "global" / str(d.year)
-        / f"chirps-v3.0.{disagg}.{d.year}.{d.month:02d}.{d.day:02d}.tif"
+        intermed_dir / "chirps" / version / "global" / str(d.year)
+        / f"chirps_{version_str}_{d.year}{doy:03d}_global.tif"
     )
 
 
@@ -266,6 +285,11 @@ class WeatherReader:
         self.parser = parser
         self.country = country
         self.dir_intermed = Path(parser.get("PATHS", "dir_intermed"))
+        self.chirps_version = parser.get("CHIRPS", "version", fallback="v3")
+        # chirps_disagg is no longer used by _chirps_path (process_to_global
+        # collapses all disaggregations into the canonical
+        # chirps_{version_str}_{year}{doy}_global.tif) but kept here for
+        # potential downstream consumers.
         self.chirps_disagg = parser.get("CHIRPS", "disagg", fallback="sat")
         self.eto_method = parser.get(
             "AQUACROP", "eto_method", fallback="penman_monteith",
@@ -274,9 +298,14 @@ class WeatherReader:
         self.country_bounds = country_bounds
         # Cube cache: (var, year) → (data_3d, transform, dates_list)
         self._cube_cache: dict[tuple[str, int], tuple] = {}
-        # Cap so a long-running worker doesn't grow unbounded.
-        # 8 entries × 4 vars × 365 days × ~3MB ≈ ~96 MB worst-case.
-        self._cube_cache_max = 8
+        # Cap so a long-running worker doesn't grow unbounded. Sized for
+        # PSO calibration: 14 training years × 4 vars (Tmax/Tmin/Solar/
+        # CHIRPS) = 56 entries. Cap=64 holds the full set with headroom.
+        # Memory: 64 entries × ~3 MB/cube ≈ ~200 MB per worker (≈ 7 GB
+        # across 38 workers). Configurable via [AQUACROP] weather_cube_cache_max.
+        self._cube_cache_max = parser.getint(
+            "AQUACROP", "weather_cube_cache_max", fallback=64,
+        )
 
     def close(self) -> None:
         self.cache.close_all()
@@ -294,9 +323,25 @@ class WeatherReader:
             self._cube_cache[key] = val
             return val
 
+        # Workers fire this on first touch of each (var, year). The
+        # cold-cache TIF reads dominate the "stuck at 0/154" PSO
+        # symptom — make the wait visible so users can tell warmup from
+        # a hang. One log line per cube per worker per cold load; once
+        # the entry is in self._cube_cache, subsequent calls hit the
+        # LRU fast path above.
+        import time as _time
+        _t_start = _time.perf_counter()
+
         dates = pd.date_range(_date(year, 1, 1), _date(year, 12, 31), freq="D")
+        logger.info(
+            f"Loading cube {var}/{year} ({len(dates)} TIFs) into worker cache..."
+        )
         first_path = path_fn(dates[0].date())
         if not first_path.is_file():
+            logger.warning(
+                f"Cube load aborted: first TIF missing for {var}/{year} "
+                f"({first_path})"
+            )
             return None
         try:
             with rasterio.open(first_path) as src0:
@@ -322,6 +367,7 @@ class WeatherReader:
             logger.warning(f"Cube load failed for {var}/{year}: {exc}")
             return None
 
+        n_loaded = 1  # first_arr already in cube[0]
         for i, ts in enumerate(dates[1:], start=1):
             p = path_fn(ts.date())
             if not p.is_file():
@@ -334,8 +380,16 @@ class WeatherReader:
                     if arr.shape != (h, w):
                         continue  # mismatched grid — skip rather than crash
                     cube[i] = arr
+                    n_loaded += 1
             except (rasterio.RasterioIOError, OSError):
                 continue
+
+        _t_elapsed = _time.perf_counter() - _t_start
+        logger.info(
+            f"Cube {var}/{year} loaded: {n_loaded}/{len(dates)} TIFs "
+            f"in {_t_elapsed:.1f}s (cache now holds "
+            f"{len(self._cube_cache) + 1}/{self._cube_cache_max})"
+        )
 
         # Cache + bounded eviction
         self._cube_cache[key] = (cube, transform, list(dates))
@@ -386,7 +440,8 @@ class WeatherReader:
             return lambda d, var_=var_: _agera5_path(intermed, country, var_, d)
 
         def _path_chirps():
-            return lambda d: _chirps_path(intermed, d, self.chirps_disagg)
+            version = self.chirps_version
+            return lambda d, v=version: _chirps_path(intermed, v, d)
 
         cube_specs = [
             ("agera5", "Temperature_Air_2m_Max_24h", _path_agera5("Temperature_Air_2m_Max_24h"), tmax, "K2C"),

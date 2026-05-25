@@ -48,3 +48,17 @@ class WorkspaceRegionContext:
     # source can apply its own scope rules at fetch time. Default
     # empty dict keeps single-source paths cost-free.
     entity_access_specs: dict[str, Any] = field(default_factory=dict)
+    # #1232 — per-entity FK → target-entity maps for dotted-path
+    # filter resolution in task_inbox sources (and any other path
+    # that needs to call _extract_condition_filters with a non-None
+    # ref_targets). Maps entity_name → {fk_field: target_entity}.
+    # Default empty dict keeps callers that don't need it cost-free;
+    # the workspace builder threads ServerConfig.entity_ref_targets.
+    entity_ref_targets: dict[str, dict[str, str]] = field(default_factory=dict)
+    # #1233 — row_action action_id → POST URL map. The renderer emits
+    # this URL on the [data-dz-row-action] button as
+    # ``data-dz-row-action-url`` so the client-side JS can POST without
+    # re-deriving the route. Built once at WorkspaceRouteBuilder init
+    # from appspec.surfaces; empty dict means no row_action surfaces
+    # in this app (cost-free).
+    row_action_routes: dict[str, str] = field(default_factory=dict)

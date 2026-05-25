@@ -16,7 +16,6 @@ from beaker.container import NamespaceManager
 from beaker.synchronization import SynchronizerImpl
 from beaker.util import SyncDict, machine_identifier
 from beaker.crypto.util import sha1
-from beaker._compat import string_type, PY2
 
 
 class MongoNamespaceManager(NamespaceManager):
@@ -40,7 +39,7 @@ class MongoNamespaceManager(NamespaceManager):
         if pymongo is None:
             raise RuntimeError('pymongo3 is not available')
 
-        if isinstance(url, string_type):
+        if isinstance(url, str):
             self.client = MongoNamespaceManager.clients.get(url, pymongo.MongoClient, url)
         else:
             self.client = url
@@ -50,8 +49,7 @@ class MongoNamespaceManager(NamespaceManager):
         if not isinstance(key, str):
             key = key.decode('ascii')
         if len(key) > (self.MAX_KEY_LENGTH - len(self.namespace) - 1):
-            if not PY2:
-                key = key.encode('utf-8')
+            key = key.encode('utf-8')
             key = sha1(key).hexdigest()
         return '%s:%s' % (self.namespace, key)
 
@@ -128,14 +126,14 @@ class MongoSynchronizer(SynchronizerImpl):
     def __init__(self, identifier, url):
         super(MongoSynchronizer, self).__init__()
         self.identifier = identifier
-        if isinstance(url, string_type):
+        if isinstance(url, str):
             self.client = MongoNamespaceManager.clients.get(url, pymongo.MongoClient, url)
         else:
             self.client = url
         self.db = self.client.get_default_database()
 
     def _clear_expired_locks(self):
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         expired = now - datetime.timedelta(seconds=self.LOCK_EXPIRATION)
         self.db.beaker_locks.delete_many({'_id': self.identifier, 'timestamp': {'$lte': expired}})
         return now

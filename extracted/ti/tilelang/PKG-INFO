@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tilelang
-Version: 0.1.9
+Version: 0.1.10
 Summary: A tile level programming language to generate high performance code.
 Keywords: BLAS,CUDA,HIP,Code Generation,TVM
 Author: TileLang Contributors, Tile-AI
@@ -8,11 +8,11 @@ Maintainer-Email: Lei Wang <leiwang1999@outlook.com>
 License-Expression: MIT
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: GPU
+Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,8 +22,8 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9
-Requires-Dist: apache-tvm-ffi>=0.1.2,~=0.1.0
+Requires-Python: >=3.10
+Requires-Dist: apache-tvm-ffi>=0.1.10,~=0.1.0
 Requires-Dist: torch-c-dlpack-ext; python_version < "3.14"
 Requires-Dist: cloudpickle
 Requires-Dist: ml-dtypes
@@ -40,8 +40,11 @@ Requires-Dist: ml-dtypes>=0.5.1; extra == "fp4"
 Provides-Extra: vis
 Requires-Dist: matplotlib; extra == "vis"
 Provides-Extra: nvcc
+Requires-Dist: torch; extra == "nvcc"
 Requires-Dist: nvidia-cuda-nvcc>=13.0.48; extra == "nvcc"
 Requires-Dist: nvidia-cuda-cccl>=13.0.50; extra == "nvcc"
+Requires-Dist: nvidia-cuda-nvrtc>=13; platform_system == "Windows" and extra == "nvcc"
+Requires-Dist: nvidia-curand>=10.4; platform_system == "Windows" and extra == "nvcc"
 Description-Content-Type: text/markdown
 
 <img src=./images/logo-row.svg />

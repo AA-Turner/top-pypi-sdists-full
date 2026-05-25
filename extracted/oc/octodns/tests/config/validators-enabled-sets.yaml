@@ -1,6 +1,7 @@
 manager:
-  enabled:
-    - legacy
-    - test-set
+  validators:
+    enabled:
+      - legacy
+      - test-set
 providers: {}
 zones: {}

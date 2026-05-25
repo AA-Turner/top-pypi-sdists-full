@@ -26,7 +26,10 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Any, Callable, NamedTuple, Tuple, Type, Union, cast
+from collections.abc import Callable
+from typing import Any, NamedTuple, TypeAlias, Union, cast
+
+from brownie._c_constants import regex_findall, regex_match, regex_sub
 
 __all__ = ["docopt", "DocoptExit", "ParsedOptions"]
 __version__ = "0.9.0"
@@ -146,14 +149,14 @@ def _transform(pattern: _BranchPattern) -> _Either:
     return _Either(*(_Required(*e) for e in result))
 
 
-_SingleMatch = Union[Tuple[int, "_LeafPattern"], Tuple[None, None]]
+_SingleMatch: TypeAlias = Union[tuple[int, "_LeafPattern"], tuple[None, None]]
 
 
 class _LeafPattern(_Pattern):
     """Leaf/terminal node of a pattern tree."""
 
     def __repr__(self) -> str:
-        return "%s(%r, %r)" % (self.__class__.__name__, self.name, self.value)
+        return f"{self.__class__.__name__}({self.name!r}, {self.value!r})"
 
     def single_match(self, left: list[_LeafPattern]) -> _SingleMatch:
         raise NotImplementedError  # pragma: no cover
@@ -291,7 +294,7 @@ class _Option(_LeafPattern):
             else:
                 argcount = 1
         if argcount:
-            matched = re.findall(r"\[default: (.*)\]", description, flags=re.I)
+            matched = regex_findall(r"\[default: (.*)\]", description, flags=re.I)
             value = matched[0] if matched else None
         return cls(short, longer, argcount, value)
 
@@ -306,7 +309,7 @@ class _Option(_LeafPattern):
         return self.longer or self.short
 
     def __repr__(self) -> str:
-        return "Option(%r, %r, %r, %r)" % (
+        return "Option({!r}, {!r}, {!r}, {!r})".format(
             self.short,
             self.longer,
             self.argcount,
@@ -375,14 +378,14 @@ class _Tokens(list):
     def __init__(
         self,
         source: list[str] | str,
-        error: Type[DocoptExit] | Type[DocoptLanguageError] = DocoptExit,
+        error: type[DocoptExit] | type[DocoptLanguageError] = DocoptExit,
     ) -> None:
         self += source if isinstance(source, list) else source.split()
         self.error = error
 
     @staticmethod
     def from_pattern(source: str) -> _Tokens:
-        source = re.sub(r"([\[\]\(\)\|]|\.\.\.)", r" \1 ", source)
+        source = regex_sub(r"([\[\]\(\)\|]|\.\.\.)", r" \1 ", source)
         fragments = [s for s in re.split(r"\s+|(\S*<.*?>)", source) if s]
         return _Tokens(fragments, error=DocoptLanguageError)
 
@@ -670,7 +673,7 @@ def _parse_docstring_sections(docstring: str) -> _DocSections:
     # Everything else
     (?P<after_usage>(?:.|\n)*)\Z
     """
-    match = re.match(usage_pattern, docstring, flags=re.M | re.I | re.VERBOSE)
+    match = regex_match(usage_pattern, docstring, flags=re.M | re.I | re.VERBOSE)
     if not match:
         raise DocoptLanguageError(
             'Failed to parse doc: "usage:" section (case-insensitive) not found. '

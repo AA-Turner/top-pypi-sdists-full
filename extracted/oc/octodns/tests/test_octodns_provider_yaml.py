@@ -16,7 +16,8 @@ from octodns.provider import ProviderException
 from octodns.provider.yaml import SplitYamlProvider, YamlProvider
 from octodns.record import Create, NsValue, Record, ValuesMixin
 from octodns.record.exception import ValidationError
-from octodns.zone import SubzoneRecordException, Zone
+from octodns.zone import Zone
+from octodns.zone.exception import ValidationError as ZoneValidationError
 
 
 def touch(filename):
@@ -86,9 +87,7 @@ class TestYamlProvider(TestCase):
             target.populate(reloaded)
             self.assertDictEqual(
                 {'included': ['test']},
-                [x for x in reloaded.records if x.name == 'included'][
-                    0
-                ].octodns,
+                next(iter(reloaded.get('included'))).octodns,
             )
 
             # manually copy over the root since it will have been ignored
@@ -326,15 +325,16 @@ www:
 
         # If we add `sub` as a sub-zone we'll reject `www.sub`
         zone = Zone('unit.tests.', ['sub'])
-        with self.assertRaises(SubzoneRecordException) as ctx:
-            source.populate(zone)
+        source.populate(zone)
+        with self.assertRaises(ZoneValidationError) as ctx:
+            zone.validate()
         msg = str(ctx.exception)
-        self.assertTrue(
-            msg.startswith(
-                'Record www.sub.unit.tests. is under a managed subzone'
-            )
+        self.assertIn(
+            'Record www.sub.unit.tests. is under a managed subzone', msg
         )
-        self.assertTrue(msg.endswith('unit.tests.yaml, line 201, column 3'))
+        self.assertIn('unit.tests.yaml', msg)
+        self.assertIn('line 201', msg)
+        self.assertIn('column 3', msg)
 
     def test_SUPPORTS(self):
         source = YamlProvider('test', join(dirname(__file__), 'config'))
@@ -539,12 +539,12 @@ www:
         zone = Zone('unescaped.semis.', [])
         source.populate(zone)
         self.assertEqual(2, len(zone.records))
-        one = next(r for r in zone.records if r.name == 'one')
+        one = next(iter(zone.get('one')))
         self.assertTrue(one)
         self.assertEqual(
             ["This has a semi-colon\\; that isn't escaped."], one.values
         )
-        two = next(r for r in zone.records if r.name == 'two')
+        two = next(iter(zone.get('two')))
         self.assertTrue(two)
         self.assertEqual(
             ["This has a semi-colon too\\; that isn't escaped.", '\\;'],
@@ -578,6 +578,35 @@ www:
                 "- This has a semi-colon too; that isn't escaped.", content
             )
             self.assertIn('- ;', content)
+
+    def test_txt_none_values(self):
+        config_dir = join(dirname(__file__), 'config-txt-none')
+        for escaped_semicolons in (True, False):
+            source = YamlProvider(
+                'test', config_dir, escaped_semicolons=escaped_semicolons
+            )
+
+            # scalar value: null
+            scalar = Zone('scalar.null.', [])
+            with self.assertRaises(ValidationError) as ctx:
+                source.populate(scalar)
+            self.assertEqual(['missing value(s)'], ctx.exception.reasons)
+
+            # values list containing nulls alongside a valid string
+            mixed = Zone('list.with.nulls.', [])
+            with self.assertRaises(ValidationError) as ctx:
+                source.populate(mixed)
+            self.assertEqual(
+                ['missing value(s)', 'missing value(s)'], ctx.exception.reasons
+            )
+
+            # values list that is entirely null
+            all_null = Zone('all.null.', [])
+            with self.assertRaises(ValidationError) as ctx:
+                source.populate(all_null)
+            self.assertEqual(
+                ['missing value(s)', 'missing value(s)'], ctx.exception.reasons
+            )
 
 
 class TestSplitYamlProvider(TestCase):
@@ -629,7 +658,7 @@ class TestSplitYamlProvider(TestCase):
         zone_both = Zone('unit.tests.', [])
         source.populate(zone_both)
         self.assertEqual(21, len(zone_both.records))
-        n = len([r for r in zone_both.records if r.name == 'only-zone-file'])
+        n = len(zone_both.get('only-zone-file'))
         self.assertEqual(1, n)
         source.disable_zonefile = True
 
@@ -639,14 +668,12 @@ class TestSplitYamlProvider(TestCase):
         zone_shared = Zone('unit.tests.', [])
         source.populate(zone_shared)
         self.assertEqual(21, len(zone_shared.records))
-        n = len([r for r in zone_shared.records if r.name == 'only-shared'])
+        n = len(zone_shared.get('only-shared'))
         self.assertEqual(1, n)
         dynamic_zone_shared = Zone('dynamic.tests.', [])
         source.populate(dynamic_zone_shared)
         self.assertEqual(6, len(dynamic_zone_shared.records))
-        n = len(
-            [r for r in dynamic_zone_shared.records if r.name == 'only-shared']
-        )
+        n = len(dynamic_zone_shared.get('only-shared'))
         self.assertEqual(1, n)
         source.shared_filename = None
 
@@ -694,9 +721,7 @@ class TestSplitYamlProvider(TestCase):
             target.populate(reloaded)
             self.assertDictEqual(
                 {'included': ['test']},
-                [x for x in reloaded.records if x.name == 'included'][
-                    0
-                ].octodns,
+                next(iter(reloaded.get('included'))).octodns,
             )
 
             # manually copy over the root since it will have been ignored
@@ -812,15 +837,16 @@ class TestSplitYamlProvider(TestCase):
 
         # If we add `sub` as a sub-zone we'll reject `www.sub`
         zone = Zone('unit.tests.', ['sub'])
-        with self.assertRaises(SubzoneRecordException) as ctx:
-            source.populate(zone)
+        source.populate(zone)
+        with self.assertRaises(ZoneValidationError) as ctx:
+            zone.validate()
         msg = str(ctx.exception)
-        self.assertTrue(
-            msg.startswith(
-                'Record www.sub.unit.tests. is under a managed subzone'
-            )
+        self.assertIn(
+            'Record www.sub.unit.tests. is under a managed subzone', msg
         )
-        self.assertTrue(msg.endswith('www.sub.yaml, line 3, column 3'))
+        self.assertIn('www.sub.yaml', msg)
+        self.assertIn('line 3', msg)
+        self.assertIn('column 3', msg)
 
     def test_copy(self):
         # going to put some sentinal values in here to ensure, these aren't

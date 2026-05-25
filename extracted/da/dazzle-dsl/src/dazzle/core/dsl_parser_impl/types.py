@@ -126,6 +126,9 @@ class TypeParserMixin:
             TokenType.HAS_ONE: self._parse_has_one_type,
             TokenType.EMBEDS: self._parse_embeds_type,
             TokenType.BELONGS_TO: self._parse_belongs_to_type,
+            TokenType.LATEST_ONE: self._parse_latest_one_type,
+            TokenType.DESCENDANTS_OF: self._parse_descendants_of_type,
+            TokenType.ANCESTORS_OF: self._parse_ancestors_of_type,
         }
 
         token_type_parser = _token_type_dispatch.get(token.type)
@@ -231,14 +234,74 @@ class TypeParserMixin:
         return ir.FieldType(kind=ir.FieldTypeKind.MONEY, currency_code=currency_code)
 
     def _parse_file_type(self) -> ir.FieldType:
-        """Parse file or file(200MB) type (v0.9.5, v0.39.0)."""
+        """Parse file, file(200MB), file(ui: drag_drop), or
+        file(200MB, ui: drag_drop) type.
+
+        - v0.9.5: bare ``file``
+        - v0.39.0: ``file(200MB)`` per-field size limit
+        - v0.71.148 (#1213 Phase B): ``ui:`` modifier accepting
+          ``drag_drop`` as a documented no-op (the default rendering
+          already does drag-drop). ``managed_upload`` is reserved
+          for Phase C and rejected at parse time pending the
+          framework auto-finalize work.
+        """
         self.advance()
         max_size = None
+        ui_mode = None
         if self.match(TokenType.LPAREN):
             self.advance()
-            max_size = self._parse_size_literal()
+            if self.match(TokenType.NUMBER):
+                max_size = self._parse_size_literal()
+                if self.match(TokenType.COMMA):
+                    self.advance()
+                    ui_mode = self._parse_file_ui_modifier()
+            elif self.match(TokenType.IDENTIFIER):
+                ui_mode = self._parse_file_ui_modifier()
+            else:
+                bad = self.current_token()
+                raise make_parse_error(
+                    f"Expected size literal (e.g. 200MB) or 'ui:' modifier inside file(...), got {bad.value!r}",
+                    self.file,
+                    bad.line,
+                    bad.column,
+                )
             self.expect(TokenType.RPAREN)
-        return ir.FieldType(kind=ir.FieldTypeKind.FILE, max_size=max_size)
+        return ir.FieldType(
+            kind=ir.FieldTypeKind.FILE,
+            max_size=max_size,
+            ui_mode=ui_mode,
+        )
+
+    # #1213 Phase C (v0.71.149): `managed_upload` joined the accepted
+    # set. The framework's existing `verify_storage_field_keys` hook on
+    # entity-create POSTs serves as the implicit finalize — no separate
+    # finalize URL is needed for DSL-driven forms because the entity
+    # create handler runs the prefix-sandbox + head_object verifier
+    # before persisting (`route_generator.py:3307,3441`).
+    _FILE_UI_MODES_ACCEPTED: tuple[str, ...] = ("drag_drop", "managed_upload")
+
+    def _parse_file_ui_modifier(self) -> str:
+        """Parse ``ui: <mode>`` inside file(...) parens (#1213 Phase B, C)."""
+        key_token = self.expect_identifier_or_keyword()
+        if key_token.value != "ui":
+            raise make_parse_error(
+                f"Expected 'ui:' modifier inside file(...), got {key_token.value!r}",
+                self.file,
+                key_token.line,
+                key_token.column,
+            )
+        self.expect(TokenType.COLON)
+        mode_token = self.expect_identifier_or_keyword()
+        mode: str = str(mode_token.value)
+        if mode not in self._FILE_UI_MODES_ACCEPTED:
+            raise make_parse_error(
+                f"Unknown file ui mode: {mode!r}. "
+                f"Accepted: {', '.join(self._FILE_UI_MODES_ACCEPTED)}.",
+                self.file,
+                mode_token.line,
+                mode_token.column,
+            )
+        return mode
 
     def _parse_url_type(self) -> ir.FieldType:
         """Parse url type (v0.9.5)."""
@@ -310,6 +373,118 @@ class TypeParserMixin:
         self.advance()
         entity_name = self.expect(TokenType.IDENTIFIER).value
         return ir.FieldType(kind=ir.FieldTypeKind.BELONGS_TO, ref_entity=entity_name)
+
+    def _parse_latest_one_type(self) -> ir.FieldType:
+        """Parse ``latest_one EntityName via fk_field`` (#1223 Phase 3a.v).
+
+        Declares a derived current-row relationship: resolves at read
+        time to the row of EntityName where ``fk_field = self.id`` AND
+        the target's temporal ``end_field`` is NULL. Validation (target
+        must declare ``temporal:``) runs in ``validate_entities``.
+
+        ``via fk_field`` is *required* — there's no inference fallback.
+        If the target entity has multiple FKs back to self (e.g.
+        ``ManagerLink.report`` vs ``ManagerLink.manager``), the
+        explicit ``via`` is the only way to disambiguate, and we don't
+        want one shape that's explicit and another that magic-guesses.
+        """
+        self.advance()  # consume 'latest_one'
+        entity_name = self.expect(TokenType.IDENTIFIER).value
+        # The `via` keyword is the same token used by has_many ... via.
+        if not self.match(TokenType.VIA):
+            tok = self.current_token()
+            raise make_parse_error(
+                f"`latest_one {entity_name}` requires `via <fk_field>` — "
+                f"name the FK column on {entity_name} that points back to "
+                f"this entity.",
+                self.file,
+                tok.line,
+                tok.column,
+            )
+        self.advance()  # consume 'via'
+        fk_field = self.expect_identifier_or_keyword().value
+        return ir.FieldType(
+            kind=ir.FieldTypeKind.LATEST_ONE,
+            ref_entity=entity_name,
+            via_field=str(fk_field),
+        )
+
+    def _parse_descendants_of_type(self) -> ir.FieldType:
+        """Parse ``descendants_of self via <fk_path>`` (#1227 Phase 3b).
+
+        Two FK-path shapes:
+        - ``descendants_of self via parent_department`` — self-ref FK on
+          the host entity. Walk children where ``parent_department = self.id``.
+        - ``descendants_of self via ManagerLink.manager`` — FK lives on
+          a junction entity. The host entity's id matches the FK named after
+          the ``.``; the junction's *other* FK names the child set. Composes
+          with the junction's ``temporal:`` so historical links are skipped
+          automatically on active reads.
+
+        Anchor is always ``self`` in this slice; non-self anchors are a
+        deliberate later extension. ``ref_entity`` is left ``None`` because
+        the target is always the host entity itself (validator/runtime
+        derive it from context).
+        """
+        return self._parse_recursive_traversal_type(
+            keyword="descendants_of",
+            kind=ir.FieldTypeKind.DESCENDANTS_OF,
+        )
+
+    def _parse_ancestors_of_type(self) -> ir.FieldType:
+        """Parse ``ancestors_of self via <fk_path>`` (#1227 Phase 3b).
+
+        Mirrors ``descendants_of`` but walks *up* the hierarchy: start at
+        self.id, follow the FK to the parent row, recurse. Same FK-path
+        shapes (self-ref or ``Junction.field``) and same anchor rules.
+        """
+        return self._parse_recursive_traversal_type(
+            keyword="ancestors_of",
+            kind=ir.FieldTypeKind.ANCESTORS_OF,
+        )
+
+    def _parse_recursive_traversal_type(self, keyword: str, kind: ir.FieldTypeKind) -> ir.FieldType:
+        """Shared parser for descendants_of / ancestors_of (#1227)."""
+        self.advance()  # consume keyword token
+        anchor_tok = self.expect(TokenType.IDENTIFIER)
+        anchor = anchor_tok.value
+        if anchor != "self":
+            raise make_parse_error(
+                f"`{keyword}` requires `self` as the anchor in this release; "
+                f"got `{anchor}`. Non-self anchors are reserved for a future slice.",
+                self.file,
+                anchor_tok.line,
+                anchor_tok.column,
+            )
+        if not self.match(TokenType.VIA):
+            tok = self.current_token()
+            raise make_parse_error(
+                f"`{keyword} self` requires `via <fk_field>` or "
+                f"`via <Junction>.<fk_field>` — name the FK that links rows "
+                f"in the hierarchy.",
+                self.file,
+                tok.line,
+                tok.column,
+            )
+        self.advance()  # consume 'via'
+        first_tok = self.expect_identifier_or_keyword()
+        first = str(first_tok.value)
+        via_entity: str | None = None
+        via_field: str
+        # Junction-qualified path: Entity.field
+        if self.match(TokenType.DOT):
+            self.advance()  # consume '.'
+            second_tok = self.expect_identifier_or_keyword()
+            via_entity = first
+            via_field = str(second_tok.value)
+        else:
+            via_field = first
+        return ir.FieldType(
+            kind=kind,
+            ref_entity=None,
+            via_entity=via_entity,
+            via_field=via_field,
+        )
 
     # ------------------------------------------------------------------
     # Relationship and duration helpers
@@ -652,13 +827,16 @@ class TypeParserMixin:
         Returns a (default, default_expr) pair exactly as ``parse_field_modifiers``
         expects; exactly one of the two will be non-None.
         """
+        # v0.10.2: date expression (today, now, today + 7d, …)
+        # Must precede the typed-expression check: after #1234, TODAY/NOW pass
+        # _is_keyword_as_identifier(), so `today + 7d` would otherwise be
+        # mis-classified as a FieldRef arithmetic expression.
+        if self.match(TokenType.TODAY) or self.match(TokenType.NOW):
+            return self._parse_date_expr(), None
+
         # v0.29.0: typed expression default (e.g., = box1 + box2, = if ...)
         if self._is_expression_default():
             return None, self.collect_line_as_expr()
-
-        # v0.10.2: date expression (today, now, today + 7d, …)
-        if self.match(TokenType.TODAY) or self.match(TokenType.NOW):
-            return self._parse_date_expr(), None
 
         if self.match(TokenType.STRING):
             return self.advance().value, None

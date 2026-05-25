@@ -1,4 +1,4 @@
-"""This file contains utility funtions for converting bytes values to hexstrings.
+"""This file contains utility functions for converting bytes values to hexstrings.
 
 Since this code is frequently accessed, instead of adding runtime checks within
 the function bodies, we opted to microoptimize by defining functions specific to
@@ -8,8 +8,10 @@ your hexbytes version .
 from importlib.metadata import version
 from typing import Final
 
+import hexbytes
 from eth_typing import HexStr
-from hexbytes import HexBytes
+
+from brownie._c_constants import HexBytes
 
 HEXBYTES_LT_1_0_0: Final = tuple(int(i) for i in version("hexbytes").split(".")) < (
     1,
@@ -24,7 +26,7 @@ either version.
 """
 
 
-def hexbytes_to_hexstring(value: HexBytes) -> HexStr:
+def hexbytes_to_hexstring(value: hexbytes.HexBytes) -> HexStr:
     """Convert a HexBytes object to a hex string."""
     # NOTE: this is just a stub for mypy, the func is conditionally
     # defined below based on your hexbytes version
@@ -36,7 +38,7 @@ if HEXBYTES_LT_1_0_0:
         """Convert a bytes value to a hexstring on hexbytes<1."""
         return HexBytes(value).hex()
 
-    hexbytes_to_hexstring = HexBytes.hex
+    hexbytes_to_hexstring = HexBytes.hex  # noqa: F811
     """Convert a HexBytes value to a hexstring on hexbytes<1."""
 
 else:

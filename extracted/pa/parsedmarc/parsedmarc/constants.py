@@ -1,4 +1,4 @@
-__version__ = "10.0.0"
+__version__ = "10.0.3"
 
 USER_AGENT = f"parsedmarc/{__version__}"
 

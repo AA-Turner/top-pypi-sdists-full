@@ -1,5 +1,4 @@
-#-*- coding: utf-8 -*-
-# Generated from lithuanian.sbl by Snowball 3.0.1 - https://snowballstem.org/
+# Generated from lithuanian.sbl by Snowball 3.1.0 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,10 +7,10 @@ from .among import Among
 class LithuanianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from lithuanian.sbl by Snowball 3.0.1 - https://snowballstem.org/
+    Generated from lithuanian.sbl by Snowball 3.1.0 - https://snowballstem.org/
     '''
 
-    g_v = {u"a", u"e", u"i", u"y", u"o", u"u", u"ą", u"ę", u"į", u"ų", u"ė", u"ū"}
+    g_v = {"a", "e", "i", "o", "u", "y", "ą", "ė", "ę", "į", "ū", "ų"}
 
     I_p1 = 0
 
@@ -26,9 +25,7 @@ class LithuanianStemmer(BaseStemmer):
             return False
         self.bra = self.cursor
         self.limit_backward = v_2
-        if not self.slice_del():
-            return False
-
+        self.slice_del()
         return True
 
     def __r_step2(self):
@@ -45,9 +42,7 @@ class LithuanianStemmer(BaseStemmer):
                     raise lab0()
                 self.bra = self.cursor
                 self.limit_backward = v_3
-                if not self.slice_del():
-                    return False
-
+                self.slice_del()
                 continue
             except lab0: pass
             self.cursor = self.limit - v_1
@@ -60,30 +55,7 @@ class LithuanianStemmer(BaseStemmer):
         if among_var == 0:
             return False
         self.bra = self.cursor
-        if among_var == 1:
-            if not self.slice_from(u"aitė"):
-                return False
-        elif among_var == 2:
-            if not self.slice_from(u"uotė"):
-                return False
-        elif among_var == 3:
-            if not self.slice_from(u"ėjimas"):
-                return False
-        elif among_var == 4:
-            if not self.slice_from(u"esys"):
-                return False
-        elif among_var == 5:
-            if not self.slice_from(u"asys"):
-                return False
-        elif among_var == 6:
-            if not self.slice_from(u"avimas"):
-                return False
-        elif among_var == 7:
-            if not self.slice_from(u"ojimas"):
-                return False
-        else:
-            if not self.slice_from(u"okatė"):
-                return False
+        self.slice_from(LithuanianStemmer.as_2[among_var - 1])
         return True
 
     def __r_fix_chdz(self):
@@ -92,21 +64,15 @@ class LithuanianStemmer(BaseStemmer):
         if among_var == 0:
             return False
         self.bra = self.cursor
-        if among_var == 1:
-            if not self.slice_from(u"t"):
-                return False
-        else:
-            if not self.slice_from(u"d"):
-                return False
+        self.slice_from(LithuanianStemmer.as_3[among_var - 1])
         return True
 
     def __r_fix_gd(self):
         self.ket = self.cursor
-        if self.find_among_b(LithuanianStemmer.a_4) == 0:
+        if not self.eq_s_b("gd"):
             return False
         self.bra = self.cursor
-        if not self.slice_from(u"g"):
-            return False
+        self.slice_from("g")
         return True
 
     def _stem(self):
@@ -115,18 +81,13 @@ class LithuanianStemmer(BaseStemmer):
         try:
             v_2 = self.cursor
             try:
-                v_3 = self.cursor
-                if not self.eq_s(u"a"):
-                    self.cursor = v_2
-                    raise lab1()
-                self.cursor = v_3
-                if len(self.current) <= 6:
-                    self.cursor = v_2
-                    raise lab1()
-                if self.cursor >= self.limit:
+                if self.cursor == self.limit or self.current[self.cursor] != "a":
                     self.cursor = v_2
                     raise lab1()
                 self.cursor += 1
+                if len(self.current) <= 6:
+                    self.cursor = v_2
+                    raise lab1()
             except lab1: pass
             if not self.go_out_grouping(LithuanianStemmer.g_v):
                 raise lab0()
@@ -139,321 +100,314 @@ class LithuanianStemmer(BaseStemmer):
         self.cursor = v_1
         self.limit_backward = self.cursor
         self.cursor = self.limit
-        v_4 = self.limit - self.cursor
+        v_3 = self.limit - self.cursor
         self.__r_fix_conflicts()
+        self.cursor = self.limit - v_3
+        v_4 = self.limit - self.cursor
+        self.__r_step1()
         self.cursor = self.limit - v_4
         v_5 = self.limit - self.cursor
-        self.__r_step1()
+        self.__r_fix_chdz()
         self.cursor = self.limit - v_5
         v_6 = self.limit - self.cursor
-        self.__r_fix_chdz()
+        self.__r_step2()
         self.cursor = self.limit - v_6
         v_7 = self.limit - self.cursor
-        self.__r_step2()
+        self.__r_fix_chdz()
         self.cursor = self.limit - v_7
         v_8 = self.limit - self.cursor
-        self.__r_fix_chdz()
-        self.cursor = self.limit - v_8
-        v_9 = self.limit - self.cursor
         self.__r_fix_gd()
-        self.cursor = self.limit - v_9
+        self.cursor = self.limit - v_8
+        self.ket = self.cursor
+        if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "'":
+            return False
+        self.cursor -= 1
+        self.bra = self.cursor
+        self.slice_del()
         self.cursor = self.limit_backward
         return True
 
     a_0 = [
-        Among(u"a", -1, -1),
-        Among(u"ia", 0, -1),
-        Among(u"eria", 1, -1),
-        Among(u"osna", 0, -1),
-        Among(u"iosna", 3, -1),
-        Among(u"uosna", 3, -1),
-        Among(u"iuosna", 5, -1),
-        Among(u"ysna", 0, -1),
-        Among(u"ėsna", 0, -1),
-        Among(u"e", -1, -1),
-        Among(u"ie", 9, -1),
-        Among(u"enie", 10, -1),
-        Among(u"erie", 10, -1),
-        Among(u"oje", 9, -1),
-        Among(u"ioje", 13, -1),
-        Among(u"uje", 9, -1),
-        Among(u"iuje", 15, -1),
-        Among(u"yje", 9, -1),
-        Among(u"enyje", 17, -1),
-        Among(u"eryje", 17, -1),
-        Among(u"ėje", 9, -1),
-        Among(u"ame", 9, -1),
-        Among(u"iame", 21, -1),
-        Among(u"sime", 9, -1),
-        Among(u"ome", 9, -1),
-        Among(u"ėme", 9, -1),
-        Among(u"tumėme", 25, -1),
-        Among(u"ose", 9, -1),
-        Among(u"iose", 27, -1),
-        Among(u"uose", 27, -1),
-        Among(u"iuose", 29, -1),
-        Among(u"yse", 9, -1),
-        Among(u"enyse", 31, -1),
-        Among(u"eryse", 31, -1),
-        Among(u"ėse", 9, -1),
-        Among(u"ate", 9, -1),
-        Among(u"iate", 35, -1),
-        Among(u"ite", 9, -1),
-        Among(u"kite", 37, -1),
-        Among(u"site", 37, -1),
-        Among(u"ote", 9, -1),
-        Among(u"tute", 9, -1),
-        Among(u"ėte", 9, -1),
-        Among(u"tumėte", 42, -1),
-        Among(u"i", -1, -1),
-        Among(u"ai", 44, -1),
-        Among(u"iai", 45, -1),
-        Among(u"eriai", 46, -1),
-        Among(u"ei", 44, -1),
-        Among(u"tumei", 48, -1),
-        Among(u"ki", 44, -1),
-        Among(u"imi", 44, -1),
-        Among(u"erimi", 51, -1),
-        Among(u"umi", 44, -1),
-        Among(u"iumi", 53, -1),
-        Among(u"si", 44, -1),
-        Among(u"asi", 55, -1),
-        Among(u"iasi", 56, -1),
-        Among(u"esi", 55, -1),
-        Among(u"iesi", 58, -1),
-        Among(u"siesi", 59, -1),
-        Among(u"isi", 55, -1),
-        Among(u"aisi", 61, -1),
-        Among(u"eisi", 61, -1),
-        Among(u"tumeisi", 63, -1),
-        Among(u"uisi", 61, -1),
-        Among(u"osi", 55, -1),
-        Among(u"ėjosi", 66, -1),
-        Among(u"uosi", 66, -1),
-        Among(u"iuosi", 68, -1),
-        Among(u"siuosi", 69, -1),
-        Among(u"usi", 55, -1),
-        Among(u"ausi", 71, -1),
-        Among(u"čiausi", 72, -1),
-        Among(u"ąsi", 55, -1),
-        Among(u"ėsi", 55, -1),
-        Among(u"ųsi", 55, -1),
-        Among(u"tųsi", 76, -1),
-        Among(u"ti", 44, -1),
-        Among(u"enti", 78, -1),
-        Among(u"inti", 78, -1),
-        Among(u"oti", 78, -1),
-        Among(u"ioti", 81, -1),
-        Among(u"uoti", 81, -1),
-        Among(u"iuoti", 83, -1),
-        Among(u"auti", 78, -1),
-        Among(u"iauti", 85, -1),
-        Among(u"yti", 78, -1),
-        Among(u"ėti", 78, -1),
-        Among(u"telėti", 88, -1),
-        Among(u"inėti", 88, -1),
-        Among(u"terėti", 88, -1),
-        Among(u"ui", 44, -1),
-        Among(u"iui", 92, -1),
-        Among(u"eniui", 93, -1),
-        Among(u"oj", -1, -1),
-        Among(u"ėj", -1, -1),
-        Among(u"k", -1, -1),
-        Among(u"am", -1, -1),
-        Among(u"iam", 98, -1),
-        Among(u"iem", -1, -1),
-        Among(u"im", -1, -1),
-        Among(u"sim", 101, -1),
-        Among(u"om", -1, -1),
-        Among(u"tum", -1, -1),
-        Among(u"ėm", -1, -1),
-        Among(u"tumėm", 105, -1),
-        Among(u"an", -1, -1),
-        Among(u"on", -1, -1),
-        Among(u"ion", 108, -1),
-        Among(u"un", -1, -1),
-        Among(u"iun", 110, -1),
-        Among(u"ėn", -1, -1),
-        Among(u"o", -1, -1),
-        Among(u"io", 113, -1),
-        Among(u"enio", 114, -1),
-        Among(u"ėjo", 113, -1),
-        Among(u"uo", 113, -1),
-        Among(u"s", -1, -1),
-        Among(u"as", 118, -1),
-        Among(u"ias", 119, -1),
-        Among(u"es", 118, -1),
-        Among(u"ies", 121, -1),
-        Among(u"is", 118, -1),
-        Among(u"ais", 123, -1),
-        Among(u"iais", 124, -1),
-        Among(u"tumeis", 123, -1),
-        Among(u"imis", 123, -1),
-        Among(u"enimis", 127, -1),
-        Among(u"omis", 123, -1),
-        Among(u"iomis", 129, -1),
-        Among(u"umis", 123, -1),
-        Among(u"ėmis", 123, -1),
-        Among(u"enis", 123, -1),
-        Among(u"asis", 123, -1),
-        Among(u"ysis", 123, -1),
-        Among(u"ams", 118, -1),
-        Among(u"iams", 136, -1),
-        Among(u"iems", 118, -1),
-        Among(u"ims", 118, -1),
-        Among(u"enims", 139, -1),
-        Among(u"erims", 139, -1),
-        Among(u"oms", 118, -1),
-        Among(u"ioms", 142, -1),
-        Among(u"ums", 118, -1),
-        Among(u"ėms", 118, -1),
-        Among(u"ens", 118, -1),
-        Among(u"os", 118, -1),
-        Among(u"ios", 147, -1),
-        Among(u"uos", 147, -1),
-        Among(u"iuos", 149, -1),
-        Among(u"ers", 118, -1),
-        Among(u"us", 118, -1),
-        Among(u"aus", 152, -1),
-        Among(u"iaus", 153, -1),
-        Among(u"ius", 152, -1),
-        Among(u"ys", 118, -1),
-        Among(u"enys", 156, -1),
-        Among(u"erys", 156, -1),
-        Among(u"ąs", 118, -1),
-        Among(u"iąs", 159, -1),
-        Among(u"ės", 118, -1),
-        Among(u"amės", 161, -1),
-        Among(u"iamės", 162, -1),
-        Among(u"imės", 161, -1),
-        Among(u"kimės", 164, -1),
-        Among(u"simės", 164, -1),
-        Among(u"omės", 161, -1),
-        Among(u"ėmės", 161, -1),
-        Among(u"tumėmės", 168, -1),
-        Among(u"atės", 161, -1),
-        Among(u"iatės", 170, -1),
-        Among(u"sitės", 161, -1),
-        Among(u"otės", 161, -1),
-        Among(u"ėtės", 161, -1),
-        Among(u"tumėtės", 174, -1),
-        Among(u"įs", 118, -1),
-        Among(u"ūs", 118, -1),
-        Among(u"tųs", 118, -1),
-        Among(u"at", -1, -1),
-        Among(u"iat", 179, -1),
-        Among(u"it", -1, -1),
-        Among(u"sit", 181, -1),
-        Among(u"ot", -1, -1),
-        Among(u"ėt", -1, -1),
-        Among(u"tumėt", 184, -1),
-        Among(u"u", -1, -1),
-        Among(u"au", 186, -1),
-        Among(u"iau", 187, -1),
-        Among(u"čiau", 188, -1),
-        Among(u"iu", 186, -1),
-        Among(u"eniu", 190, -1),
-        Among(u"siu", 190, -1),
-        Among(u"y", -1, -1),
-        Among(u"ą", -1, -1),
-        Among(u"ią", 194, -1),
-        Among(u"ė", -1, -1),
-        Among(u"ę", -1, -1),
-        Among(u"į", -1, -1),
-        Among(u"enį", 198, -1),
-        Among(u"erį", 198, -1),
-        Among(u"ų", -1, -1),
-        Among(u"ių", 201, -1),
-        Among(u"erų", 201, -1)
+        Among("a", -1, -1),
+        Among("ia", 0, -1),
+        Among("osna", 0, -1),
+        Among("iosna", 2, -1),
+        Among("uosna", 2, -1),
+        Among("iuosna", 4, -1),
+        Among("ysna", 0, -1),
+        Among("ėsna", 0, -1),
+        Among("e", -1, -1),
+        Among("ie", 8, -1),
+        Among("enie", 9, -1),
+        Among("oje", 8, -1),
+        Among("ioje", 11, -1),
+        Among("uje", 8, -1),
+        Among("iuje", 13, -1),
+        Among("yje", 8, -1),
+        Among("enyje", 15, -1),
+        Among("ėje", 8, -1),
+        Among("ame", 8, -1),
+        Among("iame", 18, -1),
+        Among("sime", 8, -1),
+        Among("ome", 8, -1),
+        Among("ėme", 8, -1),
+        Among("tumėme", 22, -1),
+        Among("ose", 8, -1),
+        Among("iose", 24, -1),
+        Among("uose", 24, -1),
+        Among("iuose", 26, -1),
+        Among("yse", 8, -1),
+        Among("enyse", 28, -1),
+        Among("ėse", 8, -1),
+        Among("ate", 8, -1),
+        Among("iate", 31, -1),
+        Among("ite", 8, -1),
+        Among("kite", 33, -1),
+        Among("site", 33, -1),
+        Among("ote", 8, -1),
+        Among("tute", 8, -1),
+        Among("ėte", 8, -1),
+        Among("tumėte", 38, -1),
+        Among("i", -1, -1),
+        Among("ai", 40, -1),
+        Among("iai", 41, -1),
+        Among("ei", 40, -1),
+        Among("tumei", 43, -1),
+        Among("ki", 40, -1),
+        Among("imi", 40, -1),
+        Among("umi", 40, -1),
+        Among("iumi", 47, -1),
+        Among("si", 40, -1),
+        Among("asi", 49, -1),
+        Among("iasi", 50, -1),
+        Among("esi", 49, -1),
+        Among("iesi", 52, -1),
+        Among("siesi", 53, -1),
+        Among("isi", 49, -1),
+        Among("aisi", 55, -1),
+        Among("eisi", 55, -1),
+        Among("tumeisi", 57, -1),
+        Among("uisi", 55, -1),
+        Among("osi", 49, -1),
+        Among("ėjosi", 60, -1),
+        Among("uosi", 60, -1),
+        Among("iuosi", 62, -1),
+        Among("siuosi", 63, -1),
+        Among("usi", 49, -1),
+        Among("ausi", 65, -1),
+        Among("čiausi", 66, -1),
+        Among("ąsi", 49, -1),
+        Among("ėsi", 49, -1),
+        Among("ųsi", 49, -1),
+        Among("tųsi", 70, -1),
+        Among("ti", 40, -1),
+        Among("enti", 72, -1),
+        Among("inti", 72, -1),
+        Among("oti", 72, -1),
+        Among("ioti", 75, -1),
+        Among("uoti", 75, -1),
+        Among("iuoti", 77, -1),
+        Among("auti", 72, -1),
+        Among("iauti", 79, -1),
+        Among("yti", 72, -1),
+        Among("ėti", 72, -1),
+        Among("telėti", 82, -1),
+        Among("inėti", 82, -1),
+        Among("terėti", 82, -1),
+        Among("ui", 40, -1),
+        Among("iui", 86, -1),
+        Among("eniui", 87, -1),
+        Among("oj", -1, -1),
+        Among("ėj", -1, -1),
+        Among("k", -1, -1),
+        Among("am", -1, -1),
+        Among("iam", 92, -1),
+        Among("iem", -1, -1),
+        Among("im", -1, -1),
+        Among("sim", 95, -1),
+        Among("om", -1, -1),
+        Among("tum", -1, -1),
+        Among("ėm", -1, -1),
+        Among("tumėm", 99, -1),
+        Among("an", -1, -1),
+        Among("on", -1, -1),
+        Among("ion", 102, -1),
+        Among("un", -1, -1),
+        Among("iun", 104, -1),
+        Among("ėn", -1, -1),
+        Among("o", -1, -1),
+        Among("io", 107, -1),
+        Among("enio", 108, -1),
+        Among("ėjo", 107, -1),
+        Among("uo", 107, -1),
+        Among("s", -1, -1),
+        Among("as", 112, -1),
+        Among("ias", 113, -1),
+        Among("es", 112, -1),
+        Among("ies", 115, -1),
+        Among("is", 112, -1),
+        Among("ais", 117, -1),
+        Among("iais", 118, -1),
+        Among("tumeis", 117, -1),
+        Among("imis", 117, -1),
+        Among("enimis", 121, -1),
+        Among("omis", 117, -1),
+        Among("iomis", 123, -1),
+        Among("umis", 117, -1),
+        Among("ėmis", 117, -1),
+        Among("enis", 117, -1),
+        Among("asis", 117, -1),
+        Among("ysis", 117, -1),
+        Among("ams", 112, -1),
+        Among("iams", 130, -1),
+        Among("iems", 112, -1),
+        Among("ims", 112, -1),
+        Among("enims", 133, -1),
+        Among("oms", 112, -1),
+        Among("ioms", 135, -1),
+        Among("ums", 112, -1),
+        Among("ėms", 112, -1),
+        Among("ens", 112, -1),
+        Among("os", 112, -1),
+        Among("ios", 140, -1),
+        Among("uos", 140, -1),
+        Among("iuos", 142, -1),
+        Among("us", 112, -1),
+        Among("aus", 144, -1),
+        Among("iaus", 145, -1),
+        Among("ius", 144, -1),
+        Among("ys", 112, -1),
+        Among("enys", 148, -1),
+        Among("ąs", 112, -1),
+        Among("iąs", 150, -1),
+        Among("ės", 112, -1),
+        Among("amės", 152, -1),
+        Among("iamės", 153, -1),
+        Among("imės", 152, -1),
+        Among("kimės", 155, -1),
+        Among("simės", 155, -1),
+        Among("omės", 152, -1),
+        Among("ėmės", 152, -1),
+        Among("tumėmės", 159, -1),
+        Among("atės", 152, -1),
+        Among("iatės", 161, -1),
+        Among("sitės", 152, -1),
+        Among("otės", 152, -1),
+        Among("ėtės", 152, -1),
+        Among("tumėtės", 165, -1),
+        Among("įs", 112, -1),
+        Among("ūs", 112, -1),
+        Among("tųs", 112, -1),
+        Among("at", -1, -1),
+        Among("iat", 170, -1),
+        Among("it", -1, -1),
+        Among("sit", 172, -1),
+        Among("ot", -1, -1),
+        Among("ėt", -1, -1),
+        Among("tumėt", 175, -1),
+        Among("u", -1, -1),
+        Among("au", 177, -1),
+        Among("iau", 178, -1),
+        Among("čiau", 179, -1),
+        Among("iu", 177, -1),
+        Among("eniu", 181, -1),
+        Among("siu", 181, -1),
+        Among("y", -1, -1),
+        Among("ą", -1, -1),
+        Among("ią", 185, -1),
+        Among("ė", -1, -1),
+        Among("ę", -1, -1),
+        Among("į", -1, -1),
+        Among("enį", 189, -1),
+        Among("ų", -1, -1),
+        Among("ių", 191, -1)
     ]
 
     a_1 = [
-        Among(u"ing", -1, -1),
-        Among(u"aj", -1, -1),
-        Among(u"iaj", 1, -1),
-        Among(u"iej", -1, -1),
-        Among(u"oj", -1, -1),
-        Among(u"ioj", 4, -1),
-        Among(u"uoj", 4, -1),
-        Among(u"iuoj", 6, -1),
-        Among(u"auj", -1, -1),
-        Among(u"ąj", -1, -1),
-        Among(u"iąj", 9, -1),
-        Among(u"ėj", -1, -1),
-        Among(u"ųj", -1, -1),
-        Among(u"iųj", 12, -1),
-        Among(u"ok", -1, -1),
-        Among(u"iok", 14, -1),
-        Among(u"iuk", -1, -1),
-        Among(u"uliuk", 16, -1),
-        Among(u"učiuk", 16, -1),
-        Among(u"išk", -1, -1),
-        Among(u"iul", -1, -1),
-        Among(u"yl", -1, -1),
-        Among(u"ėl", -1, -1),
-        Among(u"am", -1, -1),
-        Among(u"dam", 23, -1),
-        Among(u"jam", 23, -1),
-        Among(u"zgan", -1, -1),
-        Among(u"ain", -1, -1),
-        Among(u"esn", -1, -1),
-        Among(u"op", -1, -1),
-        Among(u"iop", 29, -1),
-        Among(u"ias", -1, -1),
-        Among(u"ies", -1, -1),
-        Among(u"ais", -1, -1),
-        Among(u"iais", 33, -1),
-        Among(u"os", -1, -1),
-        Among(u"ios", 35, -1),
-        Among(u"uos", 35, -1),
-        Among(u"iuos", 37, -1),
-        Among(u"aus", -1, -1),
-        Among(u"iaus", 39, -1),
-        Among(u"ąs", -1, -1),
-        Among(u"iąs", 41, -1),
-        Among(u"ęs", -1, -1),
-        Among(u"utėait", -1, -1),
-        Among(u"ant", -1, -1),
-        Among(u"iant", 45, -1),
-        Among(u"siant", 46, -1),
-        Among(u"int", -1, -1),
-        Among(u"ot", -1, -1),
-        Among(u"uot", 49, -1),
-        Among(u"iuot", 50, -1),
-        Among(u"yt", -1, -1),
-        Among(u"ėt", -1, -1),
-        Among(u"ykšt", -1, -1),
-        Among(u"iau", -1, -1),
-        Among(u"dav", -1, -1),
-        Among(u"sv", -1, -1),
-        Among(u"šv", -1, -1),
-        Among(u"ykšč", -1, -1),
-        Among(u"ę", -1, -1),
-        Among(u"ėję", 60, -1)
+        Among("ing", -1, -1),
+        Among("aj", -1, -1),
+        Among("iaj", 1, -1),
+        Among("iej", -1, -1),
+        Among("oj", -1, -1),
+        Among("ioj", 4, -1),
+        Among("uoj", 4, -1),
+        Among("iuoj", 6, -1),
+        Among("auj", -1, -1),
+        Among("ąj", -1, -1),
+        Among("iąj", 9, -1),
+        Among("ėj", -1, -1),
+        Among("ųj", -1, -1),
+        Among("iųj", 12, -1),
+        Among("ok", -1, -1),
+        Among("iok", 14, -1),
+        Among("iuk", -1, -1),
+        Among("uliuk", 16, -1),
+        Among("učiuk", 16, -1),
+        Among("išk", -1, -1),
+        Among("iul", -1, -1),
+        Among("yl", -1, -1),
+        Among("ėl", -1, -1),
+        Among("am", -1, -1),
+        Among("dam", 23, -1),
+        Among("jam", 23, -1),
+        Among("zgan", -1, -1),
+        Among("ain", -1, -1),
+        Among("esn", -1, -1),
+        Among("op", -1, -1),
+        Among("iop", 29, -1),
+        Among("ias", -1, -1),
+        Among("ies", -1, -1),
+        Among("ais", -1, -1),
+        Among("iais", 33, -1),
+        Among("os", -1, -1),
+        Among("ios", 35, -1),
+        Among("uos", 35, -1),
+        Among("iuos", 37, -1),
+        Among("aus", -1, -1),
+        Among("iaus", 39, -1),
+        Among("ąs", -1, -1),
+        Among("iąs", 41, -1),
+        Among("ęs", -1, -1),
+        Among("utėait", -1, -1),
+        Among("ant", -1, -1),
+        Among("iant", 45, -1),
+        Among("siant", 46, -1),
+        Among("int", -1, -1),
+        Among("ot", -1, -1),
+        Among("uot", 49, -1),
+        Among("iuot", 50, -1),
+        Among("yt", -1, -1),
+        Among("ėt", -1, -1),
+        Among("ykšt", -1, -1),
+        Among("iau", -1, -1),
+        Among("dav", -1, -1),
+        Among("sv", -1, -1),
+        Among("šv", -1, -1),
+        Among("ykšč", -1, -1),
+        Among("ę", -1, -1),
+        Among("ėję", 60, -1)
     ]
 
     a_2 = [
-        Among(u"ojime", -1, 7),
-        Among(u"ėjime", -1, 3),
-        Among(u"avime", -1, 6),
-        Among(u"okate", -1, 8),
-        Among(u"aite", -1, 1),
-        Among(u"uote", -1, 2),
-        Among(u"asius", -1, 5),
-        Among(u"okatės", -1, 8),
-        Among(u"aitės", -1, 1),
-        Among(u"uotės", -1, 2),
-        Among(u"esiu", -1, 4)
+        Among("ojime", -1, 7),
+        Among("ėjime", -1, 3),
+        Among("avime", -1, 6),
+        Among("okate", -1, 8),
+        Among("aite", -1, 1),
+        Among("uote", -1, 2),
+        Among("asius", -1, 5),
+        Among("okatės", -1, 8),
+        Among("aitės", -1, 1),
+        Among("uotės", -1, 2),
+        Among("esiu", -1, 4)
     ]
+    as_2 = ("aitė", "uotė", "ėjimas", "esys", "asys", "avimas", "ojimas", "okatė")
 
     a_3 = [
-        Among(u"č", -1, 1),
-        Among(u"dž", -1, 2)
+        Among("č", -1, 1),
+        Among("dž", -1, 2)
     ]
-
-    a_4 = [
-        Among(u"gd", -1, 1)
-    ]
+    as_3 = ("t", "d")
 
 
 class lab0(BaseException): pass

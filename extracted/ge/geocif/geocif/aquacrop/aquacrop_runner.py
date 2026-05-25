@@ -155,7 +155,13 @@ def _setup_logger_parser(config_files: list[str]):
         return glog.setup_logger_parser(config_files)
     except ImportError:
         from configparser import ConfigParser, ExtendedInterpolation
-        parser = ConfigParser(interpolation=ExtendedInterpolation())
+        # inline_comment_prefixes matches geocif.logger.setup_logger_parser
+        # so configs with `key = value ; comment` still parse correctly
+        # via getint/getfloat (without it, those raise ValueError).
+        parser = ConfigParser(
+            interpolation=ExtendedInterpolation(),
+            inline_comment_prefixes=(';',),
+        )
         parser.read(config_files)
         logging.basicConfig(
             level=parser.get("LOGGING", "level", fallback="INFO"),
@@ -450,13 +456,39 @@ def _maybe_calibrate_params(
     reuse = parser.getboolean(
         "AQUACROP_CALIBRATION", "reuse_fitted_params", fallback=True,
     )
-    try:
-        params_list = ast.literal_eval(
-            parser.get("AQUACROP_CALIBRATION", "params",
-                       fallback="['HI0', 'WP', 'CCx']")
-        )
-    except (ValueError, SyntaxError):
-        params_list = ["HI0", "WP", "CCx"]
+    # `redo_calibration` is the user-facing override that always re-runs
+    # PSO, ignoring any cached JSON. Defaults to False — cached fits are
+    # used when present (regardless of reuse_fitted_params). When True,
+    # PSO runs fresh even if the JSON exists; the new fit overwrites the
+    # cache. Use case: re-tuning after `_DEFAULT_BOUNDS` or HarvestStat
+    # changes without manually deleting JSON files.
+    redo = parser.getboolean(
+        "AQUACROP_CALIBRATION", "redo_calibration", fallback=False,
+    )
+    # `params` accepts three forms:
+    #   - "auto"          → per-crop SSA High-priority list from
+    #                       param_spec.default_params_for_crop(). Recommended
+    #                       for multi-crop SSA runs (Maize gets 8 params,
+    #                       Sorghum 5, Cowpea 2, etc.).
+    #   - flat list       → same params for every crop (legacy 3-param mode).
+    #   - per-crop dict   → {"Maize": [...], "Sorghum": [...]}; missing
+    #                       keys fall back to the "auto" default.
+    raw_params = parser.get(
+        "AQUACROP_CALIBRATION", "params", fallback="auto",
+    ).strip()
+    params_global: Optional[list[str]] = None
+    params_by_crop: dict[str, list[str]] = {}
+    if raw_params.lower() == "auto":
+        pass  # leave both None/{} → triggers per-crop default lookup
+    else:
+        try:
+            parsed = ast.literal_eval(raw_params)
+        except (ValueError, SyntaxError):
+            parsed = ["HI0", "WP", "CCx"]
+        if isinstance(parsed, dict):
+            params_by_crop = {str(k): list(v) for k, v in parsed.items()}
+        else:
+            params_global = list(parsed)
 
     dir_output = Path(parser.get("PATHS", "dir_output"))
     project = parser.get("DEFAULT", "project_name", fallback="geocif")
@@ -468,11 +500,25 @@ def _maybe_calibrate_params(
         canonical = next(
             c["crop"] for c in country_combos if c["aquacrop_crop"] == ac_crop
         )
+        # Resolve the params list for THIS crop.
+        if params_global is not None:
+            params_for_crop = params_global
+        elif ac_crop in params_by_crop:
+            params_for_crop = params_by_crop[ac_crop]
+        else:
+            from .param_spec import default_params_for_crop
+            params_for_crop = default_params_for_crop(ac_crop)
+
         json_path = _paramcal.fitted_params_path(
             dir_output / project, country, ac_crop,
         )
 
-        if reuse:
+        if redo and json_path.is_file():
+            logger.info(
+                f"redo_calibration=True — ignoring cached {json_path.name}, "
+                f"re-running PSO for {country}/{ac_crop}"
+            )
+        elif reuse:
             cached = _paramcal.load_fitted_overrides(json_path)
             if cached and ac_crop in cached:
                 overrides_by_crop[ac_crop] = cached[ac_crop]
@@ -484,10 +530,14 @@ def _maybe_calibrate_params(
         # Build a calibration problem for this (country, crop). Returns
         # None on any setup failure (missing observed yields, no training
         # cells, etc.) so the run can still proceed with defaults.
+        logger.info(
+            f"PSO calibration for {country}/{ac_crop}: tuning {len(params_for_crop)} "
+            f"params {params_for_crop}"
+        )
         result = _build_and_run_param_calibration(
             parser, country, canonical, ac_crop, country_combos,
             gdf_admin, country_bounds, pool, config_files,
-            params_list,
+            params_for_crop,
         )
         if result is None:
             logger.warning(
@@ -680,25 +730,25 @@ def _build_and_run_param_calibration(
             logger.warning(f"Empty observed yields for {country}/{ac_crop}")
             return None
 
-        # 6. Build run_grid_fn closure that uses the per-country pool +
-        #    bounds the caller already holds.
-        def _run_grid_fn(tasks, pool=pool):
-            return _grid.run_grid(
-                tasks, config_files, country,
-                n_workers=None,
-                progress_desc=f"calib/{country}/{ac_crop}",
-                country_bounds=country_bounds,
-                pool=pool,
-            )
+        # 6. Stash the Pool + run_grid args at module level so PyGMO's
+        # deepcopy of the problem doesn't trip
+        # `NotImplementedError: pool objects cannot be passed between
+        # processes or pickled`. Cleared in the finally block below so
+        # the reference doesn't outlive this calibration.
+        _paramcal.set_active_run_context(
+            pool=pool,
+            config_files=config_files,
+            country=country,
+            country_bounds=country_bounds,
+        )
 
-        # 7. Build spec + problem + calibrator.
+        # 7. Build spec + problem + calibrator. The problem now holds
+        # only picklable state; Pool + run_grid args come from globals.
         spec = _paramspec.AquaCropParamSpec(ac_crop, params=params_list)
         problem = _paramcal.AquaCropPygmoProblem(
             specs=[spec],
             base_tasks_by_year=base_tasks_by_year,
             observed=obs,
-            run_grid_fn=_run_grid_fn,
-            pool=pool,
             cell_to_admin=cell_to_admin,
         )
         calibrator = _paramcal.AquaCropCalibrator(problem)
@@ -709,7 +759,10 @@ def _build_and_run_param_calibration(
         gens = parser.getint(
             "AQUACROP_CALIBRATION", "pso_generations", fallback=30,
         )
-        calibrator.optimize(population_size=pop, generations=gens)
+        try:
+            calibrator.optimize(population_size=pop, generations=gens)
+        finally:
+            _paramcal.clear_active_run_context()
         calibrator.apply_best()
         return spec, calibrator.best_fitness
 
@@ -814,7 +867,9 @@ def _run_one_combination(
     frac_cpus = parser.getfloat("DEFAULT", "fraction_cpus", fallback=0.3)
     n_workers = max(1, int((os.cpu_count() or 1) * frac_cpus)) if parallel else 1
 
+    from collections import Counter
     n_success = 0
+    err_counter: Counter = Counter()
     for result in _grid.run_grid(
         tasks, config_files, country, n_workers=n_workers,
         progress_desc=f"{country}/{canonical_crop}/{year}",
@@ -824,6 +879,19 @@ def _run_one_combination(
         if result.success and np.isfinite(result.yield_tha):
             yield_grid[result.row, result.col] = result.yield_tha
             n_success += 1
+        elif not result.success and result.error:
+            err_counter[result.error] += 1
+    # If everything failed, surface the top distinct error strings so
+    # the next silent-failure mode (missing data layer, schema drift,
+    # bad config path) is diagnosable from the log alone.
+    if n_success == 0 and err_counter:
+        top = ", ".join(
+            f"{err!r}={n}" for err, n in err_counter.most_common(3)
+        )
+        logger.error(
+            f"All {len(tasks)} cells failed for {country}/{canonical_crop}/{year}. "
+            f"Top errors: {top}"
+        )
     logger.info(f"AquaCrop simulations: {n_success}/{len(tasks)} successful")
 
     if n_success == 0:
@@ -963,6 +1031,18 @@ def run(path_config_files: list[str]) -> None:
         table.add_row("cfg", str([str(p) for p in path_config_files]))
         countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
         table.add_row("Countries", str(countries))
+        # Crops summary: union of [<country>] crops lists across the
+        # configured country set. Reported alongside countries so the
+        # user sees what (country, crop) work is queued before the run
+        # starts iterating combos.
+        _crops_set: set = set()
+        for _c in countries:
+            if parser.has_section(_c) and parser.has_option(_c, "crops"):
+                try:
+                    _crops_set.update(ast.literal_eval(parser.get(_c, "crops")))
+                except (ValueError, SyntaxError):
+                    pass
+        table.add_row("Crops", str(sorted(_crops_set)) if _crops_set else "[]")
         table.add_row(
             "Years",
             f"{parser.getint('DEFAULT', 'start_year')} - "
@@ -970,6 +1050,72 @@ def run(path_config_files: list[str]) -> None:
         )
         table.add_row("Calibration", parser.get("AQUACROP", "calibration"))
         table.add_row("Calibration pool", parser.get("AQUACROP", "calibration_pool"))
+        # PSO parameter-calibration status. If on, surface the knobs that
+        # determine runtime + search budget so the user sees them before
+        # committing to a multi-hour run (rather than after it finishes).
+        _pso_mode = parser.get(
+            "AQUACROP_CALIBRATION", "param_calibration", fallback="none",
+        ).lower()
+        if _pso_mode == "pso":
+            _pso_params = parser.get(
+                "AQUACROP_CALIBRATION", "params", fallback="['HI0','WP','CCx']",
+            )
+            _pso_n_sample = parser.getint(
+                "AQUACROP_CALIBRATION", "calibration_sample_size", fallback=150,
+            )
+            _pso_mult = parser.getfloat(
+                "AQUACROP_CALIBRATION", "sample_density_multiplier", fallback=1.0,
+            )
+            _pso_pop = parser.getint(
+                "AQUACROP_CALIBRATION", "pso_population_size", fallback=16,
+            )
+            _pso_gens = parser.getint(
+                "AQUACROP_CALIBRATION", "pso_generations", fallback=30,
+            )
+            _pso_strat = parser.get(
+                "AQUACROP_CALIBRATION", "sampling_strategy",
+                fallback="production_weighted",
+            )
+            _pso_cutoff = parser.getint(
+                "AQUACROP_CALIBRATION", "calibration_year_cutoff", fallback=2023,
+            )
+            _pso_reuse = parser.getboolean(
+                "AQUACROP_CALIBRATION", "reuse_fitted_params", fallback=True,
+            )
+            _pso_redo = parser.getboolean(
+                "AQUACROP_CALIBRATION", "redo_calibration", fallback=False,
+            )
+            _effective_n = int(round(_pso_n_sample * _pso_mult))
+            _evals = _pso_pop * _pso_gens
+            table.add_row(
+                "PSO param calibration",
+                f"[bold bright_yellow]ON[/] (params={_pso_params})",
+            )
+            table.add_row(
+                "PSO sampling",
+                f"{_effective_n} cells ({_pso_n_sample}×{_pso_mult}) "
+                f"via {_pso_strat}",
+            )
+            table.add_row(
+                "PSO budget",
+                f"pop={_pso_pop} × gens={_pso_gens} = {_evals} fitness evals",
+            )
+            table.add_row(
+                "PSO years",
+                f"train ≤ {_pso_cutoff}; reuse_fitted_params={_pso_reuse}",
+            )
+            if _pso_redo:
+                table.add_row(
+                    "PSO cache",
+                    "[bold bright_yellow]redo_calibration=ON[/] — "
+                    "ignoring cached JSON, re-running PSO from scratch",
+                )
+        else:
+            table.add_row(
+                "PSO param calibration",
+                "[dim]off[/] (default Crop params; "
+                "flip [AQUACROP_CALIBRATION] param_calibration = pso to enable)",
+            )
         console.print(Panel(
             table, title="[bold bright_white]AquaCrop-OSPy Runner[/]",
             border_style="bright_green", padding=(1, 2),

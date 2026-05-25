@@ -2,7 +2,6 @@
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
@@ -13,7 +12,7 @@ from brownie.test.managers import PytestBrownieMaster, PytestBrownieRunner, Pyte
 from brownie.utils import color
 
 
-def _get_project_path() -> Optional[Path]:
+def _get_project_path() -> Path | None:
     key = next((i for i in sys.argv if i.startswith("--brownie-project")), "")
     if key == "--brownie-project":
         idx = sys.argv.index(key)
@@ -115,12 +114,13 @@ def pytest_configure(config):
     if config.option.verbose:
         _modify_hypothesis_settings({"verbosity": 2}, "brownie-verbose")
 
-    if config.getoption("numprocesses"):
+    is_xdist_worker = hasattr(config, "workerinput")
+    if is_xdist_worker:
+        Plugin = PytestBrownieXdistRunner
+    elif config.getoption("numprocesses"):
         if config.getoption("interactive"):
             raise ValueError("Cannot use --interactive mode with xdist")
         Plugin = PytestBrownieMaster
-    elif hasattr(config, "workerinput"):
-        Plugin = PytestBrownieXdistRunner
     else:
         Plugin = PytestBrownieRunner
 
@@ -136,6 +136,6 @@ def pytest_configure(config):
     session = Plugin(config, active_project)
     config.pluginmanager.register(session, "brownie-core")
 
-    if not config.getoption("numprocesses"):
+    if is_xdist_worker or not config.getoption("numprocesses"):
         fixtures = PytestBrownieFixtures(config, active_project)
         config.pluginmanager.register(fixtures, "brownie-fixtures")

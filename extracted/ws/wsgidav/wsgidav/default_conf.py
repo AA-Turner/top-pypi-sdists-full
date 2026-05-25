@@ -13,10 +13,13 @@ r"""
 
 Default configuration.
 """
+
 # from wsgidav.mw.debug_filter import WsgiDavDebugFilter
 from wsgidav.dir_browser import WsgiDavDirBrowser
 from wsgidav.error_printer import ErrorPrinter
 from wsgidav.http_authenticator import HTTPAuthenticator
+
+# from wsgidav.mw.impersonator import Impersonator
 from wsgidav.mw.cors import Cors
 from wsgidav.request_resolver import RequestResolver
 
@@ -38,7 +41,9 @@ DEFAULT_CONFIG = {
         "shadow_map": {},
         "follow_symlinks": False,
     },
+    "honor_mtime_header": False,
     "add_header_MS_Author_Via": True,
+    "default_charset": "utf-8",  # e.g. "utf-8"
     "hotfixes": {
         "emulate_win32_lastmod": False,  # True: support Win32LastModifiedTime
         "re_encode_path_info": True,  # (See issue #73)
@@ -56,6 +61,7 @@ DEFAULT_CONFIG = {
         Cors,
         ErrorPrinter,
         HTTPAuthenticator,
+        # Impersonator,
         WsgiDavDirBrowser,  # configured under dir_browser option (see below)
         RequestResolver,  # this must be the last middleware item
     ],

@@ -5,6 +5,7 @@
 """
 Miscellaneous support functions for WsgiDAV.
 """
+
 import base64
 import calendar
 import collections.abc
@@ -20,7 +21,7 @@ from copy import deepcopy
 from email.utils import formatdate, parsedate
 from hashlib import md5
 from pprint import pformat
-from typing import Iterable, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 from urllib.parse import quote
 
 from wsgidav import __version__
@@ -820,7 +821,6 @@ def fix_path(path, root, *, expand_vars=True, must_exist=True, allow_none=True):
     Convert path to absolute if required, expand leading '~' as user home dir,
     expand %VAR%, $Var, ...
     """
-    # org_path = path
     if path in (None, ""):
         if allow_none:
             return None
@@ -836,6 +836,9 @@ def fix_path(path, root, *, expand_vars=True, must_exist=True, allow_none=True):
                 root = os.path.dirname(config_file)
             else:
                 root = os.getcwd()
+        # NOTE:
+        # Changed in version 3.13: On Windows, `os.path.isabs` returns False
+        # if the given path starts with exactly one (back)slash.
         path = os.path.abspath(os.path.join(root, path))
 
     if expand_vars:
@@ -844,8 +847,6 @@ def fix_path(path, root, *, expand_vars=True, must_exist=True, allow_none=True):
     if must_exist and not os.path.exists(path):
         raise ValueError(f"Invalid path: {path!r}")
 
-    # if org_path != path:
-    #     print(f"fix_path({org_path}) => {path}")
     return path
 
 
@@ -1210,7 +1211,7 @@ def send_redirect_response(environ, start_response, *, location):
         [
             ("Content-Length", "0"),
             ("Date", get_rfc1123_time()),
-            ("Location", location),
+            ("Location", quote(location)),
         ],
     )
     return [b""]
@@ -1757,16 +1758,19 @@ _MIME_TYPES = {
 }
 
 
-def guess_mime_type(url):
+def guess_mime_type(url: str, options: Optional[Dict] = None) -> str:
     """Use the mimetypes module to lookup the type for an extension.
 
     This function also adds some extensions required for HTML5
     """
     (mimetype, _mimeencoding) = mimetypes.guess_type(url)
+    default_charset = options.get("default_charset") if options else None
     if not mimetype:
         ext = os.path.splitext(url)[1]
         mimetype = _MIME_TYPES.get(ext)
         _logger.debug(f"mimetype({url}): {mimetype}")
     if not mimetype:
         mimetype = "application/octet-stream"
+    if mimetype.startswith("text/") and default_charset:
+        mimetype += f"; charset={default_charset}"
     return mimetype

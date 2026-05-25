@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: summarization-pydantic-ai
-Version: 0.1.4
+Version: 0.1.5
 Summary: Automatic Conversation Summarization and History Management for Pydantic AI
 Project-URL: Homepage, https://github.com/vstorm-co/summarization-pydantic-ai
 Project-URL: Repository, https://github.com/vstorm-co/summarization-pydantic-ai

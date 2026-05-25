@@ -1,6 +1,16 @@
 from . import ir
-from .archetype_expander import expand_archetypes, generate_archetype_surfaces
-from .errors import LinkError
+from .archetype_expander import _to_snake_case, expand_archetypes, generate_archetype_surfaces
+from .errors import (
+    E_SUBTYPE_DUPLICATE_PK,
+    E_SUBTYPE_FIELD_NAME_OVERLAP,
+    E_SUBTYPE_GRANT_INCOMPLETE,
+    E_SUBTYPE_KIND_RESERVED,
+    E_SUBTYPE_OF_CYCLE,
+    E_SUBTYPE_OF_MULTILEVEL,
+    E_SUBTYPE_OF_UNKNOWN_BASE,
+    E_SUBTYPE_SOFT_DELETE_ON_CHILD,
+    LinkError,
+)
 from .ir.audit import AUDIT_ENTRY_FIELDS
 from .ir.feedback_widget import FEEDBACK_REPORT_FIELDS
 from .ir.fields import FieldModifier, FieldSpec, FieldType, FieldTypeKind
@@ -179,6 +189,19 @@ def build_appspec(
     entities = [*entities, *admin_entities]
     surfaces = [*surfaces, *admin_surfaces]
 
+    # 9c.1 Validate `subtype_of:` declarations and synthesise discriminator
+    # (#1217 Phase 3e.ii). Must precede _inject_soft_delete_fields so rule
+    # 10 (soft_delete on child) fires before auto-injection masks intent.
+    entities = _link_subtypes(entities, merged_fragment.grant_schemas)
+
+    # 9d. Inject `deleted_at: datetime optional` for entities with
+    # `soft_delete: true` (#1218 Option A). The runtime filters
+    # read paths on `deleted_at IS NULL` and the DELETE handler
+    # stamps the column instead of issuing a hard DELETE — both
+    # require the column to exist. Authors who already declared
+    # `deleted_at` explicitly keep theirs.
+    entities = _inject_soft_delete_fields(entities)
+
     # 10. Build FK graph and compile scope predicates
     from .ir.fk_graph import FKGraph
     from .ir.predicate_builder import build_scope_predicate
@@ -196,6 +219,11 @@ def build_appspec(
     workspaces = [*merged_fragment.workspaces, *admin_workspaces]
     if known_renderers is not None:
         _validate_render_references(surfaces, workspaces, known_renderers)
+
+    # 10c.1 Linker rule 9 — validate subtype_panel: blocks (#1217 Phase 3e.v).
+    # Raises on unknown discriminator / non-base host; returns warnings joined
+    # into link_warnings below.
+    subtype_panel_warnings = _validate_subtype_panels(entities, surfaces)
 
     # 10d. Guide concordance — every guide step's target / completion /
     # cta must resolve against the actual DSL state (#1106 follow-up,
@@ -234,6 +262,7 @@ def build_appspec(
         data_products=merged_fragment.data_products,
         documents=merged_fragment.documents,
         e2e_flows=merged_fragment.e2e_flows,
+        atomic_flows=merged_fragment.atomic_flows,
         event_model=merged_fragment.event_model,
         fixtures=merged_fragment.fixtures,
         hless_pragma=merged_fragment.hless_pragma,
@@ -282,9 +311,206 @@ def build_appspec(
         metadata={
             "modules": [m.name for m in sorted_modules],
             "root_module": root_module_name,
-            "link_warnings": unused_import_warnings,  # v0.14.1
+            "link_warnings": [
+                *unused_import_warnings,  # v0.14.1
+                *subtype_panel_warnings,  # v0.71.184 (#1217 Phase 3e.v)
+            ],
         },
     )
+
+
+def _link_subtypes(
+    entities: list[ir.EntitySpec],
+    grant_schemas: list[ir.GrantSchemaSpec],
+) -> list[ir.EntitySpec]:
+    """Validate `subtype_of:` declarations and synthesise discriminators (#1217 Phase 3e.ii).
+
+    See ADR-0026. Enforces rules 1, 2, 3/5, 6, 7, 10, and 11 from spec §5. On
+    success, populates `subtype_children` on each base and appends a `kind`
+    enum field listing the snake_case child names.
+    """
+    by_name = {e.name: e for e in entities}
+    # Rule 11: a grant on a child subtype would silently broaden delegated
+    # access to rows the base's RBAC posture intends to govern. Require the
+    # author to declare the base grant explicitly so the policy is visible.
+    scoped_entities = {gs.scope for gs in grant_schemas}
+
+    children_by_base: dict[str, list[str]] = {}
+    for entity in entities:
+        if entity.subtype_of is None:
+            continue
+        base_name = entity.subtype_of
+
+        if base_name == entity.name:
+            raise LinkError(
+                f"{E_SUBTYPE_OF_CYCLE}: Entity '{entity.name}' declares "
+                f"subtype_of itself; cycles are not permitted."
+            )
+
+        if base_name not in by_name:
+            raise LinkError(
+                f"{E_SUBTYPE_OF_UNKNOWN_BASE}: Entity '{entity.name}' declares "
+                f"subtype_of '{base_name}', but no entity by that name exists."
+            )
+
+        parent = by_name[base_name]
+        if parent.subtype_of is not None:
+            raise LinkError(
+                f"{E_SUBTYPE_OF_MULTILEVEL}: Entity '{entity.name}' declares "
+                f"subtype_of '{base_name}', which itself declares "
+                f"subtype_of '{parent.subtype_of}'. Subtype hierarchies must be flat."
+            )
+
+        base_field_names = {f.name for f in parent.fields}
+        for f in entity.fields:
+            if ir.FieldModifier.PK in f.modifiers:
+                raise LinkError(
+                    f"{E_SUBTYPE_DUPLICATE_PK}: Entity '{entity.name}' is a "
+                    f"subtype of '{base_name}' and must not declare its own "
+                    f"primary key (field '{f.name}'). The PK is inherited from the base."
+                )
+            # #1236: a child field that shadows a base field name would
+            # produce an ambiguous SELECT under the auto-JOIN (the column
+            # appears in both ``"{Child}".*`` and the aliased base column).
+            if f.name in base_field_names:
+                raise LinkError(
+                    f"{E_SUBTYPE_FIELD_NAME_OVERLAP}: Entity '{entity.name}' is a "
+                    f"subtype of '{base_name}' and declares a field '{f.name}' "
+                    f"that shadows a base field. Subtype children must declare "
+                    f"disjoint field names from the base; rename the child field "
+                    f"or move it onto the base."
+                )
+
+        if getattr(entity, "soft_delete", False):
+            raise LinkError(
+                f"{E_SUBTYPE_SOFT_DELETE_ON_CHILD}: Entity '{entity.name}' is a "
+                f"subtype of '{base_name}' and must not declare `soft_delete:`. "
+                f"Declare soft_delete on the base entity instead."
+            )
+
+        if entity.name in scoped_entities and base_name not in scoped_entities:
+            raise LinkError(
+                f"{E_SUBTYPE_GRANT_INCOMPLETE}: Entity '{entity.name}' has a "
+                f"grant_schema but its base '{base_name}' does not. "
+                f"Declare a grant_schema with `scope: {base_name}` "
+                f"alongside the one on '{entity.name}', or remove the child grant."
+            )
+
+        children_by_base.setdefault(base_name, []).append(entity.name)
+
+    out: list[ir.EntitySpec] = []
+    for entity in entities:
+        children = children_by_base.get(entity.name)
+        if children is None:
+            out.append(entity)
+            continue
+
+        if any(f.name == "kind" for f in entity.fields):
+            raise LinkError(
+                f"{E_SUBTYPE_KIND_RESERVED}: Entity '{entity.name}' is a "
+                f"polymorphic base (children: {sorted(children)}) and already "
+                f"declares a `kind` field. `kind` is reserved as the subtype "
+                f"discriminator."
+            )
+
+        children_sorted = sorted(children)
+        kind_field = ir.FieldSpec(
+            name="kind",
+            type=ir.FieldType(
+                kind=ir.FieldTypeKind.ENUM,
+                enum_values=[_to_snake_case(c) for c in children_sorted],
+            ),
+            modifiers=[ir.FieldModifier.REQUIRED],
+        )
+        out.append(
+            entity.model_copy(
+                update={
+                    "subtype_children": tuple(children_sorted),
+                    "fields": [*entity.fields, kind_field],
+                }
+            )
+        )
+    return out
+
+
+def _validate_subtype_panels(
+    entities: list[ir.EntitySpec],
+    surfaces: list[ir.SurfaceSpec],
+) -> list[str]:
+    """Linker rule 9 — `subtype_panel:` branches must reference real subtypes.
+
+    Walks every surface's sections for a populated `subtype_panel`, and:
+    - Raises ``LinkError(E_SUBTYPE_PANEL_UNKNOWN_KIND)`` when the surface's
+      entity is not a polymorphic base, or a branch's ``when_kind`` does
+      not match any child of the base.
+    - Returns ``W_SUBTYPE_PANEL_INCOMPLETE`` warning strings for panels that
+      omit one or more known subtypes — caller joins these into
+      ``metadata['link_warnings']``.
+    """
+    from .archetype_expander import _to_snake_case
+    from .errors import E_SUBTYPE_PANEL_UNKNOWN_KIND, W_SUBTYPE_PANEL_INCOMPLETE
+
+    by_name = {e.name: e for e in entities}
+    warnings: list[str] = []
+    for surface in surfaces:
+        # SurfaceSpec.entity_ref is the canonical attribute (surfaces.py:303).
+        base = by_name.get(surface.entity_ref) if surface.entity_ref else None
+        for section in surface.sections:
+            if section.subtype_panel is None:
+                continue
+            if base is None or not base.is_polymorphic_base:
+                raise LinkError(
+                    f"{E_SUBTYPE_PANEL_UNKNOWN_KIND}: subtype_panel: on surface "
+                    f"'{surface.name}' but its entity "
+                    f"{'(none)' if base is None else f'{base.name!r}'} is not a "
+                    f"polymorphic base. Add `subtype_of:` declarations to make "
+                    f"it a base, or remove the subtype_panel block."
+                )
+            valid_kinds = {_to_snake_case(c) for c in base.subtype_children}
+            seen: set[str] = set()
+            for branch in section.subtype_panel.branches:
+                if branch.when_kind not in valid_kinds:
+                    raise LinkError(
+                        f"{E_SUBTYPE_PANEL_UNKNOWN_KIND}: subtype_panel branch "
+                        f"`when kind = {branch.when_kind}` in surface "
+                        f"'{surface.name}' does not match any subtype of "
+                        f"'{base.name}' (known: {sorted(valid_kinds)})."
+                    )
+                seen.add(branch.when_kind)
+            missing = valid_kinds - seen
+            if missing:
+                warnings.append(
+                    f"{W_SUBTYPE_PANEL_INCOMPLETE}: surface '{surface.name}' "
+                    f"subtype_panel missing branches for: {sorted(missing)}."
+                )
+    return warnings
+
+
+def _inject_soft_delete_fields(entities: list[ir.EntitySpec]) -> list[ir.EntitySpec]:
+    """Append a `deleted_at: datetime optional` field to every entity
+    with ``soft_delete=True`` that does not already declare one (#1218).
+
+    The runtime soft-delete plumbing (read-path tombstone filter +
+    DELETE-as-UPDATE) needs the column to exist. Authors who already
+    declared ``deleted_at`` explicitly keep their field unchanged —
+    we only fill the gap when ``soft_delete: true`` is set with no
+    accompanying field.
+    """
+    out: list[ir.EntitySpec] = []
+    for entity in entities:
+        if not getattr(entity, "soft_delete", False):
+            out.append(entity)
+            continue
+        if any(f.name == "deleted_at" for f in entity.fields):
+            out.append(entity)
+            continue
+        new_field = FieldSpec(
+            name="deleted_at",
+            type=FieldType(kind=FieldTypeKind.DATETIME),
+            modifiers=[FieldModifier.OPTIONAL],
+        )
+        out.append(entity.model_copy(update={"fields": [*entity.fields, new_field]}))
+    return out
 
 
 def _validate_render_references(

@@ -37,6 +37,16 @@ from .archetype import (
     ArchetypeSpec,
 )
 
+# E2E Flows
+from .atomic_flows import (
+    AtomicFlowSpec,
+    FlowCreate,
+    FlowFailureMode,
+    FlowFieldValue,
+    FlowFieldValueKind,
+    FlowInput,
+)
+
 # Audit trail (#956)
 from .audit import (
     AuditShowTo,
@@ -108,10 +118,9 @@ from .domain import (
     PermissionRule,
     PolicyEffect,
     ScopeRule,
+    TemporalSpec,
     VisibilityRule,
 )
-
-# E2E Flows
 from .e2e import (
     A11yRule,
     E2ETestSpec,
@@ -706,6 +715,8 @@ from .surfaces import (
     OutcomeKind,
     RelatedDisplayMode,
     RelatedGroup,
+    SubtypePanelBranch,
+    SubtypePanelSpec,
     SurfaceAccessSpec,
     SurfaceAction,
     SurfaceElement,
@@ -894,6 +905,7 @@ __all__ = [
     "AuditConfig",
     "AccessSpec",
     "ScopeRule",
+    "TemporalSpec",
     "ExampleRecord",
     "GraphEdgeSpec",
     "GraphNodeSpec",
@@ -915,6 +927,8 @@ __all__ = [
     "SurfaceTrigger",
     "OutcomeKind",
     "Outcome",
+    "SubtypePanelBranch",
+    "SubtypePanelSpec",
     "SurfaceElement",
     "SurfaceSection",
     "SurfaceAction",
@@ -1030,6 +1044,13 @@ __all__ = [
     "UsabilityRule",
     "A11yRule",
     "E2ETestSpec",
+    # #1228 — atomic multi-entity flows
+    "AtomicFlowSpec",
+    "FlowFieldValue",
+    "FlowFieldValueKind",
+    "FlowInput",
+    "FlowCreate",
+    "FlowFailureMode",
     # Layout
     "AttentionSignalKind",
     "LayoutSignal",

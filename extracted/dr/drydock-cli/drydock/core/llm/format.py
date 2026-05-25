@@ -421,16 +421,32 @@ class APIToolFormatHandler:
 
             args_model, _ = tool_class._get_tool_args_results()
 
-            # Detect when model copied truncated-history args (our truncation
-            # code replaces large tool-call args with {_truncated, _original_bytes,
-            # path}).  Return a clear advisory instead of a pydantic traceback so
-            # the model re-does the call with real arguments rather than retrying
-            # the truncated form.
+            # Detect when model copied truncated-history args. Three stub
+            # formats have shipped:
+            #   - legacy (pre 2026-05-19): {_truncated, _original_bytes, path}
+            #   - mid (2026-05-19): {_drydock_placeholder, _truncated, ...}
+            #   - current (2026-05-24): {__drydock_compacted_args__: "note ...
+            #     path=X..."} — single alien-named key, path embedded in text
+            # Return a clear advisory instead of a pydantic traceback so
+            # the model re-does the call with real arguments rather than
+            # retrying the truncated form.
             if (isinstance(parsed_call.raw_args, dict)
-                    and parsed_call.raw_args.get("_truncated")):
+                    and (parsed_call.raw_args.get("_truncated")
+                         or "__drydock_compacted_args__" in parsed_call.raw_args
+                         or "_drydock_placeholder" in parsed_call.raw_args)):
                 path_hint = (parsed_call.raw_args.get("path")
                              or parsed_call.raw_args.get("file_path")
                              or "")
+                # Current stub embeds the path in the warning text.
+                if not path_hint:
+                    note = parsed_call.raw_args.get(
+                        "__drydock_compacted_args__", ""
+                    )
+                    if isinstance(note, str):
+                        import re as _re
+                        m = _re.search(r"path=([^,\]\s]+)", note)
+                        if m:
+                            path_hint = m.group(1)
                 # Track retry count per path to escalate on 2nd+ offense.
                 hit_key = path_hint or "<unknown>"
                 hit_count = self._truncated_hit_count.get(hit_key, 0) + 1
@@ -501,16 +517,30 @@ class APIToolFormatHandler:
                 else:
                     escalation_suffix = ""
 
+                # 2026-05-25: the prior error message mentioned the
+                # literal marker keys ('_truncated'/'_original_bytes')
+                # which Gemma 4 then echoed back as fake arguments in
+                # the retry — a feedback loop where the recovery hint
+                # was teaching the bug. New text refers to the issue
+                # abstractly and never names any key the model could
+                # copy. Observed on operator's slides session
+                # 2026-05-25: error fired → model re-emitted call with
+                # '_truncated' arg → same error → loop.
                 failed_calls.append(
                     FailedToolCall(
                         tool_name=parsed_call.tool_name,
                         call_id=parsed_call.call_id,
                         error=(
-                            f"your call used a "
-                            f"truncated history entry as a template (it contained "
-                            f"'_truncated'/'_original_bytes' instead of real "
-                            f"arguments).{file_embed} Provide the full required "
-                            f"arguments.{escalation_suffix}"
+                            f"Your tool-call arguments were a "
+                            f"placeholder from an old compacted entry "
+                            f"in history, not real arguments. Discard "
+                            f"that prior call entirely — do NOT copy "
+                            f"any field from it. Re-emit a fresh "
+                            f"`{parsed_call.tool_name}` call constructed "
+                            f"from the file content shown above. "
+                            f"{file_embed} Provide the full required "
+                            f"arguments per the tool schema."
+                            f"{escalation_suffix}"
                         ),
                     )
                 )

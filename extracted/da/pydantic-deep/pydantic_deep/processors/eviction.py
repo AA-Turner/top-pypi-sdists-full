@@ -113,15 +113,20 @@ def _extension_for_media_type(media_type: str) -> str:
 
 def _binary_storage_path(eviction_path: str, binary: BinaryContent) -> str:
     """Build a deterministic storage path for a ``BinaryContent`` value."""
-    extension = _extension_for_media_type(binary.media_type)
-    return f"{eviction_path.rstrip('/')}/binary_{binary.identifier}.{extension}"
+    # pydantic-ai >=1.97 exposes BinaryContent as a PydanticDataclass whose
+    # fields and the ``identifier`` property are invisible to pyright (the
+    # attributes exist at runtime; this is upstream type-info incompleteness).
+    # mypy's pydantic plugin sees them fine, so the ``unused-ignore`` code
+    # keeps mypy quiet about the pyright-only ignore on the same line.
+    extension = _extension_for_media_type(binary.media_type)  # type: ignore[attr-defined, unused-ignore]
+    return f"{eviction_path.rstrip('/')}/binary_{binary.identifier}.{extension}"  # type: ignore[attr-defined, unused-ignore]
 
 
 def _binary_replacement_text(binary: BinaryContent, file_path: str) -> str:
     """Return the text placeholder used to replace a pruned binary part."""
     return BINARY_PRUNED_TEMPLATE.format(
-        media_type=binary.media_type,
-        size=len(binary.data),
+        media_type=binary.media_type,  # type: ignore[attr-defined, unused-ignore]
+        size=len(binary.data),  # type: ignore[attr-defined, unused-ignore]
         file_path=file_path,
     )
 
@@ -738,7 +743,7 @@ def _store_and_replace_binary(
     keep the original binary in place.
     """
     file_path = _binary_storage_path(eviction_path, binary)
-    write_result = backend.write(file_path, binary.data)
+    write_result = backend.write(file_path, binary.data)  # type: ignore[attr-defined, unused-ignore]
     if write_result.error:
         return None
     return _binary_replacement_text(binary, file_path)

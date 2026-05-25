@@ -239,6 +239,14 @@ def load_calendar(
             f"Expected '<crop>_<season>' (e.g. 'maize_1') or '<crop>' for wheat."
         ) from exc
 
+    # Match the canonical column name geoprepare's BaseGeo.read_statistics
+    # uses (base.py:188-190). EWCM sheets call this column 'admin'; AMISCM
+    # variants may call it 'calendar_region' already. Without this rename,
+    # the per-row region label below falls back to country_col → every log
+    # line reads 'region=Somalia' instead of the actual admin name.
+    if "admin" in df.columns and "calendar_region" not in df.columns:
+        df = df.rename(columns={"admin": "calendar_region"})
+
     # Country filter: convention column is 'country2' (geomerge uses this).
     country_col = "country2" if "country2" in df.columns else "country"
     df_country = df[df[country_col].str.lower() == country.lower()].copy()
@@ -256,17 +264,31 @@ def load_calendar(
         )
 
     out_rows = []
+    n_no_data = 0
     for _, row in df_country.iterrows():
         region = row.get("calendar_region", row.get(country_col))
-        flags = row[BIMONTH_COLS].to_numpy(dtype=float)
+        flags_raw = row[BIMONTH_COLS].to_numpy(dtype=float)
         # Replace NaN with FLAG_OFF (4) so non-in-season treatment matches
         # the geomerge convention.
-        flags = np.where(np.isnan(flags), FLAG_OFF, flags).astype(int)
+        flags = np.where(np.isnan(flags_raw), FLAG_OFF, flags_raw).astype(int)
+
+        # All-(-1) rows are geomerge's "no calendar data for this admin"
+        # sentinel (e.g. somalia maize Central/Coastal/Northeast/Togdheer
+        # — crop doesn't grow in this region/season). Silent skip at debug;
+        # accumulate a count for one summary line per call.
+        if np.all(flags == -1):
+            n_no_data += 1
+            logger.debug(
+                f"No calendar data for {country}/{crop}/{season} "
+                f"region={region} (all -1 sentinel) — skipping"
+            )
+            continue
 
         blocks = _find_season_blocks(flags)
         if not blocks:
             logger.warning(
-                f"No in-season block for {country}/{crop}/{season} region={region} — skipping"
+                f"No in-season block for {country}/{crop}/{season} "
+                f"region={region} (flags present but none in {{1,2,3}}) — skipping"
             )
             continue
 
@@ -297,6 +319,11 @@ def load_calendar(
             f"No usable calendar blocks for {country}/{crop}/season={season}"
         )
 
+    logger.info(
+        f"Calendar {country}/{crop}/season={season}: "
+        f"{len(out_rows)} region(s) loaded"
+        + (f", {n_no_data} no-data region(s) skipped" if n_no_data else "")
+    )
     return pd.DataFrame(out_rows)
 
 

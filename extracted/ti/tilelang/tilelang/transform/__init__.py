@@ -87,17 +87,6 @@ def InjectSoftwarePipeline():
     return _ffi_api.InjectSoftwarePipeline()  # type: ignore
 
 
-def FrontendLegalize():
-    """FrontendLegalize
-
-    Returns
-    -------
-    fpass : tvm.transform.Pass
-        The result pass
-    """
-    return _ffi_api.FrontendLegalize()  # type: ignore
-
-
 def LegalizeNegativeIndex():
     """Legalize negative indices in buffer loads.
 
@@ -132,28 +121,6 @@ def VerifyParallelLoop():
     return _ffi_api.VerifyParallelLoop()  # type: ignore
 
 
-def LowerHopperIntrin():
-    """LowerHopperIntrin
-
-    Returns
-    -------
-    fpass : tvm.transform.Pass
-        The result pass
-    """
-    return _ffi_api.LowerHopperIntrin() if hasattr(_ffi_api, "LowerHopperIntrin") else lambda f: f  # type: ignore
-
-
-def WarpSpecializedPipeline():
-    """WarpSpecializedPipeline
-
-    Returns
-    -------
-    fpass : tvm.transform.Pass
-        The result pass
-    """
-    return _ffi_api.WarpSpecializedPipeline()  # type: ignore
-
-
 def ThreadSync(storage_scope: str):
     """Insert sync between parallel read/write of shared buffers.
 
@@ -168,22 +135,6 @@ def ThreadSync(storage_scope: str):
         The result pass
     """
     return _ffi_api.ThreadSync(storage_scope)  # type: ignore
-
-
-def ThreadPartialSync(storage_scope: str):
-    """Insert partial sync.
-
-    Parameters
-    ----------
-    storage_scope: str
-        The target storage scope.
-
-    Returns
-    -------
-    fpass : tvm.transform.Pass
-        The result pass
-    """
-    return _ffi_api.ThreadPartialSync(storage_scope)  # type: ignore
 
 
 def IfStmtBinding():
@@ -413,21 +364,6 @@ def InjectPTXAsyncCopy():
     return LowerPTXAsyncCopy()
 
 
-def LowerDeviceStorageAccessInfo():
-    """Lower attached storage access information on device.
-
-    Returns
-    -------
-    fpass : tvm.transform.Pass
-        The result pass
-
-    Note
-    ----
-    Run this pass after all storage access analysis finish.
-    """
-    return _ffi_api.LowerDeviceStorageAccessInfo()  # type: ignore
-
-
 def ConfigIndexBitwidth():
     """Config index bitwidth.
 
@@ -451,12 +387,7 @@ def FlattenBuffer():
     return _ffi_api.FlattenBuffer()  # type: ignore
 
 
-def EliminateStorageSyncForMBarrier():
-    """EliminateStorageSyncForMBarrier"""
-    return _ffi_api.EliminateStorageSyncForMBarrier()  # type: ignore
-
-
-def MergeSharedMemoryAllocations(enable_aggressive_merge: bool = False, align_bytes: int = 16):
+def MergeSharedMemoryAllocations(enable_aggressive_merge: bool = False, align_bytes: int = 16, disable_reuse: bool = False):
     """MergeSharedMemoryAllocations
 
     Returns
@@ -464,36 +395,12 @@ def MergeSharedMemoryAllocations(enable_aggressive_merge: bool = False, align_by
     fpass : tvm.transform.Pass
         The result pass
     """
-    return _ffi_api.MergeSharedMemoryAllocations(enable_aggressive_merge, align_bytes)  # type: ignore
-
-
-def LowerL2Persistent():
-    """LowerL2Persistent"""
-    return _ffi_api.LowerL2Persistent()  # type: ignore
+    return _ffi_api.MergeSharedMemoryAllocations(enable_aggressive_merge, align_bytes, disable_reuse)  # type: ignore
 
 
 def MarkCudaSyncCalls(have_pdl: bool = False):
     """MarkCudaSyncCalls"""
     return _ffi_api.MarkCudaSyncCalls(have_pdl)  # type: ignore
-
-
-def PersistThreadblock():
-    """PersistThreadblock"""
-    return _ffi_api.PersistThreadblock()  # type: ignore
-
-
-def AlignDynamicSharedMemoryAllocations(align_bytes: int = 16):
-    """AlignDynamicSharedMemoryAllocations
-
-    Parameters
-    ----------
-    align_bytes: int
-        The alignment bytes.
-
-    Returns
-    -------
-    """
-    return _ffi_api.AlignDynamicSharedMemoryAllocations(align_bytes)  # type: ignore
 
 
 def LowerSharedBarrier():

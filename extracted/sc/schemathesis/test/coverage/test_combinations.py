@@ -131,7 +131,7 @@ def nctx(ctx_factory):
         ({"enum": [1, 2]}, [1, 2]),
         ({"const": 42}, [42]),
         ({"not": {}}, []),
-        ({"not": {"type": "null"}}, [0, "false", "", ["null", "null"]]),
+        ({"not": {"type": "null"}}, [0, "false", "AAA", ["null", "null"]]),
     ],
 )
 def test_positive_primitive_schemas(pctx, schema, expected):
@@ -157,13 +157,14 @@ class AnyNumber:
         (False, [None, True, False, "", 0, [None, None], {}]),
         (True, []),
         ({}, []),
-        ({"type": "null"}, [0, "false", "", ["null", "null"]]),
-        ({"type": "boolean"}, [0, "null", "", ["null", "null"]]),
-        ({"type": ["boolean", "null"]}, [0, "", ["null", "null"]]),
+        ({"type": "null"}, [0, "false", "AAA", ["null", "null"]]),
+        ({"type": "boolean"}, [0, "null", "AAA", ["null", "null"]]),
+        ({"type": ["boolean", "null"]}, [0, "AAA", ["null", "null"]]),
         # canonicalish drops `type` when `enum` is present; infer it from the values so type
-        # violations still appear alongside the enum violation.
-        ({"enum": [1, 2]}, ["AAA", "false", "null", "", ["null", "null"]]),
-        ({"enum": [1, 2, {}]}, ["AAA", "false", "null", "", ["null", "null"]]),
+        # violations still appear alongside the enum violation. The enum-negative "AAA"
+        # collides with the type-negative "AAA" and dedupes to one entry.
+        ({"enum": [1, 2]}, ["AAA", AnyNumber(), "false", "null", ["null", "null"]]),
+        ({"enum": [1, 2, {}]}, ["AAA", AnyNumber(), "false", "null", ["null", "null"]]),
         ({"enum": ["a", "b"]}, ["AAA", 0, "false", "null", ["null", "null"]]),
         ({"const": 42}, ["AAA"]),
         ({"multipleOf": 2}, lambda x: x % 2 != 0),
@@ -213,6 +214,21 @@ def test_unbounded_array_positive_baseline_is_non_empty(pctx):
     covered = cover_schema(pctx, {"type": "array", "items": {"type": "integer", "format": "int32"}})
     assert covered
     assert covered[0], covered
+
+
+@pytest.mark.parametrize(
+    "location",
+    [ParameterLocation.QUERY, ParameterLocation.HEADER, ParameterLocation.BODY],
+    ids=["query", "header", "body"],
+)
+def test_negative_type_string_for_integer_is_non_empty(ctx_factory, location):
+    # `_negative_type` draws `st.text()` for the string-type negative on a non-string
+    # parameter; Hypothesis shrinks to "" and `_is_not_numeric_string` passes it through.
+    # `?param=` / empty header / empty body collapse to absent on the wire, so the
+    # negative can't demonstrate a type violation against the declared `integer` type.
+    ctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], location=location)
+    values = [v.value for v in cover_schema_iter(ctx, {"type": "integer", "format": "int32"})]
+    assert "" not in values, f"{location}: empty string emitted as string-type negative; got {values!r}"
 
 
 @pytest.mark.parametrize("allow_extra_parameters", [True, False])
@@ -381,6 +397,49 @@ def test_negative_maxlength_emitted_with_unsatisfiable_pattern(nctx):
     ]
     assert above_max, "Expected an above-maxLength negative case"
     assert all(len(s) == 91 for s in above_max)
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "string", "format": "email", "minLength": 6},
+        {"type": "string", "format": "uuid", "minLength": 50},
+    ],
+    ids=["email", "uuid"],
+)
+def test_negative_minlength_emitted_with_constraining_format(nctx, schema):
+    # No valid email of length 5; the minLength violation must still be emitted.
+    below_min = [
+        v.value
+        for v in cover_schema_iter(nctx, schema)
+        if isinstance(v, GeneratedValue) and v.scenario is CoverageScenario.STRING_BELOW_MIN_LENGTH
+    ]
+    assert below_min, "Expected a below-minLength negative case"
+    assert all(isinstance(s, str) and len(s) == schema["minLength"] - 1 for s in below_min)
+
+
+def test_negative_maxlength_emitted_with_constraining_format(nctx):
+    # uuid is fixed at 36 chars; the 11-char maxLength violation must still be emitted.
+    schema = {"type": "string", "format": "uuid", "maxLength": 10}
+    above_max = [
+        v.value
+        for v in cover_schema_iter(nctx, schema)
+        if isinstance(v, GeneratedValue) and v.scenario is CoverageScenario.STRING_ABOVE_MAX_LENGTH
+    ]
+    assert above_max, "Expected an above-maxLength negative case"
+    assert all(isinstance(s, str) and len(s) == 11 for s in above_max)
+
+
+def test_negative_maxlength_emitted_with_constraining_format_large_limit(nctx):
+    # unknown format can't produce a 2001-char string; the violation must still be emitted.
+    schema = {"type": "string", "format": "duration", "maxLength": 2000, "minLength": 1}
+    above_max = [
+        v.value
+        for v in cover_schema_iter(nctx, schema)
+        if isinstance(v, GeneratedValue) and v.scenario is CoverageScenario.STRING_ABOVE_MAX_LENGTH
+    ]
+    assert above_max, "Expected an above-maxLength negative case"
+    assert all(isinstance(s, str) and len(s) == 2001 for s in above_max)
 
 
 @pytest.mark.parametrize("max_length", [65536, 350000])
@@ -1305,15 +1364,15 @@ def test_negative_pattern(nctx, schema, expected):
     [
         (
             {"type": "object", "propertyNames": {"maxLength": 3}},
-            [0, "false", "null", "", ["null", "null"], {"0000": ""}],
+            [0, "false", "null", "AAA", ["null", "null"], {"0000": ""}],
         ),
         (
             {"type": "object", "propertyNames": {"pattern": "^[a-z]+$"}},
-            [0, "false", "null", "", ["null", "null"], {"": ""}],
+            [0, "false", "null", "AAA", ["null", "null"], {"": ""}],
         ),
         (
             {"type": "object", "propertyNames": {"minLength": 3}},
-            [0, "false", "null", "", ["null", "null"], {"00": ""}],
+            [0, "false", "null", "AAA", ["null", "null"], {"00": ""}],
         ),
     ],
 )
@@ -1416,7 +1475,7 @@ def test_positive_multiple_types(pctx):
                     {"minimum": 5},
                 ],
             },
-            [4, AnyNumber(), "false", "null", "", ["null", "null"]],
+            [4, AnyNumber(), "false", "null", "AAA", ["null", "null"]],
         ),
         (
             {
@@ -1455,7 +1514,8 @@ def test_positive_multiple_types(pctx):
                     },
                 ]
             },
-            ["00000000000", AnyNumber(), AnyNumber()],
+            # `aaaaaaaaaaa` is the synthesized maxLength violation when the merged allOf can't satisfy length-11.
+            ["00000000000", "aaaaaaaaaaa", AnyNumber(), AnyNumber()],
         ),
         (
             {
@@ -1491,7 +1551,7 @@ def test_negative_combinators(nctx, schema, expected):
             },
             [
                 False,
-                "",
+                "AAA",
                 [
                     None,
                     None,
@@ -1509,7 +1569,7 @@ def test_negative_combinators(nctx, schema, expected):
             },
             [
                 False,
-                "",
+                "AAA",
                 [
                     None,
                     None,
@@ -1640,7 +1700,7 @@ def test_negative_value_locations(nctx, schema, expected):
                 0,
                 "false",
                 "null",
-                "",
+                "AAA",
                 [
                     "null",
                     "null",
@@ -2047,7 +2107,7 @@ def test_positive_bundled_schema_refs(pctx, schema, expected):
         # Basic $ref negative case
         (
             {"$defs": {"PositiveInt": {"type": "integer", "minimum": 1}}, "$ref": "#/$defs/PositiveInt"},
-            [AnyNumber(), "false", "null", "", ["null", "null"], 0],
+            [AnyNumber(), "false", "null", "AAA", ["null", "null"], 0],
         ),
         # $ref in object properties - missing required property
         (
@@ -2061,7 +2121,7 @@ def test_positive_bundled_schema_refs(pctx, schema, expected):
                 0,
                 "false",
                 "null",
-                "",
+                "AAA",
                 ["null", "null"],
                 {"name": 0},
                 {"name": "00"},
@@ -2079,7 +2139,7 @@ def test_positive_bundled_schema_refs(pctx, schema, expected):
                 0,
                 "false",
                 "null",
-                "",
+                "AAA",
                 [
                     "null",
                     "null",
@@ -2687,3 +2747,125 @@ def test_minitems_one_yields_empty_array_negative_with_unresolvable_items(nctx):
         if isinstance(value, GeneratedValue) and value.scenario is CoverageScenario.ARRAY_BELOW_MIN_ITEMS
     ]
     assert negatives == [[]]
+
+
+@pytest.mark.parametrize(
+    ("schema", "expects_baseline"),
+    [
+        (
+            {
+                "type": "array",
+                "items": {"type": "object"},
+                "properties": {"key": {"type": "string"}, "value": {"type": "string"}},
+                "required": ["key", "value"],
+            },
+            True,
+        ),
+        (
+            {
+                "type": ["array", "null"],
+                "properties": {"x": {"type": "string"}},
+                "required": ["x"],
+            },
+            True,
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"key": {"type": "string"}},
+                "required": ["key"],
+            },
+            False,
+        ),
+        (
+            {
+                "type": ["object", "string"],
+                "properties": {"x": {"type": "string"}},
+                "required": ["x"],
+            },
+            False,
+        ),
+    ],
+    ids=[
+        "outer-array-excludes-object",
+        "type-list-excludes-object",
+        "type-object-includes-object",
+        "type-list-includes-object",
+    ],
+)
+def test_negative_properties_baseline_emission(ctx_factory, schema, expects_baseline):
+    # Outer `type` excludes object -> emit a bare template alongside per-leaf negatives;
+    # `type` includes object -> positive path already emits it, no double-counting.
+    nctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE])
+    inner_validator = jsonschema_rs.Draft7Validator(
+        {
+            "type": "object",
+            "properties": schema["properties"],
+            "required": schema["required"],
+        }
+    )
+    cases = [value.value for value in cover_schema_iter(nctx, schema)]
+    baselines = [c for c in cases if isinstance(c, dict) and inner_validator.is_valid(c)]
+    if expects_baseline:
+        assert baselines, f"no baseline emitted: {cases}"
+        leaf_negatives = [c for c in cases if isinstance(c, dict) and not inner_validator.is_valid(c) and c != {}]
+        assert leaf_negatives, f"per-leaf negatives lost: {cases}"
+    else:
+        assert baselines == [], f"unexpected baseline: {baselines}"
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "array", "patternProperties": {"^x_": {"type": "string"}}},
+        {"type": "array", "propertyNames": {"pattern": "^x_"}},
+    ],
+    ids=["patternProperties", "propertyNames"],
+)
+def test_negative_object_keyword_baseline_emission(ctx_factory, schema):
+    # `_negative_type` already emits `{}` for `type: array`; the new baseline path emits a
+    # second `{}`. Counting both guards against a regression in the baseline branch.
+    nctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE])
+    cases = [value.value for value in cover_schema_iter(nctx, schema)]
+    assert cases.count({}) >= 2, f"baseline `{{}}` emission missing: {cases}"
+
+
+def test_get_properties_resolves_ref_to_implied_object(pctx):
+    # Without ref resolution, the nested value would be generated as any JSON value -- often `null`.
+    schema = {
+        "$defs": {
+            "Inner": {
+                "properties": {
+                    "key": {"type": "string", "example": "myKey"},
+                    "value": {"type": "string", "example": "myValue"},
+                }
+            }
+        },
+        "type": "object",
+        "required": ["nested"],
+        "properties": {"nested": {"$ref": "#/$defs/Inner"}},
+    }
+    pctx.root_schema = schema
+    cases = [v.value for v in cover_schema_iter(pctx, schema)]
+    populated = [c for c in cases if isinstance(c, dict) and isinstance(c.get("nested"), dict) and c["nested"]]
+    assert populated, f"nested ref-to-object never materialized: {cases}"
+
+
+def test_get_properties_preserves_required_outside_properties(pctx):
+    # Required keys not declared in `properties` must still reach the generated template.
+    schema = {
+        "$defs": {
+            "Inner": {
+                "required": ["name"],
+                "properties": {"value": {"type": "string"}},
+            }
+        },
+        "type": "object",
+        "required": ["nested"],
+        "properties": {"nested": {"$ref": "#/$defs/Inner"}},
+    }
+    pctx.root_schema = schema
+    cases = [v.value for v in cover_schema_iter(pctx, schema)]
+    nested_objects = [c["nested"] for c in cases if isinstance(c, dict) and isinstance(c.get("nested"), dict)]
+    assert nested_objects, f"no nested object emitted: {cases}"
+    assert all("name" in n for n in nested_objects), f"required key dropped: {nested_objects}"

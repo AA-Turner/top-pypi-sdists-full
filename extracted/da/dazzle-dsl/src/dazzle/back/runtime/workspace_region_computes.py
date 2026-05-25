@@ -612,7 +612,6 @@ async def compute_cohort_aggregate_primary(
     source_entity: str,
     repositories: dict[str, Any] | None,
     scope_only_filters: dict[str, Any] | None,
-    member_via: str,
 ) -> dict[str, Any]:
     """Compute per-member aggregate values for a cohort_strip primary_aggregate lens.
 
@@ -622,12 +621,18 @@ async def compute_cohort_aggregate_primary(
     runs a bespoke ``JOIN`` query because the GROUP BY column lives on
     the junction, not the aggregated entity.
 
-    Two link strategies (#1144 Gap 1 phases 2-3):
-      - Without ``via:`` — direct FK from aggregated entity → source
-        entity. Batched as ``GROUP BY aggregated.<fk_col>`` with
-        ``aggregated.<fk_col> IN (...member_ids)``.
-      - With ``via:`` — junction-binding subquery. Batched as a JOIN
-        through the junction with ``GROUP BY junction.<member_binding_col>``.
+    Three link strategies:
+      - Without ``via:`` or ``share:`` — direct FK from aggregated
+        entity → source entity. Batched as ``GROUP BY aggregated.<fk_col>``
+        with ``aggregated.<fk_col> IN (...member_ids)``.
+      - With ``via:`` — true-junction subquery (junction has a direct
+        FK to aggregated). Batched as a JOIN through the junction
+        with ``GROUP BY junction.<member_binding_col>``.
+      - With ``share:`` (#1216) — shared-parent JOIN. Cohort source row
+        and aggregated row both FK to the named pivot entity; the JOIN
+        composes ``a.<agg_to_pivot_fk> = s.<source_to_pivot_fk>``,
+        grouped by ``s.id``. Refuses at compute time when either side
+        has zero or multiple ``ref <pivot>`` fields (no silent guessing).
 
     Args:
         items: Cohort source rows (already RBAC-scoped upstream).
@@ -641,8 +646,6 @@ async def compute_cohort_aggregate_primary(
             source_entity``; for cross-entity aggregates the
             aggregated entity's RBAC must be composed separately —
             phase 3).
-        member_via: The cohort_strip ``member_via:`` field (typically
-            ``id`` or an FK column).
 
     Returns:
         Mapping of cohort member id → aggregate value. Members whose
@@ -678,9 +681,62 @@ async def compute_cohort_aggregate_primary(
     #   - Without `via:` → direct FK from aggregated entity → source entity
     #     (phase 2). Per-member filter is `aggregated_entity.<fk> = member_id`.
     via = primary_aggregate.via
+    share_entity = getattr(primary_aggregate, "share", None)
     junction_repo = repositories.get(via.junction_entity) if (via and repositories) else None
     via_link: tuple[str, str, str] | None = None  # (subq_select_field, agg_filter_col, direction)
-    if via is not None:
+    share_link: tuple[str, str] | None = None  # (agg_to_pivot_fk, source_to_pivot_fk)
+    if share_entity is not None:
+        # #1216: shared-parent JOIN. Cohort source row and the
+        # aggregated row both reference the named pivot. We refuse to
+        # silently pick a FK when there's more than one candidate —
+        # better empty cells + a clear warning than silently-wrong
+        # SQL. (`share:` and `via:` are mutually exclusive at parse
+        # time, so we never hit both branches.)
+        source_repo = repositories.get(source_entity)
+        if source_repo is None:
+            logger.warning(
+                "cohort_strip lens %r: share=%r set but source entity %r not in repositories",
+                getattr(lens, "id", "<unknown>"),
+                share_entity,
+                source_entity,
+            )
+            return out
+        agg_pivot_fks = _all_fks_to(agg_repo, share_entity)
+        source_pivot_fks = _all_fks_to(source_repo, share_entity)
+        if not agg_pivot_fks or not source_pivot_fks:
+            logger.warning(
+                "cohort_strip lens %r: share=%r not reachable — "
+                "aggregated %r FKs→pivot=%r, source %r FKs→pivot=%r. "
+                "Both entities must declare a `ref %s` field.",
+                getattr(lens, "id", "<unknown>"),
+                share_entity,
+                aggregated_entity,
+                agg_pivot_fks or "none",
+                source_entity,
+                source_pivot_fks or "none",
+                share_entity,
+            )
+            return out
+        if len(agg_pivot_fks) > 1 or len(source_pivot_fks) > 1:
+            logger.warning(
+                "cohort_strip lens %r: share=%r is ambiguous — "
+                "aggregated %r has %d FKs to %r (%s); source %r has %d (%s). "
+                "Multiple candidate FKs to the pivot are not yet supported; "
+                "rename one or split the entity.",
+                getattr(lens, "id", "<unknown>"),
+                share_entity,
+                aggregated_entity,
+                len(agg_pivot_fks),
+                share_entity,
+                ",".join(agg_pivot_fks),
+                source_entity,
+                len(source_pivot_fks),
+                ",".join(source_pivot_fks),
+            )
+            return out
+        share_link = (agg_pivot_fks[0], source_pivot_fks[0])
+        fk_col = None
+    elif via is not None:
         if junction_repo is None:
             logger.warning(
                 "cohort_strip lens %r: junction entity %r not in repositories — "
@@ -693,8 +749,9 @@ async def compute_cohort_aggregate_primary(
         if via_link is None:
             logger.warning(
                 "cohort_strip lens %r: no FK between aggregated entity %r and "
-                "junction %r — declare a direct reference or use the no-via "
-                "case. Cells will render without a value.",
+                "junction %r — declare a direct reference, set `share:` "
+                "(shared-parent JOIN), or use the no-via case. "
+                "Cells will render without a value.",
                 getattr(lens, "id", "<unknown>"),
                 aggregated_entity,
                 via.junction_entity,
@@ -753,6 +810,19 @@ async def compute_cohort_aggregate_primary(
         return out
 
     try:
+        if share_link is not None:
+            assert repositories is not None  # narrowed by the share branch above
+            return await _batched_share_cohort_aggregate(
+                agg_repo=agg_repo,
+                source_repo=repositories[source_entity],
+                share_link=share_link,
+                aggregated_entity=aggregated_entity,
+                member_ids=member_ids,
+                measures=measures,
+                measure_expressions=measure_expressions,
+                where=ref.where,
+                scope_filters=scope_only_filters,
+            )
         if via_link is not None and via is not None:
             return await _batched_via_cohort_aggregate(
                 agg_repo=agg_repo,
@@ -766,6 +836,18 @@ async def compute_cohort_aggregate_primary(
                 scope_filters=scope_only_filters,
             )
         assert fk_col is not None  # narrowed by the else branch above
+        # #1250: for cross-entity aggregates the source-entity
+        # __scope_predicate references a table not in the aggregate's
+        # FROM clause — strip it before passing through. Same root cause
+        # as #1231 for the share/via paths; the FK path's IN clause
+        # (`{fk_col}__in = member_ids`) already enforces source-row
+        # scoping because member_ids only contains scope-passing ids.
+        # When aggregated_entity == source_entity (same-entity aggregate,
+        # e.g. self-referencing FK), keep the predicate — it qualifies a
+        # column on the table that IS in the FROM.
+        fk_scope_filters = scope_only_filters
+        if aggregated_entity != source_entity:
+            fk_scope_filters = _strip_scope_predicate(scope_only_filters)
         return await _batched_fk_cohort_aggregate(
             agg_repo=agg_repo,
             fk_col=fk_col,
@@ -774,7 +856,7 @@ async def compute_cohort_aggregate_primary(
             measures=measures,
             measure_expressions=measure_expressions,
             where=ref.where,
-            scope_filters=scope_only_filters,
+            scope_filters=fk_scope_filters,
         )
     except Exception:
         logger.warning(
@@ -938,10 +1020,28 @@ async def _batched_via_cohort_aggregate(
         # Other targets (current_user.*, literals) are out of scope —
         # mirrors the N+1 helper's reach.
 
+    # #1231: drop any source-entity scope predicate from scope_filters
+    # before composition. The IN clause above (`j.{member_col_q} IN (...)`)
+    # already enforces source-row scoping — only members whose source row
+    # passed RBAC are in member_ids. Threading the source-entity
+    # `__scope_predicate` through here would emit a qualifier like
+    # `"ClassEnrolment"."school" = $N` which Postgres rejects because
+    # the source table isn't in this FROM clause (only `a JOIN j`).
+    scope_filters = _strip_scope_predicate(scope_filters)
+
     # AggregateRef.where + scope_filters → reuse the existing builder
     # so the typed ConditionExpr → SQL path stays single-sourced.
     composed_filters = _build_aggregate_filters(where, scope_filters, agg_repo, aggregated_entity)
     if composed_filters:
+        # #1229: the aggregated table is aliased ``a`` in the FROM clause
+        # below, but ``_build_aggregate_filters`` compiles the typed
+        # ``where`` predicate against ``aggregated_entity``, so the
+        # ``__scope_predicate`` SQL is already qualified with the entity
+        # name (e.g. ``"MarkingResult"."col"``). Rewrite that qualifier
+        # to the alias ``a`` so Postgres can resolve the column.
+        composed_filters = _retarget_scope_predicate_to_alias(
+            composed_filters, aggregated_entity, "a"
+        )
         sub_builder = QueryBuilder(table_name=agg_repo.table_name, placeholder_style=placeholder)
         sub_builder.add_filters(composed_filters)
         sub_sql, sub_params = sub_builder.build_where_clause()
@@ -986,6 +1086,189 @@ async def _batched_via_cohort_aggregate(
         value = row_dict.get("primary")
         if value is not None:
             out[str(member)] = value
+    return out
+
+
+async def _batched_share_cohort_aggregate(
+    *,
+    agg_repo: Any,
+    source_repo: Any,
+    share_link: tuple[str, str],  # (agg_to_pivot_fk, source_to_pivot_fk)
+    aggregated_entity: str,
+    member_ids: list[str],
+    measures: dict[str, str],
+    measure_expressions: dict[str, tuple[str, list[Any]]] | None,
+    where: Any,
+    scope_filters: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Batched shared-parent cohort aggregate (#1216).
+
+    For each cohort source row, aggregate ``aggregated_entity`` rows
+    whose reference to the named pivot equals the source row's
+    reference to the same pivot. Single GROUP BY query keyed on the
+    source row's primary key — the pivot table itself never appears
+    in the FROM clause because both FKs hold the same id values, so
+    an equi-join on the FK columns suffices.
+
+        SELECT s.id AS member_id,
+               <agg>(<measure>) AS primary
+        FROM   <aggregated_table> a
+        INNER JOIN <source_table> s
+               ON a.<agg_to_pivot_fk> = s.<source_to_pivot_fk>
+        WHERE  s.id IN (...member_ids)
+          AND  <where + scope predicates against a>
+        GROUP BY s.id
+        LIMIT N+10
+
+    Mutually exclusive with the ``via:`` true-junction path — see
+    :class:`LensAggregatePrimary` and the parse-time guard.
+    """
+    from dazzle.back.runtime.aggregate import measure_to_sql
+    from dazzle.back.runtime.query_builder import QueryBuilder, quote_identifier
+    from dazzle.back.runtime.workspace_aggregation import _build_aggregate_filters
+
+    agg_to_pivot_fk, source_to_pivot_fk = share_link
+
+    placeholder = agg_repo.db.placeholder
+    agg_table = quote_identifier(agg_repo.table_name)
+    source_table = quote_identifier(source_repo.table_name)
+    agg_pivot_q = quote_identifier(agg_to_pivot_fk)
+    source_pivot_q = quote_identifier(source_to_pivot_fk)
+
+    measure_sql: str
+    measure_params: list[Any] = []
+    if measure_expressions and "primary" in measure_expressions:
+        outer_func = measures["primary"].lower()
+        inner_sql, inner_params = measure_expressions["primary"]
+        measure_sql = f"{outer_func.upper()}({inner_sql})"
+        measure_params = list(inner_params)
+    else:
+        compiled = measure_to_sql(measures["primary"])
+        if compiled is None:
+            return {}
+        measure_sql = compiled
+
+    in_placeholders = ", ".join(placeholder for _ in member_ids)
+    where_clauses: list[str] = [f's."id" IN ({in_placeholders})']
+    where_params: list[Any] = list(member_ids)
+
+    # #1231: drop the source-entity __scope_predicate before composition —
+    # the `s."id" IN (...)` clause above already enforces source-row
+    # scoping (only members whose source row passed RBAC are in member_ids).
+    # The raw predicate is qualified by source-entity name (e.g.
+    # `"ClassEnrolment"."school" = $N`) and would need retargeting to
+    # the alias `s`; cheaper and clearer to strip it.
+    scope_filters = _strip_scope_predicate(scope_filters)
+
+    composed_filters = _build_aggregate_filters(where, scope_filters, agg_repo, aggregated_entity)
+    if composed_filters:
+        # #1229: see _batched_via_cohort_aggregate above — the FROM clause
+        # aliases the aggregated table to ``a``, so the predicate SQL
+        # (qualified with the entity name) must be retargeted to the alias.
+        composed_filters = _retarget_scope_predicate_to_alias(
+            composed_filters, aggregated_entity, "a"
+        )
+        sub_builder = QueryBuilder(table_name=agg_repo.table_name, placeholder_style=placeholder)
+        sub_builder.add_filters(composed_filters)
+        sub_sql, sub_params = sub_builder.build_where_clause()
+        if sub_sql.lower().startswith("where "):
+            sub_sql_body = sub_sql[6:].strip()
+            if sub_sql_body:
+                where_clauses.append(sub_sql_body)
+                where_params.extend(sub_params)
+
+    sql_parts: list[str] = [
+        f'SELECT s."id" AS member_id, {measure_sql} AS {quote_identifier("primary")}',
+        f"FROM {agg_table} a",
+        f"INNER JOIN {source_table} s ON a.{agg_pivot_q} = s.{source_pivot_q}",
+        "WHERE " + " AND ".join(where_clauses),
+        'GROUP BY s."id"',
+        f"LIMIT {len(member_ids) + 10}",
+    ]
+    sql = " ".join(sql_parts)
+    params = measure_params + where_params
+
+    with agg_repo.db.connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+            sql, params
+        )
+        rows = cursor.fetchall()
+
+    out: dict[str, Any] = {}
+    for row in rows:
+        if hasattr(row, "keys"):
+            row_dict = dict(row)
+        else:
+            row_dict = {"member_id": row[0], "primary": row[1]}
+        member = row_dict.get("member_id")
+        if member is None:
+            continue
+        value = row_dict.get("primary")
+        if value is not None:
+            out[str(member)] = value
+    return out
+
+
+def _strip_scope_predicate(
+    filters: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Return a copy of ``filters`` with the ``__scope_predicate`` key
+    removed. Used by ``share:`` / ``via:`` cohort paths where the
+    member-id IN clause already enforces source-row scoping and the
+    raw scope predicate (qualified with the source-entity name) would
+    reference a table not in the bespoke FROM clause (#1231).
+    """
+    if not filters or "__scope_predicate" not in filters:
+        return filters
+    out = dict(filters)
+    out.pop("__scope_predicate", None)
+    return out
+
+
+def _retarget_scope_predicate_to_alias(
+    filters: dict[str, Any], entity_name: str, alias: str
+) -> dict[str, Any]:
+    """Rewrite ``__scope_predicate`` SQL so ``"<entity_name>".`` qualifiers
+    become ``"<alias>".`` — used by the ``share:`` / ``via:`` cohort paths
+    where the aggregated table is aliased in the FROM clause but the
+    predicate compiler emits entity-name-qualified column refs.
+
+    Returns a shallow copy so the caller's dict isn't mutated.
+    """
+    pred = filters.get("__scope_predicate")
+    if pred is None:
+        return filters
+    pred_sql, pred_params = pred
+    needle = f'"{entity_name}".'
+    if needle not in pred_sql:
+        return filters
+    new_sql = pred_sql.replace(needle, f'"{alias}".')
+    out = dict(filters)
+    out["__scope_predicate"] = (new_sql, pred_params)
+    return out
+
+
+def _all_fks_to(repo: Any, target_entity: str) -> list[str]:
+    """Return *all* ref-field names on ``repo``'s entity pointing at
+    ``target_entity``.
+
+    Used by the ``share:`` compute path (#1216) to detect ambiguous
+    pivot references — when the caller needs to refuse rather than
+    silently pick the first FK.
+    """
+    spec = getattr(repo, "entity_spec", None)
+    if spec is None:
+        return []
+    out: list[str] = []
+    for fld in getattr(spec, "fields", []):
+        ftype = getattr(fld, "type", None)
+        if ftype is None or getattr(ftype, "kind", None) != "ref":
+            continue
+        if getattr(ftype, "ref_entity", None) == target_entity:
+            name = fld.name
+            if name is not None:
+                out.append(str(name))
     return out
 
 

@@ -46,6 +46,7 @@ class WorkspaceRouteBuilder:
         enable_test_mode: bool,
         entity_auto_includes: dict[str, list[str]] | None = None,
         user_entity_name: str = "User",
+        entity_ref_targets: dict[str, dict[str, str]] | None = None,
     ) -> None:
         self._app = app
         self._appspec = appspec
@@ -57,6 +58,9 @@ class WorkspaceRouteBuilder:
         self._entity_auto_includes = entity_auto_includes or {}
         self._fk_graph = getattr(appspec, "fk_graph", None)
         self._user_entity_name = user_entity_name
+        # #1232 — entity → {fk_field: target_entity} for dotted-path
+        # filter resolution in task_inbox sources.
+        self._entity_ref_targets = entity_ref_targets or {}
 
     def init_workspace_routes(self) -> None:
         """Initialize workspace layout routes (v0.20.0)."""
@@ -88,6 +92,19 @@ class WorkspaceRouteBuilder:
                 getattr(_e, "name", ""): getattr(_e, "access", None) for _e in entities
             }
             entity_access_specs.pop("", None)  # drop missing-name fallback
+
+            # #1233 — build action_id → POST URL map once per boot. For
+            # each CREATE surface, the framework's auto-CRUD mounts
+            # `POST /{plural(entity)}`. Renderers consume this to emit
+            # ``data-dz-row-action-url`` on row_action buttons so the
+            # client-side handler can POST without re-deriving the route.
+            from dazzle.core.ir import SurfaceMode
+            from dazzle.core.strings import to_api_plural
+
+            row_action_routes: dict[str, str] = {}
+            for _surf in appspec.surfaces:
+                if _surf.mode == SurfaceMode.CREATE and _surf.entity_ref:
+                    row_action_routes[_surf.name] = f"/{to_api_plural(_surf.entity_ref)}"
 
             require_auth = self._enable_auth and not self._enable_test_mode
 
@@ -160,6 +177,8 @@ class WorkspaceRouteBuilder:
                                 fk_graph=self._fk_graph,
                                 user_entity_name=self._user_entity_name,
                                 entity_access_specs=entity_access_specs,
+                                entity_ref_targets=self._entity_ref_targets,
+                                row_action_routes=row_action_routes,
                             )
                             # Override the IR filter for this source
                             _src_region_ctx._source_filter = _src_filter  # type: ignore[attr-defined]
@@ -264,6 +283,8 @@ class WorkspaceRouteBuilder:
                         fk_graph=self._fk_graph,
                         user_entity_name=self._user_entity_name,
                         entity_access_specs=entity_access_specs,
+                        entity_ref_targets=self._entity_ref_targets,
+                        row_action_routes=row_action_routes,
                     )
                     _ws_region_ctxs.append(_region_ctx)
 

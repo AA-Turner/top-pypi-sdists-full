@@ -45,13 +45,16 @@ use super::support;
 pub enum LitKind {
     BitString(SyntaxToken),
     ByteString(SyntaxToken),
+    Default(SyntaxToken),
     DollarQuotedString(SyntaxToken),
     EscString(SyntaxToken),
-    FloatNumber(SyntaxToken),
+    False(SyntaxToken),
     IntNumber(SyntaxToken),
     Null(SyntaxToken),
+    NumericNumber(SyntaxToken),
     PositionalParam(SyntaxToken),
     String(SyntaxToken),
+    True(SyntaxToken),
     UnicodeEscString(SyntaxToken),
 }
 
@@ -59,16 +62,19 @@ impl ast::Literal {
     pub fn kind(&self) -> Option<LitKind> {
         let token = self.syntax().first_child_or_token()?.into_token()?;
         let kind = match token.kind() {
-            SyntaxKind::STRING => LitKind::String(token),
-            SyntaxKind::NULL_KW => LitKind::Null(token),
-            SyntaxKind::FLOAT_NUMBER => LitKind::FloatNumber(token),
-            SyntaxKind::INT_NUMBER => LitKind::IntNumber(token),
-            SyntaxKind::BYTE_STRING => LitKind::ByteString(token),
             SyntaxKind::BIT_STRING => LitKind::BitString(token),
+            SyntaxKind::BYTE_STRING => LitKind::ByteString(token),
+            SyntaxKind::DEFAULT_KW => LitKind::Default(token),
             SyntaxKind::DOLLAR_QUOTED_STRING => LitKind::DollarQuotedString(token),
-            SyntaxKind::UNICODE_ESC_STRING => LitKind::UnicodeEscString(token),
             SyntaxKind::ESC_STRING => LitKind::EscString(token),
+            SyntaxKind::FALSE_KW => LitKind::False(token),
+            SyntaxKind::INT_NUMBER => LitKind::IntNumber(token),
+            SyntaxKind::NULL_KW => LitKind::Null(token),
+            SyntaxKind::NUMERIC_NUMBER => LitKind::NumericNumber(token),
             SyntaxKind::POSITIONAL_PARAM => LitKind::PositionalParam(token),
+            SyntaxKind::STRING => LitKind::String(token),
+            SyntaxKind::TRUE_KW => LitKind::True(token),
+            SyntaxKind::UNICODE_ESC_STRING => LitKind::UnicodeEscString(token),
             _ => return None,
         };
         Some(kind)
@@ -658,6 +664,30 @@ fn name_ref() {
         };
         name_ref.text().to_string()
     }
+}
+
+#[test]
+fn unicode_quoted_name_keeps_doubled_single_quotes() {
+    let parse = SourceFile::parse(r#"select 1 U&"a''b""#);
+    assert!(parse.errors().is_empty());
+    let stmt = parse.tree().stmts().next().unwrap();
+    let ast::Stmt::Select(select) = stmt else {
+        unreachable!()
+    };
+    let name = select
+        .select_clause()
+        .unwrap()
+        .target_list()
+        .unwrap()
+        .targets()
+        .next()
+        .unwrap()
+        .as_name()
+        .unwrap()
+        .name()
+        .unwrap();
+
+    assert_snapshot!(name.text().to_string(), @"a''b");
 }
 
 #[test]

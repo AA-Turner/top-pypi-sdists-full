@@ -118,6 +118,63 @@ _SOIL: Optional[SoilReader] = None
 _PARSER = None
 
 
+def _setup_worker_logging(parser) -> None:
+    """Send worker INFO logs to the same file the main process writes.
+
+    The main process uses ``geocif.logger.Logger`` which installs a
+    RotatingFileHandler at
+    ``${PATHS.dir_logs}/{project_name}/{Mon_DD_YYYY}/ml`` (matches
+    arrow's ``"MMMM_DD_YYYY"`` formatter). Spawn-mp workers do NOT
+    inherit this handler — they start with default WARNING level and
+    no handlers. So ``logger.info("Loading cube ...")`` calls inside
+    ``_load_cube`` and elsewhere get silently dropped, and cube-warmup
+    behaviour is invisible during PSO.
+
+    Mirror the same path here with a plain ``FileHandler`` in append
+    mode, attached to the root logger so all ``geocif.aquacrop.*``
+    child loggers propagate up to it. Linux append writes are atomic
+    for buffers < PIPE_BUF (~4 KB); our log lines are ~100 bytes, well
+    within that limit, so 38 workers writing concurrently is safe
+    without external locking.
+    """
+    import logging
+    import os
+    from datetime import datetime
+    from pathlib import Path
+
+    try:
+        dir_logs = parser.get("PATHS", "dir_logs")
+        project = parser.get("DEFAULT", "project_name", fallback="geocif")
+    except Exception:
+        return  # parser missing PATHS section — skip worker file logging
+
+    log_dir = Path(dir_logs) / project / datetime.now().strftime("%B_%d_%Y")
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return  # filesystem-readonly or permission issue — fail silently
+    log_file = str(log_dir / "ml")
+
+    root = logging.getLogger()
+    # Idempotent: re-invoked _worker_init must not stack duplicate handlers.
+    already = any(
+        isinstance(h, logging.FileHandler)
+        and getattr(h, "baseFilename", "") == log_file
+        for h in root.handlers
+    )
+    if already:
+        return
+
+    fh = logging.FileHandler(log_file, mode="a", encoding="utf-8")
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(logging.Formatter(
+        f"[%(asctime)s] [w{os.getpid()}] %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    root.setLevel(logging.INFO)
+    root.addHandler(fh)
+
+
 def _worker_init(config_files: list[str], country: str, country_bounds=None):
     """Per-worker initializer — runs once when each Pool worker starts.
 
@@ -145,6 +202,13 @@ def _worker_init(config_files: list[str], country: str, country_bounds=None):
     )
     parser.read(config_files)
     _PARSER = parser
+
+    # Wire worker logs into the SAME file the main process uses
+    # (${dir_logs}/{project}/{Mon_DD_YYYY}/ml). Spawn-mp workers start
+    # with default WARNING-level logging and no handlers — without this,
+    # logger.info(...) calls inside _load_cube and _worker_simulate are
+    # silently swallowed and cube-warmup behaviour is invisible during PSO.
+    _setup_worker_logging(parser)
     _WEATHER = WeatherReader(parser, country=country, country_bounds=country_bounds)
     _SOIL = SoilReader(parser, country=country)
 
@@ -257,7 +321,14 @@ def run_grid(
     """
     if n_workers is None:
         from configparser import ConfigParser, ExtendedInterpolation
-        p = ConfigParser(interpolation=ExtendedInterpolation())
+        # inline_comment_prefixes matches _worker_init below: without it,
+        # `fraction_cpus = 0.3   ; share of os.cpu_count() to use as Pool size`
+        # is parsed as a string with the trailing comment kept, and
+        # getfloat raises ValueError.
+        p = ConfigParser(
+            interpolation=ExtendedInterpolation(),
+            inline_comment_prefixes=(';',),
+        )
         p.read(config_files)
         frac = p.getfloat("DEFAULT", "fraction_cpus", fallback=0.3)
         n_workers = max(1, int(os.cpu_count() * frac))

@@ -1,34 +1,45 @@
 Metadata-Version: 2.1
 Name: Beaker
-Version: 1.13.0
+Version: 1.14.0
 Summary: A Session and Caching library with WSGI Middleware
-Home-page: https://beaker.readthedocs.io/
-Author: Ben Bangert, Mike Bayer, Philip Jenvey, Alessandro Molina
-Author-email: ben@groovie.org, pjenvey@groovie.org, amol@turbogears.org
+Author-email: Ben Bangert <ben@groovie.org>, Mike Bayer <pjenvey@groovie.org>, Philip Jenvey <pjenvey@groovie.org>, Alessandro Molina <alessandro@molina.fyi>
 License: BSD
-Keywords: wsgi myghty session web cache middleware
-Platform: UNKNOWN
+Project-URL: Homepage, https://beaker.readthedocs.io/
+Project-URL: Documentation, https://beaker.readthedocs.io/
+Keywords: wsgi,myghty,session,web,cache,middleware
+Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware
-Provides-Extra: crypto
-Provides-Extra: cryptography
-Provides-Extra: pycrypto
-Provides-Extra: pycryptodome
-Provides-Extra: testsuite
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+Provides-Extra: pycryptodome
+Requires-Dist: pycryptodome; extra == "pycryptodome"
+Provides-Extra: cryptography
+Requires-Dist: cryptography; extra == "cryptography"
+Provides-Extra: testsuite
+Requires-Dist: pytest; extra == "testsuite"
+Requires-Dist: pycryptodome; extra == "testsuite"
+Requires-Dist: webtest; extra == "testsuite"
+Requires-Dist: coverage; extra == "testsuite"
+Requires-Dist: cryptography; extra == "testsuite"
+Requires-Dist: sqlalchemy; extra == "testsuite"
+Requires-Dist: pymongo; extra == "testsuite"
+Requires-Dist: redis; extra == "testsuite"
+Requires-Dist: python-memcached; extra == "testsuite"
 
 =========================
 Cache and Session Library
@@ -91,5 +102,3 @@ Contributing
 Bugs can be filed on GitHub, **should be accompanied by a test case** to
 retain current code coverage, and should be in a pull request when ready to be
 accepted into the beaker code-base.
-
-

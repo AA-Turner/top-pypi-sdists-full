@@ -67,6 +67,14 @@ export interface SourceFileInfo {
     readonly isTracked: boolean;
     readonly isOpenByClient: boolean;
 
+    /**
+     * True for documents managed by open/close lifecycle rather than disk-based
+     * source enumeration (notebook cells, chat blocks, untitled files, synthetic stubs).
+     * Virtual documents are preserved during setTrackedFiles refresh and automatically
+     * untracked when closed.
+     */
+    readonly isVirtual: boolean;
+
     readonly imports: readonly SourceFileInfo[];
     readonly importedBy: readonly SourceFileInfo[];
     readonly shadows: readonly SourceFileInfo[];
@@ -89,6 +97,7 @@ export interface ProgramView {
     getParserOutput(fileUri: Uri): ParserOutput | undefined;
     getParseResults(fileUri: Uri): ParseFileResults | undefined;
     getSourceFileInfo(fileUri: Uri): SourceFileInfo | undefined;
+    getBoundSourceFileInfo(uri: Uri, content?: string, force?: boolean): SourceFileInfo | undefined;
     getModuleSymbolTable(fileUri: Uri): SymbolTable | undefined;
     getChainedUri(fileUri: Uri): Uri | undefined;
     getSourceMapper(fileUri: Uri, token: CancellationToken, mapCompiled?: boolean, preferStubs?: boolean): SourceMapper;

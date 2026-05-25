@@ -14,6 +14,7 @@ This provider creates instances of :class:`~wsgidav.fs_dav_provider.FileResource
 and :class:`~wsgidav.fs_dav_provider.FolderResource` to represent files and
 directories respectively.
 """
+
 import os
 import shutil
 import stat
@@ -53,7 +54,8 @@ class FileResource(DAVNonCollection):
         return self.file_stat[stat.ST_SIZE]
 
     def get_content_type(self):
-        return util.guess_mime_type(self.path)
+        config = self.environ["wsgidav.config"]
+        return util.guess_mime_type(self.path, config)
 
     def get_creation_date(self):
         return self.file_stat[stat.ST_CTIME]
@@ -162,7 +164,12 @@ class FileResource(DAVNonCollection):
     def set_last_modified(self, dest_path, time_stamp, *, dry_run):
         """Set last modified time for destPath to timeStamp on epoch-format"""
         # Translate time from RFC 1123 to seconds since epoch format
-        secs = util.parse_time_string(time_stamp)
+        secs = (
+            time_stamp
+            if isinstance(time_stamp, int)
+            else util.parse_time_string(time_stamp)
+        )
+        assert isinstance(secs, int)
         if not dry_run:
             os.utime(self._file_path, (secs, secs))
         return True
@@ -364,7 +371,12 @@ class FolderResource(DAVCollection):
     def set_last_modified(self, dest_path, time_stamp, *, dry_run):
         """Set last modified time for destPath to timeStamp on epoch-format"""
         # Translate time from RFC 1123 to seconds since epoch format
-        secs = util.parse_time_string(time_stamp)
+        secs = (
+            time_stamp
+            if isinstance(time_stamp, int)
+            else util.parse_time_string(time_stamp)
+        )
+        assert isinstance(secs, int)
         if not dry_run:
             os.utime(self._file_path, (secs, secs))
         return True
@@ -445,9 +457,14 @@ class FilesystemProvider(DAVProvider):
         # Try alternative URL if not found (or even override target):
         is_shadow, file_path = self._resolve_shadow_path(path, environ, file_path)
 
-        if not file_path.startswith(root_path) and not is_shadow:
+        # Ensure the containment check is path-boundary-aware: append os.sep so
+        # that a sibling directory (e.g. /tmp/share_evil) whose name *starts with*
+        # root_path (/tmp/share) is correctly rejected.
+        root_path_with_sep = root_path.rstrip(os.sep) + os.sep
+        file_path_with_sep = file_path.rstrip(os.sep) + os.sep
+        if not file_path_with_sep.startswith(root_path_with_sep) and not is_shadow:
             raise RuntimeError(
-                f"Security exception: tried to access file outside root: {file_path}"
+                f"Security exception: tried to access file outside root {root_path}: {file_path}"
             )
 
         # Convert to unicode

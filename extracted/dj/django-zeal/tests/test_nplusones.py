@@ -2,6 +2,7 @@ import re
 
 import pytest
 from django.db import connection
+from django.db.models import prefetch_related_objects
 from django.test.utils import CaptureQueriesContext
 from djangoproject.social.models import Post, Profile, User
 from zeal import NPlusOneError, zeal_context
@@ -517,3 +518,301 @@ def test_ignores_calls_on_different_lines():
     # this should *not* raise an exception
     _a = list(user_1.posts.all())
     _b = list(user_2.posts.all())
+
+
+class TestPrefetchRelatedObjects:
+    """prefetch_related_objects called per-instance is N+1; bulk is not."""
+
+    def test_reverse_many_to_one_per_instance_is_n_plus_one(self):
+        users = UserFactory.create_batch(2)
+        for u in users:
+            PostFactory.create(author=u)
+        users = list(User.objects.all())
+        with pytest.raises(
+            NPlusOneError,
+            match=re.escape("N+1 detected on social.User.posts"),
+        ):
+            for user in users:
+                prefetch_related_objects([user], "posts")
+
+    def test_forward_many_to_one_per_instance_is_n_plus_one(self):
+        users = UserFactory.create_batch(2)
+        for u in users:
+            PostFactory.create(author=u)
+        posts = list(Post.objects.all())
+        with pytest.raises(
+            NPlusOneError,
+            match=re.escape("N+1 detected on social.Post.author"),
+        ):
+            for post in posts:
+                prefetch_related_objects([post], "author")
+
+    def test_reverse_one_to_one_per_instance_is_n_plus_one(self):
+        users = UserFactory.create_batch(2)
+        for u in users:
+            ProfileFactory.create(user=u)
+        users = list(User.objects.all())
+        with pytest.raises(
+            NPlusOneError,
+            match=re.escape("N+1 detected on social.User.profile"),
+        ):
+            for user in users:
+                prefetch_related_objects([user], "profile")
+
+    def test_forward_many_to_many_per_instance_is_n_plus_one(self):
+        user_1, user_2 = UserFactory.create_batch(2)
+        user_1.following.add(user_2)
+        user_2.following.add(user_1)
+        users = list(User.objects.all())
+        with pytest.raises(
+            NPlusOneError,
+            match=re.escape("N+1 detected on social.User.following"),
+        ):
+            for user in users:
+                prefetch_related_objects([user], "following")
+
+    def test_reverse_many_to_many_per_instance_is_n_plus_one(self):
+        user_1, user_2 = UserFactory.create_batch(2)
+        user_1.following.add(user_2)
+        user_2.following.add(user_1)
+        users = list(User.objects.all())
+        with pytest.raises(
+            NPlusOneError,
+            match=re.escape("N+1 detected on social.User.followers"),
+        ):
+            for user in users:
+                prefetch_related_objects([user], "followers")
+
+    def test_generic_relation_per_instance_is_n_plus_one(self):
+        from djangoproject.social.models import Tag
+
+        users = UserFactory.create_batch(2)
+        for u in users:
+            Tag.objects.create(obj=u, label="x")
+        users = list(User.objects.all())
+        with pytest.raises(
+            NPlusOneError,
+            match=re.escape("N+1 detected on social.User.tags"),
+        ):
+            for user in users:
+                prefetch_related_objects([user], "tags")
+
+    def test_per_instance_in_iterator_loop_is_n_plus_one(self):
+        users = UserFactory.create_batch(2)
+        for u in users:
+            PostFactory.create(author=u)
+        with pytest.raises(
+            NPlusOneError,
+            match=re.escape("N+1 detected on social.User.posts"),
+        ):
+            for user in User.objects.iterator(chunk_size=1):
+                prefetch_related_objects([user], "posts")
+
+    def test_bulk_is_not_n_plus_one(self):
+        users = UserFactory.create_batch(2)
+        for u in users:
+            PostFactory.create(author=u)
+        users = list(User.objects.all())
+        prefetch_related_objects(users, "posts")
+
+    def test_singly_loaded_prefetch_is_not_n_plus_one(self):
+        user_1, user_2 = UserFactory.create_batch(2)
+        PostFactory.create(author=user_1)
+        PostFactory.create(author=user_2)
+
+        def prefetch_one(user):
+            prefetch_related_objects([user], "posts")
+
+        prefetch_one(User.objects.get(pk=user_1.pk))
+        prefetch_one(User.objects.get(pk=user_2.pk))
+
+
+def test_detects_nplusone_in_generic_relation():
+    from djangoproject.social.models import Tag
+
+    [user_1, user_2] = UserFactory.create_batch(2)
+    Tag.objects.create(obj=user_1, label="a")
+    Tag.objects.create(obj=user_2, label="b")
+    with pytest.raises(
+        NPlusOneError, match=re.escape("N+1 detected on social.User.tags")
+    ):
+        for user in User.objects.all():
+            _ = list(user.tags.all())
+
+    for user in User.objects.prefetch_related("tags").all():
+        _ = list(user.tags.all())
+
+
+def test_detects_nplusone_in_generic_relation_iterator():
+    from djangoproject.social.models import Tag
+
+    for _ in range(4):
+        user = UserFactory.create()
+        Tag.objects.create(obj=user, label="x")
+    with pytest.raises(
+        NPlusOneError, match=re.escape("N+1 detected on social.User.tags")
+    ):
+        for user in User.objects.all().iterator(chunk_size=2):
+            _ = list(user.tags.all())
+
+    for user in User.objects.prefetch_related("tags").iterator(chunk_size=2):
+        _ = list(user.tags.all())
+
+
+def test_no_false_positive_when_loading_single_object_generic_relation():
+    from djangoproject.social.models import Tag
+
+    user_1, user_2 = UserFactory.create_batch(2)
+    Tag.objects.create(obj=user_1, label="a")
+    Tag.objects.create(obj=user_2, label="b")
+
+    with zeal_context(), CaptureQueriesContext(connection) as ctx:
+        user_1 = User.objects.filter(pk=user_1.pk).first()
+        user_2 = User.objects.filter(pk=user_2.pk).first()
+        assert user_1 is not None and user_2 is not None
+        _ = list(user_1.tags.all())
+        _ = list(user_2.tags.all())
+        assert len(ctx.captured_queries) == 4
+
+    with zeal_context(), CaptureQueriesContext(connection) as ctx:
+        user_1 = User.objects.filter(pk=user_1.pk)[0]
+        user_2 = User.objects.filter(pk=user_2.pk)[0]
+        _ = list(user_1.tags.all())
+        _ = list(user_2.tags.all())
+        assert len(ctx.captured_queries) == 4
+
+    with zeal_context(), CaptureQueriesContext(connection) as ctx:
+        user_1 = User.objects.get(pk=user_1.pk)
+        user_2 = User.objects.get(pk=user_2.pk)
+        _ = list(user_1.tags.all())
+        _ = list(user_2.tags.all())
+        assert len(ctx.captured_queries) == 4
+
+
+def test_zeal_ignore_works_for_generic_relation():
+    from djangoproject.social.models import Tag
+
+    [user_1, user_2] = UserFactory.create_batch(2)
+    Tag.objects.create(obj=user_1, label="a")
+    Tag.objects.create(obj=user_2, label="b")
+
+    with zeal_ignore([{"model": "social.User", "field": "tags"}]):
+        for user in User.objects.all():
+            _ = list(user.tags.all())
+
+
+def test_no_false_positive_when_calling_generic_relation_twice():
+    from djangoproject.social.models import Tag
+
+    user = UserFactory.create()
+    Tag.objects.create(obj=user, label="a")
+
+    with zeal_context(), CaptureQueriesContext(connection) as ctx:
+        queryset = user.tags.all()
+        list(queryset)  # evaluate queryset once
+        list(queryset)  # evaluate again (cached)
+        assert len(ctx.captured_queries) == 1
+
+
+def test_detects_nplusone_in_generic_foreign_key():
+    from djangoproject.social.models import Tag
+
+    [user_1, user_2] = UserFactory.create_batch(2)
+    Tag.objects.create(obj=user_1, label="a")
+    Tag.objects.create(obj=user_2, label="b")
+    with pytest.raises(
+        NPlusOneError, match=re.escape("N+1 detected on social.Tag.obj")
+    ):
+        for tag in Tag.objects.all():
+            _ = tag.obj
+
+    for tag in Tag.objects.prefetch_related("obj").all():
+        _ = tag.obj
+
+
+def test_detects_nplusone_in_generic_foreign_key_iterator():
+    from djangoproject.social.models import Tag
+
+    for _ in range(4):
+        user = UserFactory.create()
+        Tag.objects.create(obj=user, label="x")
+    with pytest.raises(
+        NPlusOneError, match=re.escape("N+1 detected on social.Tag.obj")
+    ):
+        for tag in Tag.objects.all().iterator(chunk_size=2):
+            _ = tag.obj
+
+    for tag in Tag.objects.prefetch_related("obj").iterator(chunk_size=2):
+        _ = tag.obj
+
+
+def test_no_false_positive_when_loading_single_object_generic_foreign_key():
+    from djangoproject.social.models import Tag
+
+    user_1, user_2 = UserFactory.create_batch(2)
+    tag_1 = Tag.objects.create(obj=user_1, label="a")
+    tag_2 = Tag.objects.create(obj=user_2, label="b")
+
+    with zeal_context():
+        tag_1 = Tag.objects.filter(pk=tag_1.pk).first()
+        tag_2 = Tag.objects.filter(pk=tag_2.pk).first()
+        assert tag_1 is not None and tag_2 is not None
+        _ = tag_1.obj
+        _ = tag_2.obj
+
+    with zeal_context():
+        tag_1 = Tag.objects.filter(pk=tag_1.pk)[0]
+        tag_2 = Tag.objects.filter(pk=tag_2.pk)[0]
+        _ = tag_1.obj
+        _ = tag_2.obj
+
+    with zeal_context():
+        tag_1 = Tag.objects.get(pk=tag_1.pk)
+        tag_2 = Tag.objects.get(pk=tag_2.pk)
+        _ = tag_1.obj
+        _ = tag_2.obj
+
+
+def test_zeal_ignore_works_for_generic_foreign_key():
+    from djangoproject.social.models import Tag
+
+    [user_1, user_2] = UserFactory.create_batch(2)
+    Tag.objects.create(obj=user_1, label="a")
+    Tag.objects.create(obj=user_2, label="b")
+
+    with zeal_ignore([{"model": "social.Tag", "field": "obj"}]):
+        for tag in Tag.objects.all():
+            _ = tag.obj
+
+
+def test_no_false_positive_when_generic_foreign_key_is_null():
+    from djangoproject.social.models import Tag
+
+    Tag.objects.create(label="a")
+    Tag.objects.create(label="b")
+
+    with zeal_context(), CaptureQueriesContext(connection) as ctx:
+        for tag in Tag.objects.all():
+            assert tag.obj is None
+        # Only the SELECT for Tag.objects.all(); no per-row GFK queries.
+        assert len(ctx.captured_queries) == 1
+
+
+def test_no_false_positive_when_accessing_generic_foreign_key_twice():
+    from djangoproject.social.models import Tag
+
+    user = UserFactory.create()
+    Tag.objects.create(obj=user, label="a")
+
+    with zeal_context(), CaptureQueriesContext(connection) as ctx:
+        [tag] = list(Tag.objects.all())
+        _ = tag.obj  # first access hits DB
+        _ = tag.obj  # second access uses descriptor cache
+        # 1 query for the tag itself, 1 for the User via GFK,
+        # plus ContentType lookups (cached after first).
+        gfk_queries = [
+            q
+            for q in ctx.captured_queries
+            if '"social_user"' in q["sql"]
+        ]
+        assert len(gfk_queries) == 1

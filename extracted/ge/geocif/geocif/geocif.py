@@ -2656,9 +2656,14 @@ class Geocif:
         elif self.model_name == "trend":
             # Theil-Sen linear trend on the previous 12 training years
             # (Harvest Year < forecast_season). arxiv:2506.19046 sec 2.
+            # Filter by Region (admin name), NOT Region_ID — under
+            # cluster_strategy=single, Region_ID=1 for every admin, which
+            # collapsed all 8 (or N) admins' rows into one degenerate fit
+            # ("1 unique year across 12 rows" warning). Region is always
+            # admin-unique regardless of clustering strategy.
             from scipy.stats import theilslopes
-            region_id = df_region["Region_ID"].iloc[0]
-            tmask = self.df_train["Region_ID"] == region_id
+            region_name = df_region["Region"].iloc[0]
+            tmask = self.df_train["Region"] == region_name
             past_mask = (
                 tmask
                 & (self.df_train["Harvest Year"].astype(float)
@@ -2681,7 +2686,7 @@ class Geocif:
                 if _n_uniq < 2:
                     self.logger.warning(
                         f"[trend baseline] degenerate Harvest Year for "
-                        f"region={region_id} forecast_season={self.forecast_season}: "
+                        f"region={region_name!r} forecast_season={self.forecast_season}: "
                         f"{_n_uniq} unique year(s) across {len(past)} rows — "
                         f"scipy will emit 'All x coordinates are identical'."
                     )

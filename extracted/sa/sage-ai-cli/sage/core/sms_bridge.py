@@ -298,20 +298,38 @@ def _imessage_row_matches(prev_max_rowid: int, text: str) -> bool:
     db_path = os.path.expanduser("~/Library/Messages/chat.db")
     if not os.path.exists(db_path):
         return False
+    # Detect columns once to support older macOS (pre-Catalina) without attributedBody
     try:
         import sqlite3
-        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=2) as db:
-            row = db.execute(
-                "SELECT 1 FROM message "
-                "WHERE rowid > ? AND is_from_me = 1 "
-                "  AND ("
-                "    (text IS NOT NULL AND substr(text, 1, 200) = substr(?, 1, 200))"
-                "    OR (attributedBody IS NOT NULL AND length(attributedBody) > 0)"
-                "  ) "
-                "LIMIT 1",
-                (prev_max_rowid, text),
-            ).fetchone()
+        # Use a plain path for maximum compatibility unless we need URI params
+        db = sqlite3.connect(db_path, timeout=2)
+        try:
+            cur = db.execute("PRAGMA table_info(message)")
+            columns = {col[1] for col in cur.fetchall()}
+            has_attr = "attributedBody" in columns
+        finally:
+            db.close()
+    except Exception:
+        has_attr = False
+
+    try:
+        import sqlite3
+        db = sqlite3.connect(db_path, timeout=2)
+        try:
+            attr_check = "OR (attributedBody IS NOT NULL AND length(attributedBody) > 0)" if has_attr else ""
+            query = f"""
+                SELECT 1 FROM message
+                WHERE rowid > ? AND is_from_me = 1
+                  AND (
+                    (text IS NOT NULL AND substr(text, 1, 200) = substr(?, 1, 200))
+                    {attr_check}
+                  )
+                LIMIT 1
+            """
+            row = db.execute(query, (prev_max_rowid, text)).fetchone()
             return row is not None
+        finally:
+            db.close()
     except Exception:
         return False
 
@@ -345,13 +363,23 @@ def _send_imessage(recipient: str, text: str) -> bool:
 
     baseline = _imessage_max_rowid()
 
+    import os, re
+    attachment_path = None
+    paths = re.findall(r'(/[\w\.\-\_/]+)', text)
+    for p in paths:
+        if os.path.isfile(p):
+            attachment_path = p
+            break
+
     def _run_send_script(target_keyword: str) -> tuple[bool, str]:
         """Run the send via osascript with `participant` or `buddy` keyword."""
+        attachment_cmd = f'        send POSIX file "{attachment_path}" to targetBuddy\n' if attachment_path else ""
         script = (
             'tell application "Messages"\n'
             '    try\n'
             '        set targetService to 1st service whose service type = iMessage\n'
             f'        set targetBuddy to {target_keyword} "{safe_to}" of targetService\n'
+            f'{attachment_cmd}'
             f'        send "{safe_text}" to targetBuddy\n'
             '        return "ok"\n'
             '    on error errMsg number errNum\n'
@@ -371,48 +399,52 @@ def _send_imessage(recipient: str, text: str) -> bool:
     # Try modern `participant`, then legacy `buddy`. Either may script-succeed
     # without iMessage queuing anything; chat.db is the ground truth.
     script_errors: list[str] = []
+    success = False
+    
     for keyword in ("participant", "buddy"):
         ok, msg = _run_send_script(keyword)
-        if not ok or msg != "ok":
-            # If iMessage service is unavailable, try falling back to SMS service
-            if "targetService" in msg and "iMessage" in msg:
-                logger.info("iMessage service unavailable, trying standard SMS fallback for %s", recipient)
-                if _send_macos_sms(recipient, text):
-                    return True
+        if ok and msg == "ok":
+            success = True
+            break
             
-            script_errors.append(f"{keyword}: {msg}")
-            logger.debug("osascript iMessage (%s) to %s: %s", keyword, recipient, msg)
-            continue
-        
-        # If chat.db is unreadable, we cannot VERIFY delivery, but the osascript
-        # above just returned "ok".  We must trust it and return True, otherwise
-        # the backend will fall back to SMTP unnecessarily.
-        if baseline == -1:
-            logger.info("iMessage sent to %s via osascript. (Verification skipped: Full Disk Access missing).", recipient)
-            return True
+        script_errors.append(f"{keyword}: {msg}")
+        logger.debug("osascript iMessage (%s) to %s: %s", keyword, recipient, msg)
 
-        # Give Messages.app up to 5s to write to chat.db
-        for _ in range(20):  # 20 × 0.25s = 5s
-            time.sleep(0.25)
-            if _imessage_row_matches(baseline, text):
-                logger.info("iMessage delivery verified for %s", recipient)
+    if not success:
+        combined_errors = " ".join(script_errors)
+        # If iMessage service is unavailable, try falling back to SMS service
+        if "targetService" in combined_errors and "iMessage" in combined_errors:
+            logger.info("iMessage service unavailable, trying standard SMS fallback for %s", recipient)
+            if _send_macos_sms(recipient, text):
                 return True
-        
-        logger.warning(
-            "iMessage to %s: osascript said ok but no row appeared in chat.db "
-            "after 5s — recipient may not have iMessage enabled, or Messages.app is not signed in.",
-            recipient,
-        )
-        return False
-
-    # Both keywords produced script errors — log them visibly
-    if script_errors:
+                
         logger.warning(
             "iMessage to %s failed: %s — ensure Messages.app is open and "
             "signed into iMessage, and the recipient's handle is correct",
             recipient,
             "; ".join(script_errors),
         )
+        return False
+        
+    # If chat.db is unreadable, we cannot VERIFY delivery, but the osascript
+    # above just returned "ok".  We must trust it and return True, otherwise
+    # the backend will fall back to SMTP unnecessarily.
+    if baseline == -1:
+        logger.info("iMessage sent to %s via osascript. (Verification skipped: Full Disk Access missing).", recipient)
+        return True
+
+    # Give Messages.app up to 5s to write to chat.db
+    for _ in range(20):  # 20 × 0.25s = 5s
+        time.sleep(0.25)
+        if _imessage_row_matches(baseline, text):
+            logger.info("iMessage delivery verified for %s", recipient)
+            return True
+    
+    logger.warning(
+        "iMessage to %s: osascript said ok but no row appeared in chat.db "
+        "after 5s — recipient may not have iMessage enabled, or Messages.app is not signed in.",
+        recipient,
+    )
     return False
 
 
@@ -970,14 +1002,22 @@ class SAGEMessageBridge:
             logger.debug("contacts refresh failed: %s", exc)
 
     def _imessage_initial_rowid(self) -> int:
-        """Return the current max ROWID so we only see messages from now on."""
+        """Return the current max ROWID so we only see messages from now on.
+        Returns -1 if the database is unreadable (prevents accidental historical fetch).
+        """
         try:
             import sqlite3
-            with sqlite3.connect(f"file:{self._CHAT_DB}?mode=ro", uri=True, timeout=2) as db:
-                cur = db.execute("SELECT COALESCE(MAX(ROWID), 0) FROM message")
-                return cur.fetchone()[0] or 0
-        except Exception:
-            return 0
+            # Use simple connect for legacy compatibility
+            db = sqlite3.connect(str(self._CHAT_DB), timeout=2)
+            try:
+                cur = db.execute("SELECT MAX(ROWID) FROM message")
+                row = cur.fetchone()
+                return int(row[0]) if row and row[0] is not None else 0
+            finally:
+                db.close()
+        except Exception as exc:
+            logger.debug("Failed to initialize iMessage rowid: %s", exc)
+            return -1
 
     def _fetch_new_imessages(self) -> list[dict]:
         """Return new INBOUND iMessage/SMS records since `_last_msg_rowid`.
@@ -992,14 +1032,15 @@ class SAGEMessageBridge:
         """
         if not self._CHAT_DB.exists():
             return []
-        if self._last_msg_rowid is None:
+        if self._last_msg_rowid is None or self._last_msg_rowid < 0:
             self._last_msg_rowid = self._imessage_initial_rowid()
             return []
 
         results: list[dict] = []
         try:
             import sqlite3
-            with sqlite3.connect(f"file:{self._CHAT_DB}?mode=ro", uri=True, timeout=2) as db:
+            db = sqlite3.connect(str(self._CHAT_DB), timeout=2)
+            try:
                 cur = db.execute("""
                     SELECT m.ROWID, h.id, m.text, m.service, m.date
                       FROM message m
@@ -1029,6 +1070,8 @@ class SAGEMessageBridge:
                     })
                     if rowid > self._last_msg_rowid:
                         self._last_msg_rowid = rowid
+            finally:
+                db.close()
         except Exception as exc:
             self._log(f"chat.db poll failed: {exc}")
         return results
@@ -1566,7 +1609,11 @@ class SAGEMessageBridge:
                     capture_output=True, text=True, timeout=timeout,
                     env={
                         **os.environ, 
-                        "PYTHONPATH": str(self.cwd), 
+                        "PYTHONPATH": os.path.pathsep.join(filter(None, [
+                            str(Path(__file__).resolve().parents[2]),
+                            str(self.working_dir),
+                            os.environ.get("PYTHONPATH", "")
+                        ])), 
                         "NO_COLOR": "1", 
                         "TERM": "dumb",
                         "SAGE_BATCH_LIMIT": "250" # Ensure background task doesn't stop early

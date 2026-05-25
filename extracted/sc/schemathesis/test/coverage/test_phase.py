@@ -71,7 +71,7 @@ NEGATIVE_CASES = [
         "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")},
         "body": {"j-prop": 0},
     },
-    {"query": {"q1": "", "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
+    {"query": {"q1": "AAA", "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
     {"query": {"q1": "null", "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
     {"query": {"q1": "false", "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": "0000"}, "body": {"j-prop": 0}},
@@ -83,7 +83,7 @@ NEGATIVE_CASES = [
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "6", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "{}", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "null,null", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
+    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "AAA", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "null", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "false", "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": 0}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {}},
@@ -97,12 +97,12 @@ NEGATIVE_CASES = [
         "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")},
         "body": {"j-prop": [None, None]},
     },
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": ""}},
+    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": "AAA"}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": None}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": False}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"j-prop": ANY}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": [None, None]},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": ""},
+    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": "AAA"},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": False},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": 0},
@@ -119,7 +119,7 @@ MIXED_CASES = [
     {"query": {"q1": "5", "q2": "0000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "4", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": ["null", "null"], "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
-    {"query": {"q1": "", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "AAA", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "null", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "false", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": ANY, "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
@@ -135,7 +135,7 @@ MIXED_CASES = [
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "6", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "{}", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "null,null", "h2": "000"}, "body": {"j-prop": 0}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "", "h2": "000"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "AAA", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "null", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "false", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": ANY, "h2": "000"}, "body": {"j-prop": 0}},
@@ -149,12 +149,12 @@ MIXED_CASES = [
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": {}}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": [None, None]}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": ""}},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": "AAA"}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": None}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": False}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": ANY}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": [None, None]},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": ""},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": "AAA"},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": False},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": 0},
@@ -881,7 +881,7 @@ def test_mixed_type_keyword(ctx):
                 "query": {"key": ["0"]},
             },
             {
-                "query": {"key": ""},
+                "query": {"key": "AAA"},
             },
             {
                 "query": {"key": "null"},
@@ -923,7 +923,7 @@ def test_negative_type_violations_for_enum_property_under_allof(ctx):
         [GenerationMode.POSITIVE, GenerationMode.NEGATIVE],
         [
             {"body": [None, None]},
-            {"body": ""},
+            {"body": "AAA"},
             {},
             {"body": False},
             {"body": 0},
@@ -937,6 +937,55 @@ def test_negative_type_violations_for_enum_property_under_allof(ctx):
             {"body": {"color": "blue"}},
             {"body": {"color": "red"}},
         ],
+    )
+
+
+def test_negative_per_property_emitted_when_inflated_template_unsatisfiable(ctx):
+    # One unsatisfiable optional property must not silence per-property negatives on the others.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "format": {"enum": ["json", "xml"], "type": "string"},
+                                        "unsat": {"type": "integer", "minimum": 10, "maximum": 5},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = schema["/foo"]["POST"]
+    cases = list(
+        iter_coverage_cases(
+            operation=operation,
+            generation_modes=[GenerationMode.POSITIVE, GenerationMode.NEGATIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=operation.schema.config.generation,
+        )
+    )
+    enum_invalid = [
+        c.body
+        for c in cases
+        if isinstance(c.body, dict)
+        and "format" in c.body
+        and c.body["format"] not in ("json", "xml")
+        and c.meta.generation.mode == GenerationMode.NEGATIVE
+    ]
+    assert enum_invalid, (
+        f"Expected a negative case with an invalid 'format' enum value; got bodies: {[c.body for c in cases]}"
     )
 
 
@@ -1182,7 +1231,7 @@ def test_negative_patterns(ctx):
                 "body": [None, None],
             },
             {
-                "body": "",
+                "body": "AAA",
             },
             {},
             {
@@ -1273,7 +1322,7 @@ def test_array_in_header_path_query(ctx):
             {
                 "headers": {"X-API-Key-1": "false"},
                 "path_parameters": {"bar": "false"},
-                "query": {"key": ""},
+                "query": {"key": "AAA"},
             },
             {
                 "headers": {"X-API-Key-1": "false"},
@@ -1291,7 +1340,7 @@ def test_array_in_header_path_query(ctx):
                 "query": {"key": "false"},
             },
             {
-                "headers": {"X-API-Key-1": ""},
+                "headers": {"X-API-Key-1": "AAA"},
                 "path_parameters": {"bar": "false"},
                 "query": {"key": "false"},
             },
@@ -1917,11 +1966,11 @@ def test_generate_empty_headers_too(ctx):
                 {"body": [False, False, False, False]},
                 {"body": [{}]},
                 {"body": [[None, None]]},
-                {"body": [""]},
+                {"body": ["AAA"]},
                 {"body": [None]},
                 {"body": [0]},
                 {"body": {}},
-                {"body": ""},
+                {"body": "AAA"},
                 {},
                 {"body": False},
                 {"body": 0},
@@ -1937,11 +1986,11 @@ def test_generate_empty_headers_too(ctx):
                 {"body": [False, False]},
                 {"body": [{}, False, False]},
                 {"body": [[None, None], False, False]},
-                {"body": ["", False, False]},
+                {"body": ["AAA", False, False]},
                 {"body": [None, False, False]},
                 {"body": [0, False, False]},
                 {"body": {}},
-                {"body": ""},
+                {"body": "AAA"},
                 {},
                 {"body": False},
                 {"body": 0},
@@ -1964,7 +2013,7 @@ def test_generate_empty_headers_too(ctx):
                     "body": {},
                 },
                 {
-                    "body": "",
+                    "body": "AAA",
                 },
                 {},
                 {
@@ -2250,7 +2299,7 @@ def test_query_without_constraints_negative(ctx):
             False,
             [
                 "http://127.0.0.1/foo?q=0&q=0",
-                "http://127.0.0.1/foo?q=",
+                "http://127.0.0.1/foo?q=AAA",
                 "http://127.0.0.1/foo?q=null",
                 "http://127.0.0.1/foo?q=false",
             ],
@@ -2265,7 +2314,7 @@ def test_query_without_constraints_negative(ctx):
                 "http://127.0.0.1/foo?q=null",
                 "http://127.0.0.1/foo?q=false",
                 "http://127.0.0.1/foo?q=0",
-                "http://127.0.0.1/foo?q=",
+                "http://127.0.0.1/foo?q=AAA",
                 "http://127.0.0.1/foo?q=null",
                 "http://127.0.0.1/foo?q=false",
             ],
@@ -2281,7 +2330,7 @@ def test_query_without_constraints_negative(ctx):
                 "http://127.0.0.1/foo?q=null",
                 "http://127.0.0.1/foo?q=false",
                 "http://127.0.0.1/foo?q=0",
-                "http://127.0.0.1/foo?q=",
+                "http://127.0.0.1/foo?q=AAA",
                 "http://127.0.0.1/foo?q=null",
                 "http://127.0.0.1/foo?q=false",
             ],
@@ -5703,6 +5752,119 @@ def test_coverage_negative_string_length_with_enum(ctx):
         assert not validator.is_valid(case.body), f"NEGATIVE body is schema-valid: {case.body!r}"
 
 
+def test_negative_enum_emits_entries_with_type_mismatch_for_keyword_coverage(ctx):
+    # Positive path skips every entry as `type`-invalid, so only negatives can exercise `enum` here.
+    loaded = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "chunk_size": {"enum": [2, 4, 6, 8, 10], "type": "string"},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = loaded["/foo"]["POST"]
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
+    emitted = {
+        c.body["chunk_size"]
+        for c in cases
+        if isinstance(c.body, dict) and "chunk_size" in c.body and isinstance(c.body["chunk_size"], int)
+    }
+    assert {2, 4, 6, 8, 10}.issubset(emitted), f"Expected each enum entry as a negative; got: {emitted}"
+
+
+@pytest.mark.parametrize(
+    "property_schema",
+    [
+        {"type": "integer", "enum": [1, 2]},
+        {"type": ["integer", "null"], "enum": [None, 301, 302, 307, 308]},
+        {"type": "number", "enum": [1, 2, 3.5]},
+    ],
+    ids=["integer", "integer-or-null", "number-with-int-entries"],
+)
+def test_negative_enum_does_not_flag_integer_entries_matching_declared_type(ctx, property_schema):
+    # Integer enum entries are valid under `type: integer` (and `type: number`); the
+    # "Enum value with type mismatching" fallback must skip them, not emit them as negatives.
+    loaded = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"value": property_schema},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = loaded["/foo"]["POST"]
+    validator = _body_validator(operation)
+    for case in _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation):
+        if case.body is None or case.meta is None:
+            continue
+        body_info = case.meta.components.get(ParameterLocation.BODY)
+        if body_info is None or body_info.mode != GenerationMode.NEGATIVE:
+            continue
+        assert not validator.is_valid(case.body), (
+            f"NEGATIVE body is schema-valid (mutation had no effect): {case.body!r}"
+        )
+
+
+def test_negative_const_emits_value_with_type_mismatch_for_keyword_coverage(ctx):
+    # Positive path skips the const value as `type`-invalid, so only the negative can exercise `const` here.
+    loaded = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "chunk_size": {"const": 42, "type": "string"},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = loaded["/foo"]["POST"]
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
+    emitted = {
+        c.body["chunk_size"]
+        for c in cases
+        if isinstance(c.body, dict) and "chunk_size" in c.body and isinstance(c.body["chunk_size"], int)
+    }
+    assert 42 in emitted, f"Expected const value as a negative; got: {emitted}"
+
+
 def test_coverage_positive_template_with_enum_and_type_mismatch(ctx):
     # YAML parsing artifacts (e.g. bare `true`/`false`) in an enum with type:"string" must not
     # produce a schema-invalid template body.
@@ -5883,6 +6045,44 @@ def test_coverage_negative_string_length_nullable(ctx):
         if body_info is None or body_info.mode != GenerationMode.NEGATIVE:
             continue
         assert not validator.is_valid(case.body), f"NEGATIVE body is schema-valid: {case.body!r}"
+
+
+def test_negative_min_length_emitted_when_pattern_requires_more_than_bound(ctx):
+    # When `minLength > 1` AND `pattern` requires more chars than `minLength - 1`,
+    # the bounded draw is unsatisfiable; fall back to truncation rather than dropping the negative.
+    loaded = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "minLength": 2,
+                                    "pattern": "^[A-Z][A-Za-z0-9-_+]+(?:/[A-Z][A-Za-z0-9-_+]+)*$",
+                                    "type": "string",
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = loaded["/foo"]["POST"]
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
+    short_strings = [
+        c.body
+        for c in cases
+        if isinstance(c.body, str)
+        and c.meta is not None
+        and c.meta.phase.data.scenario == CoverageScenario.STRING_BELOW_MIN_LENGTH
+    ]
+    assert short_strings, f"Expected a STRING_BELOW_MIN_LENGTH negative; got bodies: {[c.body for c in cases]}"
+    for body in short_strings:
+        assert len(body) < 2, f"Negative body {body!r} is not shorter than minLength=2"
 
 
 def test_coverage_negative_string_property_form_urlencoded_not_wire_identical(ctx):

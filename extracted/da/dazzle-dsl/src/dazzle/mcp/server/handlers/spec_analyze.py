@@ -41,6 +41,8 @@ def handle_spec_analyze(arguments: dict[str, Any]) -> str:
         return _generate_questions(arguments)
     elif operation == "refine_spec":
         return _refine_spec(arguments)
+    elif operation == "propose_patterns":
+        return _propose_patterns(arguments)
     else:
         return unknown_op_response(operation, "spec_analyze")
 
@@ -919,3 +921,120 @@ def _refine_spec(arguments: dict[str, Any]) -> str:
     refined["relationships"] = entities_result.get("relationships", [])
 
     return json.dumps(refined, indent=2)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# #1249 — pattern recogniser pass
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def _load_counter_priors_for_flagging() -> list[Any]:
+    """Load counter-prior catalogue entries for anti-pattern flagging.
+
+    Source of truth is `docs/counter-priors/*.md`. Returns an empty list on
+    any I/O / parse failure — anti-pattern flagging is best-effort and must
+    not break the cognition pass.
+
+    Migrated 2026-05-25: previously sourced anti_pattern fields from
+    `inference_kb.toml [[modeling_guidance]]`; the catalogue is now the
+    unified source for this consumer.
+    """
+    try:
+        from dazzle.mcp.semantics_kb.counter_priors import load_all_counter_priors
+
+        return load_all_counter_priors()
+    except Exception:  # noqa: BLE001 — best-effort, must not break cognition
+        logger.debug("counter-prior catalogue load failed in flagging path", exc_info=True)
+        return []
+
+
+#
+# Walks the spec text against two trigger sources:
+#  - patterns.toml  [patterns.X].triggers — POSITIVE proposals (the canonical
+#    idiom to reach for when the spec describes pattern X)
+#  - docs/counter-priors/*.md  triggers_text — ANTI-PATTERN flags (the shape
+#    to refuse + the alternatives to route to)
+#
+# Each match emits a `pattern_proposal` with name, doc-pointer hint, and the
+# triggers that fired. Used by bootstrap to surface "your spec describes X;
+# consider declaring `temporal:` on the Employment entity" alongside the
+# entities + personas + lifecycles in the cognition pass output.
+
+
+def _propose_patterns(arguments: dict[str, Any]) -> str:
+    """Match spec_text against patterns.toml + inference_kb triggers.
+
+    Returns a structured list of `pattern_proposals` (positive) and
+    `antipattern_flags` (negative — Rails-shaped antipatterns the
+    framework refuses by design). Each entry carries the trigger that
+    fired so the agent can verify the match against the spec.
+
+    Case-insensitive substring match. False positives are recoverable
+    (the agent verifies against the rest of the spec); false negatives
+    are not (the agent never sees the proposal). The trigger lists are
+    written with that asymmetry in mind — broad triggers, narrow
+    interpretation downstream.
+    """
+    spec_text = arguments.get("spec_text", "")
+    if not spec_text:
+        return error_response("spec_text is required")
+
+    haystack = spec_text.lower()
+
+    # Lazy imports — keeps the handler module lightweight for non-bootstrap callers.
+    from dazzle.mcp.semantics_kb import get_dsl_patterns
+
+    # --- Positive proposals (patterns.toml) ---
+    pattern_proposals: list[dict[str, Any]] = []
+    patterns_blob = get_dsl_patterns().get("patterns", {})
+    for pattern_id, entry in patterns_blob.items():
+        triggers = entry.get("triggers") or []
+        matched = [t for t in triggers if isinstance(t, str) and t.lower() in haystack]
+        if not matched:
+            continue
+        pattern_proposals.append(
+            {
+                "pattern_id": pattern_id,
+                "name": entry.get("name", pattern_id),
+                "category": entry.get("category"),
+                "matched_triggers": matched,
+                "hint": (
+                    f"knowledge(operation='concept', term='{pattern_id}') for the "
+                    "full pattern entry — when-to-use, when-NOT-to-use, copy-paste DSL."
+                ),
+            }
+        )
+
+    # --- Negative flags (docs/counter-priors/*.md) ---
+    antipattern_flags: list[dict[str, Any]] = []
+    counter_priors = _load_counter_priors_for_flagging()
+    for entry in counter_priors:
+        matched = [t for t in entry.triggers_text if isinstance(t, str) and t.lower() in haystack]
+        if not matched:
+            continue
+        antipattern_flags.append(
+            {
+                # `guidance_id` kept for back-compat with #1249 test consumers;
+                # carries the counter-prior id.
+                "guidance_id": entry.id,
+                "name": entry.name,
+                "anti_pattern": entry.summary,
+                "matched_triggers": matched,
+                "hint": (
+                    f"knowledge(operation='counter_prior', id='{entry.id}') for the "
+                    "wrong/right shape and the routing the framework prefers instead."
+                ),
+            }
+        )
+
+    return json.dumps(
+        {
+            "pattern_proposals": pattern_proposals,
+            "antipattern_flags": antipattern_flags,
+            "summary": (
+                f"{len(pattern_proposals)} pattern(s) matched, "
+                f"{len(antipattern_flags)} anti-pattern flag(s)"
+            ),
+        },
+        indent=2,
+    )

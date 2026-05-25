@@ -1,10 +1,12 @@
 #!/usr/bin/python3
+# sourcery skip: merge-list-appends-into-extend
 import os
+import platform
 import sys
 
-from setuptools import find_packages, setup
+from setuptools import find_namespace_packages, setup
 
-with open("README.md", "r") as fh:
+with open("README.md") as fh:
     long_description = fh.read()
 
 if os.environ.get("BROWNIE_LIB", "0") == "1":
@@ -12,19 +14,85 @@ if os.environ.get("BROWNIE_LIB", "0") == "1":
         requirements_filename = "requirements-windows.in"
     else:
         requirements_filename = "requirements.in"
+elif sys.platform == "windows":
+    requirements_filename = "requirements-windows.txt"
 else:
-    if sys.platform == "windows":
-        requirements_filename = "requirements-windows.txt"
-    else:
-        requirements_filename = "requirements.txt"
+    requirements_filename = "requirements.txt"
 
-with open(requirements_filename, "r") as f:
-    requirements = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+with open(requirements_filename) as f:
+    requirements = list(map(str.strip, f.read().split("\n")))[:-1]
+
+try:
+    from mypyc.build import mypycify
+except ImportError:
+    skip_mypyc = True
+else:
+    # We only compile this library for CPython, other implementations will use it as normal interpreted python code
+    # CPython users can also set the BROWNIE_NOCOMPILE env at install time to run brownie in interpreted python mode
+    skip_mypyc = (
+        os.environ.get("BROWNIE_NOCOMPILE")
+        or platform.python_implementation() != "CPython"
+        or any(
+            cmd in sys.argv
+            for cmd in ("sdist", "egg_info", "--name", "--version", "--help", "--help-commands")
+        )
+    )
+if skip_mypyc:
+    ext_modules = []
+else:
+    flags = [
+        # "--strict",
+        "--pretty",
+        "--check-untyped-defs",
+    ]
+
+    if sys.version_info[:2] == (3, 10):
+        # We only want to enable these flags on the lowest supported Python version
+        flags.append("--enable-error-code=unused-ignore")
+        flags.append("--enable-error-code=redundant-cast")
+
+    ext_modules = mypycify(
+        [
+            "brownie/_c_constants.py",
+            "brownie/_cli",
+            "brownie/_config.py",
+            "brownie/_expansion.py",
+            "brownie/convert",
+            "brownie/network/__init__.py",
+            "brownie/network/alert.py",
+            "brownie/network/event.py",
+            "brownie/network/middlewares/__init__.py",
+            "brownie/network/middlewares/caching.py",
+            "brownie/network/middlewares/catch_tx_revert.py",
+            "brownie/network/middlewares/ganache7.py",
+            "brownie/network/middlewares/geth_poa.py",
+            "brownie/network/middlewares/hardhat.py",
+            "brownie/network/state.py",
+            "brownie/project",
+            "brownie/test/coverage.py",
+            "brownie/test/managers/utils.py",
+            "brownie/test/output.py",
+            "brownie/test/stateful.py",
+            "brownie/typing.py",
+            "brownie/utils/__init__.py",
+            "brownie/utils/_color.py",
+            "brownie/utils/output.py",
+            "brownie/utils/sql.py",
+            "brownie/utils/toposort.py",
+            *flags,
+        ],
+        group_name="eth_brownie",
+        strict_dunder_typing=True,
+    )
+
 
 setup(
     name="eth-brownie",
-    packages=find_packages(),
-    version="1.21.0",  # don't change this manually, use bumpversion instead
+    packages=find_namespace_packages(
+        include=["brownie", "brownie.*"],
+        exclude=["brownie.__pycache__", "brownie.*.__pycache__"],
+    ),
+    version="1.22.0",  # don't change this manually, use bumpversion instead
     license="MIT",
     description="A Python framework for Ethereum smart contract deployment, testing and interaction.",  # noqa: E501
     long_description=long_description,
@@ -40,8 +108,11 @@ setup(
     },
     package_data={
         "brownie": ["py.typed"],
+        "brownie.data": ["*.yaml"],
+        "brownie.data.interfaces": ["*.json"],
+        "brownie.data.contracts": ["*.sol"],
     },
-    include_package_data=True,
+    ext_modules=ext_modules,
     python_requires=">=3.10,<4",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -52,5 +123,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
 )

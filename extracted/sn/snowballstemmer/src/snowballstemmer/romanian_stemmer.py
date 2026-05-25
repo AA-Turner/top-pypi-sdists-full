@@ -1,5 +1,4 @@
-#-*- coding: utf-8 -*-
-# Generated from romanian.sbl by Snowball 3.0.1 - https://snowballstem.org/
+# Generated from romanian.sbl by Snowball 3.1.0 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,10 +7,10 @@ from .among import Among
 class RomanianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from romanian.sbl by Snowball 3.0.1 - https://snowballstem.org/
+    Generated from romanian.sbl by Snowball 3.1.0 - https://snowballstem.org/
     '''
 
-    g_v = {u"a", u"e", u"i", u"o", u"u", u"â", u"î", u"ă"}
+    g_v = {"a", "e", "i", "o", "u", "â", "î", "ă"}
 
     B_standard_suffix_removed = False
     I_p2 = 0
@@ -24,29 +23,22 @@ class RomanianStemmer(BaseStemmer):
             while True:
                 v_2 = self.cursor
                 try:
-                    try:
-                        while True:
-                            v_3 = self.cursor
-                            try:
-                                self.bra = self.cursor
-                                among_var = self.find_among(RomanianStemmer.a_0)
-                                if among_var == 0:
-                                    raise lab3()
-                                self.ket = self.cursor
-                                if among_var == 1:
-                                    if not self.slice_from(u"ș"):
-                                        return False
-                                else:
-                                    if not self.slice_from(u"ț"):
-                                        return False
-                                self.cursor = v_3
+                    while True:
+                        v_3 = self.cursor
+                        try:
+                            self.bra = self.cursor
+                            among_var = self.find_among(RomanianStemmer.a_0)
+                            if among_var == 0:
                                 raise lab2()
-                            except lab3: pass
+                            self.ket = self.cursor
+                            self.slice_from(RomanianStemmer.as_0[among_var - 1])
                             self.cursor = v_3
-                            if self.cursor >= self.limit:
-                                raise lab1()
-                            self.cursor += 1
-                    except lab2: pass
+                            break
+                        except lab2: pass
+                        self.cursor = v_3
+                        if self.cursor >= self.limit:
+                            raise lab1()
+                        self.cursor += 1
                     continue
                 except lab1: pass
                 self.cursor = v_2
@@ -59,42 +51,40 @@ class RomanianStemmer(BaseStemmer):
         while True:
             v_1 = self.cursor
             try:
-                try:
-                    while True:
-                        v_2 = self.cursor
-                        try:
-                            if not self.in_grouping(RomanianStemmer.g_v):
-                                raise lab2()
-                            self.bra = self.cursor
+                while True:
+                    v_2 = self.cursor
+                    try:
+                        if not self.in_grouping(RomanianStemmer.g_v):
+                            raise lab1()
+                        self.bra = self.cursor
+                        while True:
+                            v_3 = self.cursor
                             try:
-                                v_3 = self.cursor
-                                try:
-                                    if not self.eq_s(u"u"):
-                                        raise lab4()
-                                    self.ket = self.cursor
-                                    if not self.in_grouping(RomanianStemmer.g_v):
-                                        raise lab4()
-                                    if not self.slice_from(u"U"):
-                                        return False
-                                    raise lab3()
-                                except lab4: pass
-                                self.cursor = v_3
-                                if not self.eq_s(u"i"):
+                                if self.cursor == self.limit or self.current[self.cursor] != "u":
                                     raise lab2()
+                                self.cursor += 1
                                 self.ket = self.cursor
                                 if not self.in_grouping(RomanianStemmer.g_v):
                                     raise lab2()
-                                if not self.slice_from(u"I"):
-                                    return False
-                            except lab3: pass
-                            self.cursor = v_2
-                            raise lab1()
-                        except lab2: pass
+                                self.slice_from("U")
+                                break
+                            except lab2: pass
+                            self.cursor = v_3
+                            if self.cursor == self.limit or self.current[self.cursor] != "i":
+                                raise lab1()
+                            self.cursor += 1
+                            self.ket = self.cursor
+                            if not self.in_grouping(RomanianStemmer.g_v):
+                                raise lab1()
+                            self.slice_from("I")
+                            break
                         self.cursor = v_2
-                        if self.cursor >= self.limit:
-                            raise lab0()
-                        self.cursor += 1
-                except lab1: pass
+                        break
+                    except lab1: pass
+                    self.cursor = v_2
+                    if self.cursor >= self.limit:
+                        raise lab0()
+                    self.cursor += 1
                 continue
             except lab0: pass
             self.cursor = v_1
@@ -107,71 +97,71 @@ class RomanianStemmer(BaseStemmer):
         self.I_p2 = self.limit
         v_1 = self.cursor
         try:
-            try:
+            while True:
                 v_2 = self.cursor
                 try:
                     if not self.in_grouping(RomanianStemmer.g_v):
-                        raise lab2()
-                    try:
+                        raise lab1()
+                    while True:
                         v_3 = self.cursor
                         try:
                             if not self.out_grouping(RomanianStemmer.g_v):
-                                raise lab4()
+                                raise lab2()
                             if not self.go_out_grouping(RomanianStemmer.g_v):
-                                raise lab4()
+                                raise lab2()
                             self.cursor += 1
-                            raise lab3()
-                        except lab4: pass
+                            break
+                        except lab2: pass
                         self.cursor = v_3
                         if not self.in_grouping(RomanianStemmer.g_v):
-                            raise lab2()
+                            raise lab1()
                         if not self.go_in_grouping(RomanianStemmer.g_v):
-                            raise lab2()
+                            raise lab1()
                         self.cursor += 1
-                    except lab3: pass
-                    raise lab1()
-                except lab2: pass
+                        break
+                    break
+                except lab1: pass
                 self.cursor = v_2
                 if not self.out_grouping(RomanianStemmer.g_v):
                     raise lab0()
-                try:
+                while True:
                     v_4 = self.cursor
                     try:
                         if not self.out_grouping(RomanianStemmer.g_v):
-                            raise lab6()
+                            raise lab1()
                         if not self.go_out_grouping(RomanianStemmer.g_v):
-                            raise lab6()
+                            raise lab1()
                         self.cursor += 1
-                        raise lab5()
-                    except lab6: pass
+                        break
+                    except lab1: pass
                     self.cursor = v_4
                     if not self.in_grouping(RomanianStemmer.g_v):
                         raise lab0()
                     if self.cursor >= self.limit:
                         raise lab0()
                     self.cursor += 1
-                except lab5: pass
-            except lab1: pass
+                    break
+                break
             self.I_pV = self.cursor
         except lab0: pass
         self.cursor = v_1
         v_5 = self.cursor
         try:
             if not self.go_out_grouping(RomanianStemmer.g_v):
-                raise lab7()
+                raise lab0()
             self.cursor += 1
             if not self.go_in_grouping(RomanianStemmer.g_v):
-                raise lab7()
+                raise lab0()
             self.cursor += 1
             self.I_p1 = self.cursor
             if not self.go_out_grouping(RomanianStemmer.g_v):
-                raise lab7()
+                raise lab0()
             self.cursor += 1
             if not self.go_in_grouping(RomanianStemmer.g_v):
-                raise lab7()
+                raise lab0()
             self.cursor += 1
             self.I_p2 = self.cursor
-        except lab7: pass
+        except lab0: pass
         self.cursor = v_5
         return True
 
@@ -183,11 +173,9 @@ class RomanianStemmer(BaseStemmer):
                 among_var = self.find_among(RomanianStemmer.a_1)
                 self.ket = self.cursor
                 if among_var == 1:
-                    if not self.slice_from(u"i"):
-                        return False
+                    self.slice_from("i")
                 elif among_var == 2:
-                    if not self.slice_from(u"u"):
-                        return False
+                    self.slice_from("u")
                 else:
                     if self.cursor >= self.limit:
                         raise lab0()
@@ -216,34 +204,24 @@ class RomanianStemmer(BaseStemmer):
         if not self.__r_R1():
             return False
         if among_var == 1:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         elif among_var == 2:
-            if not self.slice_from(u"a"):
-                return False
+            self.slice_from("a")
         elif among_var == 3:
-            if not self.slice_from(u"e"):
-                return False
+            self.slice_from("e")
         elif among_var == 4:
-            if not self.slice_from(u"i"):
-                return False
+            self.slice_from("i")
         elif among_var == 5:
-            v_1 = self.limit - self.cursor
             try:
-                if not self.eq_s_b(u"ab"):
+                if not self.eq_s_b("ab"):
                     raise lab0()
                 return False
             except lab0: pass
-            self.cursor = self.limit - v_1
-            if not self.slice_from(u"i"):
-                return False
+            self.slice_from("i")
         elif among_var == 6:
-            if not self.slice_from(u"at"):
-                return False
+            self.slice_from("at")
         else:
-            if not self.slice_from(u"ați"):
-                return False
+            self.slice_from("ați")
         return True
 
     def __r_combo_suffix(self):
@@ -255,24 +233,7 @@ class RomanianStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if among_var == 1:
-            if not self.slice_from(u"abil"):
-                return False
-        elif among_var == 2:
-            if not self.slice_from(u"ibil"):
-                return False
-        elif among_var == 3:
-            if not self.slice_from(u"iv"):
-                return False
-        elif among_var == 4:
-            if not self.slice_from(u"ic"):
-                return False
-        elif among_var == 5:
-            if not self.slice_from(u"at"):
-                return False
-        else:
-            if not self.slice_from(u"it"):
-                return False
+        self.slice_from(RomanianStemmer.as_3[among_var - 1])
         self.B_standard_suffix_removed = True
         self.cursor = self.limit - v_1
         return True
@@ -296,18 +257,15 @@ class RomanianStemmer(BaseStemmer):
         if not self.__r_R2():
             return False
         if among_var == 1:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         elif among_var == 2:
-            if not self.eq_s_b(u"ț"):
+            if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "ț":
                 return False
+            self.cursor -= 1
             self.bra = self.cursor
-            if not self.slice_from(u"t"):
-                return False
+            self.slice_from("t")
         else:
-            if not self.slice_from(u"ist"):
-                return False
+            self.slice_from("ist")
         self.B_standard_suffix_removed = True
         return True
 
@@ -323,25 +281,20 @@ class RomanianStemmer(BaseStemmer):
             return False
         self.bra = self.cursor
         if among_var == 1:
-            try:
-                v_3 = self.limit - self.cursor
+            while True:
                 try:
                     if not self.out_grouping_b(RomanianStemmer.g_v):
-                        raise lab1()
-                    raise lab0()
-                except lab1: pass
-                self.cursor = self.limit - v_3
-                if not self.eq_s_b(u"u"):
+                        raise lab0()
+                    break
+                except lab0: pass
+                if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "u":
                     self.limit_backward = v_2
                     return False
-            except lab0: pass
-            if not self.slice_del():
-                return False
-
+                self.cursor -= 1
+                break
+            self.slice_del()
         else:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         self.limit_backward = v_2
         return True
 
@@ -352,296 +305,294 @@ class RomanianStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_RV():
             return False
-        if not self.slice_del():
-            return False
-
+        self.slice_del()
         return True
 
     def _stem(self):
         self.__r_norm()
-        v_2 = self.cursor
+        v_1 = self.cursor
         self.__r_prelude()
-        self.cursor = v_2
+        self.cursor = v_1
         self.__r_mark_regions()
         self.limit_backward = self.cursor
         self.cursor = self.limit
-        v_4 = self.limit - self.cursor
+        v_2 = self.limit - self.cursor
         self.__r_step_0()
-        self.cursor = self.limit - v_4
-        v_5 = self.limit - self.cursor
+        self.cursor = self.limit - v_2
+        v_3 = self.limit - self.cursor
         self.__r_standard_suffix()
-        self.cursor = self.limit - v_5
-        v_6 = self.limit - self.cursor
+        self.cursor = self.limit - v_3
+        v_4 = self.limit - self.cursor
         try:
-            try:
-                v_7 = self.limit - self.cursor
+            while True:
                 try:
                     if not self.B_standard_suffix_removed:
-                        raise lab2()
-                    raise lab1()
-                except lab2: pass
-                self.cursor = self.limit - v_7
+                        raise lab1()
+                    break
+                except lab1: pass
                 if not self.__r_verb_suffix():
                     raise lab0()
-            except lab1: pass
+                break
         except lab0: pass
-        self.cursor = self.limit - v_6
-        v_8 = self.limit - self.cursor
+        self.cursor = self.limit - v_4
+        v_5 = self.limit - self.cursor
         self.__r_vowel_suffix()
-        self.cursor = self.limit - v_8
+        self.cursor = self.limit - v_5
         self.cursor = self.limit_backward
-        v_9 = self.cursor
+        v_6 = self.cursor
         self.__r_postlude()
-        self.cursor = v_9
+        self.cursor = v_6
         return True
 
     a_0 = [
-        Among(u"ş", -1, 1),
-        Among(u"ţ", -1, 2)
+        Among("ş", -1, 1),
+        Among("ţ", -1, 2)
     ]
+    as_0 = ("ș", "ț")
 
     a_1 = [
-        Among(u"", -1, 3),
-        Among(u"I", 0, 1),
-        Among(u"U", 0, 2)
+        Among("", -1, 3),
+        Among("I", 0, 1),
+        Among("U", 0, 2)
     ]
 
     a_2 = [
-        Among(u"ea", -1, 3),
-        Among(u"ația", -1, 7),
-        Among(u"aua", -1, 2),
-        Among(u"iua", -1, 4),
-        Among(u"ație", -1, 7),
-        Among(u"ele", -1, 3),
-        Among(u"ile", -1, 5),
-        Among(u"iile", 6, 4),
-        Among(u"iei", -1, 4),
-        Among(u"atei", -1, 6),
-        Among(u"ii", -1, 4),
-        Among(u"ului", -1, 1),
-        Among(u"ul", -1, 1),
-        Among(u"elor", -1, 3),
-        Among(u"ilor", -1, 4),
-        Among(u"iilor", 14, 4)
+        Among("ea", -1, 3),
+        Among("ația", -1, 7),
+        Among("aua", -1, 2),
+        Among("iua", -1, 4),
+        Among("ație", -1, 7),
+        Among("ele", -1, 3),
+        Among("ile", -1, 5),
+        Among("iile", 6, 4),
+        Among("iei", -1, 4),
+        Among("atei", -1, 6),
+        Among("ii", -1, 4),
+        Among("ului", -1, 1),
+        Among("ul", -1, 1),
+        Among("elor", -1, 3),
+        Among("ilor", -1, 4),
+        Among("iilor", 14, 4)
     ]
 
     a_3 = [
-        Among(u"icala", -1, 4),
-        Among(u"iciva", -1, 4),
-        Among(u"ativa", -1, 5),
-        Among(u"itiva", -1, 6),
-        Among(u"icale", -1, 4),
-        Among(u"ațiune", -1, 5),
-        Among(u"ițiune", -1, 6),
-        Among(u"atoare", -1, 5),
-        Among(u"itoare", -1, 6),
-        Among(u"ătoare", -1, 5),
-        Among(u"icitate", -1, 4),
-        Among(u"abilitate", -1, 1),
-        Among(u"ibilitate", -1, 2),
-        Among(u"ivitate", -1, 3),
-        Among(u"icive", -1, 4),
-        Among(u"ative", -1, 5),
-        Among(u"itive", -1, 6),
-        Among(u"icali", -1, 4),
-        Among(u"atori", -1, 5),
-        Among(u"icatori", 18, 4),
-        Among(u"itori", -1, 6),
-        Among(u"ători", -1, 5),
-        Among(u"icitati", -1, 4),
-        Among(u"abilitati", -1, 1),
-        Among(u"ivitati", -1, 3),
-        Among(u"icivi", -1, 4),
-        Among(u"ativi", -1, 5),
-        Among(u"itivi", -1, 6),
-        Among(u"icităi", -1, 4),
-        Among(u"abilităi", -1, 1),
-        Among(u"ivităi", -1, 3),
-        Among(u"icități", -1, 4),
-        Among(u"abilități", -1, 1),
-        Among(u"ivități", -1, 3),
-        Among(u"ical", -1, 4),
-        Among(u"ator", -1, 5),
-        Among(u"icator", 35, 4),
-        Among(u"itor", -1, 6),
-        Among(u"ător", -1, 5),
-        Among(u"iciv", -1, 4),
-        Among(u"ativ", -1, 5),
-        Among(u"itiv", -1, 6),
-        Among(u"icală", -1, 4),
-        Among(u"icivă", -1, 4),
-        Among(u"ativă", -1, 5),
-        Among(u"itivă", -1, 6)
+        Among("icala", -1, 4),
+        Among("iciva", -1, 4),
+        Among("ativa", -1, 5),
+        Among("itiva", -1, 6),
+        Among("icale", -1, 4),
+        Among("ațiune", -1, 5),
+        Among("ițiune", -1, 6),
+        Among("atoare", -1, 5),
+        Among("itoare", -1, 6),
+        Among("ătoare", -1, 5),
+        Among("icitate", -1, 4),
+        Among("abilitate", -1, 1),
+        Among("ibilitate", -1, 2),
+        Among("ivitate", -1, 3),
+        Among("icive", -1, 4),
+        Among("ative", -1, 5),
+        Among("itive", -1, 6),
+        Among("icali", -1, 4),
+        Among("atori", -1, 5),
+        Among("icatori", 18, 4),
+        Among("itori", -1, 6),
+        Among("ători", -1, 5),
+        Among("icitati", -1, 4),
+        Among("abilitati", -1, 1),
+        Among("ivitati", -1, 3),
+        Among("icivi", -1, 4),
+        Among("ativi", -1, 5),
+        Among("itivi", -1, 6),
+        Among("icităi", -1, 4),
+        Among("abilităi", -1, 1),
+        Among("ivităi", -1, 3),
+        Among("icități", -1, 4),
+        Among("abilități", -1, 1),
+        Among("ivități", -1, 3),
+        Among("ical", -1, 4),
+        Among("ator", -1, 5),
+        Among("icator", 35, 4),
+        Among("itor", -1, 6),
+        Among("ător", -1, 5),
+        Among("iciv", -1, 4),
+        Among("ativ", -1, 5),
+        Among("itiv", -1, 6),
+        Among("icală", -1, 4),
+        Among("icivă", -1, 4),
+        Among("ativă", -1, 5),
+        Among("itivă", -1, 6)
     ]
+    as_3 = ("abil", "ibil", "iv", "ic", "at", "it")
 
     a_4 = [
-        Among(u"ica", -1, 1),
-        Among(u"abila", -1, 1),
-        Among(u"ibila", -1, 1),
-        Among(u"oasa", -1, 1),
-        Among(u"ata", -1, 1),
-        Among(u"ita", -1, 1),
-        Among(u"anta", -1, 1),
-        Among(u"ista", -1, 3),
-        Among(u"uta", -1, 1),
-        Among(u"iva", -1, 1),
-        Among(u"ic", -1, 1),
-        Among(u"ice", -1, 1),
-        Among(u"abile", -1, 1),
-        Among(u"ibile", -1, 1),
-        Among(u"isme", -1, 3),
-        Among(u"iune", -1, 2),
-        Among(u"oase", -1, 1),
-        Among(u"ate", -1, 1),
-        Among(u"itate", 17, 1),
-        Among(u"ite", -1, 1),
-        Among(u"ante", -1, 1),
-        Among(u"iste", -1, 3),
-        Among(u"ute", -1, 1),
-        Among(u"ive", -1, 1),
-        Among(u"ici", -1, 1),
-        Among(u"abili", -1, 1),
-        Among(u"ibili", -1, 1),
-        Among(u"iuni", -1, 2),
-        Among(u"atori", -1, 1),
-        Among(u"osi", -1, 1),
-        Among(u"ati", -1, 1),
-        Among(u"itati", 30, 1),
-        Among(u"iti", -1, 1),
-        Among(u"anti", -1, 1),
-        Among(u"isti", -1, 3),
-        Among(u"uti", -1, 1),
-        Among(u"iști", -1, 3),
-        Among(u"ivi", -1, 1),
-        Among(u"ităi", -1, 1),
-        Among(u"oși", -1, 1),
-        Among(u"ități", -1, 1),
-        Among(u"abil", -1, 1),
-        Among(u"ibil", -1, 1),
-        Among(u"ism", -1, 3),
-        Among(u"ator", -1, 1),
-        Among(u"os", -1, 1),
-        Among(u"at", -1, 1),
-        Among(u"it", -1, 1),
-        Among(u"ant", -1, 1),
-        Among(u"ist", -1, 3),
-        Among(u"ut", -1, 1),
-        Among(u"iv", -1, 1),
-        Among(u"ică", -1, 1),
-        Among(u"abilă", -1, 1),
-        Among(u"ibilă", -1, 1),
-        Among(u"oasă", -1, 1),
-        Among(u"ată", -1, 1),
-        Among(u"ită", -1, 1),
-        Among(u"antă", -1, 1),
-        Among(u"istă", -1, 3),
-        Among(u"ută", -1, 1),
-        Among(u"ivă", -1, 1)
+        Among("ica", -1, 1),
+        Among("abila", -1, 1),
+        Among("ibila", -1, 1),
+        Among("oasa", -1, 1),
+        Among("ata", -1, 1),
+        Among("ita", -1, 1),
+        Among("anta", -1, 1),
+        Among("ista", -1, 3),
+        Among("uta", -1, 1),
+        Among("iva", -1, 1),
+        Among("ic", -1, 1),
+        Among("ice", -1, 1),
+        Among("abile", -1, 1),
+        Among("ibile", -1, 1),
+        Among("isme", -1, 3),
+        Among("iune", -1, 2),
+        Among("oase", -1, 1),
+        Among("ate", -1, 1),
+        Among("itate", 17, 1),
+        Among("ite", -1, 1),
+        Among("ante", -1, 1),
+        Among("iste", -1, 3),
+        Among("ute", -1, 1),
+        Among("ive", -1, 1),
+        Among("ici", -1, 1),
+        Among("abili", -1, 1),
+        Among("ibili", -1, 1),
+        Among("iuni", -1, 2),
+        Among("atori", -1, 1),
+        Among("osi", -1, 1),
+        Among("ati", -1, 1),
+        Among("itati", 30, 1),
+        Among("iti", -1, 1),
+        Among("anti", -1, 1),
+        Among("isti", -1, 3),
+        Among("uti", -1, 1),
+        Among("iști", -1, 3),
+        Among("ivi", -1, 1),
+        Among("ităi", -1, 1),
+        Among("oși", -1, 1),
+        Among("ități", -1, 1),
+        Among("abil", -1, 1),
+        Among("ibil", -1, 1),
+        Among("ism", -1, 3),
+        Among("ator", -1, 1),
+        Among("os", -1, 1),
+        Among("at", -1, 1),
+        Among("it", -1, 1),
+        Among("ant", -1, 1),
+        Among("ist", -1, 3),
+        Among("ut", -1, 1),
+        Among("iv", -1, 1),
+        Among("ică", -1, 1),
+        Among("abilă", -1, 1),
+        Among("ibilă", -1, 1),
+        Among("oasă", -1, 1),
+        Among("ată", -1, 1),
+        Among("ită", -1, 1),
+        Among("antă", -1, 1),
+        Among("istă", -1, 3),
+        Among("ută", -1, 1),
+        Among("ivă", -1, 1)
     ]
 
     a_5 = [
-        Among(u"ea", -1, 1),
-        Among(u"ia", -1, 1),
-        Among(u"esc", -1, 1),
-        Among(u"ăsc", -1, 1),
-        Among(u"ind", -1, 1),
-        Among(u"ând", -1, 1),
-        Among(u"are", -1, 1),
-        Among(u"ere", -1, 1),
-        Among(u"ire", -1, 1),
-        Among(u"âre", -1, 1),
-        Among(u"se", -1, 2),
-        Among(u"ase", 10, 1),
-        Among(u"sese", 10, 2),
-        Among(u"ise", 10, 1),
-        Among(u"use", 10, 1),
-        Among(u"âse", 10, 1),
-        Among(u"ește", -1, 1),
-        Among(u"ăște", -1, 1),
-        Among(u"eze", -1, 1),
-        Among(u"ai", -1, 1),
-        Among(u"eai", 19, 1),
-        Among(u"iai", 19, 1),
-        Among(u"sei", -1, 2),
-        Among(u"ești", -1, 1),
-        Among(u"ăști", -1, 1),
-        Among(u"ui", -1, 1),
-        Among(u"ezi", -1, 1),
-        Among(u"âi", -1, 1),
-        Among(u"ași", -1, 1),
-        Among(u"seși", -1, 2),
-        Among(u"aseși", 29, 1),
-        Among(u"seseși", 29, 2),
-        Among(u"iseși", 29, 1),
-        Among(u"useși", 29, 1),
-        Among(u"âseși", 29, 1),
-        Among(u"iși", -1, 1),
-        Among(u"uși", -1, 1),
-        Among(u"âși", -1, 1),
-        Among(u"ați", -1, 2),
-        Among(u"eați", 38, 1),
-        Among(u"iați", 38, 1),
-        Among(u"eți", -1, 2),
-        Among(u"iți", -1, 2),
-        Among(u"âți", -1, 2),
-        Among(u"arăți", -1, 1),
-        Among(u"serăți", -1, 2),
-        Among(u"aserăți", 45, 1),
-        Among(u"seserăți", 45, 2),
-        Among(u"iserăți", 45, 1),
-        Among(u"userăți", 45, 1),
-        Among(u"âserăți", 45, 1),
-        Among(u"irăți", -1, 1),
-        Among(u"urăți", -1, 1),
-        Among(u"ârăți", -1, 1),
-        Among(u"am", -1, 1),
-        Among(u"eam", 54, 1),
-        Among(u"iam", 54, 1),
-        Among(u"em", -1, 2),
-        Among(u"asem", 57, 1),
-        Among(u"sesem", 57, 2),
-        Among(u"isem", 57, 1),
-        Among(u"usem", 57, 1),
-        Among(u"âsem", 57, 1),
-        Among(u"im", -1, 2),
-        Among(u"âm", -1, 2),
-        Among(u"ăm", -1, 2),
-        Among(u"arăm", 65, 1),
-        Among(u"serăm", 65, 2),
-        Among(u"aserăm", 67, 1),
-        Among(u"seserăm", 67, 2),
-        Among(u"iserăm", 67, 1),
-        Among(u"userăm", 67, 1),
-        Among(u"âserăm", 67, 1),
-        Among(u"irăm", 65, 1),
-        Among(u"urăm", 65, 1),
-        Among(u"ârăm", 65, 1),
-        Among(u"au", -1, 1),
-        Among(u"eau", 76, 1),
-        Among(u"iau", 76, 1),
-        Among(u"indu", -1, 1),
-        Among(u"ându", -1, 1),
-        Among(u"ez", -1, 1),
-        Among(u"ească", -1, 1),
-        Among(u"ară", -1, 1),
-        Among(u"seră", -1, 2),
-        Among(u"aseră", 84, 1),
-        Among(u"seseră", 84, 2),
-        Among(u"iseră", 84, 1),
-        Among(u"useră", 84, 1),
-        Among(u"âseră", 84, 1),
-        Among(u"iră", -1, 1),
-        Among(u"ură", -1, 1),
-        Among(u"âră", -1, 1),
-        Among(u"ează", -1, 1)
+        Among("ea", -1, 1),
+        Among("ia", -1, 1),
+        Among("esc", -1, 1),
+        Among("ăsc", -1, 1),
+        Among("ind", -1, 1),
+        Among("ând", -1, 1),
+        Among("are", -1, 1),
+        Among("ere", -1, 1),
+        Among("ire", -1, 1),
+        Among("âre", -1, 1),
+        Among("se", -1, 2),
+        Among("ase", 10, 1),
+        Among("sese", 10, 2),
+        Among("ise", 10, 1),
+        Among("use", 10, 1),
+        Among("âse", 10, 1),
+        Among("ește", -1, 1),
+        Among("ăște", -1, 1),
+        Among("eze", -1, 1),
+        Among("ai", -1, 1),
+        Among("eai", 19, 1),
+        Among("iai", 19, 1),
+        Among("sei", -1, 2),
+        Among("ești", -1, 1),
+        Among("ăști", -1, 1),
+        Among("ui", -1, 1),
+        Among("ezi", -1, 1),
+        Among("âi", -1, 1),
+        Among("ași", -1, 1),
+        Among("seși", -1, 2),
+        Among("aseși", 29, 1),
+        Among("seseși", 29, 2),
+        Among("iseși", 29, 1),
+        Among("useși", 29, 1),
+        Among("âseși", 29, 1),
+        Among("iși", -1, 1),
+        Among("uși", -1, 1),
+        Among("âși", -1, 1),
+        Among("ați", -1, 2),
+        Among("eați", 38, 1),
+        Among("iați", 38, 1),
+        Among("eți", -1, 2),
+        Among("iți", -1, 2),
+        Among("âți", -1, 2),
+        Among("arăți", -1, 1),
+        Among("serăți", -1, 2),
+        Among("aserăți", 45, 1),
+        Among("seserăți", 45, 2),
+        Among("iserăți", 45, 1),
+        Among("userăți", 45, 1),
+        Among("âserăți", 45, 1),
+        Among("irăți", -1, 1),
+        Among("urăți", -1, 1),
+        Among("ârăți", -1, 1),
+        Among("am", -1, 1),
+        Among("eam", 54, 1),
+        Among("iam", 54, 1),
+        Among("em", -1, 2),
+        Among("asem", 57, 1),
+        Among("sesem", 57, 2),
+        Among("isem", 57, 1),
+        Among("usem", 57, 1),
+        Among("âsem", 57, 1),
+        Among("im", -1, 2),
+        Among("âm", -1, 2),
+        Among("ăm", -1, 2),
+        Among("arăm", 65, 1),
+        Among("serăm", 65, 2),
+        Among("aserăm", 67, 1),
+        Among("seserăm", 67, 2),
+        Among("iserăm", 67, 1),
+        Among("userăm", 67, 1),
+        Among("âserăm", 67, 1),
+        Among("irăm", 65, 1),
+        Among("urăm", 65, 1),
+        Among("ârăm", 65, 1),
+        Among("au", -1, 1),
+        Among("eau", 76, 1),
+        Among("iau", 76, 1),
+        Among("indu", -1, 1),
+        Among("ându", -1, 1),
+        Among("ez", -1, 1),
+        Among("ească", -1, 1),
+        Among("ară", -1, 1),
+        Among("seră", -1, 2),
+        Among("aseră", 84, 1),
+        Among("seseră", 84, 2),
+        Among("iseră", 84, 1),
+        Among("useră", 84, 1),
+        Among("âseră", 84, 1),
+        Among("iră", -1, 1),
+        Among("ură", -1, 1),
+        Among("âră", -1, 1),
+        Among("ează", -1, 1)
     ]
 
     a_6 = [
-        Among(u"a", -1, 1),
-        Among(u"e", -1, 1),
-        Among(u"ie", 1, 1),
-        Among(u"i", -1, 1),
-        Among(u"ă", -1, 1)
+        Among("a", -1, 1),
+        Among("e", -1, 1),
+        Among("ie", 1, 1),
+        Among("i", -1, 1),
+        Among("ă", -1, 1)
     ]
 
 
@@ -652,18 +603,3 @@ class lab1(BaseException): pass
 
 
 class lab2(BaseException): pass
-
-
-class lab3(BaseException): pass
-
-
-class lab4(BaseException): pass
-
-
-class lab5(BaseException): pass
-
-
-class lab6(BaseException): pass
-
-
-class lab7(BaseException): pass

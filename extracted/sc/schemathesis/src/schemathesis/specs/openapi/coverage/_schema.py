@@ -20,6 +20,7 @@ from schemathesis.core.jsonschema import (
     is_valid,
     make_validator,
     make_validator_for,
+    make_validator_with_seed,
 )
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.jsonschema.keywords import ALL_KEYWORDS
@@ -184,6 +185,13 @@ JSON_STRATEGY: st.SearchStrategy = st.recursive(
 )
 ARRAY_STRATEGY: st.SearchStrategy = st.lists(JSON_STRATEGY, min_size=2, max_size=3)
 OBJECT_STRATEGY: st.SearchStrategy = st.dictionaries(st.text(max_size=16), JSON_STRATEGY, max_size=2)
+# Alphabetic non-empty string used for wrong-type negatives; shrinks to "AAA".
+# Plain `st.text()` shrinks to "", which serializes to absent on the wire
+# (`?p=`, empty header, empty body) and defeats the type violation.
+NEGATIVE_STRING_STRATEGY: st.SearchStrategy = st.text(
+    alphabet=st.characters(min_codepoint=65, max_codepoint=122, categories=["L"]),
+    min_size=3,
+)
 
 
 STRATEGIES_FOR_TYPE = {
@@ -287,6 +295,7 @@ class CoverageContext:
         "generation_modes",
         "is_required",
         "path",
+        "_path_str_cache_cell",
         "custom_formats",
         "validator_cls",
         "update_pattern",
@@ -307,6 +316,7 @@ class CoverageContext:
         validator_cls: type[jsonschema_rs.Validator],
         update_pattern: Callable[[str, int | None, int | None], str] | None = None,
         _resolver: Resolver | None = None,
+        _path_str_cache_cell: list[str | None] | None = None,
         allow_extra_parameters: bool = True,
     ) -> None:
         self.root_schema = root_schema
@@ -315,6 +325,12 @@ class CoverageContext:
         self.generation_modes = generation_modes if generation_modes is not None else list(GenerationMode)
         self.is_required = is_required
         self.path = path or []
+        # Single-cell cache for the joined path string. with_positive / with_negative share the
+        # cell so any context that mutates the shared path list (via at()) invalidates the cache
+        # for all contexts pointing at it.
+        self._path_str_cache_cell: list[str | None] = (
+            _path_str_cache_cell if _path_str_cache_cell is not None else [None]
+        )
         self.custom_formats = custom_formats
         self.validator_cls = validator_cls
         self.update_pattern = update_pattern
@@ -343,14 +359,20 @@ class CoverageContext:
     @contextmanager
     def at(self, key: str | int) -> Generator[None, None, None]:
         self.path.append(key)
+        self._path_str_cache_cell[0] = None
         try:
             yield
         finally:
             self.path.pop()
+            self._path_str_cache_cell[0] = None
 
     @property
     def current_path(self) -> str:
-        return "/" + "/".join(str(key) for key in self.path)
+        cached = self._path_str_cache_cell[0]
+        if cached is None:
+            cached = "/" + "/".join(str(key) for key in self.path)
+            self._path_str_cache_cell[0] = cached
+        return cached
 
     def with_positive(self) -> CoverageContext:
         return CoverageContext(
@@ -364,6 +386,7 @@ class CoverageContext:
             validator_cls=self.validator_cls,
             update_pattern=self.update_pattern,
             _resolver=self._resolver,
+            _path_str_cache_cell=self._path_str_cache_cell,
             allow_extra_parameters=self.allow_extra_parameters,
         )
 
@@ -379,6 +402,7 @@ class CoverageContext:
             validator_cls=self.validator_cls,
             update_pattern=self.update_pattern,
             _resolver=self._resolver,
+            _path_str_cache_cell=self._path_str_cache_cell,
             allow_extra_parameters=self.allow_extra_parameters,
         )
 
@@ -584,10 +608,13 @@ class CoverageContext:
                 )
 
         if keys == ["allOf"]:
-            for idx, sub_schema in enumerate(schema["allOf"]):
-                if isinstance(sub_schema, dict) and "$ref" in sub_schema:
-                    schema["allOf"][idx] = self.resolve_ref(sub_schema["$ref"])
-
+            # Resolve refs into a fresh list so the caller's schema is not mutated; the
+            # validator cache relies on schemas remaining structurally stable after first use.
+            resolved_all_of = [
+                self.resolve_ref(item["$ref"]) if isinstance(item, dict) and "$ref" in item else item
+                for item in schema["allOf"]
+            ]
+            schema = {**schema, "allOf": resolved_all_of}
             schema = canonicalish(schema)
             if isinstance(schema, dict) and "allOf" not in schema:
                 return self.generate_from_schema(schema)
@@ -692,8 +719,14 @@ def _convert_bytes_for_hashing(value: Any) -> Any:
 
 
 def _to_hashable_key(value: T, _encode: Callable = _encode) -> tuple[type, str | T]:
-    if isinstance(value, (dict, list)):
-        # Convert bytes to a hashable representation before JSON encoding
+    if type(value) is dict or type(value) is list:
+        # Plain JSON-shaped containers (the common case) canonicalize in Rust without
+        # an intermediate Python-side deep-copy. Bytes inside the value reject the
+        # native call; fall back to the bytes-aware path.
+        try:
+            return type(value), jsonschema_rs.canonical.json.to_string(value)
+        except (TypeError, ValueError):
+            pass
         converted = _convert_bytes_for_hashing(value)
         serialized = _encode(converted)
         return type(value), serialized
@@ -797,7 +830,14 @@ def _generate_oversized_string(
 ) -> str | None:
     pattern = new_schema.get("pattern")
     if not isinstance(pattern, str):
-        return ctx.generate_from_schema(new_schema)
+        try:
+            return ctx.generate_from_schema(new_schema)
+        except (InvalidArgument, Unsatisfiable):
+            # Format constrains the length (e.g. uuid is fixed at 36); synthesize a plain
+            # string that violates maxLength regardless.
+            if target_length < NEGATIVE_MODE_MAX_LENGTH_CAP:
+                return "a" * target_length
+            return None
     min_length = max_length = target_length
     try:
         if target_length - 1 > NEGATIVE_MODE_MAX_LENGTH_WITH_PATTERN:
@@ -1174,24 +1214,24 @@ def cover_schema_iter(
         for key, value in schema.items():
             with _ignore_unfixable(), ctx.at(key):
                 if key == "enum":
-                    yield from _negative_enum(ctx, value, seen)
+                    yield from _negative_enum(ctx, value, seen, schema)
                     if inferred_types:
                         yield from _negative_type(ctx, inferred_types, seen, schema)
                 elif key == "const":
-                    for value_ in _negative_enum(ctx, [value], seen):
+                    for value_ in _negative_enum(ctx, [value], seen, schema):
                         yield value_
                     if inferred_types:
                         yield from _negative_type(ctx, inferred_types, seen, schema)
                 elif key == "type":
                     yield from _negative_type(ctx, value, seen, schema)
                 elif key == "properties":
-                    template = template or ctx.generate_from_schema(_get_template_schema(schema, "object", ctx))
+                    template = yield from _ensure_object_template_with_baseline(ctx, schema, template)
                     yield from _negative_properties(ctx, template, value)
                 elif key == "patternProperties":
-                    template = template or ctx.generate_from_schema(_get_template_schema(schema, "object", ctx))
+                    template = yield from _ensure_object_template_with_baseline(ctx, schema, template)
                     yield from _negative_pattern_properties(ctx, template, value)
                 elif key == "propertyNames" and isinstance(value, dict):
-                    template = template or ctx.generate_from_schema(_get_template_schema(schema, "object", ctx))
+                    template = yield from _ensure_object_template_with_baseline(ctx, schema, template)
                     if isinstance(template, dict):
                         yield from _negative_property_names(ctx, template, value)
                 elif key == "items" and isinstance(value, dict):
@@ -1269,15 +1309,19 @@ def cover_schema_iter(
                                     new_schema["pattern"] = ctx.update_pattern(
                                         schema["pattern"], min_length, max_length
                                     )
-                                    if new_schema["pattern"] == schema["pattern"]:
-                                        # Pattern wasn't updated, try to generate a valid value then shrink the string to the required length
-                                        del new_schema["minLength"]
-                                        del new_schema["maxLength"]
-                                        value = ctx.generate_from_schema(new_schema)[:max_length]
-                                    else:
-                                        value = ctx.generate_from_schema(new_schema)
-                                else:
+                                try:
                                     value = ctx.generate_from_schema(new_schema)
+                                except Unsatisfiable:
+                                    # Format or pattern may forbid the truncated length (e.g. no valid email of length 5).
+                                    fallback = {k: v for k, v in new_schema.items() if k != "format"}
+                                    if "pattern" in fallback:
+                                        del fallback["minLength"]
+                                        del fallback["maxLength"]
+                                        value = ctx.generate_from_schema(fallback)[:max_length]
+                                    elif fallback != new_schema:
+                                        value = ctx.generate_from_schema(fallback)
+                                    else:
+                                        raise
                                 if ctx.is_valid_for_location(value) and seen.insert(value):
                                     yield NegativeValue(
                                         value,
@@ -1317,7 +1361,9 @@ def cover_schema_iter(
                 elif key == "uniqueItems" and value:
                     yield from _negative_unique_items(ctx, schema)
                 elif key == "required":
-                    template = template or ctx.generate_from_schema(_get_template_schema(schema, "object", ctx))
+                    template = template or _generate_template_with_deflation_fallback(
+                        ctx, schema, _get_template_schema(schema, "object", ctx)
+                    )
                     yield from _negative_required(ctx, template, value)
                 elif key == "maxItems" and isinstance(value, int) and value < INTERNAL_BUFFER_SIZE:
                     if value > NEGATIVE_MODE_MAX_ITEMS:
@@ -1420,7 +1466,9 @@ def cover_schema_iter(
                             ParameterLocation.BODY,
                         ):
                             continue
-                        template = template or ctx.generate_from_schema(_get_template_schema(schema, "object", ctx))
+                        template = template or _generate_template_with_deflation_fallback(
+                            ctx, schema, _get_template_schema(schema, "object", ctx)
+                        )
                         yield NegativeValue(
                             {**template, UNKNOWN_PROPERTY_KEY: UNKNOWN_PROPERTY_VALUE},
                             scenario=CoverageScenario.OBJECT_UNEXPECTED_PROPERTIES,
@@ -1429,7 +1477,9 @@ def cover_schema_iter(
                         )
                     elif isinstance(value, dict):
                         # additionalProperties with schema - generate invalid values for the schema
-                        template = template or ctx.generate_from_schema(_get_template_schema(schema, "object", ctx))
+                        template = template or _generate_template_with_deflation_fallback(
+                            ctx, schema, _get_template_schema(schema, "object", ctx)
+                        )
                         existing_keys = set(schema.get("properties", {}).keys()) | set(template.keys())
                         additional_key = _pick_property_name(schema, existing_keys, ctx)
                         if additional_key is None:
@@ -1448,7 +1498,9 @@ def cover_schema_iter(
                     # Skip if additionalProperties is false - can't add more properties cleanly
                     if additional_properties is False:
                         continue
-                    template = template or ctx.generate_from_schema(_get_template_schema(schema, "object", ctx))
+                    template = template or _generate_template_with_deflation_fallback(
+                        ctx, schema, _get_template_schema(schema, "object", ctx)
+                    )
                     obj_value = dict(template)
                     existing_keys = set(obj_value.keys())
                     needed = value + 1 - len(existing_keys)
@@ -1666,6 +1718,30 @@ def _get_properties(schema: JsonSchema, ctx: CoverageContext) -> JsonSchema:
                 return {"enum": valid}
         if schema.get("type") == "object":
             return _get_template_schema(schema, "object", ctx)
+        # Without forcing object generation here, Hypothesis treats `properties`-only or
+        # `$ref`-to-properties-only sub-schemas as "any value" and can emit `null` or `{}`.
+        implied: JsonSchemaObject | None = None
+        if "$ref" in schema:
+            try:
+                candidate = ctx.resolve_ref(schema["$ref"])
+                if isinstance(candidate, dict) and (
+                    candidate.get("type") == "object" or ("type" not in candidate and _implies_object_type(candidate))
+                ):
+                    implied = candidate
+            except RefResolutionError:
+                pass
+        elif "type" not in schema and _implies_object_type(schema):
+            implied = schema
+        if implied is not None:
+            # Without inflating `required`, the template is `{}` for schemas that declare
+            # properties but no required list. Keep original required so keys outside
+            # `properties` still appear.
+            properties = implied.get("properties") or {}
+            original_required = list(implied.get("required") or [])
+            inflated_required = list(
+                dict.fromkeys(original_required + [k for k, v in properties.items() if v != {"not": {}}])
+            )
+            return _get_template_schema({**implied, "required": inflated_required}, "object", ctx)
         _schema = deepclone(schema)
         if ctx.update_pattern is not None:
             _update_schema_pattern(_schema, ctx.update_pattern)
@@ -1736,6 +1812,34 @@ def _implies_array_type(schema: JsonSchemaObject) -> bool:
     # `items` (e.g. clearblade.com). Without an array-typed positive variant the items
     # sub-schema is never exercised positively and any `$ref`-pulled definition stays uncovered.
     return any(key in schema for key in _ARRAY_ONLY_KEYWORDS)
+
+
+def _type_excludes_object(schema: JsonSchemaObject) -> bool:
+    ty = schema.get("type")
+    if isinstance(ty, str):
+        return ty != "object"
+    if isinstance(ty, list):
+        return "object" not in ty
+    return False
+
+
+def _ensure_object_template_with_baseline(
+    ctx: CoverageContext, schema: JsonSchemaObject, template: Any
+) -> Generator[GeneratedValue, None, Any]:
+    # First-time object template build emits a baseline `NegativeValue` when the outer type
+    # excludes object; the inner `properties` applicator otherwise never sees an
+    # all-children-valid case (per-leaf negatives each break one child).
+    if template is not None:
+        return template
+    template = _generate_template_with_deflation_fallback(ctx, schema, _get_template_schema(schema, "object", ctx))
+    if isinstance(template, dict) and _type_excludes_object(schema):
+        yield NegativeValue(
+            template,
+            scenario=CoverageScenario.INCORRECT_TYPE,
+            description="Object body where non-object type expected",
+            location=ctx.current_path,
+        )
+    return template
 
 
 def _get_template_schema(schema: JsonSchemaObject, ty: str, ctx: CoverageContext) -> JsonSchemaObject:
@@ -2294,24 +2398,41 @@ def select_combinations(optional: list[str]) -> Iterator[tuple[str, ...]]:
         yield next(combinations(optional, size))
 
 
-def _negative_enum(ctx: CoverageContext, value: list, seen: HashSet) -> Generator[GeneratedValue, None, None]:
+def _negative_enum(
+    ctx: CoverageContext, value: list, seen: HashSet, schema: JsonSchemaObject | None = None
+) -> Generator[GeneratedValue, None, None]:
     def is_not_in_value(x: Any) -> bool:
         if x in value or not ctx.is_valid_for_location(x):
             return False
         return seen.insert(x)
 
-    strategy = (
-        st.text(alphabet=st.characters(min_codepoint=65, max_codepoint=122, categories=["L"]), min_size=3)
-        | st.none()
-        | st.booleans()
-        | NUMERIC_STRATEGY
-    ).filter(is_not_in_value)
+    strategy = (NEGATIVE_STRING_STRATEGY | st.none() | st.booleans() | NUMERIC_STRATEGY).filter(is_not_in_value)
     yield NegativeValue(
         ctx.generate_from(strategy),
         scenario=CoverageScenario.INVALID_ENUM_VALUE,
         description="Invalid enum value",
         location=ctx.current_path,
     )
+    # Self-contradictory schemas (e.g. `enum: [2, 4]` or `const: 2` with `type: string`) skip every entry
+    # on the positive path, so emit each mismatched entry as a negative to keep the keyword covered.
+    if isinstance(schema, dict):
+        declared_types = set(get_type(schema))
+        if declared_types:
+            for entry in value:
+                entry_type = to_json_type_name(entry)
+                if entry_type in declared_types:
+                    continue
+                # Integer values satisfy `type: number` in JSON Schema.
+                if entry_type == "integer" and "number" in declared_types:
+                    continue
+                if not ctx.is_valid_for_location(entry) or not seen.insert(entry):
+                    continue
+                yield NegativeValue(
+                    entry,
+                    scenario=CoverageScenario.INCORRECT_TYPE,
+                    description="Enum value with type mismatching the declared 'type'",
+                    location=ctx.current_path,
+                )
 
 
 def _negative_properties(
@@ -2327,10 +2448,18 @@ def _negative_properties(
         # values the body validator silently accepts; filter those out below.
         sub_has_ref = isinstance(sub_schema, dict) and "$ref" in sub_schema
         if isinstance(sub_schema, dict):
-            # Include bundled definitions so $ref references in sub_schema resolve
-            validator_schema = sub_schema if bundle is None else {**sub_schema, BUNDLE_STORAGE_KEY: bundle}
+            # Cache by (sub_schema, bundle) identity — same pair recurs across operations.
+            def _builder(s: dict = sub_schema, b: dict | None = bundle) -> JsonSchema:
+                return s if b is None else {**s, BUNDLE_STORAGE_KEY: b}
+
+            keep_alive: tuple[Any, ...] = (sub_schema,) if bundle is None else (sub_schema, bundle)
             try:
-                validator = make_validator(validator_schema, ctx.validator_cls)
+                validator = make_validator_with_seed(
+                    schema_builder=_builder,
+                    validator_cls=ctx.validator_cls,
+                    seed=(id(sub_schema), id(bundle)),
+                    keep_alive=keep_alive,
+                )
             except Exception:
                 pass
         with nctx.at(key):
@@ -2719,6 +2848,8 @@ def _negative_type(
     if "string" in types and ctx.location == ParameterLocation.BODY and is_form_parts(ctx.media_type):
         return
     # Same parameter shape recurs across many operations; one Hypothesis draw covers the whole audit.
+    # `ctx.path` is intentionally absent: the cached values are path-agnostic — the JSON pointer
+    # only stamps `NegativeValue.location` at yield time below.
     try:
         cache_key = (
             "negative_type",
@@ -2727,7 +2858,6 @@ def _negative_type(
             ctx.location,
             ctx.media_type,
             ctx.validator_cls,
-            tuple(ctx.path),
         )
     except (TypeError, ValueError):
         cache_key = None
@@ -2744,6 +2874,8 @@ def _negative_type(
                     )
             return
     strategies = {ty: strategy for ty, strategy in STRATEGIES_FOR_TYPE.items() if ty not in types}
+    if "string" in strategies:
+        strategies["string"] = NEGATIVE_STRING_STRATEGY
 
     filter_func = {
         "path": lambda x: not is_invalid_path_parameter(x),

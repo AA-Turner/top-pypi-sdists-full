@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sage-ai-cli"
-version = "1.20.25"
+version = "1.20.29"
 description = "Sage — a local-first AI coding CLI (like Claude Code, using free/open models)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Layne Faler" }]
 keywords = ["ai", "cli", "llm", "coding", "local", "gemini", "gguf", "llama"]

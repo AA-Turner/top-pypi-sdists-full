@@ -3,7 +3,7 @@
 import sys
 import warnings
 from subprocess import DEVNULL, PIPE
-from typing import Dict, List, Optional
+from typing import Any
 
 import psutil
 from requests.exceptions import ConnectionError as RequestsConnectionError
@@ -25,10 +25,11 @@ CLI_FLAGS = {
     "base_fee": "--block-base-fee-per-gas",
     "gas_price": "--gas-price",
     "gas_limit": "--gas-limit",
+    "steps_tracing": "--steps-tracing",
 }
 
 
-def launch(cmd: str, **kwargs: Dict) -> None:
+def launch(cmd: str, **kwargs: Any) -> None:
     """Launches the RPC client.
 
     Args:
@@ -39,9 +40,15 @@ def launch(cmd: str, **kwargs: Dict) -> None:
         else:
             cmd += ".cmd"
     cmd_list = cmd.split(" ")
-    for key, value in [(k, v) for k, v in kwargs.items() if v]:
+    cmd_list.append("--quiet")
+    for key, value in kwargs.items():
+        if value is None or value is False:
+            continue
         try:
-            cmd_list.extend([CLI_FLAGS[key], str(value)])
+            if value is True:
+                cmd_list.append(CLI_FLAGS[key])
+            else:
+                cmd_list.extend([CLI_FLAGS[key], str(value)])
         except KeyError:
             warnings.warn(
                 f"Ignoring invalid commandline setting for anvil: "
@@ -57,12 +64,12 @@ def launch(cmd: str, **kwargs: Dict) -> None:
 def on_connection() -> None:
     # set gas limit to the same as the forked network
     gas_limit = web3.eth.get_block("latest").gasLimit
-    web3.provider.make_request("evm_setBlockGasLimit", [hex(gas_limit)])  # type: ignore
+    web3.provider.make_request("evm_setBlockGasLimit", [hex(gas_limit)])
 
 
-def _request(method: str, args: List) -> int:
+def _request(method: str, args: list) -> int:
     try:
-        response = web3.provider.make_request(method, args)  # type: ignore
+        response = web3.provider.make_request(method, args)
         if "result" in response:
             return response["result"]
     except (AttributeError, RequestsConnectionError):
@@ -75,10 +82,8 @@ def sleep(seconds: int) -> int:
     return seconds
 
 
-def mine(timestamp: Optional[int] = None) -> None:
-    if timestamp:
-        _request("evm_setNextBlockTimestamp", [timestamp])
-    _request("evm_mine", [1])
+def mine(blocks: int | None = None) -> None:
+    _request("evm_mine", blocks)
 
 
 def snapshot() -> int:
@@ -90,4 +95,4 @@ def revert(snapshot_id: int) -> None:
 
 
 def unlock_account(address: str) -> None:
-    web3.provider.make_request("anvil_impersonateAccount", [address])  # type: ignore
+    web3.provider.make_request("anvil_impersonateAccount", [address])

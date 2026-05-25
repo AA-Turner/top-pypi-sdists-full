@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.19.0
+Version: 4.20.0
 Summary: Adaptive API testing for OpenAPI and GraphQL
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -77,7 +77,7 @@ Requires-Dist: seaborn>=0.13; extra == 'dev'
 Requires-Dist: strawberry-graphql[fastapi]>=0.109.0; extra == 'dev'
 Requires-Dist: syrupy<6.0,>=4; extra == 'dev'
 Requires-Dist: tomli-w>=1.2.0; extra == 'dev'
-Requires-Dist: tracecov>=0.20; extra == 'dev'
+Requires-Dist: tracecov>=0.21; extra == 'dev'
 Requires-Dist: trustme<2.0,>=0.9.0; extra == 'dev'
 Requires-Dist: uvicorn<1.0,>=0.20; extra == 'dev'
 Provides-Extra: docs
@@ -87,7 +87,7 @@ Provides-Extra: profiling
 Requires-Dist: pyinstrument>=5.1; extra == 'profiling'
 Provides-Extra: scripts
 Requires-Dist: seaborn>=0.13; extra == 'scripts'
-Requires-Dist: tracecov>=0.20; extra == 'scripts'
+Requires-Dist: tracecov>=0.21; extra == 'scripts'
 Provides-Extra: tests
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'tests'
 Requires-Dist: coverage>=6; extra == 'tests'

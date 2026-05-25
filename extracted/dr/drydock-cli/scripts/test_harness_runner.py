@@ -346,6 +346,21 @@ def _check_cmd_assertion(spec: str, cwd: Path) -> CheckResult | None:
     )
     if not looks_like_cmd:
         return None
+    # A spec like '--limit 0 -> all rows' starts with '--' — it's a bare flag,
+    # not a runnable command on its own. Fall through so it gets manual_review.
+    if lhs.startswith("-"):
+        return None
+    # When '--' appears in the LHS but the leading word isn't a known binary,
+    # the spec is probably a package subcommand ('read sales.csv --limit 5').
+    # Prepend 'python3 -m <pkg>' using the same package detection as the
+    # quoted-cmd path, so we don't hit bash builtins like 'read'.
+    known_bins = tuple(_CMD_HINTS) + ("python -m ", "python3 -m ")
+    if not any(lhs.startswith(b) for b in known_bins) and cwd.is_dir():
+        pkg_dirs = [p for p in cwd.iterdir() if p.is_dir()
+                    and (p / "__main__.py").is_file()
+                    and not p.name.startswith(".")]
+        if pkg_dirs:
+            lhs = f"python3 -m {pkg_dirs[0].name} {lhs}"
     # Substring match: if RHS has a quoted-ish token (digits / capital
     # word / hyphenated identifier), test for it. Otherwise compare
     # the literal RHS.

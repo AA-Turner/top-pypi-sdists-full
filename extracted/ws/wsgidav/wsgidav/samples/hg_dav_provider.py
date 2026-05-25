@@ -56,7 +56,7 @@ Known limitations:
    instead.
 #. Adding and then removing a file without committing after the 'add' will
    leave this file on disk (untracked)
-   This happens for example whit lock files that Open Office Write and other
+   This happens for example with lock files that Open Office Write and other
    applications will create.
 #. Dragging the 'edit' folder onto 'released' with Windows File Explorer will
    remove the folder in the explorer view, although WsgiDAV did not delete it.
@@ -70,6 +70,7 @@ Requirements:
     from here: http://mercurial.berkwood.com/
     http://mercurial.berkwood.com/binaries/mercurial-1.4.win32-py2.6.exe
 """
+
 import os
 import sys
 import time

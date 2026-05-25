@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyedb
-Version: 0.75.0
+Version: 0.76.0
 Summary: Higher-Level Pythonic Ansys Electronics Data Base
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: PyEDB developers <simon.vandenbrouck@ansys.com>
@@ -15,11 +15,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: numpy>=1.20.0,<3
 Requires-Dist: pydantic>=2.6.4,<2.14
-Requires-Dist: toml==0.10.2
-Requires-Dist: ansys-edb-core==0.3.1
+Requires-Dist: toml>=0.10.2
+Requires-Dist: ansys-edb-core>=0.3.1
 Requires-Dist: psutil
 Requires-Dist: defusedxml>=0.7,<8.0
 Requires-Dist: xmltodict
@@ -32,7 +33,7 @@ Requires-Dist: Rtree>=1.2.0 ; extra == "all"
 Requires-Dist: shapely ; extra == "all"
 Requires-Dist: pandas>=1.1.0,<2.4 ; extra == "analysis"
 Requires-Dist: scikit-rf ; extra == "analysis"
-Requires-Dist: ansys-sphinx-theme[autoapi]>=1.0.0,<1.8 ; extra == "doc"
+Requires-Dist: ansys-sphinx-theme[autoapi]>=1.0.0,<1.9 ; extra == "doc"
 Requires-Dist: ezdxf>=1.4.2 ; extra == "doc"
 Requires-Dist: imageio>=2.30.0,<2.38 ; extra == "doc"
 Requires-Dist: jupyterlab>=4.0.0,<4.6 ; extra == "doc"
@@ -40,14 +41,14 @@ Requires-Dist: jupytext>=1.16.0,<1.20 ; extra == "doc"
 Requires-Dist: matplotlib>=3.5.0,<3.11 ; extra == "doc"
 Requires-Dist: nbsphinx>=0.9.0,<0.10 ; extra == "doc"
 Requires-Dist: nbconvert<7.18 ; extra == "doc"
-Requires-Dist: numpydoc==1.10.0 ; extra == "doc"
+Requires-Dist: numpydoc>=1.10.0 ; extra == "doc"
 Requires-Dist: pandas>=1.1.0,<2.4 ; extra == "doc"
 Requires-Dist: pypandoc>=1.10.0,<1.18 ; extra == "doc"
 Requires-Dist: recommonmark ; extra == "doc"
 Requires-Dist: Rtree>=1.2.0 ; extra == "doc"
 Requires-Dist: shapely ; extra == "doc"
 Requires-Dist: Sphinx>=7.1.0,<9.1 ; extra == "doc"
-Requires-Dist: sphinx-autobuild==2024.10.3 ; extra == "doc"
+Requires-Dist: sphinx-autobuild>=2024.10.3 ; extra == "doc"
 Requires-Dist: sphinx-copybutton>=0.5.0,<0.6 ; extra == "doc"
 Requires-Dist: sphinx-gallery>=0.14.0,<0.22 ; extra == "doc"
 Requires-Dist: sphinx_design>=0.4.0,<0.7 ; extra == "doc"

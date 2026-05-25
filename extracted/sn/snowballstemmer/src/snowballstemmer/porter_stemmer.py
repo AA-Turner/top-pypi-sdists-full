@@ -1,5 +1,4 @@
-#-*- coding: utf-8 -*-
-# Generated from porter.sbl by Snowball 3.0.1 - https://snowballstem.org/
+# Generated from porter.sbl by Snowball 3.1.0 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,14 +7,13 @@ from .among import Among
 class PorterStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from porter.sbl by Snowball 3.0.1 - https://snowballstem.org/
+    Generated from porter.sbl by Snowball 3.1.0 - https://snowballstem.org/
     '''
 
-    g_v = {u"a", u"e", u"i", u"o", u"u", u"y"}
+    g_v = {"a", "e", "i", "o", "u", "y"}
 
-    g_v_WXY = {u"a", u"e", u"i", u"o", u"u", u"y", u"w", u"x", u"Y"}
+    g_v_WXY = {"Y", "a", "e", "i", "o", "u", "w", "x", "y"}
 
-    B_Y_found = False
     I_p2 = 0
     I_p1 = 0
 
@@ -24,9 +22,7 @@ class PorterStemmer(BaseStemmer):
             return False
         if not self.in_grouping_b(PorterStemmer.g_v):
             return False
-        if not self.out_grouping_b(PorterStemmer.g_v):
-            return False
-        return True
+        return self.out_grouping_b(PorterStemmer.g_v)
 
     def __r_R1(self):
         return self.I_p1 <= self.cursor
@@ -41,15 +37,11 @@ class PorterStemmer(BaseStemmer):
             return False
         self.bra = self.cursor
         if among_var == 1:
-            if not self.slice_from(u"ss"):
-                return False
+            self.slice_from("ss")
         elif among_var == 2:
-            if not self.slice_from(u"i"):
-                return False
+            self.slice_from("i")
         elif among_var == 3:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         return True
 
     def __r_Step_1b(self):
@@ -61,23 +53,20 @@ class PorterStemmer(BaseStemmer):
         if among_var == 1:
             if not self.__r_R1():
                 return False
-            if not self.slice_from(u"ee"):
-                return False
+            self.slice_from("ee")
         else:
             v_1 = self.limit - self.cursor
             if not self.go_out_grouping_b(PorterStemmer.g_v):
                 return False
             self.cursor -= 1
             self.cursor = self.limit - v_1
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
             v_2 = self.limit - self.cursor
             among_var = self.find_among_b(PorterStemmer.a_1)
             self.cursor = self.limit - v_2
             if among_var == 1:
                 c = self.cursor
-                self.insert(self.cursor, self.cursor, u"e")
+                self.insert(self.cursor, self.cursor, "e")
                 self.cursor = c
             elif among_var == 2:
                 self.ket = self.cursor
@@ -85,9 +74,7 @@ class PorterStemmer(BaseStemmer):
                     return False
                 self.cursor -= 1
                 self.bra = self.cursor
-                if not self.slice_del():
-                    return False
-
+                self.slice_del()
             else:
                 if self.cursor != self.I_p1:
                     return False
@@ -96,29 +83,28 @@ class PorterStemmer(BaseStemmer):
                     return False
                 self.cursor = self.limit - v_3
                 c = self.cursor
-                self.insert(self.cursor, self.cursor, u"e")
+                self.insert(self.cursor, self.cursor, "e")
                 self.cursor = c
         return True
 
     def __r_Step_1c(self):
         self.ket = self.cursor
-        try:
-            v_1 = self.limit - self.cursor
+        while True:
             try:
-                if not self.eq_s_b(u"y"):
-                    raise lab1()
-                raise lab0()
-            except lab1: pass
-            self.cursor = self.limit - v_1
-            if not self.eq_s_b(u"Y"):
+                if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "y":
+                    raise lab0()
+                self.cursor -= 1
+                break
+            except lab0: pass
+            if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "Y":
                 return False
-        except lab0: pass
+            self.cursor -= 1
+            break
         self.bra = self.cursor
         if not self.go_out_grouping_b(PorterStemmer.g_v):
             return False
         self.cursor -= 1
-        if not self.slice_from(u"i"):
-            return False
+        self.slice_from("i")
         return True
 
     def __r_Step_2(self):
@@ -129,45 +115,7 @@ class PorterStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if among_var == 1:
-            if not self.slice_from(u"tion"):
-                return False
-        elif among_var == 2:
-            if not self.slice_from(u"ence"):
-                return False
-        elif among_var == 3:
-            if not self.slice_from(u"ance"):
-                return False
-        elif among_var == 4:
-            if not self.slice_from(u"able"):
-                return False
-        elif among_var == 5:
-            if not self.slice_from(u"ent"):
-                return False
-        elif among_var == 6:
-            if not self.slice_from(u"e"):
-                return False
-        elif among_var == 7:
-            if not self.slice_from(u"ize"):
-                return False
-        elif among_var == 8:
-            if not self.slice_from(u"ate"):
-                return False
-        elif among_var == 9:
-            if not self.slice_from(u"al"):
-                return False
-        elif among_var == 10:
-            if not self.slice_from(u"ful"):
-                return False
-        elif among_var == 11:
-            if not self.slice_from(u"ous"):
-                return False
-        elif among_var == 12:
-            if not self.slice_from(u"ive"):
-                return False
-        else:
-            if not self.slice_from(u"ble"):
-                return False
+        self.slice_from(PorterStemmer.as_3[among_var - 1])
         return True
 
     def __r_Step_3(self):
@@ -179,15 +127,11 @@ class PorterStemmer(BaseStemmer):
         if not self.__r_R1():
             return False
         if among_var == 1:
-            if not self.slice_from(u"al"):
-                return False
+            self.slice_from("al")
         elif among_var == 2:
-            if not self.slice_from(u"ic"):
-                return False
+            self.slice_from("ic")
         else:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         return True
 
     def __r_Step_4(self):
@@ -199,77 +143,72 @@ class PorterStemmer(BaseStemmer):
         if not self.__r_R2():
             return False
         if among_var == 1:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         else:
-            try:
-                v_1 = self.limit - self.cursor
+            while True:
                 try:
-                    if not self.eq_s_b(u"s"):
-                        raise lab1()
-                    raise lab0()
-                except lab1: pass
-                self.cursor = self.limit - v_1
-                if not self.eq_s_b(u"t"):
+                    if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "s":
+                        raise lab0()
+                    self.cursor -= 1
+                    break
+                except lab0: pass
+                if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "t":
                     return False
-            except lab0: pass
-            if not self.slice_del():
-                return False
-
+                self.cursor -= 1
+                break
+            self.slice_del()
         return True
 
     def __r_Step_5a(self):
         self.ket = self.cursor
-        if not self.eq_s_b(u"e"):
+        if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "e":
             return False
+        self.cursor -= 1
         self.bra = self.cursor
-        try:
+        while True:
             try:
                 if not self.__r_R2():
-                    raise lab1()
-                raise lab0()
-            except lab1: pass
+                    raise lab0()
+                break
+            except lab0: pass
             if not self.__r_R1():
                 return False
-            v_2 = self.limit - self.cursor
+            v_1 = self.limit - self.cursor
             try:
                 if not self.__r_shortv():
-                    raise lab2()
+                    raise lab0()
                 return False
-            except lab2: pass
-            self.cursor = self.limit - v_2
-        except lab0: pass
-        if not self.slice_del():
-            return False
-
+            except lab0: pass
+            self.cursor = self.limit - v_1
+            break
+        self.slice_del()
         return True
 
     def __r_Step_5b(self):
         self.ket = self.cursor
-        if not self.eq_s_b(u"l"):
+        if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "l":
             return False
+        self.cursor -= 1
         self.bra = self.cursor
         if not self.__r_R2():
             return False
-        if not self.eq_s_b(u"l"):
+        if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "l":
             return False
-        if not self.slice_del():
-            return False
-
+        self.cursor -= 1
+        self.slice_del()
         return True
 
     def _stem(self):
-        self.B_Y_found = False
+        B_Y_found = False
         v_1 = self.cursor
         try:
             self.bra = self.cursor
-            if not self.eq_s(u"y"):
+            if self.cursor == self.limit or self.current[self.cursor] != "y":
                 raise lab0()
+            self.cursor += 1
             self.ket = self.cursor
-            if not self.slice_from(u"Y"):
-                return False
-            self.B_Y_found = True
+            self.slice_from("Y")
+            B_Y_found = True
         except lab0: pass
         self.cursor = v_1
         v_2 = self.cursor
@@ -277,52 +216,50 @@ class PorterStemmer(BaseStemmer):
             while True:
                 v_3 = self.cursor
                 try:
-                    try:
-                        while True:
-                            v_4 = self.cursor
-                            try:
-                                if not self.in_grouping(PorterStemmer.g_v):
-                                    raise lab4()
-                                self.bra = self.cursor
-                                if not self.eq_s(u"y"):
-                                    raise lab4()
-                                self.ket = self.cursor
-                                self.cursor = v_4
-                                raise lab3()
-                            except lab4: pass
-                            self.cursor = v_4
-                            if self.cursor >= self.limit:
+                    while True:
+                        v_4 = self.cursor
+                        try:
+                            if not self.in_grouping(PorterStemmer.g_v):
+                                raise lab2()
+                            self.bra = self.cursor
+                            if self.cursor == self.limit or self.current[self.cursor] != "y":
                                 raise lab2()
                             self.cursor += 1
-                    except lab3: pass
-                    if not self.slice_from(u"Y"):
-                        return False
-                    self.B_Y_found = True
+                            self.ket = self.cursor
+                            self.cursor = v_4
+                            break
+                        except lab2: pass
+                        self.cursor = v_4
+                        if self.cursor >= self.limit:
+                            raise lab1()
+                        self.cursor += 1
+                    self.slice_from("Y")
+                    B_Y_found = True
                     continue
-                except lab2: pass
+                except lab1: pass
                 self.cursor = v_3
                 break
-        except lab1: pass
+        except lab0: pass
         self.cursor = v_2
         self.I_p1 = self.limit
         self.I_p2 = self.limit
         v_5 = self.cursor
         try:
             if not self.go_out_grouping(PorterStemmer.g_v):
-                raise lab5()
+                raise lab0()
             self.cursor += 1
             if not self.go_in_grouping(PorterStemmer.g_v):
-                raise lab5()
+                raise lab0()
             self.cursor += 1
             self.I_p1 = self.cursor
             if not self.go_out_grouping(PorterStemmer.g_v):
-                raise lab5()
+                raise lab0()
             self.cursor += 1
             if not self.go_in_grouping(PorterStemmer.g_v):
-                raise lab5()
+                raise lab0()
             self.cursor += 1
             self.I_p2 = self.cursor
-        except lab5: pass
+        except lab0: pass
         self.cursor = v_5
         self.limit_backward = self.cursor
         self.cursor = self.limit
@@ -353,119 +290,118 @@ class PorterStemmer(BaseStemmer):
         self.cursor = self.limit_backward
         v_14 = self.cursor
         try:
-            if not self.B_Y_found:
-                raise lab6()
+            if not B_Y_found:
+                raise lab0()
             while True:
                 v_15 = self.cursor
                 try:
-                    try:
-                        while True:
-                            v_16 = self.cursor
-                            try:
-                                self.bra = self.cursor
-                                if not self.eq_s(u"Y"):
-                                    raise lab9()
-                                self.ket = self.cursor
-                                self.cursor = v_16
-                                raise lab8()
-                            except lab9: pass
-                            self.cursor = v_16
-                            if self.cursor >= self.limit:
-                                raise lab7()
+                    while True:
+                        v_16 = self.cursor
+                        try:
+                            self.bra = self.cursor
+                            if self.cursor == self.limit or self.current[self.cursor] != "Y":
+                                raise lab2()
                             self.cursor += 1
-                    except lab8: pass
-                    if not self.slice_from(u"y"):
-                        return False
+                            self.ket = self.cursor
+                            self.cursor = v_16
+                            break
+                        except lab2: pass
+                        self.cursor = v_16
+                        if self.cursor >= self.limit:
+                            raise lab1()
+                        self.cursor += 1
+                    self.slice_from("y")
                     continue
-                except lab7: pass
+                except lab1: pass
                 self.cursor = v_15
                 break
-        except lab6: pass
+        except lab0: pass
         self.cursor = v_14
         return True
 
     a_0 = [
-        Among(u"s", -1, 3),
-        Among(u"ies", 0, 2),
-        Among(u"sses", 0, 1),
-        Among(u"ss", 0, -1)
+        Among("s", -1, 3),
+        Among("ies", 0, 2),
+        Among("sses", 0, 1),
+        Among("ss", 0, -1)
     ]
 
     a_1 = [
-        Among(u"", -1, 3),
-        Among(u"bb", 0, 2),
-        Among(u"dd", 0, 2),
-        Among(u"ff", 0, 2),
-        Among(u"gg", 0, 2),
-        Among(u"bl", 0, 1),
-        Among(u"mm", 0, 2),
-        Among(u"nn", 0, 2),
-        Among(u"pp", 0, 2),
-        Among(u"rr", 0, 2),
-        Among(u"at", 0, 1),
-        Among(u"tt", 0, 2),
-        Among(u"iz", 0, 1)
+        Among("", -1, 3),
+        Among("bb", 0, 2),
+        Among("dd", 0, 2),
+        Among("ff", 0, 2),
+        Among("gg", 0, 2),
+        Among("bl", 0, 1),
+        Among("mm", 0, 2),
+        Among("nn", 0, 2),
+        Among("pp", 0, 2),
+        Among("rr", 0, 2),
+        Among("at", 0, 1),
+        Among("tt", 0, 2),
+        Among("iz", 0, 1)
     ]
 
     a_2 = [
-        Among(u"ed", -1, 2),
-        Among(u"eed", 0, 1),
-        Among(u"ing", -1, 2)
+        Among("ed", -1, 2),
+        Among("eed", 0, 1),
+        Among("ing", -1, 2)
     ]
 
     a_3 = [
-        Among(u"anci", -1, 3),
-        Among(u"enci", -1, 2),
-        Among(u"abli", -1, 4),
-        Among(u"eli", -1, 6),
-        Among(u"alli", -1, 9),
-        Among(u"ousli", -1, 11),
-        Among(u"entli", -1, 5),
-        Among(u"aliti", -1, 9),
-        Among(u"biliti", -1, 13),
-        Among(u"iviti", -1, 12),
-        Among(u"tional", -1, 1),
-        Among(u"ational", 10, 8),
-        Among(u"alism", -1, 9),
-        Among(u"ation", -1, 8),
-        Among(u"ization", 13, 7),
-        Among(u"izer", -1, 7),
-        Among(u"ator", -1, 8),
-        Among(u"iveness", -1, 12),
-        Among(u"fulness", -1, 10),
-        Among(u"ousness", -1, 11)
+        Among("anci", -1, 3),
+        Among("enci", -1, 2),
+        Among("abli", -1, 4),
+        Among("eli", -1, 6),
+        Among("alli", -1, 9),
+        Among("ousli", -1, 11),
+        Among("entli", -1, 5),
+        Among("aliti", -1, 9),
+        Among("biliti", -1, 13),
+        Among("iviti", -1, 12),
+        Among("tional", -1, 1),
+        Among("ational", 10, 8),
+        Among("alism", -1, 9),
+        Among("ation", -1, 8),
+        Among("ization", 13, 7),
+        Among("izer", -1, 7),
+        Among("ator", -1, 8),
+        Among("iveness", -1, 12),
+        Among("fulness", -1, 10),
+        Among("ousness", -1, 11)
     ]
+    as_3 = ("tion", "ence", "ance", "able", "ent", "e", "ize", "ate", "al", "ful", "ous", "ive", "ble")
 
     a_4 = [
-        Among(u"icate", -1, 2),
-        Among(u"ative", -1, 3),
-        Among(u"alize", -1, 1),
-        Among(u"iciti", -1, 2),
-        Among(u"ical", -1, 2),
-        Among(u"ful", -1, 3),
-        Among(u"ness", -1, 3)
+        Among("icate", -1, 2),
+        Among("ative", -1, 3),
+        Among("alize", -1, 1),
+        Among("iciti", -1, 2),
+        Among("ical", -1, 2),
+        Among("ful", -1, 3),
+        Among("ness", -1, 3)
     ]
 
     a_5 = [
-        Among(u"ic", -1, 1),
-        Among(u"ance", -1, 1),
-        Among(u"ence", -1, 1),
-        Among(u"able", -1, 1),
-        Among(u"ible", -1, 1),
-        Among(u"ate", -1, 1),
-        Among(u"ive", -1, 1),
-        Among(u"ize", -1, 1),
-        Among(u"iti", -1, 1),
-        Among(u"al", -1, 1),
-        Among(u"ism", -1, 1),
-        Among(u"ion", -1, 2),
-        Among(u"er", -1, 1),
-        Among(u"ous", -1, 1),
-        Among(u"ant", -1, 1),
-        Among(u"ent", -1, 1),
-        Among(u"ment", 15, 1),
-        Among(u"ement", 16, 1),
-        Among(u"ou", -1, 1)
+        Among("ic", -1, 1),
+        Among("ance", -1, 1),
+        Among("ence", -1, 1),
+        Among("able", -1, 1),
+        Among("ible", -1, 1),
+        Among("ate", -1, 1),
+        Among("ive", -1, 1),
+        Among("ize", -1, 1),
+        Among("iti", -1, 1),
+        Among("al", -1, 1),
+        Among("ism", -1, 1),
+        Among("ion", -1, 2),
+        Among("er", -1, 1),
+        Among("ous", -1, 1),
+        Among("ant", -1, 1),
+        Among("ent", -1, 1),
+        Among("ment", 15, 1),
+        Among("ement", 16, 1),
+        Among("ou", -1, 1)
     ]
 
 
@@ -476,24 +412,3 @@ class lab1(BaseException): pass
 
 
 class lab2(BaseException): pass
-
-
-class lab3(BaseException): pass
-
-
-class lab4(BaseException): pass
-
-
-class lab5(BaseException): pass
-
-
-class lab6(BaseException): pass
-
-
-class lab7(BaseException): pass
-
-
-class lab8(BaseException): pass
-
-
-class lab9(BaseException): pass

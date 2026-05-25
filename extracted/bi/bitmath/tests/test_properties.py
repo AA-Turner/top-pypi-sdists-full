@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # The MIT License (MIT)
 #
-# Copyright © 2014 Tim Case <timbielawa@gmail.com>
+# SPDX-FileCopyrightText: 2014-2026 Tim Case <bitmath@lnx.cx>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -73,3 +73,34 @@ class TestAttributeProperties(TestCase):
     def test_Yib_property(self):
         """Yib property returns a Yib instance"""
         self.assertIsInstance(self.kib.Yib, bitmath.Yib)
+
+
+class TestSystemPropertyInvalidBase(TestCase):
+    def test_system_property_invalid_base_raises(self):
+        """system property raises ValueError when _base is not 2 or 10"""
+        obj = bitmath.MiB(1)
+        obj._base = 7
+        with self.assertRaises(ValueError):
+            _ = obj.system
+
+
+class TestPropertyTypesAlwaysFloat(TestCase):
+    """The .bytes and .bits properties are float for every construction
+    path. The internal representation is uniformly floating-point (see
+    the 'Floating-Point Measurements' design philosophy appendix)."""
+
+    def test_bytes_property_float_from_value_constructor(self):
+        """.bytes is float when built via the unit-value constructor"""
+        self.assertIs(type(bitmath.KiB(1).bytes), float)
+
+    def test_bytes_property_float_from_bytes_kwarg(self):
+        """.bytes is float when built via the bytes= keyword"""
+        self.assertIs(type(bitmath.Byte(bytes=1).bytes), float)
+
+    def test_bits_property_float_from_bits_kwarg(self):
+        """.bits is float when built via the bits= keyword"""
+        self.assertIs(type(bitmath.Byte(bits=1).bits), float)
+
+    def test_bits_property_float_from_bit_value_constructor(self):
+        """.bits is float when a Bit-family unit is built by value"""
+        self.assertIs(type(bitmath.Kib(1).bits), float)

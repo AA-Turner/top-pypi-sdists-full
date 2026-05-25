@@ -1,5 +1,4 @@
-#-*- coding: utf-8 -*-
-# Generated from german.sbl by Snowball 3.0.1 - https://snowballstem.org/
+# Generated from german.sbl by Snowball 3.1.0 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,18 +7,17 @@ from .among import Among
 class GermanStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from german.sbl by Snowball 3.0.1 - https://snowballstem.org/
+    Generated from german.sbl by Snowball 3.1.0 - https://snowballstem.org/
     '''
 
-    g_v = {u"a", u"e", u"i", u"o", u"u", u"y", u"ä", u"ö", u"ü"}
+    g_v = {"a", "e", "i", "o", "u", "y", "ä", "ö", "ü"}
 
-    g_et_ending = {u"d", u"f", u"g", u"k", u"l", u"m", u"n", u"r", u"s", u"t", u"U", u"z", u"ä"}
+    g_et_ending = {"U", "d", "f", "g", "k", "l", "m", "n", "r", "s", "t", "z", "ä"}
 
-    g_s_ending = {u"b", u"d", u"f", u"g", u"h", u"k", u"l", u"m", u"n", u"r", u"t"}
+    g_s_ending = {"b", "d", "f", "g", "h", "k", "l", "m", "n", "r", "t"}
 
-    g_st_ending = {u"b", u"d", u"f", u"g", u"h", u"k", u"l", u"m", u"n", u"t"}
+    g_st_ending = {"b", "d", "f", "g", "h", "k", "l", "m", "n", "t"}
 
-    I_x = 0
     I_p2 = 0
     I_p1 = 0
 
@@ -28,42 +26,40 @@ class GermanStemmer(BaseStemmer):
         while True:
             v_2 = self.cursor
             try:
-                try:
-                    while True:
-                        v_3 = self.cursor
-                        try:
-                            if not self.in_grouping(GermanStemmer.g_v):
-                                raise lab2()
-                            self.bra = self.cursor
+                while True:
+                    v_3 = self.cursor
+                    try:
+                        if not self.in_grouping(GermanStemmer.g_v):
+                            raise lab1()
+                        self.bra = self.cursor
+                        while True:
+                            v_4 = self.cursor
                             try:
-                                v_4 = self.cursor
-                                try:
-                                    if not self.eq_s(u"u"):
-                                        raise lab4()
-                                    self.ket = self.cursor
-                                    if not self.in_grouping(GermanStemmer.g_v):
-                                        raise lab4()
-                                    if not self.slice_from(u"U"):
-                                        return False
-                                    raise lab3()
-                                except lab4: pass
-                                self.cursor = v_4
-                                if not self.eq_s(u"y"):
+                                if self.cursor == self.limit or self.current[self.cursor] != "u":
                                     raise lab2()
+                                self.cursor += 1
                                 self.ket = self.cursor
                                 if not self.in_grouping(GermanStemmer.g_v):
                                     raise lab2()
-                                if not self.slice_from(u"Y"):
-                                    return False
-                            except lab3: pass
-                            self.cursor = v_3
-                            raise lab1()
-                        except lab2: pass
+                                self.slice_from("U")
+                                break
+                            except lab2: pass
+                            self.cursor = v_4
+                            if self.cursor == self.limit or self.current[self.cursor] != "y":
+                                raise lab1()
+                            self.cursor += 1
+                            self.ket = self.cursor
+                            if not self.in_grouping(GermanStemmer.g_v):
+                                raise lab1()
+                            self.slice_from("Y")
+                            break
                         self.cursor = v_3
-                        if self.cursor >= self.limit:
-                            raise lab0()
-                        self.cursor += 1
-                except lab1: pass
+                        break
+                    except lab1: pass
+                    self.cursor = v_3
+                    if self.cursor >= self.limit:
+                        raise lab0()
+                    self.cursor += 1
                 continue
             except lab0: pass
             self.cursor = v_2
@@ -76,23 +72,19 @@ class GermanStemmer(BaseStemmer):
                 among_var = self.find_among(GermanStemmer.a_0)
                 self.ket = self.cursor
                 if among_var == 1:
-                    if not self.slice_from(u"ss"):
-                        return False
+                    self.slice_from("ss")
                 elif among_var == 2:
-                    if not self.slice_from(u"ä"):
-                        return False
+                    self.slice_from("ä")
                 elif among_var == 3:
-                    if not self.slice_from(u"ö"):
-                        return False
+                    self.slice_from("ö")
                 elif among_var == 4:
-                    if not self.slice_from(u"ü"):
-                        return False
+                    self.slice_from("ü")
                 elif among_var == 5:
                     if self.cursor >= self.limit:
-                        raise lab5()
+                        raise lab0()
                     self.cursor += 1
                 continue
-            except lab5: pass
+            except lab0: pass
             self.cursor = v_5
             break
         return True
@@ -101,11 +93,10 @@ class GermanStemmer(BaseStemmer):
         self.I_p1 = self.limit
         self.I_p2 = self.limit
         v_1 = self.cursor
-        c = self.cursor + 3
-        if c > self.limit:
+        if self.cursor + 3 > self.limit:
             return False
-        self.cursor = c
-        self.I_x = self.cursor
+        self.cursor += 3
+        I_x = self.cursor
         self.cursor = v_1
         if not self.go_out_grouping(GermanStemmer.g_v):
             return False
@@ -115,9 +106,9 @@ class GermanStemmer(BaseStemmer):
         self.cursor += 1
         self.I_p1 = self.cursor
         try:
-            if self.I_p1 >= self.I_x:
+            if self.I_p1 >= I_x:
                 raise lab0()
-            self.I_p1 = self.I_x
+            self.I_p1 = I_x
         except lab0: pass
         if not self.go_out_grouping(GermanStemmer.g_v):
             return False
@@ -136,17 +127,13 @@ class GermanStemmer(BaseStemmer):
                 among_var = self.find_among(GermanStemmer.a_1)
                 self.ket = self.cursor
                 if among_var == 1:
-                    if not self.slice_from(u"y"):
-                        return False
+                    self.slice_from("y")
                 elif among_var == 2:
-                    if not self.slice_from(u"u"):
-                        return False
+                    self.slice_from("u")
                 elif among_var == 3:
-                    if not self.slice_from(u"a"):
-                        return False
+                    self.slice_from("a")
                 elif among_var == 4:
-                    if not self.slice_from(u"o"):
-                        return False
+                    self.slice_from("o")
                 else:
                     if self.cursor >= self.limit:
                         raise lab0()
@@ -174,182 +161,162 @@ class GermanStemmer(BaseStemmer):
             if not self.__r_R1():
                 raise lab0()
             if among_var == 1:
-                v_2 = self.limit - self.cursor
                 try:
-                    if not self.eq_s_b(u"syst"):
+                    if not self.eq_s_b("syst"):
                         raise lab1()
                     raise lab0()
                 except lab1: pass
-                self.cursor = self.limit - v_2
-                if not self.slice_del():
-                    return False
-
+                self.slice_del()
             elif among_var == 2:
-                if not self.slice_del():
-                    return False
-
+                self.slice_del()
             elif among_var == 3:
-                if not self.slice_del():
-                    return False
-
-                v_3 = self.limit - self.cursor
+                self.slice_del()
+                v_2 = self.limit - self.cursor
                 try:
                     self.ket = self.cursor
-                    if not self.eq_s_b(u"s"):
-                        self.cursor = self.limit - v_3
-                        raise lab2()
+                    if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "s":
+                        self.cursor = self.limit - v_2
+                        raise lab1()
+                    self.cursor -= 1
                     self.bra = self.cursor
-                    if not self.eq_s_b(u"nis"):
-                        self.cursor = self.limit - v_3
-                        raise lab2()
-                    if not self.slice_del():
-                        return False
-
-                except lab2: pass
+                    if not self.eq_s_b("nis"):
+                        self.cursor = self.limit - v_2
+                        raise lab1()
+                    self.slice_del()
+                except lab1: pass
             elif among_var == 4:
                 if not self.in_grouping_b(GermanStemmer.g_s_ending):
                     raise lab0()
-                if not self.slice_del():
-                    return False
-
+                self.slice_del()
             else:
-                if not self.slice_from(u"l"):
-                    return False
+                self.slice_from("l")
         except lab0: pass
         self.cursor = self.limit - v_1
-        v_4 = self.limit - self.cursor
+        v_3 = self.limit - self.cursor
         try:
             self.ket = self.cursor
             among_var = self.find_among_b(GermanStemmer.a_4)
             if among_var == 0:
-                raise lab3()
+                raise lab0()
             self.bra = self.cursor
             if not self.__r_R1():
-                raise lab3()
+                raise lab0()
             if among_var == 1:
-                if not self.slice_del():
-                    return False
-
+                self.slice_del()
             elif among_var == 2:
                 if not self.in_grouping_b(GermanStemmer.g_st_ending):
-                    raise lab3()
-                c = self.cursor - 3
-                if c < self.limit_backward:
-                    raise lab3()
-                self.cursor = c
-                if not self.slice_del():
-                    return False
-
+                    raise lab0()
+                if self.cursor - 3 < self.limit_backward:
+                    raise lab0()
+                self.cursor -= 3
+                self.slice_del()
             else:
-                v_5 = self.limit - self.cursor
+                v_4 = self.limit - self.cursor
                 if not self.in_grouping_b(GermanStemmer.g_et_ending):
-                    raise lab3()
-                self.cursor = self.limit - v_5
-                v_6 = self.limit - self.cursor
+                    raise lab0()
+                self.cursor = self.limit - v_4
+                v_5 = self.limit - self.cursor
                 try:
                     if self.find_among_b(GermanStemmer.a_3) == 0:
-                        raise lab4()
-                    raise lab3()
-                except lab4: pass
-                self.cursor = self.limit - v_6
-                if not self.slice_del():
-                    return False
-
-        except lab3: pass
-        self.cursor = self.limit - v_4
-        v_7 = self.limit - self.cursor
+                        raise lab1()
+                    raise lab0()
+                except lab1: pass
+                self.cursor = self.limit - v_5
+                self.slice_del()
+        except lab0: pass
+        self.cursor = self.limit - v_3
+        v_6 = self.limit - self.cursor
         try:
             self.ket = self.cursor
             among_var = self.find_among_b(GermanStemmer.a_6)
             if among_var == 0:
-                raise lab5()
+                raise lab0()
             self.bra = self.cursor
             if not self.__r_R2():
-                raise lab5()
+                raise lab0()
             if among_var == 1:
-                if not self.slice_del():
-                    return False
-
+                self.slice_del()
+                v_7 = self.limit - self.cursor
+                try:
+                    self.ket = self.cursor
+                    if not self.eq_s_b("ig"):
+                        self.cursor = self.limit - v_7
+                        raise lab1()
+                    self.bra = self.cursor
+                    try:
+                        if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "e":
+                            raise lab2()
+                        self.cursor -= 1
+                        self.cursor = self.limit - v_7
+                        raise lab1()
+                    except lab2: pass
+                    if not self.__r_R2():
+                        self.cursor = self.limit - v_7
+                        raise lab1()
+                    self.slice_del()
+                except lab1: pass
+            elif among_var == 2:
+                try:
+                    if self.cursor <= self.limit_backward or self.current[self.cursor - 1] != "e":
+                        raise lab1()
+                    self.cursor -= 1
+                    raise lab0()
+                except lab1: pass
+                self.slice_del()
+            elif among_var == 3:
+                self.slice_del()
                 v_8 = self.limit - self.cursor
                 try:
                     self.ket = self.cursor
-                    if not self.eq_s_b(u"ig"):
-                        self.cursor = self.limit - v_8
-                        raise lab6()
-                    self.bra = self.cursor
-                    v_9 = self.limit - self.cursor
-                    try:
-                        if not self.eq_s_b(u"e"):
-                            raise lab7()
-                        self.cursor = self.limit - v_8
-                        raise lab6()
-                    except lab7: pass
-                    self.cursor = self.limit - v_9
-                    if not self.__r_R2():
-                        self.cursor = self.limit - v_8
-                        raise lab6()
-                    if not self.slice_del():
-                        return False
-
-                except lab6: pass
-            elif among_var == 2:
-                v_10 = self.limit - self.cursor
-                try:
-                    if not self.eq_s_b(u"e"):
-                        raise lab8()
-                    raise lab5()
-                except lab8: pass
-                self.cursor = self.limit - v_10
-                if not self.slice_del():
-                    return False
-
-            elif among_var == 3:
-                if not self.slice_del():
-                    return False
-
-                v_11 = self.limit - self.cursor
-                try:
-                    self.ket = self.cursor
-                    try:
-                        v_12 = self.limit - self.cursor
+                    while True:
                         try:
-                            if not self.eq_s_b(u"er"):
-                                raise lab11()
-                            raise lab10()
-                        except lab11: pass
-                        self.cursor = self.limit - v_12
-                        if not self.eq_s_b(u"en"):
-                            self.cursor = self.limit - v_11
-                            raise lab9()
-                    except lab10: pass
+                            if not self.eq_s_b("er"):
+                                raise lab2()
+                            break
+                        except lab2: pass
+                        if not self.eq_s_b("en"):
+                            self.cursor = self.limit - v_8
+                            raise lab1()
+                        break
                     self.bra = self.cursor
                     if not self.__r_R1():
-                        self.cursor = self.limit - v_11
-                        raise lab9()
-                    if not self.slice_del():
-                        return False
-
-                except lab9: pass
+                        self.cursor = self.limit - v_8
+                        raise lab1()
+                    self.slice_del()
+                except lab1: pass
             else:
-                if not self.slice_del():
-                    return False
-
-                v_13 = self.limit - self.cursor
+                self.slice_del()
+                v_9 = self.limit - self.cursor
                 try:
                     self.ket = self.cursor
                     if self.find_among_b(GermanStemmer.a_5) == 0:
-                        self.cursor = self.limit - v_13
-                        raise lab12()
+                        self.cursor = self.limit - v_9
+                        raise lab1()
                     self.bra = self.cursor
                     if not self.__r_R2():
-                        self.cursor = self.limit - v_13
-                        raise lab12()
-                    if not self.slice_del():
-                        return False
-
-                except lab12: pass
-        except lab5: pass
-        self.cursor = self.limit - v_7
+                        self.cursor = self.limit - v_9
+                        raise lab1()
+                    self.slice_del()
+                except lab1: pass
+        except lab0: pass
+        self.cursor = self.limit - v_6
+        v_10 = self.limit - self.cursor
+        try:
+            self.ket = self.cursor
+            if self.find_among_b(GermanStemmer.a_7) == 0:
+                raise lab0()
+            self.bra = self.cursor
+            if self.cursor <= self.limit_backward:
+                raise lab0()
+            self.cursor -= 1
+            try:
+                if self.cursor > self.limit_backward:
+                    raise lab1()
+                raise lab0()
+            except lab1: pass
+            self.slice_del()
+        except lab0: pass
+        self.cursor = self.limit - v_10
         return True
 
     def _stem(self):
@@ -363,73 +330,79 @@ class GermanStemmer(BaseStemmer):
         self.cursor = self.limit
         self.__r_standard_suffix()
         self.cursor = self.limit_backward
-        v_4 = self.cursor
+        v_3 = self.cursor
         self.__r_postlude()
-        self.cursor = v_4
+        self.cursor = v_3
         return True
 
     a_0 = [
-        Among(u"", -1, 5),
-        Among(u"ae", 0, 2),
-        Among(u"oe", 0, 3),
-        Among(u"qu", 0, -1),
-        Among(u"ue", 0, 4),
-        Among(u"ß", 0, 1)
+        Among("", -1, 5),
+        Among("ae", 0, 2),
+        Among("oe", 0, 3),
+        Among("qu", 0, -1),
+        Among("ue", 0, 4),
+        Among("ß", 0, 1)
     ]
 
     a_1 = [
-        Among(u"", -1, 5),
-        Among(u"U", 0, 2),
-        Among(u"Y", 0, 1),
-        Among(u"ä", 0, 3),
-        Among(u"ö", 0, 4),
-        Among(u"ü", 0, 2)
+        Among("", -1, 5),
+        Among("U", 0, 2),
+        Among("Y", 0, 1),
+        Among("ä", 0, 3),
+        Among("ö", 0, 4),
+        Among("ü", 0, 2)
     ]
 
     a_2 = [
-        Among(u"e", -1, 3),
-        Among(u"em", -1, 1),
-        Among(u"en", -1, 3),
-        Among(u"erinnen", 2, 2),
-        Among(u"erin", -1, 2),
-        Among(u"ln", -1, 5),
-        Among(u"ern", -1, 2),
-        Among(u"er", -1, 2),
-        Among(u"s", -1, 4),
-        Among(u"es", 8, 3),
-        Among(u"lns", 8, 5)
+        Among("e", -1, 3),
+        Among("em", -1, 1),
+        Among("en", -1, 3),
+        Among("erinnen", 2, 2),
+        Among("erin", -1, 2),
+        Among("ln", -1, 5),
+        Among("ern", -1, 2),
+        Among("er", -1, 2),
+        Among("s", -1, 4),
+        Among("es", 8, 3),
+        Among("lns", 8, 5)
     ]
 
     a_3 = [
-        Among(u"tick", -1, -1),
-        Among(u"plan", -1, -1),
-        Among(u"geordn", -1, -1),
-        Among(u"intern", -1, -1),
-        Among(u"tr", -1, -1)
+        Among("tick", -1, -1),
+        Among("plan", -1, -1),
+        Among("geordn", -1, -1),
+        Among("intern", -1, -1),
+        Among("tr", -1, -1)
     ]
 
     a_4 = [
-        Among(u"en", -1, 1),
-        Among(u"er", -1, 1),
-        Among(u"et", -1, 3),
-        Among(u"st", -1, 2),
-        Among(u"est", 3, 1)
+        Among("en", -1, 1),
+        Among("er", -1, 1),
+        Among("et", -1, 3),
+        Among("st", -1, 2),
+        Among("est", 3, 1)
     ]
 
     a_5 = [
-        Among(u"ig", -1, 1),
-        Among(u"lich", -1, 1)
+        Among("ig", -1, 1),
+        Among("lich", -1, 1)
     ]
 
     a_6 = [
-        Among(u"end", -1, 1),
-        Among(u"ig", -1, 2),
-        Among(u"ung", -1, 1),
-        Among(u"lich", -1, 3),
-        Among(u"isch", -1, 2),
-        Among(u"ik", -1, 2),
-        Among(u"heit", -1, 3),
-        Among(u"keit", -1, 4)
+        Among("end", -1, 1),
+        Among("ig", -1, 2),
+        Among("ung", -1, 1),
+        Among("lich", -1, 3),
+        Among("isch", -1, 2),
+        Among("ik", -1, 2),
+        Among("heit", -1, 3),
+        Among("keit", -1, 4)
+    ]
+
+    a_7 = [
+        Among("'", -1, 1),
+        Among("'sch", -1, 1),
+        Among("'s", -1, 1)
     ]
 
 
@@ -440,33 +413,3 @@ class lab1(BaseException): pass
 
 
 class lab2(BaseException): pass
-
-
-class lab3(BaseException): pass
-
-
-class lab4(BaseException): pass
-
-
-class lab5(BaseException): pass
-
-
-class lab6(BaseException): pass
-
-
-class lab7(BaseException): pass
-
-
-class lab8(BaseException): pass
-
-
-class lab9(BaseException): pass
-
-
-class lab10(BaseException): pass
-
-
-class lab11(BaseException): pass
-
-
-class lab12(BaseException): pass

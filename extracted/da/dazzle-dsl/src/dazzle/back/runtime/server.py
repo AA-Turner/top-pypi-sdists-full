@@ -465,6 +465,7 @@ class DazzleBackendApp:
 
         services = RuntimeServices()
         register_default_renderers(services)
+        services.app_spec = self._appspec
         self._app.state.services = services
 
         # Phase 4 app-shell migration (v0.67.45): the `fragment_chrome`
@@ -1153,7 +1154,24 @@ class DazzleBackendApp:
                 database_url=self._database_url,
                 audit_integrity=self._config.audit_integrity,
             )
-            audit_logger.start()
+            # Defer start() to the FastAPI startup event so a running
+            # loop is guaranteed (#1214). Py3.12 removed the implicit
+            # event-loop acquisition that ``asyncio.ensure_future``
+            # previously relied on, so starting from this sync
+            # construction path raises ``RuntimeError`` when no loop
+            # is current. Mirrors the ``_open_db_pool`` pattern above.
+            assert self._app is not None
+            _audit_app = self._app
+            _audit_logger_for_events = audit_logger
+
+            @_audit_app.on_event("startup")
+            async def _start_audit_logger() -> None:
+                _audit_logger_for_events.start()
+
+            @_audit_app.on_event("shutdown")
+            async def _stop_audit_logger() -> None:
+                await _audit_logger_for_events.stop()
+
             # Keep a handle on the builder so callers (graceful shutdown,
             # in-process tests) can deterministically `drain()` the audit
             # queue instead of racing the 1s background flush timer.
@@ -1315,6 +1333,7 @@ class DazzleBackendApp:
             entity_display_fields=entity_display_fields,
             db_manager=self._db_manager,
             entity_storage_bindings=entity_storage_bindings,
+            entity_soft_delete={e.name: e.soft_delete for e in self._entities},
             admin_personas=_admin_personas,
         )
 
@@ -1394,6 +1413,20 @@ class DazzleBackendApp:
                 auth_dep=auth_dep,
             )
             self._app.include_router(audit_router)
+
+        # #1228 Phase 3c.iii — atomic-flow routes (POST /api/atomic/<name>)
+        if self._appspec and self._appspec.atomic_flows and self._db_manager:
+            from dazzle.back.runtime.atomic_flow_routes import (
+                build_atomic_flow_router,
+            )
+
+            atomic_router = build_atomic_flow_router(
+                list(self._appspec.atomic_flows),
+                self._db_manager,
+                user_role_extractor=lambda user: list(getattr(user, "roles", []) or []),
+                auth_dep=auth_dep,
+            )
+            self._app.include_router(atomic_router)
 
         # Grant management routes (#629)
         if self._appspec and self._appspec.grant_schemas and self._db_manager:

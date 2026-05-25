@@ -70,6 +70,7 @@ from datamodel_code_generator import (
     ReuseScope,
     TargetPydanticVersion,
     VersionMode,
+    _validate_output_datetime_class,
     enable_debug_message,
     generate,
 )
@@ -158,7 +159,13 @@ class Config(BaseModel):  # noqa: PLR0904
         return cls.model_fields
 
     @field_validator(
-        "aliases", "extra_template_data", "custom_formatters_kwargs", "validators", "default_values", mode="before"
+        "aliases",
+        "serialization_aliases",
+        "extra_template_data",
+        "custom_formatters_kwargs",
+        "validators",
+        "default_values",
+        mode="before",
     )
     def validate_file(cls, value: Any) -> TextIOBase | None:  # noqa: N805
         """Validate and open file path."""
@@ -320,11 +327,6 @@ class Config(BaseModel):  # noqa: PLR0904
             values["external_ref_mapping"] = mapping
         return values
 
-    __validate_output_datetime_class_err: ClassVar[str] = (
-        '`--output-datetime-class` only allows "datetime" for '
-        f"`--output-model-type` {DataModelType.DataclassesDataclass.value}"
-    )
-
     __validate_original_field_name_delimiter_err: ClassVar[str] = (
         "`--original-field-name-delimiter` can not be used without `--snake-case-field`."
     )
@@ -343,13 +345,7 @@ class Config(BaseModel):  # noqa: PLR0904
     @model_validator(mode="after")  # ty: ignore
     def validate_output_datetime_class(self: Self) -> Self:  # ty: ignore
         """Validate output datetime class compatibility."""
-        datetime_class_type: DatetimeClassType | None = self.output_datetime_class
-        if (
-            datetime_class_type
-            and datetime_class_type is not DatetimeClassType.Datetime
-            and self.output_model_type == DataModelType.DataclassesDataclass
-        ):
-            raise Error(self.__validate_output_datetime_class_err)
+        _validate_output_datetime_class(self.output_model_type, self.output_datetime_class)
         return self
 
     @model_validator(mode="after")  # ty: ignore
@@ -434,6 +430,7 @@ class Config(BaseModel):  # noqa: PLR0904
     snake_case_field: bool = False
     strip_default_none: bool = False
     aliases: Optional[TextIOBase] = None  # noqa: UP045
+    serialization_aliases: Optional[TextIOBase] = None  # noqa: UP045
     default_values: Optional[TextIOBase] = None  # noqa: UP045
     disable_timestamp: bool = False
     enable_version_header: bool = False
@@ -484,6 +481,7 @@ class Config(BaseModel):  # noqa: PLR0904
     openapi_scopes: Optional[list[OpenAPIScope]] = [OpenAPIScope.Schemas]  # noqa: UP045
     include_path_parameters: bool = False
     openapi_include_paths: Optional[list[str]] = None  # noqa: UP045
+    openapi_include_info_version: bool = False
     graphql_no_typename: bool = False
     wrap_string_literal: Optional[bool] = None  # noqa: UP045
     use_title_as_name: bool = False
@@ -520,6 +518,7 @@ class Config(BaseModel):  # noqa: PLR0904
     custom_formatters_kwargs: Optional[TextIOBase] = None  # noqa: UP045
     use_pendulum: bool = False
     use_standard_primitive_types: bool = False
+    use_object_type: bool = False
     http_query_parameters: Optional[Sequence[tuple[str, str]]] = None  # noqa: UP045
     treat_dot_as_module: Optional[bool] = None  # noqa: UP045
     use_exact_imports: bool = False
@@ -864,6 +863,7 @@ def run_generate_from_config(  # noqa: PLR0913, PLR0917
     output: Path | None,
     extra_template_data: dict[str, Any] | None,
     aliases: dict[str, str] | None,
+    serialization_aliases: dict[str, str] | None,
     command_line: str | None,
     custom_formatters_kwargs: dict[str, str] | None,
     settings_path: Path | None = None,
@@ -889,6 +889,7 @@ def run_generate_from_config(  # noqa: PLR0913, PLR0917
         strip_default_none=config.strip_default_none,
         extra_template_data=extra_template_data,  # ty: ignore
         aliases=aliases,
+        serialization_aliases=serialization_aliases,
         disable_timestamp=config.disable_timestamp,
         enable_version_header=config.enable_version_header,
         enable_command_header=config.enable_command_header,
@@ -937,6 +938,7 @@ def run_generate_from_config(  # noqa: PLR0913, PLR0917
         openapi_scopes=config.openapi_scopes,
         include_path_parameters=config.include_path_parameters,
         openapi_include_paths=config.openapi_include_paths,
+        openapi_include_info_version=config.openapi_include_info_version,
         graphql_no_typename=config.graphql_no_typename,
         wrap_string_literal=config.wrap_string_literal,
         use_title_as_name=config.use_title_as_name,
@@ -974,6 +976,7 @@ def run_generate_from_config(  # noqa: PLR0913, PLR0917
         custom_formatters_kwargs=custom_formatters_kwargs,
         use_pendulum=config.use_pendulum,
         use_standard_primitive_types=config.use_standard_primitive_types,
+        use_object_type=config.use_object_type,
         http_query_parameters=config.http_query_parameters,
         treat_dot_as_module=config.treat_dot_as_module,
         use_exact_imports=config.use_exact_imports,
@@ -1230,6 +1233,13 @@ def main(args: Sequence[str] | None = None) -> Exit:  # noqa: PLR0911, PLR0912, 
         print(error, file=sys.stderr)  # noqa: T201
         return Exit.ERROR
 
+    serialization_aliases, error = _load_json_config(
+        config.serialization_aliases, "serialization alias mapping", _validate_string_mapping
+    )
+    if error:
+        print(error, file=sys.stderr)  # noqa: T201
+        return Exit.ERROR
+
     default_value_overrides, error = _load_json_config(
         config.default_values, "default values mapping", _validate_string_key_dict
     )
@@ -1290,6 +1300,7 @@ def main(args: Sequence[str] | None = None) -> Exit:  # noqa: PLR0911, PLR0912, 
             output=generate_output,
             extra_template_data=extra_template_data,
             aliases=aliases,
+            serialization_aliases=serialization_aliases,
             command_line=shlex.join(["datamodel-codegen", *args]) if config.enable_command_header else None,
             custom_formatters_kwargs=custom_formatters_kwargs,
             settings_path=config.output,
@@ -1344,7 +1355,12 @@ def main(args: Sequence[str] | None = None) -> Exit:  # noqa: PLR0911, PLR0912, 
             from datamodel_code_generator.watch import watch_and_regenerate  # noqa: PLC0415
 
             return watch_and_regenerate(
-                config, extra_template_data, aliases, custom_formatters_kwargs, default_value_overrides
+                config,
+                extra_template_data,
+                aliases,
+                serialization_aliases,
+                custom_formatters_kwargs,
+                default_value_overrides,
             )
         except Exception as e:  # noqa: BLE001
             print(str(e), file=sys.stderr)  # noqa: T201

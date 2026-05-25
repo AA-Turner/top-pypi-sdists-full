@@ -180,6 +180,12 @@ class TokenType(Enum):
 
     # v0.34.0 Platform Capability Keywords
     SOFT_DELETE = "soft_delete"
+    # v0.71.161 (#1223 Phase 3a.i): effective-dated / temporal entity declaration
+    TEMPORAL = "temporal"
+    # v0.71.162 (#1217 Phase 3e.i): subtype polymorphism for entities
+    SUBTYPE_OF = "subtype_of"
+    # v0.71.184 (#1217 Phase 3e.v): per-subtype dispatch panel inside a section
+    SUBTYPE_PANEL = "subtype_panel"
     DISPLAY_FIELD = "display_field"
     SEARCHABLE = "searchable"
     BULK = "bulk"
@@ -278,6 +284,11 @@ class TokenType(Enum):
     HAS_ONE = "has_one"
     EMBEDS = "embeds"
     BELONGS_TO = "belongs_to"
+    # #1223 Phase 3a.v: derived current-row relationship for temporal entities
+    LATEST_ONE = "latest_one"
+    # #1227 Phase 3b: recursive descendant / ancestor traversal for self-refs
+    DESCENDANTS_OF = "descendants_of"
+    ANCESTORS_OF = "ancestors_of"
     CASCADE = "cascade"
     RESTRICT = "restrict"
     NULLIFY = "nullify"
@@ -514,6 +525,9 @@ class TokenType(Enum):
     # Words like 'high', 'medium', 'low', 'priority', 'status' are NOT keywords
     # because they're commonly used as enum values or field names.
     FLOW = "flow"
+    # #1228 Phase 3c: atomic multi-entity creation block. Distinct keyword
+    # from FLOW (E2E test construct) to avoid ambiguity.
+    ATOMIC = "atomic"
     STEPS = "steps"
     NAVIGATE = "navigate"
     CLICK = "click"

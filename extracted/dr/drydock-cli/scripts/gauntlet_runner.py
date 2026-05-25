@@ -127,7 +127,7 @@ def _pytest_passes(cwd: Path, expect_min_pass: int = 0,
     import subprocess
     try:
         r = subprocess.run(
-            ["python3", "-m", "pytest", "-q", "--tb=line", "-W", "ignore"],
+            ["python3", "-m", "pytest", "-q", "--tb=line", "-W", "ignore", "-p", "no:cov"],
             cwd=cwd, capture_output=True, timeout=timeout, text=True,
         )
     except subprocess.TimeoutExpired:

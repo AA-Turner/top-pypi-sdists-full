@@ -6,10 +6,15 @@ as well as the function decorators :func:`.region_decorate`,
 :func:`.region_invalidate`.
 
 """
+import importlib.metadata
+import sys
+import traceback
 import warnings
+from inspect import signature as func_signature
+from io import StringIO
 from itertools import chain
 
-from beaker._compat import u_, unicode_text, func_signature, bindfuncargs
+from beaker._compat import bindfuncargs
 import beaker.container as container
 import beaker.util as util
 from beaker.crypto.util import sha1
@@ -80,42 +85,32 @@ class _backends(object):
             raise e
 
     def _init(self):
-        try:
-            import pkg_resources
-
-            # Load up the additional entry point defined backends
-            for entry_point in pkg_resources.iter_entry_points('beaker.backends'):
-                try:
-                    namespace_manager = entry_point.load()
-                    name = entry_point.name
-                    if name in self._clsmap:
-                        raise BeakerException("NamespaceManager name conflict,'%s' "
-                                              "already loaded" % name)
-                    self._clsmap[name] = namespace_manager
-                except (InvalidCacheBackendError, SyntaxError):
-                    # Ignore invalid backends
-                    pass
-                except:
-                    import sys
-                    from pkg_resources import DistributionNotFound
-                    # Warn when there's a problem loading a NamespaceManager
-                    if not isinstance(sys.exc_info()[1], DistributionNotFound):
-                        import traceback
-                        try:
-                            from StringIO import StringIO  # Python2
-                        except ImportError:
-                            from io import StringIO        # Python3
-
-                        tb = StringIO()
-                        traceback.print_exc(file=tb)
-                        warnings.warn(
-                            "Unable to load NamespaceManager "
-                            "entry point: '%s': %s" % (
-                                        entry_point,
-                                        tb.getvalue()),
-                                        RuntimeWarning, 2)
-        except ImportError:
-            pass
+        # Load up the additional entry point defined backends
+        if sys.version_info < (3, 10):
+            entry_points = importlib.metadata.entry_points()['beaker.backends']
+        else:
+            entry_points = importlib.metadata.entry_points(group='beaker.backends')
+        for entry_point in entry_points:
+            try:
+                namespace_manager = entry_point.load()
+                name = entry_point.name
+                if name in self._clsmap:
+                    raise BeakerException("NamespaceManager name conflict,'%s' "
+                                          "already loaded" % name)
+                self._clsmap[name] = namespace_manager
+            except (InvalidCacheBackendError, SyntaxError):
+                # Ignore invalid backends
+                pass
+            except Exception:
+                # Warn when there's a problem loading a NamespaceManager
+                tb = StringIO()
+                traceback.print_exc(file=tb)
+                warnings.warn(
+                    "Unable to load NamespaceManager "
+                    "entry point: '%s': %s" % (
+                                entry_point,
+                                tb.getvalue()),
+                                RuntimeWarning, 2)
 
 # Initialize the basic available backends
 clsmap = _backends({
@@ -330,7 +325,7 @@ class Cache(object):
     remove = remove_value
 
     def _get_value(self, key, **kw):
-        if isinstance(key, unicode_text):
+        if isinstance(key, str):
             key = key.encode('ascii', 'backslashreplace')
 
         if 'type' in kw:
@@ -576,13 +571,13 @@ def _cache_decorate(deco_args, manager, options, region):
                 # kwargs provided, merge them in positional args
                 # to avoid having different cache keys.
                 args, kwargs = bindfuncargs(signature, args, kwargs)
-                cache_key_kwargs = [u_(':').join((u_(key), u_(value))) for key, value in kwargs.items()]
+                cache_key_kwargs = [':'.join((str(key), str(value))) for key, value in kwargs.items()]
 
             cache_key_args = args
             if skip_self:
                 cache_key_args = args[1:]
 
-            cache_key = u_(" ").join(map(u_, chain(deco_args, cache_key_args, cache_key_kwargs)))
+            cache_key = " ".join(map(str, chain(deco_args, cache_key_args, cache_key_kwargs)))
 
             if region:
                 cachereg = cache_regions[region]
@@ -611,7 +606,7 @@ def _cache_decorate(deco_args, manager, options, region):
 def _cache_decorator_invalidate(cache, key_length, args):
     """Invalidate a cache key based on function arguments."""
 
-    cache_key = u_(" ").join(map(u_, args))
+    cache_key = " ".join(map(str, args))
     if len(cache_key) + len(cache.namespace_name) > key_length:
         cache_key = sha1(cache_key.encode('utf-8')).hexdigest()
     cache.remove_value(cache_key)

@@ -1,8 +1,11 @@
-from ._compat import PY2, pickle, http_cookies, unicode_text, b64encode, b64decode, string_type
+import http.cookies as http_cookies
+import pickle
+
+from ._compat import b64encode, b64decode
 
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from beaker.crypto import hmac as HMAC, hmac_sha1 as SHA1, sha1, get_nonce_size, DEFAULT_NONCE_BITS, get_crypto_module
 from beaker import crypto, util
 from beaker.cache import clsmap
@@ -16,7 +19,7 @@ months = (None, "Jan", "Feb", "Mar", "Apr", "May", "Jun",
 weekdays = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
-__all__ = ['SignedCookie', 'Session', 'InvalidSignature']
+__all__ = ['SignedCookie', 'Session', 'CookieSession', 'InvalidSignature']
 
 
 class _InvalidSignatureType(object):
@@ -110,7 +113,19 @@ class Session(_ConfigurableSession):
     :param save_accessed_time: Whether beaker should save the session's access
                                time (True) or only modification time (False).
                                Defaults to True.
-    :param cookie_expires: Expiration date for cookie
+    :param cookie_expires: Determines when the session cookie expires. When set
+                           to ``True`` (the default), the cookie is a session
+                           cookie that expires when the user closes their
+                           browser. When set to ``False``, the cookie is set to
+                           never expire (actually expires in year 2038). Can also
+                           be set to a ``datetime`` for a specific expiration
+                           date, a ``timedelta`` for an expiration relative to
+                           the current time, or an ``int`` specifying the number
+                           of seconds until expiration. Note that ``cookie_expires``
+                           only affects the cookie lifetime in the browser, not
+                           the session validity on the server side (see ``timeout``
+                           for server-side session expiration).
+    :type cookie_expires: bool, datetime, timedelta, or int
     :param cookie_domain: Domain to use for the cookie.
     :param cookie_path: Path to use for the cookie.
     :param data_serializer: If ``"json"`` or ``"pickle"`` should be used
@@ -241,7 +256,7 @@ class Session(_ConfigurableSession):
             self.serializer = util.JsonSerializer()
         elif self.data_serializer == 'pickle':
             self.serializer = util.PickleSerializer()
-        elif isinstance(self.data_serializer, string_type):
+        elif isinstance(self.data_serializer, str):
             raise BeakerException('Invalid value for data_serializer: %s' % data_serializer)
         else:
             self.serializer = data_serializer
@@ -275,7 +290,7 @@ class Session(_ConfigurableSession):
         if expires is False:
             expires_date = datetime.fromtimestamp(0x7FFFFFFF)
         elif isinstance(expires, timedelta):
-            expires_date = datetime.utcnow() + expires
+            expires_date = datetime.now(timezone.utc) + expires
         elif isinstance(expires, datetime):
             expires_date = expires
         elif expires is not True:
@@ -375,7 +390,7 @@ class Session(_ConfigurableSession):
 
     def _delete_cookie(self):
         self.request['set_cookie'] = True
-        expires = datetime.utcnow() - timedelta(365)
+        expires = datetime.now(timezone.utc) - timedelta(365)
         self._set_cookie_values(expires)
         self._update_cookie_out()
 
@@ -555,7 +570,19 @@ class CookieSession(Session):
     :param save_accessed_time: Whether beaker should save the session's access
                                time (True) or only modification time (False).
                                Defaults to True.
-    :param cookie_expires: Expiration date for cookie
+    :param cookie_expires: Determines when the session cookie expires. When set
+                           to ``True`` (the default), the cookie is a session
+                           cookie that expires when the user closes their
+                           browser. When set to ``False``, the cookie is set to
+                           never expire (actually expires in year 2038). Can also
+                           be set to a ``datetime`` for a specific expiration
+                           date, a ``timedelta`` for an expiration relative to
+                           the current time, or an ``int`` specifying the number
+                           of seconds until expiration. Note that ``cookie_expires``
+                           only affects the cookie lifetime in the browser, not
+                           the session validity on the server side (see ``timeout``
+                           for server-side session expiration).
+    :type cookie_expires: bool, datetime, timedelta, or int
     :param cookie_domain: Domain to use for the cookie.
     :param cookie_path: Path to use for the cookie.
     :param data_serializer: If ``"json"`` or ``"pickle"`` should be used
@@ -697,11 +724,6 @@ class CookieSession(Session):
             self.update(self.accessed_dict)
         self._create_cookie()
 
-    def expire(self):
-        """Delete the 'expires' attribute on this Session, if any."""
-
-        self.pop('_expires', None)
-
     def _create_cookie(self):
         if '_creation_time' not in self:
             self['_creation_time'] = time.time()
@@ -715,14 +737,7 @@ class CookieSession(Session):
 
         self.cookie[self.key] = val
 
-        if '_expires' in self:
-            expires = self['_expires']
-        else:
-            expires = None
-        expires = self._set_cookie_expires(expires)
-        if expires is not None:
-            self['_expires'] = expires
-
+        self._set_cookie_expires(None)
         if self.domain:
             self.cookie[self.key]['domain'] = self.domain
         if self.secure:

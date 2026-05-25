@@ -1,5 +1,4 @@
-#-*- coding: utf-8 -*-
-# Generated from hungarian.sbl by Snowball 3.0.1 - https://snowballstem.org/
+# Generated from hungarian.sbl by Snowball 3.1.0 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,36 +7,36 @@ from .among import Among
 class HungarianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from hungarian.sbl by Snowball 3.0.1 - https://snowballstem.org/
+    Generated from hungarian.sbl by Snowball 3.1.0 - https://snowballstem.org/
     '''
 
-    g_v = {u"a", u"e", u"i", u"o", u"u", u"á", u"é", u"í", u"ó", u"ö", u"ő", u"ú", u"ü", u"ű"}
+    g_v = {"a", "e", "i", "o", "u", "á", "é", "í", "ó", "ö", "ú", "ü", "ő", "ű"}
 
     I_p1 = 0
 
     def __r_mark_regions(self):
         self.I_p1 = self.limit
-        try:
+        while True:
             v_1 = self.cursor
             try:
                 if not self.in_grouping(HungarianStemmer.g_v):
-                    raise lab1()
+                    raise lab0()
                 v_2 = self.cursor
                 try:
                     if not self.go_in_grouping(HungarianStemmer.g_v):
-                        raise lab2()
+                        raise lab1()
                     self.cursor += 1
                     self.I_p1 = self.cursor
-                except lab2: pass
+                except lab1: pass
                 self.cursor = v_2
-                raise lab0()
-            except lab1: pass
+                break
+            except lab0: pass
             self.cursor = v_1
             if not self.go_out_grouping(HungarianStemmer.g_v):
                 return False
             self.cursor += 1
             self.I_p1 = self.cursor
-        except lab0: pass
+            break
         return True
 
     def __r_R1(self):
@@ -51,12 +50,7 @@ class HungarianStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if among_var == 1:
-            if not self.slice_from(u"a"):
-                return False
-        else:
-            if not self.slice_from(u"e"):
-                return False
+        self.slice_from(HungarianStemmer.as_0[among_var - 1])
         return True
 
     def __r_double(self):
@@ -75,9 +69,7 @@ class HungarianStemmer(BaseStemmer):
             return False
         self.cursor -= 1
         self.bra = self.cursor
-        if not self.slice_del():
-            return False
-
+        self.slice_del()
         return True
 
     def __r_instrum(self):
@@ -89,12 +81,8 @@ class HungarianStemmer(BaseStemmer):
             return False
         if not self.__r_double():
             return False
-        if not self.slice_del():
-            return False
-
-        if not self.__r_undouble():
-            return False
-        return True
+        self.slice_del()
+        return self.__r_undouble()
 
     def __r_case(self):
         self.ket = self.cursor
@@ -103,12 +91,8 @@ class HungarianStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if not self.slice_del():
-            return False
-
-        if not self.__r_v_ending():
-            return False
-        return True
+        self.slice_del()
+        return self.__r_v_ending()
 
     def __r_case_special(self):
         self.ket = self.cursor
@@ -118,12 +102,7 @@ class HungarianStemmer(BaseStemmer):
         self.bra = self.cursor
         if not self.__r_R1():
             return False
-        if among_var == 1:
-            if not self.slice_from(u"e"):
-                return False
-        else:
-            if not self.slice_from(u"a"):
-                return False
+        self.slice_from(HungarianStemmer.as_4[among_var - 1])
         return True
 
     def __r_case_other(self):
@@ -135,15 +114,11 @@ class HungarianStemmer(BaseStemmer):
         if not self.__r_R1():
             return False
         if among_var == 1:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         elif among_var == 2:
-            if not self.slice_from(u"a"):
-                return False
+            self.slice_from("a")
         else:
-            if not self.slice_from(u"e"):
-                return False
+            self.slice_from("e")
         return True
 
     def __r_factive(self):
@@ -155,12 +130,8 @@ class HungarianStemmer(BaseStemmer):
             return False
         if not self.__r_double():
             return False
-        if not self.slice_del():
-            return False
-
-        if not self.__r_undouble():
-            return False
-        return True
+        self.slice_del()
+        return self.__r_undouble()
 
     def __r_plural(self):
         self.ket = self.cursor
@@ -171,15 +142,11 @@ class HungarianStemmer(BaseStemmer):
         if not self.__r_R1():
             return False
         if among_var == 1:
-            if not self.slice_from(u"a"):
-                return False
+            self.slice_from("a")
         elif among_var == 2:
-            if not self.slice_from(u"e"):
-                return False
+            self.slice_from("e")
         else:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         return True
 
     def __r_owned(self):
@@ -191,15 +158,11 @@ class HungarianStemmer(BaseStemmer):
         if not self.__r_R1():
             return False
         if among_var == 1:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         elif among_var == 2:
-            if not self.slice_from(u"e"):
-                return False
+            self.slice_from("e")
         else:
-            if not self.slice_from(u"a"):
-                return False
+            self.slice_from("a")
         return True
 
     def __r_sing_owner(self):
@@ -211,15 +174,11 @@ class HungarianStemmer(BaseStemmer):
         if not self.__r_R1():
             return False
         if among_var == 1:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         elif among_var == 2:
-            if not self.slice_from(u"a"):
-                return False
+            self.slice_from("a")
         else:
-            if not self.slice_from(u"e"):
-                return False
+            self.slice_from("e")
         return True
 
     def __r_plur_owner(self):
@@ -231,15 +190,11 @@ class HungarianStemmer(BaseStemmer):
         if not self.__r_R1():
             return False
         if among_var == 1:
-            if not self.slice_del():
-                return False
-
+            self.slice_del()
         elif among_var == 2:
-            if not self.slice_from(u"a"):
-                return False
+            self.slice_from("a")
         else:
-            if not self.slice_from(u"e"):
-                return False
+            self.slice_from("e")
         return True
 
     def _stem(self):
@@ -279,210 +234,212 @@ class HungarianStemmer(BaseStemmer):
         return True
 
     a_0 = [
-        Among(u"á", -1, 1),
-        Among(u"é", -1, 2)
+        Among("á", -1, 1),
+        Among("é", -1, 2)
     ]
+    as_0 = ("a", "e")
 
     a_1 = [
-        Among(u"bb", -1, -1),
-        Among(u"cc", -1, -1),
-        Among(u"dd", -1, -1),
-        Among(u"ff", -1, -1),
-        Among(u"gg", -1, -1),
-        Among(u"jj", -1, -1),
-        Among(u"kk", -1, -1),
-        Among(u"ll", -1, -1),
-        Among(u"mm", -1, -1),
-        Among(u"nn", -1, -1),
-        Among(u"pp", -1, -1),
-        Among(u"rr", -1, -1),
-        Among(u"ccs", -1, -1),
-        Among(u"ss", -1, -1),
-        Among(u"zzs", -1, -1),
-        Among(u"tt", -1, -1),
-        Among(u"vv", -1, -1),
-        Among(u"ggy", -1, -1),
-        Among(u"lly", -1, -1),
-        Among(u"nny", -1, -1),
-        Among(u"tty", -1, -1),
-        Among(u"ssz", -1, -1),
-        Among(u"zz", -1, -1)
+        Among("bb", -1, -1),
+        Among("cc", -1, -1),
+        Among("dd", -1, -1),
+        Among("ff", -1, -1),
+        Among("gg", -1, -1),
+        Among("jj", -1, -1),
+        Among("kk", -1, -1),
+        Among("ll", -1, -1),
+        Among("mm", -1, -1),
+        Among("nn", -1, -1),
+        Among("pp", -1, -1),
+        Among("rr", -1, -1),
+        Among("ccs", -1, -1),
+        Among("ss", -1, -1),
+        Among("zzs", -1, -1),
+        Among("tt", -1, -1),
+        Among("vv", -1, -1),
+        Among("ggy", -1, -1),
+        Among("lly", -1, -1),
+        Among("nny", -1, -1),
+        Among("tty", -1, -1),
+        Among("ssz", -1, -1),
+        Among("zz", -1, -1)
     ]
 
     a_2 = [
-        Among(u"al", -1, 1),
-        Among(u"el", -1, 1)
+        Among("al", -1, 1),
+        Among("el", -1, 1)
     ]
 
     a_3 = [
-        Among(u"ba", -1, -1),
-        Among(u"ra", -1, -1),
-        Among(u"be", -1, -1),
-        Among(u"re", -1, -1),
-        Among(u"ig", -1, -1),
-        Among(u"nak", -1, -1),
-        Among(u"nek", -1, -1),
-        Among(u"val", -1, -1),
-        Among(u"vel", -1, -1),
-        Among(u"ul", -1, -1),
-        Among(u"nál", -1, -1),
-        Among(u"nél", -1, -1),
-        Among(u"ból", -1, -1),
-        Among(u"ról", -1, -1),
-        Among(u"tól", -1, -1),
-        Among(u"ül", -1, -1),
-        Among(u"ből", -1, -1),
-        Among(u"ről", -1, -1),
-        Among(u"től", -1, -1),
-        Among(u"n", -1, -1),
-        Among(u"an", 19, -1),
-        Among(u"ban", 20, -1),
-        Among(u"en", 19, -1),
-        Among(u"ben", 22, -1),
-        Among(u"képpen", 22, -1),
-        Among(u"on", 19, -1),
-        Among(u"ön", 19, -1),
-        Among(u"képp", -1, -1),
-        Among(u"kor", -1, -1),
-        Among(u"t", -1, -1),
-        Among(u"at", 29, -1),
-        Among(u"et", 29, -1),
-        Among(u"ként", 29, -1),
-        Among(u"anként", 32, -1),
-        Among(u"enként", 32, -1),
-        Among(u"onként", 32, -1),
-        Among(u"ot", 29, -1),
-        Among(u"ért", 29, -1),
-        Among(u"öt", 29, -1),
-        Among(u"hez", -1, -1),
-        Among(u"hoz", -1, -1),
-        Among(u"höz", -1, -1),
-        Among(u"vá", -1, -1),
-        Among(u"vé", -1, -1)
+        Among("ba", -1, -1),
+        Among("ra", -1, -1),
+        Among("be", -1, -1),
+        Among("re", -1, -1),
+        Among("ig", -1, -1),
+        Among("nak", -1, -1),
+        Among("nek", -1, -1),
+        Among("val", -1, -1),
+        Among("vel", -1, -1),
+        Among("ul", -1, -1),
+        Among("nál", -1, -1),
+        Among("nél", -1, -1),
+        Among("ból", -1, -1),
+        Among("ról", -1, -1),
+        Among("tól", -1, -1),
+        Among("ül", -1, -1),
+        Among("ből", -1, -1),
+        Among("ről", -1, -1),
+        Among("től", -1, -1),
+        Among("n", -1, -1),
+        Among("an", 19, -1),
+        Among("ban", 20, -1),
+        Among("en", 19, -1),
+        Among("ben", 22, -1),
+        Among("képpen", 22, -1),
+        Among("on", 19, -1),
+        Among("ön", 19, -1),
+        Among("képp", -1, -1),
+        Among("kor", -1, -1),
+        Among("t", -1, -1),
+        Among("at", 29, -1),
+        Among("et", 29, -1),
+        Among("ként", 29, -1),
+        Among("anként", 32, -1),
+        Among("enként", 32, -1),
+        Among("onként", 32, -1),
+        Among("ot", 29, -1),
+        Among("ért", 29, -1),
+        Among("öt", 29, -1),
+        Among("hez", -1, -1),
+        Among("hoz", -1, -1),
+        Among("höz", -1, -1),
+        Among("vá", -1, -1),
+        Among("vé", -1, -1)
     ]
 
     a_4 = [
-        Among(u"án", -1, 2),
-        Among(u"én", -1, 1),
-        Among(u"ánként", -1, 2)
+        Among("án", -1, 2),
+        Among("én", -1, 1),
+        Among("ánként", -1, 2)
     ]
+    as_4 = ("e", "a")
 
     a_5 = [
-        Among(u"stul", -1, 1),
-        Among(u"astul", 0, 1),
-        Among(u"ástul", 0, 2),
-        Among(u"stül", -1, 1),
-        Among(u"estül", 3, 1),
-        Among(u"éstül", 3, 3)
+        Among("stul", -1, 1),
+        Among("astul", 0, 1),
+        Among("ástul", 0, 2),
+        Among("stül", -1, 1),
+        Among("estül", 3, 1),
+        Among("éstül", 3, 3)
     ]
 
     a_6 = [
-        Among(u"á", -1, 1),
-        Among(u"é", -1, 1)
+        Among("á", -1, 1),
+        Among("é", -1, 1)
     ]
 
     a_7 = [
-        Among(u"k", -1, 3),
-        Among(u"ak", 0, 3),
-        Among(u"ek", 0, 3),
-        Among(u"ok", 0, 3),
-        Among(u"ák", 0, 1),
-        Among(u"ék", 0, 2),
-        Among(u"ök", 0, 3)
+        Among("k", -1, 3),
+        Among("ak", 0, 3),
+        Among("ek", 0, 3),
+        Among("ok", 0, 3),
+        Among("ák", 0, 1),
+        Among("ék", 0, 2),
+        Among("ök", 0, 3)
     ]
 
     a_8 = [
-        Among(u"éi", -1, 1),
-        Among(u"áéi", 0, 3),
-        Among(u"ééi", 0, 2),
-        Among(u"é", -1, 1),
-        Among(u"ké", 3, 1),
-        Among(u"aké", 4, 1),
-        Among(u"eké", 4, 1),
-        Among(u"oké", 4, 1),
-        Among(u"áké", 4, 3),
-        Among(u"éké", 4, 2),
-        Among(u"öké", 4, 1),
-        Among(u"éé", 3, 2)
+        Among("éi", -1, 1),
+        Among("áéi", 0, 3),
+        Among("ééi", 0, 2),
+        Among("é", -1, 1),
+        Among("ké", 3, 1),
+        Among("aké", 4, 1),
+        Among("eké", 4, 1),
+        Among("oké", 4, 1),
+        Among("áké", 4, 3),
+        Among("éké", 4, 2),
+        Among("öké", 4, 1),
+        Among("éé", 3, 2)
     ]
 
     a_9 = [
-        Among(u"a", -1, 1),
-        Among(u"ja", 0, 1),
-        Among(u"d", -1, 1),
-        Among(u"ad", 2, 1),
-        Among(u"ed", 2, 1),
-        Among(u"od", 2, 1),
-        Among(u"ád", 2, 2),
-        Among(u"éd", 2, 3),
-        Among(u"öd", 2, 1),
-        Among(u"e", -1, 1),
-        Among(u"je", 9, 1),
-        Among(u"nk", -1, 1),
-        Among(u"unk", 11, 1),
-        Among(u"ánk", 11, 2),
-        Among(u"énk", 11, 3),
-        Among(u"ünk", 11, 1),
-        Among(u"uk", -1, 1),
-        Among(u"juk", 16, 1),
-        Among(u"ájuk", 17, 2),
-        Among(u"ük", -1, 1),
-        Among(u"jük", 19, 1),
-        Among(u"éjük", 20, 3),
-        Among(u"m", -1, 1),
-        Among(u"am", 22, 1),
-        Among(u"em", 22, 1),
-        Among(u"om", 22, 1),
-        Among(u"ám", 22, 2),
-        Among(u"ém", 22, 3),
-        Among(u"o", -1, 1),
-        Among(u"á", -1, 2),
-        Among(u"é", -1, 3)
+        Among("a", -1, 1),
+        Among("ja", 0, 1),
+        Among("d", -1, 1),
+        Among("ad", 2, 1),
+        Among("ed", 2, 1),
+        Among("od", 2, 1),
+        Among("ád", 2, 2),
+        Among("éd", 2, 3),
+        Among("öd", 2, 1),
+        Among("e", -1, 1),
+        Among("je", 9, 1),
+        Among("nk", -1, 1),
+        Among("unk", 11, 1),
+        Among("ánk", 11, 2),
+        Among("énk", 11, 3),
+        Among("ünk", 11, 1),
+        Among("uk", -1, 1),
+        Among("juk", 16, 1),
+        Among("ájuk", 17, 2),
+        Among("ük", -1, 1),
+        Among("jük", 19, 1),
+        Among("éjük", 20, 3),
+        Among("m", -1, 1),
+        Among("am", 22, 1),
+        Among("em", 22, 1),
+        Among("om", 22, 1),
+        Among("ám", 22, 2),
+        Among("ém", 22, 3),
+        Among("o", -1, 1),
+        Among("á", -1, 2),
+        Among("é", -1, 3)
     ]
 
     a_10 = [
-        Among(u"id", -1, 1),
-        Among(u"aid", 0, 1),
-        Among(u"jaid", 1, 1),
-        Among(u"eid", 0, 1),
-        Among(u"jeid", 3, 1),
-        Among(u"áid", 0, 2),
-        Among(u"éid", 0, 3),
-        Among(u"i", -1, 1),
-        Among(u"ai", 7, 1),
-        Among(u"jai", 8, 1),
-        Among(u"ei", 7, 1),
-        Among(u"jei", 10, 1),
-        Among(u"ái", 7, 2),
-        Among(u"éi", 7, 3),
-        Among(u"itek", -1, 1),
-        Among(u"eitek", 14, 1),
-        Among(u"jeitek", 15, 1),
-        Among(u"éitek", 14, 3),
-        Among(u"ik", -1, 1),
-        Among(u"aik", 18, 1),
-        Among(u"jaik", 19, 1),
-        Among(u"eik", 18, 1),
-        Among(u"jeik", 21, 1),
-        Among(u"áik", 18, 2),
-        Among(u"éik", 18, 3),
-        Among(u"ink", -1, 1),
-        Among(u"aink", 25, 1),
-        Among(u"jaink", 26, 1),
-        Among(u"eink", 25, 1),
-        Among(u"jeink", 28, 1),
-        Among(u"áink", 25, 2),
-        Among(u"éink", 25, 3),
-        Among(u"aitok", -1, 1),
-        Among(u"jaitok", 32, 1),
-        Among(u"áitok", -1, 2),
-        Among(u"im", -1, 1),
-        Among(u"aim", 35, 1),
-        Among(u"jaim", 36, 1),
-        Among(u"eim", 35, 1),
-        Among(u"jeim", 38, 1),
-        Among(u"áim", 35, 2),
-        Among(u"éim", 35, 3)
+        Among("id", -1, 1),
+        Among("aid", 0, 1),
+        Among("jaid", 1, 1),
+        Among("eid", 0, 1),
+        Among("jeid", 3, 1),
+        Among("áid", 0, 2),
+        Among("éid", 0, 3),
+        Among("i", -1, 1),
+        Among("ai", 7, 1),
+        Among("jai", 8, 1),
+        Among("ei", 7, 1),
+        Among("jei", 10, 1),
+        Among("ái", 7, 2),
+        Among("éi", 7, 3),
+        Among("itek", -1, 1),
+        Among("eitek", 14, 1),
+        Among("jeitek", 15, 1),
+        Among("éitek", 14, 3),
+        Among("ik", -1, 1),
+        Among("aik", 18, 1),
+        Among("jaik", 19, 1),
+        Among("eik", 18, 1),
+        Among("jeik", 21, 1),
+        Among("áik", 18, 2),
+        Among("éik", 18, 3),
+        Among("ink", -1, 1),
+        Among("aink", 25, 1),
+        Among("jaink", 26, 1),
+        Among("eink", 25, 1),
+        Among("jeink", 28, 1),
+        Among("áink", 25, 2),
+        Among("éink", 25, 3),
+        Among("aitok", -1, 1),
+        Among("jaitok", 32, 1),
+        Among("áitok", -1, 2),
+        Among("im", -1, 1),
+        Among("aim", 35, 1),
+        Among("jaim", 36, 1),
+        Among("eim", 35, 1),
+        Among("jeim", 38, 1),
+        Among("áim", 35, 2),
+        Among("éim", 35, 3)
     ]
 
 
@@ -490,6 +447,3 @@ class lab0(BaseException): pass
 
 
 class lab1(BaseException): pass
-
-
-class lab2(BaseException): pass

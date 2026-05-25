@@ -45,6 +45,21 @@ class FieldTypeKind(StrEnum):
     HAS_ONE = "has_one"
     EMBEDS = "embeds"
     BELONGS_TO = "belongs_to"
+    # #1223 Phase 3a.v — derived current-row relationship for temporal entities.
+    # `current_employment: latest_one Employment via person` resolves at read
+    # time to "the Employment row where person = self.id AND end_date IS NULL".
+    # Target entity MUST declare `temporal:` so the framework knows which
+    # end_field to filter on. v0.71.165: IR + parser + validator only;
+    # runtime resolution in a follow-up slice (3a.v.ii).
+    LATEST_ONE = "latest_one"
+    # #1227 Phase 3b — derived recursive traversal of self-referencing
+    # hierarchies. `all_descendants: descendants_of self via parent_department`
+    # for self-ref FKs; `all_reports: descendants_of self via ManagerLink.manager`
+    # for via-junction traversal (composes with the junction's temporal:
+    # default_filter for active-only walks). v0.71.174: IR + parser + validator
+    # only; runtime resolution (recursive CTE) lands in 3b.ii.
+    DESCENDANTS_OF = "descendants_of"
+    ANCESTORS_OF = "ancestors_of"
 
 
 class RelationshipBehavior(StrEnum):
@@ -90,15 +105,28 @@ class FieldType(BaseModel):
     precision: int | None = None  # for decimal
     scale: int | None = None  # for decimal
     enum_values: list[str] | None = None  # for enum
-    ref_entity: str | None = None  # for ref, has_many, has_one, embeds, belongs_to
+    ref_entity: str | None = None  # for ref, has_many, has_one, embeds, belongs_to, latest_one
     relationship_behavior: RelationshipBehavior | None = None  # for has_many, has_one
     readonly: bool = False  # for relationships - cannot modify through this relationship
+    # #1223 Phase 3a.v: for latest_one — names the FK column on the target
+    # entity pointing back to this entity. Required (parser refuses bare
+    # `latest_one EntityName` without `via field`).
+    via_field: str | None = None
     # v0.9.5: Money type configuration
     currency_code: str | None = None  # for money (e.g., "GBP", "USD", "EUR")
     # v0.9.5: Many-to-many via junction table
     via_entity: str | None = None  # for has_many with junction table (m:n relationship)
     # v0.39.0: Per-field upload size limit
     max_size: int | None = None  # for file (bytes, e.g., 200*1024*1024 for 200MB)
+    # #1213: file UI-mode modifier.
+    # - "drag_drop" (Phase B) — documented no-op label; the default
+    #   rendering already emits a drag-drop zone.
+    # - "managed_upload" (Phase C) — JS switches to the
+    #   ticket→S3→implicit-finalize flow via the auto-generated
+    #   `/api/{entity}/upload-ticket` route. The framework's
+    #   `verify_storage_field_keys` hook on entity-create POSTs
+    #   provides the implicit finalize (prefix-sandbox + head_object).
+    ui_mode: str | None = None  # for file: None | "drag_drop" | "managed_upload"
 
     model_config = ConfigDict(frozen=True)
 

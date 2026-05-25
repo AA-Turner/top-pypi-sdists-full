@@ -910,9 +910,11 @@ class WorkspaceParserMixin:
         ``where:`` clause. ``via:`` is optional and reuses the
         junction-binding grammar from scope rules (#530).
         """
-        _VALID_KEYS = {"aggregate", "via"}
+        _VALID_KEYS = {"aggregate", "via", "share"}
         aggregate_ref: ir.AggregateRef | None = None
         via_cond: ir.ViaCondition | None = None
+        share_entity: str | None = None
+        share_tok = None
         while not self.match(TokenType.DEDENT):
             self.skip_newlines()
             if self.match(TokenType.DEDENT):
@@ -931,6 +933,13 @@ class WorkspaceParserMixin:
             self.expect(TokenType.COLON)
             if key == "aggregate":
                 aggregate_ref = self.parse_aggregate_ref()
+                self.skip_newlines()
+            elif key == "share":
+                # #1216: shared-parent JOIN. The cohort source row and
+                # the aggregated entity both reference the named pivot
+                # entity. Mutually exclusive with `via:`.
+                share_tok = self.expect_identifier_or_keyword()
+                share_entity = str(share_tok.value)
                 self.skip_newlines()
             else:  # via
                 # Reuse the scope-rule via-binding grammar shape:
@@ -958,7 +967,19 @@ class WorkspaceParserMixin:
                 tok.line,
                 tok.column,
             )
-        return ir.LensAggregatePrimary(aggregate=aggregate_ref, via=via_cond)
+        if via_cond is not None and share_entity is not None and share_tok is not None:
+            # via: (true-junction) and share: (shared-parent) are
+            # different operations — refuse rather than guess intent.
+            raise make_parse_error(
+                "primary_aggregate cannot combine `via:` and `share:`. "
+                "Use `via:` for true junction tables (junction has direct FK to "
+                "aggregated entity), `share:` for the shared-parent shape "
+                "(cohort row and aggregated row both reference the named pivot).",
+                self.file,
+                share_tok.line,
+                share_tok.column,
+            )
+        return ir.LensAggregatePrimary(aggregate=aggregate_ref, via=via_cond, share=share_entity)
 
     def _parse_primary_composite_block(self) -> ir.CompositePrimarySpec:
         """#1144 part 2: parse the indented body of a

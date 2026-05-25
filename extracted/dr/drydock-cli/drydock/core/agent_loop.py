@@ -253,6 +253,10 @@ class AgentLoop:
         self.messages = MessageList(initial=[system_message], observer=message_observer)
 
         self.stats = AgentStats()
+        # Tracks pattern_fires count at last subgoal-scaffold check so
+        # we can detect whether the pattern handler fired this turn
+        # (and skip generic decomposition in that case).
+        self._subgoal_last_pattern_fires: int = 0
         try:
             active_model = config.get_active_model()
             self.stats.input_price_per_million = active_model.input_price
@@ -895,6 +899,38 @@ class AgentLoop:
                 self._auto_prefetch_retrieve(user_msg)
             except Exception as _e:
                 logger.warning("auto-prefetch retrieve failed (skipped): %s", _e, exc_info=True)
+            # 2026-05-24: BM25 query extraction for general prompts buries
+            # specific phrases like "at least 6 cases covering" — the
+            # parametrize_test_counts cookbook chunk scores 47 in isolation
+            # but loses to higher-scored project-relevant chunks when the
+            # main prompt is about "Roman numerals" or "CLI tool".
+            # P0-B1/P1-B1/P2-B1/P4-B1/P6-B1 (test-count walls) need this
+            # guidance unconditionally, so detect specific prompt patterns
+            # and inject directly without going through retrieval.
+            try:
+                self._inject_prompt_pattern_guidance(user_msg)
+            except Exception as _e:
+                logger.warning(
+                    "prompt-pattern guidance failed (skipped): %s",
+                    _e, exc_info=True,
+                )
+            # 2026-05-25: Generic subgoal decomposition (Curiosity_Engine_PRD
+            # §5.3). Off by default — pattern-specific guidance above
+            # already covers the recognized hard cases (rename, ABC
+            # extract, schema migration). Generic decomposition is an
+            # opt-in path for prompts that look hard but don't match a
+            # known pattern. Gated by DRYDOCK_SUBGOALS=1 because Gemma 4
+            # planning quality is uneven; stronger models benefit more.
+            if os.environ.get(
+                "DRYDOCK_SUBGOALS", "0"
+            ).strip().lower() in ("1", "true", "yes"):
+                try:
+                    self._inject_subgoal_scaffold(user_msg)
+                except Exception as _e:
+                    logger.warning(
+                        "subgoal scaffold failed (skipped): %s",
+                        _e, exc_info=True,
+                    )
 
         # === CURIOSITY GAP LOGGING ===
         # SOVEREIGN_PRD §5.7 tier-2: extract candidate unfamiliar terms from
@@ -1006,6 +1042,40 @@ class AgentLoop:
                         stopped_by_middleware=True,
                     )
                     return
+
+                # Adaptive budget (Curiosity_Engine_PRD §4.2/§7): when
+                # readonly_streak grows far past the REFLECTION
+                # nudge threshold (6), the model is ignoring the
+                # nudge and burning the deadline on pure exploration.
+                # Hard-stop early so the model still has time to emit
+                # a final text response. 18 = 3× nudge threshold —
+                # the nudge has fired AT LEAST twice without effect.
+                # Gated by DRYDOCK_ADAPTIVE_BUDGET=1 (default ON).
+                if os.environ.get(
+                    "DRYDOCK_ADAPTIVE_BUDGET", "1"
+                ).strip().lower() not in ("0", "false", "no"):
+                    _streak = getattr(self, "_readonly_streak", 0)
+                    if _streak >= 18:
+                        self.stats.adaptive_budget_stops += 1
+                        logger.warning(
+                            "[ADAPTIVE-BUDGET] hard-stop on stagnation "
+                            "(readonly_streak=%d, turn=%d): no writes "
+                            "after 18 consecutive read-only tool calls",
+                            _streak, tool_turns,
+                        )
+                        yield AssistantEvent(
+                            content=(
+                                f"\n\n[Drydock: {_streak} consecutive "
+                                "read-only tool calls without any "
+                                "code change. Stopping exploration to "
+                                "preserve time for a final response. "
+                                "Emit your best-attempt edit OR a "
+                                "plain-text summary of what's blocking "
+                                "you and what you'd need to proceed.]\n"
+                            ),
+                            stopped_by_middleware=True,
+                        )
+                        return
 
                 # Progressive budget warnings — much tighter than before.
                 # Gemma 4 routinely burns 30+ tool calls on a single
@@ -2401,6 +2471,103 @@ class AgentLoop:
             except Exception as e:
                 logger.debug("auto-test skipped: %s", e)
 
+        # === REFLECTION: write-commitment nudge ===
+        # SOVEREIGN_PRD §5.5 (Curiosity_Engine_PRD): when the model makes
+        # many consecutive read-only tool calls without producing any
+        # code change, it's stuck in exploration-overshoot. P5-S1, P6-S1,
+        # P3-S2 fail this way — model greps and reads for the full
+        # deadline then declares it can't proceed, instead of writing
+        # its best attempt. The nudge tells the model to either commit
+        # to an edit or explicitly explain what's blocking it. Gated
+        # by DRYDOCK_REFLECTION=1 (default on).
+        if os.environ.get(
+            "DRYDOCK_REFLECTION", "1"
+        ).strip().lower() not in ("0", "false", "no"):
+            try:
+                self._maybe_reflect(tool_call)
+            except Exception as e:
+                logger.debug("reflection check skipped: %s", e)
+
+    def _maybe_reflect(self, tool_call: Any) -> None:
+        """Inject a write-commitment nudge after N consecutive read-only
+        tool calls without an intervening write.
+
+        Read-only: read_file, grep, glob, ls, pwd, retrieve, search_files,
+                   web_search, web_fetch, ralph_repo_index, ralph_file_summary
+        Write:     write_file, search_replace, apply_patch, mechanical_rename
+        Neutral:   bash, run_command (could be either — don't count)
+
+        Threshold: 6 consecutive read-only without write. After firing,
+        rate-limit so we don't re-fire until 6 more read-onlys have
+        accumulated (otherwise we'd nudge on every turn once tripped).
+        """
+        READONLY_TOOLS = {
+            "read_file", "grep", "glob", "ls", "pwd",
+            "retrieve", "search_files", "lsp",
+            "web_search", "web_fetch",
+            "ralph_repo_index", "ralph_file_summary",
+        }
+        WRITE_TOOLS = {
+            "write_file", "search_replace",
+            "apply_patch", "mechanical_rename",
+        }
+        THRESHOLD = 6
+
+        try:
+            tool_name = getattr(tool_call, "tool_name", "") or ""
+            if not tool_name:
+                fn = getattr(tool_call, "function", None)
+                tool_name = getattr(fn, "name", "") or ""
+        except Exception:
+            tool_name = ""
+        if not tool_name:
+            return
+
+        # Lazy-init counters on first call
+        if not hasattr(self, "_readonly_streak"):
+            self._readonly_streak = 0
+        if not hasattr(self, "_last_reflection_streak"):
+            self._last_reflection_streak = 0
+
+        if tool_name in WRITE_TOOLS:
+            self._readonly_streak = 0
+            self._last_reflection_streak = 0
+            return
+        if tool_name in READONLY_TOOLS:
+            self._readonly_streak += 1
+        else:
+            # Neutral tool (bash, etc.) — don't change streak.
+            return
+
+        # Rate-limit: only fire once per THRESHOLD-window past the
+        # initial trigger. Without this, every turn after streak >=6
+        # would re-inject the same note.
+        if (self._readonly_streak >= THRESHOLD
+                and self._readonly_streak - self._last_reflection_streak
+                >= THRESHOLD):
+            note = (
+                f"[REFLECTION: you've made {self._readonly_streak} "
+                f"consecutive read-only tool calls (read_file/grep/"
+                f"glob/retrieve/web_search) without producing any code "
+                f"change. You likely have enough context now. Either: "
+                f"(1) call write_file / search_replace / "
+                f"mechanical_rename / apply_patch with your best attempt "
+                f"at the fix right now, OR (2) emit a plain-text "
+                f"message stating EXACTLY what's blocking you from "
+                f"writing the fix (one specific question or missing "
+                f"piece). Continued pure exploration past this point "
+                f"will not progress the task. The deadline is finite — "
+                f"a partial-but-real attempt is more useful than "
+                f"another grep.]"
+            )
+            self._inject_system_note(note)
+            self._last_reflection_streak = self._readonly_streak
+            self.stats.reflection_fires += 1
+            logger.warning(
+                "[REFLECTION] injected write-commitment nudge "
+                "(streak=%d)", self._readonly_streak,
+            )
+
     def _maybe_log_surprise(self, tool_call: Any, tool_text: str) -> None:
         """Score the last assistant assertion against this tool result;
         enqueue an EVIDENCE_CONFLICT curiosity item if surprise is high."""
@@ -2967,27 +3134,26 @@ class AgentLoop:
                     args = tc.function.arguments
                     if len(args) <= SOFT_CAP_BYTES:
                         continue
-                    if '"_truncated"' in args or '"_drydock_placeholder"' in args:
+                    if ('"__drydock_compacted_args__"' in args
+                            or '"_truncated"' in args
+                            or '"_drydock_placeholder"' in args):
                         continue
-                    # Try to keep the most-useful field (path / file_path /
-                    # command / cmd) plus a marker, rebuild as valid JSON.
-                    # 2026-05-19: marker keys renamed from `_truncated`/
-                    # `_original_bytes` to self-warning forms so the model
-                    # is less likely to copy them back as real tool args
-                    # (observed loop on operator's slides session — Gemma 4
-                    # treated old markers as if they were valid write_file
-                    # arguments and re-emitted them). format.py:429 still
-                    # detects both old and new keys so legacy history
-                    # stays handled.
-                    stub: dict[str, Any] = {
-                        "_drydock_placeholder": (
-                            "this entry was compacted to save context — "
-                            "do NOT copy; re-read the file with read_file "
-                            "and emit a fresh tool call"
-                        ),
-                        "_truncated": True,  # keep for backward-compat with format.py detector
-                        "_original_bytes": len(args),
-                    }
+                    # 2026-05-24: previous stub format (`{path:..., _truncated:
+                    # true, _original_bytes:N, _drydock_placeholder:"..."}`)
+                    # was bait — Gemma 4 kept copying the `path` field as a
+                    # real arg in subsequent tool calls and emitted calls
+                    # like search_replace({"path":"X", "_truncated":true,
+                    # "_original_bytes":N}) repeatedly even after the
+                    # placeholder warning. Observed on operator's slides
+                    # session 2026-05-24.
+                    #
+                    # New stub has exactly ONE key with a deliberately
+                    # alien name — nothing resembling a real tool argument.
+                    # The path is embedded in the warning STRING so it's
+                    # still visible but not separately mineable. format.py
+                    # detects the new marker key plus the legacy keys so
+                    # old history still gets the recovery hint.
+                    path_hint = ""
                     try:
                         import json as _json
                         parsed = _json.loads(args)
@@ -2996,13 +3162,110 @@ class AgentLoop:
                                       "cmd", "url", "file"):
                                 if k in parsed and isinstance(parsed[k], str):
                                     v = parsed[k]
-                                    stub[k] = (
+                                    path_hint = (
                                         v if len(v) <= 200 else v[:200] + "…"
                                     )
                                     break
                     except Exception:
                         pass
+                    note = (
+                        f"[compacted to save context — original "
+                        f"{len(args)} bytes"
+                        + (f", path={path_hint}" if path_hint else "")
+                        + "]. Do NOT copy this stub. Use read_file on "
+                        "the target file, then emit a fresh tool call "
+                        "with real arguments."
+                    )
+                    stub: dict[str, Any] = {"__drydock_compacted_args__": note}
                     tc.function.arguments = json.dumps(stub, ensure_ascii=True)
+
+    def _upgrade_legacy_compaction_stubs(self) -> None:
+        """Rewrite legacy compaction stubs in-place to the clean format.
+
+        Sessions started before 2026-05-24 (ac1f048) accumulated stubs
+        of the form `{path:..., _truncated:true, _original_bytes:N,
+        _drydock_placeholder:"..."}` in older assistant messages'
+        tool_calls. Gemma 4 reads those older calls as templates and
+        echoes the literal `_truncated`/`_original_bytes` tokens back
+        as 'arguments' on new search_replace calls, which then loops
+        through the format.py recovery path forever.
+
+        This method walks every assistant tool_call once per LLM call
+        and rewrites legacy-format args to the single-key
+        `__drydock_compacted_args__` format. Idempotent: stubs already
+        in the new format are skipped. Stubs that don't look like
+        compaction stubs at all are also skipped.
+        """
+        if not self.messages:
+            return
+        for msg in self.messages:
+            if msg.role != Role.assistant or not msg.tool_calls:
+                continue
+            for tc in msg.tool_calls:
+                if not tc.function or not tc.function.arguments:
+                    continue
+                args_str = tc.function.arguments
+                # Quick prefilter: only attempt parse if a legacy marker
+                # token is present. Avoids JSON-parsing every call.
+                if not any(
+                    tok in args_str for tok in (
+                        '"_truncated"', '"_original_bytes"',
+                        '"_drydock_placeholder"',
+                    )
+                ):
+                    continue
+                try:
+                    parsed = json.loads(args_str)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+                if not isinstance(parsed, dict):
+                    continue
+                # Already upgraded? skip.
+                if "__drydock_compacted_args__" in parsed:
+                    continue
+                # Confirm it's a legacy stub: must have one of the
+                # marker keys. (We already prefiltered above but be
+                # defensive — JSON strings could contain the tokens
+                # in some unrelated value.)
+                is_legacy_stub = (
+                    parsed.get("_truncated") is True
+                    or "_drydock_placeholder" in parsed
+                    or "_original_bytes" in parsed
+                )
+                if not is_legacy_stub:
+                    continue
+                # Extract path hint from any of the known fields.
+                path_hint = ""
+                for k in ("path", "file_path", "command", "cmd",
+                          "url", "file"):
+                    v = parsed.get(k)
+                    if isinstance(v, str) and v:
+                        path_hint = (
+                            v if len(v) <= 200 else v[:200] + "…"
+                        )
+                        break
+                # Try to recover an approximate original size.
+                orig_bytes = parsed.get("_original_bytes")
+                size_str = (
+                    f"original {int(orig_bytes)} bytes"
+                    if isinstance(orig_bytes, (int, float))
+                    else "compacted"
+                )
+                note = (
+                    f"[{size_str}"
+                    + (f", path={path_hint}" if path_hint else "")
+                    + "]. Do NOT copy this stub. Use read_file on "
+                    "the target file, then emit a fresh tool call "
+                    "with real arguments."
+                )
+                tc.function.arguments = json.dumps(
+                    {"__drydock_compacted_args__": note},
+                    ensure_ascii=True,
+                )
+                try:
+                    self.stats.legacy_stubs_upgraded += 1
+                except Exception:
+                    pass
 
     def _sanitize_message_ordering(self) -> None:
         """Fix any role ordering violations before sending to vLLM/Mistral.
@@ -3019,6 +3282,12 @@ class AgentLoop:
         self._compact_old_tool_pairs()
         self._truncate_old_tool_results()
         self._proactive_prune_write_oscillation()
+        # 2026-05-25: Upgrade legacy compaction stubs to the clean format
+        # so resumed sessions (started before ac1f048) stop showing the
+        # model literal `_truncated`/`_original_bytes`/`_drydock_placeholder`
+        # keys it would echo back as arguments. Idempotent — a stub that's
+        # already in the new format is left alone.
+        self._upgrade_legacy_compaction_stubs()
 
         if not self.messages:
             return
@@ -3853,6 +4122,28 @@ class AgentLoop:
                     self._hot_tool_path = None
                     return "FORCE_STOP"
 
+        # Targeted not_found_loop breaker: when search_replace has already
+        # issued a HARD-STOP on a file (3rd consecutive failure), the model
+        # ignores the advisory and retries anyway.  Detect the HARD-STOP in
+        # the most recent tool result and mute search_replace for 1 turn so
+        # the model is forced to use write_file instead.
+        # Only checks the single most recent tool message (break after first)
+        # so we don't fire after the model has already moved on.
+        for _hsmsg in reversed(self.messages[-10:]):
+            if _hsmsg.role == Role.tool:
+                _hsc = (
+                    _hsmsg.content
+                    if isinstance(_hsmsg.content, str)
+                    else str(_hsmsg.content)
+                )
+                if "[HARD-STOP:" in _hsc:
+                    import re as _hsre
+                    _hsm = _hsre.search(r"on ([^\.\n]{1,80})\.", _hsc)
+                    _hsf = _hsm.group(1).strip() if _hsm else "unknown"
+                    self._hot_tool_path = ("search_replace", _hsf)
+                    return "FORCE_STOP"
+                break  # most recent tool result was not a HARD-STOP — proceed
+
         # Early check: search_replace with the same file + old_string twice
         # in a row.  This is the #1 user-pain loop — the model retries an
         # edit that already succeeded or that keeps failing with the same
@@ -3890,11 +4181,14 @@ class AgentLoop:
                     self._hot_tool_path = ("search_replace", _top_sr_file)
                     return "FORCE_STOP"
 
-        # Early check: write_file with _truncated args twice in a row for the
-        # same path.  format.py already embeds the file content in the error,
-        # but Gemma 4 ignores the advisory and retries identically.  Mute
-        # write_file for 1 turn so the model must use read_file or
+        # Early check: write_file with compaction-stub args twice in a row
+        # for the same path.  format.py already embeds the file content in
+        # the error, but Gemma 4 ignores the advisory and retries identically.
+        # Mute write_file for 1 turn so the model must use read_file or
         # search_replace instead — same pattern as the search_replace check.
+        # 2026-05-24: matches the current __drydock_compacted_args__ stub
+        # AND both legacy _truncated / _drydock_placeholder forms so a single
+        # session that spans the format change still detects loops.
         recent_wf_truncated: list[str] = []
         for msg in reversed(self.messages[-20:]):
             if msg.role == Role.assistant and msg.tool_calls:
@@ -3902,8 +4196,27 @@ class AgentLoop:
                     if tc.function and tc.function.name == "write_file":
                         try:
                             args = json.loads(tc.function.arguments or "{}")
-                            if args.get("_truncated"):
-                                p = (args.get("file_path") or args.get("path") or "")
+                            is_stub = (
+                                args.get("_truncated")
+                                or "__drydock_compacted_args__" in args
+                                or "_drydock_placeholder" in args
+                            )
+                            if is_stub:
+                                p = (args.get("file_path")
+                                     or args.get("path")
+                                     or "")
+                                if not p:
+                                    # New stub embeds path in the note text.
+                                    note = args.get(
+                                        "__drydock_compacted_args__", ""
+                                    )
+                                    if isinstance(note, str):
+                                        import re as _re
+                                        m = _re.search(
+                                            r"path=([^,\]\s]+)", note,
+                                        )
+                                        if m:
+                                            p = m.group(1)
                                 recent_wf_truncated.append(p)
                         except (json.JSONDecodeError, AttributeError):
                             pass
@@ -3912,6 +4225,50 @@ class AgentLoop:
         if (len(recent_wf_truncated) >= 2
                 and recent_wf_truncated[0] == recent_wf_truncated[1]):
             self._hot_tool_path = ("write_file", recent_wf_truncated[0])
+            return "FORCE_STOP"
+
+        # Early check: search_replace with compaction-stub args twice in a row.
+        # Mirrors the write_file check above. format.py embeds the file content
+        # in the error but the model retries identically. Mute for 1 turn so
+        # the model must read_file and use fresh content.
+        # Addresses pattern harness:search_replace:not_found_loop.
+        recent_sr_truncated: list[str] = []
+        for _srmsg in reversed(self.messages[-20:]):
+            if _srmsg.role == Role.assistant and _srmsg.tool_calls:
+                for _srtc in _srmsg.tool_calls:
+                    if _srtc.function and _srtc.function.name == "search_replace":
+                        try:
+                            _srargs = json.loads(_srtc.function.arguments or "{}")
+                            _sr_is_stub = (
+                                _srargs.get("_truncated")
+                                or "__drydock_compacted_args__" in _srargs
+                                or "_drydock_placeholder" in _srargs
+                            )
+                            if _sr_is_stub:
+                                _srp = (
+                                    _srargs.get("file_path")
+                                    or _srargs.get("path")
+                                    or ""
+                                )
+                                if not _srp:
+                                    _srnote = _srargs.get(
+                                        "__drydock_compacted_args__", ""
+                                    )
+                                    if isinstance(_srnote, str):
+                                        import re as _re2
+                                        _srm = _re2.search(
+                                            r"path=([^,\]\s]+)", _srnote
+                                        )
+                                        if _srm:
+                                            _srp = _srm.group(1)
+                                recent_sr_truncated.append(_srp)
+                        except (json.JSONDecodeError, AttributeError):
+                            pass
+                if len(recent_sr_truncated) >= 2:
+                    break
+        if (len(recent_sr_truncated) >= 2
+                and recent_sr_truncated[0] == recent_sr_truncated[1]):
+            self._hot_tool_path = ("search_replace", recent_sr_truncated[0])
             return "FORCE_STOP"
 
         # Early check: same bash command 5+ times across last 20 tool calls.
@@ -4523,6 +4880,229 @@ class AgentLoop:
             len(formatted),
             len(self.messages),
             top_score >= AUTHORITATIVE_SCORE and has_marker,
+        )
+
+    def _inject_prompt_pattern_guidance(self, user_msg: str) -> None:
+        """Inject targeted system notes for specific prompt patterns.
+
+        The auto-prefetch retrieval uses BM25 against the full prompt — when
+        a prompt's general topic ("Roman numerals CLI") dominates over a
+        specific phrase like "at least 6 cases covering", the retrieval
+        returns the project-relevant chunks but misses the chunk that
+        addresses the specific phrase. That's how P0-B1 + 4 other baselines
+        keep failing green(N) — the model writes the code correctly but
+        produces 3 test functions when the harness wants N≥6 pytest cases.
+
+        Each pattern below is a (regex, system_note) pair. When the regex
+        matches the user prompt, the note is injected as a system message
+        independent of retrieval. Notes are short and prescriptive — they
+        tell the model what specific technique to apply.
+
+        Pattern catalog (extend conservatively — over-matching dilutes the
+        per-pattern signal):
+        - "at least N tests/cases" — parametrize-count guidance
+        - "rename X to Y" / "X -> Y" — mechanical_rename playbook
+        - "extract X interface/ABC" — ABC + impl-subclassing playbook
+        - "migrate schema" / "v1 to v2" — backup + idempotency guard
+        """
+        import re as _re
+
+        if not user_msg or len(user_msg) < 20:
+            return
+
+        patterns: list[tuple[str, str, str]] = [
+            (
+                # Matches "at least 6 cases", "≥ 8 tests", ">=27 test cases",
+                # "with 6 cases covering ...". Case-insensitive.
+                r"(?i)(?<!\w)(?:at\s*least|≥|>=)\s*(\d+)\s+(?:test|case|test\s+case)s?\b",
+                "test_count",
+                (
+                    "[PROMPT PATTERN: test-count requirement detected] "
+                    "The harness check counts pytest cases (one parametrize "
+                    "row = one case, three asserts in one function = one "
+                    "case). When the PRD enumerates specific inputs (e.g. "
+                    "1, 4, 9, 40, 90, 1994), use @pytest.mark.parametrize "
+                    "over exactly those inputs — each row counts as one "
+                    "case. If the PRD says 'at least N' without enumerating, "
+                    "write N+1 parametrize rows for safety. Three test "
+                    "functions covering 6 values via individual asserts is "
+                    "still 3 cases, not 6 — only parametrize rows or "
+                    "separate test functions count."
+                ),
+            ),
+            (
+                # Matches "rename X to Y", "rename the public function X to Y",
+                # "rename the internal field `X` to `Y`" — surgery-style
+                # rename tasks. Tolerates up to ~30 chars of prefix words
+                # between "rename" and the identifier pair. Requires an
+                # identifier-shaped pair to avoid false positives like
+                # "rename detection".
+                r"(?i)\brename\b.{0,40}?\b`?[A-Za-z_]\w*`?\s+(?:to|->|→)\s+`?[A-Za-z_]\w*`?",
+                "rename_task",
+                (
+                    "[PROMPT PATTERN: rename task detected] "
+                    "Use the `mechanical_rename` tool — it does an atomic, "
+                    "word-bounded regex rename across all .py files in the "
+                    "scope, runs pytest, and ROLLS BACK if the suite turns "
+                    "red. That's safer than search_replace cascades which "
+                    "leave files in inconsistent states on partial failure. "
+                    "Call shape: mechanical_rename(old_name='OldName', "
+                    "new_name='NewName', scope='package_dir/', "
+                    "kind='function'|'class'|'field'|'auto'). After it "
+                    "succeeds, grep for the OLD name to verify it's gone "
+                    "from all expected files — the harness usually checks "
+                    "BOTH that the new name works AND that the old name "
+                    "is fully removed."
+                ),
+            ),
+            (
+                # Matches "Extract X interface", "extract X ABC", "introduce
+                # a `Backend` abstract base class", "Insert a repository
+                # layer", "define a Foo protocol". Tolerates an interstitial
+                # identifier (with optional backticks) between trigger and
+                # keyword.
+                r"(?i)\b(?:extract|introduce|define|create|insert|add|build)\b"
+                r".{0,40}?\b(?:abstract\s+(?:base\s+)?class|interface|\bABC\b|"
+                r"protocol|repository|repo\s+layer|service\s+layer)\b",
+                "abstraction_extract",
+                (
+                    "[PROMPT PATTERN: abstraction extraction detected] "
+                    "Standard 4-step playbook: (1) Define the abstract "
+                    "class using `from abc import ABC, abstractmethod` — "
+                    "subclass ABC, decorate each method with "
+                    "@abstractmethod. (2) Make ALL existing concrete "
+                    "implementations inherit from your new ABC "
+                    "(`class FileBackend(Backend):` etc.). (3) Update "
+                    "callers/owners to type-annotate against the ABC, not "
+                    "the concrete class (e.g. `def __init__(self, "
+                    "backend: Backend):`). (4) Verify with "
+                    "`issubclass(FileBackend, Backend)` in a test. The "
+                    "harness will likely check 'defines ABC with "
+                    "X/Y/Z methods' — make sure all the listed method "
+                    "names are present as @abstractmethod in your ABC."
+                ),
+            ),
+            (
+                # Matches "migration", "migrate X from v1 to v2", "schema
+                # migration", "convert it in place" near a "v1"/"v2"
+                # mention. Tolerates "Add a one-time migration: on load,
+                # detect a v1 file, convert it" (P2-S1 actual wording).
+                r"(?i)\b(?:migrat\w+|convert\s+(?:it\s+)?(?:in|to)|"
+                r"upgrade(?:s|d)?)\b.{0,80}?\b(?:v1\b|v2\b|schema|format|"
+                r"version\s+\d)\b",
+                "schema_migration",
+                (
+                    "[PROMPT PATTERN: schema migration detected] "
+                    "Three non-obvious requirements the harness almost "
+                    "always checks: (1) BEFORE converting, write the "
+                    "original file to `<path>.v1.bak` (or whatever the "
+                    "PRD names). (2) IDEMPOTENCY — detect already-v2 "
+                    "files and skip re-conversion. A second load of an "
+                    "already-converted file must NOT double-convert "
+                    "(check for v2-shape markers before applying the "
+                    "transform). (3) ADD a migration test that loads a "
+                    "v1 fixture, runs the migration, asserts v2 output "
+                    "AND asserts that a second migration is a no-op."
+                ),
+            ),
+        ]
+
+        injected: list[str] = []
+        for rx, tag, note in patterns:
+            if _re.search(rx, user_msg):
+                self._inject_system_note(note)
+                injected.append(tag)
+
+        if injected:
+            self.stats.prompt_pattern_fires += len(injected)
+            logger.warning(
+                "[PROMPT-PATTERN] injected guidance for: %s",
+                ", ".join(injected),
+            )
+
+    def _inject_subgoal_scaffold(self, user_msg: str) -> None:
+        """Inject a generic subgoal-decomposition scaffold (PRD §5.3).
+
+        Fires only when:
+        - DRYDOCK_SUBGOALS=1 (opt-in — see caller in run loop)
+        - The prompt looks 'hard' (length, structural keywords) AND
+          no surgery-pattern fired this turn (pattern guidance is
+          more specific; this is the fallback)
+
+        Doesn't ask the model to GENERATE subgoals via a separate LLM
+        call — that would double first-turn latency. Instead it
+        injects a structured *frame* asking the model to:
+          (1) restate the goal in its own words,
+          (2) name 3-5 subgoals before any tool call,
+          (3) work them sequentially,
+          (4) self-check progress every 5 tool calls.
+
+        That frame costs zero extra LLM calls, just sits in context
+        like our other system notes. Stronger models tend to use such
+        frames productively; Gemma 4 26B is uneven — hence the gate.
+        """
+        if not user_msg or len(user_msg) < 200:
+            # Short prompts don't benefit from formal decomposition;
+            # the overhead exceeds the planning value.
+            return
+
+        # Skip when the prompt-pattern handler already fired — it's
+        # more specific than this generic frame. We detect that by
+        # whether prompt_pattern_fires went up during this turn, but
+        # since the order of injection is pattern→subgoal, we can
+        # check the counter delta heuristically: was anything injected
+        # this turn? Cheap proxy is the streak/recent stats.
+        pre_fires = getattr(self.stats, "prompt_pattern_fires", 0)
+        # ^ this is post-pattern-injection so it reflects current
+        # turn's fires too. If nonzero, a pattern matched — skip.
+        if pre_fires > self._subgoal_last_pattern_fires:
+            self._subgoal_last_pattern_fires = pre_fires
+            return
+        self._subgoal_last_pattern_fires = pre_fires
+
+        # 'Looks hard' heuristic: long prompt with multiple distinct
+        # action verbs OR an explicit multi-step structure. Conservative
+        # to avoid noise on trivial requests.
+        import re as _re
+        action_verbs = _re.findall(
+            r"\b(?:add|create|implement|extract|introduce|migrate|"
+            r"rename|move|split|merge|refactor|fix|update|change|"
+            r"replace|remove|delete|insert|build|write)\b",
+            user_msg, _re.IGNORECASE,
+        )
+        has_multistep = bool(_re.search(
+            r"(?:^|\n)\s*(?:[0-9]+[\.\)]|[-*])\s+\S",
+            user_msg, _re.MULTILINE,
+        ))
+        if len(action_verbs) < 3 and not has_multistep:
+            return
+
+        note = (
+            "[SUBGOAL FRAME] This task is non-trivial. Before issuing "
+            "any tool calls, do these in order:\n"
+            "1. **Restate the goal** in one sentence. What's the "
+            "user actually asking for? What's the success criterion?\n"
+            "2. **List 3–5 subgoals** as numbered steps — each should "
+            "be something you can verify when done (e.g. 'file X "
+            "exists', 'function Y returns Z', 'test T passes').\n"
+            "3. **Identify the smallest first subgoal** and start "
+            "there. Avoid trying to do everything in one tool call.\n"
+            "4. **After every ~5 tool calls**, briefly check: which "
+            "subgoals are done? Are you converging on the goal, or "
+            "drifting? If drifting, name what changed and pick a "
+            "different next step.\n"
+            "5. **When all subgoals are done**, run a quick "
+            "verification (test, grep, or the original CLI command) "
+            "before declaring complete."
+        )
+        self._inject_system_note(note)
+        try:
+            self.stats.prompt_pattern_fires += 1  # share counter
+        except Exception:
+            pass
+        logger.warning(
+            "[SUBGOAL-FRAME] injected (action_verbs=%d, multistep=%s)",
+            len(action_verbs), has_multistep,
         )
 
     async def _auto_route_task(self, user_msg: str) -> None:

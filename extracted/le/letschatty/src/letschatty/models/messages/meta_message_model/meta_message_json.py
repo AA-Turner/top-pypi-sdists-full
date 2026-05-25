@@ -2,6 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 
+from pydantic import model_validator
 from .meta_base_notification_json import BaseMetaNotificationJson
 from .schema.content_messages import MetaTextContent, MetaImageContent, MetaStickerContent, MetaAudioContent, MetaVideoContent, MetaDocumentContent, MetaContactContent, MetaLocationContent, MetaSystemContent, MetaButtonContent
 from ...utils.types.message_types import MessageType
@@ -9,8 +10,18 @@ from ...utils.types.message_types import MessageType
 if TYPE_CHECKING:
     from .schema.values.value_messages import Message, MetaContext, MetaReferral
     from .meta_base_notification_json import Contact
+
 class MetaMessageJson(BaseMetaNotificationJson):
-    pass
+
+    @model_validator(mode='after')
+    def require_wa_id_in_contacts(self) -> 'MetaMessageJson':
+        contacts = self.get_value().contacts
+        if contacts and contacts[0].wa_id is None:
+            raise ValueError(
+                "contacts[0].wa_id is missing for an incoming message — "
+                "Meta may have changed the payload format (BSUID rollout impact)"
+            )
+        return self
 
     @property
     def message(self) -> Message:

@@ -184,6 +184,12 @@ class RouteSpec:
     storage_bindings: dict[str, tuple[str, ...]] | None = None
     include_field_changes: bool = False
 
+    # #1218 Option A: when True, the DELETE handler stamps
+    # ``deleted_at = NOW()`` via an UPDATE instead of issuing a
+    # hard DELETE. Set by the route generator from
+    # ``entity.soft_delete``.
+    soft_delete: bool = False
+
 
 def _set_handler_annotations(fn: Any, *, with_id: bool = False, with_auth: bool = False) -> None:
     """Set FastAPI-compatible type annotations on a dynamic handler function."""
@@ -205,6 +211,8 @@ def _is_htmx_request(request: Any) -> bool:
 # _forbidden_detail moved to dazzle.render.access_messages in #1094 so that
 # ui/ page handlers can build the same payload without crossing back↔ui.
 # Re-exported here so the existing back-internal call sites keep working.
+from datetime import UTC, date, datetime  # noqa: E402
+
 from dazzle.render.access_messages import _forbidden_detail  # noqa: E402, F401
 
 
@@ -2597,6 +2605,43 @@ async def _list_handler_body(
     if sql_filters or filters:
         merged_filters = {**(sql_filters or {}), **filters}
 
+    # #1223 Phase 3a.iv — `?as_of=YYYY-MM-DD` URL parameter for temporal
+    # entities. The Repository layer reads the special `__as_of` filter
+    # dict key and replaces the default tombstone filter with the
+    # open-interval predicate. The URL param name is configurable via
+    # `entity.temporal.as_of_param` (default `as_of`).
+    _entity_spec = getattr(service, "entity_spec", None)
+    _entity_temporal = _entity_spec.temporal if _entity_spec is not None else None
+    if _entity_temporal is not None:
+        _as_of_raw = request.query_params.get(_entity_temporal.as_of_param)
+        if _as_of_raw:
+            from datetime import date as _date
+
+            try:
+                _as_of_value = _date.fromisoformat(_as_of_raw)
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Invalid {_entity_temporal.as_of_param}={_as_of_raw!r}: "
+                        f"expected YYYY-MM-DD"
+                    ),
+                )
+            if merged_filters is None:
+                merged_filters = {}
+            merged_filters["__as_of"] = _as_of_value
+
+        # `?include_closed=true` — friendly alias for opting out of the
+        # default "active rows only" filter on a temporal entity. Sets
+        # `<end_field>__isnull=False` which the Repository layer honours
+        # via its setdefault contract: an explicit caller-provided value
+        # for the tombstone key wins over the default.
+        _include_closed_raw = request.query_params.get("include_closed", "").lower()
+        if _include_closed_raw in ("true", "1", "yes"):
+            if merged_filters is None:
+                merged_filters = {}
+            merged_filters[f"{_entity_temporal.end_field}__isnull"] = False
+
     # Build sort list for repository
     sort_list = [f"-{sort}" if dir == "desc" else sort] if sort else None
 
@@ -2975,7 +3020,28 @@ def create_read_handler(spec: RouteSpec) -> Callable[..., Any]:
         existing: Any = None,
         **_extra: Any,
     ) -> Any:
-        result = await service.execute(operation="read", id=id, include=auto_include)
+        # #1223 Phase 3a.iv (read-path follow-up): honour `?as_of=YYYY-MM-DD`
+        # on the single-row read endpoint for temporal entities. List + aggregate
+        # paths already handle this via the __as_of filter dict key (v0.71.164);
+        # read() doesn't take a filters dict so as_of threads through as a
+        # service-execute kwarg. Repository.read consumes it directly.
+        _entity_spec = getattr(service, "entity_spec", None)
+        _entity_temporal = _entity_spec.temporal if _entity_spec is not None else None
+        _read_kwargs: dict[str, Any] = {"include": auto_include}
+        if _entity_temporal is not None:
+            _as_of_raw = request.query_params.get(_entity_temporal.as_of_param)
+            if _as_of_raw:
+                try:
+                    _read_kwargs["as_of"] = date.fromisoformat(_as_of_raw)
+                except ValueError:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Invalid {_entity_temporal.as_of_param}={_as_of_raw!r}: "
+                            f"expected YYYY-MM-DD"
+                        ),
+                    )
+        result = await service.execute(operation="read", id=id, **_read_kwargs)
         if result is None:
             raise HTTPException(status_code=404, detail="Not found")
         html = _render_detail_html(request, result, entity_name)
@@ -3500,6 +3566,7 @@ def create_delete_handler(spec: RouteSpec) -> Callable[..., Any]:
     entity_name = spec.handler.entity_name
     audit_logger = spec.handler.audit_logger
     cedar_access_spec = spec.handler.cedar_access_spec
+    soft_delete_enabled = spec.soft_delete
 
     async def _core(
         id: UUID,
@@ -3510,7 +3577,18 @@ def create_delete_handler(spec: RouteSpec) -> Callable[..., Any]:
         **_extra: Any,
     ) -> Any:
         try:
-            result = await service.execute(operation="delete", id=id)
+            if soft_delete_enabled:
+                # #1218 Option A: stamp deleted_at instead of hard DELETE.
+                # `existing` is populated by the `needs_pre_read` wrapper
+                # below; if missing (e.g. already tombstoned), the read
+                # path's tombstone filter has hidden the row → 404.
+                result = await service.execute(
+                    operation="update",
+                    id=id,
+                    data={"deleted_at": datetime.now(UTC)},
+                )
+            else:
+                result = await service.execute(operation="delete", id=id)
         except ValueError as exc:
             # FK constraint violation — entity is referenced by child records.
             # `Repository.delete()` re-raises the psycopg IntegrityError as a
@@ -4041,6 +4119,7 @@ class RouteGenerator:
         entity_display_fields: dict[str, str] | None = None,
         db_manager: Any | None = None,
         entity_storage_bindings: dict[str, dict[str, tuple[str, ...]]] | None = None,
+        entity_soft_delete: dict[str, bool] | None = None,
         admin_personas: list[str] | None = None,
         security_profile: str = "basic",
     ):
@@ -4102,6 +4181,11 @@ class RouteGenerator:
         # for entities without `field foo: file storage=<name>` bindings;
         # the create/update handlers no-op cheaply in that case.
         self.entity_storage_bindings = entity_storage_bindings or {}
+        # #1218 Option A: per-entity soft_delete flag. DELETE handlers
+        # for entities marked True stamp `deleted_at` instead of
+        # issuing a hard DELETE; the read-path tombstone filter on
+        # Repository.list/read/aggregate hides those rows.
+        self.entity_soft_delete = entity_soft_delete or {}
         # #957 cycle 6: tenant-admin personas drawn from
         # `appspec.tenancy.admin_personas`. Threaded into list handlers
         # so the predicate compiler can short-circuit the scope filter
@@ -4401,6 +4485,7 @@ class RouteGenerator:
                     handler=replace(_base_config, audit_logger=_audit_for("delete")),
                     service=service,
                     include_field_changes=_include_fc,
+                    soft_delete=self.entity_soft_delete.get(entity_name or "", False),
                 )
             )
             self._add_route(endpoint, handler, response_model=None)

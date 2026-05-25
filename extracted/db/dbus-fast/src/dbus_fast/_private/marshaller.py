@@ -32,15 +32,8 @@ class Marshaller:
         self._buf = bytearray()
         self.body = body
 
-    @property
-    def buffer(self) -> bytearray:
-        return self._buf
-
     def _buffer(self) -> bytearray:
         return self._buf
-
-    def align(self, n: _int) -> int:
-        return self._align(n)
 
     def _align(self, n: _int) -> _int:
         offset = n - len(self._buf) % n
@@ -119,7 +112,7 @@ class Marshaller:
         array_len = 0
         if token == "{":
             for key, value in array.items():  # type: ignore[union-attr]
-                array_len += self.write_dict_entry([key, value], child_type)
+                array_len += self._write_dict_entry_kv(key, value, child_type)
         elif token == "y":
             array_len = len(array)
             buf += array  # type: ignore[arg-type]
@@ -152,9 +145,12 @@ class Marshaller:
         return written
 
     def write_dict_entry(self, dict_entry: list[Any], type_: SignatureType) -> int:
+        return self._write_dict_entry_kv(dict_entry[0], dict_entry[1], type_)
+
+    def _write_dict_entry_kv(self, key: Any, value: Any, type_: SignatureType) -> int:
         written = self._align(8)
-        written += self._write_single(type_.children[0], dict_entry[0])
-        written += self._write_single(type_.children[1], dict_entry[1])
+        written += self._write_single(type_.children[0], key)
+        written += self._write_single(type_.children[1], value)
         return written
 
     def _write_single(self, type_: SignatureType, body: Any) -> int:

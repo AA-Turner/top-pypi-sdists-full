@@ -12,17 +12,78 @@ from sqlalchemy import select
 from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy.dialects import mysql
+from sqlalchemy.dialects.mysql.pymysql import _connection_ping_reconnects_true
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import engines
 from sqlalchemy.testing import eq_
+from sqlalchemy.testing import expect_raises
 from sqlalchemy.testing import expect_warnings
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import in_
 from sqlalchemy.testing import is_
+from sqlalchemy.testing import is_true
 from sqlalchemy.testing import mock
 from sqlalchemy.testing.assertions import AssertsCompiledSQL
 from .test_compiler import ReservedWordFixture
+
+
+class DBAPIPingReconnectTest(fixtures.TestBase):
+    __backend__ = True
+    __only_on__ = ("+pymysql", "+asyncmy", "+aiomysql")
+
+    @testing.combinations(
+        (
+            type("MyConnection", (object,), {"ping": lambda self: None}),
+            False,
+        ),
+        (
+            type(
+                "MyConnection",
+                (object,),
+                {"ping": lambda self, reconnect=True: None},
+            ),
+            True,
+        ),
+        (
+            type(
+                "MyConnection",
+                (object,),
+                {"ping": lambda self, reconnect: None},
+            ),
+            True,
+        ),
+        (
+            type(
+                "MyConnection",
+                (object,),
+                {"ping": lambda self, reconnect=False: None},
+            ),
+            False,
+        ),
+    )
+    def test_ping_send_false_inspect(self, connection, expected):
+        is_(_connection_ping_reconnects_true(connection), expected)
+
+    def test_do_ping(self):
+        """this is a copy of the same test in the generic suite"""
+        with testing.db.connect() as conn:
+            is_true(
+                testing.db.dialect.do_ping(conn.connection.dbapi_connection)
+            )
+
+    def test_do_ping_disconnected(self):
+        with testing.db.connect() as conn:
+            driver_connection = conn.connection.driver_connection
+            dbapi = testing.db.dialect.loaded_dbapi
+
+            # FIXME: detach seems to set driver_connection to None
+            conn.detach()
+
+            driver_connection.close()
+
+            with expect_raises(dbapi.Error):
+                testing.db.dialect.do_ping(conn.connection.dbapi_connection)
 
 
 class BackendDialectTest(
@@ -59,6 +120,42 @@ class BackendDialectTest(
                 return engine
 
             yield go
+
+    @testing.fixture
+    def mysql_version_casing_dialect(self, mysql_version_dialect):
+        """yield a MySQL engine that will simulate a specific version
+        and casing setting.
+
+        Builds on mysql_version_dialect, additionally patching out
+        _detect_casing and _detect_sql_mode so that
+        dialect.initialize() can be called with controlled values.
+
+        """
+        _patchers = []
+
+        def go(server_version, casing):
+            engine = mysql_version_dialect(server_version)
+
+            def _mock_detect_casing(conn):
+                engine.dialect._casing = casing
+
+            def _mock_detect_sql_mode(conn):
+                engine.dialect._sql_mode = ""
+
+            for method, fn in [
+                ("_detect_casing", _mock_detect_casing),
+                ("_detect_sql_mode", _mock_detect_sql_mode),
+            ]:
+                p = mock.patch.object(engine.dialect, method, fn)
+                p.start()
+                _patchers.append(p)
+
+            return engine
+
+        yield go
+
+        for p in _patchers:
+            p.stop()
 
     def test_reserved_words_mysql_vs_mariadb(
         self, mysql_mariadb_reserved_words
@@ -180,6 +277,29 @@ class BackendDialectTest(
         for value in values:
             c = testing.db.connect().execution_options(isolation_level=value)
             eq_(testing.db.dialect.get_isolation_level(c.connection), value)
+
+    @testing.only_on("mysql")
+    @testing.combinations(
+        ("8.0.12", 0, True),
+        ("8.0.13", 0, True),
+        ("8.0.13", 2, True),
+        ("8.0.14", 0, False),
+        ("8.0.14", 1, False),
+        ("8.0.14", 2, True),
+        ("8.0.32", 0, False),
+        ("8.0.32", 2, True),
+        ("8.4.0", 0, False),
+        ("8.4.0", 2, True),
+        ("5.7.0", 0, False),
+        ("5.7.0", 2, False),
+        argnames="server_version,casing,expected",
+    )
+    def test_needs_correct_for_88718_96365(
+        self, mysql_version_casing_dialect, server_version, casing, expected
+    ):
+        engine = mysql_version_casing_dialect(server_version, casing)
+        engine.connect()
+        is_(engine.dialect._needs_correct_for_88718_96365, expected)
 
 
 class DialectTest(fixtures.TestBase):

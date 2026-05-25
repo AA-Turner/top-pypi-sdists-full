@@ -20,12 +20,13 @@ class Profile(BaseModel):
 
 class Contact(BaseModel):
     profile: Optional[Profile] = Field(default=None)
-    wa_id: str
-    
+    wa_id: Optional[str] = None
+    user_id: Optional[str] = None  # BSUID (e.g. "CR.xxx") — present since Meta's March 2026 BSUID rollout
+
     def get_name(self) -> str:
         return self.profile.name if self.profile is not None else ""
-    
-    def get_wa_id(self) -> str:
+
+    def get_wa_id(self) -> Optional[str]:
         return self.wa_id
 
 class Value(BaseModel):

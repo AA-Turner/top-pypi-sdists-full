@@ -12,14 +12,14 @@ http://www.themoviedb.org/documentation/api and documentation page
 https://developers.themoviedb.org/3/getting-started
 https://www.themoviedb.org/documentation/api/status-codes
 
-:copyright: (c) 2013-2022 by Celia Oakley.
+:copyright: (c) 2013-2026 by Celia Oakley.
 :license: GPLv3, see LICENSE for more details
 """
 
 __title__ = 'tmdbsimple'
-__version__ = '2.9.1'
+__version__ = '2.9.4'
 __author__ = 'Celia Oakley'
-__copyright__ = 'Copyright (c) 2013-2022 Celia Oakley'
+__copyright__ = 'Copyright (c) 2013-2026 Celia Oakley'
 __license__ = 'GPLv3'
 
 import os
@@ -36,6 +36,7 @@ from .movies import Movies, Collections, Companies, Keywords, Reviews
 from .people import People, Credits
 from .search import Search
 from .tv import TV, TV_Seasons, TV_Episodes, TV_Episode_Groups, TV_Changes, Networks
+from .watch_providers import WatchProviders
 
 __all__ = ['Account', 'Authentication', 'GuestSessions', 'Lists',
            'APIKeyError',
@@ -45,9 +46,10 @@ __all__ = ['Account', 'Authentication', 'GuestSessions', 'Lists',
            'Find', 'Trending',
            'Genres',
            'Movies', 'Collections', 'Companies', 'Keywords', 'Reviews',
-           'People', 'Credits'
+           'People', 'Credits',
            'Search',
-           'TV', 'TV_Seasons', 'TV_Episodes', 'TV_Episode_Groups', 'TV_Changes', 'Networks'
+           'TV', 'TV_Seasons', 'TV_Episodes', 'TV_Episode_Groups', 'TV_Changes', 'Networks',
+           'WatchProviders',
            ]
 
 API_KEY = os.environ.get('TMDB_API_KEY', None)

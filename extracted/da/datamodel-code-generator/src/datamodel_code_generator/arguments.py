@@ -646,6 +646,12 @@ typing_options.add_argument(
     default=None,
 )
 typing_options.add_argument(
+    "--use-object-type",
+    help="Use object instead of Any for unspecified JSON Schema object and array values",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
     "--use-subclass-enum",
     help="Define generic Enum class as subclass with field type when enum has type (int, float, bytes, str)",
     action="store_true",
@@ -887,6 +893,15 @@ field_options.add_argument(
     default=None,
 )
 field_options.add_argument(
+    "--serialization-aliases",
+    help="Serialization alias mapping file (JSON) for Pydantic v2. "
+    "Format: {'<schema_field>': '<serialization_alias>'}. "
+    "Supports hierarchical formats: "
+    "Flat: {'name': 'fullName'} applies to all occurrences. "
+    "Scoped: {'User.name': 'fullName'} applies to specific class.",
+    type=Path,
+)
+field_options.add_argument(
     "--use-frozen-field",
     help="Use Field(frozen=True) for readOnly fields (Pydantic v2).",
     action="store_true",
@@ -1059,6 +1074,12 @@ openapi_options.add_argument(
         "Example: '/users/*' '/products'. "
         "Requires '--openapi-scopes' to include 'paths'."
     ),
+    default=None,
+)
+openapi_options.add_argument(
+    "--openapi-include-info-version",
+    help="Emit OpenAPI info.version as OPENAPI_INFO_VERSION in generated models",
+    action="store_true",
     default=None,
 )
 openapi_options.add_argument(

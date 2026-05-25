@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airflow-dbt-python
-Version: 3.5.0
+Version: 3.6.0
 Summary: A collection of Airflow operators, hooks, and utilities to execute dbt commands
 Author-email: Tomás Farías Santana <tomas@tomasfarias.dev>
 License-Expression: MIT
@@ -36,7 +36,7 @@ Provides-Extra: gcs
 Requires-Dist: apache-airflow-providers-google>=11.0.0; extra == "gcs"
 Provides-Extra: git
 Requires-Dist: apache-airflow-providers-ssh>=3.0.0; extra == "git"
-Requires-Dist: dulwich>=1.0.0; extra == "git"
+Requires-Dist: dulwich<1.2.0,>=1.0.0; extra == "git"
 Provides-Extra: postgres
 Requires-Dist: dbt-postgres<2.0.0,>=1.8.0; extra == "postgres"
 Provides-Extra: redshift

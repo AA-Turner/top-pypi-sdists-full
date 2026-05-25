@@ -42,7 +42,7 @@ extensions = ['sphinx.ext.autodoc', 'sphinx.ext.todo', 'sphinx.ext.coverage', 's
 templates_path = ['_templates']
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = {'.rst': 'restructuredtext'}
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -259,3 +259,27 @@ texinfo_documents = [
 
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 #texinfo_show_urls = 'footnote'
+
+
+# -- Options for linkcheck builder ---------------------------------------------
+
+# Run `make linkcheck` to scan every external URL in the docsite plus NEWS.rst
+# (included via `.. include::`) and report broken links to
+# docsite/build/linkcheck/output.txt.
+
+linkcheck_workers = 8
+linkcheck_timeout = 15
+linkcheck_retries = 2
+linkcheck_anchors = True
+# Don't hang the entire run waiting on a rate-limited host (GitHub, gnu.org).
+# Default is 60+ seconds (honors Retry-After). Bail after 10s instead.
+linkcheck_rate_limit_timeout = 10.0
+
+linkcheck_ignore = [
+    # The OSSF Scorecard badge endpoint serves an SVG and returns 405 to HEAD,
+    # 302 to GET. The badge renders fine in the wild; skip the probe.
+    r'^https://api\.securityscorecards\.dev/.*',
+    # Wayback Machine snapshots are intentionally pinned to a specific archive
+    # date. They occasionally return 5xx during indexing; treat as out-of-band.
+    r'^https://web\.archive\.org/web/\d+/.*',
+]

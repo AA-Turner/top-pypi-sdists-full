@@ -143,6 +143,7 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
     "--empty-enum-field-name": CLIOptionMeta(name="--empty-enum-field-name", category=OptionCategory.FIELD),
     "--set-default-enum-member": CLIOptionMeta(name="--set-default-enum-member", category=OptionCategory.FIELD),
     "--aliases": CLIOptionMeta(name="--aliases", category=OptionCategory.FIELD),
+    "--serialization-aliases": CLIOptionMeta(name="--serialization-aliases", category=OptionCategory.FIELD),
     "--default-values": CLIOptionMeta(name="--default-values", category=OptionCategory.FIELD),
     "--no-alias": CLIOptionMeta(name="--no-alias", category=OptionCategory.FIELD),
     "--use-serialization-alias": CLIOptionMeta(name="--use-serialization-alias", category=OptionCategory.FIELD),
@@ -195,6 +196,7 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
     "--use-standard-primitive-types": CLIOptionMeta(
         name="--use-standard-primitive-types", category=OptionCategory.TYPING
     ),
+    "--use-object-type": CLIOptionMeta(name="--use-object-type", category=OptionCategory.TYPING),
     "--use-type-checking-imports": CLIOptionMeta(name="--use-type-checking-imports", category=OptionCategory.TEMPLATE),
     "--no-use-type-checking-imports": CLIOptionMeta(
         name="--no-use-type-checking-imports", category=OptionCategory.TEMPLATE
@@ -252,6 +254,9 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
     ),
     "--include-path-parameters": CLIOptionMeta(name="--include-path-parameters", category=OptionCategory.OPENAPI),
     "--openapi-include-paths": CLIOptionMeta(name="--openapi-include-paths", category=OptionCategory.OPENAPI),
+    "--openapi-include-info-version": CLIOptionMeta(
+        name="--openapi-include-info-version", category=OptionCategory.OPENAPI
+    ),
     "--validation": CLIOptionMeta(
         name="--validation",
         category=OptionCategory.OPENAPI,

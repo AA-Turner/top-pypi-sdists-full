@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-handlebars
-Version: 0.2.0
+Version: 0.2.1
 Summary: Handlebars template engine for composing LLM prompts, built on Pydantic
 Project-URL: Homepage, https://github.com/pydantic/pydantic-handlebars
 Project-URL: Source, https://github.com/pydantic/pydantic-handlebars

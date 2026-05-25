@@ -2036,10 +2036,283 @@ class TestToolsetFunctionsCoverage:
 
             # Wait with very short timeout — should hit TimeoutError branch
             result = await wait_tool.function(ctx, ["slow-1"], 0.05)
-            assert "Task results:" in result
+            assert "Task results" in result
+            assert "mode=all" in result
+            assert "0/1 finished" in result
+            assert "1 still running" in result
             assert "slow-1" in result
             # Task is still running, so status should be reported
             assert "running" in result
+
+    @pytest.mark.asyncio
+    async def test_wait_tasks_any_returns_on_first_completion(self):
+        """`mode="any"` returns as soon as one task finishes, even if others are slow."""
+        config = SubAgentConfig(
+            name="worker",
+            description="Worker",
+            instructions="Work",
+        )
+
+        mock_compiled = CompiledSubAgent(
+            name=config["name"],
+            description=config["description"],
+            config=config,
+            agent=MagicMock(),
+        )
+
+        with patch(
+            "subagents_pydantic_ai.toolset._compile_subagent",
+            return_value=mock_compiled,
+        ):
+            toolset = create_subagent_toolset(
+                subagents=[config],
+                include_general_purpose=False,
+            )
+
+            wait_tool = toolset.tools["wait_tasks"]
+            ctx = MockRunContext(deps=MockDeps())
+
+            from subagents_pydantic_ai.types import TaskHandle
+
+            tm = toolset.task_manager  # type: ignore[attr-defined]
+
+            async def fast_coro() -> None:
+                await asyncio.sleep(0.01)
+                fast_handle.result = "fast result"
+                fast_handle.status = TaskStatus.COMPLETED
+
+            async def slow_coro() -> None:
+                await asyncio.sleep(100)
+                slow_handle.status = TaskStatus.COMPLETED
+
+            fast_handle = TaskHandle(
+                task_id="fast-1",
+                subagent_name="worker",
+                description="fast task",
+                status="running",
+            )
+            slow_handle = TaskHandle(
+                task_id="slow-1",
+                subagent_name="worker",
+                description="slow task",
+                status="running",
+            )
+            tm.create_task("fast-1", fast_coro(), fast_handle)
+            tm.create_task("slow-1", slow_coro(), slow_handle)
+
+            # Generous timeout — should return as soon as fast finishes,
+            # not wait for the 100s slow_coro.
+            result = await wait_tool.function(ctx, ["fast-1", "slow-1"], 5.0, "any")
+
+            assert "mode=any" in result
+            assert "1/2 finished" in result
+            assert "1 still running" in result
+            assert "fast-1" in result
+            assert "COMPLETED" in result
+            assert "fast result" in result
+            assert "slow-1" in result
+            # slow task should still be reported as running
+            assert "running" in result
+
+            # Cleanup: cancel the slow task so it doesn't leak between tests
+            slow_task = tm.tasks.get("slow-1")
+            if slow_task is not None and not slow_task.done():
+                slow_task.cancel()
+
+    @pytest.mark.asyncio
+    async def test_wait_tasks_any_returns_on_first_failure(self):
+        """`mode="any"` returns when the first task fails too, not just on success."""
+        config = SubAgentConfig(
+            name="worker",
+            description="Worker",
+            instructions="Work",
+        )
+
+        mock_compiled = CompiledSubAgent(
+            name=config["name"],
+            description=config["description"],
+            config=config,
+            agent=MagicMock(),
+        )
+
+        with patch(
+            "subagents_pydantic_ai.toolset._compile_subagent",
+            return_value=mock_compiled,
+        ):
+            toolset = create_subagent_toolset(
+                subagents=[config],
+                include_general_purpose=False,
+            )
+
+            wait_tool = toolset.tools["wait_tasks"]
+            ctx = MockRunContext(deps=MockDeps())
+
+            from subagents_pydantic_ai.types import TaskHandle
+
+            tm = toolset.task_manager  # type: ignore[attr-defined]
+
+            async def failing_coro() -> None:
+                await asyncio.sleep(0.01)
+                fail_handle.status = TaskStatus.FAILED
+                fail_handle.error = "boom"
+
+            async def slow_coro() -> None:
+                await asyncio.sleep(100)
+                slow_handle.status = TaskStatus.COMPLETED
+
+            fail_handle = TaskHandle(
+                task_id="fail-1",
+                subagent_name="worker",
+                description="failing task",
+                status="running",
+            )
+            slow_handle = TaskHandle(
+                task_id="slow-2",
+                subagent_name="worker",
+                description="slow task",
+                status="running",
+            )
+            tm.create_task("fail-1", failing_coro(), fail_handle)
+            tm.create_task("slow-2", slow_coro(), slow_handle)
+
+            result = await wait_tool.function(ctx, ["fail-1", "slow-2"], 5.0, "any")
+
+            assert "mode=any" in result
+            assert "1/2 finished" in result
+            assert "FAILED" in result
+            assert "boom" in result
+
+            slow_task = tm.tasks.get("slow-2")
+            if slow_task is not None and not slow_task.done():
+                slow_task.cancel()
+
+    @pytest.mark.asyncio
+    async def test_wait_tasks_all_still_waits_for_everything(self):
+        """Regression: default `mode="all"` still waits for every task."""
+        config = SubAgentConfig(
+            name="worker",
+            description="Worker",
+            instructions="Work",
+        )
+
+        mock_agent = FakeAgent(result=MockResult("done"))
+
+        mock_compiled = CompiledSubAgent(
+            name=config["name"],
+            description=config["description"],
+            config=config,
+            agent=mock_agent,
+        )
+
+        with patch(
+            "subagents_pydantic_ai.toolset._compile_subagent",
+            return_value=mock_compiled,
+        ):
+            toolset = create_subagent_toolset(
+                subagents=[config],
+                include_general_purpose=False,
+            )
+
+            task_tool = toolset.tools["task"]
+            wait_tool = toolset.tools["wait_tasks"]
+
+            ctx = MockRunContext(deps=MockDeps())
+
+            r1 = await task_tool.function(ctx, "task one", "worker", "async")
+            tid1 = r1.split("Task ID: ")[1].split("\n")[0]
+            r2 = await task_tool.function(ctx, "task two", "worker", "async")
+            tid2 = r2.split("Task ID: ")[1].split("\n")[0]
+
+            # Default mode (no explicit arg) should be "all" and wait for both.
+            result = await wait_tool.function(ctx, [tid1, tid2], 5.0)
+
+            assert "mode=all" in result
+            assert "2/2 finished" in result
+            # No "still running" segment when everything is done
+            assert "still running" not in result
+            assert result.count("COMPLETED") == 2
+
+    @pytest.mark.asyncio
+    async def test_wait_tasks_does_not_cascade_cancel_to_workers(self):
+        """Cancelling wait_tasks must NOT cancel the workers it is waiting on.
+
+        Regression for the silent-CANCELLED bug: the previous
+        ``asyncio.wait_for(asyncio.gather(...))`` propagated cancellation
+        through ``wait_for`` → ``gather`` → child tasks, so a sibling-cancel
+        from pydantic-ai's ``_call_tools`` (or any other outer cancel) would
+        silently kill all in-flight subagents.
+        """
+        config = SubAgentConfig(name="worker", description="Worker", instructions="Work")
+        mock_agent = FakeAgent(result=MockResult("done"), delay=0.1)
+        mock_compiled = CompiledSubAgent(
+            name=config["name"],
+            description=config["description"],
+            config=config,
+            agent=mock_agent,
+        )
+
+        with patch(
+            "subagents_pydantic_ai.toolset._compile_subagent",
+            return_value=mock_compiled,
+        ):
+            toolset = create_subagent_toolset(subagents=[config], include_general_purpose=False)
+            task_tool = toolset.tools["task"]
+            wait_tool = toolset.tools["wait_tasks"]
+            ctx = MockRunContext(deps=MockDeps())
+
+            r = await task_tool.function(ctx, "slow work", "worker", "async")
+            tid = r.split("Task ID: ")[1].split("\n")[0]
+
+            worker_task = toolset.task_manager.tasks[tid]  # type: ignore[attr-defined]
+
+            # Schedule wait_tasks as its own task so we can cancel it from
+            # outside (mimicking pydantic-ai sibling-cancel of the tool call).
+            waiter = asyncio.create_task(wait_tool.function(ctx, [tid], 5.0))
+            await asyncio.sleep(0)  # let waiter start
+            waiter.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await waiter
+
+            # Worker MUST still be alive and own its own lifecycle.
+            assert not worker_task.done()
+
+            # And it must finish normally — proves no cascade kill happened.
+            await asyncio.wait_for(worker_task, timeout=2.0)
+            handle = toolset.task_manager.get_handle(tid)  # type: ignore[attr-defined]
+            assert handle is not None
+            assert handle.status == TaskStatus.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_wait_tasks_reports_cancelled_status(self):
+        """wait_tasks output labels CANCELLED tasks explicitly."""
+        config = SubAgentConfig(name="worker", description="Worker", instructions="Work")
+        mock_agent = FakeAgent(delay=10.0)
+        mock_compiled = CompiledSubAgent(
+            name=config["name"],
+            description=config["description"],
+            config=config,
+            agent=mock_agent,
+        )
+
+        with patch(
+            "subagents_pydantic_ai.toolset._compile_subagent",
+            return_value=mock_compiled,
+        ):
+            toolset = create_subagent_toolset(subagents=[config], include_general_purpose=False)
+            task_tool = toolset.tools["task"]
+            wait_tool = toolset.tools["wait_tasks"]
+            hard_cancel_tool = toolset.tools["hard_cancel_task"]
+            ctx = MockRunContext(deps=MockDeps())
+
+            r = await task_tool.function(ctx, "long work", "worker", "async")
+            tid = r.split("Task ID: ")[1].split("\n")[0]
+
+            await hard_cancel_tool.function(ctx, tid)
+            await asyncio.sleep(0.05)  # let cancellation settle
+
+            result = await wait_tool.function(ctx, [tid], 1.0)
+            assert "CANCELLED" in result
+            assert "1/1 finished" in result
 
     @pytest.mark.asyncio
     async def test_soft_cancel_task_success(self):

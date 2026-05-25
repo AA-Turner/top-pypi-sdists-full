@@ -11,6 +11,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from dazzle.core.ir import domain as ir_domain
+
 from .auth import EntityAccessSpec
 
 # =============================================================================
@@ -631,6 +633,33 @@ class EntitySpec(BaseModel):
         default=False,
         description="Entity is the tenant root (defines multi-tenant boundary)",
     )
+    # #1218: soft-delete keyword. When True the framework's read paths
+    # auto-filter `deleted_at IS NULL` and DELETE handlers swap to
+    # UPDATE-SET-deleted_at=now(). Threaded from IR by the converter.
+    soft_delete: bool = Field(
+        default=False,
+        description="Entity uses soft deletion (deleted_at tombstone)",
+    )
+    # #1223 / #1226: temporal entity spec. None for non-temporal entities;
+    # set to a TemporalSpec when the IR declares `temporal:` on the entity.
+    # Imported from IR rather than re-defined — there's no semantic
+    # divergence between the two layers for this shape.
+    temporal: ir_domain.TemporalSpec | None = Field(
+        default=None,
+        description="Temporal-entity declaration (start/end/key fields)",
+    )
+    # #1217 Phase 3(e): subtype polymorphism. `subtype_of` names the base
+    # entity on a child; `subtype_children` is the linker-populated
+    # back-pointer on the base. Threaded from IR by the converter; the
+    # runtime DDL emitter consumes these to emit TPT child tables.
+    subtype_of: str | None = Field(
+        default=None,
+        description="Name of base entity this is a subtype of",
+    )
+    subtype_children: tuple[str, ...] = Field(
+        default=(),
+        description="Names of child subtypes (linker-populated back-pointer on base)",
+    )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
     model_config = ConfigDict(frozen=True)
@@ -656,3 +685,13 @@ class EntitySpec(BaseModel):
             if relation.name == name:
                 return relation
         return None
+
+    @property
+    def is_polymorphic_base(self) -> bool:
+        """True when one or more entities declare `subtype_of: <this>`."""
+        return len(self.subtype_children) > 0
+
+    @property
+    def is_polymorphic_child(self) -> bool:
+        """True when this entity declares `subtype_of: <some base>`."""
+        return self.subtype_of is not None

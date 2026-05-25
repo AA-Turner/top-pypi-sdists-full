@@ -329,6 +329,25 @@ class InvalidClassNameError(Error):
         super().__init__(message=message)
 
 
+def _validate_output_datetime_class(
+    output_model_type: DataModelType, output_datetime_class: DatetimeClassType | None
+) -> None:
+    if output_datetime_class is None or output_datetime_class is DatetimeClassType.Datetime:
+        return
+    if output_model_type == DataModelType.DataclassesDataclass:
+        msg = (
+            '`--output-datetime-class` only allows "datetime" for '
+            f"`--output-model-type` {DataModelType.DataclassesDataclass.value}"
+        )
+        raise Error(msg)
+    if output_model_type == DataModelType.TypingTypedDict:
+        msg = (
+            '`--output-datetime-class` only allows "datetime" for '
+            f"`--output-model-type` {DataModelType.TypingTypedDict.value}"
+        )
+        raise Error(msg)
+
+
 class InvalidFileFormatError(Error):
     """Raised when the input file format is invalid or cannot be parsed."""
 
@@ -524,6 +543,8 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
         GenerateConfig.model_rebuild(_types_namespace={"StrictTypes": StrictTypes, "UnionMode": UnionMode})
         config = GenerateConfig.model_validate(options)
 
+    _validate_output_datetime_class(config.output_model_type, config.output_datetime_class)
+
     # Variables that may be modified during processing
     input_filename = config.input_filename
     input_file_type = config.input_file_type
@@ -710,6 +731,7 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
         "data_type_manager_type": data_model_types.data_type_manager,
         "dump_resolve_reference_action": data_model_types.dump_resolve_reference_action,
         "extra_template_data": extra_template_data,
+        "serialization_aliases": config.serialization_aliases,
         "base_path": input_.parent if isinstance(input_, Path) and input_.is_file() else None,
         "remote_text_cache": remote_text_cache,
         "known_third_party": data_model_types.known_third_party,
@@ -736,6 +758,7 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
         "set_default_enum_member": (
             True if config.output_model_type == DataModelType.DataclassesDataclass else config.set_default_enum_member
         ),
+        "use_object_type": config.use_object_type,
     }
 
     # Convert schema_version string to appropriate enum based on input type
@@ -768,6 +791,7 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
             "include_path_parameters": config.include_path_parameters,
             "use_status_code_in_response_name": config.use_status_code_in_response_name,
             "openapi_include_paths": config.openapi_include_paths,
+            "openapi_include_info_version": config.openapi_include_info_version,
             "openapi_version": openapi_version,
             **additional_options,
         }

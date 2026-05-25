@@ -36,6 +36,7 @@ async def _fetch_entity_card_section_rows(
     request: Any,
     auth_context: Any,
     user_id: str | None,
+    context_id: str | None = None,
 ) -> dict[int, list[dict[str, Any]]]:
     """Fan out per-section queries for an entity_card region (#1017).
 
@@ -102,6 +103,13 @@ async def _fetch_entity_card_section_rows(
             from dazzle.back.runtime.route_generator import _extract_condition_filters
 
             with suppress(Exception):
+                # #1225: thread `context_id` through so per-section
+                # `filter: X = current_context` predicates resolve to
+                # the scoped record id. Pre-fix this argument was None
+                # → filter silently dropped → sections rendered the
+                # first-scope row regardless of which entity the
+                # entity_card was scoped to. AegisMark's pupil_dashboard
+                # made the data-attribution-wrongness visible.
                 _extract_condition_filters(
                     section_filter,
                     user_id or "",
@@ -109,7 +117,7 @@ async def _fetch_entity_card_section_rows(
                     logger,
                     auth_context,
                     None,
-                    None,
+                    context_id,
                 )
 
         section_limit = getattr(section, "limit", None)
@@ -213,6 +221,12 @@ async def _fetch_task_inbox_items_per_source(
         if source_filter is not None:
             from dazzle.back.runtime.route_generator import _extract_condition_filters
 
+            # #1232 — thread the source entity's FK→target map so dotted
+            # left-side paths (`teacher.user = current_user`) resolve via
+            # subquery JOINs in `_extract_condition_filters` instead of
+            # falling through as an unrecognised `teacher.user` filter key.
+            entity_ref_targets = getattr(ctx, "entity_ref_targets", None) or {}
+            _ref_targets = entity_ref_targets.get(source_entity)
             with suppress(Exception):
                 _extract_condition_filters(
                     source_filter,
@@ -220,7 +234,7 @@ async def _fetch_task_inbox_items_per_source(
                     merged_filters,
                     logger,
                     auth_context,
-                    None,
+                    _ref_targets,
                     None,
                 )
 
@@ -270,11 +284,19 @@ async def _safe_fetch(
     except Exception as exc:  # noqa: BLE001 — surface to ops log
         logger.warning("task_inbox source %s fetch raised %s", label, exc)
         return []
+    # Normalise rows to plain dicts so downstream `row.get(field)` calls
+    # in `_render_mini_bars_body` / `_render_stamps_body` /
+    # `_render_thread_summary_body` work regardless of whether the
+    # repository returned Pydantic models (when `include=None` takes
+    # the `_row_to_model` path) or dict rows. Mirrors the same
+    # normalisation in `workspace_region_fetch.py` (#1215).
     if isinstance(result, dict):
-        return list(result.get("items", []) or [])
-    if isinstance(result, list):
-        return list(result)
-    return []
+        raw_items = result.get("items", []) or []
+    elif isinstance(result, list):
+        raw_items = result
+    else:
+        return []
+    return [r.model_dump() if hasattr(r, "model_dump") else dict(r) for r in raw_items]
 
 
 def _build_entity_card_sections(

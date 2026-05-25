@@ -62,7 +62,6 @@ from sqlalchemy.testing import ne_
 from sqlalchemy.testing.assertions import expect_raises_message
 from sqlalchemy.testing.provision import normalize_sequence
 
-
 metadata = MetaData()
 table1 = Table(
     "table1",
@@ -885,8 +884,8 @@ class SelectableTest(
         no_group = column("a") // type_coerce(column("x"), Integer)
         group = column("b") // type_coerce(column("y") * column("w"), Integer)
 
-        self.assert_compile(no_group, "a / x")
-        self.assert_compile(group, "b / (y * w)")
+        self.assert_compile(no_group, "FLOOR(a / x)")
+        self.assert_compile(group, "FLOOR(b / (y * w))")
 
     def test_subquery_on_table(self):
         sel = (

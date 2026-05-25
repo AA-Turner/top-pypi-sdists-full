@@ -21,8 +21,6 @@ cdef class Marshaller:
 
     cdef _buffer(self)
 
-    cpdef align(self, unsigned int n)
-
     @cython.locals(
         offset=cython.ulong,
     )
@@ -89,11 +87,12 @@ cdef class Marshaller:
     )
     cdef unsigned int _write_single(self, SignatureType type_, object body)
 
+    cpdef write_dict_entry(self, cython.list dict_entry, SignatureType type_)
+
     @cython.locals(
         written=cython.uint,
-        t=cython.str,
     )
-    cpdef write_dict_entry(self, cython.list dict_entry, SignatureType type_)
+    cdef unsigned int _write_dict_entry_kv(self, object key, object value, SignatureType type_)
 
     cpdef marshall(self)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jaxtyping
-Version: 0.3.9
+Version: 0.3.10
 Summary: Type annotations and runtime checking for shape and dtype of JAX/NumPy/PyTorch/etc. arrays.
 Project-URL: repository, https://github.com/patrick-kidger/jaxtyping
 Author-email: Patrick Kidger <contact@kidger.site>
@@ -70,30 +70,6 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: >=3.11
 Requires-Dist: wadler-lindig>=0.1.3
-Provides-Extra: dev
-Requires-Dist: pre-commit>=4.3.0; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: griffe==1.7.3; extra == 'docs'
-Requires-Dist: hippogriffe==0.2.2; extra == 'docs'
-Requires-Dist: mkdocs-include-exclude-files==0.1.0; extra == 'docs'
-Requires-Dist: mkdocs-ipynb==0.1.1; extra == 'docs'
-Requires-Dist: mkdocs-material==9.6.7; extra == 'docs'
-Requires-Dist: mkdocs==1.6.1; extra == 'docs'
-Requires-Dist: mkdocstrings-python==1.16.8; extra == 'docs'
-Requires-Dist: mkdocstrings==0.28.3; extra == 'docs'
-Requires-Dist: pymdown-extensions==10.14.3; extra == 'docs'
-Provides-Extra: tests
-Requires-Dist: beartype>=0.21.0; extra == 'tests'
-Requires-Dist: cloudpickle>=3.1.1; extra == 'tests'
-Requires-Dist: equinox>=0.13.1; extra == 'tests'
-Requires-Dist: ipython>=8.37.0; extra == 'tests'
-Requires-Dist: jax>=0.9.0.1; extra == 'tests'
-Requires-Dist: mlx[cpu]>=0.29.1; extra == 'tests'
-Requires-Dist: numpy; extra == 'tests'
-Requires-Dist: pytest-asyncio>=1.2.0; extra == 'tests'
-Requires-Dist: pytest>=8.4.2; extra == 'tests'
-Requires-Dist: tensorflow>=2.18.1; (python_version <= '3.12') and extra == 'tests'
-Requires-Dist: typeguard==2.13.3; extra == 'tests'
 Description-Content-Type: text/markdown
 
 <h1 align="center">jaxtyping</h1>

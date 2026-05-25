@@ -8,8 +8,9 @@ import errno
 import logging
 import socket
 import struct
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
+from enum import Enum, auto
 from functools import cached_property
 
 try:
@@ -37,12 +38,33 @@ POWER_OFF_TIME = 2
 POWER_ON_TIME = 3
 MAX_RFKILL_TIME = 3
 DBUS_REGISTER_TIME = 3.5
+# After an rfkill unblock the kernel clears the soft block asynchronously.
+# Poll for it instead of a single fixed wait, bounded by RFKILL_UNBLOCK_GRACE_TIME
+# of wall-clock time (>= the old DBUS_REGISTER_TIME grace) and re-checking every
+# RFKILL_UNBLOCK_POLL_INTERVAL seconds.
+RFKILL_UNBLOCK_GRACE_TIME = 4.5
+RFKILL_UNBLOCK_POLL_INTERVAL = 1.5
+
+# A USB reset disconnects the adapter and forces a re-enumeration, after which
+# it must also re-register with BlueZ. On slower systems (e.g. Raspberry Pi /
+# Home Assistant) this can take longer than a single DBUS_REGISTER_TIME wait,
+# so we poll for the adapter to reappear instead of giving up after one lookup.
+POST_RESET_LOOKUP_ATTEMPTS = 3
+POST_RESET_LOOKUP_RETRY_TIME = 2
 
 MGMT_PROTOCOL_TIMEOUT = 5
 
 # https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/lib/hci.h
 HCIDEVUP = 0x400448C9  # 201
 HCIDEVDOWN = 0x400448CA  # 202
+
+
+class USBResetOutcome(Enum):
+    """Outcome of a USB reset attempt."""
+
+    SUCCEEDED = auto()  # reset attempted and succeeded
+    FAILED = auto()  # reset attempted but failed
+    NOT_APPLICABLE = auto()  # adapter is not a USB device
 
 
 @dataclass
@@ -432,22 +454,47 @@ async def _check_or_unblock_rfkill(adapter: MGMTBluetoothCtl) -> bool:
         adapter.name,
     )
     await _unblock_rfkill(adapter, rfkill_info.idx)
-    # Give kernel some time to catch up
-    _LOGGER.debug(
-        "Waiting %ss for kernel catch up after rfkill unblock", DBUS_REGISTER_TIME
+
+    # The kernel does not clear the rfkill block synchronously. A single fixed
+    # wait is both wasteful when the block clears quickly and too short on slow
+    # systems (Pi/HA), where the adapter is still reported blocked after the
+    # wait and is then falsely declared "could not be unblocked". Poll instead:
+    # return as soon as the block clears, re-checking every
+    # RFKILL_UNBLOCK_POLL_INTERVAL seconds, with the whole poll bounded by
+    # RFKILL_UNBLOCK_GRACE_TIME of wall-clock time so the worst case stays
+    # capped regardless of how long each re-check takes.
+    #
+    # This is NOT a busy wait: each iteration sleeps for
+    # RFKILL_UNBLOCK_POLL_INTERVAL seconds with `await asyncio.sleep(...)`, and
+    # `_check_rfkill` runs in an executor under its own timeout, so the event
+    # loop is yielded for the entire duration of the poll.
+    with suppress(asyncio.TimeoutError):
+        async with asyncio_timeout(RFKILL_UNBLOCK_GRACE_TIME):
+            while True:
+                rfkill_info = await _check_rfkill(adapter)
+                # Require an explicit unblocked reading. A timed-out check
+                # returns RFKillInfo(None, None, None); `not None` is truthy, so
+                # treating None as "unblocked" would falsely report success on an
+                # unknown state. Keep polling until both blocks are explicitly
+                # False (or the grace expires and we report failure below).
+                if rfkill_info.soft_block is False and rfkill_info.hard_block is False:
+                    _LOGGER.debug(
+                        "Bluetooth adapter %s was successfully unblocked",
+                        adapter.name,
+                    )
+                    return True
+                _LOGGER.debug(
+                    "Waiting %ss for kernel to catch up after rfkill unblock of %s",
+                    RFKILL_UNBLOCK_POLL_INTERVAL,
+                    adapter.name,
+                )
+                await asyncio.sleep(RFKILL_UNBLOCK_POLL_INTERVAL)
+
+    _LOGGER.warning(
+        "Bluetooth adapter %s is blocked by rfkill and could not be unblocked",
+        adapter.name,
     )
-    await asyncio.sleep(DBUS_REGISTER_TIME)
-
-    rfkill_info = await _check_rfkill(adapter)
-    if rfkill_info.soft_block or rfkill_info.hard_block:
-        _LOGGER.warning(
-            "Bluetooth adapter %s is blocked by rfkill and could not be unblocked",
-            adapter.name,
-        )
-        return False
-
-    _LOGGER.debug("Bluetooth adapter %s was successfully unblocked", adapter.name)
-    return True
+    return False
 
 
 async def recover_adapter(hci: int, mac: str, gone_silent: bool = False) -> bool:
@@ -489,8 +536,9 @@ async def recover_adapter(hci: int, mac: str, gone_silent: bool = False) -> bool
                 "rfkill has blocked %s, and could not be unblocked", adapter.name
             )
 
-        # If the adapter has gone silent, do the USB reset as well
-        if await _power_cycle_adapter(adapter) and not gone_silent:
+        power_cycle_ok = await _power_cycle_adapter(adapter)
+        # If the adapter has not gone silent, a successful power cycle is enough.
+        if power_cycle_ok and not gone_silent:
             # Give Dbus some time to catch up
             _LOGGER.debug(
                 "Waiting %ss for kernel and Dbus to catch up after successful power cycle",
@@ -499,7 +547,24 @@ async def recover_adapter(hci: int, mac: str, gone_silent: bool = False) -> bool
             await asyncio.sleep(DBUS_REGISTER_TIME)
             return True
 
-        if not await _usb_reset_adapter(adapter):
+        # The adapter has gone silent (or the power cycle failed), so escalate to
+        # a USB reset. This may also move the adapter to a new hci number.
+        usb_reset = await _usb_reset_adapter(adapter)
+        if usb_reset is USBResetOutcome.NOT_APPLICABLE:
+            # A USB reset is not applicable because the adapter is not a USB
+            # device. A non-USB adapter (e.g. a built-in UART controller) can
+            # only be recovered by the power cycle, so fall back to its result
+            # rather than reporting a spurious failure.
+            if not power_cycle_ok:
+                return False
+            _LOGGER.debug(
+                "Adapter %s is not a USB device; relying on the successful "
+                "power cycle for recovery",
+                adapter.name,
+            )
+            await asyncio.sleep(DBUS_REGISTER_TIME)
+            return True
+        if usb_reset is USBResetOutcome.FAILED:
             return False
 
         # Give Dbus some time to catch up in case
@@ -510,30 +575,49 @@ async def recover_adapter(hci: int, mac: str, gone_silent: bool = False) -> bool
         )
         await asyncio.sleep(DBUS_REGISTER_TIME)
 
-    # We just did a USB reset which may cause the adapter
-    # to move to a different hci number. Try to find it again.
-    async with _get_adapter(hci_name, mac) as adapter:
-        if not adapter or adapter.idx is None or adapter.hci_name is None:
-            _LOGGER.warning(
-                "Could not find adapter with mac address %s or %s", mac, hci_name
-            )
-            return False
+    # We just did a USB reset which causes the adapter to disconnect and
+    # re-enumerate (and possibly move to a different hci number). On slower
+    # systems the re-enumeration plus BlueZ re-registration can take longer
+    # than the single DBUS_REGISTER_TIME wait above, so poll for the adapter
+    # to reappear instead of reporting failure after a single lookup.
+    for attempt in range(1, POST_RESET_LOOKUP_ATTEMPTS + 1):
+        async with _get_adapter(hci_name, mac) as adapter:
+            if adapter and adapter.idx is not None and adapter.hci_name is not None:
+                if adapter.hci_name != hci_name:
+                    hci_name = adapter.hci_name
+                    _LOGGER.warning(
+                        "Adapter with mac address %s has moved to %s", mac, hci_name
+                    )
 
-        if adapter.hci_name != hci_name:
-            hci_name = adapter.hci_name
-            _LOGGER.warning(
-                "Adapter with mac address %s has moved to %s", mac, hci_name
-            )
+                # After the reset, rfkill may be blocked so we need
+                # to check and unblock it.
+                if not await _check_or_unblock_rfkill(adapter):
+                    _LOGGER.warning(
+                        "rfkill has blocked %s, and could not be unblocked",
+                        adapter.name,
+                    )
+                    return False
 
-        # After the reset, rfkill may be blocked so we need
-        # to check and unblock it.
-        if not await _check_or_unblock_rfkill(adapter):
-            _LOGGER.warning(
-                "rfkill has blocked %s, and could not be unblocked", adapter.name
-            )
-            return False
+                return True
 
-    return True
+        if attempt < POST_RESET_LOOKUP_ATTEMPTS:
+            _LOGGER.debug(
+                "Adapter with mac address %s (%s) has not reappeared after the "
+                "USB reset yet (attempt %s/%s); waiting %ss before retrying",
+                mac,
+                hci_name,
+                attempt,
+                POST_RESET_LOOKUP_ATTEMPTS,
+                POST_RESET_LOOKUP_RETRY_TIME,
+            )
+            await asyncio.sleep(POST_RESET_LOOKUP_RETRY_TIME)
+
+    _LOGGER.warning(
+        "Could not find adapter with mac address %s or %s after USB reset",
+        mac,
+        hci_name,
+    )
+    return False
 
 
 @asynccontextmanager
@@ -566,11 +650,14 @@ async def _get_adapter(
             ex,
         )
         yield None
+    except asyncio.TimeoutError:
+        # On Python 3.11+ asyncio.TimeoutError is an alias of the builtin
+        # TimeoutError, which subclasses OSError, so this must precede the
+        # OSError handler or the timeout-specific message is never emitted.
+        _LOGGER.warning("Getting Bluetooth adapter %s failed due to timeout", name)
+        yield None
     except OSError as ex:
         _LOGGER.warning("Getting Bluetooth adapter %s failed: %s", name, ex)
-        yield None
-    except asyncio.TimeoutError:
-        _LOGGER.warning("Getting Bluetooth adapter %s failed due to timeout", name)
         yield None
     finally:
         if adapter:
@@ -592,15 +679,18 @@ async def _power_cycle_adapter(adapter: MGMTBluetoothCtl) -> bool:
             ex,
         )
         return False
-    except OSError as ex:
-        _LOGGER.warning("Bluetooth adapter %s could not be reset: %s", adapter.name, ex)
-        return False
     except asyncio.TimeoutError:
+        # On Python 3.11+ asyncio.TimeoutError is an alias of the builtin
+        # TimeoutError, which subclasses OSError, so this must precede the
+        # OSError handler or the timeout-specific message is never emitted.
         _LOGGER.warning(
             "Bluetooth adapter %s could not be reset due to timeout after %s seconds",
             adapter.name,
             adapter.timeout,
         )
+        return False
+    except OSError as ex:
+        _LOGGER.warning("Bluetooth adapter %s could not be reset: %s", adapter.name, ex)
         return False
 
 
@@ -609,22 +699,31 @@ def hci_name_to_number(hci_name: str) -> int:
     return int(hci_name.removeprefix("hci"))
 
 
-async def _usb_reset_adapter(adapter: MGMTBluetoothCtl) -> bool:
-    """Reset the bluetooth adapter."""
+async def _usb_reset_adapter(adapter: MGMTBluetoothCtl) -> USBResetOutcome:
+    """Reset the bluetooth adapter via USB.
+
+    Returns an outcome describing whether a USB reset was applicable (the
+    adapter is a USB device) and, if so, whether it succeeded. A non-USB
+    adapter (e.g. a built-in UART controller) yields a not-applicable outcome.
+    """
     assert adapter.hci_name is not None  # nosec
     hci = hci_name_to_number(adapter.hci_name)
     _LOGGER.debug("Executing USB reset for Bluetooth adapter hci%i", hci)
     dev = BluetoothDevice(hci)
     try:
-        return await dev.async_reset()
+        return (
+            USBResetOutcome.SUCCEEDED
+            if await dev.async_reset()
+            else USBResetOutcome.FAILED
+        )
     except NotAUSBDeviceError as ex:
         _LOGGER.debug(
-            "hci%s is not a USB devices while attempting USB reset: %s", hci, ex
+            "hci%s is not a USB device while attempting USB reset: %s", hci, ex
         )
-        return False
+        return USBResetOutcome.NOT_APPLICABLE
     except FileNotFoundError as ex:
         _LOGGER.debug("hci%s not found while attempting USB reset: %s", hci, ex)
-        return False
+        return USBResetOutcome.NOT_APPLICABLE
     except PermissionError as ex:
         _LOGGER.info(
             "hci%s permission denied to %s while attempting USB reset: %s",
@@ -632,12 +731,12 @@ async def _usb_reset_adapter(adapter: MGMTBluetoothCtl) -> bool:
             ex.filename,
             ex,
         )
-        return False
+        return USBResetOutcome.FAILED
     except Exception as ex:  # pylint: disable=broad-except
         _LOGGER.exception(
             "Unexpected error while attempting USB reset of hci%s: %s", hci, ex
         )
-        return False
+        return USBResetOutcome.FAILED
 
 
 async def _set_adapter_up_down(
@@ -694,8 +793,9 @@ async def _execute_reset(adapter: MGMTBluetoothCtl) -> bool:
         )
         timed_out_getting_powered = True
     except Exception:  # pylint: disable=broad-except
+        # _LOGGER.exception already records the traceback, so no extra %s is needed.
         _LOGGER.exception(
-            "Could not determine the power state of the Bluetooth adapter %s: %s",
+            "Could not determine the power state of the Bluetooth adapter %s",
             adapter.name,
         )
 

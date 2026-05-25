@@ -34,6 +34,16 @@ class AgentStats(BaseModel):
     tool_calls_failed: int = 0
     tool_calls_succeeded: int = 0
 
+    # Curiosity-Engine telemetry — visible to user via /status.
+    # Counts per-session firings of the prompt-pattern injection,
+    # reflection nudge, adaptive budget hard-stop, and the legacy
+    # compaction-stub upgrade. Lets the user see what guidance the
+    # agent received and what wasn't producing forward motion.
+    prompt_pattern_fires: int = 0
+    reflection_fires: int = 0
+    adaptive_budget_stops: int = 0
+    legacy_stubs_upgraded: int = 0
+
     context_tokens: int = 0
 
     last_turn_prompt_tokens: int = 0
