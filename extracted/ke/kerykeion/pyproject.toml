@@ -1,6 +1,6 @@
 [project]
 name = "kerykeion"
-version = "5.12.8"
+version = "5.12.9"
 authors = [
     { name = "Giacomo Battaglia", email = "kerykeion.astrology@gmail.com" }
 ]
@@ -32,7 +32,6 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -45,13 +44,13 @@ classifiers = [
     "Topic :: Religion",
     "Typing :: Typed",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "pyswisseph>=2.10.3.2",
     "pydantic>=2.5",
     "scour>=0.38.2",
     "requests-cache>=1.2.1",
-    "requests>=2.32.3",
+    "requests>=2.33.0",
     "simple-ascii-tables>=1.0.0",
     "pytz>=2024.2",
     "typing-extensions>=4.12.2",

@@ -7,6 +7,7 @@ by ``geocif_runner.run(cfg)``.
 
 import ast
 import os
+import re
 import traceback
 from configparser import ConfigParser
 from dataclasses import dataclass, field
@@ -338,6 +339,58 @@ class Geocif:
         self.ml_model = self.parser.getboolean(self.model_name, "ML_model")
         self.select_cid_by = self.parser.get(self.model_name, "select_cid_by")
         self.use_cids = ast.literal_eval(self.parser.get(self.model_name, "use_cids"))
+        # Per-model flag: when True, the curated_<algo> wrappers restrict
+        # the feature frame to single-calendar-period (monthly) features
+        # only — dropping cumulative spans + Pre-Season / In-Season
+        # aggregates. Off by default for backward compatibility.
+        self.monthly_only_features = self.parser.getboolean(
+            self.model_name, "monthly_only_features", fallback=False,
+        )
+        # curated_<algo> wrappers train on a hand-picked CID list — the
+        # whole point is to bypass gOMP / Boruta selection and use every
+        # surviving column. Force feature_selection = none for them,
+        # overriding the global [ML] feature_selection setting.
+        # top<N>_<algo> wrappers: same idea but the CID list is sourced
+        # at runtime from the deduplicated pearson_summary.csv emitted
+        # by a broad-feature model run (must execute earlier in the
+        # `models` list). N = the number after "top". Falls back to
+        # whatever use_cids says when the summary file is missing.
+        # auto_<algo> wrappers: like top<N>_, but the CID set is sized
+        # by the at-least-X-above-Y schema in utils.auto_select_cids
+        # (dedup-first relaxation). Per-model knobs override defaults.
+        _top_match = re.match(r"^top(\d+)_(.+)$", self.model_name)
+        _auto_match = self.model_name.startswith("auto_")
+        self.top_n_pearson: int | None = None
+        self.auto_select_cids_flag = False
+        if self.model_name.startswith("curated_"):
+            self.feature_selection = "none"
+        if _top_match:
+            self.top_n_pearson = int(_top_match.group(1))
+            self.feature_selection = "none"
+        if _auto_match:
+            self.auto_select_cids_flag = True
+            self.feature_selection = "none"
+            self.auto_min_count = self._get_model_int("auto_min_count", 8)
+            self.auto_min_abs_r = self._get_model_float("auto_min_abs_r", 0.30)
+            self.auto_dedup_threshold = self._get_model_float("auto_dedup_threshold", 0.90)
+            self.auto_dedup_max = self._get_model_float("auto_dedup_max", 0.99)
+            self.auto_abs_r_floor = self._get_model_float("auto_abs_r_floor", 0.10)
+            self.auto_abs_r_step = self._get_model_float("auto_abs_r_step", 0.05)
+        # dispatch_name = the underlying algorithm to dispatch to (e.g.
+        # "gam" for "curated_gam", "tabpfn" for "top10_tabpfn" /
+        # "auto_tabpfn"). EVERY model_name == "..." check that matters
+        # for algorithm-specific code paths (fitter factory, GAM column
+        # alignment, NaN fill, etc) should use self.dispatch_name
+        # instead of self.model_name. self.model_name stays as the
+        # original section name so DB rows / plots stay disambiguated.
+        if self.model_name.startswith("curated_"):
+            self.dispatch_name = self.model_name.split("_", 1)[1]
+        elif _top_match:
+            self.dispatch_name = _top_match.group(2)
+        elif _auto_match:
+            self.dispatch_name = self.model_name.split("_", 1)[1]
+        else:
+            self.dispatch_name = self.model_name
         # In pooled mode, use _config_country for per-country config lookups
         _cc = getattr(self, '_config_country', self.country)
         self.model_names = ast.literal_eval(self.parser.get(_cc, "models"))
@@ -372,16 +425,18 @@ class Geocif:
             self.cat_features = [col for col in self.cat_features if col != "Region"]
 
     def _setup_regression_flags(self):
-        """Setup flags for regression models."""
-        if not self.ml_model or self.model_name in ["linear", "gam", "merf", "cubist", "gpr"]:
+        """Setup flags for regression models. Uses dispatch_name so the
+        curated_<algo> wrappers pick the same flag set as their underlying
+        algo (e.g. curated_gam → 'gam' → _setup_simple_regression_flags)."""
+        if not self.ml_model or self.dispatch_name in ["linear", "gam", "merf", "cubist", "gpr"]:
             self._setup_simple_regression_flags()
         elif self.model_name.startswith("cumulative_"):
             self._setup_cumulative_flags()
-        elif self.model_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft"]:
+        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft"]:
             self._setup_tabular_flags()
-        elif self.model_name in ["oblique", "ydf"]:
+        elif self.dispatch_name in ["oblique", "ydf"]:
             self._setup_tree_flags()
-        elif self.model_name == "ngboost":
+        elif self.dispatch_name == "ngboost":
             self._setup_ngboost_flags()
         else:
             self._setup_standard_ml_flags()
@@ -1157,6 +1212,10 @@ class Geocif:
     def _prepare_ml_dataframe(self) -> pd.DataFrame:
         """Convert raw data into ML-ready format."""
         df = self._filter_by_simulation_stages()
+        if self.top_n_pearson:
+            self._apply_top_n_pearson_filter(df)     # mutates self.use_cids
+        elif self.auto_select_cids_flag:
+            self._apply_auto_pearson_filter(df)      # mutates self.use_cids
         df = self._filter_by_cid_categories(df)
         df = self._prune_stale_forecast_rows(df)
         df = self.create_ml_dataframe(df)
@@ -1166,8 +1225,76 @@ class Geocif:
 
         self._save_ml_dataframe(df)
         df[self.cat_features] = df[self.cat_features].astype("category")
-        
+
+        # EDA scatters: one PNG per CID, x = full-season cumulative column,
+        # y = observed yield, colour by Harvest Year. Idempotent across
+        # model runs — populated by whichever (country, crop) model runs
+        # first (typically the one with use_cids=['all'] giving the widest
+        # CID coverage). Skipped when the per-(country, crop) output dir
+        # already contains PNGs.
+        try:
+            self._plot_cid_vs_yield_scatters(df)
+        except Exception as exc:  # noqa: BLE001 — diagnostic plot, never block training
+            self.logger.warning(f"cid_vs_yield_scatters failed: {exc}")
+
         return df
+
+    def _plot_cid_vs_yield_scatters(self, df: pd.DataFrame) -> None:
+        """One-time CID-vs-yield EDA scatter set per (country, crop).
+
+        Gated to fire only from models that train on the *broad* feature
+        set — i.e. use_cids == ['all'], monthly_only_features = False,
+        use_single_time_period_as_feature = False. Curated wrappers
+        (curated_tabpfn / curated_catboost / curated_gam) and cumulative
+        models always skip, because their per-model df has cumulative
+        multi-month spans dropped — the plot would then show e.g. a
+        31-day "full-season" MAX_ETREF instead of the actual planting-to-
+        harvest cumulative. The first broad model (typically catboost or
+        tabpfn) populates; subsequent broad models hit the dir-exists
+        idempotency check inside cid_vs_yield_scatters and skip too.
+        """
+        if self.top_n_pearson:
+            self.logger.debug(
+                f"cid_vs_yield_scatters: skipping top-N model {self.model_name}"
+            )
+            return
+        if self.auto_select_cids_flag:
+            self.logger.debug(
+                f"cid_vs_yield_scatters: skipping auto-select model {self.model_name}"
+            )
+            return
+        if self.monthly_only_features:
+            self.logger.debug(
+                "cid_vs_yield_scatters: skipping monthly-only model"
+            )
+            return
+        if self.use_single_time_period_as_feature:
+            self.logger.debug(
+                "cid_vs_yield_scatters: skipping single-time-period model"
+            )
+            return
+        if "all" not in self.use_cids:
+            self.logger.debug(
+                f"cid_vs_yield_scatters: skipping model with use_cids != ['all'] "
+                f"(got {self.use_cids})"
+            )
+            return
+
+        from .viz.diagnostics import cid_vs_yield_scatters
+
+        out_root = self.dir_analysis / "explore" / "cid_vs_yield"
+
+        season_stages = None
+        sim = getattr(self, "simulation_stages", None)
+        if sim and isinstance(sim[0], (list, tuple)):
+            season_stages = max((len(s) for s in sim), default=None)
+
+        cid_vs_yield_scatters(
+            df, target_col=self.target, dir_out=out_root,
+            country=self.country, crop=self.crop, year_col="Harvest Year",
+            method=getattr(self, "method", "monthly"),
+            season_stages=season_stages,
+        )
 
     def _filter_by_simulation_stages(self) -> pd.DataFrame:
         """Filter data to include only simulation stages.
@@ -1284,8 +1411,274 @@ class Geocif:
             return df[df["Type"].isin(self.use_cids)]
         elif self.select_cid_by == "Index":
             return df[df["Index"].isin(self.use_cids)]
-        
+
         return df
+
+    def _get_model_int(self, key: str, default: int) -> int:
+        """Read int key from [model_name] section, fall back to [ML] then default."""
+        for section in (self.model_name, "ML"):
+            if self.parser.has_option(section, key):
+                try:
+                    return self.parser.getint(section, key)
+                except (ValueError, TypeError):
+                    pass
+        return default
+
+    def _get_model_float(self, key: str, default: float) -> float:
+        """Read float key from [model_name] section, fall back to [ML] then default."""
+        for section in (self.model_name, "ML"):
+            if self.parser.has_option(section, key):
+                try:
+                    return self.parser.getfloat(section, key)
+                except (ValueError, TypeError):
+                    pass
+        return default
+
+    def _record_fallback(self, category: str, **details) -> None:
+        """Append a fallback event to ``<dir_analysis>/fallbacks/fallback_<pid>.csv``.
+
+        Diagnostic-only; best-effort write (silently swallows IO errors
+        because failure-to-log a fallback shouldn't crash a training
+        fold). Per-PID file avoids cross-worker CSV append races under
+        do_parallel_ml=True. End-of-run summary merges all PID files.
+
+        Categories:
+        - ``pearson_summary_missing``  auto_/top10_ filter couldn't load
+            the pre-computed pearson_summary.csv AND inline compute failed.
+        - ``pearson_summary_empty``  loaded/computed but produced 0 rows.
+        - ``auto_select_zero``  schema returned 0 CIDs at the |r| floor.
+        - ``top_n_empty_survivors``  top10_ filter found no kept rows.
+        - ``correlation_selection_empty``  per-region correlation filter
+            returned no features; model trains on all CID columns.
+        """
+        try:
+            import csv
+            row = {
+                "timestamp": ar.utcnow().to("America/New_York").isoformat(),
+                "pid": os.getpid(),
+                "category": category,
+                "model": getattr(self, "model_name", ""),
+                "country": getattr(self, "country", ""),
+                "crop": getattr(self, "crop", ""),
+                "forecast_season": getattr(self, "forecast_season", ""),
+                "stage_name": (
+                    getattr(self, "stage_info", {}).get("Stage Name", "")
+                    if hasattr(self, "stage_info") else ""
+                ),
+            }
+            row.update({k: str(v) for k, v in details.items()})
+            fall_dir = self.dir_analysis / "fallbacks"
+            fall_dir.mkdir(parents=True, exist_ok=True)
+            fpath = fall_dir / f"fallback_{os.getpid()}.csv"
+            file_exists = fpath.exists()
+            with open(fpath, "a", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=list(row.keys()))
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow(row)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _load_or_compute_pearson_summary(self, df_long=None):
+        """Load (pearson_df, corr) from the EDA dir if present; otherwise
+        compute inline from ``df_long`` and persist for siblings.
+
+        Needed because top<N>_ / auto_ models can fire (via parallel ML
+        scheduling) BEFORE the broad-feature model has populated
+        ``pearson_summary.csv``. The inline fallback computes the same
+        pearson summary on demand using this fold's long-format CID df
+        (best-effort persist so sibling folds skip the recompute).
+
+        Returns ``(pearson_df, corr)`` where ``pearson_df`` is indexed
+        by CID name. Returns ``(None, None)`` if no usable data exists.
+        """
+        explore_dir = (
+            self.dir_analysis / "explore" / "cid_vs_yield"
+            / self.country / self.crop / "csvs"
+        )
+        summary_path = explore_dir / "pearson_summary.csv"
+        corr_path = explore_dir / "pearson_corr_matrix.csv"
+
+        if summary_path.exists() and corr_path.exists():
+            try:
+                pearson_df = pd.read_csv(summary_path).set_index("cid")
+                corr = pd.read_csv(corr_path, index_col=0)
+                return pearson_df, corr
+            except Exception as exc:  # noqa: BLE001
+                self.logger.warning(
+                    f"  {self.model_name}: pearson summary read failed "
+                    f"({exc}); will recompute inline."
+                )
+
+        if df_long is None or df_long.empty:
+            self.logger.warning(
+                f"  [{self.country} {self.crop} {self.model_name} "
+                f"forecast_season={getattr(self, 'forecast_season', '?')}] "
+                f"no df available for inline pearson compute; "
+                f"falling back to existing use_cids."
+            )
+            self._record_fallback(
+                "pearson_summary_missing",
+                reason="no df available for inline compute",
+            )
+            return None, None
+
+        self.logger.info(
+            f"  {self.model_name}: pearson_summary.csv missing — computing "
+            f"inline from {len(df_long)} long rows (parallel-race fallback)."
+        )
+        try:
+            wide = utils.pivot_long_for_pearson(df_long, self.target)
+            method = getattr(self, "method", "monthly")
+            season_stages = None
+            sim = getattr(self, "simulation_stages", None)
+            if sim and isinstance(sim[0], (list, tuple)):
+                season_stages = max((len(s) for s in sim), default=None)
+            pearson_df, corr = utils.compute_pearson_summary(
+                wide, target_col=self.target,
+                method=method, season_stages=season_stages,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(
+                f"  {self.model_name}: inline pearson compute failed: {exc}"
+            )
+            return None, None
+
+        if pearson_df is None or pearson_df.empty:
+            return None, None
+
+        # Best-effort persist so sibling folds in the same run skip the
+        # recompute. Failure to write is non-fatal (siblings just retry).
+        try:
+            explore_dir.mkdir(parents=True, exist_ok=True)
+            pearson_df.reset_index().to_csv(summary_path, index=False)
+            if not corr.empty:
+                corr.to_csv(corr_path)
+        except Exception:  # noqa: BLE001
+            pass
+
+        return pearson_df, corr
+
+    def _apply_top_n_pearson_filter(self, df_long=None) -> None:
+        """Override self.use_cids with the top-N deduplicated CIDs.
+
+        Loads pearson_summary.csv if present, otherwise computes inline
+        from ``df_long`` (parallel-race fallback). Keeps the first N
+        rows where ``kept == True`` (survivors of the mutual-correlation
+        dedup at 0.9). Falls back to existing use_cids only when neither
+        source is usable.
+        """
+        _tag = (
+            f"[{self.country} {self.crop} {self.model_name} "
+            f"forecast_season={getattr(self, 'forecast_season', '?')}]"
+        )
+        pearson_df, _corr = self._load_or_compute_pearson_summary(df_long)
+        if pearson_df is None or pearson_df.empty:
+            self.logger.warning(
+                f"  {_tag} no pearson summary available — "
+                f"falling back to existing use_cids "
+                f"(use_cids={self.use_cids})."
+            )
+            self._record_fallback("pearson_summary_missing",
+                                  fallback_use_cids=self.use_cids)
+            return
+        if "kept" not in pearson_df.columns:
+            self.logger.warning(
+                f"  {_tag} pearson summary missing 'kept' column "
+                f"(stale schema); falling back to existing use_cids "
+                f"(use_cids={self.use_cids})."
+            )
+            self._record_fallback("pearson_summary_stale_schema",
+                                  fallback_use_cids=self.use_cids)
+            return
+        survivors = pearson_df[pearson_df["kept"]].head(self.top_n_pearson)
+        top_cids = survivors.index.tolist()
+        if not top_cids:
+            self.logger.warning(
+                f"  {_tag} no surviving CIDs in pearson summary; "
+                f"falling back to existing use_cids "
+                f"(use_cids={self.use_cids})."
+            )
+            self._record_fallback("top_n_empty_survivors",
+                                  fallback_use_cids=self.use_cids,
+                                  n_pearson_rows=len(pearson_df))
+            return
+        self.use_cids = top_cids
+        self.select_cid_by = "Index"
+        self.logger.info(
+            f"  {self.model_name}: restricted to top {len(top_cids)} CIDs: "
+            f"{top_cids}"
+        )
+
+    def _apply_auto_pearson_filter(self, df_long=None) -> None:
+        """Override self.use_cids using the at-least-X-above-Y schema.
+
+        Loads pearson_summary + corr matrix from the EDA dir if present,
+        otherwise computes inline from ``df_long`` (parallel-race
+        fallback). Applies the dedup-first relaxation policy in
+        utils.auto_select_cids. Logs the relaxation trail and persists
+        it as a per-model CSV for audit.
+        """
+        _tag = (
+            f"[{self.country} {self.crop} {self.model_name} "
+            f"forecast_season={getattr(self, 'forecast_season', '?')}]"
+        )
+        explore_dir = (
+            self.dir_analysis / "explore" / "cid_vs_yield"
+            / self.country / self.crop / "csvs"
+        )
+        pearson_df, corr = self._load_or_compute_pearson_summary(df_long)
+        if pearson_df is None or pearson_df.empty:
+            self.logger.warning(
+                f"  {_tag} no pearson summary available — "
+                f"falling back to existing use_cids (use_cids={self.use_cids})."
+            )
+            self._record_fallback("pearson_summary_missing",
+                                  fallback_use_cids=self.use_cids)
+            return
+        if corr is None or corr.empty:
+            self.logger.warning(
+                f"  {_tag} corr matrix unavailable — schema requires it "
+                f"for dedup; falling back to existing use_cids "
+                f"(use_cids={self.use_cids})."
+            )
+            self._record_fallback("auto_corr_matrix_missing",
+                                  fallback_use_cids=self.use_cids)
+            return
+        selected, relax_log = utils.auto_select_cids(
+            pearson_df, corr,
+            self.auto_min_count, self.auto_min_abs_r,
+            self.auto_dedup_threshold, self.auto_dedup_max,
+            self.auto_abs_r_floor, self.auto_abs_r_step,
+        )
+        report_path = explore_dir / f"auto_select_{self.model_name}.csv"
+        try:
+            pd.DataFrame(
+                relax_log,
+                columns=["step", "dedup_threshold", "abs_r_floor", "n_selected"],
+            ).to_csv(report_path, index=False)
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(
+                f"  {_tag} failed to persist relaxation report: {exc}"
+            )
+        if not selected:
+            self.logger.warning(
+                f"  {_tag} auto-select returned 0 CIDs at floor — "
+                f"falling back to existing use_cids (use_cids={self.use_cids})."
+            )
+            self._record_fallback("auto_select_zero",
+                                  fallback_use_cids=self.use_cids,
+                                  relax_steps=len(relax_log),
+                                  final_step=relax_log[-1][0] if relax_log else "")
+            return
+        self.use_cids = selected
+        self.select_cid_by = "Index"
+        final = relax_log[-1]
+        self.logger.info(
+            f"  {self.model_name}: auto-selected {len(selected)} CIDs "
+            f"(final dedup={final[1]:.2f}, |r| floor={final[2]:.2f}, "
+            f"steps={len(relax_log)}, report={report_path.name}): {selected}"
+        )
 
     def _save_ml_dataframe(self, df: pd.DataFrame):
         """Save ML-ready dataframe to disk."""
@@ -1844,6 +2237,7 @@ class Geocif:
         df = self._pivot_to_wide_format(df)
         df = self._apply_cumulative_or_stage_selection(df)
         df = self._filter_single_time_period_features(df)
+        df = self._filter_monthly_only_features(df)
         df = self._filter_current_month_partial_data(df)
         df = self._remove_last_month_data(df)
         df = self._update_column_names(df)
@@ -1976,7 +2370,23 @@ class Geocif:
         """Filter to keep only single time period features if configured."""
         if self.use_single_time_period_as_feature:
             df = stages.select_single_time_period_features(df)
-        
+
+        return df
+
+    def _filter_monthly_only_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Keep only single-calendar-period (monthly) features when the
+        per-model ``monthly_only_features`` flag is set.
+
+        Stricter than ``_filter_single_time_period_features``: drops 2-stage
+        cumulative spans (Jun+Jul) and Pre-Season / In-Season aggregates.
+        Used by the ``curated_<algo>`` wrapper sections.
+        """
+        if self.monthly_only_features:
+            n_before = df.shape[1]
+            df = stages.select_single_calendar_period_features(df)
+            self.logger.info(
+                f"  monthly_only_features: {n_before} → {df.shape[1]} columns"
+            )
         return df
 
     def _filter_current_month_partial_data(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -2304,8 +2714,10 @@ class Geocif:
                                         self.feature_names.append(tmp_col)
                                         candidates_matched += 1
                     except Exception:
-                        self.logger.exception(
-                            f"Error creating feature name for {_t}"
+                        import traceback as _tb
+                        self.logger.error(
+                            f"Error creating feature name for {_t}\n"
+                            f"{_tb.format_exc()}"
                         )
 
             self.feature_names = list(set(self.feature_names))
@@ -2711,14 +3123,28 @@ class Geocif:
             )
             return scaler.transform(X_test)
 
-        if self.model_name == "gam":
+        if self.dispatch_name == "gam":
             # Align to GAMFitter's surviving fit columns (Harvest Year /
             # Region_ID / Region dropped).  No rescaling — pygam splines
-            # handle raw numeric ranges.
+            # handle raw numeric ranges. dispatch_name keeps curated_gam
+            # routed through the same path as plain gam.
             fit_cols = getattr(self, "_gam_fit_cols", None)
             if fit_cols is not None:
-                return X_test.reindex(columns=fit_cols)
-            return X_test.drop(columns=list(GAMFitter._DROP_COLS), errors="ignore")
+                X_aligned = X_test.reindex(columns=fit_cols)
+            else:
+                X_aligned = X_test.drop(
+                    columns=list(GAMFitter._DROP_COLS), errors="ignore",
+                )
+            # pygam.predict requires no Inf/NaN. Fill with fit-time medians
+            # so the imputation matches what the model saw at fit (cached
+            # by GAMFitter.fit). Last-resort fallback = 0 for columns that
+            # had no training median (e.g. fully-NaN at fit, which
+            # _fill_missing_values would also have left at 0).
+            medians = getattr(self, "_gam_fit_medians", None)
+            if medians is not None:
+                X_aligned = X_aligned.fillna(medians)
+            X_aligned = X_aligned.replace([np.inf, -np.inf], np.nan).fillna(0)
+            return X_aligned
 
         if self.model_name == "cubist":
             # Align to the surviving fit-time columns (zero-variance cols
@@ -2774,13 +3200,16 @@ class Geocif:
         if not (self.estimate_ci_for_all or self.forecast_season == self.today_year):
             return self._predict_point_estimates(X_test, df_region)
         
-        if self.model_name == "ngboost":
+        # Use self.dispatch_name so curated_<algo> wrappers route through
+        # their underlying algo's CI path (e.g. curated_tabpfn uses TabPFN's
+        # native quantile path, not the conformal fallback).
+        if self.dispatch_name == "ngboost":
             return self._predict_ngboost_with_ci(X_test)
-        elif self.model_name == "tabpfn":
+        elif self.dispatch_name == "tabpfn":
             return self._predict_tabpfn_with_quantiles(X_test)
-        elif self.model_name == "tabicl":
+        elif self.dispatch_name == "tabicl":
             return self._predict_tabicl_with_quantiles(X_test)
-        elif self.model_name in ["logistic", "catboost"] and self.model_type == "CLASSIFICATION":
+        elif self.dispatch_name in ["logistic", "catboost"] and self.model_type == "CLASSIFICATION":
             return self._predict_classification_with_proba(X_test)
         else:
             return self._predict_with_conformal(X_test)
@@ -3400,12 +3829,19 @@ class Geocif:
                 # No correlation-based selection — use all CID features
                 self.feature_names = self.get_cid_column_names(self.df_train)
                 self.logger.warning(
-                    f"[_create_feature_names_for_region] correlation-selection "
-                    f"empty for region_id={region_id} ({self.country} {self.crop} "
-                    f"forecast_season={getattr(self, 'forecast_season', '?')}); "
+                    f"  [{self.country} {self.crop} {self.model_name} "
+                    f"forecast_season={getattr(self, 'forecast_season', '?')} "
+                    f"region_id={region_id}] correlation-selection empty; "
                     f"falling back to all CID columns: "
                     f"df_train.shape={self.df_train.shape}, "
                     f"feature_names={len(self.feature_names)}"
+                )
+                self._record_fallback(
+                    "correlation_selection_empty",
+                    region_id=region_id,
+                    df_train_rows=self.df_train.shape[0],
+                    df_train_cols=self.df_train.shape[1],
+                    feature_names_fallback_count=len(self.feature_names),
                 )
         elif self.model_name == "median":
             self.feature_names = [f"Median {self.target}"]
@@ -3505,7 +3941,7 @@ class Geocif:
 
         self.X_train = self._clean_training_features(self.X_train)
 
-        if self.model_name in ["gam", "linear", "gpr"]:
+        if self.dispatch_name in ["gam", "linear", "gpr"]:
             self._fill_missing_values()
 
         self.y_train = df_region_train[self.target_column]
@@ -3833,11 +4269,16 @@ class ModelTrainer:
         
         if self.obj.model_name.startswith("cumulative_"):
             return CumulativeFitter(self.obj)
-        
-        if self.obj.model_name == "desreg":
+
+        if self.obj.dispatch_name == "desreg":
             return DesregFitter(self.obj)
-        
-        return fitters.get(self.obj.model_name, DefaultFitter(self.obj))
+
+        # dispatch_name strips the curated_ prefix so curated_<algo>
+        # routes to <algo>'s specific fitter (GAMFitter's term-construction,
+        # CatBoostFitter's Pool wiring, etc.). Without this the curated
+        # variants silently fall back to DefaultFitter and train degenerate
+        # models (LinearGAM() with no spline terms, etc.).
+        return fitters.get(self.obj.dispatch_name, DefaultFitter(self.obj))
 
 
 # ============================================================================
@@ -4127,6 +4568,11 @@ class GAMFitter(BaseFitter):
         gam_cls = LogisticGAM if self.obj.model_type == "CLASSIFICATION" else LinearGAM
         self.obj.model = gam_cls(terms=terms)
         self.obj._gam_fit_cols = list(X_fit.columns)
+        # Cache fit-time medians so _align_test_features can fill predict-time
+        # NaN with the same imputation pygam saw at fit (otherwise reindex on
+        # a test set with missing CIDs produces NaN columns and pygam.predict
+        # raises "X data must not contain Inf nor NaN").
+        self.obj._gam_fit_medians = X_fit.median(numeric_only=True)
 
         y = np.asarray(self.obj.y_train).ravel()
         X_arr = X_fit.values
@@ -4235,8 +4681,10 @@ class DefaultFitter(BaseFitter):
         try:
             self.obj.model.fit(X_train, self.obj.y_train)
         except Exception as e:
-            self.obj.logger.exception(
+            import traceback as _tb
+            self.obj.logger.error(
                 f"Error fitting {self.obj.model_name} for "
-                f"{self.obj.country} {self.obj.crop}: {e}"
+                f"{self.obj.country} {self.obj.crop}: {e}\n"
+                f"{_tb.format_exc()}"
             )
             raise

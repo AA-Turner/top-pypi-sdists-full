@@ -1,6 +1,6 @@
 [project]
 name = "django-stubs"
-version = "6.0.4"
+version = "6.0.5"
 description = "Mypy stubs for Django"
 readme = "README.md"
 license = "MIT"
@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-compatible-mypy = ["mypy>=1.13,<2.1"]
+compatible-mypy = ["mypy>=1.13,<2.2"]
 oracle = ["oracledb"]
 redis = ["redis", "types-redis"]
 
@@ -47,7 +47,7 @@ redis = ["redis", "types-redis"]
 tests = [
   # Dev tools:
   "pytest==9.0.3",
-  "pytest-mypy-plugins==4.0.2",
+  "pytest-mypy-plugins==4.0.3",
   "pytest-shard==0.1.2",
   "pytest-xdist==3.8.0",
   # Django deps:
@@ -65,10 +65,11 @@ pyright = [
   "pyright==1.1.409",
 ]
 pyrefly = [
-  "pyrefly==0.64.0",
+  "pyrefly==1.0.0",
+  "psycopg2-binary"
 ]
 ty = [
-  "ty==0.0.34",
+  "ty==0.0.38",
   "psycopg2-binary"
 ]
 
@@ -121,6 +122,8 @@ reportMissingModuleSource = "none"
 [tool.pyrefly]
 # Respect only `# pyrefly: ignore` (ignore `# type: ignore`)
 enabled-ignores = ["pyrefly"]
+[tool.pyrefly.errors]
+unused-ignore = true
 
 [tool.ty.terminal]
 error-on-warning = true
@@ -128,9 +131,6 @@ error-on-warning = true
 [tool.ty.analysis]
 # Respect only `# ty: ignore` (ignore `# type: ignore`)
 respect-type-ignore-comments = false
-
-[tool.ty.rules]
-empty-body = "ignore"
 
 [tool.codespell]
 ignore-words-list = "aadd,acount,asend,indentity,nam"

@@ -76,6 +76,43 @@ def extract_sorted_cps(beast_result):
     return cp_years[order], cp_probs[order]
 
 
+def pick_admin_col(gdf, df, prefer="ADM2_NAME", fallback="ADM1_NAME"):
+    """Pick the admin-level column to join on between a boundary gdf and
+    a long-form HvStat df.
+
+    HvStat resolves FNID to admin_2 in 15 countries, admin_1 in 18; the
+    shapefile may carry either ADM1_NAME or both ADM1_NAME and ADM2_NAME.
+    Prefer the finer level (admin_2) when both sides have non-empty
+    values; fall back to admin_1.
+
+    Returns the column name as it appears in the gdf (e.g. "ADM2_NAME")
+    AND the matching column in df (always lower-case "admin" because
+    `load_filtered_hvstat` normalises both into a single column).
+
+    Args:
+        gdf: boundary GeoDataFrame already passed through
+            ``load_country_boundary_gdf``.
+        df: long-form df from ``load_filtered_hvstat`` with an "admin"
+            column.
+        prefer / fallback: gdf column names to try in order.
+
+    Returns:
+        (gdf_col, df_col) — column names to merge on. df_col is always
+        "admin"; gdf_col is whichever of prefer/fallback has overlap
+        with df["admin"].
+    """
+    if df.empty or "admin" not in df.columns:
+        return None, None
+    df_admins = set(df["admin"].astype(str).str.strip().str.lower())
+    for col in (prefer, fallback):
+        if col in gdf.columns:
+            gdf_admins = set(gdf[col].astype(str).str.strip().str.lower())
+            overlap = df_admins & gdf_admins
+            if len(overlap) >= 2:
+                return col, "admin"
+    return None, None
+
+
 def init_mpl_rcparams():
     """Apply the matplotlib defaults shared by beast_plots and beast_sensitivity."""
     mpl.rcParams.update({

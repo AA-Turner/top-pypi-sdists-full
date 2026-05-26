@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-import os
+import datetime
+from pathlib import Path
 
 import pytest
 from zeep.loader import parse_xml
-import datetime
+
 from onvif.client import ONVIFCamera
 from onvif.settings import DEFAULT_SETTINGS
 from onvif.transport import ASYNC_TRANSPORT
 from onvif.types import FastDateTime, ForgivingTime
 
 INVALID_TERM_TIME = b'<?xml version="1.0" encoding="UTF-8"?>\r\n<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding" xmlns:tev="http://www.onvif.org/ver10/events/wsdl" xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2" xmlns:wsa5="http://www.w3.org/2005/08/addressing" xmlns:chan="http://schemas.microsoft.com/ws/2005/02/duplex" xmlns:wsa="http://www.w3.org/2005/08/addressing" xmlns:tt="http://www.onvif.org/ver10/schema" xmlns:tns1="http://www.onvif.org/ver10/topics">\r\n<SOAP-ENV:Header>\r\n<wsa5:Action>http://www.onvif.org/ver10/events/wsdl/PullPointSubscription/PullMessagesResponse</wsa5:Action>\r\n</SOAP-ENV:Header>\r\n<SOAP-ENV:Body>\r\n<tev:PullMessagesResponse>\r\n<tev:CurrentTime>2024-08-17T00:56:16Z</tev:CurrentTime>\r\n<tev:TerminationTime>2024-08-17T00:61:16Z</tev:TerminationTime>\r\n</tev:PullMessagesResponse>\r\n</SOAP-ENV:Body>\r\n</SOAP-ENV:Envelope>\r\n'
-_WSDL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "onvif", "wsdl")
+_WSDL_PATH = str(Path(__file__).parent.parent / "onvif" / "wsdl")
 
 
 @pytest.mark.asyncio
@@ -51,7 +52,7 @@ def test_parse_invalid_time() -> None:
 
 
 def test_fix_datetime_missing_time() -> None:
-    assert FastDateTime().pythonvalue("2024-08-17") == datetime.datetime(
+    assert FastDateTime().pythonvalue("2024-08-17") == datetime.datetime(  # noqa: DTZ001
         2024, 8, 17, 0, 0, 0
     )
 
@@ -60,8 +61,29 @@ def test_fix_datetime_missing_t() -> None:
     assert FastDateTime().pythonvalue("2024-08-17 00:61:16Z") == datetime.datetime(
         2024, 8, 17, 1, 1, 16, tzinfo=datetime.timezone.utc
     )
-    assert FastDateTime().pythonvalue("2024-08-17 00:61:16") == datetime.datetime(
+    assert FastDateTime().pythonvalue("2024-08-17 00:61:16") == datetime.datetime(  # noqa: DTZ001
         2024, 8, 17, 1, 1, 16
+    )
+
+
+def test_fix_datetime_dash_separator() -> None:
+    """Some cameras use - instead of T as the date/time separator.
+
+    Regression test for
+    https://github.com/openvideolibs/python-onvif-zeep-async/issues/99
+    """
+    assert FastDateTime().pythonvalue("2010-01-01-00:00:00") == datetime.datetime(  # noqa: DTZ001
+        2010, 1, 1, 0, 0, 0
+    )
+    assert FastDateTime().pythonvalue("2010-01-01-00:00:00Z") == datetime.datetime(
+        2010, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
+    )
+
+
+def test_fix_datetime_stray_dash_after_t() -> None:
+    """Some cameras emit a stray - right after the T separator."""
+    assert FastDateTime().pythonvalue("2023-05-15T-07:10:32Z") == datetime.datetime(
+        2023, 5, 15, 7, 10, 32, tzinfo=datetime.timezone.utc
     )
 
 

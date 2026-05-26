@@ -76,6 +76,7 @@ from .detection import (
     current_ci,
     current_platform,
     current_shell,
+    current_shell_path,
     current_terminal,
     current_traits,
     is_aarch64,
@@ -162,6 +163,7 @@ from .detection import (
     is_opensuse,
     is_openwrt,
     is_oracle,
+    is_os400,
     is_parallels,
     is_pidora,
     is_powershell,
@@ -315,6 +317,7 @@ from .platform_data import (
     OPENSUSE,
     OPENWRT,
     ORACLE,
+    OS400,
     PARALLELS,
     PIDORA,
     RASPBIAN,
@@ -399,7 +402,7 @@ Pytest optional.
 """
 
 
-__version__ = "12.0.3"
+__version__ = "13.0.0"
 
 
 def _initialize_group_detection_functions() -> list[str]:
@@ -529,6 +532,7 @@ def invalidate_caches():
     current_architecture.cache_clear()
     current_platform.cache_clear()
     current_shell.cache_clear()
+    current_shell_path.cache_clear()
     current_terminal.cache_clear()
     current_ci.cache_clear()
     current_agent.cache_clear()
@@ -664,6 +668,7 @@ __all__ = (
     "OPENSUSE",
     "OPENWRT",
     "ORACLE",
+    "OS400",
     "OTHER_POSIX",
     "OTHER_SHELLS",
     "PARALLELS",
@@ -741,6 +746,7 @@ __all__ = (
     "current_ci",
     "current_platform",
     "current_shell",
+    "current_shell_path",
     "current_terminal",
     "current_traits",
     "extract_members",
@@ -857,6 +863,7 @@ __all__ = (
     "is_opensuse",
     "is_openwrt",
     "is_oracle",
+    "is_os400",
     "is_other_posix",
     "is_other_shells",
     "is_parallels",

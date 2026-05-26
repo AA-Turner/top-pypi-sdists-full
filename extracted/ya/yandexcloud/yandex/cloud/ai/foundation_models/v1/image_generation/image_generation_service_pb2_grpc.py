@@ -27,7 +27,7 @@ if _version_not_supported:
 
 
 class ImageGenerationAsyncServiceStub(object):
-    """Service for creating images based on a text description. 
+    """Service for creating images based on a text description.
     """
 
     def __init__(self, channel):
@@ -44,7 +44,7 @@ class ImageGenerationAsyncServiceStub(object):
 
 
 class ImageGenerationAsyncServiceServicer(object):
-    """Service for creating images based on a text description. 
+    """Service for creating images based on a text description.
     """
 
     def Generate(self, request, context):
@@ -71,7 +71,7 @@ def add_ImageGenerationAsyncServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class ImageGenerationAsyncService(object):
-    """Service for creating images based on a text description. 
+    """Service for creating images based on a text description.
     """
 
     @staticmethod

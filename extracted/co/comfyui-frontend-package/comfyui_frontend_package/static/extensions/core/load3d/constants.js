@@ -4,3 +4,4 @@ export const SUPPORTED_EXTENSIONS = window.comfyAPI.constants.SUPPORTED_EXTENSIO
 export const SUPPORTED_EXTENSIONS_ACCEPT = window.comfyAPI.constants.SUPPORTED_EXTENSIONS_ACCEPT;
 export const SUPPORTED_HDRI_EXTENSIONS = window.comfyAPI.constants.SUPPORTED_HDRI_EXTENSIONS;
 export const SUPPORTED_HDRI_EXTENSIONS_ACCEPT = window.comfyAPI.constants.SUPPORTED_HDRI_EXTENSIONS_ACCEPT;
+export const LOAD3D_NONE_MODEL = window.comfyAPI.constants.LOAD3D_NONE_MODEL;

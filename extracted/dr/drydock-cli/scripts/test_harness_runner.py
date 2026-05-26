@@ -1169,6 +1169,22 @@ def run_cases(only_ids: list[str] | None = None,
             )
             t0 = time.time()
 
+            # 2026-05-25: write the case's `check` list to a per-case
+            # JSON file and point DRYDOCK_SPEC_CHECK_FILE at it. The
+            # agent_loop spec_check hook (commit 70c5be9) will read
+            # this when the model emits a text-only "done" message,
+            # run the assertions, and inject the failure list as the
+            # next prompt instead of "Continue." — blocking unverified
+            # done claims for cases with mechanically-checkable specs.
+            # Mutates the shared `env` between cases; the next spawn
+            # picks up the new path. Cleanup: file is overwritten next
+            # case, no leftover state.
+            case_check = case.get("check") or []
+            spec_path = SCRATCH_ROOT / "spec_checks" / f"{cid}.json"
+            spec_path.parent.mkdir(parents=True, exist_ok=True)
+            spec_path.write_text(json.dumps(case_check))
+            env["DRYDOCK_SPEC_CHECK_FILE"] = str(spec_path)
+
             # --- workspace + seed ---
             is_continuation = (
                 seed_spec in CHAIN_CONTINUE_SEEDS or

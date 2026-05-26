@@ -111,11 +111,43 @@ else
             --exclude='.git' --exclude='.github/workflows' --exclude='logs/' \
             --exclude='__pycache__/' --exclude='*.pyc' --exclude='.pytest_cache/' \
             --exclude='*.egg-info/' --exclude='dist/' \
-            --exclude='.pause_auto_release' --exclude='log_analyzer/' \
+            --exclude='.pause_*' --exclude='log_analyzer/' \
+            --exclude='.auto_release.lock' --exclude='.perf_baseline_done' \
+            --exclude='.gauntlet_runs/' --exclude='.test_harness_runs/' \
+            --exclude='.test_harness_runs_autogoal/' \
+            --exclude='.test_harness_runs_baseline/' \
+            --exclude='.lifecycle_runs/' --exclude='.stress_runs/' \
+            --exclude='.100_projects/' --exclude='.eval_loop/' \
+            --exclude='.drydock/' --exclude='.tui_observability/' \
+            --exclude='.claude/' --exclude='.venv/' --exclude='.vscode/' \
+            --exclude='hle_results/' --exclude='hle_results_iter/' \
+            --exclude='medium/' --exclude='test_harness/' \
+            --exclude='test_bank_results/' --exclude='baseline_history/' \
+            --exclude='research/' --exclude='perf_results/' \
+            --exclude='trip_log.md' \
             "$DRYDOCK/" "$TMPDIR/repo/"
         cd "$TMPDIR/repo"
         git remote set-url origin "https://${GITHUB_TOKEN}@github.com/fbobe321/drydock.git"
         git add -A
+        # Drop already-tracked paths that match the rsync excludes (the
+        # excluded files are still on disk in the clone — rsync --exclude
+        # neither copies them in nor deletes them, so `git add -A` keeps
+        # them staged). Must run AFTER `git add -A` or the rm-cached
+        # removals get re-added by the same `git add -A`. shopt -s
+        # nullglob makes `.pause_*` expand to nothing when no sentinels
+        # exist instead of leaving a literal `.pause_*` arg.
+        ( shopt -s nullglob
+          for path in test_bank_results baseline_history research perf_results \
+                      hle_results hle_results_iter medium test_harness \
+                      trip_log.md .auto_release.lock .perf_baseline_done \
+                      .gauntlet_runs .test_harness_runs \
+                      .test_harness_runs_autogoal .test_harness_runs_baseline \
+                      .lifecycle_runs .stress_runs .100_projects .eval_loop \
+                      .drydock .tui_observability .claude .venv .vscode \
+                      .pause_*; do
+              git ls-files --error-unmatch -- "$path" >/dev/null 2>&1 \
+                  && git rm -r --cached --quiet -- "$path" 2>/dev/null || true
+          done )
         if git -c user.name="Drydock Deploy" -c user.email="deploy@drydock" \
                commit -m "v$NEW_VERSION: Auto-release"; then
             if git push origin main; then
@@ -154,6 +186,83 @@ fi
 
 # Tag
 git tag "v$NEW_VERSION" 2>/dev/null || true
+
+# 2026-05-25: Docker Hub publish step. Skips silently when:
+#   - docker is not installed on this host (e.g. CI runners without docker)
+#   - the credential file at ~/.config/drydock/dockerhub_password is missing
+#   - PyPI upload failed (TWINE_EXIT != 0) — don't ship a Docker image of
+#     a version that isn't on PyPI
+# The credential file should be: chmod 600, owned by the cron user, never
+# in git. See install_tests/publish/README.md.
+DOCKER_PASS_FILE="$HOME/.config/drydock/dockerhub_password"
+DOCKER_USERNAME="${DOCKER_HUB_USERNAME:-fbobe3}"
+if [ $TWINE_EXIT -eq 0 ] \
+        && command -v docker >/dev/null 2>&1 \
+        && [ -f "$DOCKER_PASS_FILE" ] \
+        && [ ! -f "$DRYDOCK/.pause_docker_publish" ]; then
+    echo "[$(date)] Building Docker image for v$NEW_VERSION" >> "$DRYDOCK/logs/auto_release.log"
+    DOCKER_HUB_USERNAME="$DOCKER_USERNAME" \
+    DOCKER_HUB_PASSWORD="$(cat "$DOCKER_PASS_FILE")" \
+        bash "$DRYDOCK/install_tests/publish/publish.sh" \
+        --version "$NEW_VERSION" \
+        >> "$DRYDOCK/logs/auto_release.log" 2>&1 \
+        && echo "[$(date)] Docker image fbobe3/drydock:$NEW_VERSION pushed" >> "$DRYDOCK/logs/auto_release.log" \
+        || echo "[$(date)] ERROR: Docker publish failed for v$NEW_VERSION (see log)" >> "$DRYDOCK/logs/auto_release.log"
+elif [ $TWINE_EXIT -ne 0 ]; then
+    echo "[$(date)] Skipping Docker publish: PyPI upload failed" >> "$DRYDOCK/logs/auto_release.log"
+elif ! command -v docker >/dev/null 2>&1; then
+    echo "[$(date)] Skipping Docker publish: docker not installed" >> "$DRYDOCK/logs/auto_release.log"
+elif [ ! -f "$DOCKER_PASS_FILE" ]; then
+    echo "[$(date)] Skipping Docker publish: credential file $DOCKER_PASS_FILE not present" >> "$DRYDOCK/logs/auto_release.log"
+fi
+
+# 2026-05-25: Cloudflare Pages deploy step (fourth target — after PyPI,
+# Docker Hub, GitHub). Ships the static landing page at web/ to
+# https://drydock.pages.dev/. Skips silently when:
+#   - the API token at ~/.config/drydock/cloudflare_token is missing
+#   - the account ID at ~/.config/drydock/cloudflare_account_id is missing
+#   - the .pause_cloudflare_deploy sentinel is present
+#   - web/ has no committed changes since the previous release tag
+#     (avoids no-op deploys — Cloudflare dedupes internally, but skipping
+#     here keeps the log clean and saves ~10s per release)
+# Token rotation: edit cloudflare_token in place; no other config to
+# update. The token must have Pages:Edit + Account Settings:Read on the
+# specific account whose ID lives in cloudflare_account_id.
+CF_TOKEN_FILE="$HOME/.config/drydock/cloudflare_token"
+CF_ACCOUNT_FILE="$HOME/.config/drydock/cloudflare_account_id"
+# Pin Node 20: wrangler v15+ requires it; this host has both 18 and 20
+# via nvm and the cron PATH typically resolves to 18.
+NODE20_BIN="$HOME/.nvm/versions/node/v20.20.2/bin"
+if [ -f "$CF_TOKEN_FILE" ] \
+        && [ -f "$CF_ACCOUNT_FILE" ] \
+        && [ ! -f "$DRYDOCK/.pause_cloudflare_deploy" ] \
+        && [ -d "$DRYDOCK/web" ]; then
+    # Only fire if web/ actually changed since the prior tag.
+    PRIOR_TAG=$(git -C "$DRYDOCK" describe --tags --abbrev=0 "v$NEW_VERSION^" 2>/dev/null || echo "")
+    WEB_CHANGED=1
+    if [ -n "$PRIOR_TAG" ]; then
+        if git -C "$DRYDOCK" diff --quiet "$PRIOR_TAG" HEAD -- web/ 2>/dev/null; then
+            WEB_CHANGED=0
+        fi
+    fi
+    if [ "$WEB_CHANGED" -eq 1 ]; then
+        echo "[$(date)] Deploying web/ to Cloudflare Pages (v$NEW_VERSION)" >> "$DRYDOCK/logs/auto_release.log"
+        PATH="$NODE20_BIN:$PATH" \
+        CLOUDFLARE_API_TOKEN="$(cat "$CF_TOKEN_FILE")" \
+        CLOUDFLARE_ACCOUNT_ID="$(cat "$CF_ACCOUNT_FILE")" \
+            wrangler pages deploy "$DRYDOCK/web" \
+                --project-name drydock --branch main --commit-dirty=true \
+                >> "$DRYDOCK/logs/auto_release.log" 2>&1 \
+            && echo "[$(date)] Cloudflare Pages deploy: OK (https://drydock.pages.dev/)" >> "$DRYDOCK/logs/auto_release.log" \
+            || echo "[$(date)] ERROR: Cloudflare Pages deploy FAILED (token or account scope?)" >> "$DRYDOCK/logs/auto_release.log"
+    else
+        echo "[$(date)] Skipping Cloudflare Pages: web/ unchanged since $PRIOR_TAG" >> "$DRYDOCK/logs/auto_release.log"
+    fi
+elif [ ! -f "$CF_TOKEN_FILE" ]; then
+    echo "[$(date)] Skipping Cloudflare Pages: credential file $CF_TOKEN_FILE not present" >> "$DRYDOCK/logs/auto_release.log"
+elif [ ! -f "$CF_ACCOUNT_FILE" ]; then
+    echo "[$(date)] Skipping Cloudflare Pages: account-id file $CF_ACCOUNT_FILE not present" >> "$DRYDOCK/logs/auto_release.log"
+fi
 
 # Notify — include the actual change summaries since last release, not
 # just a "N commits" placeholder. Pull each meaningful commit subject

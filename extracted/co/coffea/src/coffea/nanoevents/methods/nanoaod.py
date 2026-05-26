@@ -29,6 +29,10 @@ def _set_repr_name(classname):
     behavior[classname].__repr__ = namefcn
 
 
+_VERTEX_REQUIRED = frozenset({"x", "y", "z"})
+_SECONDARY_VERTEX_REQUIRED = frozenset({"pt", "eta", "phi", "mass"})
+
+
 behavior.update(
     awkward._util.copy_behaviors(
         "PtEtaPhiMLorentzVector", "PtEtaPhiMCollection", behavior
@@ -759,6 +763,14 @@ class Vertex(base.NanoCollection):
             behavior=self.behavior,
         )
 
+    def __awkward_validation__(self):
+        missing = _VERTEX_REQUIRED.difference(self.fields)
+        if missing:
+            raise ValueError(
+                f"{type(self).__name__} requires fields {sorted(_VERTEX_REQUIRED)}; "
+                f"missing: {sorted(missing)}"
+            )
+
 
 _set_repr_name("Vertex")
 
@@ -780,6 +792,15 @@ class SecondaryVertex(Vertex):
             with_name="PtEtaPhiMLorentzVector",
             behavior=self.behavior,
         )
+
+    def __awkward_validation__(self):
+        missing = _SECONDARY_VERTEX_REQUIRED.difference(self.fields)
+        if missing:
+            raise ValueError(
+                f"{type(self).__name__} requires fields {sorted(_SECONDARY_VERTEX_REQUIRED)} "
+                f"(in addition to x/y/z); missing: {sorted(missing)}"
+            )
+        super().__awkward_validation__()
 
 
 _set_repr_name("SecondaryVertex")

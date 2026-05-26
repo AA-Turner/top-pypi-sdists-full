@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: slackify_markdown
-Version: 0.2.3
+Version: 0.2.4
 Summary: Convert markdown to Slack-compatible formatting
 Author-email: Manthan Surkar <manthan1674@gmail.com>
 License: MIT License

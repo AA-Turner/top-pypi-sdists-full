@@ -30,6 +30,8 @@ class ListUsersAsSuperAdminResponse200Item:
         company (Union[Unset, str]):
         username (Union[Unset, str]):
         operator_only (Union[Unset, bool]):
+        is_workspace_admin (Union[Unset, bool]): Populated only for service accounts. True if the service account has
+            workspace admin in its (single) workspace.
         workspace_id (Union[Unset, str]):
     """
 
@@ -45,6 +47,7 @@ class ListUsersAsSuperAdminResponse200Item:
     company: Union[Unset, str] = UNSET
     username: Union[Unset, str] = UNSET
     operator_only: Union[Unset, bool] = UNSET
+    is_workspace_admin: Union[Unset, bool] = UNSET
     workspace_id: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -63,6 +66,7 @@ class ListUsersAsSuperAdminResponse200Item:
         company = self.company
         username = self.username
         operator_only = self.operator_only
+        is_workspace_admin = self.is_workspace_admin
         workspace_id = self.workspace_id
 
         field_dict: Dict[str, Any] = {}
@@ -88,6 +92,8 @@ class ListUsersAsSuperAdminResponse200Item:
             field_dict["username"] = username
         if operator_only is not UNSET:
             field_dict["operator_only"] = operator_only
+        if is_workspace_admin is not UNSET:
+            field_dict["is_workspace_admin"] = is_workspace_admin
         if workspace_id is not UNSET:
             field_dict["workspace_id"] = workspace_id
 
@@ -120,6 +126,8 @@ class ListUsersAsSuperAdminResponse200Item:
 
         operator_only = d.pop("operator_only", UNSET)
 
+        is_workspace_admin = d.pop("is_workspace_admin", UNSET)
+
         workspace_id = d.pop("workspace_id", UNSET)
 
         list_users_as_super_admin_response_200_item = cls(
@@ -135,6 +143,7 @@ class ListUsersAsSuperAdminResponse200Item:
             company=company,
             username=username,
             operator_only=operator_only,
+            is_workspace_admin=is_workspace_admin,
             workspace_id=workspace_id,
         )
 

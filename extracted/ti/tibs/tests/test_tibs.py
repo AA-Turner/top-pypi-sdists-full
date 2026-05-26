@@ -83,6 +83,18 @@ def test_from_u_errors():
         _ = Tibs.from_u(-1, 5)
 
 
+def test_negative_length_with_byte_endianness_reports_negative_length():
+    for cls in (Tibs, Mutibs):
+        for method_name, value in (
+            ("from_u", 0),
+            ("from_i", 0),
+            ("from_f", 0.0),
+        ):
+            method = getattr(cls, method_name)
+            with pytest.raises(ValueError, match="Negative bit length"):
+                method(value, -1, Endianness.Big)
+
+
 def test_from_i():
     a = Tibs.from_i(-9, 100)
     b = Mutibs.from_i(-9, 100)
@@ -337,9 +349,9 @@ def test_rfind_all():
 
 
 def test_endianness_i():
-    t1 = Tibs.from_i(3, 16, endianness=Endianness.Big)
+    t1 = Tibs.from_i(3, 16, Endianness.Big)
     assert t1.bin == '0000000000000011'
-    t2 = Tibs.from_i(3, 16, endianness=Endianness.Little)
+    t2 = Tibs.from_i(3, 16, Endianness.Little)
     assert t2.bin == '0000001100000000'
     assert t1.to_i() == 3
     assert t1.be.i == 3

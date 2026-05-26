@@ -328,7 +328,7 @@ class DrydockApp(App):  # noqa: PLR0904
             # model thinking (collapsed by default). Always-on because
             # checking widget state per render is more code than the
             # hint costs.
-            yield NoMarkupStatic("Ctrl+O: details · Shift+↑: scroll", id="keybind-hint")
+            yield NoMarkupStatic("Ctrl+O: details · Ctrl+J: newline · Shift+↑: scroll", id="keybind-hint")
             yield ContextProgress()
 
     async def on_mount(self) -> None:

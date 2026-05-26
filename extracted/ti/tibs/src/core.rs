@@ -94,7 +94,7 @@ pub(crate) trait BitCollection: Sized + Clone {
             Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
         } else {
             let data =
-                logical_op_with_aligned_bytes(&lhs, lhs_offset, &rhs, rhs_offset, |a, b| a | b);
+                logical_op_with_aligned_bytes(lhs, lhs_offset, rhs, rhs_offset, |a, b| a | b);
             let bv = BV::from_vec(data);
             Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
         }
@@ -118,7 +118,7 @@ pub(crate) trait BitCollection: Sized + Clone {
             Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
         } else {
             let data =
-                logical_op_with_aligned_bytes(&lhs, lhs_offset, &rhs, rhs_offset, |a, b| a & b);
+                logical_op_with_aligned_bytes(lhs, lhs_offset, rhs, rhs_offset, |a, b| a & b);
             let bv = BV::from_vec(data);
             Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
         }
@@ -142,7 +142,7 @@ pub(crate) trait BitCollection: Sized + Clone {
             Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
         } else {
             let data =
-                logical_op_with_aligned_bytes(&lhs, lhs_offset, &rhs, rhs_offset, |a, b| a ^ b);
+                logical_op_with_aligned_bytes(lhs, lhs_offset, rhs, rhs_offset, |a, b| a ^ b);
             let bv = BV::from_vec(data);
             Self::from_bv(bv).get_slice_unchecked(lhs_offset, self.len())
         }
@@ -262,7 +262,7 @@ pub(crate) trait BitCollection: Sized + Clone {
         match slice.domain() {
             bitvec::domain::Domain::Region { head, body, tail } => {
                 if let Some(h) = head {
-                    ones += h.into_bitslice().count_ones() as usize;
+                    ones += h.into_bitslice().count_ones();
                 }
                 if let Ok(words) = bytemuck::try_cast_slice::<u8, usize>(body) {
                     // Considerable speed increase by casting data to usize if possible.
@@ -270,7 +270,7 @@ pub(crate) trait BitCollection: Sized + Clone {
                         ones += word.count_ones() as usize;
                     }
                     // Handle the remainder not fitting into usize
-                    let remainder_start = words.len() * std::mem::size_of::<usize>();
+                    let remainder_start = std::mem::size_of_val(words);
                     for &byte in &body[remainder_start..] {
                         ones += byte.count_ones() as usize;
                     }
@@ -281,7 +281,7 @@ pub(crate) trait BitCollection: Sized + Clone {
                     }
                 }
                 if let Some(t) = tail {
-                    ones += t.into_bitslice().count_ones() as usize;
+                    ones += t.into_bitslice().count_ones();
                 }
             }
             _ => {
@@ -390,7 +390,7 @@ pub(crate) trait BitCollection: Sized + Clone {
         let len = self.len();
         if !len.is_multiple_of(8) {
             return Err(PyValueError::new_err(format!(
-                "Bit length must be a multiple of 8 to use byte_swap (got length of {len} bits). This error can also be caused by using an endianness modifier on non-whole byte data."
+                "Bit length must be a multiple of 8 to use byte_swap (got length of {len} bits). This error can also be caused by using a byte-order modifier on non-whole byte data."
             )));
         }
         let byte_length = byte_length.unwrap_or((len as i64) / 8);
@@ -687,7 +687,7 @@ pub(crate) trait BitCollection: Sized + Clone {
         bv.push(false);
         bv.push(true);
         bv.push(false);
-        let bit_padding = if self.len() % 8 == 0 {
+        let bit_padding = if self.len().is_multiple_of(8) {
             0
         } else {
             8 - self.len() % 8

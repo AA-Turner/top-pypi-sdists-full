@@ -2133,9 +2133,10 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                             actual = pivot.iloc[r_idx, m_idx]
                             if pd.notna(actual) and actual > METRIC_CAP:
                                 ax.annotate(
-                                    f"{actual:.0f}↑",
+                                    f"{actual:.0f}",
                                     xy=(patch.get_x() + patch.get_width() / 2,
                                         METRIC_CAP + 1.5),
+                                    rotation=90,
                                     fontsize=7, fontweight="bold",
                                     color="#b53b3b",
                                     ha="center", va="bottom",
@@ -2177,8 +2178,7 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 ax.set_ylabel("rRMSEp (%, mean ± stdev over LOOCV years)")
                 ax.set_title(
                     f"rRMSEp — {base_title}\n"
-                    f"(normalized by pooled mean obs yield, "
-                    f"per arxiv:2506.19046)",
+                    f"(normalized by pooled mean obs yield)",
                     fontweight="bold",
                 )
                 plt.xticks(rotation=20, ha="right")
@@ -2298,6 +2298,97 @@ def _generate_outlook_map(
         loc_legend="lower left",
         extend=extend,
     )
+
+
+def _summarize_fallbacks(dir_analysis):
+    """Merge per-PID fallback CSVs (from Geocif._record_fallback) into a
+    single summary + bar chart. Lands at:
+
+      ``<dir_analysis>/fallbacks_summary.csv``  — full row-per-event log
+      ``<dir_analysis>/fallbacks_summary_counts.csv`` — pivot by
+          (model, country, crop, category)
+      ``<dir_analysis>/fallbacks_summary.png`` — stacked bar chart
+
+    A "fallback" is any execution where the configured CID-selection
+    schema couldn't deliver and the model trained on something other
+    than its intended feature set (placeholder use_cids, all CIDs,
+    etc.). Categories include ``pearson_summary_missing``,
+    ``auto_select_zero``, ``top_n_empty_survivors``,
+    ``correlation_selection_empty``. Empty / missing fallback dir =
+    no-op (no fallbacks happened — best case).
+    """
+    import glob
+    from pathlib import Path as _Path
+
+    fall_dir = _Path(dir_analysis) / "fallbacks"
+    if not fall_dir.exists():
+        logger.info("No fallbacks/ dir — no diagnostic to summarize")
+        return
+
+    files = sorted(glob.glob(str(fall_dir / "fallback_*.csv")))
+    if not files:
+        logger.info(f"No fallback CSVs under {fall_dir}")
+        return
+
+    frames = []
+    for f in files:
+        try:
+            frames.append(pd.read_csv(f))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"  fallback file unreadable: {f} ({exc})")
+    if not frames:
+        return
+    df = pd.concat(frames, ignore_index=True, sort=False)
+    if df.empty:
+        return
+
+    summary_path = _Path(dir_analysis) / "fallbacks_summary.csv"
+    df.to_csv(summary_path, index=False)
+    logger.info(
+        f"Fallback summary: {len(df)} events across {len(files)} worker(s) "
+        f"→ {summary_path}"
+    )
+
+    counts = (
+        df.groupby(["model", "country", "crop", "category"])
+        .size()
+        .reset_index(name="n_events")
+        .sort_values("n_events", ascending=False)
+    )
+    counts_path = _Path(dir_analysis) / "fallbacks_summary_counts.csv"
+    counts.to_csv(counts_path, index=False)
+
+    # Bar chart: x = (model, country, crop), stacked by category
+    try:
+        import matplotlib.pyplot as plt
+        import scienceplots  # noqa: F401
+        pivot = (
+            df.assign(_key=lambda x: x["country"].astype(str) + "/" +
+                                    x["crop"].astype(str) + " " +
+                                    x["model"].astype(str))
+              .groupby(["_key", "category"]).size()
+              .unstack(fill_value=0)
+        )
+        pivot = pivot.loc[pivot.sum(axis=1).sort_values(ascending=False).index]
+        with plt.style.context(["science", "no-latex"]):
+            fig, ax = plt.subplots(figsize=(max(8, len(pivot) * 0.7), 5))
+            pivot.plot(kind="bar", stacked=True, ax=ax,
+                       colormap="tab10", edgecolor="white", width=0.8)
+            ax.set_ylabel("Fallback events")
+            ax.set_xlabel("country/crop  model")
+            ax.set_title(
+                f"Fallback events by (country, crop, model) — "
+                f"{int(pivot.values.sum())} total"
+            )
+            ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left",
+                      fontsize=7, title="Category")
+            plt.xticks(rotation=30, ha="right", fontsize=8)
+            plt.tight_layout()
+            fig.savefig(_Path(dir_analysis) / "fallbacks_summary.png",
+                        dpi=200, bbox_inches="tight")
+            plt.close(fig)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Fallback chart render failed (non-fatal): {exc}")
 
 
 def _plot_observed_yields(parser, dir_outlook):
@@ -2541,11 +2632,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("Countries", countries),
             ("Crops", crops),
             ("Models", models),
-            ("Forecast year", str(current_year)),
-            ("Outlook since year",
-                f"{since_year} ({current_year - since_year + 1} years LOOCV)"),
-            ("Outlook index window", f"{n_years} years"),
-            ("Seasons", f"{outlook_seasons[0]}-{outlook_seasons[-1]}"),
+            ("Forecast year (live)", str(current_year)),
+            ("Forecast loop",
+                f"{since_year}..{current_year} "
+                f"({current_year - since_year + 1} model runs)"),
+            ("Anomaly comparison window", f"{n_years} years"),
             ("Aggregation", aggregation),
             ("Time steps", parser.get("ML", "run_time_steps", fallback="latest")),
             ("Pooled", str(pool_countries_flag)),
@@ -2558,9 +2649,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 str(parser.getboolean("ML", "force_include_forecast_cids", fallback=True))),
             ("save_model_blobs",
                 str(parser.getboolean("ML", "save_model_blobs", fallback=False))),
-            ("training_start_year",
-                parser.get("ML", "training_start_year", fallback="").strip()
-                or "(earliest - 1)"),
+            ("Training rows per fold",
+                f"Harvest Year >= {parser.get('ML', 'training_start_year', fallback='').strip()}"
+                if parser.get("ML", "training_start_year", fallback="").strip()
+                else "Harvest Year > earliest year in data (drops boundary year only)"),
             ("Yield Trend feature",
                 parser.get("ML", "use_yield_trend_as_feature", fallback="False").strip()
                 or "False"),
@@ -3169,6 +3261,14 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             countries, sorted({row[2] for row in inputs}) if inputs else crops,
             all_models,
         )
+
+    # Post-run fallback diagnostic: merge per-PID fallbacks/*.csv files
+    # into fallbacks_summary.csv + a bar chart per (model, category).
+    # Best-effort; never blocks the rest of the post-run steps.
+    try:
+        _summarize_fallbacks(dir_outlook.parent)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Fallback summary failed (non-fatal): {exc}")
 
     # Optional FDW CSV exports (Template 1 forecast + Template 2 historical + Template 3 accuracy)
     if fdw_export:

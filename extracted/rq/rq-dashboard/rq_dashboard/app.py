@@ -55,6 +55,10 @@ def _apply_environment_config(app, url_prefix: str) -> None:
         except ValueError:
             pass
 
+    show_full_args_env = os.environ.get("RQ_DASHBOARD_SHOW_FULL_ARGS")
+    if show_full_args_env is not None:
+        app.config["RQ_DASHBOARD_SHOW_FULL_ARGS"] = _str_to_bool(show_full_args_env)
+
     if _str_to_bool(os.environ.get("RQ_DASHBOARD_JSON_SERIALIZER", "false")):
         service_config.serializer = JSONSerializer
 
@@ -71,6 +75,7 @@ def _apply_environment_config(app, url_prefix: str) -> None:
                 "RQ_DASHBOARD_USERNAME",
                 "RQ_DASHBOARD_PASSWORD",
                 "RQ_DASHBOARD_CONFIG",
+                "RQ_DASHBOARD_SHOW_FULL_ARGS",
             }:
                 continue
             app.config[key] = value

@@ -403,7 +403,7 @@ providers: list[Provider] = [
         name='AWS Bedrock',
         api_pattern='https://bedrock-runtime\\.[a-z0-9-]+\\.amazonaws\\.com/',
         pricing_urls=['https://aws.amazon.com/bedrock/pricing/'],
-        provider_match=ClauseContains(contains='bedrock'),
+        provider_match=ClauseOr(or_=[ClauseContains(contains='bedrock'), ClauseContains(contains='amazon')]),
         extractors=[
             UsageExtractor(
                 root='usage',
@@ -2057,6 +2057,15 @@ providers: list[Provider] = [
                     cache_read_mtok=TieredPrices(base=Decimal('0.2'), tiers=[Tier(start=200000, price=Decimal('0.4'))]),
                     output_mtok=TieredPrices(base=Decimal('12'), tiers=[Tier(start=200000, price=Decimal('18'))]),
                 ),
+            ),
+            ModelInfo(
+                id='gemini-3.5-flash',
+                match=ClauseStartsWith(starts_with='gemini-3.5-flash'),
+                name='Gemini 3.5 Flash',
+                description="Google's most intelligent model built for speed, combining frontier intelligence with improved reasoning, coding, and multimodal understanding.",
+                context_window=1000000,
+                price_comments='See https://ai.google.dev/gemini-api/docs/pricing. Standard tier pricing shown; Batch and Flex tiers offer 50% discount on input/output.',
+                prices=ModelPrice(input_mtok=Decimal('1.5'), cache_read_mtok=Decimal('0.15'), output_mtok=Decimal('9')),
             ),
             ModelInfo(
                 id='gemini-embedding-001',

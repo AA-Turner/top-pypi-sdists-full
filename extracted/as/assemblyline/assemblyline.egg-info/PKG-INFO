@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: assemblyline
-Version: 4.7.3.3
+Version: 4.7.4.0
 Summary: Assemblyline 4 - Automated malware analysis framework
 Home-page: https://github.com/CybercentreCanada/assemblyline-base
 Author: CCCS Assemblyline development team
@@ -39,7 +39,7 @@ Requires-Dist: apscheduler
 Requires-Dist: websocket_client<1.0.0
 Requires-Dist: elastic-apm[flask]>=6.13.0
 Requires-Dist: docker
-Requires-Dist: kubernetes>18
+Requires-Dist: kubernetes==35.0.0
 Requires-Dist: notifications-python-client
 Requires-Dist: rstr
 Requires-Dist: azure-storage-blob!=12.4.0

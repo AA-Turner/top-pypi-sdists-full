@@ -1507,112 +1507,119 @@ class PutBucketLifecycleOutput(ResponseInfo):
         super(PutBucketLifecycleOutput, self).__init__(resp)
 
 
+def _parse_lifecycle_rules(rules_json):
+    """解析生命周期规则 JSON 列表，返回 BucketLifeCycleRule 对象列表"""
+    rules = []
+    rules_json = rules_json or []
+    for rule_json in rules_json:
+        rule = BucketLifeCycleRule()
+        rule.id = get_value(rule_json, 'ID')
+        rule.prefix = get_value(rule_json, 'Prefix')
+        if get_value(rule_json, 'Status'):
+            rule.status = get_value(rule_json, 'Status', lambda x: convert_status_type(x))
+
+        expiration_json = get_value(rule_json, 'Expiration')
+        non_current_version_expiration_json = get_value(rule_json, 'NoncurrentVersionExpiration')
+        abort_incomplete_multipart_upload_json = get_value(rule_json, 'AbortIncompleteMultipartUpload')
+        tags_json = get_value(rule_json, 'Tags') or []
+        transitions_json = get_value(rule_json, 'Transitions') or []
+        non_current_version_transitions_json = get_value(rule_json, 'NoncurrentVersionTransitions') or []
+        access_time_transitions_json = get_value(rule_json, 'AccessTimeTransitions') or []
+        non_current_version_access_time_transitions_json = get_value(rule_json, 'NoncurrentVersionAccessTimeTransitions') or []
+        filter_json = get_value(rule_json, 'Filter')
+
+        if expiration_json:
+            bucket_expiration = BucketLifeCycleExpiration()
+            bucket_expiration.days = get_value(expiration_json, 'Days', int)
+            if get_value(expiration_json, 'Date'):
+                bucket_expiration.date = parse_modify_time_to_utc_datetime(get_value(expiration_json, 'Date'))
+            rule.expiration = bucket_expiration
+
+        if non_current_version_transitions_json:
+            rule.non_current_version_transitions = []
+            for vt in non_current_version_transitions_json:
+                tr = BucketLifeCycleNonCurrentVersionTransition()
+                tr.storage_class = get_value(vt, 'StorageClass', lambda x: convert_storage_class_type(x))
+                tr.non_current_days = get_value(vt, 'NoncurrentDays', int)
+                if get_value(vt, 'NoncurrentDate'):
+                    tr.non_current_date = parse_modify_time_to_utc_datetime(
+                        get_value(vt, 'NoncurrentDate'))
+                rule.non_current_version_transitions.append(tr)
+
+        if transitions_json:
+            rule.transitions = []
+            for transition_json in transitions_json:
+                ts = BucketLifeCycleTransition()
+                ts.storage_class = get_value(transition_json, 'StorageClass',
+                                             lambda x: convert_storage_class_type(x))
+                ts.days = get_value(transition_json, 'Days', int)
+                if get_value(transition_json, 'Date'):
+                    ts.date = parse_modify_time_to_utc_datetime(get_value(transition_json, 'Date'))
+                rule.transitions.append(ts)
+
+        if access_time_transitions_json:
+            rule.access_time_transitions = []
+            for transition_json in access_time_transitions_json:
+                ts = AccessTimeTransition()
+                ts.storage_class = get_value(transition_json, 'StorageClass',
+                                             lambda x: convert_storage_class_type(x))
+                ts.days = get_value(transition_json, 'Days', int)
+                rule.access_time_transitions.append(ts)
+
+        if non_current_version_access_time_transitions_json:
+            rule.non_current_version_access_time_transitions = []
+            for vt in non_current_version_access_time_transitions_json:
+                tr = NoncurrentVersionAccessTimeTransition()
+                tr.storage_class = get_value(vt, 'StorageClass', lambda x: convert_storage_class_type(x))
+                tr.non_current_days = get_value(vt, 'NoncurrentDays', int)
+                rule.non_current_version_access_time_transitions.append(tr)
+
+        if tags_json:
+            rule.tags = []
+            for tag_json in tags_json:
+                tag = Tag()
+                tag.key = get_value(tag_json, 'Key')
+                tag.value = get_value(tag_json, 'Value')
+                rule.tags.append(tag)
+
+        if abort_incomplete_multipart_upload_json:
+            abort = BucketLifeCycleAbortInCompleteMultipartUpload()
+            abort.days_after_init = get_value(abort_incomplete_multipart_upload_json, 'DaysAfterInitiation',
+                                              int)
+            rule.abort_in_complete_multipart_upload = abort
+
+        if non_current_version_expiration_json:
+            exp = BucketLifeCycleNoCurrentVersionExpiration()
+            exp.no_current_days = get_value(non_current_version_expiration_json, 'NoncurrentDays', int)
+            if get_value(non_current_version_expiration_json, 'NoncurrentDate'):
+                exp.non_current_date = parse_modify_time_to_utc_datetime(
+                    get_value(non_current_version_expiration_json, 'NoncurrentDate'))
+            rule.no_current_version_expiration = exp
+
+        if filter_json:
+            lifecycle_filter = BucketLifecycleFilter()
+            if get_value(filter_json, 'ObjectSizeGreaterThan'):
+                lifecycle_filter.object_size_greater_than = get_value(filter_json, 'ObjectSizeGreaterThan', int)
+            if get_value(filter_json, 'ObjectSizeLessThan'):
+                lifecycle_filter.object_size_less_than = get_value(filter_json, 'ObjectSizeLessThan', int)
+            if get_value(filter_json, 'GreaterThanIncludeEqual'):
+                lifecycle_filter.greater_than_include_equal = get_value(filter_json, 'GreaterThanIncludeEqual',
+                                                                        lambda x: convert_status_type(x))
+            if get_value(filter_json, 'LessThanIncludeEqual'):
+                lifecycle_filter.less_than_include_equal = get_value(filter_json, 'LessThanIncludeEqual',
+                                                                     lambda x: convert_status_type(x))
+            rule.filter = lifecycle_filter
+        rules.append(rule)
+    return rules
+
+
 class GetBucketLifecycleOutput(ResponseInfo):
     def __init__(self, resp):
         self.rules = []
         super(GetBucketLifecycleOutput, self).__init__(resp)
         data = resp.json_read()
         self.allow_same_action_overlap = get_value(resp.headers, 'x-tos-allow-same-action-overlap', lambda x: bool(x))
-        rules_json = get_value(data, 'Rules') or []
-        for rule_json in rules_json:
-            rule = BucketLifeCycleRule()
-            rule.id = get_value(rule_json, 'ID')
-            rule.prefix = get_value(rule_json, 'Prefix')
-            if get_value(rule_json, 'Status'):
-                rule.status = get_value(rule_json, 'Status', lambda x: convert_status_type(x))
-
-            expiration_json = get_value(rule_json, 'Expiration')
-            non_current_version_expiration_json = get_value(rule_json, 'NoncurrentVersionExpiration')
-            abort_incomplete_multipart_upload_json = get_value(rule_json, 'AbortIncompleteMultipartUpload')
-            tags_json = get_value(rule_json, 'Tags') or []
-            transitions_json = get_value(rule_json, 'Transitions') or []
-            non_current_version_transitions_json = get_value(rule_json, 'NoncurrentVersionTransitions') or []
-            access_time_transitions_json = get_value(rule_json, 'AccessTimeTransitions') or []
-            non_current_version_access_time_transitions_json = get_value(rule_json, 'NoncurrentVersionAccessTimeTransitions') or []
-            filter_json = get_value(rule_json, 'Filter')
-
-            if expiration_json:
-                bucket_expiration = BucketLifeCycleExpiration()
-                bucket_expiration.days = get_value(expiration_json, 'Days', int)
-                if get_value(expiration_json, 'Date'):
-                    bucket_expiration.date = parse_modify_time_to_utc_datetime(get_value(expiration_json, 'Date'))
-                rule.expiration = bucket_expiration
-
-            if non_current_version_transitions_json:
-                rule.non_current_version_transitions = []
-                for vt in non_current_version_transitions_json:
-                    tr = BucketLifeCycleNonCurrentVersionTransition()
-                    tr.storage_class = get_value(vt, 'StorageClass', lambda x: convert_storage_class_type(x))
-                    tr.non_current_days = get_value(vt, 'NoncurrentDays', int)
-                    if get_value(vt, 'NoncurrentDate'):
-                        tr.non_current_date = parse_modify_time_to_utc_datetime(
-                            get_value(vt, 'NoncurrentDate'))
-                    rule.non_current_version_transitions.append(tr)
-
-            if transitions_json:
-                rule.transitions = []
-                for transition_json in transitions_json:
-                    ts = BucketLifeCycleTransition()
-                    ts.storage_class = get_value(transition_json, 'StorageClass',
-                                                 lambda x: convert_storage_class_type(x))
-                    ts.days = get_value(transition_json, 'Days', int)
-                    if get_value(transition_json, 'Date'):
-                        ts.date = parse_modify_time_to_utc_datetime(get_value(transition_json, 'Date'))
-                    rule.transitions.append(ts)
-
-            if access_time_transitions_json:
-                rule.access_time_transitions = []
-                for transition_json in access_time_transitions_json:
-                    ts = AccessTimeTransition()
-                    ts.storage_class = get_value(transition_json, 'StorageClass',
-                                                 lambda x: convert_storage_class_type(x))
-                    ts.days = get_value(transition_json, 'Days', int)
-                    rule.access_time_transitions.append(ts)
-
-            if non_current_version_access_time_transitions_json:
-                rule.non_current_version_access_time_transitions = []
-                for vt in non_current_version_access_time_transitions_json:
-                    tr = NoncurrentVersionAccessTimeTransition()
-                    tr.storage_class = get_value(vt, 'StorageClass', lambda x: convert_storage_class_type(x))
-                    tr.non_current_days = get_value(vt, 'NoncurrentDays', int)
-                    rule.non_current_version_access_time_transitions.append(tr)
-
-            if tags_json:
-                rule.tags = []
-                for tag_json in tags_json:
-                    tag = Tag()
-                    tag.key = get_value(tag_json, 'Key')
-                    tag.value = get_value(tag_json, 'Value')
-                    rule.tags.append(tag)
-
-            if abort_incomplete_multipart_upload_json:
-                abort = BucketLifeCycleAbortInCompleteMultipartUpload()
-                abort.days_after_init = get_value(abort_incomplete_multipart_upload_json, 'DaysAfterInitiation',
-                                                  int)
-                rule.abort_in_complete_multipart_upload = abort
-
-            if non_current_version_expiration_json:
-                exp = BucketLifeCycleNoCurrentVersionExpiration()
-                exp.no_current_days = get_value(non_current_version_expiration_json, 'NoncurrentDays', int)
-                if get_value(non_current_version_expiration_json, 'NoncurrentDate'):
-                    exp.non_current_date = parse_modify_time_to_utc_datetime(
-                        get_value(non_current_version_expiration_json, 'NoncurrentDate'))
-                rule.no_current_version_expiration = exp
-
-            if filter_json:
-                lifecycle_filter = BucketLifecycleFilter()
-                if get_value(filter_json, 'ObjectSizeGreaterThan'):
-                    lifecycle_filter.object_size_greater_than = get_value(filter_json, 'ObjectSizeGreaterThan', int)
-                if get_value(filter_json, 'ObjectSizeLessThan'):
-                    lifecycle_filter.object_size_less_than = get_value(filter_json, 'ObjectSizeLessThan', int)
-                if get_value(filter_json, 'GreaterThanIncludeEqual'):
-                    lifecycle_filter.greater_than_include_equal = get_value(filter_json, 'GreaterThanIncludeEqual',
-                                                                            lambda x: convert_status_type(x))
-                if get_value(filter_json, 'LessThanIncludeEqual'):
-                    lifecycle_filter.less_than_include_equal = get_value(filter_json, 'LessThanIncludeEqual',
-                                                                         lambda x: convert_status_type(x))
-                rule.filter = lifecycle_filter
-            self.rules.append(rule)
+        self.rules = _parse_lifecycle_rules(get_value(data, 'Rules'))
 
 
 class DeleteBucketLifecycleOutput(ResponseInfo):
@@ -3154,3 +3161,297 @@ class GetQosPolicyOutput(ResponseInfo):
 class DeleteQosPolicyOutput(ResponseInfo):
     def __init__(self, resp):
         super(DeleteQosPolicyOutput, self).__init__(resp)
+
+
+# ==================== ObjectSet 相关模型类 ====================
+
+class QosConfig(object):
+    """QoS 配置"""
+    def __init__(self, reads_qps=None, writes_qps=None, list_qps=None,
+                 reads_rate=None, writes_rate=None):
+        self.reads_qps = reads_qps
+        self.writes_qps = writes_qps
+        self.list_qps = list_qps
+        self.reads_rate = reads_rate
+        self.writes_rate = writes_rate
+
+    def to_dict(self):
+        d = {}
+        if self.reads_qps is not None:
+            d['ReadsQps'] = self.reads_qps
+        if self.writes_qps is not None:
+            d['WritesQps'] = self.writes_qps
+        if self.list_qps is not None:
+            d['ListQps'] = self.list_qps
+        if self.reads_rate is not None:
+            d['ReadsRate'] = self.reads_rate
+        if self.writes_rate is not None:
+            d['WritesRate'] = self.writes_rate
+        return d
+
+
+class StorageStat(object):
+    """存储统计"""
+    def __init__(self, storage_size=None, object_count=None):
+        self.storage_size = storage_size
+        self.object_count = object_count
+
+
+class IntelligentTieringStorageStats(object):
+    """智能分层存储统计"""
+    def __init__(self, high_freq_storage_stat=None, low_freq_storage_stat=None,
+                 archive_storage_stat=None):
+        self.high_freq_storage_stat = high_freq_storage_stat
+        self.low_freq_storage_stat = low_freq_storage_stat
+        self.archive_storage_stat = archive_storage_stat
+
+
+class ObjectSetQuotaRule(object):
+    """ObjectSet 配额规则"""
+    def __init__(self, tag=None, qos=None, storage_quota=None):
+        self.tag = tag
+        self.qos = qos
+        self.storage_quota = storage_quota
+
+
+class ObjectSetTagLifecycleRule(object):
+    """ObjectSet 标签生命周期规则"""
+    def __init__(self, tag=None, rules=None):
+        self.tag = tag
+        self.rules = rules
+
+
+class ListedObjectSet(object):
+    """列举返回的 ObjectSet 项"""
+    def __init__(self, object_set_name=None, tag_set=None):
+        self.object_set_name = object_set_name
+        self.tag_set = tag_set
+
+
+class PutBucketObjectSetConfigurationOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(PutBucketObjectSetConfigurationOutput, self).__init__(resp)
+
+
+class GetBucketObjectSetConfigurationOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(GetBucketObjectSetConfigurationOutput, self).__init__(resp)
+        data = resp.json_read()
+        self.path_level = get_value(data, 'PathLevel', int)
+        self.custom_delimiter = get_value(data, 'CustomDelimiter')
+        self.enable_default_object_set = get_value(data, 'EnableDefaultObjectSet', bool)
+        self.storage_quota = get_value(data, 'StorageQuota')
+        qos_json = get_value(data, 'Qos')
+        if qos_json:
+            self.qos = QosConfig(
+                reads_qps=get_value(qos_json, 'ReadsQps', int),
+                writes_qps=get_value(qos_json, 'WritesQps', int),
+                list_qps=get_value(qos_json, 'ListQps', int),
+                reads_rate=get_value(qos_json, 'ReadsRate', int),
+                writes_rate=get_value(qos_json, 'WritesRate', int),
+            )
+        else:
+            self.qos = None
+
+
+class PutObjectSetOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(PutObjectSetOutput, self).__init__(resp)
+
+
+class PutObjectSetTaggingOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(PutObjectSetTaggingOutput, self).__init__(resp)
+
+
+class ListObjectSetOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(ListObjectSetOutput, self).__init__(resp)
+        data = resp.json_read()
+        self.is_truncated = get_value(data, 'IsTruncated', bool)
+        self.next_marker = get_value(data, 'NextMarker')
+        self.object_sets = []
+        object_sets_json = get_value(data, 'ObjectSets') or []
+        for os_json in object_sets_json:
+            tag_set = []
+            ts = get_value(os_json, 'TagSet')
+            if ts:
+                tags = get_value(ts, 'Tags') or []
+                for t in tags:
+                    tag_set.append(Tag(get_value(t, 'Key'), get_value(t, 'Value')))
+            self.object_sets.append(ListedObjectSet(
+                object_set_name=get_value(os_json, 'ObjectSetName'),
+                tag_set=tag_set,
+            ))
+
+
+class GetObjectSetOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(GetObjectSetOutput, self).__init__(resp)
+        data = resp.json_read()
+        self.object_set_name = get_value(data, 'ObjectSetName')
+        self.tag_set = []
+        ts = get_value(data, 'TagSet')
+        if ts:
+            tags = get_value(ts, 'Tags') or []
+            for t in tags:
+                self.tag_set.append(Tag(get_value(t, 'Key'), get_value(t, 'Value')))
+
+
+class GetObjectSetTaggingOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(GetObjectSetTaggingOutput, self).__init__(resp)
+        data = resp.json_read()
+        self.object_set_name = get_value(data, 'ObjectSetName')
+        self.tag_set = []
+        ts = get_value(data, 'TagSet')
+        if ts:
+            tags = get_value(ts, 'Tags') or []
+            for t in tags:
+                self.tag_set.append(Tag(get_value(t, 'Key'), get_value(t, 'Value')))
+
+
+class DeleteObjectSetOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(DeleteObjectSetOutput, self).__init__(resp)
+
+
+class ObjectSetEndpoint(object):
+    """ObjectSet 端点信息"""
+    def __init__(self, cap_name=None, endpoint=None, s3_endpoint=None):
+        self.cap_name = cap_name
+        self.endpoint = endpoint or []
+        self.s3_endpoint = s3_endpoint or []
+
+
+class GetObjectSetEndpointOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(GetObjectSetEndpointOutput, self).__init__(resp)
+        data = resp.json_read()
+        # Go 侧直接把响应体反序列化到 []ObjectSetEndpoint
+        raw = data if isinstance(data, list) else []
+        self.endpoints = []
+        for item in raw:
+            self.endpoints.append(ObjectSetEndpoint(
+                cap_name=get_value(item, 'capname'),
+                endpoint=get_value(item, 'endpoint') or [],
+                s3_endpoint=get_value(item, 's3endpoint') or [],
+            ))
+
+
+class PutObjectSetQuotaOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(PutObjectSetQuotaOutput, self).__init__(resp)
+
+
+class GetObjectSetQuotaOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(GetObjectSetQuotaOutput, self).__init__(resp)
+        data = resp.json_read()
+        self.storage_quota = get_value(data, 'StorageQuota')
+
+
+def _parse_storage_stat(stat_json):
+    """解析 StorageStat"""
+    if not stat_json:
+        return StorageStat()
+    return StorageStat(
+        storage_size=get_value(stat_json, 'Storage'),
+        object_count=get_value(stat_json, 'ObjectCount', int),
+    )
+
+
+class GetObjectSetStorageOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(GetObjectSetStorageOutput, self).__init__(resp)
+        data = resp.json_read()
+        self.total_storage_stat = _parse_storage_stat(get_value(data, 'TotalStorageStat'))
+        self.standard_storage_stat = _parse_storage_stat(get_value(data, 'StandardStorageStat'))
+        self.ia_storage_stat = _parse_storage_stat(get_value(data, 'IAStorageStat'))
+        self.archive_fr_storage_stat = _parse_storage_stat(get_value(data, 'ArchiveFrStorageStat'))
+        self.archive_storage_stat = _parse_storage_stat(get_value(data, 'ArchiveStorageStat'))
+        self.cold_archive_stat = _parse_storage_stat(get_value(data, 'ColdArchiveStat'))
+        self.deep_cold_archive_storage_stat = _parse_storage_stat(get_value(data, 'DeepColdArchiveStorageStat'))
+        it_json = get_value(data, 'IntelligentTieringStorageStats')
+        if it_json:
+            self.intelligent_tiering_storage_stats = IntelligentTieringStorageStats(
+                high_freq_storage_stat=_parse_storage_stat(get_value(it_json, 'HighFreqStorageStat')),
+                low_freq_storage_stat=_parse_storage_stat(get_value(it_json, 'LowFreqStorageStat')),
+                archive_storage_stat=_parse_storage_stat(get_value(it_json, 'ArchiveStorageStat')),
+            )
+        else:
+            self.intelligent_tiering_storage_stats = None
+
+
+class PutObjectSetQuotaByTagOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(PutObjectSetQuotaByTagOutput, self).__init__(resp)
+
+
+class GetObjectSetQuotaByTagOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(GetObjectSetQuotaByTagOutput, self).__init__(resp)
+        data = resp.json_read()
+        self.rules = []
+        rules_json = get_value(data, 'Rules') or []
+        for r in rules_json:
+            tag_json = get_value(r, 'Tag')
+            tag = Tag(get_value(tag_json, 'Key'), get_value(tag_json, 'Value')) if tag_json else None
+            qos_json = get_value(r, 'Qos')
+            qos = QosConfig(
+                reads_qps=get_value(qos_json, 'ReadsQps', int),
+                writes_qps=get_value(qos_json, 'WritesQps', int),
+                list_qps=get_value(qos_json, 'ListQps', int),
+                reads_rate=get_value(qos_json, 'ReadsRate', int),
+                writes_rate=get_value(qos_json, 'WritesRate', int),
+            ) if qos_json else None
+            self.rules.append(ObjectSetQuotaRule(
+                tag=tag,
+                qos=qos,
+                storage_quota=get_value(r, 'StorageQuota'),
+            ))
+
+
+class DeleteObjectSetQuotaByTagOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(DeleteObjectSetQuotaByTagOutput, self).__init__(resp)
+
+
+class PutObjectSetLifecycleOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(PutObjectSetLifecycleOutput, self).__init__(resp)
+
+
+class GetObjectSetLifecycleOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(GetObjectSetLifecycleOutput, self).__init__(resp)
+        data = resp.json_read()
+        self.rules = _parse_lifecycle_rules(get_value(data, 'Rules'))
+
+
+class DeleteObjectSetLifecycleOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(DeleteObjectSetLifecycleOutput, self).__init__(resp)
+
+
+class PutObjectSetLifecycleByTagOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(PutObjectSetLifecycleByTagOutput, self).__init__(resp)
+
+
+class GetObjectSetLifecycleByTagOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(GetObjectSetLifecycleByTagOutput, self).__init__(resp)
+        data = resp.json_read()
+        self.object_set_tag_rules = []
+        tag_rules_json = get_value(data, 'ObjectSetTagRules') or []
+        for tr in tag_rules_json:
+            tag_json = get_value(tr, 'Tag')
+            tag = Tag(get_value(tag_json, 'Key'), get_value(tag_json, 'Value')) if tag_json else None
+            rules = _parse_lifecycle_rules(get_value(tr, 'Rules'))
+            self.object_set_tag_rules.append(ObjectSetTagLifecycleRule(tag=tag, rules=rules))
+
+
+class DeleteObjectSetLifecycleByTagOutput(ResponseInfo):
+    def __init__(self, resp):
+        super(DeleteObjectSetLifecycleByTagOutput, self).__init__(resp)

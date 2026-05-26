@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.3.19
+Version: 0.3.20
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License: AGPL-3.0
@@ -802,7 +802,7 @@ To ensure optimal storage performance and data security, we recommend deploying 
 
 👉 **[View: Claude Code Memory Plugin Example](examples/claude-code-memory-plugin/README.md)**
 
-👉 **[View: LangChain / LangGraph Integration](./docs/en/agent-integrations/05-langchain-langgraph.md)**
+👉 **[View: LangChain / LangGraph Integration](./docs/en/agent-integrations/06-langchain-langgraph.md)**
 
 \--
 

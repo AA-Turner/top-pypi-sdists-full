@@ -41,8 +41,10 @@ class SqlQueryInfo(_message.Message):
     ) -> None: ...
 
 class ExecuteSqlSyncQueryRequestOptions(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("resource_group",)
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    resource_group: str
+    def __init__(self, resource_group: _Optional[str] = ...) -> None: ...
 
 class ExecuteSqlAsyncQueryRequestOptions(_message.Message):
     __slots__ = ("execution_mode", "resource_group")

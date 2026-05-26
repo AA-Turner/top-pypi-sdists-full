@@ -315,6 +315,12 @@ def analyze_changes(
         if n.kind in ("Function", "Test", "Class")
     ]
 
+    # Cap to prevent O(N*M) query explosion on large PRs.
+    _max_funcs = int(os.environ.get("CRG_MAX_CHANGED_FUNCS", "500"))
+    funcs_truncated = len(changed_funcs) > _max_funcs
+    if funcs_truncated:
+        changed_funcs = changed_funcs[:_max_funcs]
+
     # Compute per-node risk scores.
     node_risks: list[dict[str, Any]] = []
     for node in changed_funcs:
@@ -357,8 +363,29 @@ def analyze_changes(
         f"  - Overall risk score: {overall_risk:.2f}",
     ]
     if test_gaps:
-        gap_names = [g["name"] for g in test_gaps[:5]]
+        # Dedup by bare name in the human summary. The underlying test_gaps
+        # list keeps every entry (a downstream consumer needs precision via
+        # qualified_name), but a graph that ended up with the same function
+        # stored under two qualified_names (e.g. relative + absolute path
+        # variants) would otherwise print "X, X, Y, Y" — surfacing graph
+        # corruption as a UX bug. The root cause is path normalization;
+        # this is the defensive last line.
+        seen_names: set[str] = set()
+        gap_names: list[str] = []
+        for g in test_gaps:
+            n = g["name"]
+            if n in seen_names:
+                continue
+            seen_names.add(n)
+            gap_names.append(n)
+            if len(gap_names) >= 5:
+                break
         summary_parts.append(f"  - Untested: {', '.join(gap_names)}")
+    if funcs_truncated:
+        summary_parts.append(
+            f"  - Warning: analysis capped at {_max_funcs} functions "
+            f"(set CRG_MAX_CHANGED_FUNCS to adjust)"
+        )
 
     return {
         "summary": "\n".join(summary_parts),
@@ -367,4 +394,5 @@ def analyze_changes(
         "affected_flows": affected["affected_flows"],
         "test_gaps": test_gaps,
         "review_priorities": review_priorities,
+        "functions_truncated": funcs_truncated,
     }

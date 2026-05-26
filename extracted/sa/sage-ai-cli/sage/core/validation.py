@@ -808,7 +808,7 @@ def is_garbage_content(filepath: str, content: str) -> tuple[bool, str]:
     # PLACEHOLDER PATTERN DETECTION (COMPREHENSIVE)
     # ==========================================================================
     placeholder_indicators = [
-        # Comment-based placeholders
+        # Python comment-based placeholders
         "# Placeholder",
         "# placeholder",
         "# PLACEHOLDER",
@@ -840,6 +840,49 @@ def is_garbage_content(filepath: str, content: str) -> tuple[bool, str]:
         "# wip",
         "# coming soon",
         "# Coming soon",
+        
+        # JS/TS comment-based placeholders
+        "// Placeholder",
+        "// placeholder",
+        "// PLACEHOLDER",
+        "// TODO",
+        "// todo",
+        "// TODO:",
+        "// todo:",
+        "// FIXME",
+        "// fixme",
+        "// FIXME:",
+        "// implement this",
+        "// Implement this",
+        "// IMPLEMENT",
+        "// add implementation",
+        "// Add implementation",
+        "// fill in",
+        "// Fill in",
+        "// your code here",
+        "// Your code here",
+        "// stub",
+        "// STUB",
+        "// not implemented",
+        "// Not implemented",
+        "// TBD",
+        "// tbd",
+        "// WIP",
+        "// wip",
+
+        # Block comments (JS/TS/CSS/HTML)
+        "/* Placeholder",
+        "/* placeholder",
+        "/* PLACEHOLDER",
+        "/* TODO",
+        "/* todo",
+        "/* FIXME",
+        "/* fixme",
+        "<!-- TODO",
+        "<!-- todo",
+        "<!-- Placeholder",
+        "<!-- placeholder",
+
         # Pass with comments
         "pass  # placeholder",
         "pass # placeholder",
@@ -847,24 +890,46 @@ def is_garbage_content(filepath: str, content: str) -> tuple[bool, str]:
         "pass # TODO",
         "pass  # implement",
         "pass # implement",
+        
+        # Pass with JS comments
+        "pass  // placeholder",
+        "pass // placeholder",
+        "pass  // TODO",
+        "pass // TODO",
+
         # Ellipsis as placeholder
         "...  # placeholder",
         "... # placeholder",
         "...  # TODO",
         "... # TODO",
+        "...  // placeholder",
+        "... // placeholder",
+        "...  // TODO",
+        "... // TODO",
+
         # Raise NotImplemented patterns
         "raise NotImplementedError()",
         'raise NotImplementedError("',
+        
         # Continue as placeholder
         "continue  # placeholder",
         "continue # placeholder",
         "continue  # TODO",
         "continue # TODO",
+        "continue  // placeholder",
+        "continue // placeholder",
+        "continue  // TODO",
+        "continue // TODO",
+
         # Return None patterns that indicate incomplete code
         "return None  # placeholder",
         "return None # placeholder",
         "return None  # TODO",
         "return None # TODO",
+        "return None  // placeholder",
+        "return None // placeholder",
+        "return None  // TODO",
+        "return None // TODO",
     ]
 
     content_lower = content.lower()

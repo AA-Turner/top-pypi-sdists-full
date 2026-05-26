@@ -153,6 +153,14 @@ class SearchReplace(
             file_path, search_replace_blocks = self._prepare_and_validate_args(args)
         except ToolError as e:
             err_msg = str(e)
+            if err_msg.startswith("SEARCH_IS_ERROR:"):
+                yield SearchReplaceResult(
+                    file=args.file_path.strip() or "(unknown)",
+                    blocks_applied=0,
+                    lines_changed=0,
+                    content=err_msg[len("SEARCH_IS_ERROR:"):].strip(),
+                )
+                return
             if err_msg.startswith("Empty content provided.") or err_msg.startswith("File path is required."):
                 # Model sent search_replace with missing content or file_path.
                 # Convert to a soft result so the model corrects — a ToolError
@@ -666,7 +674,7 @@ class SearchReplace(
 
             # Multi-file rename REFUSED loop-breaker: if the model keeps
             # retrying a search_replace that was REFUSED due to multi-file
-            # identifier rename detection, escalate to HARD-STOP on the 3rd
+            # identifier rename detection, escalate to HARD-STOP on the 2nd
             # consecutive REFUSED on the same file.  This makes the agent_loop
             # HARD-STOP detector (344b6a1) mute search_replace for 1 turn so
             # the model is forced to use mechanical_rename or write_file.
@@ -676,7 +684,7 @@ class SearchReplace(
                 refused_entry = refused_state.get(refused_key, {"count": 0})
                 refused_entry["count"] += 1
                 refused_state[refused_key] = refused_entry
-                if refused_entry["count"] >= 3:
+                if refused_entry["count"] >= 2:
                     error_message += (
                         f"\n\n[HARD-STOP: #{refused_entry['count']} consecutive "
                         f"REFUSED on {file_path.name}. DO NOT retry search_replace "
@@ -1116,6 +1124,19 @@ class SearchReplace(
                         candidates.sort(key=lambda p: len(str(p)))
                         file_path_str = str(candidates[0])
 
+        # Detect model pasting a <tool_error> message as SEARCH content.
+        # Gemma 4 pattern: receives a tool_error response, then retries
+        # search_replace where the SEARCH block IS the error text — never
+        # matches anything in source, triggering not_found cascade.
+        if content.lstrip().startswith("<tool_error>"):
+            raise ToolError(
+                "SEARCH_IS_ERROR: Your search_replace content starts with "
+                "'<tool_error>' — you have pasted a previous error message as "
+                "the SEARCH target. That text does not exist in any source file. "
+                "Discard this call. Use read_file to see actual file contents, "
+                "then construct a SEARCH block from literal lines in that file."
+            )
+
         if not file_path_str:
             raise ToolError(
                 "File path is required. Use: search_replace(file_path='path/to/file.py', content='...')"
@@ -1262,6 +1283,7 @@ class SearchReplace(
     @staticmethod
     def _detect_multifile_rename(
         search: str, replace: str, filepath: Path,
+        auto_apply: bool = True,
     ) -> str | None:
         """Pre-execution check: is this SEARCH→REPLACE a multi-file rename
         in disguise that should use `mechanical_rename` instead?
@@ -1330,6 +1352,16 @@ class SearchReplace(
             "int", "str", "float", "bool", "list", "dict", "set", "tuple",
             "len", "range", "print", "open", "type", "isinstance",
             "Path", "json", "os", "re", "sys",
+            # Common English filler words in docstrings/comments. Without
+            # these the guard refuses "Add storage backend" rewrites because
+            # the new content drops a sentence containing "this/that/needed/etc"
+            # while the old content had it — and these words trivially exist
+            # in 5+ files across any project. Real cases captured 2026-05-25.
+            "this", "that", "these", "those", "what", "which", "when",
+            "where", "here", "there", "then", "than", "into", "onto",
+            "needed", "uses", "used", "using", "make", "made", "data",
+            "file", "files", "name", "names", "value", "values",
+            "test", "tests", "method", "methods", "function", "functions",
         }
         candidates = {
             t for t in only_in_search
@@ -1370,6 +1402,31 @@ class SearchReplace(
         if best_count < 2:
             return None  # the removed token isn't in 2+ other files — proceed
 
+        # Skip when the "removed" identifier is the package directory name
+        # itself. The package name appears in every file via imports
+        # (`from tool_agent.x import …`); a rewrite of one file inside the
+        # package will trivially "remove" it locally even though the package
+        # name is obviously not being renamed. Captured 2026-05-25 in
+        # session_20260525_180113 where "Add storage backend: clickhouse"
+        # got refused for "removing" `tool_agent`.
+        if best_token == pkg_root.name:
+            return None
+
+        # A real rename has ONE removed identifier mapping to ONE added
+        # identifier. When the new content introduces multiple unrelated
+        # new identifiers, the diff is a feature-addition rewrite, not a
+        # rename. Captured 2026-05-25 in session_20260525_173957 where
+        # "Add storage backend: mongodb" got refused because the new
+        # __init__.py adds Bolt/Ceph/LevelDB/MySQL backend classes — the
+        # heuristic flagged the multiple-new-tokens as "ambiguous rename
+        # target" and refused, when actually nothing is being renamed.
+        added_candidates_preview = {
+            t for t in only_in_replace
+            if len(t) >= 4 and t not in _NOISE_TOKENS
+        }
+        if len(added_candidates_preview) > 1:
+            return None
+
         # If exactly one new token, we can auto-apply the rename across the
         # package rather than refusing and hoping the model switches tools.
         # Prefix "APPLIED:" so the caller returns success instead of error.
@@ -1377,7 +1434,7 @@ class SearchReplace(
             t for t in only_in_replace
             if len(t) >= 4 and t not in _NOISE_TOKENS
         }
-        if len(added_candidates) == 1:
+        if len(added_candidates) == 1 and auto_apply:
             new_name = next(iter(added_candidates))
             word_pat = _re.compile(rf"\b{_re.escape(best_token)}\b")
             files_changed: list[str] = []
@@ -1472,6 +1529,50 @@ class SearchReplace(
                 )
 
         for i, (search, replace) in enumerate(blocks, 1):
+            if search not in current_content:
+                # 2026-05-25: Mistral-vibe issue #272 — model sometimes
+                # emits search/replace text with LITERAL '\\n' / '\\t'
+                # / '\\r' escape sequences instead of real newlines/tabs.
+                # The file has real newlines, the search doesn't match.
+                # If the search contains escape sequences AND the file
+                # doesn't have those literals, try the unescaped version
+                # before giving up.
+                _backslash_n_count = search.count("\\n")
+                _real_newline_count = search.count("\n")
+                if (_backslash_n_count >= 2
+                        and _real_newline_count <= 1
+                        and "\\n" not in current_content[:5000]):
+                    try:
+                        unescaped = (
+                            search
+                            .replace("\\n", "\n")
+                            .replace("\\t", "\t")
+                            .replace("\\r", "\r")
+                        )
+                        if unescaped in current_content:
+                            warnings.append(
+                                f"Block {i}: auto-unescaped literal "
+                                f"\\n/\\t/\\r sequences in SEARCH text "
+                                f"(model emitted escape literals, file "
+                                f"has real newlines). Use real newlines "
+                                f"in SEARCH/REPLACE blocks — backslash-n "
+                                f"sequences won't match unless the file "
+                                f"literally contains the two-char string."
+                            )
+                            search = unescaped
+                            # Also unescape REPLACE in lock-step so we
+                            # don't write back the broken escaped form.
+                            if (replace.count("\\n") >= 1
+                                    and replace.count("\n") <= 1):
+                                replace = (
+                                    replace
+                                    .replace("\\n", "\n")
+                                    .replace("\\t", "\t")
+                                    .replace("\\r", "\r")
+                                )
+                    except Exception:
+                        pass
+
             if search not in current_content:
                 # Check if this change was ALREADY APPLIED — the replacement
                 # text is in the file but the search text is not.  This is the

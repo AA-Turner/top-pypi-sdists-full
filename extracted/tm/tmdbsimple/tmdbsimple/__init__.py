@@ -17,7 +17,7 @@ https://www.themoviedb.org/documentation/api/status-codes
 """
 
 __title__ = 'tmdbsimple'
-__version__ = '2.9.4'
+__version__ = '2.9.6'
 __author__ = 'Celia Oakley'
 __copyright__ = 'Copyright (c) 2013-2026 Celia Oakley'
 __license__ = 'GPLv3'
@@ -56,3 +56,4 @@ API_KEY = os.environ.get('TMDB_API_KEY', None)
 API_VERSION = '3'
 REQUESTS_SESSION = None
 REQUESTS_TIMEOUT = os.environ.get('TMDB_REQUESTS_TIMEOUT', None)
+USE_BEARER_AUTH = os.environ.get('TMDB_USE_BEARER_AUTH', 'no').lower() in ('y', 'yes', '1')

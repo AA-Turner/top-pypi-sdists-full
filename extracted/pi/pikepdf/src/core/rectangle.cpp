@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2022 James R. Barlow
 // SPDX-License-Identifier: MPL-2.0
 
-#include <qpdf/QPDFObjectHandle.hh>
-
 #include "pikepdf.h"
+
+#include <qpdf/QPDFObjectHandle.hh>
 
 void init_rectangle(py::module_ &m)
 {
@@ -83,6 +83,4 @@ void init_rectangle(py::module_ &m)
         .def_prop_ro("upper_right", [](Rect &r) { return Point(r.urx, r.ury); })
         .def_prop_ro("upper_left", [](Rect &r) { return Point(r.llx, r.ury); })
         .def("as_array", [](Rect &r) { return QPDFObjectHandle::newArray(r); });
-
-    py::implicitly_convertible<Rect, QPDFObjectHandle>();
 }

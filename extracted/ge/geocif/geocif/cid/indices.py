@@ -32,6 +32,24 @@ logger = logging.getLogger(__name__)
 # SPI rejects the ("season", ...) tuple and returns monthly output instead.
 _ICCLIM_BYPASS_CACHE = frozenset({"SPI3", "SPI6"})
 
+# Percentile / spell-duration indices require a 365-day-per-year base
+# period because their thresholds are per-day-of-year percentiles fit on
+# the baseline window — Feb 29 has ~1/4 the sample count of other DOYs
+# and trips an icclim shape mismatch.  This set drives the Feb-29 drop
+# in compute_indices.  Non-percentile indices (extremes/sums/counts)
+# MUST keep Feb 29 in place: dropping it breaks slice_mode=("season",...)
+# on leap-year seasons whose requested range spans Feb 29 — icclim emits
+# NaN for the incomplete season and the wide-format fillna(0) turns the
+# NaN into a false 0 (manifested as TXn=0 for every harvest year whose
+# Nov-Apr window includes Feb 29; introduced 2026-04-13 in 0.4.366).
+_PERCENTILE_INDICES = frozenset({
+    "TG10p", "TN10p", "TX10p",
+    "TG90p", "TN90p", "TX90p",
+    "R75p", "R75pTOT", "R95p", "R95pTOT", "R99p", "R99pTOT",
+    "CSDI",  # spell duration based on TX10p threshold
+    "WSDI",  # spell duration based on TX90p threshold
+})
+
 
 class ProcessFileArgs(NamedTuple):
     """
@@ -324,10 +342,14 @@ def compute_indices(
     """
     ds = None
 
-    # Drop Feb 29 to avoid leap year shape mismatch in percentile indices
-    _leap = lambda d: (d["time"].dt.month == 2) & (d["time"].dt.day == 29)
-    df_base_period = df_base_period[~_leap(df_base_period)]
-    df_time_period = df_time_period[~_leap(df_time_period)]
+    # Drop Feb 29 ONLY for percentile / spell-duration indices that need
+    # a 365-day per-year base period.  Leaving Feb 29 in place for
+    # non-percentile indices avoids breaking slice_mode=("season",...)
+    # on leap-year seasons that span Feb 29 — see _PERCENTILE_INDICES.
+    if index_name in _PERCENTILE_INDICES:
+        _leap = lambda d: (d["time"].dt.month == 2) & (d["time"].dt.day == 29)
+        df_base_period = df_base_period[~_leap(df_base_period)]
+        df_time_period = df_time_period[~_leap(df_time_period)]
 
     # Skip windowed indices when the target slice is shorter than the
     # rolling/spell window — icclim would otherwise raise at compute time.

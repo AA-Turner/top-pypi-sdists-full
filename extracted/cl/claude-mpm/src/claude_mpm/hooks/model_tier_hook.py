@@ -23,7 +23,11 @@ from pathlib import Path
 from claude_mpm.hooks import permission_policy
 from claude_mpm.utils.agent_filters import normalize_agent_id
 
-# Agent type -> model mapping (fallback when frontmatter unavailable)
+# Agent type -> model mapping (fallback when frontmatter unavailable).
+# Only haiku-tier agents are listed here; all other agents (including
+# engineering agents) default to sonnet.  Callers that need opus for a
+# specific task should pass model="opus" explicitly in the Agent tool call,
+# or set a per-agent override in ~/.claude-mpm/config/configuration.yaml.
 _HAIKU_AGENTS: frozenset[str] = frozenset(
     {
         "ops",
@@ -46,31 +50,6 @@ _HAIKU_AGENTS: frozenset[str] = frozenset(
         "mpm-agent-manager",
         "mpm-skills-manager",
         "base",
-    }
-)
-
-# Coding / engineering agents default to claude-opus-4-6 for stronger code quality.
-_OPUS_AGENTS: frozenset[str] = frozenset(
-    {
-        "engineer",
-        "python-engineer",
-        "typescript-engineer",
-        "react-engineer",
-        "nextjs-engineer",
-        "svelte-engineer",
-        "rust-engineer",
-        "golang-engineer",
-        "java-engineer",
-        "php-engineer",
-        "ruby-engineer",
-        "dart-engineer",
-        "nestjs-engineer",
-        "tauri-engineer",
-        "javascript-engineer",
-        "phoenix-engineer",
-        "visual-basic-engineer",
-        "data-engineer",
-        "refactoring-engineer",
     }
 )
 
@@ -238,8 +217,8 @@ def build_model_tier_response(event: dict) -> dict:
     #   2. ``models.agents.<name>`` from ~/.claude-mpm/config/configuration.yaml
     #      (with project-level .claude-mpm/configuration.yaml as override).
     #   3. Frontmatter ``model:`` field in .claude/agents/<name>.md.
-    #   4. Built-in tier-based mapping (_HAIKU_AGENTS / _OPUS_AGENTS).
-    #   5. Default sonnet.
+    #   4. Built-in haiku-tier mapping (_HAIKU_AGENTS).
+    #   5. Default sonnet for all other agents (including engineering agents).
     model = _read_model_from_config(agent_type, cwd)
     if model is None:
         model = _read_model_from_frontmatter(agent_type, cwd)
@@ -247,8 +226,6 @@ def build_model_tier_response(event: dict) -> dict:
         name_lower = normalize_agent_id(agent_type)
         if name_lower in _HAIKU_AGENTS:
             model = _HAIKU_MODEL
-        elif name_lower in _OPUS_AGENTS:
-            model = _OPUS_MODEL
         else:
             model = _DEFAULT_MODEL
 
@@ -257,6 +234,12 @@ def build_model_tier_response(event: dict) -> dict:
     # tier info is injected into the context window rather than surfaced as a
     # chat message (Claude Code v2.1.133+ additionalContext support).
     tool_input["model"] = model
+
+    # Mark sub-agents so their hooks can self-guard with CLAUDE_MPM_SUB_AGENT.
+    # Merge with any existing env dict to avoid overwriting other keys.
+    existing_env = tool_input.get("env") or {}
+    tool_input["env"] = {**existing_env, "CLAUDE_MPM_SUB_AGENT": "1"}
+
     return {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",

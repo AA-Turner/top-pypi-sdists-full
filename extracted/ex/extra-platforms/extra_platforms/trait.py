@@ -417,6 +417,19 @@ class Shell(Trait):
     dedicated startup variable (like Dash or Almquist Shell).
     """
 
+    interpreter: str | None = field(repr=False, default=None)
+    """Base name of the host interpreter for shells run as an interpreted script.
+
+    Set for shells that are not standalone executables but launcher scripts run
+    by an interpreter (like {data}`~extra_platforms.XONSH`, run by ``python``).
+    The value is the interpreter's base name (``"python"``); detection tolerates
+    a trailing version (``python3``, ``python3.11``). When set, the parent
+    process tree is also scanned for an interpreter process whose arguments
+    include a launcher file named after this shell's
+    {attr}`~extra_platforms.Trait.id`, so the shell is detected even without its
+    startup environment variable. ``None`` for standalone shells.
+    """
+
     def info(self) -> dict[str, str | bool | None]:
         """Returns all shell attributes we can gather."""
         info: dict[str, str | bool | None] = {
@@ -427,7 +440,11 @@ class Shell(Trait):
         if self.current:
             if self.version_env_var:
                 info["version"] = environ.get(self.version_env_var)
-            info["path"] = environ.get("SHELL")
+            # Prefer the actual running binary from the process tree over the
+            # configured login shell in SHELL.
+            from .detection import _running_shell_path
+
+            info["path"] = _running_shell_path(self.id) or environ.get("SHELL")
         return info
 
 

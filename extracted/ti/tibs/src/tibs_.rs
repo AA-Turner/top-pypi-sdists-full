@@ -178,10 +178,10 @@ impl Tibs {
 ///     * ``Tibs.from_bin(s)`` - Create from a binary string, optionally starting with '0b'.
 ///     * ``Tibs.from_oct(s)`` - Create from an octal string, optionally starting with '0o'.
 ///     * ``Tibs.from_hex(s)`` - Create from a hex string, optionally starting with '0x'.
-///     * ``Tibs.from_u(u, length, [endianness])`` - Create from an unsigned int to a given length.
-///     * ``Tibs.from_i(i, length, [endianness])`` - Create from a signed int to a given length.
-///     * ``Tibs.from_f(f, length, [endianness])`` - Create from an IEEE float to a 16, 32 or 64 bit length.
-///     * ``Tibs.from_bytes(b)`` - Create directly from a ``bytes`` or ``bytearray`` object.
+///     * ``Tibs.from_u(u, length, [byte_order])`` - Create from an unsigned int to a given length.
+///     * ``Tibs.from_i(i, length, [byte_order])`` - Create from a signed int to a given length.
+///     * ``Tibs.from_f(f, length, [byte_order])`` - Create from an IEEE float to a 16, 32 or 64 bit length.
+///     * ``Tibs.from_bytes(b)`` - Create directly from a ``bytes``, ``bytearray`` or ``memoryview`` object.
 ///     * ``Tibs.from_string(s)`` - Use a formatted string.
 ///     * ``Tibs.from_bools(iterable)`` - Convert each element in ``iterable`` to a bool.
 ///     * ``Tibs.from_zeros(length)`` - Initialise with ``length`` ``0`` bits.
@@ -238,7 +238,7 @@ impl Tibs {
         BitCollection::reverse_copy(self)
     }
 
-    /// Return a new instance with the byte endianness swapped.
+    /// Return a new instance with the byte order swapped.
     ///
     /// The whole of the data will be byte-swapped. It must be a multiple
     /// of byte_length long.
@@ -256,7 +256,7 @@ impl Tibs {
     ///
     #[pyo3(signature = (byte_length = None), text_signature = "($self, byte_length=None)")]
     pub fn byte_swapped(&self, byte_length: Option<i64>) -> PyResult<Tibs> {
-        Ok(BitCollection::byte_swap_copy(self, byte_length)?)
+        BitCollection::byte_swap_copy(self, byte_length)
     }
 
     /// Return a copy of the raw byte information.
@@ -312,7 +312,7 @@ impl Tibs {
     ///     >>> Tibs('0x0100').view(byte_order=Endianness.Little).u
     ///     1
     ///
-    #[pyo3(signature = (byte_order = Endianness::Unspecified, bit_order = BitOrder::Msb0), text_signature = "($self, byte_order=Endianness.Unspecified, bit_order=BitOrder.Msb0)")]
+    #[pyo3(signature = (byte_order = Endianness::Unspecified, bit_order = BitOrder::Msb0), text_signature = "($self, byte_order, bit_order)")]
     pub fn view(
         slf: PyRef<'_, Self>,
         byte_order: Option<Endianness>,
@@ -390,6 +390,21 @@ impl Tibs {
         ))
     }
 
+    /// Extract a field using inclusive MSB0 bit labels.
+    ///
+    /// ``a`` and ``b`` must be zero or positive bit labels. The two endpoints
+    /// are inclusive and may be provided in either order. This is equivalent to
+    /// ``self.msb0.field(a, b)``.
+    ///
+    /// :param int a: One non-negative inclusive field endpoint.
+    /// :param int b: The other non-negative inclusive field endpoint.
+    /// :return: A new :class:`View`.
+    ///
+    #[pyo3(signature = (a, b), text_signature = "($self, a, b)")]
+    pub fn field(slf: PyRef<'_, Self>, a: i64, b: i64) -> PyResult<View> {
+        View::from_tibs(slf.clone(), Endianness::Unspecified, BitOrder::Msb0).field(a, b)
+    }
+
     /// Iterate over the bits of the Tibs, yielding each bit as a boolean.
     ///
     /// :return: An iterator yielding bool values.
@@ -428,7 +443,7 @@ impl Tibs {
         BitCollection::collect_chunks(self, chunk_size, count)
     }
 
-    /// Return Tibs generator by cutting into chunks.
+    /// Return an iterator by cutting into Tibs chunks.
     ///
     /// :param int chunk_size: The size in bits of the chunks to generate.
     /// :param int | None count: If specified, at most count items are generated. Default is to cut as many times as possible.
@@ -476,7 +491,7 @@ impl Tibs {
         Py::new(py, iter)
     }
 
-    /// Return reverse Tibs generator by cutting into chunks, starting from the end.
+    /// Return a reverse iterator by cutting into Tibs chunks, starting from the end.
     ///
     /// :param int chunk_size: The size in bits of the chunks to generate.
     /// :param int | None count: If specified, at most count items are generated. Default is to cut as many times as possible.
@@ -585,7 +600,7 @@ impl Tibs {
         ))
     }
 
-    /// Find all occurrences of a bit sequence. Return generator of bit positions.
+    /// Find all occurrences of a bit sequence, returning an iterator of bit positions.
     ///
     /// :param Tibs needle: The bit sequence to find.
     /// :param int | None start: The starting bit position of the slice to search. Defaults to 0.
@@ -654,7 +669,7 @@ impl Tibs {
         Py::new(py, iter_obj)
     }
 
-    /// Find all occurrences of a bit sequence, searching in reverse. Return generator of bit positions.
+    /// Find all occurrences of a bit sequence in reverse, returning an iterator of bit positions.
     ///
     /// :param Tibs needle: The bit sequence to find.
     /// :param int | None start: The starting bit position of the slice to search. Defaults to 0.
@@ -797,7 +812,7 @@ impl Tibs {
     ///
     /// :param int u: An unsigned integer.
     /// :param int length: The bit length to create. Can be up to 128.
-    /// :param Endianness endianness: The byte endianness used to store the integer. Defaults to Endianness.Unspecified.
+    /// :param Endianness byte_order: The byte order used to store the integer. Defaults to Endianness.Unspecified.
     /// :return: A newly constructed ``Tibs``.
     ///
     /// :raises ValueError: if the integer doesn't fit in the length given.
@@ -808,14 +823,14 @@ impl Tibs {
     ///     Tibs('0x0f')
     ///
     #[classmethod]
-    #[pyo3(signature = (u, /, length, endianness = Endianness::Unspecified), text_signature = "(cls, u, /, length, endianness=Endianness.Unspecified)")]
+    #[pyo3(signature = (u, /, length, byte_order = Endianness::Unspecified), text_signature = "(cls, u, /, length, byte_order=None)")]
     pub fn from_u(
         _cls: &Bound<'_, PyType>,
         u: u128,
         length: i64,
-        endianness: Option<Endianness>,
+        byte_order: Option<Endianness>,
     ) -> PyResult<Self> {
-        let is_little_endian = Endianness::is_little_endian(endianness, length as usize)?;
+        let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
         Ok(Tibs::from_bv(bv_from_u128(u, length, is_little_endian)?))
     }
 
@@ -846,7 +861,7 @@ impl Tibs {
     ///
     /// :param int i: A signed integer.
     /// :param int length: The bit length to create. Can be up to 128.
-    /// :param Endianness endianness: The byte endianness used to store the integer. Defaults to Endianness.Unspecified.
+    /// :param Endianness byte_order: The byte order used to store the integer. Defaults to Endianness.Unspecified.
     /// :return: A newly constructed ``Tibs``.
     ///
     /// :raises ValueError: if the integer doesn't fit in the length given.
@@ -857,14 +872,14 @@ impl Tibs {
     ///     Tibs('0xe')
     ///
     #[classmethod]
-    #[pyo3(signature = (i, /, length, endianness = Endianness::Unspecified), text_signature = "(cls, i, /, length, endianness=Endianness.Unspecified)")]
+    #[pyo3(signature = (i, /, length, byte_order = Endianness::Unspecified), text_signature = "(cls, i, /, length, byte_order=None)")]
     pub fn from_i(
         _cls: &Bound<'_, PyType>,
         i: i128,
         length: i64,
-        endianness: Option<Endianness>,
+        byte_order: Option<Endianness>,
     ) -> PyResult<Self> {
-        let is_little_endian = Endianness::is_little_endian(endianness, length as usize)?;
+        let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
         Ok(Tibs::from_bv(bv_from_i128(i, length, is_little_endian)?))
     }
 
@@ -895,7 +910,7 @@ impl Tibs {
     ///
     /// :param float f: A floating point value.
     /// :param int length: The bit length to create. Must be 16, 32 or 64.
-    /// :param Endianness endianness: The byte endianness used to store the float. Defaults to Endianness.Unspecified.
+    /// :param Endianness byte_order: The byte order used to store the float. Defaults to Endianness.Unspecified.
     /// :return: A newly constructed ``Tibs``.
     ///
     /// .. code-block:: pycon
@@ -904,14 +919,14 @@ impl Tibs {
     ///     Tibs('0x3fc00000')
     ///
     #[classmethod]
-    #[pyo3(signature = (f, /, length, endianness = Endianness::Unspecified), text_signature = "(cls, f, /, length, endianness=Endianness.Unspecified)")]
+    #[pyo3(signature = (f, /, length, byte_order = Endianness::Unspecified), text_signature = "(cls, f, /, length, byte_order=None)")]
     pub fn from_f(
         _cls: &Bound<'_, PyType>,
         f: f64,
         length: i64,
-        endianness: Option<Endianness>,
+        byte_order: Option<Endianness>,
     ) -> PyResult<Self> {
-        let is_little_endian = Endianness::is_little_endian(endianness, length as usize)?;
+        let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
         let bv = bv_from_f64(f, length, is_little_endian)?;
         Ok(Tibs::from_bv(bv))
     }
@@ -1484,11 +1499,7 @@ impl Tibs {
         // Handle slice indexing
         if let Ok(slice) = key.cast::<PySlice>() {
             let indices = slice.indices(self.len() as isize)?;
-            let (start, stop, step) = (
-                isize::try_from(indices.start)?,
-                isize::try_from(indices.stop)?,
-                isize::try_from(indices.step)?,
-            );
+            let (start, stop, step) = (indices.start, indices.stop, indices.step);
 
             let result = if step == 1 {
                 if start < stop {
@@ -1512,6 +1523,11 @@ impl Tibs {
     /// :return: A new Tibs.
     /// :raises ValueError: if n < 0.
     ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Tibs('0b001100') << 2
+    ///     Tibs('0b110000')
+    ///
     pub fn __lshift__(&self, n: i64) -> PyResult<Self> {
         let shift = validate_shift(self, n)?;
         Ok(self.lshift(shift))
@@ -1523,6 +1539,11 @@ impl Tibs {
     /// :return: A new Tibs.
     /// :raises ValueError: if n < 0.
     ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Tibs('0b001100') >> 2
+    ///     Tibs('0b000011')
+    ///
     pub fn __rshift__(&self, n: i64) -> PyResult<Self> {
         let shift = validate_shift(self, n)?;
         Ok(self.rshift(shift))
@@ -1532,6 +1553,11 @@ impl Tibs {
     ///
     /// :param Tibs other: The bits to append.
     /// :return: A new Tibs.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Tibs('0b10') + '0b1'
+    ///     Tibs('0b101')
     ///
     pub fn __add__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let other = Tibs::extract(other.as_borrowed())?;
@@ -1747,6 +1773,11 @@ impl Tibs {
     /// :param int n: The number of concatenations. Must be >= 0.
     /// :return: A new Tibs.
     /// :raises ValueError: if n < 0.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Tibs('0b10') * 3
+    ///     Tibs('0b101010')
     ///
     pub fn __mul__(&self, n: i64) -> PyResult<Self> {
         if n < 0 {

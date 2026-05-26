@@ -6,22 +6,20 @@ import asyncio
 import datetime as dt
 import logging
 import os.path
-from collections.abc import Callable
-from typing import Any, TypeVar
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, TypeVar
 
+import aiohttp
 import zeep.helpers
+from aiohttp import BasicAuth, ClientSession, DigestAuthMiddleware, TCPConnector
 from zeep.cache import SqliteCache
 from zeep.client import AsyncClient as BaseZeepAsyncClient
 from zeep.proxy import AsyncServiceProxy
 from zeep.wsdl import Document
 from zeep.wsse.username import UsernameToken
 
-import aiohttp
-import httpx
-from aiohttp import BasicAuth, ClientSession, DigestAuthMiddleware, TCPConnector
 from onvif.definition import SERVICES
 from onvif.exceptions import ONVIFAuthError, ONVIFError, ONVIFTimeoutError
-from requests import Response
 
 from .const import KEEPALIVE_EXPIRY
 from .managers import NotificationManager, PullPointManager
@@ -40,12 +38,78 @@ from .wrappers import retry_connection_error
 from .wsa import WsAddressingIfMissingPlugin
 from .zeep_aiohttp import AIOHTTPTransport
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import httpx
+    from requests import Response
+
 logger = logging.getLogger("onvif")
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("zeep.client").setLevel(logging.CRITICAL)
 
 _SENTINEL = object()
-_WSDL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "wsdl")
+# Default wsdl_dir for ONVIFCamera. Points at the WSDL files bundled with the
+# package (onvif/wsdl); historically this was off by one level and pointed at a
+# directory that did not exist, which silently forced every caller to override.
+_WSDL_PATH = str(Path(__file__).parent / "wsdl")
+# Names of regular files in each wsdl_dir, populated lazily off the event loop
+# on first use so the directory scan stays out of the asyncio path. None means
+# the cache could not be built and callers should fall back to path_isfile.
+_WSDL_DIR_FILES: dict[str, frozenset[str] | None] = {}
+
+
+def _list_wsdl_dir(wsdl_dir: str) -> frozenset[str] | None:
+    """Return the set of regular file names in wsdl_dir.
+
+    Returns an empty frozenset if the directory itself does not exist (then
+    every wsdl lookup correctly fails); returns None on any other OSError so
+    callers fall back to path_isfile rather than treating a permissions or
+    I/O failure as "wsdl not found".
+    """
+    try:
+        with os.scandir(wsdl_dir) as it:
+            return frozenset(entry.name for entry in it if entry.is_file())
+    except FileNotFoundError:
+        return frozenset()
+    except OSError:
+        return None
+
+
+# Pre-warm the bundled wsdl directory at module import time so direct
+# ONVIFService(...) usage in async code with a bundled wsdl path does not trip
+# blockbuster on the first existence check. Import normally happens at startup
+# before any event loop is running; if onvif.client is imported from inside a
+# running loop, the alternative (lazy warm on first direct use) would block in
+# the loop too, so accept the one-shot scandir here.
+_WSDL_DIR_FILES[_WSDL_PATH] = _list_wsdl_dir(_WSDL_PATH)
+
+
+# SqliteCache opens its sqlite file in __init__, which does blocking I/O.
+# Build one shared instance lazily off the event loop and reuse it across all
+# ONVIFService transports so the per-service setup() stays non-blocking. The
+# Lock is created lazily on first use (we cannot promise a running loop at
+# import time) and double-checked, so concurrent first-touch setup() calls
+# (for example, multiple cameras configured in parallel at startup) build
+# exactly one SqliteCache instead of racing through to_thread() twice. The
+# pre-Lock check-and-create is race-free because asyncio coroutines are
+# cooperatively scheduled within a single loop and there is no await between
+# the None check and the assignment.
+_SHARED_SQLITE_CACHE: SqliteCache | None = None
+_SHARED_SQLITE_CACHE_LOCK: asyncio.Lock | None = None
+
+
+async def _get_shared_sqlite_cache() -> SqliteCache:
+    global _SHARED_SQLITE_CACHE, _SHARED_SQLITE_CACHE_LOCK  # noqa: PLW0603
+    if _SHARED_SQLITE_CACHE is None:
+        if _SHARED_SQLITE_CACHE_LOCK is None:
+            _SHARED_SQLITE_CACHE_LOCK = asyncio.Lock()
+        async with _SHARED_SQLITE_CACHE_LOCK:
+            if _SHARED_SQLITE_CACHE is None:
+                _SHARED_SQLITE_CACHE = await asyncio.to_thread(SqliteCache)
+    return _SHARED_SQLITE_CACHE
+
+
 _DEFAULT_TIMEOUT = 90
 _PULLPOINT_TIMEOUT = 90
 _CONNECT_TIMEOUT = 30
@@ -76,6 +140,13 @@ class UsernameDigestTokenDtDiff(UsernameToken):
     """
 
     def __init__(self, user, passw, dt_diff=None, **kwargs):
+        # ONVIF / WS-Security UsernameToken Profile requires the Created
+        # timestamp (and the timestamp folded into the password digest) to be
+        # in canonical UTC "Zulu" form, e.g. 2024-01-01T00:00:00Z. zeep emits a
+        # numeric "+00:00" offset by default, which some camera firmwares
+        # (notably Hikvision) reject, causing digest auth to fail. Default to
+        # Zulu timestamps unless the caller explicitly overrides.
+        kwargs.setdefault("zulu_timestamp", True)
         super().__init__(user, passw, **kwargs)
         # Date/time difference in datetime.timedelta
         self.dt_diff = dt_diff
@@ -110,12 +181,22 @@ class AsyncTransportProtocolErrorHandler(AIOHTTPTransport):
     Retry on remote protocol error.
 
     http://datatracker.ietf.org/doc/html/rfc2616#section-8.1.4 allows the server
-    # to close the connection at any time, we treat this as a normal and try again
-    # once since
+    to close the connection at any time, we treat this as normal and try again
+    once. Two flavors of "the pooled socket is dead before we wrote":
+    ServerDisconnectedError when aiohttp detects the close at request start, and
+    ClientConnectionResetError when it detects the close mid-prepare (the writer
+    raises before transport.write()). Both mean the request did not reach the
+    server, so retry is idempotency-safe; we deliberately do not catch the
+    broader ClientOSError because that can fire after bytes are on the wire.
     """
 
     @retry_connection_error(
-        attempts=2, exception=aiohttp.ServerDisconnectedError, backoff=0
+        attempts=2,
+        exception=(
+            aiohttp.ServerDisconnectedError,
+            aiohttp.ClientConnectionResetError,
+        ),
+        backoff=0,
     )
     async def post(
         self, address: str, message: str, headers: dict[str, str]
@@ -123,7 +204,12 @@ class AsyncTransportProtocolErrorHandler(AIOHTTPTransport):
         return await super().post(address, message, headers)
 
     @retry_connection_error(
-        attempts=2, exception=aiohttp.ServerDisconnectedError, backoff=0
+        attempts=2,
+        exception=(
+            aiohttp.ServerDisconnectedError,
+            aiohttp.ClientConnectionResetError,
+        ),
+        backoff=0,
     )
     async def get(
         self,
@@ -134,7 +220,12 @@ class AsyncTransportProtocolErrorHandler(AIOHTTPTransport):
         return await super().get(address, params, headers)
 
     @retry_connection_error(
-        attempts=2, exception=aiohttp.ServerDisconnectedError, backoff=0
+        attempts=2,
+        exception=(
+            aiohttp.ServerDisconnectedError,
+            aiohttp.ClientConnectionResetError,
+        ),
+        backoff=0,
     )
     async def post_xml(
         self, address: str, envelope: Any, headers: dict[str, str]
@@ -186,13 +277,11 @@ def handle_snapshot_errors(func: Callable[..., _T]) -> Callable[..., _T]:
         try:
             return await func(self, uri, *args, **kwargs)
         except TimeoutError as error:
-            raise ONVIFTimeoutError(
-                f"Timed out fetching {obscure_user_pass_url(uri)}: {error}"
-            ) from error
+            msg = f"Timed out fetching {obscure_user_pass_url(uri)}: {error}"
+            raise ONVIFTimeoutError(msg) from error
         except aiohttp.ClientError as error:
-            raise ONVIFError(
-                f"Error fetching {obscure_user_pass_url(uri)}: {error}"
-            ) from error
+            msg = f"Error fetching {obscure_user_pass_url(uri)}: {error}"
+            raise ONVIFError(msg) from error
 
     return wrapper
 
@@ -214,10 +303,11 @@ class ZeepAsyncClient(BaseZeepAsyncClient):
         try:
             binding = self.wsdl.bindings[binding_name]
         except KeyError:
-            raise ValueError(
+            msg = (
                 f"No binding found with the given QName. Available bindings "
                 f"are: {', '.join(self.wsdl.bindings.keys())}"
-            ) from None
+            )
+            raise ValueError(msg) from None
         return AsyncServiceProxy(self, binding, address=address)
 
 
@@ -267,8 +357,14 @@ class ONVIFService:
         read_timeout: int | None = None,
         write_timeout: int | None = None,
     ) -> None:
-        if not path_isfile(url):
-            raise ONVIFError(f"{url} doesn`t exist!")
+        wsdl_dir, wsdl_name = os.path.split(url)
+        cached_files = _WSDL_DIR_FILES.get(wsdl_dir)
+        exists = (
+            wsdl_name in cached_files if cached_files is not None else path_isfile(url)
+        )
+        if not exists:
+            msg = f"{url} doesn`t exist!"
+            raise ONVIFError(msg)
 
         self.url = url
         self.xaddr = xaddr
@@ -293,17 +389,18 @@ class ONVIFService:
                 sock_read=read_timeout or _READ_TIMEOUT,
             ),
         )
-        self.transport = (
-            AsyncTransportProtocolErrorHandler(
-                session=self._session,
-                verify_ssl=False,
-            )
-            if no_cache
-            else AIOHTTPTransport(
-                session=self._session,
-                verify_ssl=False,
-                cache=SqliteCache(),
-            )
+        # Always use the retry-on-disconnect transport. RFC 2616 section 8.1.4
+        # allows the server to close the connection at any time, and cameras
+        # routinely do so between event polls. The cache only affects WSDL
+        # loading, so it is orthogonal to the connection-error retry.
+        # The SqliteCache opens a sqlite file in its constructor (blocking I/O);
+        # leave cache=None here and let setup() attach the shared cache instance
+        # built off the event loop.
+        self._no_cache = no_cache
+        self.transport = AsyncTransportProtocolErrorHandler(
+            session=self._session,
+            verify_ssl=False,
+            cache=None,
         )
         self.document: Document | None = None
         self.zeep_client_authless: ZeepAsyncClient | None = None
@@ -320,6 +417,8 @@ class ONVIFService:
         wsse = UsernameDigestTokenDtDiff(
             self.user, self.passwd, dt_diff=self.dt_diff, use_digest=self.encrypt
         )
+        if not self._no_cache and self.transport.cache is None:
+            self.transport.cache = await _get_shared_sqlite_cache()
         self.document = await _cached_document(self.url)
         self.zeep_client_authless = ZeepAsyncClient(
             wsdl=self.document,
@@ -373,10 +472,7 @@ class ONVIFService:
             def wrapped(params=None):
                 def call(params=None):
                     # No params
-                    if params is None:
-                        params = {}
-                    else:
-                        params = ONVIFService.to_dict(params)
+                    params = {} if params is None else ONVIFService.to_dict(params)
                     try:
                         ret = func(**params)
                     except TypeError:
@@ -451,38 +547,153 @@ class ONVIFCamera:
         self._snapshot_connector = TCPConnector(ssl=_NO_VERIFY_SSL_CONTEXT)
         self._snapshot_client = ClientSession(connector=self._snapshot_connector)
 
-    async def get_capabilities(self) -> dict[str, Any]:
-        """Get device capabilities."""
+    async def get_capabilities(self) -> dict[str, Any] | None:
+        """Get device capabilities.
+
+        Returns the parsed GetCapabilities structure, or ``None`` if the device
+        returned a payload that could not be serialized -- capabilities parsing
+        is best-effort and swallows serialization errors (see
+        ``_update_xaddrs_from_capabilities``).
+        """
         if self._capabilities is None:
-            await self.update_xaddrs()
+            # update_xaddrs() prefers GetServices, which does not return the
+            # Category-keyed capabilities structure, so fetch GetCapabilities
+            # here on demand to populate self._capabilities. _devicemgmt_with_time()
+            # reproduces the adjust_time clock-skew compensation update_xaddrs()
+            # performs, so a caller invoking get_capabilities() first on a
+            # clock-skewed camera still signs GetCapabilities with an adjusted
+            # timestamp.
+            devicemgmt = await self._devicemgmt_with_time()
+            await self._update_xaddrs_from_capabilities(devicemgmt)
         return self._capabilities
 
     async def update_xaddrs(self):
         """Update xaddrs for services."""
         self.dt_diff = None
-        devicemgmt = await self.create_devicemgmt_service()
-        if self.adjust_time:
-            try:
-                sys_date = await devicemgmt.authless_GetSystemDateAndTime()
-            except zeep.exceptions.Fault:
-                # Looks like we should try with auth
-                sys_date = await devicemgmt.GetSystemDateAndTime()
-            cdate = sys_date.UTCDateTime
-            cam_date = dt.datetime(
-                cdate.Date.Year,
-                cdate.Date.Month,
-                cdate.Date.Day,
-                cdate.Time.Hour,
-                cdate.Time.Minute,
-                cdate.Time.Second,
-            )
-            self.dt_diff = cam_date - dt.datetime.utcnow()
-            await devicemgmt.close()
-            del self.services[devicemgmt.binding_key]
-            devicemgmt = await self.create_devicemgmt_service()
+        devicemgmt = await self._devicemgmt_with_time()
 
-        # Get XAddr of services on the device
+        # Get XAddr of services on the device.
+        #
+        # Prefer GetServices -- the ONVIF-recommended discovery method that
+        # returns every service the device exposes (recording, replay, search,
+        # receiver, deviceio, ...), not just the top-level subset advertised by
+        # GetCapabilities. Fall back to GetCapabilities only when GetServices is
+        # unsupported or returns nothing, which keeps older devices working and
+        # avoids a redundant second round-trip on modern ones. self._capabilities
+        # is populated lazily by get_capabilities() since GetServices does not
+        # return the Category-keyed capabilities structure.
+        # See https://github.com/openvideolibs/python-onvif-zeep-async/issues/97
         self.xaddrs = {}
+        if not await self._update_xaddrs_from_services(devicemgmt):
+            await self._update_xaddrs_from_capabilities(devicemgmt)
+
+    async def _devicemgmt_with_time(self) -> ONVIFService:
+        """Create the devicemgmt service with clock-skew compensation applied.
+
+        Shared prologue for ``update_xaddrs()`` and ``get_capabilities()``: both
+        need a devicemgmt service whose WS-Security timestamps account for the
+        device clock offset. The ``adjust_time`` handshake runs only when
+        ``dt_diff`` has not been computed yet, so calling this from
+        ``get_capabilities()`` after ``update_xaddrs()`` does not repeat the
+        round-trip. ``update_xaddrs()`` resets ``dt_diff`` to ``None`` first, so
+        it always (re)runs the handshake. A no-op when ``adjust_time`` is
+        disabled. Returns the devicemgmt service the caller should continue to use.
+        """
+        devicemgmt = await self.create_devicemgmt_service()
+        if self.dt_diff is None:
+            devicemgmt = await self._adjust_time(devicemgmt)
+        return devicemgmt
+
+    async def _adjust_time(self, devicemgmt: ONVIFService) -> ONVIFService:
+        """Compute the device clock offset and recreate the devicemgmt service.
+
+        When ``adjust_time`` is enabled, query the device's system clock and
+        store its offset from the host clock in ``self.dt_diff`` so subsequent
+        WS-Security timestamps compensate for clock skew (some cameras reject
+        requests whose ``Created`` timestamp drifts too far from their own). The
+        devicemgmt service is recreated afterwards so it is rebuilt with the
+        freshly computed ``dt_diff``. A no-op when ``adjust_time`` is disabled.
+
+        Called via ``_devicemgmt_with_time()`` so the clock-skew handshake
+        happens regardless of whether ``update_xaddrs()`` or
+        ``get_capabilities()`` runs first. Returns the devicemgmt service the
+        caller should continue to use.
+        """
+        if not self.adjust_time:
+            return devicemgmt
+        try:
+            sys_date = await devicemgmt.authless_GetSystemDateAndTime()
+        except zeep.exceptions.Fault:
+            # Looks like we should try with auth
+            sys_date = await devicemgmt.GetSystemDateAndTime()
+        cdate = sys_date.UTCDateTime
+        cam_date = dt.datetime(
+            cdate.Date.Year,
+            cdate.Date.Month,
+            cdate.Date.Day,
+            cdate.Time.Hour,
+            cdate.Time.Minute,
+            cdate.Time.Second,
+            tzinfo=dt.timezone.utc,
+        )
+        self.dt_diff = cam_date - dt.datetime.now(dt.timezone.utc)
+        await devicemgmt.close()
+        del self.services[devicemgmt.binding_key]
+        return await self.create_devicemgmt_service()
+
+    async def _update_xaddrs_from_services(self, devicemgmt: ONVIFService) -> bool:
+        """Populate XAddrs from GetServices.
+
+        GetServices is the ONVIF-recommended discovery method and returns every
+        service the device exposes -- far more complete than GetCapabilities.
+        Older devices may not implement it; a failure or empty response here is
+        non-fatal and signals the caller to fall back to GetCapabilities.
+
+        Returns True if at least one XAddr was discovered, False otherwise.
+        """
+        try:
+            services = await devicemgmt.GetServices({"IncludeCapability": False})
+        except (ONVIFError, zeep.exceptions.Fault) as err:
+            # An unsupported GetServices raises zeep.exceptions.Fault directly
+            # when awaited -- safe_func only wraps the synchronous request build,
+            # not the await -- while other failures surface as ONVIFError (which
+            # ONVIFTimeoutError subclasses). Either case is non-fatal: log the
+            # underlying error so unexpected failures stay visible, and let the
+            # caller fall back to GetCapabilities.
+            logger.debug(
+                "%s: Could not get services via GetServices: %s", self.host, err
+            )
+            return False
+        found = False
+        for service in services or []:
+            try:
+                namespace = service.Namespace
+                xaddr = service.XAddr
+            except AttributeError:
+                # Skipping malformed entries is expected, handled behaviour, so
+                # log at debug with host and entry detail rather than emitting a
+                # full traceback per bad entry (noisy in production).
+                logger.debug(
+                    "%s: Skipping malformed service entry from GetServices: %r",
+                    self.host,
+                    service,
+                )
+                continue
+            if namespace and xaddr:
+                self.xaddrs[namespace] = normalize_url(xaddr)
+                found = True
+        return found
+
+    async def _update_xaddrs_from_capabilities(self, devicemgmt: ONVIFService) -> None:
+        """Populate XAddrs and capabilities from GetCapabilities.
+
+        GetCapabilities only advertises the top-level services
+        (Analytics/Device/Events/Imaging/Media/PTZ); services nested under the
+        Extension element (recording, replay, search, ...) are not discoverable
+        here -- those come from GetServices. This is the fallback for devices
+        that do not implement GetServices and is also the only source for
+        self._capabilities, which GetServices does not return.
+        """
         capabilities = await devicemgmt.GetCapabilities({"Category": "All"})
         for name in capabilities:
             capability = capabilities[name]
@@ -648,7 +859,8 @@ class ONVIFCamera:
             content = await self._try_read_snapshot_content(uri, response)
 
         if response.status == 401:
-            raise ONVIFAuthError(f"Failed to authenticate to {uri}")
+            msg = f"Failed to authenticate to {uri}"
+            raise ONVIFAuthError(msg)
 
         if response.status < 300:
             return content
@@ -679,7 +891,8 @@ class ONVIFCamera:
         """Returns xaddr and wsdl of specified service"""
         # Check if the service is supported
         if name not in SERVICES:
-            raise ONVIFError(f"Unknown service {name}")
+            msg = f"Unknown service {name}"
+            raise ONVIFError(msg)
         wsdl_file = SERVICES[name]["wsdl"]
         namespace = SERVICES[name]["ns"]
 
@@ -688,9 +901,16 @@ class ONVIFCamera:
         if port_type:
             namespace += "/" + port_type
 
-        wsdlpath = os.path.join(self.wsdl_dir, wsdl_file)
-        if not path_isfile(wsdlpath):
-            raise ONVIFError(f"No such file: {wsdlpath}")
+        wsdlpath = str(Path(self.wsdl_dir) / wsdl_file)
+        cached_files = _WSDL_DIR_FILES.get(self.wsdl_dir)
+        exists = (
+            wsdl_file in cached_files
+            if cached_files is not None
+            else path_isfile(wsdlpath)
+        )
+        if not exists:
+            msg = f"No such file: {wsdlpath}"
+            raise ONVIFError(msg)
 
         # XAddr for devicemgmt is fixed:
         if name == "devicemgmt":
@@ -705,9 +925,8 @@ class ONVIFCamera:
         # Get other XAddr
         xaddr = self.xaddrs.get(namespace)
         if not xaddr:
-            raise ONVIFError(
-                f"Device doesn`t support service: {name} with namespace {namespace}"
-            )
+            msg = f"Device doesn`t support service: {name} with namespace {namespace}"
+            raise ONVIFError(msg)
 
         return xaddr, wsdlpath, binding_name
 
@@ -724,21 +943,29 @@ class ONVIFCamera:
         # The xaddr can change when a new PullPointSubscription is created.
         binding_key = (name, port_type)
 
+        # The first call for a given wsdl_dir does a single os.listdir off the
+        # event loop and caches the result, so get_definition and
+        # ONVIFService.__init__ can answer "does this wsdl exist" without
+        # blocking I/O.
+        if self.wsdl_dir not in _WSDL_DIR_FILES:
+            _WSDL_DIR_FILES[self.wsdl_dir] = await asyncio.to_thread(
+                _list_wsdl_dir, self.wsdl_dir
+            )
+
         xaddr, wsdl_file, binding_name = self.get_definition(name, port_type)
 
         existing_service = self.services.get(binding_key)
         if existing_service:
             if existing_service.xaddr == xaddr:
                 return existing_service
-            else:
-                # Close the existing service since it's no longer valid.
-                # This can happen when a new PullPointSubscription is created.
-                logger.debug(
-                    "Closing service %s with %s", binding_key, existing_service.xaddr
-                )
-                # Hold a reference to the task so it doesn't get
-                # garbage collected before it completes.
-                await existing_service.close()
+            # Close the existing service since it's no longer valid.
+            # This can happen when a new PullPointSubscription is created.
+            logger.debug(
+                "Closing service %s with %s", binding_key, existing_service.xaddr
+            )
+            # Hold a reference to the task so it doesn't get
+            # garbage collected before it completes.
+            await existing_service.close()
             self.services.pop(binding_key)
 
         logger.debug("Creating service %s with %s", binding_key, xaddr)

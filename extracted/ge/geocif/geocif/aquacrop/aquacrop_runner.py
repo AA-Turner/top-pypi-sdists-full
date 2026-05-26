@@ -767,9 +767,10 @@ def _build_and_run_param_calibration(
         return spec, calibrator.best_fitness
 
     except Exception as exc:  # noqa: BLE001 — never kill the run on calibration failure
-        logger.exception(
-            "Parameter calibration failed for %s/%s: %s — defaults will be used",
-            country, ac_crop, exc,
+        import traceback as _tb
+        logger.error(
+            f"Parameter calibration failed for {country}/{ac_crop}: {exc} "
+            f"— defaults will be used\n{_tb.format_exc()}"
         )
         return None
 
@@ -1186,9 +1187,10 @@ def run(path_config_files: list[str]) -> None:
                 country_bounds, own_pool, config_file_strings,
             )
         except Exception as exc:  # noqa: BLE001 — never kill the run on calibration
-            logger_.exception(
-                "Param calibration phase crashed for %s: %s — using defaults",
-                country, exc,
+            import traceback as _tb
+            logger_.error(
+                f"Param calibration phase crashed for {country}: {exc} "
+                f"— using defaults\n{_tb.format_exc()}"
             )
             param_overrides = {}
 

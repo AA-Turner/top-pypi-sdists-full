@@ -15,7 +15,7 @@ from ..constants import MESSAGE_FLAG_MAP, MESSAGE_TYPE_MAP, MessageFlag, Message
 from ..errors import InvalidMessageError
 from ..message import Message
 from ..signature import SignatureType, Variant, get_signature_tree
-from .constants import BIG_ENDIAN, LITTLE_ENDIAN, PROTOCOL_VERSION
+from .constants import BIG_ENDIAN, LITTLE_ENDIAN, MAX_MESSAGE_SIZE, PROTOCOL_VERSION
 
 MESSAGE_FLAG_INTENUM = MessageFlag
 
@@ -81,9 +81,9 @@ HEADER_ARRAY_OF_STRUCT_SIGNATURE_POSITION = 12
 # the spec ceiling doesn't change that. Keeping the check on the raw fields
 # is simpler than computing the padded total here.
 #
-# MAX_MESSAGE_SIZE is the Python-importable form (used by tests);
-# _MAX_MESSAGE_SIZE is the cdef unsigned int form used internally per .pxd.
-MAX_MESSAGE_SIZE = 134_217_728
+# MAX_MESSAGE_SIZE (re-exported from .constants) is the Python-importable form
+# shared with the marshalling side; _MAX_MESSAGE_SIZE is the cdef unsigned int
+# form used internally per .pxd.
 _MAX_MESSAGE_SIZE = MAX_MESSAGE_SIZE
 
 # D-Bus spec sec 4.4 caps signature container nesting at 32 array + 32 struct
@@ -936,11 +936,20 @@ class Unmarshaller:
         self._container_depth = 0
         header_fields = self._header_fields(self._header_len)
         self._pos += -self._pos & 7  # align 8
-        signature: str = header_fields[HEADER_SIGNATURE_IDX]
+        header_signature = header_fields[HEADER_SIGNATURE_IDX]
         if not self._body_len:
             tree = SIGNATURE_TREE_EMPTY
             body: list[Any] = []
+        elif type(header_signature) is not str or not header_signature:
+            # A non-empty body requires a valid signature header field
+            # (spec §4.1). A forged frame may omit it (None), send it empty, or
+            # carry a non-'g' variant type (a non-str value) — each would
+            # otherwise leak a bare TypeError/IndexError out to the reader.
+            raise InvalidMessageError(
+                "message has a body but no valid signature header field"
+            )
         else:
+            signature: str = header_signature
             token_as_int = ord(signature[0])
             if len(signature) == 1:
                 if token_as_int == TOKEN_O_AS_INT:

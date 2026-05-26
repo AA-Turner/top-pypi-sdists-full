@@ -276,7 +276,7 @@ class Pipeline:
             self._data[scene] = SceneData(fbo, previous_fbo, {})
         else:
             fbo = self._data[scene].fbo
-            previous_fbo = self._data[scene].fbo
+            previous_fbo = self._data[scene].previous_fbo
 
         # Assignation de la scene
         self._context.scene = scene

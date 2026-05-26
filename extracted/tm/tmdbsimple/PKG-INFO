@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: tmdbsimple
-Version: 2.9.4
+Version: 2.9.6
 Summary: A Python wrapper for The Movie Database API v3
-Home-page: https://github.com/celiao/tmdbsimple
-Download-URL: https://github.com/celiao/tmdbsimple/tarball/2.9.4
-Author: Celia Oakley
-Author-email: celia.oakley@alumni.stanford.edu
+Author-email: Celia Oakley <celia.oakley@alumni.stanford.edu>
+License: GPLv3
+Project-URL: Homepage, https://github.com/celiao/tmdbsimple
 Keywords: movie,the movie database,movie database,tmdb,wrapper,database,themoviedb,moviedb,api
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -15,28 +14,19 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Utilities
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 tmdbsimple
 ==========
 
 ![Python package](https://github.com/celiao/tmdbsimple/workflows/build/badge.svg)
 ![codecov](https://img.shields.io/codecov/c/github/celiao/tmdbsimple)
-![pypi](https://img.shields.io/pypi/pyversions/tmdbsimple?v=2.9.4)
-![pypi](https://img.shields.io/pypi/v/tmdbsimple?v=2.9.4)
+![pypi](https://img.shields.io/pypi/pyversions/tmdbsimple?v=2.9.6)
+![pypi](https://img.shields.io/pypi/v/tmdbsimple?v=2.9.6)
 
 A wrapper for The Movie Database API v3
 ---------------------------------------
@@ -119,6 +109,12 @@ _Optionally_, configure the library to use your own REQUESTS_SESSION. See [here]
 ```python
 import requests
 tmdb.REQUESTS_SESSION = requests.Session()
+```
+
+_Optionally_, configure the library to use bearer token authentication instead of the default API key query parameter. This may be useful if you encounter authorization issues with the default method.
+
+```python
+tmdb.USE_BEARER_AUTH = True
 ```
 
 To communicate with The Movie Database API, create an instance of one of the

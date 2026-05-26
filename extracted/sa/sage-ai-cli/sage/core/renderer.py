@@ -1391,6 +1391,24 @@ class _BottomDockStream(TextIOBase):
 _bottom_dock_stream: _BottomDockStream | None = None
 
 
+class SysStreamProxy:
+    def __init__(self, stream_name: str):
+        self.stream_name = stream_name
+
+    @property
+    def _stream(self):
+        return getattr(sys, self.stream_name)
+
+    def write(self, data: str) -> int:
+        return self._stream.write(data)
+
+    def flush(self) -> None:
+        self._stream.flush()
+
+    def __getattr__(self, attr: str):
+        return getattr(self._stream, attr)
+
+
 def _build_console(*, stderr: bool = False) -> Console:
     if _bottom_dock_stream is not None:
         return Console(
@@ -1399,9 +1417,10 @@ def _build_console(*, stderr: bool = False) -> Console:
             no_color=_no_color_enabled,
             color_system=None if _no_color_enabled else "auto",
         )
+    stream = SysStreamProxy("stderr" if stderr else "stdout")
     if _no_color_enabled:
-        return Console(stderr=stderr, no_color=True)
-    return Console(stderr=stderr)
+        return Console(file=stream, no_color=True)
+    return Console(file=stream)
 
 
 def _rebuild_consoles() -> None:
@@ -1422,9 +1441,12 @@ def _output_stream() -> TextIOBase:
 
 def _write_output(text: str) -> None:
     """Write text through the active output stream."""
-    stream = _output_stream()
-    stream.write(text)
-    stream.flush()
+    if _bottom_dock_stream is not None:
+        _bottom_dock_stream.write(text)
+        _bottom_dock_stream.flush()
+    else:
+        # Write via console to ensure compatibility with Rich.Live and avoid scroll artifacts
+        console.out(text, end="")
 
 
 # Indicator-only mode is now integrated with clean mode - no separate flag needed
@@ -1647,6 +1669,50 @@ _PHASE_STYLES = {
 }
 
 
+# REPL status tracking state and functions
+_repl_active: bool = False
+_repl_status: dict = {
+    "message": "",
+    "phase": "",
+    "model_id": "",
+    "elapsed": 0.0,
+    "start_time": 0.0,
+}
+
+def set_repl_active(active: bool) -> None:
+    global _repl_active
+    _repl_active = active
+    if not active:
+        clear_repl_status()
+
+def is_repl_active() -> bool:
+    return _repl_active
+
+def set_repl_status(message: str, phase_name: str = "", model_id: str = "", elapsed: float | None = None) -> None:
+    global _repl_status
+    _repl_status["message"] = message or "Working..."
+    _repl_status["phase"] = phase_name
+    _repl_status["model_id"] = model_id
+    if elapsed is not None:
+        _repl_status["elapsed"] = elapsed
+    else:
+        if not _repl_status["start_time"]:
+            _repl_status["start_time"] = time.monotonic()
+        _repl_status["elapsed"] = time.monotonic() - _repl_status["start_time"]
+
+def clear_repl_status() -> None:
+    global _repl_status
+    _repl_status["message"] = ""
+    _repl_status["phase"] = ""
+    _repl_status["model_id"] = ""
+    _repl_status["elapsed"] = 0.0
+    _repl_status["start_time"] = 0.0
+
+def get_repl_status() -> dict:
+    global _repl_status
+    return _repl_status
+
+
 def phase(name: str, detail: str = "") -> None:
     """Print a phase indicator with icon and optional detail.
 
@@ -1680,6 +1746,14 @@ def status_spinner(message: str, phase_name: str = "thinking"):
     if has_bottom_dock():
         set_bottom_dock_status(message)
         yield
+        return
+
+    if is_repl_active():
+        set_repl_status(message, phase_name)
+        try:
+            yield
+        finally:
+            clear_repl_status()
         return
 
     style, icon = _PHASE_STYLES.get(phase_name, ("dim", "·"))
@@ -1910,6 +1984,9 @@ def stream_tokens_with_phase(
         _ThinkingSuppressionFilter() if should_suppress_thinking else None
     )
 
+    if is_repl_active():
+        set_repl_status("Thinking...", "thinking", model_id=model_id, elapsed=0.0)
+
     def _flush_buffer() -> None:
         nonlocal last_flush
         if buffer and not clean_mode:  # Don't flush in clean mode
@@ -1939,7 +2016,7 @@ def stream_tokens_with_phase(
     # sage appear frozen. In clean mode it's a plain "Processing..." dot;
     # in normal/verbose modes it's the familiar "⟡ Thinking..." indicator
     # with the model name and elapsed seconds so the user knows it's working.
-    show_spinner = not has_bottom_dock()  # always show unless dock is active
+    show_spinner = not has_bottom_dock() and not is_repl_active()  # always show unless dock or REPL is active
 
     _spinner_model = f"  [dim]{model_id}[/dim]" if model_id and not clean_mode else ""
     _spinner_start = time.monotonic()
@@ -1970,9 +2047,12 @@ def stream_tokens_with_phase(
 
     def _update_spinner() -> None:
         """Refresh spinner text with elapsed time — called on each token loop tick."""
+        elapsed = time.monotonic() - _spinner_start
+        if is_repl_active():
+            set_repl_status("Thinking...", "thinking", model_id=model_id, elapsed=elapsed)
+            return
         if not live.is_started:
             return
-        elapsed = time.monotonic() - _spinner_start
         if clean_mode:
             txt = "  [bold cyan]● Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
         else:
@@ -2096,6 +2176,8 @@ def stream_tokens_with_phase(
                 first_token_time = time.monotonic()
                 if live.is_started:
                     live.stop()
+                if is_repl_active():
+                    clear_repl_status()
                 ttft = first_token_time - t0
                 if is_verbose():
                     console.print(f"  [dim]─ First token in {ttft:.1f}s[/dim]")
@@ -2111,6 +2193,8 @@ def stream_tokens_with_phase(
                 first_token_time = time.monotonic()
                 if live.is_started:
                     live.stop()
+                if is_repl_active():
+                    clear_repl_status()
                 ttft = first_token_time - t0
                 if is_verbose():
                     console.print(f"  [dim]─ First token in {ttft:.1f}s[/dim]")
@@ -2138,6 +2222,8 @@ def stream_tokens_with_phase(
                     first_token_time = time.monotonic()
                     if live.is_started:
                         live.stop()
+                    if is_repl_active():
+                        clear_repl_status()
                     ttft = first_token_time - t0
                     if is_verbose():
                         console.print(f"  [dim]─ First token in {ttft:.1f}s[/dim]")
@@ -2151,6 +2237,8 @@ def stream_tokens_with_phase(
     finally:
         if live.is_started:
             live.stop()
+        if is_repl_active():
+            clear_repl_status()
         # Restore the original signal handler (only if we installed one)
         if _on_main_thread and _original_handler is not None:
             signal.signal(signal.SIGINT, _original_handler)
@@ -2242,7 +2330,9 @@ def stream_tokens_minimal(tokens: Iterator[str], model_id: str = "") -> str:
         ),
     )
     live = Live(spinner, console=console, refresh_per_second=12, transient=True)
-    if not has_bottom_dock():
+    if is_repl_active():
+        set_repl_status("Thinking...", "thinking", model_id=model_id, elapsed=0.0)
+    elif not has_bottom_dock():
         live.start()
 
     try:
@@ -2260,7 +2350,10 @@ def stream_tokens_minimal(tokens: Iterator[str], model_id: str = "") -> str:
 
             if first_token_time is None:
                 first_token_time = time.monotonic()
-                live.stop()
+                if live.is_started:
+                    live.stop()
+                if is_repl_active():
+                    clear_repl_status()
                 ttft = first_token_time - t0
                 console.print(f"  [dim]─ First token in {ttft:.1f}s[/dim]")
                 if has_bottom_dock():
@@ -2281,7 +2374,10 @@ def stream_tokens_minimal(tokens: Iterator[str], model_id: str = "") -> str:
         if tail:
             if first_token_time is None:
                 first_token_time = time.monotonic()
-                live.stop()
+                if live.is_started:
+                    live.stop()
+                if is_repl_active():
+                    clear_repl_status()
                 ttft = first_token_time - t0
                 console.print(f"  [dim]─ First token in {ttft:.1f}s[/dim]")
                 if has_bottom_dock():
@@ -2294,6 +2390,8 @@ def stream_tokens_minimal(tokens: Iterator[str], model_id: str = "") -> str:
     finally:
         if live.is_started:
             live.stop()
+        if is_repl_active():
+            clear_repl_status()
         # Restore the original signal handler (only if we installed one)
         if _on_main_thread and _original_handler is not None:
             signal.signal(signal.SIGINT, _original_handler)
@@ -2738,6 +2836,13 @@ def print_agent_help() -> None:
         "  [#8bb8ff]/clear[/#8bb8ff]                             Clear conversation and file history\n"
         "  [#8bb8ff]/system[/#8bb8ff] [text]                    Show or set system prompt\n"
         "  [#8bb8ff]/status[/#8bb8ff]                            Show agent status (model, files, plan)\n"
+        "  [#8bb8ff]/context[/#8bb8ff]                           Show current context telemetry & token usage\n"
+        "  [#8bb8ff]/rag[/#8bb8ff] <query|index|status> [args] Query, index, or show status of local RAG\n"
+        "  [#8bb8ff]/tdd[/#8bb8ff] [on|off]                     Toggle test-driven development (TDD) mode\n"
+        "  [#8bb8ff]/phd[/#8bb8ff] <topic>                      Run PhD-level strategic research on a topic\n"
+        "  [#8bb8ff]/expert[/#8bb8ff] <domain> [query]          Consult a domain expert persona\n"
+        "  [#8bb8ff]/swarm[/#8bb8ff]                            Coordinate a swarm of mock/worker sub-agents\n"
+        "  [#8bb8ff]/sandbox[/#8bb8ff] [cmd]                    Run command/Python script in Docker sandbox\n"
         "  [#8bb8ff]/autoorg[/#8bb8ff] [task]                   Run multi-step AI orchestration\n"
         "  [#8bb8ff]/autofleet[/#8bb8ff] [task]                 Run fleet (multi-agent) orchestration\n"
         "  [#8bb8ff]/update[/#8bb8ff]                            Update SAGE AI to the latest CLI version\n"

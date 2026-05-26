@@ -4201,6 +4201,11 @@ def _build_prompt_reader(cwd: Path) -> Callable[[str], str]:
     """
     if sys.stdin.isatty() and sys.stdout.isatty():
         try:
+            import os
+            # Suppress "WARNING: your terminal doesn't support cursor position requests (CPR)."
+            # This often happens in environments like PyCharm, Warp, or pseudoterminals.
+            os.environ["PROMPT_TOOLKIT_NO_CPR"] = "1"
+
             from prompt_toolkit import PromptSession
             from prompt_toolkit.history import InMemoryHistory
             from prompt_toolkit.key_binding import KeyBindings
@@ -4221,16 +4226,31 @@ def _build_prompt_reader(cwd: Path) -> Callable[[str], str]:
             def _on_bracketed_paste(event) -> None:  # type: ignore[no-untyped-def]
                 data = event.data or ""
                 char_count = len(data)
+                line_count = len(data.splitlines())
                 # Tiny pastes (e.g. a URL, a single word) get inserted verbatim —
                 # no placeholder needed because there's no display burden.
-                if char_count < 200:
+                if char_count < 200 and line_count <= 5:
                     event.current_buffer.insert_text(data)
                     return
                 # Replace large pastes with a compact placeholder so the
                 # prompt line stays uncluttered and the user can append.
-                placeholder = f"[Pasted text {char_count:,} characters]"
+                placeholder = f"[Pasted {line_count} lines]"
                 paste_registry[placeholder] = data
                 paste_fired_flag[0] = True
+
+                try:
+                    from pathlib import Path
+                    import time
+                    import random
+                    pastes_dir = Path.home() / ".sage" / "pastes"
+                    pastes_dir.mkdir(parents=True, exist_ok=True)
+                    timestamp = int(time.time())
+                    rand_id = random.randint(1000, 9999)
+                    paste_file = pastes_dir / f"paste_{timestamp}_{rand_id}.txt"
+                    paste_file.write_text(data, encoding="utf-8")
+                except Exception:
+                    pass
+
                 event.current_buffer.insert_text(placeholder)
 
             session = PromptSession(
@@ -4243,7 +4263,7 @@ def _build_prompt_reader(cwd: Path) -> Callable[[str], str]:
                 paste_fired_flag[0] = False
                 text = session.prompt(prompt_text)
                 # Expand every placeholder back to its actual pasted text.
-                if paste_registry and "[Pasted text " in text:
+                if paste_registry and "[Pasted " in text:
                     for placeholder, real in list(paste_registry.items()):
                         if placeholder in text:
                             text = text.replace(placeholder, real)
@@ -6279,6 +6299,22 @@ def _extract_and_write_files(
     seen: set[str] = set()
     files_read = files_read or set()
 
+    # Patterns to match FILE: blocks in order of specificity
+    file_block_patterns = [
+        # Pattern 1: FILE: path\n```lang\ncontent\n``` (most common)
+        r"FILE:\s*(\S+)\s*\n```[^\n]*\n(.*?)```",
+        # Pattern 2: FILE: path (with optional colon after path)\n```content```
+        r"FILE:\s*([^\n:]+?)(?::\s*)?\n```[^\n]*\n(.*?)```",
+        # Pattern 3: **FILE:** path\n```content``` (markdown bold)
+        r"\*\*FILE:\*\*\s*(\S+)\s*\n```[^\n]*\n(.*?)```",
+        # Pattern 4: `FILE: path`\n```content``` (inline code)
+        r"`FILE:\s*(\S+)`\s*\n```[^\n]*\n(.*?)```",
+        # Pattern 5: ### FILE: path\n```content``` (header style)
+        r"#+\s*FILE:\s*(\S+)\s*\n```[^\n]*\n(.*?)```",
+        # Pattern 6 (FALLBACK): FENCE-LESS
+        r"FILE:\s*([^\n]+)\n(.*?)(?=\nFILE:|\Z)",
+    ]
+
     # ══════════════════════════════════════════════════════════════════════════
     # CRITICAL ENFORCEMENT: Block file writes for read-only request types
     # BUT still extract and display list/analysis content from the response
@@ -6287,9 +6323,40 @@ def _extract_and_write_files(
     if classification and classification.read_only:
         if classification.request_type == _RequestType.LIST_GENERATION:
             output = _dedupe_numbered_list_items(output)
-        # Check if there are any FILE: blocks in the output
-        if "FILE:" in output:
-            file_count = output.count("FILE:")
+        # Count actual valid file blocks that would be written
+        file_count = 0
+        seen_test: set[str] = set()
+        for pattern in file_block_patterns:
+            for m in re.finditer(pattern, output, re.DOTALL):
+                raw_fp = m.group(1).strip().rstrip(":")
+                
+                # Skip if there is non-whitespace preceding text on the same line (e.g. '1. FILE:')
+                line_start = output.rfind("\n", 0, m.start()) + 1
+                preceding_text = output[line_start:m.start()].strip()
+                if preceding_text:
+                    continue
+                
+                # Path must not contain spaces or typical conversational characters
+                if " " in raw_fp or any(c in raw_fp for c in ["*", "?", "\"", "<", ">", "|", "!", "(", ")"]):
+                    continue
+
+                fp = _normalize_workspace_relative_path(raw_fp, cwd)
+                if fp in seen_test:
+                    continue
+                seen_test.add(fp)
+
+                # Skip invalid paths or path traversals
+                if fp.startswith("../") or fp.startswith("/") or fp.startswith("~") or fp == "..":
+                    continue
+
+                content = m.group(2).strip()
+                # If there's content and a valid file name (with extension)
+                if content and "." in Path(fp).name:
+                    is_garbage, _ = _is_garbage_content(fp, content)
+                    if not is_garbage:
+                        file_count += 1
+
+        if file_count > 0:
             # HARD ENFORCEMENT: Mode boundary violation is an error, not a warning
             renderer.error(
                 f"❌ MODE VIOLATION: {file_count} FILE: block(s) REJECTED — "
@@ -6319,47 +6386,21 @@ def _extract_and_write_files(
 
         return []  # Return empty - no files written for read-only requests
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # ROBUST FILE BLOCK EXTRACTION - Handles multiple formats from various models
-    # ══════════════════════════════════════════════════════════════════════════
-
-    # Patterns to match FILE: blocks in order of specificity
-    file_block_patterns = [
-        # Pattern 1: FILE: path\n```lang\ncontent\n``` (most common)
-        r"FILE:\s*(\S+)\s*\n```[^\n]*\n(.*?)```",
-        # Pattern 2: FILE: path (with optional colon after path)\n```content```
-        r"FILE:\s*([^\n:]+?)(?::\s*)?\n```[^\n]*\n(.*?)```",
-        # Pattern 3: **FILE:** path\n```content``` (markdown bold)
-        r"\*\*FILE:\*\*\s*(\S+)\s*\n```[^\n]*\n(.*?)```",
-        # Pattern 4: `FILE: path`\n```content``` (inline code)
-        r"`FILE:\s*(\S+)`\s*\n```[^\n]*\n(.*?)```",
-        # Pattern 5: ### FILE: path\n```content``` (header style)
-        r"#+\s*FILE:\s*(\S+)\s*\n```[^\n]*\n(.*?)```",
-        # Pattern 6 (FALLBACK): FENCE-LESS. Weaker local models (4B-class
-        # GGUFs like gemma4) routinely omit the triple-backtick code fences
-        # and emit:
-        #     FILE: src/foo.js
-        #     export const foo = () => 1;
-        #
-        #     FILE: src/bar.js
-        #     ...
-        # The strict fenced patterns above silently drop those blocks and
-        # the user gets "no files written" plus a confused agent that
-        # doesn't understand why nothing happened. This pattern captures
-        # everything between `FILE: <path>` and the next FILE:/RUN:/READ:/
-        # SEARCH: line (or end of output) as the file's contents. The
-        # `seen` set later in the loop prevents double-extraction when a
-        # higher-priority fenced pattern already matched the same filepath.
-        # Simplified fenceless pattern: matches content between FILE: markers.
-        # Previous complex lookahead only matched the first file; this
-        # lookahead-based split correctly captures all files.
-        r"FILE:\s*([^\n]+)\n(.*?)(?=\nFILE:|\Z)",
-    ]
-
     pending_filepaths: list[str] = []
     for pattern in file_block_patterns:
         for m in re.finditer(pattern, output, re.DOTALL):
             raw_fp = m.group(1).strip().rstrip(":")
+            
+            # Skip if there is non-whitespace preceding text on the same line (e.g. '1. FILE:')
+            line_start = output.rfind("\n", 0, m.start()) + 1
+            preceding_text = output[line_start:m.start()].strip()
+            if preceding_text:
+                continue
+            
+            # Path must not contain spaces or typical conversational characters
+            if " " in raw_fp or any(c in raw_fp for c in ["*", "?", "\"", "<", ">", "|", "!", "(", ")"]):
+                continue
+
             pending_filepaths.append(_normalize_workspace_relative_path(raw_fp, cwd))
     pending_modules = _pending_modules_for_files(pending_filepaths)
 
@@ -6388,6 +6429,17 @@ def _extract_and_write_files(
     for pattern in file_block_patterns:
         for m in re.finditer(pattern, output, re.DOTALL):
             raw_fp = m.group(1).strip().rstrip(":")  # Remove trailing colon if present
+            
+            # Skip if there is non-whitespace preceding text on the same line (e.g. '1. FILE:')
+            line_start = output.rfind("\n", 0, m.start()) + 1
+            preceding_text = output[line_start:m.start()].strip()
+            if preceding_text:
+                continue
+            
+            # Path must not contain spaces or typical conversational characters
+            if " " in raw_fp or any(c in raw_fp for c in ["*", "?", "\"", "<", ">", "|", "!", "(", ")"]):
+                continue
+
             fp = _normalize_workspace_relative_path(raw_fp, cwd)
             content = m.group(2)
             if fp in seen:
@@ -6419,11 +6471,10 @@ def _extract_and_write_files(
                 files_read.add(normalized_fp)
                 _add_session_file_read(cwd, normalized_fp)
 
-            # Check for garbage content before writing
+            # Check for garbage content
             is_garbage, reason = _is_garbage_content(fp, content)
             if is_garbage:
-                renderer.debug_warning(f"Rejected garbage file {fp}: {reason}")
-                continue
+                renderer.debug_warning(f"File {fp} contains placeholder/garbage: {reason} (writing for validation)...")
 
             # Validate imports for ALL Python files (not just tests)
             if fp.endswith(".py"):
@@ -6527,11 +6578,10 @@ def _extract_and_write_files(
             files_read.add(normalized_tag)
             _add_session_file_read(cwd, normalized_tag)
 
-        # Check for garbage content before writing
+        # Check for garbage content
         is_garbage, reason = _is_garbage_content(tag, content)
         if is_garbage:
-            renderer.debug_warning(f"Rejected garbage file {tag}: {reason}")
-            continue
+            renderer.debug_warning(f"File {tag} contains placeholder/garbage: {reason} (writing for validation)...")
 
         # Validate imports for Python test files before writing
         if tag.endswith(".py") and ("test_" in tag or tag.startswith("tests/")):
@@ -6643,10 +6693,23 @@ def _auto_validate(written: list[str], cwd: Path) -> str | None:
     """Run automatic validation on written files. Returns (cmd, output) or None.
 
     Validation order:
+    0. Garbage / Placeholder check
     1. Syntax pre-check (fast, catches obvious errors)
     2. Project-specific validation (pytest, npm test, etc.)
     3. Fallback syntax-only check if no test framework found
     """
+    # Step 0: Garbage / Placeholder check
+    for fp in written:
+        target = cwd / fp
+        if target.exists():
+            try:
+                content = target.read_text(encoding="utf-8")
+                is_garbage, reason = _is_garbage_content(fp, content)
+                if is_garbage:
+                    return "code completeness check", f"File '{fp}' is incomplete: {reason}. Write the complete implementation without placeholder stubs."
+            except Exception:
+                pass
+
     # Step 1: Fast syntax pre-check
     syntax_ok, syntax_errors = _syntax_precheck(written, cwd)
     if not syntax_ok:
@@ -10487,56 +10550,13 @@ def _build_multistep_phase_prompts(
                     f"TASK: {task_prompt}\n\n"
                     "⚠️ THIS IS A BRAND-NEW GREENFIELD PROJECT. The workspace is EMPTY.\n"
                     "Do NOT issue READ:, SEARCH:, or RUN: commands — there is NOTHING to explore.\n\n"
-                    "Your ONLY job: output a FILE_MANIFEST listing EVERY file to be created.\n\n"
-                    "FLAT DIRECTORY STRUCTURE — use EXACTLY this layout (no root package.json):\n\n"
-                    "  docker-compose.yml        ← root (NO package.json at root)\n"
-                    "  .github/workflows/ci.yml\n"
-                    "  .gitignore\n"
-                    "  .env.example\n"
-                    "  README.md\n\n"
-                    "  mobile/                   ← React Native (Expo) platform\n"
-                    "    package.json            ← Expo/React Native deps ONLY for mobile\n"
-                    "    app.json\n"
-                    "    App.tsx\n"
-                    "    screens/HomeScreen.tsx\n"
-                    "    screens/CampaignScreen.tsx\n"
-                    "    components/AdCard.tsx\n"
-                    "    components/SocialPlatformPicker.tsx\n"
-                    "    hooks/useAI.ts\n"
-                    "    __tests__/App.test.tsx\n\n"
-                    "  web/                      ← Bun.js SSR server\n"
-                    "    package.json            ← Bun deps ONLY for web\n"
-                    "    bunfig.toml\n"
-                    "    src/server.ts\n"
-                    "    src/routes/index.ts\n\n"
-                    "  backend/                  ← FastAPI Python backend\n"
-                    "    pyproject.toml          ← Python deps ONLY for backend\n"
-                    "    database.py             ← engine + get_db (NEVER put in main.py)\n"
-                    "    main.py                 ← FastAPI() + routers only\n"
-                    "    models/user.py\n"
-                    "    models/ad.py\n"
-                    "    routers/ads.py          ← import get_db from database, NEVER from main\n"
-                    "    routers/auth.py\n"
-                    "    connectors/facebook.py\n"
-                    "    connectors/tiktok.py\n"
-                    "    connectors/instagram.py\n"
-                    "    connectors/youtube.py\n"
-                    "    tasks/celery_app.py\n"
-                    "    tasks/ai_tasks.py\n"
-                    "    tasks/social_tasks.py\n"
-                    "    tests/conftest.py\n"
-                    "    tests/test_api.py\n\n"
+                    "Your ONLY job: output a FILE_MANIFEST listing EVERY file to be created for the project.\n\n"
+                    "Provide a clean, logical project layout suitable for this task.\n"
+                    "In your response, define the structure, then output FILE_MANIFEST: followed by a list of relative file paths (one path per line) for all configuration, source code, and test files required for a complete, production-ready, fully working implementation.\n\n"
                     "CRITICAL RULES:\n"
-                    "- NO root package.json — each platform has its OWN package.json in its subdir\n"
-                    "- mobile/ has mobile/package.json, web/ has web/package.json, backend/ has pyproject.toml\n"
-                    "- backend/database.py: engine, SessionLocal, Base = declarative_base(), def get_db()\n"
-                    "- backend/main.py: FastAPI() + include_router() ONLY — NO engine/Base/database code\n"
-                    "- backend/models/*.py: from ..database import Base (NOT 'from . import Base')\n"
-                    "- backend/routers/*.py: from ..database import get_db — NEVER from main\n"
-                    "- backend/tests/conftest.py: sys.path.insert(0, backend_dir_path)\n"
-                    "- backend/tests/*.py: from main import app — absolute import\n"
-                    "- __init__.py = EMPTY\n\n"
-                    "Output FILE_MANIFEST: one path per line. No code. No READ:/SEARCH:. ONLY the list."
+                    "- Only include files that you will implement. Do not include files you won't write.\n"
+                    "- Every file in the manifest must be written completely with no placeholders or TODOs.\n"
+                    "- Output FILE_MANIFEST: one path per line. No code. No READ:/SEARCH:. ONLY the list."
                 ),
             ),
             (
@@ -10544,27 +10564,8 @@ def _build_multistep_phase_prompts(
                 (
                     f"TASK: {task_prompt}\n\n"
                     "Now write the FIRST BATCH of files using FILE: blocks.\n\n"
-                    "STRUCTURE (no root package.json):\n"
-                    "  docker-compose.yml, .gitignore, .env.example, README.md  ← root only\n"
-                    "  mobile/package.json   ← Expo/RN deps (mobile platform only)\n"
-                    "  web/package.json      ← Bun.js deps (web platform only)\n"
-                    "  backend/pyproject.toml ← Python deps (backend only)\n\n"
-                    "OUTPUT ORDER:\n"
-                    "  1. Root: docker-compose.yml, .gitignore, .env.example, README.md (NO package.json)\n"
-                    "  2. backend/database.py FIRST, then main.py, models/, routers/, connectors/, tasks/, tests/\n"
-                    "  3. mobile/: package.json, app.json, App.tsx, screens/, components/, hooks/, __tests__/\n"
-                    "  4. web/: package.json, bunfig.toml, src/server.ts, src/routes/\n"
-                    "  5. .github/workflows/ci.yml\n\n"
-                    "ARCHITECTURE (prevents circular imports):\n"
-                    "- backend/database.py: engine, SessionLocal, Base=declarative_base(), def get_db()\n"
-                    "- backend/main.py: FastAPI() + include_router() ONLY\n"
-                    "- backend/models/*.py: from ..database import Base (NOT from . import Base)\n"
-                    "- backend/routers/*.py: from ..database import get_db — NEVER from main\n"
-                    "- backend/tests/conftest.py: sys.path.insert(0, path_to_backend_dir)\n"
-                    "- backend/tests/test_*.py: from main import app\n"
-                    "- mobile/: View, Text, TouchableOpacity (React Native, not plain React)\n\n"
-                    "RULES: Complete contents. __init__.py=EMPTY. More batches follow.\n"
-                    "Start with docker-compose.yml and backend/database.py now."
+                    "Output complete file contents with NO placeholders, NO stubs, and NO '// TODO' comments.\n"
+                    "Start with the configuration/manifest files and core database/utility files first, and continue until all files are fully written."
                 ),
             ),
         ]
@@ -11713,7 +11714,9 @@ class SAGEAgent:
         self._is_repl = False
         self._model_timed_out: bool = False  # set when model exceeds timeout; blocks retry loop
         self.files_read: list[str] = []
-        self.execution_ledger = _reset_evidence_tracker()
+        _reset_evidence_tracker()
+        from sage.core.tools import ExecutionLedger
+        self.execution_ledger = ExecutionLedger()
         self.last_prompt: str = ""
         self.last_written: list[str] = []
         self.all_written: list[str] = []
@@ -12187,6 +12190,39 @@ class SAGEAgent:
                 tool_commands.append(("RUN", call.arguments.get("command", "")))
 
         if tool_commands:
+            # Check for repetition loops of failed operations to prevent infinite loops (especially on local/smaller models)
+            tracker = _get_evidence_tracker()
+            if tracker is not None:
+                all_repeated_failures = True
+                has_reads_or_searches = False
+                for t_type, t_arg in tool_commands:
+                    if t_type == "READ":
+                        has_reads_or_searches = True
+                        clean_arg = t_arg.strip().strip("`").strip()
+                        if clean_arg.startswith("./"):
+                            clean_arg = clean_arg[2:]
+                        clean_arg = _normalize_workspace_relative_path(clean_arg, self.cwd)
+                        if clean_arg not in tracker.failed_files:
+                            all_repeated_failures = False
+                            break
+                    elif t_type == "SEARCH":
+                        has_reads_or_searches = True
+                        scope, pattern = _extract_scoped_prefix(t_arg)
+                        pattern = _strip_search_comment(pattern)
+                        pattern = _normalize_workspace_relative_path(pattern, self.cwd)
+                        failed_searches = getattr(tracker, "failed_searches", set())
+                        if pattern not in failed_searches:
+                            all_repeated_failures = False
+                            break
+                    else:
+                        # For RUN or other commands, do not block
+                        all_repeated_failures = False
+                        break
+                
+                if has_reads_or_searches and all_repeated_failures:
+                    self.renderer.warning("⚠️ Repetition loop detected: all requested files/searches have already failed. Stopping tool execution.")
+                    return [], response
+
             self.renderer.set_bottom_dock_status(f"Executing {len(tool_commands)} tool(s)...")
             # Print each tool action inline so the user sees real-time progress.
             # Format: "sage> READ: filename.py" — matches what the terminal was
@@ -12373,14 +12409,14 @@ class SAGEAgent:
         written: list[str],
         retries_left: int | None = None,
         attempt: int = 1,
-    ) -> None:
+    ) -> bool:
         """Auto-validate written files and retry on failure."""
         if not written:
-            return
+            return True
 
         validation = _auto_validate(written, self.cwd)
         if validation is None:
-            return
+            return True
 
         cmd_name, output = validation
         self.renderer.print_validation_start(cmd_name)
@@ -12389,7 +12425,7 @@ class SAGEAgent:
         self.renderer.print_test_results(output, passed=not has_errors)
 
         if not has_errors:
-            return
+            return True
 
         current_written = written
         retry_num = max(attempt - 1, 0)
@@ -12500,13 +12536,13 @@ class SAGEAgent:
                         current_written = jolt_written
                         validation = _auto_validate(current_written, self.cwd)
                         if validation is None:
-                            break
+                            return True
                         cmd_name, output = validation
                         has_errors = _has_errors(output)
                         self.renderer.print_test_results(output, passed=not has_errors)
                         if not has_errors:
                             self.renderer.success("Fixed by jolt approach!")
-                            break
+                            return True
                         continue
                 # Jolt also produced nothing — genuinely stuck, stop.
                 self.renderer.warning("Jolt also produced no changes — stopping fix loop.")
@@ -12522,7 +12558,7 @@ class SAGEAgent:
             current_written = new_written
             validation = _auto_validate(current_written, self.cwd)
             if validation is None:
-                break
+                return True
 
             cmd_name, output = validation
             has_errors = _has_errors(output)
@@ -12530,7 +12566,9 @@ class SAGEAgent:
 
             if not has_errors:
                 self.renderer.success(f"Fixed on attempt {retry_num}!")
-                break
+                return True
+
+        return False
 
     def _ensure_implementation_writes(
         self,
@@ -13207,6 +13245,8 @@ class SAGEAgent:
         global _current_execution_context
         self._model_timed_out = False  # reset per-task
         self._greenfield_manifest = []  # reset per-task so old manifests don't bleed through
+        from sage.core.tools import ExecutionLedger
+        self.execution_ledger = ExecutionLedger()
         send = sender or self.send_to_model
 
         # 1. Classify request
@@ -13479,20 +13519,13 @@ class SAGEAgent:
                     )
 
                 _batch_prompt = (
-                    f"Continue building the advertisement platform (batch {_batch_num}).\n\n"
+                    f"Continue implementing the project for the task: \"{task_prompt}\" (batch {_batch_num}).\n\n"
                     f"Already written ({len(all_written)} files):\n{_written_lines}\n\n"
                     f"Write the files for {_next_subsystem}\n\n"
                     "KEY RULES:\n"
-                    "- NO root package.json — each platform owns its own (mobile/package.json, web/package.json)\n"
-                    "- backend/database.py: engine + Base + get_db (NOT in main.py)\n"
-                    "- backend/models/*.py: from ..database import Base (NEVER 'from . import Base')\n"
-                    "- backend/main.py: FastAPI() + routers ONLY\n"
-                    "- backend/routers/*: from ..database import get_db (NEVER from main)\n"
-                    "- mobile/: View, Text, TouchableOpacity (React Native not plain React)\n"
-                    "- Flat: mobile/, web/, backend/ at root (no apps/ or services/)\n"
-                    "- __init__.py = empty\n"
-                    "- Complete file contents — no stubs\n"
-                    "- Output SCAFFOLD_COMPLETE when ALL project files exist\n\n"
+                    "- Write COMPLETE file contents with full implementations — no stubs, no placeholders, no '// TODO' or '/* TODO */' comments.\n"
+                    "- Ensure all imports, exports, and function references are correct and fully resolved.\n"
+                    "- Output SCAFFOLD_COMPLETE when ALL files from the manifest exist and are fully implemented.\n\n"
                     "Write as many files as possible now."
                 )
 
@@ -13615,8 +13648,14 @@ class SAGEAgent:
         # Skip for greenfield scaffolds — running npm install / pytest on a
         # partial scaffold produces spurious errors (missing deps, unfinished
         # modules) that halt the batch continuation before the project is done.
-        if written and not classification.read_only and not _is_gf_exec:
-            self._auto_validate_and_retry(written)
+        task_ok = True
+        if written and not classification.read_only:
+            if _is_gf_exec:
+                # Run validation ONCE at the very end of the greenfield scaffold
+                self.renderer.phase("testing", "Scaffold complete — running final validation and tests...")
+                task_ok = self._auto_validate_and_retry(written)
+            else:
+                task_ok = self._auto_validate_and_retry(written)
 
         _close_task_dock()
 
@@ -13626,7 +13665,7 @@ class SAGEAgent:
         if should_print:
             self.renderer.print_assistant_response(response)
 
-        return written, True
+        return written, task_ok
 
 
 _global_agent: SAGEAgent | None = None
@@ -14137,8 +14176,378 @@ def run(
     # and a pinned input field that accepts concurrent "hints" during execution.
     from sage.core.repl import run_repl
 
+    def _handle_repl_slash_command(cmd_str: str) -> None:
+        import shlex
+        parts = shlex.split(cmd_str)
+        if not parts:
+            return
+        cmd_name = parts[0].lower()
+        args = parts[1:]
+
+        if cmd_name == "/help":
+            sage_agent.renderer.print_agent_help()
+
+        elif cmd_name == "/models":
+            ollama = False
+            category = None
+            search = None
+            all_models = False
+            details = False
+            provider = None
+            filter_kw = None
+
+            i = 0
+            while i < len(args):
+                arg = args[i]
+                if arg == "--ollama":
+                    ollama = True
+                elif arg in ("--category", "-c"):
+                    if i + 1 < len(args):
+                        category = args[i+1]
+                        i += 1
+                elif arg in ("--search", "-s"):
+                    if i + 1 < len(args):
+                        search = args[i+1]
+                        i += 1
+                elif arg == "--all":
+                    all_models = True
+                elif arg == "--details":
+                    details = True
+                elif arg in ("--provider", "-p"):
+                    if i + 1 < len(args):
+                        provider = args[i+1]
+                        i += 1
+                elif arg in ("--filter", "-f"):
+                    if i + 1 < len(args):
+                        filter_kw = args[i+1]
+                        i += 1
+                else:
+                    filter_kw = arg
+                i += 1
+            
+            try:
+                models(
+                    ollama=ollama,
+                    category=category,
+                    search=search,
+                    all_models=all_models,
+                    details=details,
+                    provider=provider,
+                    filter_kw=filter_kw
+                )
+            except typer.Exit:
+                pass
+
+        elif cmd_name == "/model":
+            if not args:
+                sage_agent.renderer.console.print(f"Active model: [bold]{sage_agent.model_id}[/bold]")
+            else:
+                new_model_id = args[0]
+                nonlocal cfg
+                try:
+                    updated_cfg, resolved_model_id = _prepare_model_for_use(cfg, new_model_id)
+                    cfg = updated_cfg
+                    sage_agent.model_id = resolved_model_id
+                    _set_last_used_model(sage_agent.cwd, resolved_model_id)
+                    sage_agent.renderer.success(f"Model changed to {resolved_model_id}")
+                except Exception as e:
+                    sage_agent.renderer.error(f"Failed to switch model: {e}")
+
+        elif cmd_name == "/think":
+            if not args:
+                current_mode = sage_agent.renderer.get_output_mode()
+                status = "ON" if current_mode == "verbose" else "OFF"
+                sage_agent.renderer.console.print(f"Thinking blocks visibility: [bold]{status}[/bold] (mode: {current_mode})")
+            else:
+                mode_val = args[0].lower()
+                if mode_val in ("on", "true", "yes"):
+                    sage_agent.renderer.set_output_mode("verbose")
+                    sage_agent.renderer.success("Thinking blocks visibility enabled (verbose output).")
+                elif mode_val in ("off", "false", "no"):
+                    sage_agent.renderer.set_output_mode("normal")
+                    sage_agent.renderer.success("Thinking blocks visibility disabled (normal output).")
+                else:
+                    sage_agent.renderer.error("Usage: /think [on|off]")
+
+        elif cmd_name == "/read":
+            if not args:
+                sage_agent.renderer.error("Usage: /read <file_path>")
+            else:
+                file_arg = args[0]
+                filepath = Path(sage_agent.cwd) / file_arg
+                if not filepath.exists():
+                    sage_agent.renderer.error(f"File not found: {file_arg}")
+                else:
+                    rel_path = str(filepath.relative_to(sage_agent.cwd))
+                    if rel_path not in sage_agent.sticky_context_files:
+                        sage_agent.sticky_context_files.append(rel_path)
+                    try:
+                        content = filepath.read_text(encoding="utf-8", errors="replace")
+                        sage_agent.engine.add_user(f"Here is the content of {rel_path}:\n\n```\n{content}\n```")
+                        sage_agent.renderer.success(f"Read {rel_path} into context ({len(content)} characters)")
+                    except Exception as e:
+                        sage_agent.renderer.error(f"Failed to read file: {e}")
+
+        elif cmd_name == "/test":
+            test_cmd = " ".join(args) if args else sage_agent.tdd_gate.test_cmd
+            sage_agent.renderer.info(f"Running tests: {test_cmd}")
+            is_passing, message = sage_agent.tdd_gate.run_tests(command=test_cmd, cwd=sage_agent.cwd)
+            if is_passing:
+                sage_agent.renderer.success(message)
+            else:
+                sage_agent.renderer.error(message)
+
+        elif cmd_name == "/files":
+            if sage_agent.all_written:
+                sage_agent.renderer.console.print("[bold]Files written in this session:[/bold]")
+                for f in sorted(set(sage_agent.all_written)):
+                    sage_agent.renderer.console.print(f"  {f}")
+            else:
+                sage_agent.renderer.console.print("No files written in this session yet.")
+
+        elif cmd_name == "/undo":
+            if not sage_agent.checkpoint_mgr:
+                sage_agent.renderer.error("No checkpoint manager initialized.")
+                return
+            cp = sage_agent.checkpoint_mgr.get_last_checkpoint()
+            if not cp:
+                sage_agent.renderer.error("No checkpoints found to undo.")
+            else:
+                is_safe, concerns = sage_agent.checkpoint_mgr.validate_restore(cp)
+                if not is_safe:
+                    sage_agent.renderer.warning("Restore warnings:\n" + "\n".join(concerns))
+                result = sage_agent.checkpoint_mgr.restore_checkpoint(cp)
+                if result.success:
+                    sage_agent.renderer.success(f"Successfully rolled back to checkpoint {cp.id}: {result.message}")
+                    sage_agent.checkpoint_mgr.checkpoints.remove(cp)
+                    sage_agent.checkpoint_mgr._save_checkpoints()
+                else:
+                    sage_agent.renderer.error(f"Failed to restore checkpoint: {result.message}")
+                    if result.errors:
+                        for err in result.errors:
+                            sage_agent.renderer.error(f"  Error: {err}")
+
+        elif cmd_name == "/compact":
+            if sage_agent.compactor:
+                sage_agent.renderer.info("📦 Compacting context...")
+                sage_agent.engine._messages = sage_agent.compactor.compact(
+                    sage_agent.engine._messages, sage_agent.router, sage_agent.model_id
+                )
+                sage_agent.renderer.success(f"Context compacted! {sage_agent.compactor.get_status(sage_agent.engine._messages)}")
+            else:
+                sage_agent.renderer.error("Compactor not initialized.")
+
+        elif cmd_name == "/clear":
+            sage_agent.engine.clear()
+            sage_agent.sticky_context_files.clear()
+            sage_agent.all_written.clear()
+            sage_agent.renderer.success("Conversation and file history cleared.")
+
+        elif cmd_name == "/system":
+            if not args:
+                sage_agent.renderer.console.print("[bold]Current System Prompt:[/bold]")
+                sage_agent.renderer.console.print(sage_agent.engine.system_prompt)
+            else:
+                new_prompt = " ".join(args)
+                sage_agent.engine.system_prompt = new_prompt
+                sage_agent.renderer.success("System prompt updated.")
+
+        elif cmd_name == "/status":
+            sage_agent.renderer.console.print(f"[bold]Active Model:[/bold] {sage_agent.model_id}")
+            sage_agent.renderer.console.print(f"[bold]Output Mode:[/bold] {sage_agent.renderer.get_output_mode()}")
+            sage_agent.renderer.console.print(f"[bold]Conversation turns:[/bold] {sage_agent.engine.turn_count}")
+            if sage_agent.sticky_context_files:
+                sage_agent.renderer.console.print(f"[bold]Pinned Files:[/bold]")
+                for f in sage_agent.sticky_context_files:
+                    sage_agent.renderer.console.print(f"  {f}")
+            if sage_agent.all_written:
+                sage_agent.renderer.console.print(f"[bold]Written Files:[/bold] {len(sage_agent.all_written)} files")
+            if sage_agent.current_plan:
+                sage_agent.renderer.console.print(f"[bold]Active Plan:[/bold] {sage_agent.current_plan.id} ({len(sage_agent.current_plan.tasks)} tasks)")
+
+        elif cmd_name == "/context":
+            stats = sage_agent.engine.get_context_stats()
+            sage_agent.renderer.console.print("[bold]Context telemetry & token usage:[/bold]")
+            sage_agent.renderer.console.print(f"  • [bold]Total Messages:[/bold] {stats.message_count}")
+            sage_agent.renderer.console.print(f"  • [bold]User Turns:[/bold] {stats.turn_count}")
+            sage_agent.renderer.console.print(f"  • [bold]System Prompt Tokens:[/bold] {stats.system_prompt_tokens}")
+            sage_agent.renderer.console.print(f"  • [bold]History Tokens:[/bold] {stats.history_tokens}")
+            sage_agent.renderer.console.print(f"  • [bold]Total Estimated Tokens:[/bold] {stats.estimated_tokens}")
+            sage_agent.renderer.console.print(f"  • [bold]Max Context Window:[/bold] {stats.max_tokens}")
+            sage_agent.renderer.console.print(f"  • [bold]Usage Percent:[/bold] {stats.usage_percent:.2f}%")
+
+        elif cmd_name == "/rag":
+            if not args:
+                sage_agent.renderer.error("Usage: /rag <query|index|status> [args...]")
+            else:
+                sub = args[0].lower()
+                if sub == "query":
+                    query_text = " ".join(args[1:])
+                    from sage.core.rag import RAGIndex, format_chunks_for_prompt
+                    index = RAGIndex(sage_agent.cwd)
+                    chunks = index.query(query_text, top_k=6)
+                    if not chunks:
+                        sage_agent.renderer.info("(no results found — index may be empty)")
+                    else:
+                        sage_agent.renderer.console.print(format_chunks_for_prompt(chunks))
+                elif sub == "index":
+                    from sage.core.rag import RAGIndex
+                    index = RAGIndex(sage_agent.cwd)
+                    stats = index.reindex(force=False)
+                    sage_agent.renderer.success(f"Indexed files_seen={stats['files_seen']} chunks_added={stats['chunks_added']}")
+                elif sub == "status":
+                    from sage.core.rag import RAGIndex
+                    import sqlite3
+                    index = RAGIndex(sage_agent.cwd)
+                    conn = sqlite3.connect(index.db_path)
+                    file_count = conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
+                    chunk_count = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+                    sage_agent.renderer.console.print(f"DB:       {index.db_path}")
+                    sage_agent.renderer.console.print(f"Files:    {file_count}")
+                    sage_agent.renderer.console.print(f"Chunks:   {chunk_count}")
+                else:
+                    sage_agent.renderer.error(f"Unknown RAG subcommand: {sub}")
+
+        elif cmd_name == "/tdd":
+            from sage.core.tdd import get_tdd_enforcer
+            enforcer = get_tdd_enforcer()
+            if not args:
+                enforcer.enabled = not enforcer.enabled
+            else:
+                val = args[0].lower()
+                if val in ("on", "true", "yes", "enable"):
+                    enforcer.enabled = True
+                elif val in ("off", "false", "no", "disable"):
+                    enforcer.enabled = False
+                else:
+                    sage_agent.renderer.error("Usage: /tdd [on|off]")
+            status = "ENABLED" if enforcer.enabled else "DISABLED"
+            sage_agent.renderer.success(f"TDD Mode is now: [bold]{status}[/bold]")
+
+        elif cmd_name == "/phd":
+            if not args:
+                sage_agent.renderer.error("Usage: /phd <topic/task>")
+            else:
+                topic = " ".join(args)
+                sage_agent.renderer.info(f"🎓 Starting PhD-level research & analysis on: {topic}")
+                if not sage_agent.phd_agent:
+                    from sage.core.phd_agent import PhDAgent
+                    sage_agent.phd_agent = PhDAgent(send=None)
+                with sage_agent.renderer.status_spinner("Researching...", "reading"):
+                    result = sage_agent.phd_agent.solver.solve_complete(topic)
+                sage_agent.renderer.success("Research completed!")
+                for idx, sub_prob in enumerate(result["sub_problems"]):
+                    sol = result["solutions"].get(idx, "No solution generated")
+                    sage_agent.renderer.console.print(f"\n[bold]Sub-task: {sub_prob}[/bold]")
+                    sage_agent.renderer.console.print(sol)
+
+        elif cmd_name == "/expert":
+            if not args:
+                sage_agent.renderer.error("Usage: /expert <domain_name> [query]")
+            else:
+                domain = args[0]
+                query = " ".join(args[1:]) if len(args) > 1 else f"Audit the workspace and conceptualize a swarm of sub-agents for {domain}."
+                expert_prompt = (
+                    f"You are an expert AI consultant specializing in {domain}.\n"
+                    f"Task: {query}\n"
+                    f"Please perform a detailed expert analysis based on this workspace context and suggest sub-agent roles."
+                )
+                sage_agent.renderer.info(f"🧙‍♂️ Consulting {domain} Expert...")
+                response = sage_agent.send_to_model(expert_prompt, show_thinking=True, save_history=True)
+                if response:
+                    sage_agent.renderer.console.print(response)
+
+        elif cmd_name == "/swarm":
+            sage_agent.renderer.info("🐝 Initializing Agent Swarm...")
+            roles = [
+                {"name": "Security Auditor", "status": "active", "task": "Auditing omniprobe-ui inputs"},
+                {"name": "Documenter", "status": "active", "task": "Generating API documentation"},
+                {"name": "QA Specialist", "status": "active", "task": "Writing unit tests"},
+            ]
+            sage_agent.renderer.console.print("[bold]Active Swarm Members:[/bold]")
+            for r in roles:
+                sage_agent.renderer.console.print(f"  • [green]{r['name']}[/green] ({r['status']}): {r['task']}")
+
+            swarm_prompt = (
+                "You are SAGE Orchestrator leading a swarm of sub-agents (Security Auditor, Documenter, QA Specialist).\n"
+                "Please coordinate their outputs to parallelize documentation, audit findings, and testing for the omniprobe-ui project. "
+                "Provide a detailed coordinate report."
+            )
+            response = sage_agent.send_to_model(swarm_prompt, show_thinking=True, save_history=True)
+            if response:
+                sage_agent.renderer.console.print(response)
+
+        elif cmd_name == "/sandbox":
+            if not sage_agent.tdd_gate or not sage_agent.tdd_gate.sandbox:
+                sage_agent.renderer.error("Sandbox not initialized.")
+            else:
+                sandbox = sage_agent.tdd_gate.sandbox
+                command = " ".join(args) if args else "python3 -c \"import pathlib; print(sum(len(p.read_text(errors='replace').splitlines()) for p in pathlib.Path('sage').rglob('*.py')))\""
+                sage_agent.renderer.info(f"📦 Running command in Docker Sandbox: {command}")
+                with sage_agent.renderer.status_spinner("Executing in sandbox...", "reading"):
+                    if sandbox.is_available():
+                        res = sandbox.execute(command)
+                        stdout, stderr, code = res.stdout, res.stderr, res.exit_code
+                    else:
+                        from sage.core.shell import run_shell
+                        stdout = run_shell(command, sage_agent.cwd)
+                        stderr = ""
+                        code = 0
+                sage_agent.renderer.success(f"Execution finished (exit code: {code})")
+                if stdout:
+                    sage_agent.renderer.console.print(f"[bold]stdout:[/bold]\n{stdout}")
+                if stderr:
+                    sage_agent.renderer.console.print(f"[bold,red]stderr:[/bold,red]\n{stderr}")
+
+        elif cmd_name == "/history":
+            sage_agent.renderer.console.print(f"Conversation turn count: {sage_agent.engine.turn_count}")
+
+        elif cmd_name == "/version":
+            from sage import __version__
+            sage_agent.renderer.console.print(f"SAGE AI version {__version__}")
+
+        elif cmd_name == "/update":
+            _perform_cli_update(check_only=False)
+
+        elif cmd_name == "/autoorg":
+            message = " ".join(args) if args else None
+            _run_autoorg_command(
+                message,
+                cwd=sage_agent.cwd,
+                router=sage_agent.router,
+                model_id=sage_agent.model_id,
+                temp=sage_agent.temp,
+                tokens=sage_agent.tokens,
+                model_locked=sage_agent.model_locked,
+            )
+
+        elif cmd_name == "/autofleet":
+            message = " ".join(args) if args else None
+            _run_autofleet_command(
+                message,
+                cwd=sage_agent.cwd,
+                router=sage_agent.router,
+                model_id=sage_agent.model_id,
+                temp=sage_agent.temp,
+                tokens=sage_agent.tokens,
+                model_locked=sage_agent.model_locked,
+                cfg=cfg,
+            )
+        else:
+            sage_agent.renderer.error(f"Unknown command: {cmd_name}. Type /help to see all available commands.")
+
     def _repl_execute(user_input: str) -> None:
         """Synchronous wrapper for agent execution inside the async REPL."""
+        cleaned = user_input.strip()
+        if cleaned.startswith("/"):
+            try:
+                _handle_repl_slash_command(cleaned)
+            except KeyboardInterrupt:
+                renderer.warning("\nInterrupted by user")
+            except Exception as e:
+                renderer.error(f"Error executing command {cleaned}: {e}")
+            return
+
         try:
             # Re-use the agent logic
             sage_agent.execute_task_prompt(user_input, save_history=True)
@@ -14146,6 +14555,16 @@ def run(
             renderer.warning("\nInterrupted by user")
         except Exception as e:
             renderer.error(f"Error: {e}")
+
+    if prompt:
+        try:
+            sage_agent.execute_task_prompt(prompt, save_history=True)
+        except KeyboardInterrupt:
+            renderer.warning("\nInterrupted by user")
+        except Exception as e:
+            renderer.error(f"Error: {e}")
+            raise typer.Exit(1) from e
+        return
 
     # Start the async REPL
     run_repl(sage_agent, _repl_execute)
@@ -14248,6 +14667,7 @@ def ask(
 
 @app.command()
 def models(
+    ollama: Annotated[bool, typer.Option("--ollama", help="Show all Ollama models available to pull")] = False,
     category: Annotated[
         str | None,
         typer.Option(

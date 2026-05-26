@@ -56,7 +56,7 @@ cd "$TMPDIR"
 git clone --depth 1 "$AUTH_URL" repo 2>&1 | grep -v "^remote:" || true
 cd repo
 
-# Sync source files (exclude .git, logs, __pycache__, .github/workflows)
+# Sync source files. Excludes match auto_release.sh — keep them in sync.
 rsync -a --delete \
     --exclude='.git' \
     --exclude='.github/workflows' \
@@ -65,16 +65,60 @@ rsync -a --delete \
     --exclude='*.pyc' \
     --exclude='.pytest_cache/' \
     --exclude='*.egg-info/' \
+    --exclude='dist/' \
+    --exclude='.pause_*' \
+    --exclude='log_analyzer/' \
+    --exclude='.auto_release.lock' \
+    --exclude='.perf_baseline_done' \
+    --exclude='.gauntlet_runs/' \
+    --exclude='.test_harness_runs/' \
+    --exclude='.test_harness_runs_autogoal/' \
+    --exclude='.test_harness_runs_baseline/' \
+    --exclude='.lifecycle_runs/' \
+    --exclude='.stress_runs/' \
+    --exclude='.100_projects/' \
+    --exclude='.eval_loop/' \
+    --exclude='.drydock/' \
+    --exclude='.tui_observability/' \
+    --exclude='.claude/' \
+    --exclude='.venv/' \
+    --exclude='.vscode/' \
+    --exclude='hle_results/' \
+    --exclude='hle_results_iter/' \
+    --exclude='medium/' \
+    --exclude='test_harness/' \
+    --exclude='test_bank_results/' \
+    --exclude='baseline_history/' \
+    --exclude='research/' \
+    --exclude='perf_results/' \
+    --exclude='trip_log.md' \
     "$DRYDOCK_SRC/" .
 
-# Check if anything changed
-if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+# Drop already-tracked paths that now match the excludes (one-time
+# catch-up; once shipped, the next rsync+commit removes them upstream).
+# Stage everything FIRST — the catch-up `git rm --cached` below must
+# run AFTER `git add -A`, otherwise the same `git add -A` re-adds the
+# excluded paths from disk (rsync --exclude leaves them on disk).
+git add -A
+
+( shopt -s nullglob
+  for path in test_bank_results baseline_history research perf_results \
+              hle_results hle_results_iter medium test_harness \
+              trip_log.md .auto_release.lock .perf_baseline_done \
+              .gauntlet_runs .test_harness_runs \
+              .test_harness_runs_autogoal .test_harness_runs_baseline \
+              .lifecycle_runs .stress_runs .100_projects .eval_loop \
+              .drydock .tui_observability .claude .venv .vscode \
+              .pause_*; do
+      git ls-files --error-unmatch -- "$path" >/dev/null 2>&1 \
+          && git rm -r --cached --quiet -- "$path" 2>/dev/null || true
+  done )
+
+# Check if anything is staged for commit
+if git diff --cached --quiet; then
     log "No changes to deploy."
     exit 0
 fi
-
-# Stage all changes
-git add -A
 
 # Build commit message from recent git log in source repo
 RECENT_CHANGES=$(cd "$DRYDOCK_SRC" && git log --oneline -5 2>/dev/null | head -5 || echo "manual changes")

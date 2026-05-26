@@ -79,6 +79,7 @@ AUDIO_INPUT_FORMATS = {
     84934721: "DTS 5.1",
     118489090: "Multichannel PCM 7.1",
     118489146: "Dolby Digital Plus 7.1",
+    118489148: "Dolby TrueHD 7.1",
 }
 
 _LOG = logging.getLogger(__name__)
@@ -374,10 +375,10 @@ class SoCo(_SocoSingletonBase):
         _LOG.debug("Created SoCo instance for ip: %s", ip_address)
 
     def __str__(self):
-        return "<{} object at ip {}>".format(self.__class__.__name__, self.ip_address)
+        return f"<{self.__class__.__name__} object at ip {self.ip_address}>"
 
     def __repr__(self):
-        return '{}("{}")'.format(self.__class__.__name__, self.ip_address)
+        return f'{self.__class__.__name__}("{self.ip_address}")'
 
     @property
     def boot_seqnum(self):
@@ -745,7 +746,7 @@ class SoCo(_SocoSingletonBase):
             self.get_speaker_info()
 
         # first, set the queue itself as the source URI
-        uri = "x-rincon-queue:{}#0".format(self.uid)
+        uri = f"x-rincon-queue:{self.uid}#0"
         self.avTransport.SetAVTransportURI(
             [("InstanceID", 0), ("CurrentURI", uri), ("CurrentURIMetaData", "")]
         )
@@ -846,7 +847,7 @@ class SoCo(_SocoSingletonBase):
         if force_radio:
             colon = uri.find(":")
             if colon > 0:
-                uri = "x-rincon-mp3radio{}".format(uri[colon:])
+                uri = f"x-rincon-mp3radio{uri[colon:]}"
 
         self.avTransport.SetAVTransportURI(
             [("InstanceID", 0), ("CurrentURI", uri), ("CurrentURIMetaData", meta)]
@@ -1604,7 +1605,7 @@ class SoCo(_SocoSingletonBase):
         format_code = self.soundbar_audio_input_format_code
 
         if format_code not in AUDIO_INPUT_FORMATS:
-            error_message = "Unknown audio input format: {}".format(format_code)
+            error_message = f"Unknown audio input format: {format_code}"
             logging.debug(error_message)
             return error_message
 
@@ -1727,7 +1728,7 @@ class SoCo(_SocoSingletonBase):
         self.avTransport.SetAVTransportURI(
             [
                 ("InstanceID", 0),
-                ("CurrentURI", "x-rincon:{}".format(master.uid)),
+                ("CurrentURI", f"x-rincon:{master.uid}"),
                 ("CurrentURIMetaData", ""),
             ],
             **kwargs,
@@ -1850,7 +1851,7 @@ class SoCo(_SocoSingletonBase):
         self.avTransport.SetAVTransportURI(
             [
                 ("InstanceID", 0),
-                ("CurrentURI", "x-rincon-stream:{}".format(uid)),
+                ("CurrentURI", f"x-rincon-stream:{uid}"),
                 ("CurrentURIMetaData", ""),
             ]
         )
@@ -1917,7 +1918,7 @@ class SoCo(_SocoSingletonBase):
         self.avTransport.SetAVTransportURI(
             [
                 ("InstanceID", 0),
-                ("CurrentURI", "x-sonos-htastream:{}:spdif".format(self.uid)),
+                ("CurrentURI", f"x-sonos-htastream:{self.uid}:spdif"),
                 ("CurrentURIMetaData", ""),
             ]
         )
@@ -2524,7 +2525,7 @@ class SoCo(_SocoSingletonBase):
                     (
                         "FV:2"
                         if favorite_type is SONOS_FAVORITES
-                        else "R:0/{}".format(favorite_type)
+                        else f"R:0/{favorite_type}"
                     ),
                 ),
                 ("BrowseFlag", "BrowseDirectChildren"),
@@ -2585,7 +2586,7 @@ class SoCo(_SocoSingletonBase):
 
         item_id = response["AssignedObjectID"]
         obj_id = item_id.split(":", 2)[1]
-        uri = "file:///jffs/settings/savedqueues.rsq#{}".format(obj_id)
+        uri = f"file:///jffs/settings/savedqueues.rsq#{obj_id}"
 
         res = [DidlResource(uri=uri, protocol_info="x-rincon-playlist:*:*:*")]
         return DidlPlaylistContainer(
@@ -2610,7 +2611,7 @@ class SoCo(_SocoSingletonBase):
         )
         item_id = response["AssignedObjectID"]
         obj_id = item_id.split(":", 2)[1]
-        uri = "file:///jffs/settings/savedqueues.rsq#{}".format(obj_id)
+        uri = f"file:///jffs/settings/savedqueues.rsq#{obj_id}"
         res = [DidlResource(uri=uri, protocol_info="x-rincon-playlist:*:*:*")]
         return DidlPlaylistContainer(
             resources=res, title=title, parent_id="SQ:", item_id=item_id
@@ -2967,7 +2968,7 @@ class SoCo(_SocoSingletonBase):
         for sonos_playlist in self.get_sonos_playlists():
             if getattr(sonos_playlist, attr_name) == match:
                 return sonos_playlist
-        raise ValueError('No match on "{}" for value "{}"'.format(attr_name, match))
+        raise ValueError(f'No match on "{attr_name}" for value "{match}"')
 
     def get_battery_info(self, timeout=3.0):
         """Get battery information for a Sonos speaker.
@@ -3029,6 +3030,17 @@ class SoCo(_SocoSingletonBase):
             raise NotSupportedException from error
 
         return battery_info
+
+
+def soco_reset():
+    """Reset the SoCo module.
+
+    Clears out the singleton instance cache. Use this to reset SoCo state,
+    for example when testing. Note that this does not close any open
+    connections or release other resources. This function is not thread-safe
+    and must not be called while the API is in use from other threads.
+    """
+    _ArgsSingleton._instances.clear()
 
 
 # definition section

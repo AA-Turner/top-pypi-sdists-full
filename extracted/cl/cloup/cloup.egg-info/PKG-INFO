@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloup
-Version: 3.0.9
+Version: 3.1.0
 Summary: Adds features to Click: option groups, constraints, subcommand sections and help themes.
 Home-page: https://github.com/janLuke/cloup
 Author: Gianluca Gippetto
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: click<9.0,>=8.0
+Requires-Dist: click<9.0,>=8.1.0
 Requires-Dist: typing_extensions; python_version <= "3.10"
 Dynamic: author
 Dynamic: author-email

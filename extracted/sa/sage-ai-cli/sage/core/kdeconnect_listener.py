@@ -715,6 +715,7 @@ class KDEConnectInboundListener:
                 "id": int(time.time() * 1000),
                 "type": "kdeconnect.sms.request",
                 "body": {
+                    "version":           2,
                     "sendSms":           True,
                     "phoneNumber":       phone_number,
                     "messageBody":       text,

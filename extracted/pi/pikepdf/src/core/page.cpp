@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2022 James R. Barlow
 // SPDX-License-Identifier: MPL-2.0
 
+#include "parsers.h"
+#include "pikepdf.h"
+#include "qpdf_lock.h"
+
 #include <cctype>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-
-#include "parsers.h"
-#include "pikepdf.h"
-#include "qpdf_lock.h"
 
 #include <qpdf/Pipeline.hh>
 #include <qpdf/Pl_Buffer.hh>
@@ -165,12 +165,18 @@ void init_page(py::module_ &m)
                     // function require a Pdf, or move it to the Pdf.
                     auto pyqpdf = py::cast(poh.getObjectHandle().getOwningQPDF());
                     auto pytf = py::cast(tf);
-                    // Keep token filter alive by storing ref on the QPDF object
-                    if (!py::hasattr(pyqpdf, "_token_filter_refs")) {
+                    // Keep token filter alive by storing ref on the QPDF object.
+                    // Pdf has dynamic_attr() so the user could replace
+                    // _token_filter_refs with a non-list; reset in that case
+                    // so we don't reinterpret-cast a non-list and segfault.
+                    py::object existing_refs = py::none();
+                    if (py::hasattr(pyqpdf, "_token_filter_refs"))
+                        existing_refs = pyqpdf.attr("_token_filter_refs");
+                    if (!py::isinstance<py::list>(existing_refs)) {
                         py::setattr(pyqpdf, "_token_filter_refs", py::list());
+                        existing_refs = pyqpdf.attr("_token_filter_refs");
                     }
-                    py::list refs =
-                        py::borrow<py::list>(pyqpdf.attr("_token_filter_refs"));
+                    py::list refs = py::borrow<py::list>(existing_refs);
                     refs.append(pytf);
 
                     poh.addContentTokenFilter(tf);

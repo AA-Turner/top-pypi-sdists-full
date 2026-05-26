@@ -45,7 +45,10 @@ from .json_utils import (to_complete_multipart_upload_request,
                          to_put_bucket_mirror_back, to_put_bucket_lifecycle, to_put_tagging, to_fetch_object,
                          to_put_replication, to_put_bucket_website, to_put_bucket_notification, to_put_custom_domain,
                          to_put_bucket_real_time_log, to_restore_object, to_bucket_encrypt, to_put_fetch_object,
-                         to_put_bucket_notification_type2, to_simple_query, to_semantic_query)
+                         to_put_bucket_notification_type2, to_simple_query, to_semantic_query,
+                         to_put_bucket_object_set_configuration_request, to_put_object_set_request,
+                         to_put_object_set_quota_request, to_put_object_set_quota_by_tag_request,
+                         to_put_object_set_lifecycle_by_tag_request)
 from .log import get_logger
 from .models2 import (AbortMultipartUpload, AppendObjectOutput,
                       CompleteMultipartUploadOutput, CopyObjectOutput,
@@ -85,7 +88,16 @@ from .models2 import (AbortMultipartUpload, AppendObjectOutput,
                       BucketInventoryConfiguration, QueryOrderType, AggregationRequest, QueryRequest, SimpleQueryOutput,
                       SemanticQueryOutput, ReplicationRule, PutBucketAccessMonitorOutput, GetBucketAccessMonitorOutput,
                       GetBucketInfoOutput, GetBucketTypeOutput, PutBucketTrashOutput, PutQosPolicyOutput,
-                      GetQosPolicyOutput, DeleteQosPolicyOutput)
+                      GetQosPolicyOutput, DeleteQosPolicyOutput,
+                      PutBucketObjectSetConfigurationOutput, GetBucketObjectSetConfigurationOutput,
+                      PutObjectSetOutput, PutObjectSetTaggingOutput, ListObjectSetOutput,
+                      GetObjectSetOutput, GetObjectSetTaggingOutput, DeleteObjectSetOutput,
+                      GetObjectSetEndpointOutput, PutObjectSetQuotaOutput, GetObjectSetQuotaOutput,
+                      GetObjectSetStorageOutput, PutObjectSetQuotaByTagOutput, GetObjectSetQuotaByTagOutput,
+                      DeleteObjectSetQuotaByTagOutput, PutObjectSetLifecycleOutput, GetObjectSetLifecycleOutput,
+                      DeleteObjectSetLifecycleOutput, PutObjectSetLifecycleByTagOutput,
+                      GetObjectSetLifecycleByTagOutput, DeleteObjectSetLifecycleByTagOutput,
+                      QosConfig)
 from .thread_ctx import consume_body
 from .utils import (SizeAdapter, _make_copy_source,
                     _make_range_string, _make_upload_part_file_content,
@@ -1070,6 +1082,7 @@ class TosClientV2(TosClient):
         """
         # if not _is_valid_expires(expires):
         #     raise TosClientError('expires invalid')
+        _is_valid_bucket_name(bucket)
         key = to_str(key)
         params = query or {}
         header = header or {}
@@ -1107,6 +1120,9 @@ class TosClientV2(TosClient):
         :return: PreSignedPostSignatureOutPut
         """
         # _is_valid_expires(expires)
+        if bucket:
+            _is_valid_bucket_name(bucket)
+
         if content_length_range:
             start = content_length_range.start
             end = content_length_range.end
@@ -1132,6 +1148,7 @@ class TosClientV2(TosClient):
         """
         if conditions is None:
             conditions = []
+        _is_valid_bucket_name(bucket)
         # if not _is_valid_expires(expires):
         #     raise TosClientError('expires invalid')
         endpoint = alternative_endpoint or self.endpoint
@@ -4652,6 +4669,338 @@ class TosClientV2(TosClient):
             connection.create_connection = patched_create_connection
 
         return start_succeed
+
+    # ==================== ObjectSet 相关接口 ====================
+
+    def put_bucket_object_set_configuration(self, bucket: str, path_level: int,
+                                            enable_default_object_set: bool,
+                                            custom_delimiter: str = None,
+                                            storage_quota: str = None,
+                                            qos: QosConfig = None,
+                                            generic_input: GenericInput = None) -> PutBucketObjectSetConfigurationOutput:
+        """ 设置桶的 ObjectSet 配置
+
+        :param bucket: 桶名
+        :param path_level: 路径层级
+        :param enable_default_object_set: 是否启用默认 ObjectSet
+        :param custom_delimiter: 自定义分隔符
+        :param storage_quota: 存储配额，单位为字节
+        :param qos: QoS 配置
+        :param generic_input: 通用请求参数
+        :return: PutBucketObjectSetConfigurationOutput
+        """
+        data = to_put_bucket_object_set_configuration_request(
+            path_level, enable_default_object_set, custom_delimiter, storage_quota, qos)
+        data = json.dumps(data)
+        headers = {"Content-MD5": to_str(base64.b64encode(hashlib.md5(to_bytes(data)).digest()))}
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Put.value,
+                         params={'objectsetconfiguration': ''}, data=data, headers=headers,
+                         generic_input=generic_input)
+        return PutBucketObjectSetConfigurationOutput(resp)
+
+    def get_bucket_object_set_configuration(self, bucket: str,
+                                            generic_input: GenericInput = None) -> GetBucketObjectSetConfigurationOutput:
+        """ 获取桶的 ObjectSet 配置
+
+        :param bucket: 桶名
+        :param generic_input: 通用请求参数
+        :return: GetBucketObjectSetConfigurationOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params={'objectsetconfiguration': ''}, generic_input=generic_input)
+        return GetBucketObjectSetConfigurationOutput(resp)
+
+    def put_object_set(self, bucket: str, object_set_name: str, tag_set: [] = None,
+                       generic_input: GenericInput = None) -> PutObjectSetOutput:
+        """ 创建或更新 ObjectSet
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param tag_set: 标签列表
+        :param generic_input: 通用请求参数
+        :return: PutObjectSetOutput
+        """
+        data = to_put_object_set_request(object_set_name, tag_set)
+        data = json.dumps(data)
+        headers = {"Content-MD5": to_str(base64.b64encode(hashlib.md5(to_bytes(data)).digest()))}
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Put.value,
+                         params={'objectset': ''}, data=data, headers=headers,
+                         generic_input=generic_input)
+        return PutObjectSetOutput(resp)
+
+    def get_object_set(self, bucket: str, object_set_name: str,
+                       generic_input: GenericInput = None) -> GetObjectSetOutput:
+        """ 获取指定 ObjectSet 的信息
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param generic_input: 通用请求参数
+        :return: GetObjectSetOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params={'objectset': '', 'ObjectSetName': object_set_name},
+                         generic_input=generic_input)
+        return GetObjectSetOutput(resp)
+
+    def list_object_set(self, bucket: str, prefix: str = None, tags: str = None,
+                        max_keys: int = None, marker: str = None,
+                        generic_input: GenericInput = None) -> ListObjectSetOutput:
+        """ 列举桶中的 ObjectSet
+
+        :param bucket: 桶名
+        :param prefix: ObjectSet 名称前缀过滤
+        :param tags: 标签过滤条件，格式为 key=value
+        :param max_keys: 单次请求返回的最大条目数
+        :param marker: 分页标记，从上一次返回的 next_marker 获取
+        :param generic_input: 通用请求参数
+        :return: ListObjectSetOutput
+        """
+        params = {'objectsets': ''}
+        if prefix:
+            params['prefix'] = prefix
+        if tags:
+            params['tags'] = tags
+        if max_keys is not None:
+            params['max-keys'] = str(max_keys)
+        if marker:
+            params['marker'] = marker
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params=params, generic_input=generic_input)
+        return ListObjectSetOutput(resp)
+
+    def delete_object_set(self, bucket: str, object_set_name: str,
+                          generic_input: GenericInput = None) -> DeleteObjectSetOutput:
+        """ 删除指定的 ObjectSet
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param generic_input: 通用请求参数
+        :return: DeleteObjectSetOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Delete.value,
+                         params={'objectset': '', 'ObjectSetName': object_set_name},
+                         generic_input=generic_input)
+        return DeleteObjectSetOutput(resp)
+
+    def put_object_set_tagging(self, bucket: str, object_set_name: str, tag_set: [] = None,
+                               generic_input: GenericInput = None) -> PutObjectSetTaggingOutput:
+        """ 设置 ObjectSet 的标签
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param tag_set: 标签列表
+        :param generic_input: 通用请求参数
+        :return: PutObjectSetTaggingOutput
+        """
+        data = to_put_object_set_request(object_set_name, tag_set)
+        data = json.dumps(data)
+        headers = {"Content-MD5": to_str(base64.b64encode(hashlib.md5(to_bytes(data)).digest()))}
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Put.value,
+                         params={'objectsettagging': ''}, data=data, headers=headers,
+                         generic_input=generic_input)
+        return PutObjectSetTaggingOutput(resp)
+
+    def get_object_set_tagging(self, bucket: str, object_set_name: str,
+                               generic_input: GenericInput = None) -> GetObjectSetTaggingOutput:
+        """ 获取 ObjectSet 的标签
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param generic_input: 通用请求参数
+        :return: GetObjectSetTaggingOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params={'objectsettagging': '', 'ObjectSetName': object_set_name},
+                         generic_input=generic_input)
+        return GetObjectSetTaggingOutput(resp)
+
+    def get_object_set_endpoint(self, bucket: str, object_set_name: str,
+                                generic_input: GenericInput = None) -> GetObjectSetEndpointOutput:
+        """ 获取 ObjectSet 的 endpoint 列表
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param generic_input: 通用请求参数
+        :return: GetObjectSetEndpointOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params={'objectsetendpoint': '', 'ObjectSetName': object_set_name},
+                         generic_input=generic_input)
+        return GetObjectSetEndpointOutput(resp)
+
+    def put_object_set_quota(self, bucket: str, object_set_name: str, storage_quota: str,
+                             generic_input: GenericInput = None) -> PutObjectSetQuotaOutput:
+        """ 设置 ObjectSet 的存储配额
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param storage_quota: 存储配额，单位为字节
+        :param generic_input: 通用请求参数
+        :return: PutObjectSetQuotaOutput
+        """
+        data = to_put_object_set_quota_request(storage_quota)
+        data = json.dumps(data)
+        headers = {"Content-MD5": to_str(base64.b64encode(hashlib.md5(to_bytes(data)).digest()))}
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Put.value,
+                         params={'objectsetquota': '', 'ObjectSetName': object_set_name},
+                         data=data, headers=headers, generic_input=generic_input)
+        return PutObjectSetQuotaOutput(resp)
+
+    def get_object_set_quota(self, bucket: str, object_set_name: str,
+                             generic_input: GenericInput = None) -> GetObjectSetQuotaOutput:
+        """ 获取 ObjectSet 的存储配额
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param generic_input: 通用请求参数
+        :return: GetObjectSetQuotaOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params={'objectsetquota': '', 'ObjectSetName': object_set_name},
+                         generic_input=generic_input)
+        return GetObjectSetQuotaOutput(resp)
+
+    def put_object_set_quota_by_tag(self, bucket: str, rules: [] = None,
+                                    generic_input: GenericInput = None) -> PutObjectSetQuotaByTagOutput:
+        """ 按标签设置 ObjectSet 配额规则
+
+        :param bucket: 桶名
+        :param rules: ObjectSetQuotaRule 列表
+        :param generic_input: 通用请求参数
+        :return: PutObjectSetQuotaByTagOutput
+        """
+        data = to_put_object_set_quota_by_tag_request(rules or [])
+        data = json.dumps(data)
+        headers = {"Content-MD5": to_str(base64.b64encode(hashlib.md5(to_bytes(data)).digest()))}
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Put.value,
+                         params={'objectsetquotabytag': ''}, data=data, headers=headers,
+                         generic_input=generic_input)
+        return PutObjectSetQuotaByTagOutput(resp)
+
+    def get_object_set_quota_by_tag(self, bucket: str,
+                                    generic_input: GenericInput = None) -> GetObjectSetQuotaByTagOutput:
+        """ 获取按标签设置的 ObjectSet 配额规则
+
+        :param bucket: 桶名
+        :param generic_input: 通用请求参数
+        :return: GetObjectSetQuotaByTagOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params={'objectsetquotabytag': ''}, generic_input=generic_input)
+        return GetObjectSetQuotaByTagOutput(resp)
+
+    def delete_object_set_quota_by_tag(self, bucket: str,
+                                       generic_input: GenericInput = None) -> DeleteObjectSetQuotaByTagOutput:
+        """ 删除按标签设置的 ObjectSet 配额规则
+
+        :param bucket: 桶名
+        :param generic_input: 通用请求参数
+        :return: DeleteObjectSetQuotaByTagOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Delete.value,
+                         params={'objectsetquotabytag': ''}, generic_input=generic_input)
+        return DeleteObjectSetQuotaByTagOutput(resp)
+
+    def get_object_set_storage(self, bucket: str, object_set_name: str,
+                               generic_input: GenericInput = None) -> GetObjectSetStorageOutput:
+        """ 获取 ObjectSet 的存储用量统计
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param generic_input: 通用请求参数
+        :return: GetObjectSetStorageOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params={'objectsetstorage': '', 'ObjectSetName': object_set_name},
+                         generic_input=generic_input)
+        return GetObjectSetStorageOutput(resp)
+
+    def put_object_set_lifecycle(self, bucket: str, object_set_name: str, rules: [] = None,
+                                 generic_input: GenericInput = None) -> PutObjectSetLifecycleOutput:
+        """ 设置 ObjectSet 的生命周期规则
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param rules: 生命周期规则列表
+        :param generic_input: 通用请求参数
+        :return: PutObjectSetLifecycleOutput
+        """
+        data = to_put_bucket_lifecycle(rules or [])
+        data = json.dumps(data)
+        headers = {"Content-MD5": to_str(base64.b64encode(hashlib.md5(to_bytes(data)).digest()))}
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Put.value,
+                         params={'objectset-lifecycle': '', 'ObjectSetName': object_set_name},
+                         data=data, headers=headers, generic_input=generic_input)
+        return PutObjectSetLifecycleOutput(resp)
+
+    def get_object_set_lifecycle(self, bucket: str, object_set_name: str,
+                                 generic_input: GenericInput = None) -> GetObjectSetLifecycleOutput:
+        """ 获取 ObjectSet 的生命周期规则
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param generic_input: 通用请求参数
+        :return: GetObjectSetLifecycleOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params={'objectset-lifecycle': '', 'ObjectSetName': object_set_name},
+                         generic_input=generic_input)
+        return GetObjectSetLifecycleOutput(resp)
+
+    def delete_object_set_lifecycle(self, bucket: str, object_set_name: str,
+                                    generic_input: GenericInput = None) -> DeleteObjectSetLifecycleOutput:
+        """ 删除 ObjectSet 的生命周期规则
+
+        :param bucket: 桶名
+        :param object_set_name: ObjectSet 名称
+        :param generic_input: 通用请求参数
+        :return: DeleteObjectSetLifecycleOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Delete.value,
+                         params={'objectset-lifecycle': '', 'ObjectSetName': object_set_name},
+                         generic_input=generic_input)
+        return DeleteObjectSetLifecycleOutput(resp)
+
+    def put_object_set_lifecycle_by_tag(self, bucket: str, object_set_tag_rules: [] = None,
+                                        generic_input: GenericInput = None) -> PutObjectSetLifecycleByTagOutput:
+        """ 按标签设置 ObjectSet 生命周期规则
+
+        :param bucket: 桶名
+        :param object_set_tag_rules: ObjectSetTagLifecycleRule 列表
+        :param generic_input: 通用请求参数
+        :return: PutObjectSetLifecycleByTagOutput
+        """
+        data = to_put_object_set_lifecycle_by_tag_request(object_set_tag_rules or [])
+        data = json.dumps(data)
+        headers = {"Content-MD5": to_str(base64.b64encode(hashlib.md5(to_bytes(data)).digest()))}
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Put.value,
+                         params={'objectset-lifecycle-bytag': ''},
+                         data=data, headers=headers, generic_input=generic_input)
+        return PutObjectSetLifecycleByTagOutput(resp)
+
+    def get_object_set_lifecycle_by_tag(self, bucket: str,
+                                        generic_input: GenericInput = None) -> GetObjectSetLifecycleByTagOutput:
+        """ 获取按标签设置的 ObjectSet 生命周期规则
+
+        :param bucket: 桶名
+        :param generic_input: 通用请求参数
+        :return: GetObjectSetLifecycleByTagOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Get.value,
+                         params={'objectset-lifecycle-bytag': ''}, generic_input=generic_input)
+        return GetObjectSetLifecycleByTagOutput(resp)
+
+    def delete_object_set_lifecycle_by_tag(self, bucket: str,
+                                           generic_input: GenericInput = None) -> DeleteObjectSetLifecycleByTagOutput:
+        """ 删除按标签设置的 ObjectSet 生命周期规则
+
+        :param bucket: 桶名
+        :param generic_input: 通用请求参数
+        :return: DeleteObjectSetLifecycleByTagOutput
+        """
+        resp = self._req(bucket=bucket, method=HttpMethodType.Http_Method_Delete.value,
+                         params={'objectset-lifecycle-bytag': ''}, generic_input=generic_input)
+        return DeleteObjectSetLifecycleByTagOutput(resp)
 
 
 def get_real_host(host):

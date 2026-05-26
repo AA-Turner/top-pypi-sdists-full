@@ -1,7 +1,7 @@
 [project]
 name = "drydock-cli"
-version = "2.8.86"
-description = "Local-first CLI coding agent — tested with Gemma 4 26B via vLLM"
+version = "2.8.95"
+description = "Local-first CLI coding agent — tested with Gemma 4 26B via llama.cpp"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
@@ -14,7 +14,7 @@ keywords = [
     "llm",
     "developer-tools",
     "gemma",
-    "vllm",
+    "llama-cpp",
     "local-llm",
     "tui",
 ]
@@ -67,6 +67,7 @@ Homepage = "https://github.com/fbobe321/drydock"
 Repository = "https://github.com/fbobe321/drydock"
 Issues = "https://github.com/fbobe321/drydock/issues"
 Documentation = "https://github.com/fbobe321/drydock#readme"
+Docker = "https://hub.docker.com/r/fbobe3/drydock"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs", "editables"]

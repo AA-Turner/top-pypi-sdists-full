@@ -482,7 +482,7 @@ class SageHostedProvider(ProviderBase):
         # exponential backoff (5s, 10s, 20s).
         # Large write timeout handles big request payloads; read=None allows
         # long generation; connect=60s covers cold-start GPU pod boot.
-        _stream_timeout = httpx.Timeout(connect=60.0, read=None, write=120.0, pool=10.0)
+        _stream_timeout = httpx.Timeout(connect=60.0, read=300.0, write=120.0, pool=10.0)
         # FAIL FAST on stream errors too — 5 retries × max 20s = ~75s
         _MAX_STREAM_RETRIES = 5
         _last_exc: Exception | None = None

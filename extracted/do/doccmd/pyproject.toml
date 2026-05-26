@@ -46,7 +46,7 @@ dependencies = [
     # Pin this dependency as we expect:
     # * It might have breaking changes
     # * It is not a direct dependency of the user
-    "sybil-extras==2026.5.6",
+    "sybil-extras==2026.5.25",
 ]
 optional-dependencies.dev = [
     "actionlint-py==1.7.12.24",
@@ -59,8 +59,8 @@ optional-dependencies.dev = [
     "hadolint-bin==2.14.0; sys_platform!='win32'",
     "interrogate==1.7.0",
     "mypy[faster-cache]==2.1.0",
-    "mypy-strict-kwargs==2026.1.12",
-    "prek==0.4.0",
+    "mypy-strict-kwargs==2026.5.20.1",
+    "prek==0.4.1",
     "pydocstringformatter==0.7.5",
     "pydocstyle==6.3",
     "pygments==2.20.0",
@@ -74,7 +74,7 @@ optional-dependencies.dev = [
     "pytest-cov==7.1.0",
     "pytest-regressions==2.10.0",
     "pyyaml==6.0.3",
-    "ruff==0.15.13",
+    "ruff==0.15.14",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
@@ -88,9 +88,13 @@ optional-dependencies.dev = [
     "sphinx-pyproject==0.3.0",
     "sphinx-substitution-extensions==2026.1.12",
     "sphinxcontrib-spelling==8.0.2",
-    "strict-kwargs==2026.5.18.post1",
-    "ty==0.0.37",
-    "types-pygments==2.20.0.20260508",
+    # ``sphinxcontrib-towncrier`` renders unreleased news fragments
+    # into docs/source/unreleased.rst during Sphinx builds.
+    "sphinxcontrib-towncrier==0.5.0a0",
+    "strict-kwargs==2026.5.20",
+    "towncrier==25.8.0",
+    "ty==0.0.39",
+    "types-pygments==2.20.0.20260518",
     "vulture==2.16",
     "yamlfix==1.19.1",
     "zizmor==1.25.2",
@@ -98,6 +102,7 @@ optional-dependencies.dev = [
 optional-dependencies.release = [
     "check-wheel-contents==0.6.3",
     "homebrew-pypi-poet==0.10",
+    "towncrier==25.8.0",
 ]
 urls.Documentation = "https://adamtheturtle.github.io/doccmd/"
 urls.Source = "https://github.com/adamtheturtle/doccmd"
@@ -166,6 +171,7 @@ lint.per-file-ignores."tests/*.py" = [
 lint.unfixable = [
     "ERA001",
 ]
+lint.flake8-tidy-imports.banned-api."typing.cast".msg = "typing.cast is banned: use explicit type narrowing or a typed variable instead."
 lint.pydocstyle.convention = "google"
 
 [tool.pylint]
@@ -207,6 +213,20 @@ MASTER.load-plugins = [
 MASTER.unsafe-load-any-extension = false
 MASTER.ignore = [
     "_setuptools_scm_version.py",
+]
+MAIN.fail-on = [
+    "useless-suppression",
+]
+DEPRECATED_BUILTINS.bad-functions = [
+    # Use Pylint until Ruff can ban bare builtin calls, or until custom rules
+    # make this removable:
+    # https://github.com/astral-sh/ruff/issues/10079
+    # https://github.com/astral-sh/ruff/issues/970
+    "filter",
+    "getattr",
+    "hasattr",
+    "map",
+    "setattr",
 ]
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -284,6 +304,8 @@ ignore = [
     ".shellcheckrc",
     ".vscode/**",
     "CHANGELOG.rst",
+    "newsfragments",
+    "newsfragments/**",
     "CODE_OF_CONDUCT.rst",
     "CONTRIBUTING.rst",
     "LICENSE",
@@ -364,6 +386,30 @@ report.exclude_also = [
 ]
 report.show_missing = true
 
+[tool.towncrier]
+# The changelog and the per-release GitHub release notes are both built
+# from news fragments under ``newsfragments/``.  The release workflow
+# runs ``towncrier build`` to assemble them; contributors add one
+# fragment file per user-facing change.
+directory = "newsfragments"
+filename = "CHANGELOG.rst"
+# Custom template so an assembled version reproduces the historical
+# style exactly: a bare ``<version>`` heading (no project name, no
+# date) followed by a flat bullet list with no per-type sub-headings.
+template = "docs/towncrier_template.rst.jinja"
+title_format = "{version}"
+# ``title_format`` underline first, then any nested headings.  A bare
+# version such as ``2026.05.18`` underlined with ``-`` matches every
+# pre-towncrier entry in CHANGELOG.rst.
+underlines = [ "-", "~", "^" ]
+issue_format = "#{issue}"
+type = [
+    # A single, unnamed fragment type keeps the assembled output as one
+    # flat bullet list, matching the historical changelog (which never
+    # grouped entries under "Features"/"Bugfixes"/... sub-headings).
+    { directory = "change", name = "", showcontent = true },
+]
+
 [tool.mypy_strict_kwargs]
 # `relative_to` and `is_relative_to` have `other` parameter that is
 # positional-only on Python 3.14+.
@@ -442,6 +488,9 @@ ignore_names = [
     # see https://github.com/jendrikseipp/vulture/issues/309
     "directive",
     "pad_groups",
+    "towncrier_draft_autoversion_mode",
+    "towncrier_draft_include_empty",
+    "towncrier_draft_working_directory",
 ]
 exclude = [
     # Duplicate some of .gitignore

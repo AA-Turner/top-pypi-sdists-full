@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pinotdb
-Version: 9.1.1
+Version: 9.1.2
 Summary: Python DB-API and SQLAlchemy dialect for Pinot.
 License: MIT
 License-File: LICENSE
@@ -21,7 +21,7 @@ Requires-Dist: h11 (==0.16.0)
 Requires-Dist: httpx (>=0.28.1,<0.29)
 Requires-Dist: requests (>=2.25.0,<3.0.0) ; extra == "sqlalchemy"
 Requires-Dist: sqlalchemy (>=2.0,<3) ; extra == "sqlalchemy"
-Requires-Dist: urllib3 (==2.6.3)
+Requires-Dist: urllib3 (==2.7.0)
 Project-URL: Homepage, https://github.com/startreedata/pinot-dbapi
 Description-Content-Type: text/markdown
 

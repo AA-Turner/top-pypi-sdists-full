@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bluetooth-adapters
-Version: 2.2.0
+Version: 2.3.0
 Summary: Tools to enumerate and find Bluetooth Adapters
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -16,14 +16,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Provides-Extra: docs
 Requires-Dist: Sphinx (>=5,<8) ; extra == "docs"
 Requires-Dist: aiooui (>=0.1.1)
 Requires-Dist: async-timeout (>=3.0.0) ; python_version < "3.11"
-Requires-Dist: bleak (>=1)
-Requires-Dist: dbus-fast (>=1.21.0) ; platform_system == "Linux"
-Requires-Dist: myst-parser (>=0.18,<3.1) ; extra == "docs"
+Requires-Dist: bleak (>=3.0.2)
+Requires-Dist: dbus-fast (>=5.0.9) ; platform_system == "Linux"
+Requires-Dist: myst-parser (>=4.0.1,<4.1) ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme (>=1,<4) ; extra == "docs"
 Requires-Dist: uart-devices (>=0.1.0)
 Requires-Dist: usb-devices (>=0.4.5)

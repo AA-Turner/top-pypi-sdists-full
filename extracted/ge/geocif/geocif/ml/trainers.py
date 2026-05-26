@@ -258,6 +258,29 @@ def auto_train(
     :param seed: Random seed for reproducibility
     :return: Hyperparameters and trained model
     """
+    # `curated_<algo>`, `top<N>_<algo>` and `auto_<algo>` are all
+    # config-driven CID-selection wrappers that dispatch to the same
+    # underlying algo. The section name carries the selection knobs
+    # (use_cids, top_n, auto_min_count, etc.) — Geocif applies those
+    # before training. Here we strip the wrapper prefix so every
+    # existing `elif model_name == "tabpfn"` / "catboost" / ... branch
+    # below works unchanged. Examples:
+    #   curated_tabpfn → tabpfn
+    #   top10_tabpfn   → tabpfn
+    #   auto_tabpfn    → tabpfn
+    # The original section name still lives on the caller side and is
+    # what shows up in DB rows / plot filenames, keeping variants
+    # distinguishable.
+    import re as _re
+    if model_name.startswith("curated_"):
+        model_name = model_name.split("_", 1)[1]
+    elif model_name.startswith("auto_"):
+        model_name = model_name.split("_", 1)[1]
+    else:
+        _m = _re.match(r"^top\d+_(.+)$", model_name)
+        if _m:
+            model_name = _m.group(1)
+
     if optimize:
         hyperparams, model = optimized_model(
             model_name, df_train, use_loocv, loocv_var,
@@ -523,6 +546,18 @@ def estimate_ci(model_type, model_name, model, alpha=0.05, ci_method="crepes"):
     Returns:
         Wrapped model for confidence interval estimation
     """
+    # Mirror auto_train's wrapper-prefix strip so estimate_ci treats
+    # curated_/top<N>_/auto_ variants like their underlying algo.
+    import re as _re
+    if model_name.startswith("curated_"):
+        model_name = model_name.split("_", 1)[1]
+    elif model_name.startswith("auto_"):
+        model_name = model_name.split("_", 1)[1]
+    else:
+        _m = _re.match(r"^top\d+_(.+)$", model_name)
+        if _m:
+            model_name = _m.group(1)
+
     if model_name in ["ngboost", "tabpfn", "tabpfn_ft", "tabicl", "tabicl_ft"]:
         return model
     elif model_type == "CLASSIFICATION" and model_name == "catboost":

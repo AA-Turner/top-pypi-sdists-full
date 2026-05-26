@@ -1102,39 +1102,6 @@ class time:
         """
         ...
 
-    @typing.overload
-    @staticmethod
-    def from_datetime(
-        year: int,
-        month: int,
-        day: int,
-        hour: int,
-        min: int,
-        sec: float,
-        scale: timescale = timescale.UTC,
-    ) -> time:
-        """Create time object from 6 input arguments representing UTC Gregorian time.
-
-        Args:
-            year (int): Gregorian year
-            month (int): Gregorian month (1 = January, 2 = February, ...)
-            day (int): Day of month, beginning with 1
-            hour (int): Hour of day, in range [0,23]
-            min (int): Minute of hour, in range [0,59]
-            sec (float): floating point second of minute, in range [0,60)
-            scale (timescale, optional): Time scale.  Default is satkit.timescale.UTC
-
-        Returns:
-            Time object representing input UTC Gregorian time
-
-        Example:
-            ```python
-            print(satkit.time.from_datetime(2023, 3, 5, 11, 3,45.453))
-            # 2023-03-05 11:03:45.453Z
-            ```
-        """
-        ...
-
     def as_gregorian(
         self, scale=timescale.UTC
     ) -> tuple[int, int, int, int, int, float]:
@@ -1180,7 +1147,6 @@ class time:
         """
         ...
 
-    @typing.overload
     @staticmethod
     def from_datetime(dt: datetime.datetime) -> time:
         """Convert input "datetime.datetime" object to an "satkit.time" object representing the same instant in time
@@ -3402,6 +3368,39 @@ class integrator:
     discontinuities (eclipse boundaries, impulsive maneuvers).
     """
 
+class tidemodel:
+    """Solid Earth tide model fidelity for high-precision orbit propagation.
+
+    Solid Earth tides deform the Earth under lunar and solar gravitational
+    attraction, perturbing the gravity field. The effect is small (~0.3 m
+    position drift over half a day at GEO; ~1 m/day at GPS altitude) but
+    matters for sub-meter-class propagation accuracy.
+
+    Implements IERS Conventions 2010, Chapter 6.
+
+    Available models:
+
+    - ``none`` — no solid Earth tide correction
+    - ``solid_step1`` — IERS §6.2.1 Step 1, frequency-independent
+      Love-number response (default). ≈99% of the total signal.
+    - ``solid_full`` — Step 1 + §6.2.2 Step 2 frequency-dependent
+      corrections. Step 2 is not yet implemented; currently behaves
+      as ``solid_step1``.
+    """
+
+    none: ClassVar[tidemodel]
+    """No solid Earth tide correction."""
+
+    solid_step1: ClassVar[tidemodel]
+    """IERS 2010 §6.2.1 Step 1 — frequency-independent Love-number
+    response. Accounts for ≈99% of the solid-tide signal at ~5%
+    per-ydot overhead. Default."""
+
+    solid_full: ClassVar[tidemodel]
+    """IERS 2010 Step 1 + Step 2 (frequency-dependent corrections).
+    Step 2 is not yet implemented; currently behaves as
+    ``solid_step1``."""
+
 class propsettings:
     """This class contains settings used in the high-precision orbit propagator part of the "satkit" python toolbox
 
@@ -3415,6 +3414,8 @@ class propsettings:
             - use_spaceweather: True
             - use_sun_gravity: True
             - use_moon_gravity: True
+            - tide_model: tidemodel.solid_step1
+            - use_relativistic_correction: True
             - enable_interp: True
             - integrator: integrator.rkv98
             - gj_step_seconds: 60.0
@@ -3435,6 +3436,8 @@ class propsettings:
         use_spaceweather: bool = True,
         use_sun_gravity: bool = True,
         use_moon_gravity: bool = True,
+        tide_model: tidemodel = ...,
+        use_relativistic_correction: bool = True,
         enable_interp: bool = True,
         integrator: integrator = ...,
         gj_step_seconds: float = 60.0,
@@ -3451,6 +3454,13 @@ class propsettings:
             use_spaceweather: Use space weather data when computing atmospheric density for drag forces. Default is True
             use_sun_gravity: Include sun third-body gravitational perturbation. Default is True
             use_moon_gravity: Include moon third-body gravitational perturbation. Default is True
+            tide_model: Solid Earth tide model. Default is ``tidemodel.solid_step1``
+                (IERS 2010 §6.2.1 frequency-independent Love-number response).
+                Use ``tidemodel.none`` to disable (e.g., for reproducibility with
+                pre-tide releases).
+            use_relativistic_correction: Include the Schwarzschild post-Newtonian
+                acceleration (IERS 2010 §10.3 Eq. 10.12, β=γ=1). Default is True.
+                ~1 m/day at GPS altitude if omitted; trivial computational cost.
             enable_interp: Store intermediate data that allows for fast high-precision interpolation of state between begin and end times. Default is True
             integrator: ODE integrator to use. Default is integrator.rkv98
             gj_step_seconds: Fixed step size (seconds) used by ``integrator.gauss_jackson8``.
@@ -3567,6 +3577,30 @@ class propsettings:
 
     @use_spaceweather.setter
     def use_spaceweather(self, value: bool) -> None: ...
+    @property
+    def tide_model(self) -> tidemodel:
+        """Solid Earth tide model fidelity.
+
+        Default is ``tidemodel.solid_step1`` (IERS 2010 §6.2.1
+        frequency-independent Love-number response). Set to
+        ``tidemodel.none`` to disable.
+        """
+        ...
+
+    @tide_model.setter
+    def tide_model(self, value: tidemodel) -> None: ...
+    @property
+    def use_relativistic_correction(self) -> bool:
+        """Include the Schwarzschild post-Newtonian acceleration.
+
+        IERS 2010 §10.3 Eq. 10.12 with PPN β = γ = 1. Default is True.
+        Contributes ~1 m/day at GPS altitude if omitted; computational
+        cost is negligible.
+        """
+        ...
+
+    @use_relativistic_correction.setter
+    def use_relativistic_correction(self, value: bool) -> None: ...
     @property
     def enable_interp(self) -> bool:
         """Store intermediate data that allows for fast high-precision interpolation of state between begin and end times

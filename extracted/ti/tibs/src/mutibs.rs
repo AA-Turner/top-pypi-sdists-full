@@ -7,7 +7,7 @@ use crate::helpers::{
     validate_logical_op_lengths, validate_shift, validate_slice,
 };
 use crate::tibs_::Tibs;
-use crate::view::View;
+use crate::view::{MutableView, View};
 
 use crate::helpers;
 use pyo3::exceptions::{PyAttributeError, PyIndexError, PyTypeError, PyValueError};
@@ -22,10 +22,10 @@ use std::ops::{Deref, Not};
 ///     * ``Mutibs.from_bin(s)`` - Create from a binary string, optionally starting with '0b'.
 ///     * ``Mutibs.from_oct(s)`` - Create from an octal string, optionally starting with '0o'.
 ///     * ``Mutibs.from_hex(s)`` - Create from a hex string, optionally starting with '0x'.
-///     * ``Mutibs.from_u(u, length, [endianness])`` - Create from an unsigned int to a given length.
-///     * ``Mutibs.from_i(i, length, [endianness])`` - Create from a signed int to a given length.
-///     * ``Mutibs.from_f(f, length, [endianness])`` - Create from an IEEE float to a 16, 32 or 64 bit length.
-///     * ``Mutibs.from_bytes(b)`` - Create directly from a ``bytes`` or ``bytearray`` object.
+///     * ``Mutibs.from_u(u, length, [byte_order])`` - Create from an unsigned int to a given length.
+///     * ``Mutibs.from_i(i, length, [byte_order])`` - Create from a signed int to a given length.
+///     * ``Mutibs.from_f(f, length, [byte_order])`` - Create from an IEEE float to a 16, 32 or 64 bit length.
+///     * ``Mutibs.from_bytes(b)`` - Create directly from a ``bytes``, ``bytearray`` or ``memoryview`` object.
 ///     * ``Mutibs.from_string(s)`` - Use a formatted string.
 ///     * ``Mutibs.from_bools(iterable)`` - Convert each element in ``iterable`` to a bool.
 ///     * ``Mutibs.from_zeros(length)`` - Initialise with ``length`` ``0`` bits.
@@ -155,6 +155,42 @@ impl Mutibs {
             self.as_mut_bitvec_ref().extend_from_bitslice(value);
             self.as_mut_bitvec_ref().extend_from_bitslice(&tail);
         }
+    }
+
+    #[inline]
+    fn assign_from_bv(&mut self, value: BV) {
+        debug_assert_eq!(self.len(), value.len());
+        self.as_mut_bitvec_ref()
+            .copy_from_bitslice(value.as_bitslice());
+    }
+
+    #[inline]
+    fn assign_u(&mut self, u: u128) -> PyResult<()> {
+        let length = self.len();
+        let value = bv_from_u128(u, length as i64, false)?;
+        self.assign_from_bv(value);
+        Ok(())
+    }
+
+    #[inline]
+    fn assign_i(&mut self, i: i128) -> PyResult<()> {
+        let length = self.len();
+        let value = bv_from_i128(i, length as i64, false)?;
+        self.assign_from_bv(value);
+        Ok(())
+    }
+
+    #[inline]
+    fn assign_f(&mut self, f: f64) -> PyResult<()> {
+        let length = self.len();
+        let value = bv_from_f64(f, length as i64, false)?;
+        self.assign_from_bv(value);
+        Ok(())
+    }
+
+    #[inline]
+    fn replace_with_bv(&mut self, value: BV) {
+        self.data = value;
     }
 
     pub(crate) fn ixor(&mut self, other: &BS) -> PyResult<()> {
@@ -508,51 +544,50 @@ impl Mutibs {
         }
     }
 
-    /// Return a view with interpretation settings.
+    /// Return a mutable view with interpretation settings.
     ///
-    /// A view does not change the source ``Mutibs``. It stores an immutable
-    /// :class:`Tibs` snapshot, so later changes to the ``Mutibs`` are not reflected
-    /// in the view.
+    /// A mutable view keeps a live reference to the source ``Mutibs``. Later
+    /// changes to the ``Mutibs`` are reflected in the view, and assignment through
+    /// the view mutates the source.
     ///
     /// Byte-oriented views must have a whole-byte length. This applies when using
     /// little-endian or big-endian byte order, or when using ``BitOrder.Lsb0``.
     ///
     /// :param Endianness byte_order: The byte order used when interpreting whole-byte values. Defaults to ``Endianness.Unspecified``.
     /// :param BitOrder bit_order: The bit numbering order used for field labels. Defaults to ``BitOrder.Msb0``.
-    /// :return: A new :class:`View`.
+    /// :return: A new :class:`MutableView`.
     ///
     /// .. code-block:: pycon
     ///
     ///     >>> m = Mutibs('0x0100')
     ///     >>> v = m.le
-    ///     >>> m[0] = True
-    ///     >>> v.u
-    ///     1
+    ///     >>> v.write_u(2)
+    ///     >>> m
+    ///     Mutibs('0x0002')
     ///
-    #[pyo3(signature = (byte_order = Endianness::Unspecified, bit_order = BitOrder::Msb0), text_signature = "($self, byte_order=Endianness.Unspecified, bit_order=BitOrder.Msb0)")]
+    #[pyo3(signature = (byte_order = Endianness::Unspecified, bit_order = BitOrder::Msb0), text_signature = "($self, byte_order, bit_order)")]
     pub fn view(
         slf: PyRef<'_, Self>,
         byte_order: Option<Endianness>,
         bit_order: Option<BitOrder>,
-    ) -> PyResult<View> {
+    ) -> PyResult<MutableView> {
         let byte_order = byte_order.unwrap_or(Endianness::Unspecified);
         let bit_order = bit_order.unwrap_or(BitOrder::Msb0);
         View::validate_layout(slf.len(), byte_order, bit_order)?;
-        Ok(View::from_tibs(slf.to_tibs(), byte_order, bit_order))
+        Ok(MutableView::from_mutibs(slf.into(), byte_order, bit_order))
     }
 
     /// Return a little-endian byte-order view.
     ///
     /// Equivalent to ``view(byte_order=Endianness.Little)``.
     ///
-    /// The ``Mutibs`` length must be a whole number of bytes. The returned view
-    /// contains a :class:`Tibs` snapshot.
+    /// The ``Mutibs`` length must be a whole number of bytes.
     ///
     #[getter]
-    pub fn le(slf: PyRef<'_, Self>) -> PyResult<View> {
+    pub fn le(slf: PyRef<'_, Self>) -> PyResult<MutableView> {
         View::validate_layout(slf.len(), Endianness::Little, BitOrder::Msb0)?;
-        Ok(View::from_tibs(
-            slf.to_tibs(),
+        Ok(MutableView::from_mutibs(
+            slf.into(),
             Endianness::Little,
             BitOrder::Msb0,
         ))
@@ -562,14 +597,13 @@ impl Mutibs {
     ///
     /// Equivalent to ``view(byte_order=Endianness.Big)``.
     ///
-    /// The ``Mutibs`` length must be a whole number of bytes. The returned view
-    /// contains a :class:`Tibs` snapshot.
+    /// The ``Mutibs`` length must be a whole number of bytes.
     ///
     #[getter]
-    pub fn be(slf: PyRef<'_, Self>) -> PyResult<View> {
+    pub fn be(slf: PyRef<'_, Self>) -> PyResult<MutableView> {
         View::validate_layout(slf.len(), Endianness::Big, BitOrder::Msb0)?;
-        Ok(View::from_tibs(
-            slf.to_tibs(),
+        Ok(MutableView::from_mutibs(
+            slf.into(),
             Endianness::Big,
             BitOrder::Msb0,
         ))
@@ -581,14 +615,13 @@ impl Mutibs {
     /// significant bit of each byte. The ``Mutibs`` length must be a whole number
     /// of bytes.
     ///
-    /// Equivalent to ``view(bit_order=BitOrder.Lsb0)``. The returned view contains
-    /// a :class:`Tibs` snapshot.
+    /// Equivalent to ``view(bit_order=BitOrder.Lsb0)``.
     ///
     #[getter]
-    pub fn lsb0(slf: PyRef<'_, Self>) -> PyResult<View> {
+    pub fn lsb0(slf: PyRef<'_, Self>) -> PyResult<MutableView> {
         View::validate_layout(slf.len(), Endianness::Unspecified, BitOrder::Lsb0)?;
-        Ok(View::from_tibs(
-            slf.to_tibs(),
+        Ok(MutableView::from_mutibs(
+            slf.into(),
             Endianness::Unspecified,
             BitOrder::Lsb0,
         ))
@@ -599,16 +632,32 @@ impl Mutibs {
     /// ``BitOrder.Msb0`` means that field labels are counted from the most
     /// significant bit of each byte. This is the default bit order.
     ///
-    /// Equivalent to ``view(bit_order=BitOrder.Msb0)``. The returned view contains
-    /// a :class:`Tibs` snapshot.
+    /// Equivalent to ``view(bit_order=BitOrder.Msb0)``.
     ///
     #[getter]
-    pub fn msb0(slf: PyRef<'_, Self>) -> PyResult<View> {
-        Ok(View::from_tibs(
-            slf.to_tibs(),
+    pub fn msb0(slf: PyRef<'_, Self>) -> PyResult<MutableView> {
+        Ok(MutableView::from_mutibs(
+            slf.into(),
             Endianness::Unspecified,
             BitOrder::Msb0,
         ))
+    }
+
+    /// Extract a mutable field using inclusive MSB0 bit labels.
+    ///
+    /// ``a`` and ``b`` must be zero or positive bit labels. The two endpoints
+    /// are inclusive and may be provided in either order. This is equivalent to
+    /// ``self.msb0.field(a, b)``.
+    ///
+    /// :param int a: One non-negative inclusive field endpoint.
+    /// :param int b: The other non-negative inclusive field endpoint.
+    /// :return: A new :class:`MutableView`.
+    ///
+    #[pyo3(signature = (a, b), text_signature = "($self, a, b)")]
+    pub fn field(slf: PyRef<'_, Self>, a: i64, b: i64) -> PyResult<MutableView> {
+        let py = slf.py();
+        MutableView::from_mutibs(slf.into(), Endianness::Unspecified, BitOrder::Msb0)
+            .field(py, a, b)
     }
 
     /// Create a new instance from a formatted string.
@@ -663,14 +712,41 @@ impl Mutibs {
         BitCollection::to_binary(self)
     }
 
-    /// Read-only property of the binary representation of the Mutibs.
+    /// Replace the current bits from a binary string.
     ///
-    /// Equivalent to using :meth:`~to_bin`.
+    /// This can change the length of the ``Mutibs``.
+    ///
+    /// :param str s: A string of ``0`` and ``1`` s, optionally preceded with ``0b`` and optionally containing underscores.
+    /// :return: None
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> m = Mutibs()
+    ///     >>> m.write_bin('101')
+    ///     >>> m
+    ///     Mutibs('0b101')
+    ///
+    #[pyo3(signature = (s, /), text_signature = "($self, s, /)")]
+    pub fn write_bin(&mut self, s: &str) -> PyResult<()> {
+        let bv = bv_from_bin(s)?;
+        self.replace_with_bv(bv);
+        Ok(())
+    }
+
+    /// Property of the binary representation of the Mutibs.
+    ///
+    /// Reading is equivalent to using :meth:`~to_bin`. Assigning is equivalent
+    /// to using :meth:`~write_bin` and can change the length.
     ///
     /// :return: The binary representation.
     #[getter]
     fn bin(&self) -> String {
         BitCollection::to_binary(self)
+    }
+
+    #[setter(bin)]
+    fn write_bin_property(&mut self, s: &str) -> PyResult<()> {
+        self.write_bin(s)
     }
 
     /// Create a new instance from an octal string.
@@ -701,15 +777,42 @@ impl Mutibs {
         BitCollection::to_octal(self)
     }
 
-    /// Read-only property of the octal representation of the Mutibs.
+    /// Replace the current bits from an octal string.
     ///
-    /// Equivalent to using :meth:`~to_oct`.
+    /// This can change the length of the ``Mutibs``.
+    ///
+    /// :param str s: A string of octal digits, optionally preceded with ``0o`` and optionally containing underscores.
+    /// :return: None
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> m = Mutibs()
+    ///     >>> m.write_oct('17')
+    ///     >>> m
+    ///     Mutibs('0b001111')
+    ///
+    #[pyo3(signature = (s, /), text_signature = "($self, s, /)")]
+    pub fn write_oct(&mut self, s: &str) -> PyResult<()> {
+        let bv = bv_from_oct(s)?;
+        self.replace_with_bv(bv);
+        Ok(())
+    }
+
+    /// Property of the octal representation of the Mutibs.
+    ///
+    /// Reading is equivalent to using :meth:`~to_oct`. Assigning is equivalent
+    /// to using :meth:`~write_oct` and can change the length.
     ///
     /// :return: The octal representation.
     /// :raises ValueError: if the length is not a multiple of 3.
     #[getter]
     fn oct(&self) -> PyResult<String> {
         BitCollection::to_octal(self)
+    }
+
+    #[setter(oct)]
+    fn write_oct_property(&mut self, s: &str) -> PyResult<()> {
+        self.write_oct(s)
     }
 
     /// Create a new instance from a hexadecimal string.
@@ -740,15 +843,42 @@ impl Mutibs {
         BitCollection::to_hexadecimal(self)
     }
 
-    /// Read-only property of the hexadecimal representation of the Mutibs.
+    /// Replace the current bits from a hexadecimal string.
     ///
-    /// Equivalent to using :meth:`~to_hex`.
+    /// This can change the length of the ``Mutibs``.
+    ///
+    /// :param str s: A string of hexadecimal digits, optionally preceded with ``0x`` and optionally containing underscores.
+    /// :return: None
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> m = Mutibs()
+    ///     >>> m.write_hex('0f')
+    ///     >>> m
+    ///     Mutibs('0x0f')
+    ///
+    #[pyo3(signature = (s, /), text_signature = "($self, s, /)")]
+    pub fn write_hex(&mut self, s: &str) -> PyResult<()> {
+        let bv = bv_from_hex(s)?;
+        self.replace_with_bv(bv);
+        Ok(())
+    }
+
+    /// Property of the hexadecimal representation of the Mutibs.
+    ///
+    /// Reading is equivalent to using :meth:`~to_hex`. Assigning is equivalent
+    /// to using :meth:`~write_hex` and can change the length.
     ///
     /// :return: The hexadecimal representation.
     /// :raises ValueError: if the length is not a multiple of 4.
     #[getter]
     fn hex(&self) -> PyResult<String> {
         BitCollection::to_hexadecimal(self)
+    }
+
+    #[setter(hex)]
+    fn write_hex_property(&mut self, s: &str) -> PyResult<()> {
+        self.write_hex(s)
     }
 
     /// Return the Mutibs as a bytes object.
@@ -759,15 +889,42 @@ impl Mutibs {
         BitCollection::to_byte_data(self)
     }
 
-    /// Read-only property of the ``bytes`` representation of the Mutibs.
+    /// Replace the current bits from a bytes-like object.
     ///
-    /// Equivalent to using :meth:`~to_bytes`.
+    /// This can change the length of the ``Mutibs``.
+    ///
+    /// :param bytes data: A bytes-like object.
+    /// :return: None
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> m = Mutibs()
+    ///     >>> m.write_bytes(b'A')
+    ///     >>> m
+    ///     Mutibs('0x41')
+    ///
+    #[pyo3(signature = (data, /), text_signature = "($self, data, /)")]
+    pub fn write_bytes(&mut self, data: Vec<u8>) -> PyResult<()> {
+        let bv = bv_from_bytes_slice(data, None, None)?;
+        self.replace_with_bv(bv);
+        Ok(())
+    }
+
+    /// Property of the ``bytes`` representation of the Mutibs.
+    ///
+    /// Reading is equivalent to using :meth:`~to_bytes`. Assigning is equivalent
+    /// to using :meth:`~write_bytes` and can change the length.
     ///
     /// :return: The bytes representation.
     /// :raises ValueError: if the length is not a multiple of 8.
     #[getter]
     fn bytes(&self) -> PyResult<Vec<u8>> {
         BitCollection::to_byte_data(self)
+    }
+
+    #[setter(bytes)]
+    fn write_bytes_property(&mut self, data: Vec<u8>) -> PyResult<()> {
+        self.write_bytes(data)
     }
 
     /// Return a copy of the raw byte information.
@@ -831,7 +988,7 @@ impl Mutibs {
     ///
     /// :param int u: An unsigned integer.
     /// :param int length: The bit length to create. Can be up to 128.
-    /// :param Endianness endianness: The byte endianness used to store the integer. Defaults to Endianness.Unspecified.
+    /// :param Endianness byte_order: The byte order used to store the integer. Defaults to Endianness.Unspecified.
     /// :return: A newly constructed ``Mutibs``.
     ///
     /// :raises ValueError: if the integer doesn't fit in the length given.
@@ -842,14 +999,14 @@ impl Mutibs {
     ///     Mutibs('0x0f')
     ///
     #[classmethod]
-    #[pyo3(signature = (u, /, length, endianness = Endianness::Unspecified), text_signature = "(cls, u, /, length, endianness=Endianness.Unspecified)")]
+    #[pyo3(signature = (u, /, length, byte_order = Endianness::Unspecified), text_signature = "(cls, u, /, length, byte_order=None)")]
     pub fn from_u(
         _cls: &Bound<'_, PyType>,
         u: u128,
         length: i64,
-        endianness: Option<Endianness>,
+        byte_order: Option<Endianness>,
     ) -> PyResult<Self> {
-        let is_little_endian = Endianness::is_little_endian(endianness, length as usize)?;
+        let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
         let bv = bv_from_u128(u, length, is_little_endian)?;
         Ok(Mutibs::from_bv(bv))
     }
@@ -867,9 +1024,30 @@ impl Mutibs {
         BitCollection::to_u128(self, false)
     }
 
-    /// Read-only property of the unsigned integer representation of the Mutibs.
+    /// Write the current bits from an unsigned integer without changing the length.
     ///
-    /// Equivalent to using :meth:`~to_u`.
+    /// :param int u: An unsigned integer.
+    /// :return: None
+    ///
+    /// :raises ValueError: if the current length is not between 1 and 128 bits.
+    /// :raises OverflowError: if the integer doesn't fit in the current length.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> m = Mutibs.from_zeros(8)
+    ///     >>> m.write_u(15)
+    ///     >>> m
+    ///     Mutibs('0x0f')
+    ///
+    #[pyo3(signature = (u, /), text_signature = "($self, u, /)")]
+    pub fn write_u(&mut self, u: u128) -> PyResult<()> {
+        self.assign_u(u)
+    }
+
+    /// Property of the unsigned integer representation of the Mutibs.
+    ///
+    /// Reading is equivalent to using :meth:`~to_u`. Assigning is equivalent to
+    /// using :meth:`~write_u`.
     ///
     /// :return: The value as an unsigned integer.
     #[getter]
@@ -877,11 +1055,16 @@ impl Mutibs {
         self.to_u()
     }
 
+    #[setter(u)]
+    fn write_u_property(&mut self, u: u128) -> PyResult<()> {
+        self.assign_u(u)
+    }
+
     /// Create a new instance from a signed integer.
     ///
     /// :param int i: A signed integer.
     /// :param int length: The bit length to create. Can be up to 128.
-    /// :param Endianness endianness: The byte endianness used to store the integer. Defaults to Endianness.Unspecified.
+    /// :param Endianness byte_order: The byte order used to store the integer. Defaults to Endianness.Unspecified.
     /// :return: A newly constructed ``Mutibs``.
     ///
     /// :raises ValueError: if the integer doesn't fit in the length given.
@@ -892,14 +1075,14 @@ impl Mutibs {
     ///     Mutibs('0xe')
     ///
     #[classmethod]
-    #[pyo3(signature = (i, /, length, endianness = Endianness::Unspecified), text_signature = "(cls, i, /, length, endianness=Endianness.Unspecified)")]
+    #[pyo3(signature = (i, /, length, byte_order = Endianness::Unspecified), text_signature = "(cls, i, /, length, byte_order=None)")]
     pub fn from_i(
         _cls: &Bound<'_, PyType>,
         i: i128,
         length: i64,
-        endianness: Option<Endianness>,
+        byte_order: Option<Endianness>,
     ) -> PyResult<Self> {
-        let is_little_endian = Endianness::is_little_endian(endianness, length as usize)?;
+        let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
         let bv = bv_from_i128(i, length, is_little_endian)?;
         Ok(Mutibs::from_bv(bv))
     }
@@ -917,9 +1100,30 @@ impl Mutibs {
         BitCollection::to_i128(self, false)
     }
 
-    /// Read-only property of the signed integer representation of the Mutibs.
+    /// Write the current bits from a signed integer without changing the length.
     ///
-    /// Equivalent to using :meth:`~to_i`.
+    /// :param int i: A signed integer.
+    /// :return: None
+    ///
+    /// :raises ValueError: if the current length is not between 1 and 128 bits.
+    /// :raises OverflowError: if the integer doesn't fit in the current length.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> m = Mutibs.from_zeros(4)
+    ///     >>> m.write_i(-2)
+    ///     >>> m
+    ///     Mutibs('0xe')
+    ///
+    #[pyo3(signature = (i, /), text_signature = "($self, i, /)")]
+    pub fn write_i(&mut self, i: i128) -> PyResult<()> {
+        self.assign_i(i)
+    }
+
+    /// Property of the signed integer representation of the Mutibs.
+    ///
+    /// Reading is equivalent to using :meth:`~to_i`. Assigning is equivalent to
+    /// using :meth:`~write_i`.
     ///
     /// :return: The value as a signed integer.
     #[getter]
@@ -927,11 +1131,16 @@ impl Mutibs {
         self.to_i()
     }
 
+    #[setter(i)]
+    fn write_i_property(&mut self, i: i128) -> PyResult<()> {
+        self.assign_i(i)
+    }
+
     /// Create a new instance from a floating point number.
     ///
     /// :param float f: A floating point value.
     /// :param int length: The bit length to create. Must be 16, 32 or 64.
-    /// :param Endianness endianness: The byte endianness used to store the float. Defaults to Endianness.Unspecified.
+    /// :param Endianness byte_order: The byte order used to store the float. Defaults to Endianness.Unspecified.
     /// :return: A newly constructed ``Mutibs``.
     ///
     /// .. code-block:: pycon
@@ -940,14 +1149,14 @@ impl Mutibs {
     ///     Mutibs('0x3fc00000')
     ///
     #[classmethod]
-    #[pyo3(signature = (f, /, length, endianness = Endianness::Unspecified), text_signature = "(cls, f, /, length, endianness=Endianness.Unspecified)")]
+    #[pyo3(signature = (f, /, length, byte_order = Endianness::Unspecified), text_signature = "(cls, f, /, length, byte_order=None)")]
     pub fn from_f(
         _cls: &Bound<'_, PyType>,
         f: f64,
         length: i64,
-        endianness: Option<Endianness>,
+        byte_order: Option<Endianness>,
     ) -> PyResult<Self> {
-        let is_little_endian = Endianness::is_little_endian(endianness, length as usize)?;
+        let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
         let bv = bv_from_f64(f, length, is_little_endian)?;
         Ok(Mutibs::from_bv(bv))
     }
@@ -967,14 +1176,39 @@ impl Mutibs {
         BitCollection::to_f64(self, false)
     }
 
-    /// Read-only property of the floating point representation of the Mutibs.
+    /// Write the current bits from a floating point number without changing the length.
     ///
-    /// Equivalent to using :meth:`~to_f`.
+    /// The current length must be 16, 32 or 64 bits.
+    ///
+    /// :param float f: A floating point value.
+    /// :return: None
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> m = Mutibs.from_zeros(32)
+    ///     >>> m.write_f(1.5)
+    ///     >>> m
+    ///     Mutibs('0x3fc00000')
+    ///
+    #[pyo3(signature = (f, /), text_signature = "($self, f, /)")]
+    pub fn write_f(&mut self, f: f64) -> PyResult<()> {
+        self.assign_f(f)
+    }
+
+    /// Property of the floating point representation of the Mutibs.
+    ///
+    /// Reading is equivalent to using :meth:`~to_f`. Assigning is equivalent to
+    /// using :meth:`~write_f`.
     ///
     /// :return: The value as a Python float.
     #[getter]
     fn f(&self) -> PyResult<f64> {
         self.to_f()
+    }
+
+    #[setter(f)]
+    fn write_f_property(&mut self, f: f64) -> PyResult<()> {
+        self.assign_f(f)
     }
 
     /// Create a new instance with all bits set to zero.
@@ -1141,11 +1375,7 @@ impl Mutibs {
         // Handle slice indexing
         if let Ok(slice) = key.cast::<PySlice>() {
             let indices = slice.indices(self.len() as isize)?;
-            let (start, stop, step) = (
-                isize::try_from(indices.start)?,
-                isize::try_from(indices.stop)?,
-                isize::try_from(indices.step)?,
-            );
+            let (start, stop, step) = (indices.start, indices.stop, indices.step);
 
             let result = if step == 1 {
                 if start < stop {
@@ -1211,9 +1441,9 @@ impl Mutibs {
             };
 
             let indices = slice.indices(length as isize)?;
-            let start: isize = indices.start.try_into()?;
-            let stop: isize = indices.stop.try_into()?;
-            let step: isize = indices.step.try_into()?;
+            let start = indices.start;
+            let stop = indices.stop;
+            let step = indices.step;
 
             if step == 1 {
                 debug_assert!(start >= 0);
@@ -1911,7 +2141,7 @@ impl Mutibs {
         BitCollection::reverse_copy(self)
     }
 
-    /// Change the byte endianness in-place.
+    /// Swap byte order in-place.
     ///
     /// The whole of the Mutibs will be byte-swapped. It must be a multiple
     /// of byte_length long.
@@ -1935,7 +2165,7 @@ impl Mutibs {
         Ok(())
     }
 
-    /// Return a new instance with the byte endianness swapped.
+    /// Return a new instance with the byte order swapped.
     ///
     /// The whole of the data will be byte-swapped. It must be a multiple
     /// of byte_length long.
@@ -1953,7 +2183,7 @@ impl Mutibs {
     ///
     #[pyo3(signature = (byte_length = None), text_signature = "($self, byte_length=None)")]
     pub fn byte_swapped(&self, byte_length: Option<i64>) -> PyResult<Mutibs> {
-        Ok(BitCollection::byte_swap_copy(self, byte_length)?)
+        BitCollection::byte_swap_copy(self, byte_length)
     }
 
     /// Return the instance with every bit inverted.
@@ -1979,6 +2209,11 @@ impl Mutibs {
     /// :return: A new Mutibs.
     /// :raises ValueError: if n < 0.
     ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Mutibs('0b001100') << 2
+    ///     Mutibs('0b110000')
+    ///
     pub fn __lshift__(&self, n: i64) -> PyResult<Self> {
         let shift = validate_shift(self, n)?;
         Ok(self.lshift(shift))
@@ -1989,6 +2224,11 @@ impl Mutibs {
     /// :param int n: The number of bits to shift. Must be >= 0.
     /// :return: A new Mutibs.
     /// :raises ValueError: if n < 0.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Mutibs('0b001100') >> 2
+    ///     Mutibs('0b000011')
     ///
     pub fn __rshift__(&self, n: i64) -> PyResult<Self> {
         let shift = validate_shift(self, n)?;
@@ -2105,6 +2345,11 @@ impl Mutibs {
     /// :param Tibs other: The bits to append.
     /// :return: A new Mutibs.
     ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Mutibs('0b10') + '0b1'
+    ///     Mutibs('0b101')
+    ///
     pub fn __add__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         // We accept the PyAny and convert manually here because if we instead
         // accept a Tibs, then correct types with wrong values (e.g. a malformed string)
@@ -2133,6 +2378,13 @@ impl Mutibs {
     ///
     /// :param Tibs other: The bits to append.
     /// :return: None
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> m = Mutibs('0b10')
+    ///     >>> m += '0b1'
+    ///     >>> m
+    ///     Mutibs('0b101')
     ///
     pub fn __iadd__(slf: PyRefMut<'_, Self>, other: &Bound<'_, PyAny>) -> PyResult<()> {
         Self::extend(slf, other)?;
@@ -2447,6 +2699,11 @@ impl Mutibs {
     /// :return: A new Mutibs.
     /// :raises ValueError: if n < 0.
     ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Mutibs('0b10') * 3
+    ///     Mutibs('0b101010')
+    ///
     pub fn __mul__(&self, n: i64) -> PyResult<Self> {
         if n < 0 {
             return Err(PyValueError::new_err(
@@ -2503,6 +2760,13 @@ impl Mutibs {
     /// :param int n: The number of concatenations. Must be >= 0.
     /// :return: None
     /// :raises ValueError: if n < 0.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> m = Mutibs('0b10')
+    ///     >>> m *= 3
+    ///     >>> m
+    ///     Mutibs('0b101010')
     ///
     pub fn __imul__(mut slf: PyRefMut<'_, Self>, n: i64) -> PyResult<()> {
         match n {

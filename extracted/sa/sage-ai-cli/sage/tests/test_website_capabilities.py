@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
+from sage.tests.test_cli_capabilities import MOCK_STREAMS
 
 async def _run_website_mock(domain, prompt):
     try:
@@ -10,8 +11,9 @@ async def _run_website_mock(domain, prompt):
         
     client = TestClient(backend_app)
     
+    mock_output = MOCK_STREAMS.get(domain, f"Output for {domain}")
     mock_runtime = MagicMock()
-    mock_runtime.chat.return_value = f"Capabilities {domain} completed. File at /tmp/test.mp4"
+    mock_runtime.chat.return_value = mock_output
     
     mock_app_state = MagicMock()
     mock_app_state.runtime_manager.runtime = mock_runtime
@@ -42,8 +44,18 @@ async def _run_website_mock(domain, prompt):
         data = response.json()
         assert data.get("ok") is True
         
-        if domain in ["videos", "images", "audio_files", "music_videos"]:
-            assert "test.mp4" in data.get("output", "") or "Capabilities" in data.get("output", "")
+        output = data.get("output", "")
+        assert output == mock_output
+        
+        # Verify specific details of the output format based on domain
+        if domain == "websites":
+            assert "FILE: index.html" in output
+            assert "Advertising Dashboard" in output
+        elif domain == "mobile_apps":
+            assert "FILE: ItemListScreen.tsx" in output
+        elif domain == "backend_services":
+            assert "FILE: main.py" in output
+            assert "from fastapi import FastAPI" in output
 
 
 @pytest.mark.asyncio

@@ -124,8 +124,7 @@ class Option(_ParameterMixin, cloup.Option):
 class ExtraOption(Option):
     """Dedicated to option implemented by ``click-extra`` itself.
 
-    Does nothing in particular for now but provides a way to identify Click Extra's own
-    options with certainty.
+    Provides a way to identify Click Extra's own options with certainty.
 
     .. note::
         Bracket fields (envvar, default, range, required) cannot be pre-styled in

@@ -46,6 +46,18 @@ def load_config(path_config_file):
         run_detection=parser.getboolean(s, "run_detection", fallback=True),
         run_plots=parser.getboolean(s, "run_plots", fallback=True),
         run_sensitivity=parser.getboolean(s, "run_sensitivity", fallback=True),
+        run_spatial=parser.getboolean(s, "run_spatial", fallback=False),
+        # Spatial co-occurrence analysis: path to a multi-country admin
+        # boundary shapefile (e.g. GAUL or country-specific shp). When
+        # unset and run_spatial=True, falls back to
+        # ${PATHS:dir_boundary_files}/gaul2014_admin1.shp.
+        boundary_shp=(
+            Path(parser.get(s, "boundary_shp"))
+            if parser.has_option(s, "boundary_shp")
+               and parser.get(s, "boundary_shp").strip()
+            else None
+        ),
     )
+    cfg.parser = parser  # carried through for beast_spatial's per-country boundary lookups
     cfg.output_dir.mkdir(exist_ok=True, parents=True)
     return cfg

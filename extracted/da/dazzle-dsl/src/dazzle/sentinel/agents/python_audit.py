@@ -8,6 +8,8 @@ Three detection layers:
 
 from __future__ import annotations
 
+import ast
+import re
 from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -18,6 +20,660 @@ from dazzle.sentinel.models import AgentId, Severity
 if TYPE_CHECKING:
     from dazzle.core.ir.appspec import AppSpec
     from dazzle.sentinel.models import AgentResult, Finding
+
+
+# ---------------------------------------------------------------------------
+# PA-LLM-07 helpers — exceptions as control flow
+# ---------------------------------------------------------------------------
+
+from dataclasses import dataclass as _dc
+
+_PRECHECK_EXCEPTIONS = {"KeyError", "ValueError", "AttributeError", "IndexError"}
+_VALIDATION_CALLS = {"int", "float", "Decimal", "bool"}
+
+
+@_dc(frozen=True)
+class _ShapeHit:
+    line: int
+    snippet: str
+    shape: str  # silent_swallow | fallback | validation | conditional
+    try_line: int = 0  # lineno of the enclosing try: statement (for noqa lookup)
+
+
+def _exception_names(handler: ast.ExceptHandler) -> set[str]:
+    """Return the set of exception names a handler catches.
+
+    Bare ``except:`` returns the empty set. ``except Exception:`` returns
+    {"Exception"}. ``except (KeyError, ValueError):`` returns both.
+    """
+    if handler.type is None:
+        return set()
+    if isinstance(handler.type, ast.Name):
+        return {handler.type.id}
+    if isinstance(handler.type, ast.Tuple):
+        return {n.id for n in handler.type.elts if isinstance(n, ast.Name)}
+    return set()
+
+
+def _body_is_pass(body: list[ast.stmt]) -> bool:
+    return len(body) == 1 and isinstance(body[0], ast.Pass)
+
+
+def _body_assigns_literal_to(body: list[ast.stmt], target_name: str) -> bool:
+    """True if the body's only statement is ``target_name = <Constant>``."""
+    if len(body) != 1:
+        return False
+    stmt = body[0]
+    if not isinstance(stmt, ast.Assign):
+        return False
+    if len(stmt.targets) != 1 or not isinstance(stmt.targets[0], ast.Name):
+        return False
+    if stmt.targets[0].id != target_name:
+        return False
+    return isinstance(stmt.value, ast.Constant)
+
+
+def _try_body_assigns_name(try_body: list[ast.stmt]) -> str | None:
+    """If the try body's last statement is ``name = <expr>``, return name.
+
+    Callers refine on the RHS shape they need.
+    """
+    if not try_body:
+        return None
+    stmt = try_body[-1]
+    if not isinstance(stmt, ast.Assign):
+        return None
+    if len(stmt.targets) != 1 or not isinstance(stmt.targets[0], ast.Name):
+        return None
+    return stmt.targets[0].id
+
+
+def _detect_silent_swallow(tree: ast.AST, path: Path) -> list[_ShapeHit]:
+    """Shape 1: ``except [Exception]: pass``."""
+    hits: list[_ShapeHit] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Try):
+            continue
+        for handler in node.handlers:
+            names = _exception_names(handler)
+            if names and names != {"Exception"}:
+                continue  # specific recovery
+            if _body_is_pass(handler.body):
+                hits.append(
+                    _ShapeHit(
+                        line=handler.lineno,
+                        snippet="except: pass",
+                        shape="silent_swallow",
+                        try_line=node.lineno,
+                    )
+                )
+    return hits
+
+
+def _detect_fallback_control_flow(tree: ast.AST, path: Path) -> list[_ShapeHit]:
+    """Shape 2: try body assigns name=<call>; except body assigns name=<literal>.
+
+    Requires the try body's last stmt RHS to be a ``Call`` node — subscript
+    and attribute access are handled by _detect_try_as_conditional instead.
+    """
+    hits: list[_ShapeHit] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Try):
+            continue
+        target_name = _try_body_assigns_name(node.body)
+        if target_name is None:
+            continue
+        # Only match when the try-body RHS is a function/method call
+        last_stmt = node.body[-1]
+        if not (isinstance(last_stmt, ast.Assign) and isinstance(last_stmt.value, ast.Call)):
+            continue
+        for handler in node.handlers:
+            if _body_assigns_literal_to(handler.body, target_name):
+                hits.append(
+                    _ShapeHit(
+                        line=handler.lineno,
+                        snippet=f"{target_name} = <literal>",
+                        shape="fallback",
+                        try_line=node.lineno,
+                    )
+                )
+    return hits
+
+
+def _detect_validation_via_exception(tree: ast.AST, path: Path) -> list[_ShapeHit]:
+    """Shape 3: try body calls int()/float()/Decimal(); except sets a flag."""
+    hits: list[_ShapeHit] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Try):
+            continue
+        validation_call = False
+        flag_assign: str | None = None
+        for stmt in node.body:
+            # Discarded validation call: `int(s)` as a bare expression
+            if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+                fn = stmt.value.func
+                if isinstance(fn, ast.Name) and fn.id in _VALIDATION_CALLS:
+                    validation_call = True
+            # Assigned validation call: `n = int(s)`
+            if (
+                isinstance(stmt, ast.Assign)
+                and isinstance(stmt.value, ast.Call)
+                and isinstance(stmt.value.func, ast.Name)
+                and stmt.value.func.id in _VALIDATION_CALLS
+            ):
+                validation_call = True
+            if (
+                isinstance(stmt, ast.Assign)
+                and len(stmt.targets) == 1
+                and isinstance(stmt.targets[0], ast.Name)
+                and isinstance(stmt.value, ast.Constant)
+                and stmt.value.value is True
+            ):
+                flag_assign = stmt.targets[0].id
+        if not (validation_call and flag_assign):
+            continue
+        for handler in node.handlers:
+            if "ValueError" not in _exception_names(handler):
+                continue
+            if _body_assigns_literal_to(handler.body, flag_assign):
+                hits.append(
+                    _ShapeHit(
+                        line=handler.lineno,
+                        snippet=f"{flag_assign} = False",
+                        shape="validation",
+                        try_line=node.lineno,
+                    )
+                )
+    return hits
+
+
+def _try_body_does_precheck_op(
+    body: list[ast.stmt],
+    exception_names: set[str],
+) -> str | None:
+    """Return a short description if the try body's single statement is a
+    subscript / attr access corresponding to one of the trivial-precheck
+    exceptions. Otherwise None.
+    """
+    if len(body) != 1:
+        return None
+    stmt = body[0]
+    if not (isinstance(stmt, ast.Assign) and len(stmt.targets) == 1):
+        return None
+    value = stmt.value
+    if isinstance(value, ast.Subscript):
+        if exception_names & {"KeyError", "IndexError"}:
+            return "subscript"
+    if isinstance(value, ast.Attribute):
+        if "AttributeError" in exception_names:
+            return "attribute"
+    return None
+
+
+def _detect_try_as_conditional(tree: ast.AST, path: Path) -> list[_ShapeHit]:
+    """Shape 4: try body is a single subscript/attr access; except assigns literal."""
+    hits: list[_ShapeHit] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Try):
+            continue
+        target_name = _try_body_assigns_name(node.body)
+        if target_name is None:
+            continue
+        for handler in node.handlers:
+            names = _exception_names(handler)
+            if not (names & _PRECHECK_EXCEPTIONS):
+                continue
+            op = _try_body_does_precheck_op(node.body, names)
+            if op is None:
+                continue
+            if _body_assigns_literal_to(handler.body, target_name):
+                hits.append(
+                    _ShapeHit(
+                        line=handler.lineno,
+                        snippet=f"{target_name} = <{op}>",
+                        shape="conditional",
+                        try_line=node.lineno,
+                    )
+                )
+    return hits
+
+
+# ---------------------------------------------------------------------------
+# PA-LLM-08 helpers — N+1 queries in user app code
+# ---------------------------------------------------------------------------
+
+_QUERYSET_METHODS = frozenset(
+    {
+        "all",
+        "list",
+        "first",
+        "last",
+        "filter",
+        "order_by",
+        "count",
+        "exists",
+    }
+)
+# `get` is deliberately excluded — it collides with dict.get(). The
+# unambiguous `<x>_repo.get(...)` shape is covered by _REPO_METHODS below.
+
+_REPO_METHODS = frozenset(
+    {
+        "list",
+        "fetch",
+        "fetch_by_id",
+        "get",
+        "find",
+    }
+)
+
+_LEN_LIKE_BUILTINS = frozenset({"len"})
+# Conservative start. Backfill audit (#1256) may expand to sum, sorted, etc.
+
+
+def _names_in_expr(node: ast.AST) -> set[str]:
+    """Return every Name id referenced anywhere inside the given expression."""
+    return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+
+
+def _target_names(target: ast.AST) -> set[str]:
+    """Return the names bound by an iteration target.
+
+    Shared between `ast.For.target` and `ast.comprehension.target` — both
+    have the same shape (a Name or a Tuple of Names).
+    """
+    if isinstance(target, ast.Name):
+        return {target.id}
+    if isinstance(target, ast.Tuple):
+        return {elt.id for elt in target.elts if isinstance(elt, ast.Name)}
+    return set()
+
+
+def _loop_targets(node: ast.For) -> set[str]:
+    """Return the set of names bound by a for-loop target.
+
+    Handles `for x in xs:` and `for x, y in items:` (tuple unpacking).
+    """
+    return _target_names(node.target)
+
+
+def _comprehension_targets(generators: list[ast.comprehension]) -> set[str]:
+    """Accumulate every loop-target name across a comprehension's generators.
+
+    For nested comprehensions like `[expr for a in xs for b in a.items]`,
+    later generators can reference earlier targets, so we union all of them.
+    """
+    accumulated: set[str] = set()
+    for gen in generators:
+        accumulated |= _target_names(gen.target)
+    return accumulated
+
+
+def _comprehension_body_exprs(node: ast.AST) -> list[ast.expr]:
+    """Return the per-iteration expressions of a comprehension node.
+
+    Each value here is evaluated once per iteration — so any N+1-shaped call
+    inside is an N+1 finding. The `.ifs` predicates inside each generator
+    are also per-iteration; included so a queryset terminator in an `if`
+    filter doesn't get a free pass.
+    """
+    bodies: list[ast.expr] = []
+    if isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
+        bodies.append(node.elt)
+    elif isinstance(node, ast.DictComp):
+        bodies.append(node.key)
+        bodies.append(node.value)
+    else:
+        return []
+    for gen in node.generators:
+        bodies.extend(gen.ifs)
+    return bodies
+
+
+def _root_of_attribute_chain(node: ast.AST) -> ast.Name | None:
+    """Walk an Attribute chain to its root Name. Returns None if not a Name."""
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node if isinstance(node, ast.Name) else None
+
+
+def _matches_queryset_shape(call: ast.Call, loop_targets: set[str]) -> bool:
+    """Shape 1: <loopvar>.<attr>...<attr>.<queryset_method>(...)."""
+    if not isinstance(call.func, ast.Attribute):
+        return False
+    if call.func.attr not in _QUERYSET_METHODS:
+        return False
+    root = _root_of_attribute_chain(call.func.value)
+    return root is not None and root.id in loop_targets
+
+
+def _matches_repo_shape(call: ast.Call, loop_targets: set[str]) -> bool:
+    """Shape 2: <x>_repo.<repo_method>(...) where any arg references a loop var."""
+    if not isinstance(call.func, ast.Attribute):
+        return False
+    if call.func.attr not in _REPO_METHODS:
+        return False
+    if not isinstance(call.func.value, ast.Name):
+        return False
+    if not call.func.value.id.endswith("_repo"):
+        return False
+    referenced: set[str] = set()
+    for arg in call.args:
+        referenced |= _names_in_expr(arg)
+    for kw in call.keywords:
+        if kw.value is not None:
+            referenced |= _names_in_expr(kw.value)
+    return bool(referenced & loop_targets)
+
+
+def _matches_len_wrap_shape(call: ast.Call, loop_targets: set[str]) -> bool:
+    """Shape 3: len(<loopvar>.attr.all()) (or another _LEN_LIKE_BUILTINS wrapper)."""
+    if not (isinstance(call.func, ast.Name) and call.func.id in _LEN_LIKE_BUILTINS):
+        return False
+    if not call.args:
+        return False
+    inner = call.args[0]
+    return isinstance(inner, ast.Call) and _matches_queryset_shape(inner, loop_targets)
+
+
+def _shape_hits_in_body(
+    body_nodes: list[ast.AST] | list[ast.stmt] | list[ast.expr],
+    targets: set[str],
+    outer_lineno: int,
+) -> list[_ShapeHit]:
+    """Find every N+1-shaped call inside the given body nodes, attributed to outer_lineno.
+
+    When a len-wrap shape is detected, the inner queryset call is *not* reported
+    separately — the outer len() node is the canonical hit (identity-tracked
+    via id()).
+    """
+    hits: list[_ShapeHit] = []
+    all_calls: list[ast.Call] = []
+    for body_node in body_nodes:
+        all_calls.extend(c for c in ast.walk(body_node) if isinstance(c, ast.Call))
+
+    len_wrap_inner: set[int] = set()
+    for call in all_calls:
+        if _matches_len_wrap_shape(call, targets) and call.args:
+            len_wrap_inner.add(id(call.args[0]))
+
+    for call in all_calls:
+        if _matches_len_wrap_shape(call, targets):
+            shape = "len_wrap"
+        elif id(call) in len_wrap_inner:
+            continue
+        elif _matches_queryset_shape(call, targets):
+            shape = "queryset"
+        elif _matches_repo_shape(call, targets):
+            shape = "repo"
+        else:
+            continue
+        snippet = ast.unparse(call) if hasattr(ast, "unparse") else "<call>"
+        hits.append(
+            _ShapeHit(
+                line=call.lineno,
+                snippet=snippet,
+                shape=shape,
+                try_line=outer_lineno,
+            )
+        )
+    return hits
+
+
+def _detect_n_plus_one(tree: ast.AST, path: Path) -> list[_ShapeHit]:
+    """Return _ShapeHit records for every N+1-shaped call inside a for-loop OR comprehension body.
+
+    Walks both `ast.For` statements and the four comprehension types
+    (`ast.ListComp`, `ast.SetComp`, `ast.GeneratorExp`, `ast.DictComp`).
+    Nested comprehensions accumulate loop targets across their generators —
+    `[expr for a in xs for b in a.items]` has both `a` and `b` in scope for
+    `expr`, so a wrong-shape call against either fires.
+
+    Uses the existing _ShapeHit dataclass from round 1 (PA-LLM-07). The
+    `try_line` field carries the outer statement's line number so the
+    suppression check can match a `# noqa: PA-LLM-08` comment on the for-line
+    or the comprehension's opening bracket line. The field name is historical;
+    semantically it's now "outer-statement line".
+    """
+    hits: list[_ShapeHit] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.For):
+            targets = _loop_targets(node)
+            if not targets:
+                continue
+            hits.extend(_shape_hits_in_body(list(node.body), targets, node.lineno))
+        elif isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)):
+            targets = _comprehension_targets(node.generators)
+            if not targets:
+                continue
+            body_exprs = _comprehension_body_exprs(node)
+            hits.extend(_shape_hits_in_body(list(body_exprs), targets, node.lineno))
+    return hits
+
+
+# ---------------------------------------------------------------------------
+# PA-LLM-09 helpers — optional-instead-of-result
+# ---------------------------------------------------------------------------
+
+
+def _is_none_constant(node: ast.AST) -> bool:
+    """True if node is the literal `None`."""
+    return isinstance(node, ast.Constant) and node.value is None
+
+
+def _returns_optional_t(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """True if the function's return annotation is `T | None` or `Optional[T]`.
+
+    Recognises both PEP 604 (`X | None`) and `typing.Optional[X]` (legacy).
+    """
+    rt = fn.returns
+    if rt is None:
+        return False
+    # X | None or None | X (BinOp with BitOr operator)
+    if isinstance(rt, ast.BinOp) and isinstance(rt.op, ast.BitOr):
+        return _is_none_constant(rt.left) or _is_none_constant(rt.right)
+    # Optional[X]
+    if isinstance(rt, ast.Subscript) and isinstance(rt.value, ast.Name):
+        return rt.value.id == "Optional"
+    return False
+
+
+def _count_return_none(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
+    """Count `return None` (or bare `return`) statements in fn body.
+
+    Skips nested function definitions (those have their own scope).
+    Uses a manual stack-based walk instead of ast.walk so we can truly
+    stop descending into nested function bodies.
+    """
+    count = 0
+    stack: list[ast.AST] = list(ast.iter_child_nodes(fn))
+    while stack:
+        node = stack.pop()
+        # Don't descend into nested function definitions.
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if isinstance(node, ast.Return):
+            if node.value is None:  # bare `return`
+                count += 1
+            elif _is_none_constant(node.value):  # `return None`
+                count += 1
+        stack.extend(ast.iter_child_nodes(node))
+    return count
+
+
+def _has_multi_exception_catch_returning_none(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    """True if fn body contains `try/except (X, Y, ...) ...: return None`.
+
+    The except clause must catch >=2 exception types AND its body must
+    contain a `return None` (or bare return) statement.
+    """
+    for node in ast.walk(fn):
+        if not isinstance(node, ast.ExceptHandler):
+            continue
+        # The except type must be a Tuple (e.g. `except (X, Y):`).
+        if not isinstance(node.type, ast.Tuple):
+            continue
+        if len(node.type.elts) < 2:
+            continue
+        for inner in ast.walk(node):
+            if isinstance(inner, ast.Return) and (
+                inner.value is None or _is_none_constant(inner.value)
+            ):
+                return True
+    return False
+
+
+def _detect_optional_instead_of_result(tree: ast.AST, path: Path) -> list[_ShapeHit]:
+    """Return _ShapeHit records for functions that should use Result.
+
+    Fires when both conditions hold:
+    1. Function signature returns `T | None` (or `Optional[T]`).
+    2. Function body has >=2 distinct `return None` statements OR a
+       `try/except (X, Y, ...)` block returning None.
+    """
+    hits: list[_ShapeHit] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if not _returns_optional_t(node):
+            continue
+
+        return_none_count = _count_return_none(node)
+        multi_catch = _has_multi_exception_catch_returning_none(node)
+
+        if return_none_count < 2 and not multi_catch:
+            continue
+
+        shape = "multi_return_none" if return_none_count >= 2 else "multi_exception_catch"
+        hits.append(
+            _ShapeHit(
+                line=node.lineno,
+                snippet=f"def {node.name}(...) -> ... | None",
+                shape=shape,
+                try_line=node.lineno,  # outer fn def line, for noqa scope
+            )
+        )
+    return hits
+
+
+# ---------------------------------------------------------------------------
+# PA-LLM-10 helpers — magic-string-typing (ID-shaped parameters)
+# ---------------------------------------------------------------------------
+
+# Matches: bare `id`, or any name ending in `_id`, `_uuid`, `_key`, `_token`.
+_ID_NAME_RE = re.compile(r"(^id$)|(_(id|uuid|key|token)$)")
+
+
+def _is_id_shaped_name(name: str) -> bool:
+    """True if the parameter name suggests an identifier class."""
+    return bool(_ID_NAME_RE.search(name))
+
+
+def _is_bare_str_annotation(node: ast.AST | None) -> bool:
+    """True if the annotation is bare `str`, `str | None`, `None | str`, or `Optional[str]`.
+
+    Does NOT fire on NewType-branded annotations (those are ast.Name with a
+    non-str id) or on str subclasses.
+    """
+    if node is None:
+        return False
+    # Bare `str`
+    if isinstance(node, ast.Name):
+        return node.id == "str"
+    # `str | None` / `None | str`
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        left = node.left
+        right = node.right
+        left_is_str = isinstance(left, ast.Name) and left.id == "str"
+        right_is_str = isinstance(right, ast.Name) and right.id == "str"
+        left_is_none = isinstance(left, ast.Constant) and left.value is None
+        right_is_none = isinstance(right, ast.Constant) and right.value is None
+        if (left_is_str and right_is_none) or (right_is_str and left_is_none):
+            return True
+        return False
+    # `Optional[str]`
+    if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
+        if node.value.id == "Optional":
+            inner = node.slice
+            return isinstance(inner, ast.Name) and inner.id == "str"
+    return False
+
+
+def _has_dataclass_decorator(cls: ast.ClassDef) -> bool:
+    """True if any decorator references `dataclass` by name or attribute."""
+    for dec in cls.decorator_list:
+        # @dataclass
+        if isinstance(dec, ast.Name) and dec.id == "dataclass":
+            return True
+        # @dataclass(frozen=True, slots=True)
+        if (
+            isinstance(dec, ast.Call)
+            and isinstance(dec.func, ast.Name)
+            and dec.func.id == "dataclass"
+        ):
+            return True
+        # @dataclasses.dataclass / @dc.dataclass
+        if isinstance(dec, ast.Attribute) and dec.attr == "dataclass":
+            return True
+        if (
+            isinstance(dec, ast.Call)
+            and isinstance(dec.func, ast.Attribute)
+            and dec.func.attr == "dataclass"
+        ):
+            return True
+    return False
+
+
+def _detect_magic_string_id(tree: ast.AST, path: Path) -> list[_ShapeHit]:
+    """Return _ShapeHit records for ID-shaped parameters typed as bare `str`.
+
+    Walks FunctionDef and AsyncFunctionDef nodes anywhere in the tree
+    (including methods on classes), skipping:
+    - `self` and `cls` parameters (never str-typed in practice)
+    - dataclass-decorated classes entirely (their synthesized __init__ would
+      fire spuriously; the field annotations are the source of truth and
+      a separate detector could handle them later)
+    """
+    # First pass: collect line ranges of dataclass-decorated classes to skip.
+    dataclass_ranges: list[tuple[int, int]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and _has_dataclass_decorator(node):
+            end = getattr(node, "end_lineno", None) or node.lineno
+            dataclass_ranges.append((node.lineno, end))
+
+    def _in_dataclass(fn_lineno: int) -> bool:
+        return any(start <= fn_lineno <= end for start, end in dataclass_ranges)
+
+    hits: list[_ShapeHit] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if _in_dataclass(node.lineno):
+            continue
+
+        all_args: list[ast.arg] = []
+        all_args.extend(node.args.posonlyargs)
+        all_args.extend(node.args.args)
+        all_args.extend(node.args.kwonlyargs)
+
+        for arg in all_args:
+            if arg.arg in ("self", "cls"):
+                continue
+            if not _is_id_shaped_name(arg.arg):
+                continue
+            if not _is_bare_str_annotation(arg.annotation):
+                continue
+            hits.append(
+                _ShapeHit(
+                    line=arg.lineno if hasattr(arg, "lineno") else node.lineno,
+                    snippet=f"{arg.arg}: str",
+                    shape="magic_string_id",
+                    try_line=node.lineno,  # def line for noqa scoping
+                )
+            )
+    return hits
 
 
 # ---------------------------------------------------------------------------
@@ -590,6 +1246,382 @@ class PythonAuditAgent(DetectionAgent):
                         )
                     )
                     break  # One finding per file is enough
+        return findings
+
+    @heuristic(
+        heuristic_id="PA-LLM-07",
+        category="python_audit",
+        subcategory="llm_bias",
+        title="exceptions used as control flow",
+    )
+    def check_exceptions_as_control_flow(self, appspec: AppSpec) -> list[Finding]:
+        """Flag the four canonical wrong shapes of try/except misuse.
+
+        See docs/counter-priors/exceptions-as-control-flow.md for the
+        full taxonomy and why these patterns are corrosive.
+        """
+        from dazzle.sentinel.models import (
+            Confidence,
+            Evidence,
+            Finding,
+            Remediation,
+            RemediationEffort,
+            Severity,
+        )
+
+        app_dir = self._project_path / "app"
+        if not app_dir.exists():
+            return []
+
+        detectors = (
+            ("silent_swallow", _detect_silent_swallow, Confidence.CONFIRMED),
+            ("fallback", _detect_fallback_control_flow, Confidence.LIKELY),
+            ("validation", _detect_validation_via_exception, Confidence.LIKELY),
+            ("conditional", _detect_try_as_conditional, Confidence.CONFIRMED),
+        )
+
+        catalogue_url = (
+            "https://github.com/cyfutureuk/dazzle/blob/main/"
+            "docs/counter-priors/exceptions-as-control-flow.md"
+        )
+
+        findings: list[Finding] = []
+        for py_file in sorted(app_dir.rglob("*.py")):
+            try:
+                source_text = py_file.read_text(encoding="utf-8")
+                tree = ast.parse(source_text, filename=str(py_file))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+            source_lines = source_text.splitlines()
+
+            for shape_name, detector, confidence in detectors:
+                for hit in detector(tree, py_file):
+                    # Check for noqa suppression on: handler line, line above handler,
+                    # or the try: line itself (hit.try_line).
+                    handler_text = (
+                        source_lines[hit.line - 1] if 0 < hit.line <= len(source_lines) else ""
+                    )
+                    if "noqa: PA-LLM-07" in handler_text:
+                        continue
+                    above_handler = (
+                        source_lines[hit.line - 2]
+                        if hit.line >= 2 and hit.line - 2 < len(source_lines)
+                        else ""
+                    )
+                    if "noqa: PA-LLM-07" in above_handler:
+                        continue
+                    try_line_text = (
+                        source_lines[hit.try_line - 1]
+                        if hit.try_line and 0 < hit.try_line <= len(source_lines)
+                        else ""
+                    )
+                    if "noqa: PA-LLM-07" in try_line_text:
+                        continue
+                    findings.append(
+                        Finding(
+                            agent=AgentId.PA,
+                            heuristic_id="PA-LLM-07",
+                            category="python_audit",
+                            subcategory="llm_bias",
+                            severity=Severity.MEDIUM,
+                            confidence=confidence,
+                            title=f"Exceptions as control flow ({shape_name})",
+                            description=(
+                                f"This try/except matches the {shape_name!r} antipattern from "
+                                "the counter-prior catalogue. See linked entry for the right shape."
+                            ),
+                            evidence=[
+                                Evidence(
+                                    evidence_type="source_pattern",
+                                    location=f"{py_file}:{hit.line}",
+                                    snippet=hit.snippet,
+                                )
+                            ],
+                            remediation=Remediation(
+                                summary=(
+                                    "Replace with explicit conditional / structured error / "
+                                    "specific exception + recovery."
+                                ),
+                                effort=RemediationEffort.SMALL,
+                                guidance=(
+                                    "See docs/counter-priors/exceptions-as-control-flow.md "
+                                    "for the four canonical wrong shapes and the right shapes."
+                                ),
+                                references=[catalogue_url],
+                            ),
+                            catalogue_entry="exceptions-as-control-flow",
+                        )
+                    )
+        return findings
+
+    @heuristic(
+        heuristic_id="PA-LLM-08",
+        category="python_audit",
+        subcategory="llm_bias",
+        title="N+1 queries in user app code",
+    )
+    def check_n_plus_one_in_user_code(self, appspec: AppSpec) -> list[Finding]:
+        """Flag the three canonical shapes of N+1 in user app/ Python.
+
+        See docs/counter-priors/n-plus-one-in-user-code.md for the
+        full taxonomy and the right shapes (Repository.aggregate, batched
+        fetch, latest_per_group).
+        """
+        from dazzle.sentinel.models import (
+            Confidence,
+            Evidence,
+            Finding,
+            Remediation,
+            RemediationEffort,
+            Severity,
+        )
+
+        app_dir = self._project_path / "app"
+        if not app_dir.exists():
+            return []
+
+        catalogue_url = (
+            "https://github.com/cyfutureuk/dazzle/blob/main/"
+            "docs/counter-priors/n-plus-one-in-user-code.md"
+        )
+
+        findings: list[Finding] = []
+        for py_file in sorted(app_dir.rglob("*.py")):
+            try:
+                source_text = py_file.read_text(encoding="utf-8")
+                tree = ast.parse(source_text, filename=str(py_file))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+            source_lines = source_text.splitlines()
+
+            for hit in _detect_n_plus_one(tree, py_file):
+                call_line_text = (
+                    source_lines[hit.line - 1] if 0 < hit.line <= len(source_lines) else ""
+                )
+                for_line_text = (
+                    source_lines[hit.try_line - 1]
+                    if hit.try_line and 0 < hit.try_line <= len(source_lines)
+                    else ""
+                )
+                if "noqa: PA-LLM-08" in call_line_text:
+                    continue
+                if "noqa: PA-LLM-08" in for_line_text:
+                    continue
+
+                findings.append(
+                    Finding(
+                        agent=AgentId.PA,
+                        heuristic_id="PA-LLM-08",
+                        category="python_audit",
+                        subcategory="llm_bias",
+                        severity=Severity.MEDIUM,
+                        confidence=Confidence.LIKELY,
+                        title=f"N+1 query in loop ({hit.shape})",
+                        description=(
+                            f"This for-loop body matches the {hit.shape!r} N+1 shape. "
+                            "Pull the inner call up to a batched aggregate / fetch "
+                            "before the loop. See linked catalogue entry."
+                        ),
+                        evidence=[
+                            Evidence(
+                                evidence_type="source_pattern",
+                                location=f"{py_file}:{hit.line}",
+                                snippet=hit.snippet,
+                            )
+                        ],
+                        remediation=Remediation(
+                            summary=(
+                                "Replace with Repository.aggregate or batched fetch outside the loop."
+                            ),
+                            effort=RemediationEffort.SMALL,
+                            guidance=(
+                                "See docs/counter-priors/n-plus-one-in-user-code.md "
+                                "for the right shapes (aggregate / latest_per_group / prefetch)."
+                            ),
+                            references=[catalogue_url],
+                        ),
+                        catalogue_entry="n-plus-one-in-user-code",
+                    )
+                )
+        return findings
+
+    @heuristic(
+        heuristic_id="PA-LLM-09",
+        category="python_audit",
+        subcategory="llm_bias",
+        title="Optional[T] where Result[T, E] would distinguish failure modes",
+    )
+    def check_optional_instead_of_result(self, appspec: AppSpec) -> list[Finding]:
+        """Flag functions that should use Result instead of T | None.
+
+        See docs/counter-priors/optional-instead-of-result.md for the
+        full taxonomy and the right shape (dazzle.result + tagged
+        ParseError union).
+        """
+        from dazzle.sentinel.models import (
+            Confidence,
+            Evidence,
+            Finding,
+            Remediation,
+            RemediationEffort,
+            Severity,
+        )
+
+        app_dir = self._project_path / "app"
+        if not app_dir.exists():
+            return []
+
+        catalogue_url = (
+            "https://github.com/cyfutureuk/dazzle/blob/main/"
+            "docs/counter-priors/optional-instead-of-result.md"
+        )
+
+        findings: list[Finding] = []
+        for py_file in sorted(app_dir.rglob("*.py")):
+            try:
+                source_text = py_file.read_text(encoding="utf-8")
+                tree = ast.parse(source_text, filename=str(py_file))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+            source_lines = source_text.splitlines()
+
+            for hit in _detect_optional_instead_of_result(tree, py_file):
+                def_line_text = (
+                    source_lines[hit.line - 1] if 0 < hit.line <= len(source_lines) else ""
+                )
+                if "noqa: PA-LLM-09" in def_line_text:
+                    continue
+
+                findings.append(
+                    Finding(
+                        agent=AgentId.PA,
+                        heuristic_id="PA-LLM-09",
+                        category="python_audit",
+                        subcategory="llm_bias",
+                        severity=Severity.MEDIUM,
+                        confidence=Confidence.LIKELY,
+                        title=f"Optional-instead-of-Result ({hit.shape})",
+                        description=(
+                            f"Function `{hit.snippet}` collapses multiple distinct failure "
+                            "modes into None. Use Result[T, E] with a tagged error union "
+                            "so the caller can distinguish failure modes."
+                        ),
+                        evidence=[
+                            Evidence(
+                                evidence_type="source_pattern",
+                                location=f"{py_file}:{hit.line}",
+                                snippet=hit.snippet,
+                            )
+                        ],
+                        remediation=Remediation(
+                            summary=(
+                                "Return `Result[T, ErrorUnion]` from dazzle.result with "
+                                "a tagged union of error variants."
+                            ),
+                            effort=RemediationEffort.MEDIUM,
+                            guidance=(
+                                "See docs/counter-priors/optional-instead-of-result.md for "
+                                "the canonical right-shape pattern using dazzle.result + "
+                                "frozen-dataclass error variants."
+                            ),
+                            references=[catalogue_url],
+                        ),
+                        catalogue_entry="optional-instead-of-result",
+                    )
+                )
+        return findings
+
+    @heuristic(
+        heuristic_id="PA-LLM-10",
+        category="python_audit",
+        subcategory="llm_bias",
+        title="Magic-string typing — bare str where a brand would catch errors",
+    )
+    def check_magic_string_typing(self, appspec: AppSpec) -> list[Finding]:
+        """Flag ID-shaped function parameters typed as bare str.
+
+        See docs/counter-priors/magic-string-typing.md for the full
+        taxonomy and right-shape patterns (dazzle.types.NewType for IDs,
+        enum.StrEnum for closed sets).
+        """
+        from dazzle.sentinel.models import (
+            Confidence,
+            Evidence,
+            Finding,
+            Remediation,
+            RemediationEffort,
+            Severity,
+        )
+
+        app_dir = self._project_path / "app"
+        if not app_dir.exists():
+            return []
+
+        catalogue_url = (
+            "https://github.com/cyfutureuk/dazzle/blob/main/"
+            "docs/counter-priors/magic-string-typing.md"
+        )
+
+        findings: list[Finding] = []
+        for py_file in sorted(app_dir.rglob("*.py")):
+            try:
+                source_text = py_file.read_text(encoding="utf-8")
+                tree = ast.parse(source_text, filename=str(py_file))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+            source_lines = source_text.splitlines()
+
+            for hit in _detect_magic_string_id(tree, py_file):
+                def_line_text = (
+                    source_lines[hit.try_line - 1]
+                    if hit.try_line and 0 < hit.try_line <= len(source_lines)
+                    else ""
+                )
+                param_line_text = (
+                    source_lines[hit.line - 1] if 0 < hit.line <= len(source_lines) else ""
+                )
+                if "noqa: PA-LLM-10" in def_line_text:
+                    continue
+                if "noqa: PA-LLM-10" in param_line_text:
+                    continue
+
+                findings.append(
+                    Finding(
+                        agent=AgentId.PA,
+                        heuristic_id="PA-LLM-10",
+                        category="python_audit",
+                        subcategory="llm_bias",
+                        severity=Severity.MEDIUM,
+                        confidence=Confidence.LIKELY,
+                        title=f"Magic-string ID parameter: {hit.snippet}",
+                        description=(
+                            f"Parameter `{hit.snippet}` is typed as bare `str`. "
+                            "Use a NewType-branded alias so the type checker "
+                            "distinguishes this identifier class from other str values."
+                        ),
+                        evidence=[
+                            Evidence(
+                                evidence_type="source_pattern",
+                                location=f"{py_file}:{hit.line}",
+                                snippet=hit.snippet,
+                            )
+                        ],
+                        remediation=Remediation(
+                            summary=(
+                                "Declare a brand: `from dazzle.types import NewType; "
+                                "MyId = NewType('MyId', str)`. Use `MyId` in the signature."
+                            ),
+                            effort=RemediationEffort.SMALL,
+                            guidance=(
+                                "See docs/counter-priors/magic-string-typing.md for the "
+                                "canonical right-shape pattern (branded IDs in app/ids.py + "
+                                "StrEnum for closed value sets)."
+                            ),
+                            references=[catalogue_url],
+                        ),
+                        catalogue_entry="magic-string-typing",
+                    )
+                )
         return findings
 
     # ------------------------------------------------------------------

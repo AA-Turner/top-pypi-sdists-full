@@ -1,16 +1,17 @@
 Metadata-Version: 2.4
 Name: drydock-cli
-Version: 2.8.86
-Summary: Local-first CLI coding agent — tested with Gemma 4 26B via vLLM
+Version: 2.8.95
+Summary: Local-first CLI coding agent — tested with Gemma 4 26B via llama.cpp
 Project-URL: Homepage, https://github.com/fbobe321/drydock
 Project-URL: Repository, https://github.com/fbobe321/drydock
 Project-URL: Issues, https://github.com/fbobe321/drydock/issues
 Project-URL: Documentation, https://github.com/fbobe321/drydock#readme
+Project-URL: Docker, https://hub.docker.com/r/fbobe3/drydock
 Author: Drydock contributors, Mistral AI (original)
 License: Apache-2.0
 License-File: LICENSE
 License-File: NOTICE
-Keywords: ai,cli,coding-assistant,developer-tools,drydock,gemma,llm,local-llm,tui,vllm
+Keywords: ai,cli,coding-assistant,developer-tools,drydock,gemma,llama-cpp,llm,local-llm,tui
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -72,42 +73,60 @@ Description-Content-Type: text/markdown
 DryDock is a TUI coding assistant designed to work with **local LLMs**. It provides a conversational interface to your codebase — explore, modify, build, and test projects through natural language and a powerful set of tools.
 
 > [!IMPORTANT]
-> DryDock is tested and optimized for **Gemma 4 26B-A4B** (26B MoE, 4B active parameters). **Recommended serving stack: llama.cpp** with `--jinja` (the chat-template fix that prevents the tool-call loops Gemma 4 hits under other backends). vLLM is also documented below as a higher-throughput alternative for batch/eval workloads. Other models and providers are supported (Mistral, OpenAI, Anthropic, Ollama) but are not as thoroughly tested. If you use a different model, expect to tune prompts and tool settings.
+> DryDock is tested and optimized for **Gemma 4 26B-A4B** (26B MoE, 4B active parameters) served by **llama.cpp** with `--jinja` (the chat-template fix that prevents tool-call loops). Other OpenAI-compatible providers (Ollama, LM Studio, Mistral, OpenAI, Anthropic) work but are not as thoroughly tested. If you use a different model, expect to tune prompts and tool settings.
 
 ## Tested Hardware + Model
 
 | Component | Spec |
 |-----------|------|
 | GPUs | 2× NVIDIA RTX 4060 Ti 16GB |
-| Model (llama.cpp, recommended) | [unsloth/gemma-4-26B-A4B-it-GGUF](https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF) — UD-Q3_K_M (12.7GB) or UD-Q4_K_M (16.9GB) |
-| Model (vLLM, alternative) | [casperhansen/gemma-4-26b-a4b-it-AWQ-4bit](https://huggingface.co/casperhansen/gemma-4-26b-a4b-it-AWQ-4bit) |
-| Performance | ~15–17 tok/s decode (llama.cpp Q3), ~70 tok/s decode (vLLM AWQ) |
+| Model | [unsloth/gemma-4-26B-A4B-it-GGUF](https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF) — UD-Q3_K_M (12.7GB) or UD-Q4_K_M (16.9GB) |
+| Performance | ~15–17 tok/s decode (llama.cpp Q3) |
 | Active params | 4B per token (MoE architecture — fast inference) |
 
-### Recommended path: llama.cpp + Unsloth GGUF
+### Recommended serving: llama.cpp + Unsloth GGUF
 
-**Why this is the recommended setup:** Gemma 4's tool-calling format
-requires precise chat-template handling. Without `--jinja`, `tool` results
-get injected without the right turn markers and the model loops or
-returns empty assistant messages — the exact 400 Bad Request loop
-fixed in v2.7.39 (GH #14). With `--jinja`, the GGUF's bundled chat
-template handles tool turns natively and the loops disappear.
+**Why llama.cpp:** Gemma 4's tool-calling format requires precise
+chat-template handling. With `--jinja`, the GGUF's bundled chat
+template handles tool turns natively and multi-turn tool sessions
+stay stable. Other backends have shown loop and empty-assistant-message
+behavior on long sessions; we don't recommend them.
+
+#### One-command setup (Docker + GPU)
 
 ```bash
-# 1. Download Unsloth's GGUF (Q3_K_M is the article-recommended quant;
+curl -sSL https://drydock.pages.dev/setup-llm.sh | bash
+```
+
+Downloads the GGUF (~13 GB, one-time, resumable) into
+`~/.cache/drydock/models/`, pulls the official
+`ghcr.io/ggml-org/llama.cpp:server-cuda` image, and starts a container
+named `llamacpp-gemma4` on port 8000 with the load-bearing flags
+(`--jinja`, q8 KV cache, full-layer GPU offload).
+
+Knobs via env vars (full list in [`scripts/llm/README.md`](scripts/llm/README.md)):
+`QUANT=Q4_K_M` for higher quality, `VISION=1` to enable image input,
+`PORT=8001`, `CONTEXT=16384` if you have <16 GB VRAM,
+`MODEL_DIR=/path/to/llms` to cache elsewhere.
+
+Prefer declarative? [`scripts/llm/docker-compose.yml`](scripts/llm/docker-compose.yml) is the same recipe.
+
+#### Manual setup (if you'd rather build llama.cpp from source)
+
+```bash
+# 1. Download Unsloth's GGUF (Q3_K_M is the recommended quant;
 #    UD-Q4_K_M is a higher-quality alternative if you have ~17GB VRAM)
 huggingface-cli download unsloth/gemma-4-26B-A4B-it-GGUF \
     --include "gemma-4-26B-A4B-it-UD-Q3_K_M.gguf" \
     --local-dir /path/to/models
 
-# 2. Build llama.cpp with CUDA (or use the Docker image
-#    ghcr.io/ggml-org/llama.cpp:server-cuda)
+# 2. Build llama.cpp with CUDA (or use the Docker image above)
 git clone https://github.com/ggerganov/llama.cpp.git
 cd llama.cpp
 cmake -B build -DGGML_CUDA=ON -DLLAMA_CURL=OFF
 cmake --build build --config Release -j8 --target llama-server
 
-# 3. Start the server with the article recipe
+# 3. Start the server with the recipe
 ./build/bin/llama-server \
     -m /path/to/models/gemma-4-26B-A4B-it-UD-Q3_K_M.gguf \
     --host 0.0.0.0 --port 8000 \
@@ -157,54 +176,10 @@ frequency_penalty = 1.1
 max_tokens = 2048
 ```
 
-### Alternative: vLLM (higher throughput, no `--jinja` equivalent)
-
-vLLM has its own `--tool-call-parser gemma4` path that works for most
-workflows, but has been observed to enter tool-call loops on long
-multi-turn sessions (GH #14, fixed at the drydock side in v2.7.39 by
-filtering empty assistant messages before re-call). Use vLLM when you
-need higher decode throughput (~70 tok/s vs llama.cpp's ~15–17) for
-batch eval or non-interactive workloads where loop-fix matters less.
-
-```bash
-huggingface-cli download casperhansen/gemma-4-26b-a4b-it-AWQ-4bit \
-    --local-dir /path/to/models/Gemma-4-26B-A4B-it-AWQ-4bit
-
-docker run -d \
-    --gpus all \
-    --name gemma4 \
-    -p 8000:8000 \
-    -v /path/to/models:/models \
-    --ipc=host \
-    vllm/vllm-openai:gemma4 \
-    --model /models/Gemma-4-26B-A4B-it-AWQ-4bit \
-    --quantization compressed-tensors \
-    --tensor-parallel-size 2 \
-    --max-model-len 131072 \
-    --max-num-seqs 2 \
-    --gpu-memory-utilization 0.95 \
-    --kv-cache-dtype fp8 \
-    --served-model-name gemma4 \
-    --trust-remote-code \
-    --tool-call-parser gemma4 \
-    --enable-auto-tool-choice \
-    --attention-backend TRITON_ATTN
-```
-
-Key flags:
-- `--tensor-parallel-size 2` — split across 2 GPUs
-- `--kv-cache-dtype fp8` — reduce KV cache memory for longer contexts
-- `--tool-call-parser gemma4` + `--enable-auto-tool-choice` — required for Gemma 4 tool calling under vLLM
-- `--max-num-seqs 2` — limit concurrent requests (prevents OOM on 16GB GPUs)
-
-Verify either backend is running:
+Verify the backend is running:
 ```bash
 curl http://localhost:8000/v1/models
 ```
-
-For vLLM, drydock config is the same as the llama.cpp block above,
-except `temperature = 0.2` is fine — the `--jinja` requirement only
-applies to llama.cpp.
 
 ## Install
 
@@ -217,12 +192,35 @@ Or with uv:
 uv tool install drydock-cli
 ```
 
+### Docker (Linux/macOS)
+
+A prebuilt Docker image is available — drydock + Python 3.12 + venv, no model weights bundled. Point at any OpenAI-compatible endpoint (your existing llama.cpp / Ollama / LM Studio).
+
+```bash
+docker run -it --rm \
+    -e LLAMACPP_URL=http://host.docker.internal:8001/v1 \
+    -e LLAMACPP_MODEL=gemma4 \
+    --add-host=host.docker.internal:host-gateway \
+    -v "$HOME/.drydock:/root/.drydock" \
+    -v "$(pwd):/work" \
+    fbobe3/drydock:latest
+```
+
+- `LLAMACPP_URL` defaults to `http://host.docker.internal:8001/v1`
+- `LLAMACPP_MODEL` defaults to `gemma4`
+- Mount `~/.drydock` to keep config + session history across container restarts
+- Mount `$(pwd)` to give drydock access to your project
+- Tags: `:latest` and `:<pypi-version>` (e.g. `:2.8.87`)
+- Source for the publishing pipeline: [`install_tests/publish/`](install_tests/publish/)
+
+The image expects your local LLM to be reachable via `host.docker.internal` (Docker resolves this to the host gateway). Make sure the LLM listens on `0.0.0.0` (not just `127.0.0.1`) so the container can reach it.
+
 > [!TIP]
 > **New install hitting weird behavior?** See [DEPLOYMENT.md](DEPLOYMENT.md)
-> for the exact known-working vLLM launch flags, `~/.drydock/config.toml`,
+> for the known-working llama.cpp launch flags, `~/.drydock/config.toml`,
 > env vars, and a diagnostic checklist. Most "DryDock doesn't work" issues
-> trace back to missing vLLM flags (`--tool-call-parser gemma4`,
-> `--enable-auto-tool-choice`) or temperature/thinking config drift.
+> trace back to missing `--jinja` on the llama.cpp side, or to
+> temperature/thinking config drift.
 
 ### Windows: `drydock` not found after install
 

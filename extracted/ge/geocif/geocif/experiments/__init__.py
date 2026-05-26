@@ -1276,7 +1276,8 @@ def _plot_overall_comparison(df_metrics, experiments, dir_plots):
                 continue
             if do_cap and actual > MAPE_CAP:
                 ax.text(bar.get_x() + bar.get_width() / 2, h,
-                        f"{actual:.0f}↑", ha="center", va="bottom",
+                        f"{actual:.0f}", ha="center", va="bottom",
+                        rotation=90,
                         fontsize=7, fontweight="bold", color="#b53b3b")
             else:
                 ax.text(bar.get_x() + bar.get_width() / 2, h,
@@ -1414,9 +1415,10 @@ def _plot_mape_by_year(df_exp_data, experiment_name, dir_plots):
             if do_cap:
                 for _, r in grp[grp["MAPE"] > MAPE_CAP].iterrows():
                     ax.annotate(
-                        f"{r['MAPE']:.0f}↑",
+                        f"{r['MAPE']:.0f}",
                         xy=(r["Harvest Year"], MAPE_CAP),
                         xytext=(0, 4), textcoords="offset points",
+                        rotation=90,
                         fontsize=7, fontweight="bold", color=color,
                         ha="center", va="bottom",
                     )

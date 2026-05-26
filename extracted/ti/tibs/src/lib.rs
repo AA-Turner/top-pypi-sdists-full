@@ -1,3 +1,7 @@
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::collapsible_if)]
+
 pub mod core;
 pub mod enums;
 pub mod helpers;
@@ -16,5 +20,6 @@ fn tibs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<enums::BitOrder>()?;
     m.add_class::<enums::Codec>()?;
     m.add_class::<view::View>()?;
+    m.add_class::<view::MutableView>()?;
     Ok(())
 }

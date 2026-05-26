@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coffea
-Version: 2026.4.0
+Version: 2026.5.0
 Summary: Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
 Project-URL: Homepage, https://github.com/coffeateam/coffea
 Project-URL: Bug Tracker, https://github.com/coffeateam/coffea/issues
@@ -82,6 +82,7 @@ Requires-Dist: pytest-asyncio; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
 Requires-Dist: pytest-mock; extra == 'dev'
 Requires-Dist: pytest-mpl; extra == 'dev'
+Requires-Dist: pytest-xdist; extra == 'dev'
 Requires-Dist: sphinx-automodapi; extra == 'dev'
 Requires-Dist: sphinx-copybutton>=0.3.2; extra == 'dev'
 Requires-Dist: sphinx-rtd-theme; extra == 'dev'

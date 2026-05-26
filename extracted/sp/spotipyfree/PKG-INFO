@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spotipyFree
-Version: 1.7.0
+Version: 1.7.4
 Summary: A Spotipy-compatible wrapper using SpotAPI
 Author: Tzur
 License: Copyright (c) <2026> <Tzur Soffer>

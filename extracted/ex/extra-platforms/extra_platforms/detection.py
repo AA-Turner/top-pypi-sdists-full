@@ -75,6 +75,8 @@ from __future__ import annotations
 
 import os
 import platform
+import re
+import subprocess
 import sys
 from functools import cache
 from os import environ
@@ -683,6 +685,32 @@ def is_oracle() -> bool:
 
 
 @cache
+def is_os400() -> bool:
+    """Return {data}`True` if current platform is {data}`~extra_platforms.OS400`.
+
+    ```{note}
+    Detects [IBM i](https://en.wikipedia.org/wiki/IBM_i) (formerly OS/400),
+    whose AIX-compatible PASE runtime hosts Python. Python 3.9+ on IBM i reports
+    `sys.platform` as `os400` rather than `aix` (as older versions did), so PASE
+    is distinguished from {data}`~extra_platforms.AIX` despite their binary
+    compatibility.
+    ```
+
+    ```{note}
+    {data}`~extra_platforms.OS400` is grouped under
+    {data}`~extra_platforms.UNIX_LAYERS` (beside {data}`~extra_platforms.CYGWIN`),
+    not {data}`~extra_platforms.SYSTEM_V` where its AIX kin lives. IBM i's native
+    OS is not Unix: its only Unix surface is the PASE runtime that `os400` runs
+    in. The [Wikipedia Unix taxonomy](https://en.wikipedia.org/wiki/Template:Unix)
+    that these platform families track classes PASE as a Unix *compatibility
+    layer* (a peer of Cygwin on Windows), so the trait sits there rather than
+    with its System V binary kin.
+    ```
+    """
+    return sys.platform.startswith("os400")
+
+
+@cache
 def is_parallels() -> bool:
     """Return {data}`True` if current platform is {data}`~extra_platforms.PARALLELS`."""
     return os_release_id() == "parallels"
@@ -907,38 +935,376 @@ def _active_env_var_shell_ids() -> frozenset[str]:
     )
 
 
+def _shell_name(command: str) -> str:
+    """Normalize a process command into a comparable shell name.
+
+    Strips a leading ``-`` (which marks a login shell, like ``-bash``), then
+    returns the lowercased filename stem (``/usr/bin/bash`` becomes ``bash``).
+    Returns an empty string when no name can be extracted.
+    """
+    return PurePosixPath(command.lstrip("-")).stem.lower()
+
+
+def _parse_proc_ppid(record: str) -> int:
+    """Extract the parent PID from a ``/proc/<pid>`` process record.
+
+    Two on-disk layouts are recognized, told apart by the presence of the
+    parenthesized ``comm`` field:
+
+    - Linux ``stat`` (and NetBSD's Linux-compatible ``stat``):
+      ``"pid (comm) state ppid ..."``. The ``comm`` field may itself contain
+      spaces and parentheses, so the PPID is taken as the second field after
+      the last ``)``.
+    - BSD ``status`` (FreeBSD, DragonFly): ``"comm pid ppid pgid ..."``, where
+      the PPID is the third whitespace-separated field.
+
+    Raises {class}`ValueError` or {class}`IndexError` on an unparsable record.
+    """
+    marker = record.rfind(")")
+    if marker != -1:
+        return int(record[marker + 2 :].split()[1])
+    return int(record.split()[2])
+
+
+def _ppid_from_proc(pid: int) -> int | None:
+    """Read the parent PID of ``pid`` from ``/proc``.
+
+    Tries the Linux-style ``stat`` file first, then the BSD-style ``status``
+    file, so the same walk works across Linux, NetBSD, and FreeBSD. Returns
+    {data}`None` when neither file can be read or parsed.
+
+    ```{note}
+    System V ``/proc`` (illumos, Solaris, AIX) exposes ``status`` as a binary
+    ``pstatus_t`` rather than text. Bytes are decoded with ``errors="replace"``
+    so a binary record degrades to an unparsable string (and {data}`None`)
+    instead of raising {exc}`UnicodeDecodeError`. {func}`_parent_process_tree`
+    then falls back to ``ps`` on those systems.
+    ```
+    """
+    for proc_file in ("stat", "status"):
+        try:
+            record = Path(f"/proc/{pid}/{proc_file}").read_bytes()
+        except OSError:
+            continue
+        try:
+            return _parse_proc_ppid(record.decode(errors="replace"))
+        except (ValueError, IndexError):
+            return None
+    return None
+
+
+@cache
+def _interpreter_shell_specs() -> tuple[tuple[re.Pattern[str], str], ...]:
+    """Compiled ``(interpreter pattern, launcher name)`` pairs from the registry.
+
+    Built from {class}`~extra_platforms.Shell` instances that declare an
+    {attr}`~extra_platforms.Shell.interpreter`. The interpreter base name
+    becomes a version-tolerant pattern (so ``python`` matches ``python3`` and
+    ``python3.11``); the launcher name to look for is the shell's ``id``.
+    """
+    # Lazy import to avoid circular dependencies.
+    from .group_data import ALL_SHELLS
+
+    return tuple(
+        (re.compile(rf"^{re.escape(interp)}(\d+(\.\d+)?)?$"), shell.id)
+        for shell in ALL_SHELLS
+        if (interp := getattr(shell, "interpreter", None))
+    )
+
+
+def _interpreter_shell(argv: list[str]) -> tuple[str, str] | None:
+    """Detect a shell hosted by an interpreter from a process command line.
+
+    When ``argv[0]`` is a known interpreter (like ``python``) and a later
+    argument is an existing file whose name is a hosted shell's launcher (like
+    ``xonsh``), returns ``(shell_id, launcher_path)``, else {data}`None`.
+
+    The three guards (interpreter-name pattern, exact launcher basename, and an
+    {meth}`~pathlib.Path.is_file` check) keep unrelated invocations like
+    ``python -m pytest test_xonsh.py`` from matching. Mirrors the approach in
+    [shellingham](https://github.com/sarugaku/shellingham).
+    """
+    if not argv:
+        return None
+    proc_name = Path(argv[0]).name.lower()
+    for pattern, launcher in _interpreter_shell_specs():
+        if not pattern.fullmatch(proc_name):
+            continue
+        for arg in argv[1:]:
+            if Path(arg).name.lower() == launcher and Path(arg).is_file():
+                return launcher, arg
+    return None
+
+
+_EMULATOR_NAMES = re.compile(r"rosetta|qemu-[a-z0-9_]+(?:-static)?")
+"""User-mode CPU emulators that wrap the real command in their arguments."""
+
+
+def _unwrap_emulator(argv: list[str]) -> list[str]:
+    """Strip a leading user-mode emulator (``qemu-<arch>``, ``rosetta``) from argv.
+
+    Under foreign-architecture emulation (like ``docker run --platform``), a
+    process shows up as ``qemu-aarch64 /bin/bash …``; the real command is the
+    remaining arguments. Returns ``argv`` with the emulator prefix removed, or
+    ``argv`` unchanged when ``argv[0]`` is not an emulator (or nothing follows
+    it). Composes with {func}`_interpreter_shell`: an emulated ``python`` running
+    xonsh unwraps to ``python …`` first, then resolves to xonsh.
+
+    ```{seealso}
+    Mirrors the emulator handling in
+    [shellingham](https://github.com/sarugaku/shellingham).
+    ```
+    """
+    if len(argv) >= 2 and _EMULATOR_NAMES.fullmatch(_shell_name(argv[0])):
+        return argv[1:]
+    return argv
+
+
+def _pairs_from_argv(argv: list[str]) -> list[tuple[str, str]]:
+    """Derive ``(name, path)`` pairs a single process contributes from its argv.
+
+    Unwraps a user-mode emulator prefix (so the emulated shell is seen), then
+    yields the ``argv[0]`` shell name (with its path only when absolute, since a
+    login dash carries none) plus any interpreter-hosted shell found in the
+    arguments (like xonsh run under python). Shared by the ``/proc`` and ``ps``
+    walks, which differ only in how they obtain ``argv``.
+    """
+    pairs: list[tuple[str, str]] = []
+    argv = _unwrap_emulator(argv)
+    if argv:
+        # argv[0] recovers login shells and survives an unreadable exe; keep it
+        # as a path only when absolute (a login dash carries none).
+        if name := _shell_name(argv[0]):
+            pairs.append((name, argv[0] if argv[0].startswith("/") else ""))
+        # A shell hosted by an interpreter (like xonsh run under python).
+        if hosted := _interpreter_shell(argv):
+            pairs.append(hosted)
+    return pairs
+
+
+def _tree_from_proc() -> tuple[tuple[str, str], ...]:
+    """Walk the parent process tree through ``/proc`` (Linux and BSD procfs).
+
+    Returns ordered ``(name, path)`` pairs, nearest ancestor first. For each
+    process it reads the resolved executable (``/proc/<pid>/exe``, an absolute
+    path that follows a ``/bin/sh`` -> Bash symlink) and the full ``argv``
+    (``/proc/<pid>/cmdline``). Reading both means a login shell is still
+    recognized when the ``exe`` symlink is unreadable (hardened ``/proc``
+    mounted with ``hidepid``), and vice versa. ``argv`` also lets an
+    interpreter-hosted shell (xonsh under python) or an emulated shell (under
+    qemu/rosetta) be recognized. ``path`` is empty when only a non-absolute
+    ``argv[0]`` is available.
+    """
+    pairs: list[tuple[str, str]] = []
+    pid = os.getpid()
+    visited: set[int] = set()
+    while pid > 1 and pid not in visited:
+        visited.add(pid)
+        # Resolved executable: an absolute path that follows symlinks.
+        try:
+            target = os.readlink(f"/proc/{pid}/exe")
+            if name := _shell_name(target):
+                pairs.append((name, target))
+        except OSError:
+            pass
+        # Full argv from the raw, null-separated command line.
+        try:
+            raw = Path(f"/proc/{pid}/cmdline").read_bytes()
+            argv = [a for a in raw.decode(errors="replace").split("\0") if a]
+        except OSError:
+            argv = []
+        pairs.extend(_pairs_from_argv(argv))
+        ppid = _ppid_from_proc(pid)
+        if ppid is None:
+            break
+        pid = ppid
+    return tuple(pairs)
+
+
+def _tree_from_ps() -> tuple[tuple[str, str], ...]:
+    """Walk the parent process tree through ``ps``.
+
+    Used on POSIX systems without a usable text ``/proc`` (macOS and BSDs
+    without procfs, plus the System V ``/proc`` of illumos, Solaris, and
+    AIX/IBM i). Parses a single ``ps`` snapshot into a ``{pid: (ppid, args)}``
+    table, then walks from the current process up to the root, returning ordered
+    ``(name, path)`` pairs (nearest first).
+
+    The full argument list is requested (rather than just the executable) so
+    that interpreter-hosted shells (like xonsh under python) can be recognized
+    from their arguments. ``path`` is taken from ``argv[0]`` when absolute; a
+    login shell (``-zsh``) or a bare name carries no path, so callers fall back
+    to ``SHELL``.
+
+    The invocation is the portable POSIX form (``-A``, ``-o field=``, and the
+    ``args`` specifier) with no ``-ww``, so it works across macOS, the BSDs,
+    Linux, and the System V ``ps`` of illumos, Solaris, and AIX/IBM i. Those
+    System V variants lack the ``command`` specifier (only ``args``) and reject
+    ``-ww`` (AIX accepts ``-w`` only in Berkeley mode, which has no ``-o``);
+    ``args`` may be truncated there, but ``argv[0]`` stays intact. Parsing reads
+    positional columns from empty (``field=``) headers, sidestepping the
+    header-name differences (``COMMAND`` vs ``CMD``) that complicate name-based
+    parsing. Mirrors [shellingham](https://github.com/sarugaku/shellingham).
+
+    ```{important}
+    ``-A`` (select every process) is essential, not merely convenient. Without
+    it, `ps` defaults to processes sharing the caller's controlling terminal,
+    and macOS returns *nothing* when run outside a tty (as in CI or any
+    non-interactive context, unlike Linux which lists all processes regardless).
+    ``-A`` makes the snapshot tty-independent.
+    ```
+    """
+    try:
+        result = subprocess.run(
+            ("ps", "-A", "-o", "pid=,ppid=,args="),
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ()
+
+    # str() coerces an unexpected stdout (like a globally mocked subprocess.run
+    # returning a Mock) to text, so parsing degrades to an empty result instead
+    # of raising.
+    output = str(result.stdout)
+
+    # Parse "<pid> <ppid> <args...>" rows into {pid: (ppid, args)}. The
+    # argument list is the last field and is kept whole.
+    table: dict[int, tuple[int, str]] = {}
+    for line in output.splitlines():
+        fields = line.split(maxsplit=2)
+        if len(fields) < 3:
+            continue
+        try:
+            child, parent = int(fields[0]), int(fields[1])
+        except ValueError:
+            continue
+        table[child] = (parent, fields[2])
+
+    pairs: list[tuple[str, str]] = []
+    pid = os.getpid()
+    visited: set[int] = set()
+    while pid > 1 and pid in table and pid not in visited:
+        visited.add(pid)
+        ppid, command = table[pid]
+        pairs.extend(_pairs_from_argv(command.split()))
+        pid = ppid
+    return tuple(pairs)
+
+
+def _walk_process_map(
+    process_map: dict[int, tuple[int, str]],
+    start_pid: int,
+    path_getter: Callable[[int], str],
+) -> tuple[tuple[str, str], ...]:
+    """Walk a ``{pid: (ppid, executable)}`` map into ordered ``(name, path)`` pairs.
+
+    Climbs from ``start_pid`` to the root, nearest ancestor first. Each
+    ``executable`` is normalized into a shell name via {func}`_shell_name`, and
+    ``path_getter`` resolves a matched pid's full executable path. This is the
+    platform-agnostic core of the Windows walk: the snapshot acquisition is the
+    only Win32-specific part.
+    """
+    pairs: list[tuple[str, str]] = []
+    pid = start_pid
+    visited: set[int] = set()
+    while pid in process_map and pid not in visited:
+        visited.add(pid)
+        ppid, executable = process_map[pid]
+        if name := _shell_name(executable):
+            pairs.append((name, path_getter(pid)))
+        pid = ppid
+    return tuple(pairs)
+
+
+def _tree_from_windows() -> tuple[tuple[str, str], ...]:
+    """Walk the parent process tree through the Win32 Tool Help API.
+
+    Used on Windows, which has neither ``/proc`` nor ``ps``. Snapshots every
+    process into a ``{pid: (ppid, executable)}`` map (see
+    {mod}`extra_platforms._windows`), then walks from the current process up to
+    the root, resolving each ancestor's full path via
+    ``QueryFullProcessImageNameW``.
+
+    Returns an empty tuple off Windows or on any Win32 failure, so detection
+    degrades to the environment-variable heuristics.
+
+    ```{caution}
+    Windows parent-PID links can be stale: a parent may exit and its PID be
+    reused. The ``visited`` set bounds the walk, but a reused PID could in
+    theory divert it. This matches the limitation in
+    [shellingham](https://github.com/sarugaku/shellingham).
+    ```
+    """
+    tree: tuple[tuple[str, str], ...] = ()
+    if sys.platform == "win32":
+        try:
+            from . import _windows
+
+            tree = _walk_process_map(
+                _windows.process_map(), os.getpid(), _windows.process_path
+            )
+        except (OSError, ImportError):
+            tree = ()
+    return tree
+
+
+@cache
+def _parent_process_tree() -> tuple[tuple[str, str], ...]:
+    """Ordered ``(name, path)`` pairs for the process tree, nearest first.
+
+    ``name`` is the normalized shell name (see {func}`_shell_name`); ``path`` is
+    the best-effort executable path, absolute when the source provides it and
+    empty otherwise. Dispatches on what the platform exposes:
+
+    - ``/proc`` when present (Linux always, BSDs that mount procfs): no
+      subprocess is spawned.
+    - ``ps`` otherwise (macOS, BSDs without procfs).
+    - The Win32 Tool Help API on Windows.
+    - An empty tuple on platforms exposing none of these.
+    """
+    # Linux (and procfs BSDs) expose a text /proc; this needs no subprocess.
+    if Path("/proc").is_dir():
+        tree = _tree_from_proc()
+        if tree:
+            return tree
+        # /proc exists but yielded nothing: System V procfs (illumos, Solaris,
+        # AIX) uses a binary layout the Linux reader cannot parse. Use `ps`.
+    # macOS, procfs-less BSDs, and System V procfs systems: walk via `ps`.
+    if os.name == "posix":
+        return _tree_from_ps()
+    # Windows: snapshot via the Win32 Tool Help API. _tree_from_windows()
+    # returns an empty tuple on any other platform.
+    return _tree_from_windows()
+
+
 @cache
 def _parent_process_exe_names() -> frozenset[str]:
     """Collect executable names from the parent process tree.
 
-    On Linux, reads ``/proc/<pid>/exe`` symlinks up the process tree via
-    ``/proc/<pid>/stat`` to find parent PIDs. Returns a {class}`frozenset`
-    of lowercased executable stems (like ``"bash"``, ``"python3"``).
-
-    Returns an empty set on non-Linux platforms where ``/proc`` is
-    unavailable.
+    Returns a {class}`frozenset` of lowercased executable stems (like
+    ``"bash"`` or ``"python3"``), derived from {func}`_parent_process_tree`.
     """
-    names: set[str] = set()
-    try:
-        pid = os.getpid()
-        visited: set[int] = set()
-        while pid > 1 and pid not in visited:
-            visited.add(pid)
-            try:
-                names.add(Path(os.readlink(f"/proc/{pid}/exe")).stem.lower())
-            except OSError:
-                pass
-            try:
-                stat_content = Path(f"/proc/{pid}/stat").read_text()
-                # Format: "pid (comm) state ppid ...". The comm field may
-                # contain spaces and parentheses, so find the last ')'.
-                ppid_str = stat_content[stat_content.rfind(")") + 2 :].split()[1]
-                pid = int(ppid_str)
-            except (OSError, ValueError, IndexError):
-                break
-    except OSError:
-        pass
-    return frozenset(names)
+    return frozenset(name for name, _ in _parent_process_tree())
+
+
+def _running_shell_path(shell_id: str) -> str | None:
+    """Return the executable path of the nearest ancestor matching ``shell_id``.
+
+    Walks {func}`_parent_process_tree` and returns the first (nearest) absolute
+    path whose normalized name equals ``shell_id``. Non-absolute sources (a
+    login dash, a bare name, or a truncated BSD ``ps`` ``comm``) are skipped so
+    callers can fall back to ``SHELL``. A path is considered absolute when it
+    starts with ``/`` (POSIX) or satisfies ``os.path.isabs`` (Windows drive
+    paths like ``C:\\...``). Returns {data}`None` when no running path is
+    found.
+    """
+    for name, path in _parent_process_tree():
+        if name == shell_id and (path.startswith("/") or os.path.isabs(path)):
+            return path
+    return None
 
 
 def _parent_process_shells(shell_ids: str | tuple[str, ...]) -> bool:
@@ -977,8 +1343,9 @@ def _detect_shell(
        reports the actual shell implementation rather than the interface name:
        when ``/bin/sh`` symlinks to ``/bin/bash``, ``bash`` is detected, not
        ``sh``.
-    3. Falls back to walking the parent process tree via `/proc` to find the
-       active shell (for stripped environments without shell env vars).
+    3. Falls back to walking the parent process tree (via `/proc` on Linux,
+       `ps` on macOS and the BSDs) to find the active shell, for stripped
+       environments without shell env vars.
 
     :param version_env_var: Shell-specific environment variable name
         (like ``"BASH_VERSION"``).
@@ -1054,14 +1421,16 @@ def is_cmd() -> bool:
     """Return {data}`True` if current shell is {data}`~extra_platforms.CMD`.
 
     ```{hint}
-    Detected on Windows when the `PROMPT` environment variable is set
-    and `PSModulePath` is not (to exclude PowerShell).
+    Detected on Windows via `cmd.exe` in the parent process tree, or when the
+    `PROMPT` environment variable is set and `PSModulePath` is not (to exclude
+    PowerShell).
     ```
     """
-    return (
-        sys.platform == "win32"
-        and "PROMPT" in environ
-        and "PSModulePath" not in environ
+    # cmd.exe in the parent process tree is the strong signal; the PROMPT/
+    # PSModulePath heuristic covers the case where the tree is unavailable.
+    return sys.platform == "win32" and (
+        _detect_shell(shell_ids="cmd")
+        or ("PROMPT" in environ and "PSModulePath" not in environ)
     )
 
 
@@ -1209,6 +1578,14 @@ def is_xonsh() -> bool:
     ```{hint}
     Detected via the `XONSH_VERSION` environment variable (set by Xonsh
     on startup), or via the `SHELL` path as a fallback.
+    ```
+
+    ```{note}
+    Xonsh runs as a Python script rather than a standalone binary, so the
+    parent process tree shows `python` rather than `xonsh`. When neither
+    `XONSH_VERSION` nor `SHELL` identifies it, the tree walk inspects
+    interpreter arguments for the `xonsh` launcher (see
+    {attr}`~extra_platforms.Shell.interpreter`).
     ```
     """
     return _detect_shell(version_env_var="XONSH_VERSION", shell_ids="xonsh")
@@ -1733,8 +2110,9 @@ def current_shell(strict: bool = False) -> Shell:
 
     1. Shell-specific environment variables (strongest: the Python process
        *is* the shell).
-    2. ``/proc`` parent process tree (strong: the shell is an ancestor
-       process actively running).
+    2. Parent process tree, read from ``/proc`` on Linux or ``ps`` on macOS
+       and the BSDs (strong: the shell is an ancestor process actively
+       running).
     3. ``SHELL`` environment variable resolved through symlinks (weak:
        configured login shell, may differ from the active shell).
 
@@ -1776,7 +2154,7 @@ def current_shell(strict: bool = False) -> Shell:
     from .shell_data import POWERSHELL, SH, UNKNOWN_SHELL
 
     # Collect all matching shells via the full scan (env vars, SHELL=,
-    # /proc tree, Windows defaults).
+    # parent process tree, Windows defaults).
     matching: set[Shell] = {
         shell  # type: ignore[misc]
         for shell in ALL_SHELLS
@@ -1839,6 +2217,40 @@ def current_shell(strict: bool = False) -> Shell:
 
     _report_unrecognized("shell", strict=strict)
     return UNKNOWN_SHELL
+
+
+@cache
+def current_shell_path() -> str | None:
+    """Returns the executable path of the current shell, or {data}`None`.
+
+    Resolution order:
+
+    1. The actual running shell binary, taken from the nearest ancestor in the
+       parent process tree that matches {func}`current_shell` (read from
+       ``/proc`` on Linux, ``ps`` on macOS and the BSDs). This is the true
+       interpreter, even when ``SHELL`` is unset or points elsewhere.
+    2. The ``SHELL`` environment variable (the configured login shell), as a
+       fallback.
+
+    Returns {data}`None` when neither is available: no recognized shell, or a
+    stripped environment without ``SHELL``.
+
+    ```{note}
+    On some BSDs, ``ps`` reports only a truncated process name rather than a
+    full path. The non-absolute name is discarded, so this falls back to
+    ``SHELL`` there.
+    ```
+
+    ```{seealso}
+    Comparable to [shellingham](https://github.com/sarugaku/shellingham)'s
+    `detect_shell()`, which returns the shell name paired with its path. Here
+    the name is {func}`current_shell` and the path is this function.
+    ```
+    """
+    path = _running_shell_path(current_shell().id)
+    if path:
+        return path
+    return environ.get("SHELL") or None
 
 
 @cache

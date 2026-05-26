@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: click-extra
-Version: 7.16.1
+Version: 7.17.2
 Summary: 🌈 Drop-in replacement for Click to make user-friendly and colorful CLI
 Keywords: ansi-colors,ansi-escape-codes,cli-framework,click,click-extension,click-plugin,cloup,colorization,config-file,configuration-file,hjson,ini,json5,pygments,pytest-plugin,python-cli,python-tabulate,sphinx-extension,tabulate,toml-parser
 Author: Kevin Deldycke
@@ -42,11 +42,11 @@ Classifier: Topic :: Text Processing :: Markup :: XML
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Dist: boltons>=20
-Requires-Dist: click>=8.3.1
+Requires-Dist: click>=8.4.1
 Requires-Dist: cloup>=3.0.7
 Requires-Dist: deepmerge>=1.0.1
 Requires-Dist: extra-platforms>=8
-Requires-Dist: requests>=2.32.4
+Requires-Dist: requests>=2.34
 Requires-Dist: tabulate[widechars]>=0.9
 Requires-Dist: tomli>=2 ; python_full_version < '3.11'
 Requires-Dist: wcmatch>=10
@@ -66,7 +66,7 @@ Requires-Dist: xmltodict>=1 ; extra == 'xml'
 Requires-Dist: pyyaml>=6.0.3 ; extra == 'yaml'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/kdeldycke/click-extra
-Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.16.1
+Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.17.2
 Project-URL: Changelog, https://github.com/kdeldycke/click-extra/blob/main/changelog.md
 Project-URL: Issues, https://github.com/kdeldycke/click-extra/issues
 Project-URL: Repository, https://github.com/kdeldycke/click-extra
@@ -85,7 +85,7 @@ Description-Content-Type: text/markdown
 
 <p align="center">
   <a href="https://github.com/kdeldycke/click-extra/">
-    <img src="https://raw.githubusercontent.com/kdeldycke/click-extra/v7.16.1/docs/assets/logo-banner.svg" alt="Click Extra">
+    <img src="https://raw.githubusercontent.com/kdeldycke/click-extra/v7.17.2/docs/assets/logo-banner.svg" alt="Click Extra">
   </a>
 </p>
 
@@ -129,13 +129,13 @@ This is a great way to play with Click Extra and check that it runs fine on your
 
 It transforms this vanilla `click` CLI:
 
-![click CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v7.16.1/docs/assets/click-help-screen.png)
+![click CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v7.17.2/docs/assets/click-help-screen.png)
 
 Into this:
 
-![click-extra CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v7.16.1/docs/assets/click-extra-screen.png)
+![click-extra CLI help screen](https://raw.githubusercontent.com/kdeldycke/click-extra/v7.17.2/docs/assets/click-extra-screen.png)
 
-To undestrand how we ended up with the result above, [go read the tutorial](https://kdeldycke.github.io/click-extra/tutorial.html).
+To understand how we ended up with the result above, [go read the tutorial](https://kdeldycke.github.io/click-extra/tutorial.html).
 
 ## Features
 
@@ -155,12 +155,12 @@ To undestrand how we ended up with the result above, [go read the tutorial](http
 - Respect the [default application path](https://kdeldycke.github.io/click-extra/config.html#default-folder) on each platform (XDG spec. on Linux)
 - [Glob search patterns](https://kdeldycke.github.io/click-extra/config.html#search-pattern) for configuration files
 - A `--no-config` option to disable configuration file loading
-- Respect of `CLI` > `Configuration` > `Environment` > `Defaults` [precedence](https://kdeldycke.github.io/click-extra/config.html#precedence)
+- Respect of `Prompt` > `CLI` > `Environment` > `Config` > `Defaults` [precedence](https://kdeldycke.github.io/click-extra/config.html#precedence)
 
 ### Help screens and theming
 
 - [Colorized help screens](https://kdeldycke.github.io/click-extra/colorize.html): options, choices, metavars, arguments, defaults, ranges, required labels, environment variables, subcommands and aliases all get distinct styles. Option names referenced in descriptions and docstrings are [highlighted automatically](https://kdeldycke.github.io/click-extra/colorize.html#cross-reference-highlighting)
-- [Theme system](https://kdeldycke.github.io/click-extra/theme.html) with six built-in palettes ([`dark`, `light`, `dracula`, `monokai`, `nord`, `solarized_dark`](https://kdeldycke.github.io/click-extra/theme.html#built-in-themes))
+- [Theme system](https://kdeldycke.github.io/click-extra/theme.html) with seven built-in themes ([`dark`, `light`, `dracula`, `monokai`, `nord`, `solarized_dark`, and a monochrome `manpage`](https://kdeldycke.github.io/click-extra/theme.html#built-in-themes))
 - [User-defined themes and partial overrides loaded from the CLI's `--config` file](https://kdeldycke.github.io/click-extra/theme.html#themes-from-your-config-file) (`[tool.<cli>.themes.<name>]`), scoped per invocation so concurrent runs don't bleed into each other
 - [`--theme` flag](https://kdeldycke.github.io/click-extra/theme.html#the-theme-option) on every command, with case-insensitive validation against the live registry
 - `-h`/`--help` option names (see [rant on other inconsistencies](https://blog.craftyguy.net/cmdline-help/))

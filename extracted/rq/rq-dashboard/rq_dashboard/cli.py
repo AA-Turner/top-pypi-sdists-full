@@ -162,6 +162,12 @@ def make_flask_app(config, username, password, url_prefix, compatibility_mode=Tr
 @click.option(
     "-j", "--json", is_flag=True, default=False, help="Enable JSONSerializer"
 )
+@click.option(
+    "--show-full-args",
+    is_flag=True, 
+    default=False,
+    help="Display full length of job arguments",
+)
 def run(
     bind,
     port,
@@ -184,6 +190,7 @@ def run(
     disable_delete,
     verbose,
     json,
+    show_full_args,
 ):
     """Run the RQ Dashboard Flask server.
 
@@ -225,6 +232,8 @@ def run(
         app.config["DEPRECATED_OPTIONS"].append("--delete-jobs")
     if poll_interval:
         app.config["RQ_DASHBOARD_POLL_INTERVAL"] = poll_interval
+    if show_full_args:
+        app.config["RQ_DASHBOARD_SHOW_FULL_ARGS"] = show_full_args
     # Conditionally disable Flask console messages
     # See: https://stackoverflow.com/questions/14888799
     log = logging.getLogger("werkzeug")

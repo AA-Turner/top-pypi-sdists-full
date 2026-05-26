@@ -84,6 +84,54 @@ def _check_main_module_entry(tree) -> str | None:
     return f"imports {sorted(entry_names)} but never calls any of them"
 
 
+def _check_missing_main_module(tree, file_path) -> str | None:
+    """Detect when cli.py defines main() but no __main__.py exists alongside it.
+
+    Pattern: model writes cli.py with def main() and if __name__=="__main__"
+    but forgets __main__.py, so `python -m pkg` exits silently with no output.
+
+    Returns a warning string or None if the check is not applicable.
+    Only fires when writing a non-__main__.py file in a package dir (has __init__.py).
+    """
+    import ast
+
+    if file_path.name == "__main__.py":
+        return None
+    pkg_dir = file_path.parent
+    if not (pkg_dir / "__init__.py").exists():
+        return None
+    if (pkg_dir / "__main__.py").exists():
+        return None
+
+    ENTRY_NAMES = {"main", "cli", "run", "app", "entry", "entry_point"}
+    defines_entry = any(
+        isinstance(node, ast.FunctionDef) and node.name in ENTRY_NAMES
+        for node in tree.body
+    )
+    if not defines_entry:
+        return None
+
+    has_name_main_guard = any(
+        isinstance(node, ast.If)
+        and isinstance(node.test, ast.Compare)
+        and isinstance(node.test.left, ast.Name)
+        and node.test.left.id == "__name__"
+        for node in tree.body
+    )
+    if not has_name_main_guard:
+        return None
+
+    pkg_name = pkg_dir.name
+    return (
+        f"{file_path.name} defines a main() entry point but {pkg_dir}/__main__.py "
+        f"does not exist — `python -m {pkg_name}` will produce no output. "
+        f"Create __main__.py with:\n"
+        f"  from {pkg_name}.{file_path.stem} import main\n"
+        f"  if __name__ == \"__main__\":\n"
+        f"      main()"
+    )
+
+
 def _check_bare_raise_outside_except(tree) -> list[str]:
     """Detect `raise` without an argument outside of an except block.
 
@@ -514,6 +562,40 @@ class WriteFile(
             except Exception:
                 pass
 
+        # Multi-file rename escape hatch: catch overwrite rewrites that
+        # silently remove an identifier still referenced in 2+ other files
+        # of the same Python package. Without this, the model bypasses the
+        # search_replace REFUSED guard by switching to write_file. Reuses
+        # SearchReplace._detect_multifile_rename: passing the existing file
+        # contents as "search" and the new contents as "replace" reproduces
+        # the same removed-identifier analysis. Gated by the same
+        # DRYDOCK_MULTIFILE_INTERCEPT env var.
+        if file_existed and file_path.suffix == ".py":
+            try:
+                existing = file_path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                existing = ""
+            if existing and existing != args.content:
+                from drydock.core.tools.builtins.search_replace import (
+                    SearchReplace as _SearchReplace,
+                )
+                redirect = _SearchReplace._detect_multifile_rename(
+                    existing, args.content, file_path, auto_apply=False,
+                )
+                if redirect and redirect.startswith("REFUSED:"):
+                    msg = redirect.replace(
+                        "this search_replace removes",
+                        "this write_file overwrite removes",
+                        1,
+                    )
+                    yield WriteFileResult(
+                        path=str(file_path),
+                        bytes_written=0,
+                        file_existed=True,
+                        content=msg,
+                    )
+                    return
+
         # Injection guard: scan content for suspicious patterns
         from drydock.core.tools.injection_guard import check_content_for_injection
         if warning := check_content_for_injection(args.content, args.path):
@@ -612,6 +694,14 @@ class WriteFile(
                             f"Without it, `python3 -m {file_path.parent.name}` will "
                             f"exit silently with no output."
                         )
+                else:
+                    missing_main = _check_missing_main_module(tree, file_path)
+                    if missing_main:
+                        missing_main_warning = f"\n\n⚠ MISSING __main__.py: {missing_main}"
+                        if syntax_warning:
+                            syntax_warning += missing_main_warning
+                        else:
+                            syntax_warning = missing_main_warning
                 # Catch bare `raise` outside except. Found in ACE v2 build —
                 # drydock wrote `if not found: raise` in cli.py, which fails
                 # at runtime with "No active exception to reraise".

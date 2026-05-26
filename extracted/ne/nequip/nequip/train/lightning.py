@@ -296,6 +296,7 @@ class NequIPLightningModule(lightning.LightningModule):
                 target,
                 prefix=f"val{dataloader_idx}_step{self.logging_delimiter}",
             )
+        metric_dict.update({f"val_{dataloader_idx}_output": output})
 
         return metric_dict
 

@@ -12,7 +12,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-from geocif.utils import friendly_stage_label  # noqa: F401 — re-exported for callers
+from geocif.utils import friendly_stage_label, greedy_dedup_by_mutual_corr  # noqa: F401 — re-exported for callers
 
 
 # ---------------------------------------------------------------------------
@@ -740,8 +740,8 @@ def mape_box_by_year(
                 ymax = float(np.max(by_year[y]))
                 if ymax > MAPE_CAP:
                     ax.text(
-                        i + 1, MAPE_CAP + 1.5, f"{ymax:.0f}↑",
-                        ha="center", va="bottom", fontsize=7,
+                        i + 1, MAPE_CAP + 1.5, f"{ymax:.0f}",
+                        ha="center", va="bottom", rotation=90, fontsize=7,
                         color="#b53b3b", fontweight="bold",
                     )
             ax.set_ylim(0, MAPE_CAP + 12)
@@ -849,7 +849,8 @@ def mape_by_year(
                 if val > MAPE_CAP:
                     ax.text(bar.get_x() + bar.get_width() / 2,
                             MAPE_CAP + 1.5,
-                            f"{val:.0f}%↑", ha="center", va="bottom",
+                            f"{val:.0f}", ha="center", va="bottom",
+                            rotation=90,
                             fontsize=8, fontweight="bold", color="#b53b3b")
         if threshold is not None:
             ax.axhline(y=threshold, color="gray", linestyle="--")
@@ -927,3 +928,399 @@ def mape_choropleth(dg, df, countries, annotate_regions, dir_out, fname):
         annotate_regions=annotate_regions,
         loc_legend="lower left",
     )
+
+
+# ---------------------------------------------------------------------------
+# CID-vs-yield diagnostic scatters (full-season span, one PNG per CID)
+# ---------------------------------------------------------------------------
+
+_CID_RANGE_RE = __import__("re").compile(
+    r"^(.+?)\s+([A-Z][a-z]{2})\s+(\d+)-([A-Z][a-z]{2})\s+(\d+)$"
+)
+
+_MONTH_TO_STAGE = {
+    "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+    "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
+}
+
+_PEARSON_DEDUP_THRESHOLD = 0.9  # |ρ| above which two CIDs are treated
+                                # as redundant for the top-N selection
+                                # in pearson_summary.
+
+
+def _stage_chain_length(smon: str, emon: str, method: str) -> int:
+    """Number of monthly stages in the cumulative chain for the label
+    ``"Mon dd-Mon dd"``. Under ``monthly_r`` the chain walks backward
+    from the start month to the end month (so ``Dec→Nov`` is 2 stages,
+    not 12); under ``monthly`` it walks forward. Other methods
+    (biweekly/dekad) fall back to forward semantics — their stage→date
+    mapping differs but the EDA picker tolerates the approximation.
+    """
+    s = _MONTH_TO_STAGE.get(smon)
+    e = _MONTH_TO_STAGE.get(emon)
+    if s is None or e is None:
+        return 0
+    if method.endswith("_r"):
+        return (s - e) % 12 + 1
+    return (e - s) % 12 + 1
+
+
+def _parse_cid_column(col: str, method: str = "monthly"):
+    """Parse ``"<CID> Mon day-Mon day"`` → ``(cid, chain_length_in_stages)``.
+
+    Returns None for columns that don't match the canonical stage-renamed
+    format (Pre-Season / In-Season aggregates, categorical, lag, etc.).
+    """
+    m = _CID_RANGE_RE.match(col)
+    if m is None:
+        return None
+    cid, smon, _sday, emon, _eday = m.groups()
+    chain = _stage_chain_length(smon, emon, method)
+    if chain == 0:
+        return None
+    return cid, chain
+
+
+# The dedup helper lives in geocif.utils now (shared with auto_select_cids).
+# Imported above as ``greedy_dedup_by_mutual_corr``.
+
+
+def cid_vs_yield_scatters(
+    df: pd.DataFrame,
+    target_col: str,
+    dir_out: Path,
+    country: str,
+    crop: str,
+    *,
+    year_col: str = "Harvest Year",
+    method: str = "monthly",
+    season_stages: int | None = None,
+) -> int:
+    """One scatter per CID: x = CID value over its full planting→harvest
+    cumulative span, y = observed yield. Points coloured by ``year_col``.
+
+    Per-CID column choice: amongst all wide-format columns matching the
+    canonical renamed format ``"<CID> <Mon> <day>-<Mon> <day>"``, the one
+    with the longest cumulative **stage chain** wins. Chain length is
+    method-aware — under ``monthly_r`` the chain walks backward, so a
+    label like ``Dec 1-Nov 30`` is 2 stages (Nov+Dec) not 12 calendar
+    months. ``season_stages`` (if given) caps the picker as a sanity
+    guard against any over-long chain sneaking in.
+
+    Output layout (idempotent — skips if any PNG already exists for this
+    country/crop, so it's safe to call from every model run):
+        {dir_out}/{country}/{crop}/{cid}.png   (+ matching .csv per geocif
+                                                 plot-CSV pairing rule)
+
+    Returns the count of CIDs plotted (0 if skipped).
+    """
+    out_dir = Path(dir_out) / country.lower() / crop.lower()
+    if out_dir.is_dir() and any(out_dir.glob("*.png")):
+        logger.info(f"  cid_vs_yield_scatters: skipping {out_dir} — already populated")
+        return 0
+    if target_col not in df.columns:
+        logger.warning(f"  cid_vs_yield_scatters: target column {target_col!r} missing — skipping")
+        return 0
+    if year_col not in df.columns:
+        logger.warning(f"  cid_vs_yield_scatters: {year_col!r} missing — skipping")
+        return 0
+
+    # For each parseable column, score its chain length. Then pick longest-chain per CID.
+    by_cid: dict[str, tuple[str, int]] = {}  # cid → (column, chain_length)
+    for col in df.columns:
+        parsed = _parse_cid_column(col, method=method)
+        if parsed is None:
+            continue
+        cid, chain = parsed
+        if season_stages is not None and chain > season_stages:
+            continue  # over-cap (shouldn't happen but defensive)
+        prev = by_cid.get(cid)
+        if prev is None or chain > prev[1]:
+            by_cid[cid] = (col, chain)
+    if not by_cid:
+        logger.info(f"  cid_vs_yield_scatters: no parseable CID columns in {country}/{crop}")
+        return 0
+
+    max_chain = max(c for _, c in by_cid.values())
+    n_at_max = sum(1 for _, c in by_cid.values() if c == max_chain)
+    logger.info(
+        f"  cid_vs_yield_scatters: {country}/{crop} method={method!r} "
+        f"max_chain={max_chain} stages, {n_at_max}/{len(by_cid)} CIDs at max "
+        f"({len(by_cid) - n_at_max} picked shorter)"
+    )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_dir = out_dir / "csvs"
+    csv_dir.mkdir(parents=True, exist_ok=True)
+
+    # Stable year colour map across all CIDs in this (country, crop).
+    years_sorted = sorted(pd.to_numeric(df[year_col], errors="coerce").dropna().unique())
+    cmap = plt.get_cmap("viridis")
+    year_to_color = {
+        int(y): cmap(i / max(1, len(years_sorted) - 1))
+        for i, y in enumerate(years_sorted)
+    }
+
+    import scienceplots  # noqa: F401
+
+    region_col = "Region" if "Region" in df.columns else None
+
+    # Stable region colour map for the per-CID *_by_region.png companion
+    # plots. Use a qualitative palette sized to the region count; cycle
+    # when N > 20 (rare for admin_1; admin_2 countries may overflow but
+    # the visual repetition is acceptable for EDA).
+    region_to_color: dict = {}
+    regions_sorted: list = []
+    if region_col is not None:
+        regions_sorted = sorted(df[region_col].dropna().astype(str).unique().tolist())
+        if regions_sorted:
+            _n_regions = len(regions_sorted)
+            _palette_name = "tab10" if _n_regions <= 10 else "tab20"
+            _region_cmap = plt.get_cmap(_palette_name, max(_n_regions, 1))
+            region_to_color = {
+                r: _region_cmap(i % _region_cmap.N)
+                for i, r in enumerate(regions_sorted)
+            }
+
+    n_plotted = 0
+    pearson_rows: list[tuple[str, int, float]] = []  # (cid, n, r_p) for the summary fig
+    cid_series: dict[str, pd.Series] = {}            # cid → full-season values for pairwise corr
+    for cid, (col, chain) in sorted(by_cid.items()):
+        keep_cols = [col, target_col, year_col] + ([region_col] if region_col else [])
+        sub = df[keep_cols].dropna(subset=[col, target_col, year_col])
+        if sub.empty:
+            continue
+        # Spearman + Pearson for the annotation box. Slow methods over
+        # ~1k rows is still <10ms; safe to compute every call.
+        try:
+            r_p = float(sub[col].corr(sub[target_col], method="pearson"))
+        except (TypeError, ValueError):
+            r_p = float("nan")
+        try:
+            r_s = float(sub[col].corr(sub[target_col], method="spearman"))
+        except (TypeError, ValueError):
+            r_s = float("nan")
+
+        if np.isfinite(r_p):
+            pearson_rows.append((cid, len(sub), r_p))
+            cid_series[cid] = sub[col].reset_index(drop=True)
+
+        colors = [year_to_color.get(int(y), (0.5, 0.5, 0.5, 0.7))
+                  for y in sub[year_col]]
+
+        with plt.style.context(["science", "no-latex"]):
+            fig, ax = plt.subplots(figsize=(6.5, 5))
+            ax.scatter(
+                sub[col], sub[target_col],
+                c=colors, s=22, alpha=0.78, edgecolors="white", linewidths=0.4,
+            )
+            ax.set_xlabel(f"{col}   (full-season ≈ {chain} stages)", fontsize=9)
+            ax.set_ylabel(target_col, fontsize=9)
+            ax.set_title(
+                f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')}  —  {cid}",
+                fontsize=10, fontweight="bold",
+            )
+            ax.grid(True, linestyle=":", alpha=0.4)
+            ax.text(
+                0.02, 0.98,
+                f"N = {len(sub)}\nPearson r = {r_p:+.2f}\nSpearman ρ = {r_s:+.2f}",
+                transform=ax.transAxes, va="top", ha="left",
+                fontsize=8,
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
+                          edgecolor="gray", alpha=0.85),
+            )
+            # Year colour-bar (discrete) on the right.
+            if len(years_sorted) >= 2:
+                import matplotlib.colors as _mcolors
+                import matplotlib.cm as _mcm
+                norm = _mcolors.Normalize(
+                    vmin=min(years_sorted), vmax=max(years_sorted),
+                )
+                sm = _mcm.ScalarMappable(cmap=cmap, norm=norm)
+                sm.set_array([])
+                cbar = fig.colorbar(sm, ax=ax, pad=0.02)
+                cbar.set_label(year_col, fontsize=8)
+                cbar.ax.tick_params(labelsize=7)
+            plt.tight_layout()
+            # Filename: sanitise CID (drop chars that break paths on Windows).
+            safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in cid)
+            fig.savefig(out_dir / f"{safe}.png", dpi=200, bbox_inches="tight")
+            plt.close(fig)
+
+        # Companion plot: same scatter, coloured by Region (categorical)
+        # with a per-region OLS fit line and slope/R²/n in the legend.
+        # Only produced when the df carries a Region column AND we have
+        # a region palette built. Regions with fewer than 3 points get
+        # the scatter but no fit line (slope undefined).
+        if region_col is not None and region_to_color and region_col in sub.columns:
+            with plt.style.context(["science", "no-latex"]):
+                fig, ax = plt.subplots(figsize=(7.5, 5))
+                x_min = float(sub[col].min())
+                x_max = float(sub[col].max())
+                _x_line = np.linspace(x_min, x_max, 50) if x_max > x_min else None
+                for region in regions_sorted:
+                    region_mask = sub[region_col].astype(str) == region
+                    n_region = int(region_mask.sum())
+                    if n_region == 0:
+                        continue
+                    rx = sub.loc[region_mask, col].to_numpy()
+                    ry = sub.loc[region_mask, target_col].to_numpy()
+                    label = f"{region}  (n={n_region}"
+                    if n_region >= 3 and np.ptp(rx) > 0:
+                        # OLS fit y = m*x + b; R² = 1 - SSres/SStot.
+                        m, b = np.polyfit(rx, ry, 1)
+                        y_pred = m * rx + b
+                        ss_res = float(np.sum((ry - y_pred) ** 2))
+                        ss_tot = float(np.sum((ry - float(np.mean(ry))) ** 2))
+                        r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else float("nan")
+                        label += f", slope={m:+.2g}, R²={r2:.2f})"
+                        if _x_line is not None:
+                            ax.plot(_x_line, m * _x_line + b,
+                                    color=region_to_color[region],
+                                    linewidth=1.2, alpha=0.85)
+                    else:
+                        label += ", fit n/a)"
+                    ax.scatter(
+                        rx, ry,
+                        color=region_to_color[region],
+                        s=22, alpha=0.78, edgecolors="white", linewidths=0.4,
+                        label=label,
+                    )
+                ax.set_xlabel(f"{col}   (full-season ≈ {chain} stages)", fontsize=9)
+                ax.set_ylabel(target_col, fontsize=9)
+                ax.set_title(
+                    f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')}  —  {cid}  (by region, OLS fits)",
+                    fontsize=10, fontweight="bold",
+                )
+                ax.grid(True, linestyle=":", alpha=0.4)
+                ax.text(
+                    0.02, 0.98,
+                    f"N = {len(sub)}\nPearson r = {r_p:+.2f}\nSpearman ρ = {r_s:+.2f}",
+                    transform=ax.transAxes, va="top", ha="left",
+                    fontsize=8,
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
+                              edgecolor="gray", alpha=0.85),
+                )
+                ax.legend(
+                    bbox_to_anchor=(1.02, 1), loc="upper left",
+                    fontsize=7, title=region_col, title_fontsize=8,
+                    frameon=True, borderaxespad=0.0,
+                )
+                plt.tight_layout()
+                fig.savefig(out_dir / f"{safe}_by_region.png",
+                            dpi=200, bbox_inches="tight")
+                plt.close(fig)
+
+        out_df = sub.assign(cid=cid).rename(columns={col: "cid_value"})
+        ordered = (
+            ([region_col] if region_col else [])
+            + [year_col, "cid", "cid_value", target_col]
+        )
+        out_df = out_df[[c for c in ordered if c in out_df.columns]]
+        out_df.to_csv(csv_dir / f"{safe}.csv", index=False)
+        n_plotted += 1
+
+    if pearson_rows:
+        pearson_df = pd.DataFrame(pearson_rows, columns=["cid", "n", "pearson_r"])
+        pearson_df["abs_r"] = pearson_df["pearson_r"].abs()
+        pearson_df = pearson_df.sort_values("abs_r", ascending=False).reset_index(drop=True)
+        pearson_df["rank_raw"] = pearson_df.index + 1
+
+        # Row-aligned CID-value matrix for pairwise pruning. Outer-join
+        # on the (region, year) index lets pandas drop NaNs natively per
+        # column-pair when computing the correlation matrix.
+        cid_value_df = pd.concat(
+            {c: cid_series[c] for c in pearson_df["cid"] if c in cid_series},
+            axis=1,
+        )
+        corr_abs = (
+            cid_value_df.corr(method="pearson").abs()
+            if cid_value_df.shape[1] >= 2
+            else pd.DataFrame()
+        )
+        kept, pruned = greedy_dedup_by_mutual_corr(
+            pearson_df["cid"].tolist(),
+            corr_abs,
+            _PEARSON_DEDUP_THRESHOLD,
+        )
+        kept_set = set(kept)
+        pearson_df["kept"] = pearson_df["cid"].isin(kept_set)
+        pearson_df["redundant_with"] = pearson_df["cid"].map(
+            lambda c: pruned.get(c, ("", float("nan")))[0]
+        )
+        pearson_df["mutual_r"] = pearson_df["cid"].map(
+            lambda c: pruned.get(c, ("", float("nan")))[1]
+        )
+        pearson_df.to_csv(csv_dir / "pearson_summary.csv", index=False)
+
+        # Persist the pairwise |ρ| matrix so the auto-CID selector
+        # (utils.auto_select_cids) can re-dedup at relaxed thresholds
+        # without needing the raw per-region cid_series data again.
+        if not corr_abs.empty:
+            corr_abs.to_csv(csv_dir / "pearson_corr_matrix.csv")
+
+        n_total = len(pearson_df)
+        n_pruned = int((~pearson_df["kept"]).sum())
+        top = pearson_df[pearson_df["kept"]].head(10)
+
+        with plt.style.context(["science", "no-latex"]):
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+            # Left: stacked histogram, survivors blue + pruned grey.
+            survivors_r = pearson_df.loc[pearson_df["kept"], "pearson_r"]
+            pruned_r = pearson_df.loc[~pearson_df["kept"], "pearson_r"]
+            bins = np.linspace(
+                float(pearson_df["pearson_r"].min()),
+                float(pearson_df["pearson_r"].max()),
+                21,
+            )
+            ax1.hist([survivors_r, pruned_r], bins=bins, stacked=True,
+                     color=["#4c72b0", "#bdbdbd"],
+                     label=[f"kept ({len(survivors_r)})", f"pruned ({n_pruned})"],
+                     edgecolor="white", alpha=0.9)
+            ax1.axvline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
+            ax1.set_xlabel("Pearson r (CID vs Yield)", fontsize=10)
+            ax1.set_ylabel("Number of CIDs", fontsize=10)
+            ax1.set_title(f"Distribution across {n_total} CIDs", fontsize=10)
+            ax1.legend(loc="upper left", fontsize=8, frameon=True)
+            ax1.grid(True, linestyle=":", alpha=0.4)
+
+            # Right: top 10 survivors (post-dedup), largest |r| at top.
+            order = top.iloc[::-1]
+            bar_colors = ["#c44e52" if v < 0 else "#55a868" for v in order["pearson_r"]]
+            ax2.barh(range(len(order)), order["pearson_r"],
+                     color=bar_colors, edgecolor="white")
+            ax2.set_yticks(range(len(order)))
+            ax2.set_yticklabels(order["cid"], fontsize=9)
+            ax2.axvline(0, color="black", linewidth=0.8, alpha=0.5)
+            ax2.set_xlabel("Pearson r", fontsize=10)
+            ax2.set_title(
+                f"Top {len(order)} surviving CIDs by |Pearson r|",
+                fontsize=10,
+            )
+            ax2.grid(True, axis="x", linestyle=":", alpha=0.4)
+            for i, v in enumerate(order["pearson_r"]):
+                ax2.text(v + (0.01 if v >= 0 else -0.01), i,
+                         f"{v:+.2f}", va="center",
+                         ha="left" if v >= 0 else "right", fontsize=8)
+
+            fig.suptitle(
+                f"{country.title().replace('_', ' ')} "
+                f"{crop.title().replace('_', ' ')}  —  "
+                f"CID-vs-Yield Pearson r summary  "
+                f"({n_pruned} of {n_total} CIDs pruned at |ρ|>{_PEARSON_DEDUP_THRESHOLD})",
+                fontsize=11, fontweight="bold",
+            )
+            plt.tight_layout()
+            fig.savefig(out_dir / "pearson_summary.png", dpi=200, bbox_inches="tight")
+            plt.close(fig)
+        logger.info(
+            f"  cid_vs_yield_scatters: wrote Pearson r summary "
+            f"({n_total} CIDs, {n_pruned} pruned at |ρ|>{_PEARSON_DEDUP_THRESHOLD}, "
+            f"{len(kept)} kept) → {out_dir / 'pearson_summary.png'}"
+        )
+
+    logger.info(
+        f"  cid_vs_yield_scatters: wrote {n_plotted} CID scatters → {out_dir}"
+    )
+    return n_plotted

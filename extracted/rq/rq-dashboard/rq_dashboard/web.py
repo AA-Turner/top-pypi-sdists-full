@@ -41,15 +41,16 @@ from rq import (
     requeue_job,
 )
 from rq.exceptions import NoSuchJobError
+from rq.utils import get_call_string
 from rq.job import Job
 from rq.registry import (
+    BaseRegistry,
+    CanceledJobRegistry,
     DeferredJobRegistry,
     FailedJobRegistry,
     FinishedJobRegistry,
-    StartedJobRegistry,
     ScheduledJobRegistry,
-    CanceledJobRegistry,
-
+    StartedJobRegistry,
 )
 from six import string_types
 
@@ -133,7 +134,7 @@ def serialize_queues(instance_number, queues):
                 order="asc",
                 page="1",
             ),
-            failed_job_registry_count=FailedJobRegistry(q.name, connection=q.connection).count,
+            failed_job_registry_count=FailedJobRegistry(q.name, connection=q.connection).get_job_count(cleanup=False),
             failed_url=url_for(
                 ".jobs_overview",
                 instance_number=instance_number,
@@ -143,7 +144,7 @@ def serialize_queues(instance_number, queues):
                 order="asc",
                 page="1",
             ),
-            started_job_registry_count=StartedJobRegistry(q.name, connection=q.connection).count,
+            started_job_registry_count=StartedJobRegistry(q.name, connection=q.connection).get_job_count(cleanup=False),
             started_url=url_for(
                 ".jobs_overview",
                 instance_number=instance_number,
@@ -153,7 +154,7 @@ def serialize_queues(instance_number, queues):
                 order="asc",
                 page="1",
             ),
-            deferred_job_registry_count=DeferredJobRegistry(q.name, connection=q.connection).count,
+            deferred_job_registry_count=DeferredJobRegistry(q.name, connection=q.connection).get_job_count(cleanup=False),
             deferred_url=url_for(
                 ".jobs_overview",
                 instance_number=instance_number,
@@ -163,7 +164,7 @@ def serialize_queues(instance_number, queues):
                 order="asc",
                 page="1",
             ),
-            finished_job_registry_count=FinishedJobRegistry(q.name, connection=q.connection).count,
+            finished_job_registry_count=FinishedJobRegistry(q.name, connection=q.connection).get_job_count(cleanup=False),
             finished_url=url_for(
                 ".jobs_overview",
                 instance_number=instance_number,
@@ -173,7 +174,7 @@ def serialize_queues(instance_number, queues):
                 order="asc",
                 page="1",
             ),
-            canceled_job_registry_count=CanceledJobRegistry(q.name, connection=q.connection).count,
+            canceled_job_registry_count=CanceledJobRegistry(q.name, connection=q.connection).get_job_count(cleanup=False),
             canceled_url=url_for(
                 ".jobs_overview",
                 instance_number=instance_number,
@@ -183,7 +184,7 @@ def serialize_queues(instance_number, queues):
                 order="asc",
                 page="1",
             ),
-            scheduled_job_registry_count=ScheduledJobRegistry(q.name, connection=q.connection).count,
+            scheduled_job_registry_count=ScheduledJobRegistry(q.name, connection=q.connection).get_job_count(cleanup=False),
             scheduled_url=url_for(
                 ".jobs_overview",
                 instance_number=instance_number,
@@ -204,6 +205,15 @@ def serialize_date(dt):
     return arrow.get(dt).to("UTC").datetime.isoformat()
 
 
+def format_job_description(job):
+    show_full = current_app.config.get("RQ_DASHBOARD_SHOW_FULL_ARGS", False)
+    
+    if not show_full:
+        return job.description
+
+    return get_call_string(job.func_name, job.args, job.kwargs, max_length=None)
+
+
 def serialize_job(job: Job):
     latest_result = job.latest_result()
     return dict(
@@ -212,7 +222,7 @@ def serialize_job(job: Job):
         started_at=serialize_date(job.started_at),
         ended_at=serialize_date(job.ended_at),
         exc_info=latest_result.exc_string if latest_result else None,
-        description=job.description,
+        description=format_job_description(job),
     )
 
 
@@ -221,7 +231,7 @@ def serialize_current_job(job):
         return "idle"
     return dict(
         job_id=job.id,
-        description=job.description,
+        description=format_job_description(job),
         created_at=serialize_date(job.created_at),
         call_string=job.get_call_string(),
     )
@@ -273,7 +283,11 @@ def get_queue_registry_jobs_count(queue_name, registry_name, offset, per_page, o
             current_queue = CanceledJobRegistry(queue_name, connection=connection)
     else:
         current_queue = queue
-    total_items = current_queue.count
+
+    if isinstance(current_queue, BaseRegistry):
+        total_items = current_queue.get_job_count(cleanup=False)
+    else:
+        total_items = current_queue.count
 
 
     if order == 'dsc':
@@ -283,7 +297,10 @@ def get_queue_registry_jobs_count(queue_name, registry_name, offset, per_page, o
         start = offset
         end = start + per_page
 
-    job_ids = current_queue.get_job_ids(start, end)
+    if isinstance(current_queue, BaseRegistry):
+        job_ids = current_queue.get_job_ids(start, end, cleanup=False)
+    else:
+        job_ids = current_queue.get_job_ids(start, end)
     if order == 'dsc':
         job_ids.reverse()
 
@@ -442,7 +459,7 @@ def requeue_job_view(job_id):
 @jsonify
 def requeue_all(queue_name):
     fq = Queue(queue_name, serializer=config.serializer, connection=current_app.redis_conn).failed_job_registry
-    job_ids = fq.get_job_ids()
+    job_ids = fq.get_job_ids(cleanup=False)
     count = len(job_ids)
     for job_id in job_ids:
         requeue_job(job_id, connection=current_app.redis_conn)
@@ -458,27 +475,27 @@ def empty_queue(queue_name, registry_name):
         q.empty()
     elif registry_name == "failed":
         registry = FailedJobRegistry(queue_name, connection=current_app.redis_conn)
-        for id in registry.get_job_ids():
+        for id in registry.get_job_ids(cleanup=False):
             delete_job_view(id, registry)
     elif registry_name == "deferred":
         registry = DeferredJobRegistry(queue_name, connection=current_app.redis_conn)
-        for id in registry.get_job_ids():
+        for id in registry.get_job_ids(cleanup=False):
             delete_job_view(id, registry)
     elif registry_name == "started":
         registry = StartedJobRegistry(queue_name, connection=current_app.redis_conn)
-        for id in registry.get_job_ids():
+        for id in registry.get_job_ids(cleanup=False):
             delete_job_view(id, registry)
     elif registry_name == "finished":
         registry = FinishedJobRegistry(queue_name, connection=current_app.redis_conn)
-        for id in registry.get_job_ids():
+        for id in registry.get_job_ids(cleanup=False):
             delete_job_view(id, registry)
     elif registry_name == "canceled":
         registry = CanceledJobRegistry(queue_name, connection=current_app.redis_conn)
-        for id in registry.get_job_ids():
+        for id in registry.get_job_ids(cleanup=False):
             delete_job_view(id, registry)
     elif registry_name == "scheduled":
         registry = ScheduledJobRegistry(queue_name, connection=current_app.redis_conn)
-        for id in registry.get_job_ids():
+        for id in registry.get_job_ids(cleanup=False):
             delete_job_view(id, registry)
 
     return dict(status="OK")
@@ -603,6 +620,7 @@ def list_jobs(instance_number, queue_name, registry_name, per_page, order, page)
 def job_info(instance_number, job_id):
     job = Job.fetch(job_id, serializer=config.serializer, connection=current_app.redis_conn)
     latest_result = job.latest_result()
+    json_encoder = current_app.config.get("RQ_DASHBOARD_JSON_ENCODER", json.JSONEncoder)
     result = dict(
         id=job.id,
         created_at=serialize_date(job.created_at),
@@ -613,8 +631,8 @@ def job_info(instance_number, job_id):
         status=job.get_status(),
         result=job.return_value(),
         exc_info=latest_result.exc_string if latest_result else None,
-        description=job.description,
-        metadata=json.dumps(job.get_meta()),
+        description=format_job_description(job),
+        metadata=json.dumps(job.get_meta(), cls=json_encoder)
     )
     dep_ids = [di.decode("utf-8").split(':')[-1].strip() for di in job.dependency_ids]
     if len(dep_ids) > 0:

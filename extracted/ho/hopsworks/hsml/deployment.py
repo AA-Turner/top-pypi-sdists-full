@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING
 
 from hopsworks_apigen import public
 from hopsworks_common import client, usage, util
+from hopsworks_common.client.exceptions import ModelServingException
 from hsml import predictor as predictor_mod
-from hsml.client.exceptions import ModelServingException
 from hsml.constants import DEPLOYABLE_COMPONENT, PREDICTOR_STATE
 from hsml.core import model_api, serving_api
 from hsml.engine import serving_engine
@@ -654,6 +654,16 @@ class Deployment:
     @environment.setter
     def environment(self, environment: str):
         self._predictor.environment = environment
+
+    @public
+    @property
+    def env_vars(self):
+        """Environment variables of the predictor."""
+        return self._predictor.env_vars
+
+    @env_vars.setter
+    def env_vars(self, env_vars: dict[str, str] | None):
+        self._predictor.env_vars = env_vars
 
     @public
     @property

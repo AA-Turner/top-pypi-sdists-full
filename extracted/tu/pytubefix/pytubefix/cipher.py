@@ -28,6 +28,87 @@ RETRY_DELAY = 0.5
 logger = logging.getLogger(__name__)
 
 
+def _extract_split_player_js_global_var(js: str):
+    """Extract TCE split-string global tables, e.g. g.w='...'.split("{")."""
+    split_match = None
+    split_patterns = [
+        r"(?P<varname>[A-Za-z0-9_$]+(?:\.[A-Za-z0-9_$]+)?)\s*=\s*"
+        r"'(?P<body>(?:\\'|[^'])*)'\.split\((?P<sep_quote>['\"])(?P<sep>[^'\"]*)(?P=sep_quote)\)",
+        r'(?P<varname>[A-Za-z0-9_$]+(?:\.[A-Za-z0-9_$]+)?)\s*=\s*'
+        r'"(?P<body>(?:\\"|[^"])*)"\.split\((?P<sep_quote>[\'"])(?P<sep>[^\'"]*)(?P=sep_quote)\)',
+    ]
+    for pattern in split_patterns:
+        split_match = re.search(pattern, js)
+        if split_match:
+            break
+    if not split_match:
+        return None, None
+
+    body = split_match.group("body").replace("\\'", "'").replace('\\"', '"')
+    sep = split_match.group("sep")
+    global_obj = body.split(sep) if sep else list(body)
+    if any(isinstance(value, str) and value.endswith("_w8_") for value in global_obj):
+        return split_match.group("varname"), global_obj
+    return None, None
+
+
+def _find_js_array_end(js: str, start: int) -> Optional[int]:
+    depth = 0
+    quote = None
+    escaped = False
+
+    for index in range(start, len(js)):
+        char = js[index]
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+
+        if char in ("'", '"'):
+            quote = char
+        elif char == "[":
+            depth += 1
+        elif char == "]":
+            depth -= 1
+            if depth == 0:
+                return index + 1
+
+    return None
+
+
+def _extract_property_array_player_js_global_var(js: str):
+    """Extract TCE property global tables, e.g. g.q=["call", ...]."""
+    for match in re.finditer(
+        r"(?P<varname>[A-Za-z0-9_$]+(?:\.[A-Za-z0-9_$]+)+)\s*=\s*\[",
+        js,
+    ):
+        array_start = match.end() - 1
+        array_end = _find_js_array_end(js, array_start)
+        if array_end is None:
+            continue
+
+        array_code = js[array_start:array_end]
+        if "_w8_" not in array_code:
+            continue
+
+        try:
+            global_obj = JSInterpreter(js).interpret_expression(array_code, {}, 100)
+        except Exception:
+            continue
+
+        if isinstance(global_obj, list) and any(
+            isinstance(value, str) and value.endswith("_w8_")
+            for value in global_obj
+        ):
+            return match.group("varname"), global_obj
+
+    return None, None
+
+
 class Cipher:
     def __init__(self, js: str, js_url: str):
 
@@ -76,6 +157,225 @@ class Cipher:
                 raise
         raise last_exc
 
+    @staticmethod
+    def _normalize_nsig_params(params) -> list:
+        if params is None:
+            return []
+        if isinstance(params, list):
+            if params and all(isinstance(item, int) for item in params):
+                return [params]
+            return list(params)
+        return [params]
+
+    @staticmethod
+    def _is_valid_nsig_output(value) -> bool:
+        invalid_literals = {
+            "",
+            "FORMAT_STREAM_TYPE_UNKNOWN",
+            "STREAM_PROTECTION_STATUS_UNKNOWN",
+            "UNKNOWN",
+        }
+        return (
+            isinstance(value, str)
+            and value not in invalid_literals
+            and 'error' not in value
+            and '_w8_' not in value
+        )
+
+    def _run_nsig_candidates(self, params: list, n: str):
+        nsig = None
+        last_exc = None
+        working_param = None
+        for param in params:
+            try:
+                if isinstance(param, list):
+                    nsig = self._call_with_retry(
+                        self.runner_nsig, [*param, n], label="nsig"
+                    )
+                else:
+                    nsig = self._call_with_retry(
+                        self.runner_nsig, [param, n], label="nsig"
+                    )
+            except Exception as e:
+                last_exc = e
+                logger.debug("nsig candidate %s failed", param, exc_info=True)
+                continue
+            if self._is_valid_nsig_output(nsig):
+                working_param = param
+                break
+            last_exc = nsig
+            logger.debug("nsig candidate %s returned non-usable value: %r", param, nsig)
+        return nsig, last_exc, working_param
+
+    def _search_nsig_xor_candidates(self, probe_input: str, params: list) -> list:
+        xor_values = []
+        tested_pairs = set()
+        for param in params:
+            if (
+                isinstance(param, list)
+                and len(param) == 2
+                and all(isinstance(item, int) for item in param)
+            ):
+                pair = (param[0], param[1])
+                tested_pairs.add(pair)
+                xor_values.append(pair[0] ^ pair[1])
+
+        if not xor_values:
+            return []
+
+        transformed = []
+        plain_strings = []
+        seen_found = set()
+
+        for xor_value in dict.fromkeys(xor_values):
+            for first_arg in range(256):
+                pair = (first_arg, xor_value ^ first_arg)
+                if pair in tested_pairs or pair in seen_found:
+                    continue
+                try:
+                    output = self._call_with_retry(
+                        self.runner_nsig,
+                        [pair[0], pair[1], probe_input],
+                        label="nsig-probe",
+                    )
+                except Exception:
+                    continue
+                if not self._is_valid_nsig_output(output):
+                    continue
+                seen_found.add(pair)
+                if output != probe_input:
+                    transformed.append([pair[0], pair[1]])
+                    if len(transformed) >= 8:
+                        return transformed
+                else:
+                    plain_strings.append([pair[0], pair[1]])
+
+        return transformed or plain_strings
+
+    def _find_function_body(self, func_name: str) -> Optional[str]:
+        func_defs = list(re.finditer(
+            r'(?<![A-Za-z0-9_$])(?:function\s+%s(?![A-Za-z0-9_$])|'
+            r'(?:var\s+)?%s(?![A-Za-z0-9_$])\s*=\s*function)\s*\(' % (
+                re.escape(func_name), re.escape(func_name)
+            ),
+            self.js,
+        ))
+        if not func_defs:
+            return None
+
+        # Later assignments override earlier ones in these player bundles.
+        func_def = func_defs[-1]
+        func_start = func_def.start()
+        depth = 0
+        func_end = func_start
+        for index in range(func_start, len(self.js)):
+            if self.js[index] == '{':
+                depth += 1
+            elif self.js[index] == '}':
+                depth -= 1
+                if depth == 0:
+                    func_end = index + 1
+                    break
+        return self.js[func_start:func_end]
+
+    def _derive_nsig_invariants(self, func_name: str) -> list:
+        if not isinstance(func_name, str) or not func_name:
+            return []
+
+        global_obj, varname, code = extract_player_js_global_var(self.js)
+        if global_obj and varname and code:
+            try:
+                global_arr = JSInterpreter(self.js).interpret_expression(code, {}, 100)
+            except Exception:
+                return []
+        else:
+            varname, global_arr = _extract_split_player_js_global_var(self.js)
+            if not varname or not global_arr:
+                varname, global_arr = _extract_property_array_player_js_global_var(self.js)
+            if not varname or not global_arr:
+                return []
+
+        w8_idx = None
+        for idx, value in enumerate(global_arr):
+            if isinstance(value, str) and value.endswith('_w8_'):
+                w8_idx = idx
+                break
+        if w8_idx is None:
+            return []
+
+        body = self._find_function_body(func_name)
+        if not body:
+            return []
+
+        header = body[:200]
+        xor_var_match = re.search(
+            r'var\s+(?P<xor>[A-Za-z0-9_$]+)\s*=\s*[A-Za-z0-9_$]+\s*\^\s*[A-Za-z0-9_$]+\b',
+            header,
+        )
+        preferred_xor = xor_var_match.group("xor") if xor_var_match else None
+
+        invariants = []
+        catch_pattern = re.compile(
+            r'catch\s*\([^)]+\)\s*\{\s*[A-Za-z0-9_$]+\s*=\s*'
+            + re.escape(varname)
+            + r'\[(?P<xor>[A-Za-z0-9_$]+)\^(?P<const>\d+)\]\s*\+\s*[A-Za-z0-9_$]+\s*;\s*break\s+[A-Za-z_$]+\s*\}'
+        )
+        for match in catch_pattern.finditer(body):
+            xor_var = match.group("xor")
+            if preferred_xor and xor_var != preferred_xor:
+                continue
+            invariant = int(match.group("const")) ^ w8_idx
+            if invariant not in invariants:
+                invariants.append(invariant)
+
+        return invariants
+
+    def _search_nsig_invariant_candidates(
+        self,
+        probe_input: str,
+        invariants: list[int],
+    ) -> list:
+        if not invariants:
+            return []
+
+        transformed = []
+        plain_strings = []
+        seen_pairs = set()
+
+        for invariant in invariants:
+            for first_arg in range(256):
+                pair = (first_arg, invariant ^ first_arg)
+                if pair in seen_pairs:
+                    continue
+                seen_pairs.add(pair)
+                try:
+                    first = self._call_with_retry(
+                        self.runner_nsig,
+                        [pair[0], pair[1], probe_input],
+                        label="nsig-probe",
+                    )
+                    second = self._call_with_retry(
+                        self.runner_nsig,
+                        [pair[0], pair[1], probe_input],
+                        label="nsig-probe",
+                    )
+                except Exception:
+                    continue
+                if (
+                    not self._is_valid_nsig_output(first)
+                    or not self._is_valid_nsig_output(second)
+                    or first != second
+                ):
+                    continue
+                if first != probe_input:
+                    transformed.append([pair[0], pair[1]])
+                    if len(transformed) >= 8:
+                        return transformed
+                else:
+                    plain_strings.append([pair[0], pair[1]])
+
+        return transformed or plain_strings
+
     def get_nsig(self, n: str):
         """Interpret the function that transforms the signature parameter `n`.
             The lack of this signature generates the 403 forbidden error.
@@ -88,27 +388,32 @@ class Cipher:
         nsig = None
         last_exc = None
         try:
-            if self._nsig_param_val:
-                for param in self._nsig_param_val:
-                    try:
-                        if isinstance(param, list):
-                            nsig = self._call_with_retry(
-                                self.runner_nsig, [*param, n], label="nsig"
-                            )
-                        else:
-                            nsig = self._call_with_retry(
-                                self.runner_nsig, [param, n], label="nsig"
-                            )
-                    except Exception as e:
-                        last_exc = e
-                        logger.debug("nsig candidate %s failed", param, exc_info=True)
-                        continue
-                    if isinstance(nsig, str) and 'error' not in nsig and '_w8_' not in nsig:
-                        # Cache the first working control pair for this player so
-                        # later nsig calls do not keep probing dead branches.
-                        if isinstance(self._nsig_param_val, list) and self._nsig_param_val:
-                            self._nsig_param_val = [param] if isinstance(param, list) else param
-                        break
+            params = self._normalize_nsig_params(self._nsig_param_val)
+            if params:
+                nsig, last_exc, working_param = self._run_nsig_candidates(params, n)
+                if working_param is None:
+                    recovered_params = self._search_nsig_xor_candidates(n, params)
+                    if not recovered_params:
+                        recovered_params = self._search_nsig_invariant_candidates(
+                            n,
+                            self._derive_nsig_invariants(self.nsig_function_name),
+                        )
+                    if recovered_params:
+                        logger.info(
+                            "Recovered nsig XOR params for %s: %s",
+                            self.js_url,
+                            recovered_params[0],
+                        )
+                        self._nsig_param_val = recovered_params
+                        nsig, last_exc, working_param = self._run_nsig_candidates(
+                            recovered_params, n
+                        )
+                if working_param is not None and isinstance(self._nsig_param_val, list):
+                    # Cache the first working control pair for this player so
+                    # later nsig calls do not keep probing dead branches.
+                    self._nsig_param_val = (
+                        [working_param] if isinstance(working_param, list) else working_param
+                    )
             else:
                 nsig = self._call_with_retry(
                     self.runner_nsig, [n], label="nsig"
@@ -116,7 +421,7 @@ class Cipher:
         except Exception as e:
             raise InterpretationError(js_url=self.js_url, reason=e)
 
-        if 'error' in nsig or '_w8_' in nsig or not isinstance(nsig, str):
+        if not self._is_valid_nsig_output(nsig):
             raise InterpretationError(
                 js_url=self.js_url,
                 reason=last_exc if last_exc is not None else nsig
@@ -239,10 +544,17 @@ class Cipher:
                 logger.debug(f"Global Obj name is: {varname}")
                 global_obj = JSInterpreter(js).interpret_expression(code, {}, 100)
                 logger.debug("Successfully interpreted global object")
+            else:
+                varname, global_obj = _extract_split_player_js_global_var(js)
+                if not (varname and global_obj):
+                    varname, global_obj = _extract_property_array_player_js_global_var(js)
+                if varname and global_obj:
+                    logger.debug(f"TCE global Obj name is: {varname}")
 
+            if global_obj and varname:
                 w8_idx = None
                 for k, val in enumerate(global_obj):
-                    if val.endswith('_w8_'):
+                    if isinstance(val, str) and val.endswith('_w8_'):
                         w8_idx = k
                         logger.debug(f"_w8_ found in index {k}")
                         break
@@ -299,6 +611,62 @@ class Cipher:
                         xor_params = self._extract_xor_branch_nsig_params(
                             js, n_func, varname, global_obj, body, xor_var, arg_var,
                             w8_xor_b=w8_xor_b
+                        )
+                        if xor_params is not None:
+                            logger.debug(f"Using XOR-branch params for {n_func}: {xor_params}")
+                            self._nsig_param_val = xor_params
+                        else:
+                            self._nsig_param_val = self._extract_nsig_param_val(js, n_func)
+                        return n_func
+
+                    # Strategy 1a-bis: Find via catch block with DIRECT (non-XOR) index reference
+                    # Pattern: catch(x) { VAR = GLOBAL[w8_idx] + argname; break a }
+                    # Handles players (e.g. 8fb635c2) where the catch block uses u[w8_idx]
+                    # directly instead of u[xor_var^const].
+                    direct_catch = re.compile(
+                        r'catch\s*\([^)]+\)\s*\{\s*'
+                        r'[A-Za-z0-9_$]+\s*=\s*'
+                        + re.escape(varname) +
+                        r'\[(\d+)\]\s*\+\s*([A-Za-z0-9_$]+)\s*;\s*break\s+a\s*\}'
+                    )
+                    for cm in direct_catch.finditer(js):
+                        if int(cm.group(1)) != w8_idx:
+                            continue
+                        arg_var = cm.group(2)
+
+                        search_start = max(0, cm.start() - 5000)
+                        func_area = js[search_start:cm.start()]
+                        fms = list(re.finditer(
+                            r'(?:([a-zA-Z0-9_$]+)\s*=\s*function|function\s+([a-zA-Z0-9_$]+))\s*\(([^)]*)\)',
+                            func_area
+                        ))
+                        if not fms:
+                            continue
+
+                        last = fms[-1]
+                        n_func = last.group(1) or last.group(2)
+                        actual_start = search_start + last.start()
+
+                        header_area = js[actual_start:actual_start + 200]
+                        xor_header_m = re.search(
+                            r'var\s+([A-Za-z0-9_$]+)\s*=\s*[A-Za-z0-9_$]+\s*\^\s*[A-Za-z0-9_$]+',
+                            header_area
+                        )
+                        if not xor_header_m:
+                            continue
+                        xor_var_found = xor_header_m.group(1)
+
+                        branch_start = max(actual_start, cm.start() - 2000)
+                        branch_end = min(len(js), cm.end() + 1200)
+                        if branch_start <= actual_start + 200:
+                            body = js[actual_start:branch_end]
+                        else:
+                            body = js[actual_start:actual_start + 200] + js[branch_start:branch_end]
+
+                        logger.debug(f"Nfunc name (strategy 1a-bis - _w8_ direct catch): {n_func}")
+                        xor_params = self._extract_xor_branch_nsig_params(
+                            js, n_func, varname, global_obj, body, xor_var_found, arg_var,
+                            w8_xor_b=None
                         )
                         if xor_params is not None:
                             logger.debug(f"Using XOR-branch params for {n_func}: {xor_params}")

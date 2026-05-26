@@ -635,11 +635,19 @@ class UnderscoreFunction(Underscore):
             **self._chalk__kwargs,
         )
 
-    def with_concurrency(self, *, max_concurrent: int, key: str) -> UnderscoreFunction:
-        return self._with_policy("concurrency", max_concurrent=max_concurrent, key=key)
+    def with_concurrency(self, *, max_concurrent: int, key: str, enforce_globally: bool = False) -> UnderscoreFunction:
+        policy_params: dict[str, Any] = {"max_concurrent": max_concurrent, "key": key}
+        if enforce_globally:
+            policy_params["enforce_globally"] = True
+        return self._with_policy("concurrency", **policy_params)
 
-    def with_rate_limit(self, *, rate: int, key: str, per: str = "second") -> UnderscoreFunction:
-        return self._with_policy("rate_limit", rate=rate, key=key, per=per)
+    def with_rate_limit(
+        self, *, rate: int, key: str, per: str = "second", enforce_globally: bool = False
+    ) -> UnderscoreFunction:
+        policy_params: dict[str, Any] = {"rate": rate, "key": key, "per": per}
+        if enforce_globally:
+            policy_params["enforce_globally"] = True
+        return self._with_policy("rate_limit", **policy_params)
 
     def with_retry(
         self,

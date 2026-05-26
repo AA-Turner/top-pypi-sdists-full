@@ -120,7 +120,7 @@ def clone_chat_template(
 
 
 glm4moe_schema = {
-    "x-regex": r"^(?:\n?<think>\n?(?:(?P<reasoning_content>.*?\S.*?)\n?|[\s]*)</think>\s*)?(?P<content>.*?)(?:\n(?=<tool_call>))?(?=(?:<tool_call>|$))(?P<tool_calls>(?:<tool_call>.+?</tool_call>\s*)+)?$",
+    "x-regex": r"^(?:\n?<think>\n?(?:(?P<reasoning_content>.*?\S.*?)\n?|[\s]*)</think>\s*)?(?P<content>(?:(?!<tool_call>)[\s\S])*?)(?:\n(?=<tool_call>))?(?=(?:<tool_call>|$))(?P<tool_calls>(?:<tool_call>(?:(?!</tool_call>)[\s\S])+</tool_call>\s*)+)?$",
     "type": "object",
     "properties": {
         "role": {"const": "assistant"},
@@ -200,7 +200,7 @@ gptoss_schema = {
 # Adapted and corrected versions of the schemas from:
 # https://github.com/huggingface/transformers/blob/main/tests/utils/test_chat_parsing_utils.py
 qwen3_schema = {
-    "x-regex": r"^(?:<think>\n?(?:(?P<reasoning_content>.*?\S.*?)\n?|[\s]*)</think>\s*)?(?P<content>.*?)(?:\n(?=<tool_call>))?(?=(?:<tool_call>|<\|im_end\|>|$))(?P<tool_calls>(?:<tool_call>.+?</tool_call>\s*)+)?\s*(?:<\|im_end\|>|$)",
+    "x-regex": r"^(?:<think>\n?(?:(?P<reasoning_content>.*?\S.*?)\n?|[\s]*)</think>\s*)?(?P<content>(?:(?!<tool_call>)[\s\S])*?)(?:\n(?=<tool_call>))?(?=(?:<tool_call>|<\|im_end\|>|$))(?P<tool_calls>(?:<tool_call>(?:(?!</tool_call>)[\s\S])+</tool_call>\s*)+)?\s*(?:<\|im_end\|>|$)",
     "type": "object",
     "properties": {
         "role": {"const": "assistant"},
@@ -272,7 +272,7 @@ llama3_schema = {
 }
 
 qwen3_5_schema = {
-    "x-regex": r"^(?:(?:<think>\n?)?(?:(?P<reasoning_content>.*?\S.*?)\n?|[\s]*)</think>\s*)?(?P<content>.*?)(?:\n+(?=<tool_call>))?(?=(?:<tool_call>|<\|im_end\|>|$))(?P<tool_calls>(?:<tool_call>.+?</tool_call>\s*)+)?\s*(?:<\|im_end\|>|$)",
+    "x-regex": r"^(?:(?:<think>\n?)?(?:(?P<reasoning_content>.*?\S.*?)\n?|[\s]*)</think>\s*)?(?P<content>(?:(?!<tool_call>)[\s\S])*?)(?:\n+(?=<tool_call>))?(?=(?:<tool_call>|<\|im_end\|>|$))(?P<tool_calls>(?:<tool_call>(?:(?!</tool_call>)[\s\S])+</tool_call>\s*)+)?\s*(?:<\|im_end\|>|$)",
     "type": "object",
     "properties": {
         "role": {"const": "assistant"},
@@ -329,6 +329,8 @@ llama3_2_chat_template = (_CHAT_TEMPLATES_DIR / "llama3_2.jinja").read_text()
 
 phi3_chat_template = (_CHAT_TEMPLATES_DIR / "phi3.jinja").read_text()
 
+phi3_5_chat_template = (_CHAT_TEMPLATES_DIR / "phi3_5.jinja").read_text()
+
 qwen2_5_chat_template = (_CHAT_TEMPLATES_DIR / "qwen2_5.jinja").read_text()
 
 qwen3_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3.jinja").read_text()
@@ -337,9 +339,9 @@ qwen3_instruct_2507_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_instruct_2507.
 
 qwen3_vl_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_vl.jinja").read_text()
 
-qwen3_5_chat_template_2b_and_below = (_CHAT_TEMPLATES_DIR / "qwen3_5_2b_and_below.jinja").read_text()
+qwen3_5_nothink_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_5_nothink.jinja").read_text()
 
-qwen3_5_chat_template_4b_and_above = (_CHAT_TEMPLATES_DIR / "qwen3_5_4b_and_above.jinja").read_text()
+qwen3_5_think_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_5_think.jinja").read_text()
 
 qwen3_6_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_6.jinja").read_text()
 
@@ -401,8 +403,8 @@ def add_response_schema(processing_class: ProcessingClassT) -> ProcessingClassT:
     ]:
         tokenizer.response_schema = qwen3_schema
     elif chat_template in [
-        qwen3_5_chat_template_2b_and_below,
-        qwen3_5_chat_template_4b_and_above,
+        qwen3_5_nothink_chat_template,
+        qwen3_5_think_chat_template,
         qwen3_6_chat_template,
     ]:
         tokenizer.response_schema = qwen3_5_schema
@@ -561,11 +563,19 @@ llama3_training_chat_template = (_CHAT_TEMPLATES_DIR / "llama3_training.jinja").
 
 phi3_training_chat_template = (_CHAT_TEMPLATES_DIR / "phi3_training.jinja").read_text()
 
+phi3_5_training_chat_template = (_CHAT_TEMPLATES_DIR / "phi3_5_training.jinja").read_text()
+
 qwen2_5_training_chat_template = (_CHAT_TEMPLATES_DIR / "qwen2_5_training.jinja").read_text()
 
 qwen3_training_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_training.jinja").read_text()
 
 qwen3_instruct_2507_training_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_instruct_2507_training.jinja").read_text()
+
+qwen3_vl_training_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_vl_training.jinja").read_text()
+
+qwen3_5_nothink_training_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_5_nothink_training.jinja").read_text()
+
+qwen3_5_think_training_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_5_think_training.jinja").read_text()
 
 qwen3_6_training_chat_template = (_CHAT_TEMPLATES_DIR / "qwen3_6_training.jinja").read_text()
 
@@ -579,8 +589,8 @@ def get_training_chat_template(
 
     Returns a patched chat template that is prefix-preserving and includes `{%% generation %%}` / `{%% endgeneration
     %%}` markers for assistant-only loss masking. Returns `None` if the template already satisfies both requirements.
-    Currently Cohere, Cohere 2, DeepSeek-V3, Gemma, Gemma 2, Gemma 3, GLM-4-MoE, GPT-OSS, LLaMA 3, Phi-3, Qwen2.5,
-    Qwen3 (including the Instruct-2507 variant), and Qwen3.6 are supported.
+    Currently Cohere, Cohere 2, DeepSeek-V3, Gemma, Gemma 2, Gemma 3, GLM-4-MoE, GPT-OSS, LLaMA 3, Phi-3, Phi-3.5,
+    Qwen2.5, Qwen3 (including the Instruct-2507 variant), Qwen3-VL, Qwen3.5, and Qwen3.6 are supported.
 
     Args:
         processing_class (`PreTrainedTokenizerBase` or `ProcessorMixin`):
@@ -673,6 +683,9 @@ def get_training_chat_template(
     if processing_class.chat_template == phi3_chat_template:
         return phi3_training_chat_template
 
+    if processing_class.chat_template == phi3_5_chat_template:
+        return phi3_5_training_chat_template
+
     if processing_class.chat_template == qwen2_5_chat_template:
         return qwen2_5_training_chat_template
 
@@ -681,6 +694,15 @@ def get_training_chat_template(
 
     if processing_class.chat_template == qwen3_instruct_2507_chat_template:
         return qwen3_instruct_2507_training_chat_template
+
+    if processing_class.chat_template == qwen3_vl_chat_template:
+        return qwen3_vl_training_chat_template
+
+    if processing_class.chat_template == qwen3_5_nothink_chat_template:
+        return qwen3_5_nothink_training_chat_template
+
+    if processing_class.chat_template == qwen3_5_think_chat_template:
+        return qwen3_5_think_training_chat_template
 
     if processing_class.chat_template == qwen3_6_chat_template:
         return qwen3_6_training_chat_template
@@ -764,6 +786,8 @@ def parse_response(tokenizer: PreTrainedTokenizerBase, ids: list[int]) -> dict:
     """
     try:
         parsed = tokenizer.parse_response(ids)
+        if parsed is None:  # this can happen if the response is heavily truncated and even the content is lost
+            raise ValueError("parse_response returned None")
         # Hotfix: remove incorrectly appended EOS token from tool calls
         # See https://github.com/huggingface/transformers/issues/42249
         if isinstance(parsed.get("content"), str):

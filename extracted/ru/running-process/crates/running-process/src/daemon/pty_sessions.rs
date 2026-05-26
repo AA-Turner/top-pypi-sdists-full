@@ -12,7 +12,14 @@
 //! be re-acquired by a new daemon process without a kernel-side broker).
 
 use std::collections::{HashMap, VecDeque};
+use std::io;
+#[cfg(unix)]
+use std::os::fd::RawFd;
+#[cfg(windows)]
+use std::os::windows::io::RawHandle;
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -20,6 +27,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::pty::NativePtyProcess;
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
+
+use crate::daemon::telemetry::{
+    TeeEvent, TeeFileOptions, TeeHandle, TeeOptions, TeeRawOptions, TeeRegistry, TeeSnapshot,
+    TeeStatus, TeeStream,
+};
 
 /// Default ring-buffer capacity for the output backlog (1 MiB per session).
 pub const DEFAULT_BACKLOG_BYTES: usize = 1_048_576;
@@ -185,6 +197,7 @@ pub struct OwnedPtySession {
     pub rows: AtomicU16,
     pub cols: AtomicU16,
     backlog: Mutex<RingBuffer>,
+    tees: TeeRegistry,
     attached: Mutex<Option<AttachedClient>>,
     exit_state: Mutex<Option<ExitState>>,
     pub(crate) pending_termination: Mutex<Option<PendingTermination>>,
@@ -218,6 +231,146 @@ impl OwnedPtySession {
     /// (#130 M7 B4 "sessions log").
     pub fn backlog_snapshot(&self) -> (Vec<u8>, u64) {
         self.backlog.lock().unwrap().snapshot()
+    }
+
+    /// Register a non-blocking bounded ring tee for PTY output bytes.
+    pub fn tee_output_ring(&self, capacity: usize) -> TeeHandle {
+        self.tees.add_ring(TeeStream::PtyOutput, capacity)
+    }
+
+    /// Register a bounded non-blocking channel tee for PTY output bytes.
+    pub fn tee_output_channel(&self, capacity: usize) -> (TeeHandle, Receiver<TeeEvent>) {
+        self.tee_output_channel_with_options(capacity, TeeOptions::default())
+    }
+
+    /// Register a bounded channel tee for PTY output bytes.
+    pub fn tee_output_channel_with_options(
+        &self,
+        capacity: usize,
+        options: TeeOptions,
+    ) -> (TeeHandle, Receiver<TeeEvent>) {
+        self.tees
+            .add_channel_with_options(TeeStream::PtyOutput, capacity, options)
+    }
+
+    /// Register a callback tee for PTY output bytes.
+    pub fn tee_output_callback<F>(&self, capacity: usize, callback: F) -> TeeHandle
+    where
+        F: FnMut(TeeEvent) + Send + 'static,
+    {
+        self.tee_output_callback_with_options(capacity, TeeOptions::default(), callback)
+    }
+
+    /// Register a callback tee for PTY output bytes.
+    pub fn tee_output_callback_with_options<F>(
+        &self,
+        capacity: usize,
+        options: TeeOptions,
+        callback: F,
+    ) -> TeeHandle
+    where
+        F: FnMut(TeeEvent) + Send + 'static,
+    {
+        self.tees
+            .add_callback_with_options(TeeStream::PtyOutput, capacity, options, callback)
+    }
+
+    /// Register a file path tee for PTY output bytes.
+    pub fn tee_output_file<P>(&self, path: P, options: TeeFileOptions) -> io::Result<TeeHandle>
+    where
+        P: AsRef<Path>,
+    {
+        self.tees.add_file(TeeStream::PtyOutput, path, options)
+    }
+
+    /// Register a raw file descriptor tee for PTY output bytes.
+    #[cfg(unix)]
+    pub fn tee_output_raw_fd(&self, fd: RawFd, options: TeeRawOptions) -> TeeHandle {
+        self.tees.add_raw_fd(TeeStream::PtyOutput, fd, options)
+    }
+
+    /// Register a raw Windows handle tee for PTY output bytes.
+    #[cfg(windows)]
+    pub fn tee_output_raw_handle(&self, handle: RawHandle, options: TeeRawOptions) -> TeeHandle {
+        self.tees
+            .add_raw_handle(TeeStream::PtyOutput, handle, options)
+    }
+
+    /// Register a non-blocking bounded ring tee for bytes written to stdin.
+    pub fn tee_input_ring(&self, capacity: usize) -> TeeHandle {
+        self.tees.add_ring(TeeStream::Stdin, capacity)
+    }
+
+    /// Register a bounded non-blocking channel tee for bytes written to stdin.
+    pub fn tee_input_channel(&self, capacity: usize) -> (TeeHandle, Receiver<TeeEvent>) {
+        self.tee_input_channel_with_options(capacity, TeeOptions::default())
+    }
+
+    /// Register a bounded channel tee for bytes written to stdin.
+    pub fn tee_input_channel_with_options(
+        &self,
+        capacity: usize,
+        options: TeeOptions,
+    ) -> (TeeHandle, Receiver<TeeEvent>) {
+        self.tees
+            .add_channel_with_options(TeeStream::Stdin, capacity, options)
+    }
+
+    /// Register a callback tee for bytes written to stdin.
+    pub fn tee_input_callback<F>(&self, capacity: usize, callback: F) -> TeeHandle
+    where
+        F: FnMut(TeeEvent) + Send + 'static,
+    {
+        self.tee_input_callback_with_options(capacity, TeeOptions::default(), callback)
+    }
+
+    /// Register a callback tee for bytes written to stdin.
+    pub fn tee_input_callback_with_options<F>(
+        &self,
+        capacity: usize,
+        options: TeeOptions,
+        callback: F,
+    ) -> TeeHandle
+    where
+        F: FnMut(TeeEvent) + Send + 'static,
+    {
+        self.tees
+            .add_callback_with_options(TeeStream::Stdin, capacity, options, callback)
+    }
+
+    /// Register a file path tee for bytes written to stdin.
+    pub fn tee_input_file<P>(&self, path: P, options: TeeFileOptions) -> io::Result<TeeHandle>
+    where
+        P: AsRef<Path>,
+    {
+        self.tees.add_file(TeeStream::Stdin, path, options)
+    }
+
+    /// Register a raw file descriptor tee for bytes written to stdin.
+    #[cfg(unix)]
+    pub fn tee_input_raw_fd(&self, fd: RawFd, options: TeeRawOptions) -> TeeHandle {
+        self.tees.add_raw_fd(TeeStream::Stdin, fd, options)
+    }
+
+    /// Register a raw Windows handle tee for bytes written to stdin.
+    #[cfg(windows)]
+    pub fn tee_input_raw_handle(&self, handle: RawHandle, options: TeeRawOptions) -> TeeHandle {
+        self.tees.add_raw_handle(TeeStream::Stdin, handle, options)
+    }
+
+    /// Snapshot a ring tee without draining it.
+    pub fn tee_snapshot(&self, handle: TeeHandle) -> Option<TeeSnapshot> {
+        self.tees.snapshot(handle)
+    }
+
+    /// Return current missed-byte status for any tee sink.
+    pub fn tee_status(&self, handle: TeeHandle) -> Option<TeeStatus> {
+        self.tees.status(handle)
+    }
+
+    /// Remove a registered tee sink.
+    pub fn untee(&self, handle: TeeHandle) -> bool {
+        self.tees.remove(handle)
     }
 
     /// Whether the currently attached client (if any) self-identified as
@@ -328,7 +481,9 @@ impl OwnedPtySession {
 
     /// Write bytes to the PTY input.
     pub fn write_input(&self, bytes: &[u8]) -> Result<(), crate::pty::PtyError> {
-        self.process.write_impl(bytes, false)
+        self.process.write_impl(bytes, false)?;
+        self.tees.write(TeeStream::Stdin, bytes);
+        Ok(())
     }
 
     pub fn resize(&self, rows: u16, cols: u16) -> Result<(), crate::pty::PtyError> {
@@ -460,6 +615,7 @@ impl PtySessionRegistry {
             rows: AtomicU16::new(rows),
             cols: AtomicU16::new(cols),
             backlog: Mutex::new(RingBuffer::new(DEFAULT_BACKLOG_BYTES)),
+            tees: TeeRegistry::new(),
             attached: Mutex::new(None),
             exit_state: Mutex::new(None),
             pending_termination: Mutex::new(None),
@@ -561,6 +717,7 @@ fn reader_loop(session: Arc<OwnedPtySession>) {
         match session.process.read_chunk_impl(read_timeout) {
             Ok(Some(bytes)) if !bytes.is_empty() => {
                 session.backlog.lock().unwrap().push(&bytes);
+                session.tees.write(TeeStream::PtyOutput, &bytes);
                 if let Some(client) = session.attached.lock().unwrap().as_ref() {
                     for slice in bytes.chunks(STREAM_CHUNK_BYTES) {
                         let _ = client.sender.send(OutboundFrame::Output(slice.to_vec()));

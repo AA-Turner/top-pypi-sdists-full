@@ -3,15 +3,10 @@
 
 #pragma once
 
-#include <exception>
-#include <map>
-#include <vector>
-
-#include <qpdf/Constants.h>
-#include <qpdf/QPDF.hh>
-#include <qpdf/QPDFObjectHandle.hh>
-#include <qpdf/QPDFPageObjectHelper.hh>
-
+// nanobind/nanobind.h includes Python.h, which must be included before any
+// standard library headers because it defines feature-test macros (such as
+// _POSIX_C_SOURCE and _XOPEN_SOURCE) that affect stdlib behavior.
+// See: https://docs.python.org/3/c-api/intro.html#include-files
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/bind_map.h>
 #include <nanobind/stl/bind_vector.h>
@@ -21,6 +16,15 @@
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
+
+#include <exception>
+#include <map>
+#include <vector>
+
+#include <qpdf/Constants.h>
+#include <qpdf/QPDF.hh>
+#include <qpdf/QPDFObjectHandle.hh>
+#include <qpdf/QPDFPageObjectHelper.hh>
 
 #include "qpdf_lock.h"
 
@@ -169,6 +173,8 @@ void init_parsers(py::module_ &m);
 void init_rectangle(py::module_ &m);
 // From tokenfilter.cpp
 void init_tokenfilter(py::module_ &m);
+// From transcoding.cpp
+void init_transcoding(py::module_ &m);
 
 // pikepdf.cpp
 uint get_decimal_precision();

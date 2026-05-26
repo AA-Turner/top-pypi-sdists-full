@@ -29,7 +29,8 @@ _SKIP_DIRS = {
     "node_modules", ".git", "__pycache__", ".venv", "venv", "env",
     "dist", "build", "target", ".next", ".nuxt", ".cache",
     "coverage", ".pytest_cache", ".mypy_cache", ".ruff_cache",
-    "vendor", "third_party",
+    "vendor", "third_party", "test-results", "test_results",
+    "htmlcov", "playwright-report",
 }
 _SKIP_EXTS = {
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico",
@@ -89,15 +90,20 @@ class OllamaEmbedder(Embedder):
                 if not text.strip():
                     out.append([0.0] * self.dim)
                     continue
-                resp = client.post(
-                    f"{self.host}/api/embeddings",
-                    json={"model": self.model, "prompt": text[:8000]},
-                )
-                resp.raise_for_status()
-                vec = resp.json().get("embedding") or []
-                if vec and len(vec) != self.dim:
-                    self.dim = len(vec)
-                out.append(vec)
+                try:
+                    resp = client.post(
+                        f"{self.host}/api/embeddings",
+                        json={"model": self.model, "prompt": text[:8000]},
+                    )
+                    resp.raise_for_status()
+                    vec = resp.json().get("embedding") or []
+                    if vec and len(vec) != self.dim:
+                        self.dim = len(vec)
+                    out.append(vec)
+                except Exception as exc:
+                    import sys
+                    print(f"Warning: failed to embed chunk via Ollama: {exc}", file=sys.stderr)
+                    out.append([0.0] * self.dim)
         return out
 
 

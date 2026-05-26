@@ -120,18 +120,21 @@ class SAGEBackend:
         "please run sage login" message instead of the raw 401.
         """
         url = f"{self._base}{path}"
-        r = httpx.request(method, url, headers=self._headers, timeout=10, **kwargs)
-        if r.status_code == 401:
-            ok, reason = self._refresh_headers()
-            if not ok:
-                raise RuntimeError(
-                    f"Your SAGE session has expired. {reason}"
-                    if reason and "sage login" not in reason.lower()
-                    else (reason or "Your SAGE session has expired. Run: sage login")
-                )
+        try:
             r = httpx.request(method, url, headers=self._headers, timeout=10, **kwargs)
-        r.raise_for_status()
-        return r.json()
+            if r.status_code == 401:
+                ok, reason = self._refresh_headers()
+                if not ok:
+                    raise RuntimeError(
+                        f"Your SAGE session has expired. {reason}"
+                        if reason and "sage login" not in reason.lower()
+                        else (reason or "Your SAGE session has expired. Run: sage login")
+                    )
+                r = httpx.request(method, url, headers=self._headers, timeout=10, **kwargs)
+            r.raise_for_status()
+            return r.json()
+        except httpx.HTTPError as e:
+            raise RuntimeError(f"Backend API error: {e}")
 
     def _get(self, path: str) -> dict:
         return self._request("GET", path)
@@ -427,11 +430,11 @@ def _send_imessage(recipient: str, text: str) -> bool:
         return False
         
     # If chat.db is unreadable, we cannot VERIFY delivery, but the osascript
-    # above just returned "ok".  We must trust it and return True, otherwise
-    # the backend will fall back to SMTP unnecessarily.
+    # above just returned "ok". We must fail the message so it falls back to SMTP,
+    # because silently succeeding means the user never receives it if osascript drops it.
     if baseline == -1:
-        logger.info("iMessage sent to %s via osascript. (Verification skipped: Full Disk Access missing).", recipient)
-        return True
+        logger.error("Full Disk Access missing: SAGE cannot verify iMessage delivery and will treat this send as failed.")
+        return False
 
     # Give Messages.app up to 5s to write to chat.db
     for _ in range(20):  # 20 × 0.25s = 5s
@@ -507,14 +510,30 @@ def _send_macos_sms(recipient: str, text: str) -> bool:
         'end tell'
     )
     try:
+        baseline = _imessage_max_rowid()
         result = subprocess.run(
             ["osascript", "-e", script],
             capture_output=True, text=True, timeout=10,
         )
         out = (result.stdout or "").strip()
-        return result.returncode == 0 and out == "ok"
+        if result.returncode != 0 or out != "ok":
+            logger.debug("Messages.app SMS send failed: %s", out)
+            return False
+            
+        if baseline == -1:
+            logger.error("Full Disk Access missing: SAGE cannot verify SMS delivery and will treat this send as failed.")
+            return False
+            
+        for _ in range(20):
+            time.sleep(0.25)
+            if _imessage_row_matches(baseline, text):
+                logger.info("SMS delivery verified for %s", recipient)
+                return True
+                
+        logger.warning("SMS to %s: osascript said ok but no row appeared in chat.db", recipient)
+        return False
     except Exception as exc:
-        logger.debug("Messages.app SMS send failed: %s", exc)
+        logger.debug("Messages.app SMS send exception: %s", exc)
         return False
 
 

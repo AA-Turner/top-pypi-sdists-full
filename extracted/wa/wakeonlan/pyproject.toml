@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wakeonlan"
-version = "3.1.0"
+version = "3.3.0"
 description = "A small python module for wake on lan."
 authors = ["Remco Haszing <remcohaszing@gmail.com>"]
 license = "MIT"
@@ -26,18 +26,16 @@ wakeonlan = "wakeonlan:main"
 [tool.poetry.dependencies]
 python = "^3.7"
 
-[tool.poetry.dev-dependencies]
-black = { version = "*", python = ">= 3.8" }
-flake8 = { version = "*", python = ">= 3.8" }
-flake8-docstrings = { version = "*", python = ">= 3.8" }
-flake8-import-order = { version = "*", python = ">= 3.8" }
+[tool.poetry.group.dev.dependencies]
+coverage = { version = "*", extras = ["toml"] }
 mypy = { version = "*", python = ">=3.8" }
-pytest = "*"
-pytest-cov = "*"
-types-setuptools = { version = "*", python = ">=3.8" }
+ruff = { version = "*", python = ">=3.8" }
+sphinx = { version = "*", python = ">=3.8" }
+sphinx-rtd-theme = { version = "*", python = ">=3.8" }
 
 [tool.coverage.run]
 branch = true
+command_line = "-m unittest -v"
 source = ["wakeonlan"]
 
 [tool.coverage.report]
@@ -52,6 +50,19 @@ disallow_untyped_defs = true
 ignore_missing_imports = true
 strict_optional = true
 warn_return_any = true
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "I", "N", "W"]
+ignore = ["D200", "D212", "E501", "W505"]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [build-system]
 requires = ["poetry-core"]

@@ -53,9 +53,9 @@ body:
       label: Model + provider
       description: >
         DryDock's behavior is highly model-dependent. Tell us the active
-        model name and the runtime serving it (vLLM, llama.cpp, Ollama,
+        model name and the runtime serving it (llama.cpp, Ollama,
         LM Studio, OpenAI-compatible endpoint, etc.).
-      placeholder: "gemma4 (vLLM Docker on localhost:8000)"
+      placeholder: "gemma4 (llama.cpp on localhost:8000)"
     validations:
       required: true
 

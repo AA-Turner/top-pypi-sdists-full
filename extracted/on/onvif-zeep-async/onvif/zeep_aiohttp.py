@@ -6,18 +6,20 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from zeep.cache import SqliteCache
-from zeep.transports import Transport
-from zeep.utils import get_version
-from zeep.wsdl.utils import etree_to_string
-from multidict import CIMultiDict
 import httpx
 from aiohttp import ClientResponse, ClientSession, hdrs
 from requests import Response
 from requests.structures import CaseInsensitiveDict
+from zeep.transports import Transport
+from zeep.utils import get_version
+from zeep.wsdl.utils import etree_to_string
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from lxml.etree import _Element
+    from multidict import CIMultiDict
+    from zeep.cache import SqliteCache
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,11 +58,16 @@ class AIOHTTPTransport(Transport):
         # Extract timeout from session
         self._client_timeout = session.timeout
 
-    async def __aenter__(self) -> AIOHTTPTransport:
+    async def __aenter__(self) -> AIOHTTPTransport:  # noqa: PYI034
         """Enter async context."""
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Exit async context."""
 
     async def aclose(self) -> None:
@@ -142,10 +149,7 @@ class AIOHTTPTransport(Transport):
         headers.setdefault("Content-Type", 'text/xml; charset="utf-8"')
 
         # Handle both str and bytes
-        if isinstance(message, str):
-            data = message.encode("utf-8")
-        else:
-            data = message
+        data = message.encode("utf-8") if isinstance(message, str) else message
 
         try:
             response = await self.session.post(
@@ -164,13 +168,15 @@ class AIOHTTPTransport(Transport):
                 response.status,
                 content,
             )
-
-            return response, content
         except RuntimeError as exc:
             # Handle RuntimeError which may occur if the session is closed
-            raise RuntimeError(f"Failed to post to {address}: {exc}") from exc
+            msg = f"Failed to post to {address}: {exc}"
+            raise RuntimeError(msg) from exc
         except TimeoutError as exc:
-            raise TimeoutError(f"Request to {address} timed out") from exc
+            msg = f"Request to {address} timed out"
+            raise TimeoutError(msg) from exc
+        else:
+            return response, content
 
     async def post(
         self, address: str, message: str, headers: dict[str, str]
@@ -256,10 +262,12 @@ class AIOHTTPTransport(Transport):
             return self._aiohttp_to_requests_response(response, content)
         except RuntimeError as exc:
             # Handle RuntimeError which may occur if the session is closed
-            raise RuntimeError(f"Failed to get from {address}: {exc}") from exc
+            msg = f"Failed to get from {address}: {exc}"
+            raise RuntimeError(msg) from exc
 
         except TimeoutError as exc:
-            raise TimeoutError(f"Request to {address} timed out") from exc
+            msg = f"Request to {address} timed out"
+            raise TimeoutError(msg) from exc
 
     def load(self, url: str) -> bytes:
         """

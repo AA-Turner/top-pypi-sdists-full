@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elastic-apm
-Version: 6.25.0
+Version: 6.26.1
 Summary: The official Python module for Elastic APM
 Home-page: https://github.com/elastic/apm-agent-python
 Author: Elastic, Inc

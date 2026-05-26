@@ -1311,6 +1311,61 @@ def test_convenience_properties():
     assert m[:8].to_bytes() == m[:8].bytes
 
 
+def test_representation_write_methods_replace_value_and_may_resize():
+    m = Mutibs('0xff')
+
+    assert m.write_bin('0b101') is None
+    assert m == Mutibs('0b101')
+    assert len(m) == 3
+
+    assert m.write_oct('17') is None
+    assert m == Mutibs('0b001111')
+    assert len(m) == 6
+
+    assert m.write_hex('123') is None
+    assert m == Mutibs('0x123')
+    assert len(m) == 12
+
+    assert m.write_bytes(b'\xab\xcd') is None
+    assert m == Mutibs('0xabcd')
+    assert len(m) == 16
+
+
+def test_representation_property_setters_replace_value_and_may_resize():
+    m = Mutibs('0xff')
+
+    m.bin = '10_1'
+    assert m == Mutibs('0b101')
+    assert len(m) == 3
+
+    m.oct = '7'
+    assert m == Mutibs('0b111')
+    assert len(m) == 3
+
+    m.hex = '0xabc'
+    assert m == Mutibs('0xabc')
+    assert len(m) == 12
+
+    m.bytes = bytearray(b'AZ')
+    assert m == Mutibs(b'AZ')
+    assert len(m) == 16
+
+
+def test_representation_write_errors_leave_value_unchanged():
+    m = Mutibs('0xff')
+    original = m.to_tibs()
+
+    with pytest.raises(ValueError):
+        m.write_hex('not hex')
+
+    assert m == original
+
+    with pytest.raises(ValueError):
+        m.oct = '8'
+
+    assert m == original
+
+
 def test_byte_swapped():
     a = Mutibs.from_bytes(b'!olleh')
     b = a.byte_swapped()
@@ -1322,6 +1377,112 @@ def test_from_u_bad_endianness_type():
         a = Mutibs.from_u(101, 16, "asdf")
     a = Mutibs.from_u(101, 16, Endianness.Unspecified)
     assert a.to_u() == 101
+
+
+def assert_matching_exception(left, right):
+    with pytest.raises(Exception) as left_error:
+        left()
+    with pytest.raises(Exception) as right_error:
+        right()
+
+    assert type(left_error.value) is type(right_error.value)
+    assert str(left_error.value) == str(right_error.value)
+
+
+def test_write_u_preserves_length_and_matches_from_u():
+    m = Mutibs.from_ones(12)
+    result = m.write_u(0x123)
+
+    assert result is None
+    assert len(m) == 12
+    assert m == Mutibs.from_u(0x123, 12)
+    assert m.u == 0x123
+
+
+def test_write_i_preserves_length_and_matches_from_i():
+    m = Mutibs.from_zeros(5)
+    result = m.write_i(-3)
+
+    assert result is None
+    assert len(m) == 5
+    assert m == Mutibs.from_i(-3, 5)
+    assert m.i == -3
+
+
+def test_write_f_preserves_length_and_matches_from_f():
+    m = Mutibs.from_ones(32)
+    result = m.write_f(3.5)
+
+    assert result is None
+    assert len(m) == 32
+    assert m == Mutibs.from_f(3.5, 32)
+    assert m.f == 3.5
+
+
+def test_numeric_property_setters_preserve_length():
+    m = Mutibs.from_zeros(8)
+    m.u = 0x7f
+
+    assert len(m) == 8
+    assert m == Mutibs.from_u(0x7f, 8)
+
+    m.i = -1
+    assert len(m) == 8
+    assert m == Mutibs.from_i(-1, 8)
+    assert m.i == -1
+
+    f = Mutibs.from_zeros(32)
+    f.f = 1.5
+
+    assert len(f) == 32
+    assert f == Mutibs.from_f(1.5, 32)
+    assert f.f == 1.5
+
+
+def test_write_u_errors_match_from_u_and_leave_value_unchanged():
+    m = Mutibs.from_zeros(4)
+    original = m.to_tibs()
+
+    assert_matching_exception(lambda: m.write_u(16), lambda: Mutibs.from_u(16, 4))
+    assert m == original
+
+    empty = Mutibs()
+    assert_matching_exception(lambda: empty.write_u(0), lambda: Mutibs.from_u(0, 0))
+
+
+def test_write_i_errors_match_from_i_and_leave_value_unchanged():
+    m = Mutibs.from_zeros(4)
+    original = m.to_tibs()
+
+    assert_matching_exception(lambda: m.write_i(8), lambda: Mutibs.from_i(8, 4))
+    assert m == original
+
+    assert_matching_exception(lambda: m.write_i(-9), lambda: Mutibs.from_i(-9, 4))
+    assert m == original
+
+    empty = Mutibs()
+    assert_matching_exception(lambda: empty.write_i(0), lambda: Mutibs.from_i(0, 0))
+
+
+def test_write_f_errors_match_from_f_and_leave_value_unchanged():
+    m = Mutibs.from_zeros(24)
+    original = m.to_tibs()
+
+    assert_matching_exception(lambda: m.write_f(1.25), lambda: Mutibs.from_f(1.25, 24))
+    assert m == original
+
+
+def test_numeric_write_methods_do_not_accept_endianness():
+    m = Mutibs.from_zeros(16)
+
+    with pytest.raises(TypeError):
+        m.write_u(3, Endianness.Little)
+
+    with pytest.raises(TypeError):
+        m.write_i(-3, Endianness.Little)
+
+    with pytest.raises(TypeError):
+        m.write_f(1.25, Endianness.Little)
 
 
 def test_contains():

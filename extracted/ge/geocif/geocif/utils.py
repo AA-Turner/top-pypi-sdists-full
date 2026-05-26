@@ -15,6 +15,9 @@ import matplotlib.pyplot as plt
 MODEL_DISPLAY_NAMES = {
     "catboost": "CatBoost",
     "tabpfn": "TabPFN",
+    "curated_tabpfn": "TabPFN (curated, monthly)",
+    "curated_catboost": "CatBoost (curated, monthly)",
+    "curated_gam": "GAM (curated, monthly)",
     "tabicl": "TabICL",
     "xgboost": "XGBoost",
     "lightgbm": "LightGBM",
@@ -1206,3 +1209,261 @@ def load_country_boundary_gdf(parser, shapefile_path, *, country=None):
             mask = gdf[adm0_col].str.lower().str.replace("_", " ") == country_norm
             gdf = gdf[mask].copy()
     return gdf
+
+
+# ---------------------------------------------------------------------------
+# Auto CID selection schema (at-least-X-above-Y, dedup-first relaxation)
+# ---------------------------------------------------------------------------
+
+def greedy_dedup_by_mutual_corr(
+    ranked_cids,
+    corr,
+    threshold: float,
+):
+    """Greedily keep CIDs in rank order, dropping any whose |Pearson r|
+    against an already-kept CID exceeds ``threshold``.
+
+    Args:
+        ranked_cids: iterable of CID names ordered by descending |r| vs yield.
+        corr: square DataFrame of |ρ| values, indexed and columned by CID name.
+        threshold: |ρ| cutoff (e.g. 0.9). Strictly greater than triggers prune.
+
+    Returns:
+        (kept, pruned) where ``kept`` is the ordered survivor list and
+        ``pruned`` maps each dropped CID to (surviving twin, |ρ|).
+    """
+    kept: list[str] = []
+    pruned: dict[str, tuple[str, float]] = {}
+    if corr is None or corr.empty or corr.shape[1] < 2:
+        return list(ranked_cids), pruned
+    for cid in ranked_cids:
+        if cid not in corr.columns:
+            kept.append(cid)
+            continue
+        conflict = None
+        for k in kept:
+            if k in corr.columns:
+                r = float(corr.at[cid, k])
+                if np.isfinite(r) and r > threshold:
+                    conflict = (k, r)
+                    break
+        if conflict is None:
+            kept.append(cid)
+        else:
+            pruned[cid] = conflict
+    return kept, pruned
+
+
+def pivot_long_for_pearson(df_long: pd.DataFrame, target_col: str) -> pd.DataFrame:
+    """Pivot a long-format CID df to wide format for inline Pearson
+    computation. Used by auto_/top10_ models when the broad-feature
+    pearson_summary.csv is missing (parallel-race avoidance).
+
+    Output columns: ``"<Index> <Stage Name>"`` for each (CID, stage)
+    pair containing the value, plus ``target_col``, ``Region``,
+    ``Harvest Year``. Duplicates collapse via mean.
+
+    Args:
+        df_long: long-format df with columns ``Region``, ``Harvest Year``,
+            ``Index`` (CID name), ``Stage Name``, ``CID`` (value),
+            and ``target_col``.
+        target_col: name of the yield/target column.
+
+    Returns:
+        Wide DataFrame ready for ``compute_pearson_summary``. Empty
+        DataFrame if required columns are missing.
+    """
+    required = {"Region", "Harvest Year", "Index", "Stage Name", "CID", target_col}
+    if df_long is None or df_long.empty or not required.issubset(df_long.columns):
+        return pd.DataFrame()
+
+    df = df_long[["Region", "Harvest Year", "Index", "Stage Name", "CID", target_col]].copy()
+    df["__col"] = df["Index"].astype(str) + " " + df["Stage Name"].astype(str)
+    cid_wide = df.pivot_table(
+        index=["Region", "Harvest Year"],
+        columns="__col",
+        values="CID",
+        aggfunc="mean",
+    ).reset_index()
+    cid_wide.columns.name = None
+    target_df = (
+        df.groupby(["Region", "Harvest Year"])[target_col].first().reset_index()
+    )
+    return cid_wide.merge(target_df, on=["Region", "Harvest Year"], how="left")
+
+
+def compute_pearson_summary(
+    df_wide: pd.DataFrame,
+    target_col: str,
+    method: str = "monthly",
+    season_stages=None,
+):
+    """Compute (pearson_df, corr_abs) from a wide-format df.
+
+    Picks one column per CID NAME (the one with the longest stage chain
+    under ``method``, matching ``cid_vs_yield_scatters``'s picker),
+    computes Pearson r vs ``target_col``, then the pairwise |ρ| matrix
+    among picked columns. The shared compute path for the broad-feature
+    EDA plot and the inline fallback in auto_/top10_ models.
+
+    Args:
+        df_wide: wide-format df with one column per (CID, stage) and a
+            target column.
+        target_col: name of the yield column.
+        method: extraction method (drives stage-chain length picker).
+        season_stages: optional cap for sanity; columns whose chain
+            exceeds this are skipped.
+
+    Returns:
+        (pearson_df, corr_abs). ``pearson_df`` is indexed by CID name
+        with columns ``n``, ``pearson_r``, ``abs_r``, ``rank_raw``,
+        sorted by ``abs_r`` desc. ``corr_abs`` is a square DataFrame of
+        |ρ| values indexed by CID name. Both are empty when no parseable
+        CID columns are present.
+    """
+    from geocif.viz.diagnostics import _parse_cid_column
+
+    if df_wide is None or df_wide.empty or target_col not in df_wide.columns:
+        return pd.DataFrame(), pd.DataFrame()
+
+    by_cid: dict = {}
+    for col in df_wide.columns:
+        parsed = _parse_cid_column(col, method=method)
+        if parsed is None:
+            continue
+        cid, chain = parsed
+        if season_stages is not None and chain > season_stages:
+            continue
+        prev = by_cid.get(cid)
+        if prev is None or chain > prev[1]:
+            by_cid[cid] = (col, chain)
+    if not by_cid:
+        return pd.DataFrame(), pd.DataFrame()
+
+    pearson_rows: list = []
+    cid_series: dict = {}
+    for cid, (col, _chain) in by_cid.items():
+        sub = df_wide[[col, target_col]].dropna()
+        if sub.empty:
+            continue
+        try:
+            r_p = float(sub[col].corr(sub[target_col], method="pearson"))
+        except (TypeError, ValueError):
+            continue
+        if np.isfinite(r_p):
+            pearson_rows.append((cid, len(sub), r_p))
+            cid_series[cid] = sub[col].reset_index(drop=True)
+    if not pearson_rows:
+        return pd.DataFrame(), pd.DataFrame()
+
+    pearson_df = pd.DataFrame(pearson_rows, columns=["cid", "n", "pearson_r"])
+    pearson_df["abs_r"] = pearson_df["pearson_r"].abs()
+    pearson_df = pearson_df.sort_values("abs_r", ascending=False).reset_index(drop=True)
+    pearson_df["rank_raw"] = pearson_df.index + 1
+
+    cid_value_df = pd.concat(
+        {c: cid_series[c] for c in pearson_df["cid"] if c in cid_series},
+        axis=1,
+    )
+    corr_abs = (
+        cid_value_df.corr(method="pearson").abs()
+        if cid_value_df.shape[1] >= 2
+        else pd.DataFrame()
+    )
+
+    # Also produce the dedup columns (kept / redundant_with / mutual_r)
+    # at the default 0.9 threshold so this output matches the schema
+    # written by `cid_vs_yield_scatters` — top_n_ models read `kept`.
+    from geocif.viz.diagnostics import _PEARSON_DEDUP_THRESHOLD
+    kept, pruned = greedy_dedup_by_mutual_corr(
+        pearson_df["cid"].tolist(), corr_abs, _PEARSON_DEDUP_THRESHOLD,
+    )
+    kept_set = set(kept)
+    pearson_df["kept"] = pearson_df["cid"].isin(kept_set)
+    pearson_df["redundant_with"] = pearson_df["cid"].map(
+        lambda c: pruned.get(c, ("", float("nan")))[0]
+    )
+    pearson_df["mutual_r"] = pearson_df["cid"].map(
+        lambda c: pruned.get(c, ("", float("nan")))[1]
+    )
+    pearson_df = pearson_df.set_index("cid")
+    return pearson_df, corr_abs
+
+
+def auto_select_cids(
+    pearson_df: pd.DataFrame,
+    corr: pd.DataFrame,
+    min_count: int,
+    min_abs_r: float,
+    dedup_threshold: float,
+    dedup_max: float,
+    abs_r_floor: float,
+    abs_r_step: float,
+):
+    """At-least-X-above-Y CID selection schema with dedup-first relaxation.
+
+    Walks the policy in three passes:
+      1. Apply ``dedup_threshold`` then keep CIDs with |r| > ``min_abs_r``.
+      2. If short, raise the dedup threshold in 3 equal steps up to
+         ``dedup_max`` (admits more correlated cousins).
+      3. If still short, lower the |r| floor by ``abs_r_step`` ticks down
+         to ``abs_r_floor`` (admits weaker signals).
+
+    Always returns a (selected, relax_log) tuple. ``relax_log`` records
+    every step taken as (step_kind, dedup_threshold, abs_r_floor,
+    n_selected); the last row's step_kind is one of "none", "dedup",
+    "abs_r", or "floor" depending on where the schema terminated.
+
+    Args:
+        pearson_df: indexed by CID name with at least an ``abs_r`` column.
+        corr: square |ρ| matrix indexed by CID name (rows + cols).
+        min_count: X — minimum desired survivors.
+        min_abs_r: Y — initial |r| floor.
+        dedup_threshold: starting ρ for the greedy dedup.
+        dedup_max: ceiling ρ for relaxation (≥ dedup_threshold).
+        abs_r_floor: hard lower bound on the |r| floor; below this we stop.
+        abs_r_step: step size for lowering the |r| floor.
+
+    Returns:
+        (selected_cids, relax_log)
+    """
+    if abs_r_step <= 0:
+        raise ValueError(f"abs_r_step must be > 0, got {abs_r_step}")
+    ranked = list(pearson_df.index)
+    relax_log: list[tuple[str, float, float, int]] = []
+
+    def _survivors_at(rho: float, y: float) -> list[str]:
+        kept, _ = greedy_dedup_by_mutual_corr(ranked, corr, rho)
+        return [c for c in kept if c in pearson_df.index
+                and float(pearson_df.at[c, "abs_r"]) > y]
+
+    rho = dedup_threshold
+    y = min_abs_r
+
+    # Pass 1: strict policy.
+    survivors = _survivors_at(rho, y)
+    if len(survivors) >= min_count:
+        relax_log.append(("none", rho, y, len(survivors)))
+        return survivors, relax_log
+
+    # Pass 2: relax dedup in 3 equal steps up to dedup_max.
+    n_dedup_steps = 3
+    if dedup_max > dedup_threshold:
+        for i in range(1, n_dedup_steps + 1):
+            rho = dedup_threshold + (dedup_max - dedup_threshold) * i / n_dedup_steps
+            survivors = _survivors_at(rho, y)
+            relax_log.append(("dedup", rho, y, len(survivors)))
+            if len(survivors) >= min_count:
+                return survivors, relax_log
+
+    # Pass 3: lower |r| floor in abs_r_step ticks, dedup pinned at rho.
+    while y - abs_r_step >= abs_r_floor - 1e-9:
+        y -= abs_r_step
+        survivors = _survivors_at(rho, y)
+        relax_log.append(("abs_r", rho, y, len(survivors)))
+        if len(survivors) >= min_count:
+            return survivors, relax_log
+
+    # Floor reached. Return whatever survived; caller logs the warning.
+    relax_log.append(("floor", rho, y, len(survivors)))
+    return survivors, relax_log

@@ -1,41 +1,50 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from sage.core.sms_bridge import SAGEMessageBridge, SMSConfig
+from sage.tests.test_cli_capabilities import MOCK_STREAMS
 
 def _run_sms_mock(domain, prompt, tmp_path):
     cfg = SMSConfig(computer_name="TestPC", working_dir=str(tmp_path))
     
-    with patch("sage.core.sms_bridge.SAGEBackend"), \
-         patch("sage.main.SAGEAgent") as MockAgent, \
-         patch("time.sleep"), \
-         patch("subprocess.run") as mock_run:
+    mock_output = MOCK_STREAMS.get(domain, f"Output for {domain}")
+    
+    import tempfile, os
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tf:
+        tf.write(b"fake video")
+        tmp_vid = tf.name
         
-        # Mock subprocess to pretend osascript and sqlite3 succeed instantly
-        mock_run_inst = MagicMock()
-        mock_run_inst.returncode = 0
-        mock_run_inst.stdout = "1"
-        mock_run_inst.stderr = ""
-        mock_run.return_value = mock_run_inst
-
-        bridge = SAGEMessageBridge(cfg, token="fake", api_base="http://fake")
-        
-        mock_agent_inst = MagicMock()
-        mock_agent_inst.run_interactive_loop.return_value = None
-        mock_agent_inst.total_output = "Output ✅"
-        mock_agent_inst.engine.turn_count = 2
-        mock_agent_inst.renderer.get_output_mode.return_value = "normal"
-        MockAgent.return_value = mock_agent_inst
-        
-        # Mock actual file creation to trigger attachment logic
-        import tempfile, os
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tf:
-            tf.write(b"fake video")
-            tmp_vid = tf.name
+    try:
+        if "generated_media.mp4" in mock_output:
+            mock_output = mock_output.replace("generated_media.mp4", tmp_vid)
             
-        try:
+        with patch("sage.core.sms_bridge.SAGEBackend"), \
+             patch("time.sleep"), \
+             patch("subprocess.run") as mock_run:
+            
+            mock_run_inst = MagicMock()
+            mock_run_inst.returncode = 0
+            mock_run_inst.stdout = mock_output
+            mock_run_inst.stderr = ""
+            mock_run.return_value = mock_run_inst
+            
+            bridge = SAGEMessageBridge(cfg, token="fake", api_base="http://fake")
+            
             output = bridge._run_sage_task(f"{prompt} Save to {tmp_vid}", mode="agent")
-            assert "✅" in output or "output" in output.lower() or "error" not in output.lower()
-        finally:
+            
+            assert "error" not in output.lower()
+            
+            # Verify correct command line invocation
+            called_args = mock_run.call_args[0][0]
+            assert any(x in called_args for x in ("run", "ask"))
+            assert "--prompt" in called_args
+            
+            # Verify outputs
+            if domain in ["videos", "images", "audio_files", "music_videos"]:
+                assert tmp_vid in output
+            else:
+                assert f"Output for {domain}" in output
+    finally:
+        if os.path.exists(tmp_vid):
             os.remove(tmp_vid)
 
 

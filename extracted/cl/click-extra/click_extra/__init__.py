@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 # XXX Star import is really badly supported by mypy for now and leads to lots of
 # "Module 'XXX' has no attribute 'YYY'". See: https://github.com/python/mypy/issues/4930
 from click import *
+from click import NoSuchCommand, get_pager_file
 from click._utils import UNSET
 from click.core import ParameterSource
 
@@ -205,6 +206,7 @@ __all__ = [
     "LogLevel",
     "MissingParameter",
     "NoConfigOption",
+    "NoSuchCommand",
     "NoSuchOption",
     "Option",
     "OptionGroup",
@@ -256,6 +258,7 @@ __all__ = [
     "get_current_context",
     "get_current_theme",
     "get_default_theme",
+    "get_pager_file",
     "get_param_spec",
     "get_text_stream",
     "get_tool_config",
@@ -311,13 +314,13 @@ __all__ = [
 """
 
 
-__version__ = "7.16.1"
+__version__ = "7.17.2"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "26a76ca3b422f206e3f7a38fdabc9d113cdf1f23"
+__git_tag_sha__ = "56c0259750c906056531517c9ec67aedece6ba43"
 
 
 def __getattr__(name: str) -> object:

@@ -1354,6 +1354,7 @@ class EvidenceTracker:
 
     verified_files: set[str] = field(default_factory=set)
     failed_files: set[str] = field(default_factory=set)
+    failed_searches: set[str] = field(default_factory=set)
     search_results: list[tuple[str, list[str]]] = field(default_factory=list)
     search_count: int = 0
     empty_search_count: int = 0
@@ -1375,6 +1376,7 @@ class EvidenceTracker:
                 self.verified_files.add(f)
         else:
             self.empty_search_count += 1
+            self.failed_searches.add(pattern)
 
     def record_command(self, command: str, success: bool) -> None:
         """Record a command execution result."""

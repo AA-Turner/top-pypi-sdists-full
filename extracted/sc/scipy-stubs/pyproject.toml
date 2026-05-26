@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.11,<0.12"]
+requires = ["uv_build>=0.11.16,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -9,7 +9,7 @@ source-include = [".mypyignore"] # for scipy-stubs-feedstock
 
 [project]
 name = "scipy-stubs"
-version = "1.17.1.4"
+version = "1.17.1.5"
 description = "Type annotations for SciPy"
 readme = "README.md"
 authors = [
@@ -49,11 +49,11 @@ Changelog = "https://github.com/scipy/scipy-stubs/releases"
 
 [dependency-groups]
 extras = ["scipy-stubs[scipy]"]
-ci = ["packaging>=26.0"]
+ci = ["packaging>=26.2"]
 lint = [
   { include-group = "extras" },
   "dprint-py==0.53.1.0",
-  "ruff==0.15.10",
+  "ruff==0.15.14",
   "sp-repo-review[cli]==2026.4.4",
 ]
 type = [
@@ -61,12 +61,12 @@ type = [
   { include-group = "ci" },
   "array-api-compat==1.14.0", # bundled as `_lib.array_api_compat`
   "pytest==9.0.3", # needed for `_lib._array_api.make_xp_pytest_*`
-  "matplotlib==3.10.8", # needed for `spatial._plotutils` and `stats._fit.FitResult.plot`
-  "basedpyright==1.39.0",
-  "mypy[faster-cache]==1.20.1",
-  "pyrefly==0.60.2",
+  "matplotlib==3.10.9", # needed for `spatial._plotutils` and `stats._fit.FitResult.plot`
+  "basedpyright==1.39.6",
+  "mypy[faster-cache]==2.1.0",
+  "pyrefly==0.63.1",
   "stubdefaulter>=0.1.0",
-  "ty==0.0.29",
+  "ty==0.0.39",
 ]
 dev = [
   { include-group = "lint" },
@@ -114,12 +114,10 @@ default = { extend-ignore-identifiers-re = ['ND|Nd|Theis|TtestResult|SeQUeNCe'] 
 [tool.mypy]
 strict = true
 strict_equality_for_none = true
+allow_redefinition = true
 # required by repo-review
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unreachable = false
-# experimental
-local_partial_types = true
-allow_redefinition_new = true
 
 # pyright / basedpyright
 

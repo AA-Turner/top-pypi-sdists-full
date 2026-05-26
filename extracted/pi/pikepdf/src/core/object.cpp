@@ -1,6 +1,13 @@
 // SPDX-FileCopyrightText: 2022 James R. Barlow
 // SPDX-License-Identifier: MPL-2.0
 
+#include "pikepdf.h"
+#include "qpdf_lock.h"
+#include "utils.h"
+
+#include "namepath.h"
+#include "parsers.h"
+
 #include <cctype>
 #include <cmath>
 #include <cstring>
@@ -16,13 +23,6 @@
 #include <qpdf/QPDFWriter.hh>
 #include <qpdf/QPDFXRefEntry.hh>
 #include <qpdf/Types.h>
-
-#include "pikepdf.h"
-#include "qpdf_lock.h"
-#include "utils.h"
-
-#include "namepath.h"
-#include "parsers.h"
 
 // Encodes Python key to bytes, handling surrogates for invalid UTF-8.
 std::string string_from_key(py::handle key)
@@ -1134,7 +1134,8 @@ void init_object(py::module_ &m)
             &QPDFObjectHandle::getDict,
             &QPDFObjectHandle::replaceDict,
             py::rv_policy::reference_internal)
-        .def("__setattr__",
+        .def(
+            "__setattr__",
             [](QPDFObjectHandle &h, std::string const &name, py::object pyvalue) {
                 QpdfLockGuard lock(h.getOwningQPDF());
                 if (h.isDictionary() || (h.isStream() && name != "stream_dict")) {
@@ -1149,7 +1150,9 @@ void init_object(py::module_ &m)
                 py::object baseobj = py::module_::import_("builtins").attr("object");
                 baseobj.attr("__setattr__")(
                     py::cast(h), py::str(name.c_str()), pyvalue);
-            })
+            },
+            py::arg("name"),
+            py::arg("value").none())
         .def("__delattr__",
             [](QPDFObjectHandle &h, std::string const &name) {
                 QpdfLockGuard lock(h.getOwningQPDF());
@@ -1354,12 +1357,14 @@ void init_object(py::module_ &m)
             py::arg("key"),
             py::arg("value").none())
         .def("wrap_in_array", [](QPDFObjectHandle &h) { return h.wrapInArray(); })
-        .def("append",
+        .def(
+            "append",
             [](QPDFObjectHandle &h, py::object pyitem) {
                 QpdfLockGuard lock(h.getOwningQPDF());
                 auto item = objecthandle_encode(pyitem);
                 return h.appendItem(item);
-            })
+            },
+            py::arg("pyitem").none())
         .def("extend",
             [](QPDFObjectHandle &h, py::iterable iter) {
                 QpdfLockGuard lock(h.getOwningQPDF());

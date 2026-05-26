@@ -123,7 +123,10 @@ def _refresh_token(auth: dict) -> dict:
             "Your SAGE session has expired or been revoked" + detail + ".\n"
             "Please run: sage login"
         )
-    r.raise_for_status()
+    try:
+        r.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"Could not refresh session: {exc}")
     data = r.json()
     new_id_token = data["id_token"]
     auth["id_token"] = new_id_token

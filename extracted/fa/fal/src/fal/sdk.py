@@ -355,7 +355,14 @@ class RunnerState(Enum):
     TERMINATING = "TERMINATING"
     TERMINATED = "TERMINATED"
     IDLE = "IDLE"
-    FAILURE_DELAY = "FAILURE_DELAY"
+    CRASH_BACKOFF = "CRASH_BACKOFF"
+
+    @classmethod
+    def _missing_(cls, value):
+        # Proto wire still uses the legacy name; map it to the renamed member.
+        if value == "FAILURE_DELAY":
+            return cls.CRASH_BACKOFF
+        return None
 
 
 class ReplaceState(Enum):
@@ -807,6 +814,39 @@ class FalServerlessConnection:
             force=force,
         )
 
+    @staticmethod
+    def _image_uses_isolate(
+        environments: list[isolate_proto.EnvironmentDefinition],
+    ) -> bool:
+        for environment in environments:
+            if environment.kind != "container":
+                continue
+
+            image = environment.configuration.fields.get("image")
+            if image is None or image.WhichOneof("kind") != "struct_value":
+                continue
+
+            use_isolate = image.struct_value.fields.get("use_isolate")
+            if (
+                use_isolate is not None
+                and use_isolate.WhichOneof("kind") == "bool_value"
+                and use_isolate.bool_value is False
+            ):
+                return False
+        return True
+
+    @staticmethod
+    def _uses_isolate(
+        function: Callable[..., Any] | None,
+        entrypoint: str | None,
+        environments: list[isolate_proto.EnvironmentDefinition],
+    ) -> bool:
+        return (
+            function is not None
+            or entrypoint is not None
+            or FalServerlessConnection._image_uses_isolate(environments)
+        )
+
     def register(
         self,
         function: Callable[..., ResultT] | None,
@@ -831,7 +871,11 @@ class FalServerlessConnection:
         entrypoint: str | None = None,
         build_environment: bool | None = None,
     ) -> Iterator[RegisterApplicationResult]:
-        if function is None and entrypoint is None:
+        if (
+            function is None
+            and entrypoint is None
+            and self._uses_isolate(function, entrypoint, environments)
+        ):
             raise ValueError("either function or entrypoint must be provided.")
         if function is not None and entrypoint is not None:
             raise ValueError("only one of function or entrypoint can be provided.")
@@ -932,8 +976,7 @@ class FalServerlessConnection:
         )
         if entrypoint is not None:
             request.entrypoint = entrypoint
-        else:
-            assert wrapped_function is not None  # validated at the top
+        elif wrapped_function is not None:
             request.function.MergeFrom(wrapped_function)
         if private_logs is not None:
             request.private_logs = private_logs
@@ -1043,7 +1086,11 @@ class FalServerlessConnection:
         entrypoint: str | None = None,
         build_environment: bool | None = None,
     ) -> Iterator[HostedRunResult[ResultT]]:
-        if function is None and entrypoint is None:
+        if (
+            function is None
+            and entrypoint is None
+            and self._uses_isolate(function, entrypoint, environments)
+        ):
             raise ValueError("either function or entrypoint must be provided.")
         if function is not None and entrypoint is not None:
             raise ValueError("only one of function or entrypoint can be provided.")
@@ -1106,8 +1153,7 @@ class FalServerlessConnection:
         )
         if entrypoint is not None:
             request.entrypoint = entrypoint
-        else:
-            assert wrapped_function is not None  # validated at the top
+        elif wrapped_function is not None:
             request.function.MergeFrom(wrapped_function)
         if setup_function:
             request.setup_func.MergeFrom(

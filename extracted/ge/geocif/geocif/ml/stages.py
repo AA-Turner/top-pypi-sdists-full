@@ -470,6 +470,53 @@ def convert_stage_string(stage_info: Union[str, np.ndarray], to_array: bool = Tr
     return stages
 
 
+def select_single_calendar_period_features(df):
+    """Keep only columns whose stage span is a SINGLE calendar period
+    (start == end). Stricter than ``select_single_time_period_features``,
+    which keeps 2-stage spans like vDTR_7_6 (Jun+Jul).
+
+    Under method = monthly, "single calendar period" = one calendar month.
+    Under biweekly/dekad it's one biweek / one dekad.
+
+    Examples (monthly method):
+        vDTR_7           → keep  (renamed to "vDTR Jul 1-Jul 31")
+        vDTR_7_7         → keep  (same)
+        vDTR_7_6         → drop  (Jun-Jul cumulative span)
+        vDTR_7_6_5       → drop  (May-Jul span)
+        SoilMoist_PS_4   → drop  (Pre-Season aggregate)
+        SoilMoist_IS_3   → drop  (In-Season aggregate)
+        AEF_5            → keep  (spatial embedding, no stage)
+        MEAN_FLDAS_*     → keep  (FLDAS forecasts; handled specially elsewhere)
+        Region, lag_1    → keep  (categorical / lag, no stage suffix)
+
+    Apply PRE-rename — column names still have ``_`` separators so the
+    numeric reasoning is clean.
+    """
+    def is_single_calendar_period(col: str) -> bool:
+        # Whitelisted prefixes that never follow the stage convention
+        if col.startswith("AEF_") or col.startswith("MEAN_FLDAS_"):
+            return True
+        # Pre-Season / In-Season aggregates are multi-period by construction
+        if "_PS_" in col or "_IS_" in col or col.endswith("_PS") or col.endswith("_IS"):
+            return False
+        # Collect trailing numeric tokens (the stage span)
+        parts = col.split("_")
+        trailing_nums = []
+        for p in reversed(parts):
+            if p.isdigit():
+                trailing_nums.append(int(p))
+            else:
+                break
+        if not trailing_nums:
+            # No trailing numbers → not a stage feature. Let the CID/Index
+            # filter decide whether to drop (e.g. Region, lag_1 survive).
+            return True
+        return len(set(trailing_nums)) == 1  # single calendar period iff all equal
+
+    keep = [c for c in df.columns if is_single_calendar_period(c)]
+    return df[keep]
+
+
 def select_single_time_period_features(df):
     """
     Only select those features that span a single time-period

@@ -1,5 +1,7 @@
+# pyright: reportIncompatibleMethodOverride=false
+
 from collections.abc import Callable, Iterable
-from typing import Any, Final, Generic, Literal as L, ParamSpec, Protocol, TypeAlias, overload, type_check_only
+from typing import Any, Final, Literal as L, TypeAlias, overload, type_check_only
 from typing_extensions import TypeVar, override
 
 import numpy as np
@@ -18,8 +20,6 @@ __all__ = [
     "sph_legendre_p_all",
 ]
 
-_Tss = ParamSpec("_Tss")
-_RT = TypeVar("_RT")
 _UFuncT_co = TypeVar("_UFuncT_co", bound=Callable[..., object], default=Callable[..., Any], covariant=True)
 
 _Complex: TypeAlias = np.complex64 | np.complex128  # `clongdouble` isn't supported
@@ -34,9 +34,8 @@ _ToComplex_D: TypeAlias = onp.ToComplex | onp.ToComplexND
 _Float1D: TypeAlias = onp.Array1D[np.float64]
 _Float3D: TypeAlias = onp.Array3D[np.float64]
 _Float1_D: TypeAlias = onp.Array[onp.AtLeast1D[Any], np.float64]
-# https://github.com/microsoft/pyright/issues/11127
-_Float2_D: TypeAlias = onp.Array[onp.AtLeast2D[Any], np.float64]  # pyright: ignore[reportInvalidTypeForm]
-_Float3_D: TypeAlias = onp.Array[onp.AtLeast3D[Any], np.float64]  # pyright: ignore[reportInvalidTypeForm]
+_Float2_D: TypeAlias = onp.Array[onp.AtLeast2D[Any], np.float64]
+_Float3_D: TypeAlias = onp.Array[onp.AtLeast3D[Any], np.float64]
 
 _Complex0D: TypeAlias = onp.Array0D[np.complex128]
 _Complex1D: TypeAlias = onp.Array1D[np.complex128]
@@ -44,9 +43,8 @@ _Complex2D: TypeAlias = onp.Array2D[np.complex128]
 _Complex3D: TypeAlias = onp.Array3D[np.complex128]
 _Complex4D: TypeAlias = onp.ArrayND[np.complex128, tuple[int, int, int, int]]
 _Complex1_D: TypeAlias = onp.Array[onp.AtLeast1D[Any], np.complex128]
-# https://github.com/microsoft/pyright/issues/11127
-_Complex2_D: TypeAlias = onp.Array[onp.AtLeast2D[Any], np.complex128]  # pyright: ignore[reportInvalidTypeForm]
-_Complex3_D: TypeAlias = onp.Array[onp.AtLeast3D[Any], np.complex128]  # pyright: ignore[reportInvalidTypeForm]
+_Complex2_D: TypeAlias = onp.Array[onp.AtLeast2D[Any], np.complex128]
+_Complex3_D: TypeAlias = onp.Array[onp.AtLeast3D[Any], np.complex128]
 
 _Complex01D: TypeAlias = tuple[_Complex0D, _Complex1D]
 _Complex012D: TypeAlias = tuple[_Complex0D, _Complex1D, _Complex2D]
@@ -65,10 +63,27 @@ _D1: TypeAlias = L[True, 1]
 _D2: TypeAlias = L[2]
 _Dn: TypeAlias = L[0, 1, 2] | bool | np.bool_
 
-###
+class MultiUFunc:  # undocumented
+    @property
+    @override
+    # pyrefly: ignore [bad-override]
+    def __doc__(self, /) -> str | None: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
+
+    #
+    def __init__(
+        self,
+        /,
+        ufunc_or_ufuncs: _UFuncT_co | Iterable[_UFuncT_co],
+        name: str | None = None,
+        doc: str | None = None,
+        *,
+        force_complex_output: bool = False,
+        **default_kwargs: object,
+    ) -> None: ...
+    def __call__(self, /, *args: Any, **kwargs: Any) -> Any: ...
 
 @type_check_only
-class _LegendreP(Protocol):
+class _LegendreP(MultiUFunc):
     @overload  # 0-d, 0-d
     def __call__(self, /, n: int, z: onp.ToFloat, *, diff_n: _Dn = 0) -> _Float1D: ...
     @overload  # 0-d, >0-d
@@ -77,7 +92,7 @@ class _LegendreP(Protocol):
     def __call__(self, /, n: onp.ToIntND, z: _ToFloat_D, *, diff_n: _Dn = 0) -> _Float2_D: ...
 
 @type_check_only
-class _LegendrePAll(Protocol):
+class _LegendrePAll(MultiUFunc):
     @overload  # float
     def __call__(self, /, n: int, z: _ToFloat_D, *, diff_n: _Dn = 0) -> _Float3_D: ...
     @overload  # complex
@@ -86,7 +101,7 @@ class _LegendrePAll(Protocol):
     def __call__(self, /, n: int, z: _ToComplex_D, *, diff_n: _Dn = 0) -> _Float3_D | _Complex3_D: ...
 
 @type_check_only
-class _AssocLegendreP(Protocol):
+class _AssocLegendreP(MultiUFunc):
     @overload  # float
     def __call__(
         self, /, n: _ToInt_D, m: _ToInt_D, z: _ToFloat_D, *, branch_cut: _Branch_D = 2, norm: bool = False, diff_n: _Dn = 0
@@ -101,7 +116,7 @@ class _AssocLegendreP(Protocol):
     ) -> _Float1_D | _Complex1_D: ...
 
 @type_check_only
-class _AssocLegendrePAll(Protocol):
+class _AssocLegendrePAll(MultiUFunc):
     @overload  # z: 0-d float
     def __call__(
         self, /, n: int, m: int, z: onp.ToFloat, *, branch_cut: _Branch = 2, norm: bool = False, diff_n: _Dn = 0
@@ -124,7 +139,7 @@ class _AssocLegendrePAll(Protocol):
     ) -> _Float3_D | _Complex3_D: ...
 
 @type_check_only
-class _SphLegendreP(Protocol):
+class _SphLegendreP(MultiUFunc):
     @overload  # 0-d, 0-d, 0-d
     def __call__(self, /, n: int, m: int, theta: onp.ToFloat, *, diff_n: _Dn = 0) -> _Float1D: ...
     @overload  # >=0-d, >=0-d, >0-d
@@ -135,14 +150,14 @@ class _SphLegendreP(Protocol):
     def __call__(self, /, n: onp.ToIntND, m: _ToInt_D, theta: _ToFloat_D, *, diff_n: _Dn = 0) -> _Float2_D: ...
 
 @type_check_only
-class _SphLegendrePAll(Protocol):
+class _SphLegendrePAll(MultiUFunc):
     @overload  # 0-d, 0-d, 0-d
     def __call__(self, /, n: int, m: int, theta: onp.ToFloat, *, diff_n: _Dn = 0) -> _Float3D: ...
     @overload  # 0-d, 0-d, >=0-d
     def __call__(self, /, n: int, m: int, theta: _ToFloat_D, *, diff_n: _Dn = 0) -> _Float3_D: ...
 
 @type_check_only
-class _SphHarmY(Protocol):
+class _SphHarmY(MultiUFunc):
     @overload  # 0-d,     0-d,   0-d,   0-d, diff_n == 0
     def __call__(self, /, n: int, m: int, theta: onp.ToFloat, phi: onp.ToFloat, *, diff_n: _D0 = 0) -> _Complex0D: ...
     @overload  # >=0-d, >=0-d, >=0-d, > 0-d, diff_n == 0
@@ -175,7 +190,7 @@ class _SphHarmY(Protocol):
     def __call__(self, /, n: onp.ToIntND, m: _ToInt_D, theta: _ToFloat_D, phi: _ToFloat_D, *, diff_n: _D2) -> _Complex123_D: ...
 
 @type_check_only
-class _SphHarmYAll(Protocol):
+class _SphHarmYAll(MultiUFunc):
     @overload  # theta: 0-d, phi: 0-d,    diff_n == 0
     def __call__(self, /, n: int, m: int, theta: onp.ToFloat, phi: onp.ToFloat, *, diff_n: _D0 = 0) -> _Complex2D: ...
     @overload  # theta: >=0-d, phi: >0-d, diff_n == 0
@@ -197,35 +212,14 @@ class _SphHarmYAll(Protocol):
 
 ###
 
-class MultiUFunc(Generic[_UFuncT_co]):  # undocumented
-    @property
-    @override
-    # pyrefly: ignore [bad-override]
-    def __doc__(self, /) -> str | None: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleVariableOverride]
+legendre_p: Final[_LegendreP] = ...
+legendre_p_all: Final[_LegendrePAll] = ...
 
-    #
-    def __init__(
-        self,
-        /,
-        ufunc_or_ufuncs: _UFuncT_co | Iterable[_UFuncT_co],
-        name: str | None = None,
-        doc: str | None = None,
-        *,
-        force_complex_output: bool = False,
-        **default_kwargs: object,
-    ) -> None: ...
-    def __call__(self: MultiUFunc[Callable[_Tss, _RT]], /, *args: _Tss.args, **kwargs: _Tss.kwargs) -> _RT: ...
+assoc_legendre_p: Final[_AssocLegendreP] = ...
+assoc_legendre_p_all: Final[_AssocLegendrePAll] = ...
 
-###
+sph_legendre_p: Final[_SphLegendreP] = ...
+sph_legendre_p_all: Final[_SphLegendrePAll] = ...
 
-legendre_p: Final[MultiUFunc[_LegendreP]] = ...
-legendre_p_all: Final[MultiUFunc[_LegendrePAll]] = ...
-
-assoc_legendre_p: Final[MultiUFunc[_AssocLegendreP]] = ...
-assoc_legendre_p_all: Final[MultiUFunc[_AssocLegendrePAll]] = ...
-
-sph_legendre_p: Final[MultiUFunc[_SphLegendreP]] = ...
-sph_legendre_p_all: Final[MultiUFunc[_SphLegendrePAll]] = ...
-
-sph_harm_y: Final[MultiUFunc[_SphHarmY]] = ...
-sph_harm_y_all: Final[MultiUFunc[_SphHarmYAll]] = ...
+sph_harm_y: Final[_SphHarmY] = ...
+sph_harm_y_all: Final[_SphHarmYAll] = ...

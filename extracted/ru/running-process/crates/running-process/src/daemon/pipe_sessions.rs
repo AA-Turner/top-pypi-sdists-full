@@ -11,7 +11,14 @@
 //! attach.
 
 use std::collections::HashMap;
+use std::io;
+#[cfg(unix)]
+use std::os::fd::RawFd;
+#[cfg(windows)]
+use std::os::windows::io::RawHandle;
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -25,6 +32,10 @@ use tracing::debug;
 
 use crate::daemon::pty_sessions::{
     AttachmentEnded, ExitState, OutboundFrame, PendingTermination, RingBuffer, TerminationOutcome,
+};
+use crate::daemon::telemetry::{
+    TeeEvent, TeeFileOptions, TeeHandle, TeeOptions, TeeRawOptions, TeeRegistry, TeeSnapshot,
+    TeeStatus, TeeStream,
 };
 
 pub const DEFAULT_BACKLOG_BYTES: usize = 1_048_576;
@@ -45,6 +56,13 @@ impl PipeStreamSelect {
         match self {
             Self::Stdout => StreamKind::Stdout,
             Self::Stderr => StreamKind::Stderr,
+        }
+    }
+
+    fn to_tee_stream(self) -> TeeStream {
+        match self {
+            Self::Stdout => TeeStream::Stdout,
+            Self::Stderr => TeeStream::Stderr,
         }
     }
 }
@@ -96,6 +114,7 @@ pub struct OwnedPipeSession {
     pub merge_stderr_into_stdout: bool,
     stdout: PipeStreamState,
     stderr: PipeStreamState,
+    tees: TeeRegistry,
     stdin_closed: AtomicBool,
     exit_state: Mutex<Option<ExitState>>,
     pub(crate) pending_termination: Mutex<Option<PendingTermination>>,
@@ -172,6 +191,206 @@ impl OwnedPipeSession {
         self.stream_state(stream).backlog.lock().unwrap().snapshot()
     }
 
+    /// Register a non-blocking bounded ring tee for stdout or stderr.
+    pub fn tee_stream_ring(
+        &self,
+        stream: PipeStreamSelect,
+        capacity: usize,
+    ) -> Result<TeeHandle, PipeAttachError> {
+        if !self.stream_available(stream) {
+            return Err(PipeAttachError::StreamUnavailable);
+        }
+        Ok(self.tees.add_ring(stream.to_tee_stream(), capacity))
+    }
+
+    /// Register a bounded non-blocking channel tee for stdout or stderr.
+    pub fn tee_stream_channel(
+        &self,
+        stream: PipeStreamSelect,
+        capacity: usize,
+    ) -> Result<(TeeHandle, Receiver<TeeEvent>), PipeAttachError> {
+        self.tee_stream_channel_with_options(stream, capacity, TeeOptions::default())
+    }
+
+    /// Register a bounded channel tee for stdout or stderr.
+    pub fn tee_stream_channel_with_options(
+        &self,
+        stream: PipeStreamSelect,
+        capacity: usize,
+        options: TeeOptions,
+    ) -> Result<(TeeHandle, Receiver<TeeEvent>), PipeAttachError> {
+        if !self.stream_available(stream) {
+            return Err(PipeAttachError::StreamUnavailable);
+        }
+        Ok(self
+            .tees
+            .add_channel_with_options(stream.to_tee_stream(), capacity, options))
+    }
+
+    /// Register a callback tee for stdout or stderr.
+    pub fn tee_stream_callback<F>(
+        &self,
+        stream: PipeStreamSelect,
+        capacity: usize,
+        callback: F,
+    ) -> Result<TeeHandle, PipeAttachError>
+    where
+        F: FnMut(TeeEvent) + Send + 'static,
+    {
+        self.tee_stream_callback_with_options(stream, capacity, TeeOptions::default(), callback)
+    }
+
+    /// Register a callback tee for stdout or stderr.
+    pub fn tee_stream_callback_with_options<F>(
+        &self,
+        stream: PipeStreamSelect,
+        capacity: usize,
+        options: TeeOptions,
+        callback: F,
+    ) -> Result<TeeHandle, PipeAttachError>
+    where
+        F: FnMut(TeeEvent) + Send + 'static,
+    {
+        if !self.stream_available(stream) {
+            return Err(PipeAttachError::StreamUnavailable);
+        }
+        Ok(self
+            .tees
+            .add_callback_with_options(stream.to_tee_stream(), capacity, options, callback))
+    }
+
+    /// Register a file path tee for stdout or stderr.
+    pub fn tee_stream_file<P>(
+        &self,
+        stream: PipeStreamSelect,
+        path: P,
+        options: TeeFileOptions,
+    ) -> io::Result<TeeHandle>
+    where
+        P: AsRef<Path>,
+    {
+        if !self.stream_available(stream) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "pipe stream unavailable",
+            ));
+        }
+        self.tees.add_file(stream.to_tee_stream(), path, options)
+    }
+
+    /// Register a raw file descriptor tee for stdout or stderr.
+    #[cfg(unix)]
+    pub fn tee_stream_raw_fd(
+        &self,
+        stream: PipeStreamSelect,
+        fd: RawFd,
+        options: TeeRawOptions,
+    ) -> io::Result<TeeHandle> {
+        if !self.stream_available(stream) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "pipe stream unavailable",
+            ));
+        }
+        Ok(self.tees.add_raw_fd(stream.to_tee_stream(), fd, options))
+    }
+
+    /// Register a raw Windows handle tee for stdout or stderr.
+    #[cfg(windows)]
+    pub fn tee_stream_raw_handle(
+        &self,
+        stream: PipeStreamSelect,
+        handle: RawHandle,
+        options: TeeRawOptions,
+    ) -> io::Result<TeeHandle> {
+        if !self.stream_available(stream) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "pipe stream unavailable",
+            ));
+        }
+        Ok(self
+            .tees
+            .add_raw_handle(stream.to_tee_stream(), handle, options))
+    }
+
+    /// Register a non-blocking bounded ring tee for bytes written to stdin.
+    pub fn tee_input_ring(&self, capacity: usize) -> TeeHandle {
+        self.tees.add_ring(TeeStream::Stdin, capacity)
+    }
+
+    /// Register a bounded non-blocking channel tee for bytes written to stdin.
+    pub fn tee_input_channel(&self, capacity: usize) -> (TeeHandle, Receiver<TeeEvent>) {
+        self.tee_input_channel_with_options(capacity, TeeOptions::default())
+    }
+
+    /// Register a bounded channel tee for bytes written to stdin.
+    pub fn tee_input_channel_with_options(
+        &self,
+        capacity: usize,
+        options: TeeOptions,
+    ) -> (TeeHandle, Receiver<TeeEvent>) {
+        self.tees
+            .add_channel_with_options(TeeStream::Stdin, capacity, options)
+    }
+
+    /// Register a callback tee for bytes written to stdin.
+    pub fn tee_input_callback<F>(&self, capacity: usize, callback: F) -> TeeHandle
+    where
+        F: FnMut(TeeEvent) + Send + 'static,
+    {
+        self.tee_input_callback_with_options(capacity, TeeOptions::default(), callback)
+    }
+
+    /// Register a callback tee for bytes written to stdin.
+    pub fn tee_input_callback_with_options<F>(
+        &self,
+        capacity: usize,
+        options: TeeOptions,
+        callback: F,
+    ) -> TeeHandle
+    where
+        F: FnMut(TeeEvent) + Send + 'static,
+    {
+        self.tees
+            .add_callback_with_options(TeeStream::Stdin, capacity, options, callback)
+    }
+
+    /// Register a file path tee for bytes written to stdin.
+    pub fn tee_input_file<P>(&self, path: P, options: TeeFileOptions) -> io::Result<TeeHandle>
+    where
+        P: AsRef<Path>,
+    {
+        self.tees.add_file(TeeStream::Stdin, path, options)
+    }
+
+    /// Register a raw file descriptor tee for bytes written to stdin.
+    #[cfg(unix)]
+    pub fn tee_input_raw_fd(&self, fd: RawFd, options: TeeRawOptions) -> TeeHandle {
+        self.tees.add_raw_fd(TeeStream::Stdin, fd, options)
+    }
+
+    /// Register a raw Windows handle tee for bytes written to stdin.
+    #[cfg(windows)]
+    pub fn tee_input_raw_handle(&self, handle: RawHandle, options: TeeRawOptions) -> TeeHandle {
+        self.tees.add_raw_handle(TeeStream::Stdin, handle, options)
+    }
+
+    /// Snapshot a ring tee without draining it.
+    pub fn tee_snapshot(&self, handle: TeeHandle) -> Option<TeeSnapshot> {
+        self.tees.snapshot(handle)
+    }
+
+    /// Return current missed-byte status for any tee sink.
+    pub fn tee_status(&self, handle: TeeHandle) -> Option<TeeStatus> {
+        self.tees.status(handle)
+    }
+
+    /// Remove a registered tee sink.
+    pub fn untee(&self, handle: TeeHandle) -> bool {
+        self.tees.remove(handle)
+    }
+
     pub fn notify_attached(&self, stream: PipeStreamSelect, frame: OutboundFrame) {
         if let Some(client) = self.stream_state(stream).attached.lock().unwrap().as_ref() {
             let _ = client.sender.send(frame);
@@ -184,6 +403,7 @@ impl OwnedPipeSession {
         }
         if !bytes.is_empty() {
             self.process.write_stdin_streaming(bytes)?;
+            self.tees.write(TeeStream::Stdin, bytes);
         }
         if close_after {
             self.process.close_stdin()?;
@@ -349,6 +569,7 @@ impl PipeSessionRegistry {
             merge_stderr_into_stdout,
             stdout: PipeStreamState::new(),
             stderr: PipeStreamState::new(),
+            tees: TeeRegistry::new(),
             stdin_closed: AtomicBool::new(false),
             exit_state: Mutex::new(None),
             pending_termination: Mutex::new(None),
@@ -440,6 +661,7 @@ fn reader_loop(session: Arc<OwnedPipeSession>, stream: PipeStreamSelect) {
                 let mut with_lf = bytes;
                 with_lf.push(b'\n');
                 state.backlog.lock().unwrap().push(&with_lf);
+                session.tees.write(stream.to_tee_stream(), &with_lf);
                 if let Some(client) = state.attached.lock().unwrap().as_ref() {
                     for slice in with_lf.chunks(STREAM_CHUNK_BYTES) {
                         let _ = client.sender.send(OutboundFrame::Output(slice.to_vec()));

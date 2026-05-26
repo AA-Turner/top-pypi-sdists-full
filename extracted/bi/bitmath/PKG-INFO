@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bitmath
-Version: 2.1.0
+Version: 2.1.1
 Summary: Pythonic module for representing and manipulating file sizes with different prefix notations (file size unit conversion)
 Project-URL: Homepage, https://bitmath.readthedocs.io/en/latest/index.html
 Project-URL: Bug Tracker, https://github.com/timlnx/bitmath/issues

@@ -655,3 +655,62 @@ def to_put_bucket_notification_type2(rules: [], version: str):
 
             info['Rules'].append(config)
     return info
+
+
+def to_put_bucket_object_set_configuration_request(path_level, enable_default_object_set,
+                                                   custom_delimiter=None, storage_quota=None, qos=None):
+    """构建 PutBucketObjectSetConfiguration 请求体"""
+    data = {
+        'PathLevel': path_level,
+        'EnableDefaultObjectSet': enable_default_object_set,
+    }
+    if custom_delimiter:
+        data['CustomDelimiter'] = custom_delimiter
+    if storage_quota:
+        data['StorageQuota'] = storage_quota
+    if qos:
+        data['Qos'] = qos.to_dict()
+    return data
+
+
+def to_put_object_set_request(object_set_name, tag_set=None):
+    """构建 PutObjectSet / PutObjectSetTagging 请求体"""
+    data = {'ObjectSetName': object_set_name}
+    if tag_set:
+        tags = [{'Key': t.key, 'Value': t.value} for t in tag_set]
+        data['TagSet'] = {'Tags': tags}
+    return data
+
+
+def to_put_object_set_quota_request(storage_quota):
+    """构建 PutObjectSetQuota 请求体"""
+    return {'StorageQuota': storage_quota}
+
+
+def to_put_object_set_quota_by_tag_request(rules):
+    """构建 PutObjectSetQuotaByTag 请求体"""
+    arr = []
+    for rule in rules:
+        item = {}
+        if rule.tag:
+            item['Tag'] = {'Key': rule.tag.key, 'Value': rule.tag.value}
+        # Go 的 ObjectSetQuotaRule.Qos 无 omitempty，始终输出
+        item['Qos'] = rule.qos.to_dict() if rule.qos else {}
+        if rule.storage_quota is not None:
+            item['StorageQuota'] = rule.storage_quota
+        arr.append(item)
+    return {'Rules': arr}
+
+
+def to_put_object_set_lifecycle_by_tag_request(object_set_tag_rules):
+    """构建 PutObjectSetLifecycleByTag 请求体，复用 to_put_bucket_lifecycle"""
+    arr = []
+    for tag_rule in object_set_tag_rules:
+        item = {}
+        if tag_rule.tag:
+            item['Tag'] = {'Key': tag_rule.tag.key, 'Value': tag_rule.tag.value}
+        if tag_rule.rules:
+            lifecycle_data = to_put_bucket_lifecycle(tag_rule.rules)
+            item['Rules'] = lifecycle_data.get('Rules', [])
+        arr.append(item)
+    return {'ObjectSetTagRules': arr}

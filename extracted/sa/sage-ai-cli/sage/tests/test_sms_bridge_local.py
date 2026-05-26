@@ -37,8 +37,9 @@ def test_send_imessage_success(mock_darwin, mock_subprocess):
         mock_result.stdout = "ok\n"
         mock_result.stderr = ""
         mock_subprocess.return_value = mock_result
-
-        assert _send_imessage("test@example.com", "Hello iMessage") is True
+        
+        # Since FDA is missing (_imessage_max_rowid returns -1), SAGE should now return False to trigger fallback
+        assert _send_imessage("test@example.com", "Hello iMessage") is False
         
         # Verify subprocess was called with osascript
         mock_subprocess.assert_called()
@@ -86,14 +87,16 @@ def test_send_via_kdeconnect(mock_subprocess):
 
 def test_send_macos_sms(mock_darwin, mock_subprocess):
     """Test macOS Messages.app SMS relay."""
-    mock_result = MagicMock()
-    mock_result.returncode = 0
-    mock_result.stdout = "ok\n"
-    mock_subprocess.return_value = mock_result
-
-    assert _send_macos_sms("+14085073140", "Hello SMS") is True
+    with patch("sage.core.sms_bridge._imessage_max_rowid", return_value=-1):
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "ok\n"
+        mock_subprocess.return_value = mock_result
     
-    mock_subprocess.assert_called()
-    args = mock_subprocess.call_args[0][0]
-    assert args[0] == "osascript"
-    assert "SMS" in args[2]
+        # Since FDA is missing, it should fail
+        assert _send_macos_sms("+14085073140", "Hello SMS") is False
+        
+        mock_subprocess.assert_called()
+        args = mock_subprocess.call_args[0][0]
+        assert args[0] == "osascript"
+        assert "SMS" in args[2]

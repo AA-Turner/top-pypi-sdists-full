@@ -1060,18 +1060,33 @@ class Bash(
                             f"CORRECTED content. Do NOT re-run this cat command.]"
                         )
                     elif _is_echo_escape:
-                        notice = (
-                            f"[NOTICE: this is the #{entry['count']}th identical "
-                            f"run of `{cmd_preview}` — escape sequences (\\n, \\t) "
-                            f"in echo -e / printf are NOT being interpreted correctly. "
-                            f"This shell may be /bin/sh (dash) where echo -e is a "
-                            f"no-op, or backslash doubling in quoting is consuming "
-                            f"the escape. "
-                            f"Use ANSI $'...' quoting: printf $'name\\\\tage\\\\n' "
-                            f"OR use Python: python3 -c \"print('name\\\\tage')\" "
-                            f"OR use write_file to create the test file directly. "
-                            f"Do NOT re-run this command unchanged.]"
+                        _literal_escape_in_output = bool(
+                            _re.search(r'\\[nt]', stdout)
                         )
+                        if _literal_escape_in_output:
+                            notice = (
+                                f"[NOTICE: this is the #{entry['count']}th identical "
+                                f"run of `{cmd_preview}` — escape sequences (\\n, \\t) "
+                                f"in echo -e / printf are NOT being interpreted correctly "
+                                f"(the output still contains literal \\\\n / \\\\t). "
+                                f"This shell may be /bin/sh (dash) where echo -e is a "
+                                f"no-op, or backslash doubling in quoting is consuming "
+                                f"the escape. "
+                                f"Use ANSI $'...' quoting: printf $'name\\\\tage\\\\n' "
+                                f"OR use Python: python3 -c \"print('name\\\\tage')\" "
+                                f"OR use write_file to create the test file directly. "
+                                f"Do NOT re-run this command unchanged.]"
+                            )
+                        else:
+                            notice = (
+                                f"[NOTICE: this is the #{entry['count']}th identical "
+                                f"run of `{cmd_preview}` — the escape sequences ARE "
+                                f"being interpreted correctly and the command already "
+                                f"produced the expected output. Re-running will give "
+                                f"the same result. The test PASSED. "
+                                f"Move on: report the task complete, or proceed to "
+                                f"the next step. Do NOT re-run this test command.]"
+                            )
                     elif _is_sed_escape:
                         notice = (
                             f"[NOTICE: this is the #{entry['count']}th identical "

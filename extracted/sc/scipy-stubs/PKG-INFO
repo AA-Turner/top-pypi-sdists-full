@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scipy-stubs
-Version: 1.17.1.4
+Version: 1.17.1.5
 Summary: Type annotations for SciPy
 Keywords: scipy,typing,stubs,mypy,pyright,pep484,pep561,scipy-stubs
 Author: Joren Hammudoglu
@@ -375,6 +375,7 @@ derwen.ai ([kglab](https://github.com/DerwenAI/kglab)) |
 [graphix](https://github.com/TeamGraphix/graphix) |
 Gurobi ([gurobi-logtools](https://github.com/Gurobi/gurobi-logtools)) |
 [JAX](https://github.com/jax-ml/jax) |
+[LazySlide](https://github.com/rendeirolab/LazySlide) |
 [LensKit](https://github.com/lenskit/lkpy) |
 [librosa](https://github.com/librosa/librosa) |
 [linearmodels](https://github.com/bashtage/linearmodels) |
@@ -391,6 +392,7 @@ Mozilla ([mozanalysis](https://github.com/mozilla/mozanalysis)) |
 [mypy_primer](https://github.com/hauntsaninja/mypy_primer) |
 [Namer](https://github.com/ThePornDatabase/namer) |
 [NeuroGym](https://github.com/neurogym/neurogym) |
+[Numba](https://github.com/numba/numba) |
 [Optuna](https://github.com/optuna/optuna) |
 [pandapower](https://github.com/e2nIEE/pandapower) |
 Pandas ([pandas](https://github.com/pandas-dev/pandas),
@@ -407,6 +409,7 @@ PyMC ([PyTensor](https://github.com/pymc-devs/pytensor)) |
 scverse ([PyDESeq2](https://github.com/scverse/PyDESeq2), [scanpy](https://github.com/scverse/scanpy)) |
 [SeQUeNCe](https://github.com/sequence-toolbox/SeQUeNCe) |
 [Skore](https://github.com/probabl-ai/skore) |
+[Splipy](https://github.com/SINTEF/Splipy) |
 Theis Lab ([anndata2ri](https://github.com/theislab/anndata2ri)) |
 [TorchFX](https://github.com/matteospanio/torchfx) |
 [TQEC](https://github.com/tqec/tqec) |

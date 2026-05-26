@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "12.0.3"
+version = "13.0.0"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -71,6 +71,7 @@ keywords = [
   "Heroku CI",
   "Hyper",
   "IBM AIX",
+  "IBM i",
   "IBM PowerKVM",
   "IBM z/Architecture (s390x)",
   "illumos",
@@ -261,7 +262,7 @@ extra-platforms = "extra_platforms.__main__:main"
 [project.urls]
 "Changelog" = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 "Documentation" = "https://kdeldycke.github.io/extra-platforms"
-"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v12.0.3"
+"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.0.0"
 "Funding" = "https://github.com/sponsors/kdeldycke"
 "Homepage" = "https://github.com/kdeldycke/extra-platforms"
 "Issues" = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -280,15 +281,18 @@ test = [
   "pytest-randomly>=4",
   # pytest-xdist 3.7.0 is the first version to support Python 3.13.
   "pytest-xdist[psutil]>=3.7",
-  # requests 2.32.5 is the first version to drop support for Python 3.8.
-  "requests>=2.32.5",
+  # requests 2.34 is the first version to ship inline type hints (PEP 561),
+  # which lets us drop the types-requests stub package from the typing group.
+  "requests>=2.34",
   "tomli>=2.3; python_version<'3.11'",
 ]
 docs = [
   # We need Click Extra 7.5 to render Markdown table properly.
   "click-extra[sphinx]>=7.5",
   "furo>=2025.9.25",
-  "myst-parser>=5",
+  # myst-parser 5.1 adds the "alert" extension that renders GitHub-style
+  # callouts (> [!NOTE], …) as admonitions. See docs/conf.py.
+  "myst-parser>=5.1",
   # Required so autodoc can import extra_platforms.pytest and document decorators.
   "pytest>=8.2.1",
   # Provides the repomatic.myst_docstrings Sphinx extension.
@@ -304,9 +308,6 @@ docs = [
   # wcmatch 10.0 fix some inconsistencies in globbing and symlinks.
   "wcmatch>=10",
 ]
-typing = [
-  "types-requests>=2.32.4.20250611",
-]
 
 [tool.uv]
 dependency-groups.docs = { requires-python = ">= 3.12" }
@@ -314,6 +315,7 @@ dependency-groups.docs = { requires-python = ">= 3.12" }
 # Relative dates are fine here because the Renovate lock-maintenance job
 # (sync-uv-lock) reverts uv.lock when the only diff is timestamp noise.
 exclude-newer = "1 week"
+exclude-newer-package = { idna = "0 day" }
 # Package is at root level, not in "./src/".
 build-backend.module-root = ""
 
@@ -392,7 +394,7 @@ run.source = [ "extra_platforms" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "12.0.3"
+current_version = "13.0.0"
 allow_dirty = true
 ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).
@@ -413,9 +415,14 @@ glob = "./**/__init__.py"
 ignore_missing_version = true
 
 [[tool.bumpversion.files]]
-# Update version in [project] section.
+# Update version in [project] section. Anchored to a line start (regex) so it
+# does not also match version-suffixed keys like file-version/product-version
+# under [tool.nuitka], which contain `version = "X"` as a substring (their
+# values collide with the package version on release commits, where the .devN
+# suffix is absent).
 filename = "./pyproject.toml"
-search = 'version = "{current_version}"'
+regex = true
+search = '(?m)^version = "{current_version}"'
 replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
@@ -423,6 +430,17 @@ replace = 'version = "{new_version}"'
 filename = "./pyproject.toml"
 search = "releases/tag/v{current_version}"
 replace = "releases/tag/v{new_version}"
+
+[[tool.bumpversion.files]]
+# Keep the numeric file-version/product-version under [tool.nuitka] in sync,
+# when present. Nuitka rejects PEP 440 .devN suffixes, so the file-specific
+# serialize strips them; the `-version = "` prefix matches both keys at once.
+# ignore_missing_version makes this a no-op in projects without [tool.nuitka].
+filename = "./pyproject.toml"
+ignore_missing_version = true
+serialize = [ "{major}.{minor}.{patch}" ]
+search = '-version = "{current_version}"'
+replace = '-version = "{new_version}"'
 
 [[tool.bumpversion.files]]
 # Update the version in Markdown changelog.

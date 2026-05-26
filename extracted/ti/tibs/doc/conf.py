@@ -11,7 +11,7 @@ year = datetime.datetime.utcfromtimestamp(
 project = "tibs"
 copyright = f"2025 - {year}, Scott Griffiths"
 author = "Scott Griffiths"
-release = "0.7"
+release = "0.8"
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -19,8 +19,6 @@ extensions = [
     'sphinx_autodoc_typehints',
     'sphinxcontrib.mermaid',
 ]
-autoapi_dirs = ["../tibs/"]
-autoapi_add_toctree_entry = False
 
 add_module_names = False
 

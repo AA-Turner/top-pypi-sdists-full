@@ -907,6 +907,7 @@ class AlertsFilterFieldName(pycarlo.lib.types.Enum):
     * `STATUS`None
     * `TABLE`None
     * `TAG`None
+    * `TRIAGE_PRIORITY`None
     * `TYPE`None
     """
 
@@ -931,6 +932,7 @@ class AlertsFilterFieldName(pycarlo.lib.types.Enum):
         "STATUS",
         "TABLE",
         "TAG",
+        "TRIAGE_PRIORITY",
         "TYPE",
     )
 
@@ -2686,6 +2688,34 @@ class EtlType(pycarlo.lib.types.Enum):
         "INFORMATICA",
         "INFORMATICA_V2",
         "MULESOFT",
+    )
+
+
+class EvaluationErrorKind(pycarlo.lib.types.Enum):
+    """Failure category for a (span, template) evaluation pair.
+
+    Enumeration Choices:
+
+    * `CATALOG_INCONSISTENT`None
+    * `INVOCATION_FAILED`None
+    * `MALFORMED_RESPONSE`None
+    * `MODEL_NOT_FOUND`None
+    * `SPAN_REJECTED`None
+    * `SQL_TEMPLATE_UNSUPPORTED`None
+    * `TEMPLATE_NOT_FOUND`None
+    * `TIMEOUT`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "CATALOG_INCONSISTENT",
+        "INVOCATION_FAILED",
+        "MALFORMED_RESPONSE",
+        "MODEL_NOT_FOUND",
+        "SPAN_REJECTED",
+        "SQL_TEMPLATE_UNSUPPORTED",
+        "TEMPLATE_NOT_FOUND",
+        "TIMEOUT",
     )
 
 
@@ -5083,6 +5113,19 @@ class OpenTelemetryStorageType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("S3",)
+
+
+class OutputType(pycarlo.lib.types.Enum):
+    """Score shape produced by an LLM-judge evaluation.
+
+    Enumeration Choices:
+
+    * `BOOLEAN`None
+    * `NUMBER`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("BOOLEAN", "NUMBER")
 
 
 class PerformanceDashboardAccessValidationCode(pycarlo.lib.types.Enum):
@@ -8087,6 +8130,64 @@ class AgentSpanFilterInput(sgqlc.types.Input):
     span_name = sgqlc.types.Field(AgentSpanFieldFilterInput, graphql_name="spanName")
 
 
+class AgentSpanInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "span_id",
+        "trace_id",
+        "parent_span_id",
+        "agent",
+        "workflow",
+        "task",
+        "span_name",
+        "model_name",
+        "start_time",
+        "end_time",
+        "prompts",
+        "completions",
+    )
+    span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
+    """Caller-supplied correlation token. Opaque to the engine; echoed
+    back on every result/error. Must be unique within a single
+    request.
+    """
+
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """Caller-supplied correlation token. Opaque to the engine."""
+
+    parent_span_id = sgqlc.types.Field(String, graphql_name="parentSpanId")
+    """Caller-supplied correlation token. Opaque to the engine."""
+
+    agent = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agent")
+    """Agent identifier; surfaced in engine logs only."""
+
+    workflow = sgqlc.types.Field(String, graphql_name="workflow")
+    """Optional workflow name."""
+
+    task = sgqlc.types.Field(String, graphql_name="task")
+    """Optional task name within the workflow."""
+
+    span_name = sgqlc.types.Field(String, graphql_name="spanName")
+    """Optional span name."""
+
+    model_name = sgqlc.types.Field(String, graphql_name="modelName")
+    """Model identifier that produced this LLM-call span, if any."""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Span start time (UTC)."""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """Span end time (UTC)."""
+
+    prompts = sgqlc.types.Field(JSONString, graphql_name="prompts")
+    """JSON-encoded array of {role, content} objects sent to the model."""
+
+    completions = sgqlc.types.Field(JSONString, graphql_name="completions")
+    """JSON-encoded array of {role, content} objects returned by the
+    model.
+    """
+
+
 class AgenticPlatformConfigInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("is_enabled", "scope", "agentic_scope_uuids", "triage_batch_cadence_minutes")
@@ -9956,6 +10057,29 @@ class EvalSchemaFieldInput(sgqlc.types.Input):
 
     type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="type")
     """Field type (e.g. STRING, NUMBER, BOOLEAN)"""
+
+
+class EvaluationTemplateRef(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("template_name", "alias", "prompt_override", "model_name")
+    template_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="templateName")
+    """Template name; must exist in the transformations catalog."""
+
+    alias = sgqlc.types.Field(String, graphql_name="alias")
+    """Output field name for the resulting score. Defaults to the
+    template's configured score field.
+    """
+
+    prompt_override = sgqlc.types.Field(String, graphql_name="promptOverride")
+    """Replacement prompt body. Uses Jinja-style {{prompts}} /
+    {{completions}} placeholders. Overrides the template's catalog
+    prompt when set.
+    """
+
+    model_name = sgqlc.types.Field(String, graphql_name="modelName")
+    """Override the Bedrock model used for this evaluation. Defaults to
+    the LLMModelCatalog's default Bedrock model.
+    """
 
 
 class ExceptionAttributeInput(sgqlc.types.Input):
@@ -29111,6 +29235,64 @@ class EvaluatedPermissionPolicy(sgqlc.types.Type):
     """
 
 
+class EvaluationError(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("span_id", "template_name", "kind", "message")
+    span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
+    """Echoed from the input span's spanId."""
+
+    template_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="templateName")
+    """Template that failed."""
+
+    kind = sgqlc.types.Field(sgqlc.types.non_null(EvaluationErrorKind), graphql_name="kind")
+    """Failure category."""
+
+    message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
+    """Human-readable failure detail."""
+
+
+class EvaluationResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "span_id",
+        "template_name",
+        "alias",
+        "output_type",
+        "score",
+        "boolean_score",
+        "latency_ms",
+        "reasoning",
+    )
+    span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
+    """Echoed from the input span's spanId."""
+
+    template_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="templateName")
+    """Template applied."""
+
+    alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
+    """Output field name for this score."""
+
+    output_type = sgqlc.types.Field(sgqlc.types.non_null(OutputType), graphql_name="outputType")
+    """Output type of this evaluation."""
+
+    score = sgqlc.types.Field(Float, graphql_name="score")
+    """Numeric score when outputType is 'number'."""
+
+    boolean_score = sgqlc.types.Field(Boolean, graphql_name="booleanScore")
+    """Boolean score when outputType is 'boolean'."""
+
+    latency_ms = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="latencyMs")
+    """End-to-end latency of this (span, template) Bedrock call, in
+    milliseconds.
+    """
+
+    reasoning = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="reasoning")
+    """Brief natural-language explanation for the score, produced by the
+    LLM judge alongside the structured score field. Useful for
+    debugging score drops in baseline diffs.
+    """
+
+
 class EventConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -36330,6 +36512,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_alation_integration",
         "delete_alation_integration",
         "create_or_update_alation_table_flag",
+        "run_agent_evaluations",
         "set_etl_job_generates_alerts_v3",
         "bulk_set_etl_job_generates_alerts_v3",
         "set_etl_job_generates_incidents",
@@ -57338,6 +57521,45 @@ class Mutation(sgqlc.types.Type):
       of the flag.Should only be set for DEPRECATION and WARNING.
     * `flag_type` (`TableFlagType!`): The type of the flag
     * `mcon` (`String!`): The MCON of the table
+    """
+
+    run_agent_evaluations = sgqlc.types.Field(
+        "RunAgentEvaluationsOutput",
+        graphql_name="runAgentEvaluations",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "spans",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanInput))
+                        ),
+                        graphql_name="spans",
+                        default=None,
+                    ),
+                ),
+                (
+                    "evaluation_templates",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(EvaluationTemplateRef))
+                        ),
+                        graphql_name="evaluationTemplates",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Run LLM-as-judge evaluations against a caller-
+    supplied list of agent spans. Each evaluation template is applied
+    to every span in the request.
+
+    Arguments:
+
+    * `spans` (`[AgentSpanInput!]!`): Agent spans to evaluate.
+    * `evaluation_templates` (`[EvaluationTemplateRef!]!`): Evaluation
+      templates to apply to each span.
     """
 
     set_etl_job_generates_alerts_v3 = sgqlc.types.Field(
@@ -83144,6 +83366,24 @@ class RowCountResponseType(sgqlc.types.Type):
 
     approximate = sgqlc.types.Field(Boolean, graphql_name="approximate")
     """Is this an approximate count?"""
+
+
+class RunAgentEvaluationsOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("results", "errors")
+    results = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(EvaluationResult))),
+        graphql_name="results",
+    )
+    """One entry per (span, template) pair that produced a score."""
+
+    errors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(EvaluationError))),
+        graphql_name="errors",
+    )
+    """Per-(span, template) failures. Never null; one entry across
+    results+errors for every requested pair.
+    """
 
 
 class RunCustomRules(sgqlc.types.Type):
