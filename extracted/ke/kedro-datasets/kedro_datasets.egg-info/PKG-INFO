@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro-datasets
-Version: 9.3.0
+Version: 9.4.0
 Summary: Kedro-Datasets is where you can find all of Kedro's data connectors.
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -78,7 +78,7 @@ Provides-Extra: databricks
 Requires-Dist: kedro-datasets[databricks-managedtabledataset]; extra == "databricks"
 Provides-Extra: geopandas-genericdataset
 Requires-Dist: geopandas<2.0,>=0.8.0; extra == "geopandas-genericdataset"
-Requires-Dist: fiona<2.0,>=1.8; extra == "geopandas-genericdataset"
+Requires-Dist: fiona<2.0,>=1.8; python_version < "3.14" and extra == "geopandas-genericdataset"
 Provides-Extra: geopandas
 Requires-Dist: kedro-datasets[geopandas-genericdataset]; extra == "geopandas"
 Provides-Extra: holoviews-holoviewswriter
@@ -90,8 +90,16 @@ Requires-Dist: datasets; extra == "huggingface-hfdataset"
 Requires-Dist: huggingface_hub; extra == "huggingface-hfdataset"
 Provides-Extra: huggingface-hftransformerpipelinedataset
 Requires-Dist: transformers; extra == "huggingface-hftransformerpipelinedataset"
+Provides-Extra: huggingface-arrowdataset
+Requires-Dist: datasets; extra == "huggingface-arrowdataset"
+Provides-Extra: huggingface-csvdataset
+Requires-Dist: datasets; extra == "huggingface-csvdataset"
+Provides-Extra: huggingface-jsondataset
+Requires-Dist: datasets; extra == "huggingface-jsondataset"
+Provides-Extra: huggingface-parquetdataset
+Requires-Dist: datasets; extra == "huggingface-parquetdataset"
 Provides-Extra: huggingface
-Requires-Dist: kedro-datasets[huggingface-hfdataset,huggingface-hftransformerpipelinedataset]; extra == "huggingface"
+Requires-Dist: kedro-datasets[huggingface-arrowdataset,huggingface-csvdataset,huggingface-hfdataset,huggingface-hftransformerpipelinedataset,huggingface-jsondataset,huggingface-parquetdataset]; extra == "huggingface"
 Provides-Extra: ibis-athena
 Requires-Dist: ibis-framework[athena]; extra == "ibis-athena"
 Provides-Extra: ibis-bigquery
@@ -218,7 +226,7 @@ Requires-Dist: SQLAlchemy<3.0,>=1.4; extra == "pandas-sqlquerydataset"
 Requires-Dist: pyodbc>=4.0; extra == "pandas-sqlquerydataset"
 Provides-Extra: pandas-xmldataset
 Requires-Dist: kedro-datasets[pandas-base]; extra == "pandas-xmldataset"
-Requires-Dist: lxml~=5.2; python_version >= "3.13" and extra == "pandas-xmldataset"
+Requires-Dist: lxml<7.0,>=6.1; python_version >= "3.13" and extra == "pandas-xmldataset"
 Requires-Dist: lxml~=4.6; python_version < "3.13" and extra == "pandas-xmldataset"
 Provides-Extra: pandas
 Requires-Dist: kedro-datasets[pandas-csvdataset,pandas-deltatabledataset,pandas-exceldataset,pandas-featherdataset,pandas-gbqquerydataset,pandas-gbqtabledataset,pandas-genericdataset,pandas-hdfdataset,pandas-jsondataset,pandas-parquetdataset,pandas-sqlquerydataset,pandas-sqltabledataset,pandas-xmldataset]; extra == "pandas"
@@ -265,8 +273,8 @@ Requires-Dist: scipy>=1.7.3; extra == "svmlight-svmlightdataset"
 Provides-Extra: svmlight
 Requires-Dist: kedro-datasets[svmlight-svmlightdataset]; extra == "svmlight"
 Provides-Extra: tensorflow-tensorflowmodeldataset
-Requires-Dist: tensorflow~=2.0; (platform_system != "Darwin" or platform_machine != "arm64") and extra == "tensorflow-tensorflowmodeldataset"
-Requires-Dist: tensorflow-macos~=2.0; (platform_system == "Darwin" and platform_machine == "arm64") and extra == "tensorflow-tensorflowmodeldataset"
+Requires-Dist: tensorflow~=2.0; ((platform_system != "Darwin" or platform_machine != "arm64") and python_version < "3.14") and extra == "tensorflow-tensorflowmodeldataset"
+Requires-Dist: tensorflow-macos~=2.0; (platform_system == "Darwin" and platform_machine == "arm64" and python_version < "3.14") and extra == "tensorflow-tensorflowmodeldataset"
 Provides-Extra: tensorflow
 Requires-Dist: kedro-datasets[tensorflow-tensorflowmodeldataset]; extra == "tensorflow"
 Provides-Extra: text-textdataset
@@ -287,36 +295,38 @@ Provides-Extra: darts
 Requires-Dist: kedro-datasets[darts-torch-model-dataset]; extra == "darts"
 Provides-Extra: databricks-externaltabledataset
 Requires-Dist: kedro-datasets[hdfs-base,s3fs-base]; extra == "databricks-externaltabledataset"
-Provides-Extra: langchain-langchainpromptdataset
-Requires-Dist: langchain>=0.3.0; extra == "langchain-langchainpromptdataset"
+Provides-Extra: langchain-promptdataset
+Requires-Dist: langchain>=0.3.0; extra == "langchain-promptdataset"
 Provides-Extra: langchain
-Requires-Dist: kedro-datasets[langchain-chatanthropicdataset,langchain-chatcoheredataset,langchain-chatopenaidataset,langchain-langchainpromptdataset,langchain-openaiembeddingsdataset]; extra == "langchain"
-Provides-Extra: langfuse-langfuseevaluationdataset
-Requires-Dist: langfuse>=3.14.0; extra == "langfuse-langfuseevaluationdataset"
-Provides-Extra: langfuse-langfusepromptdataset
-Requires-Dist: langfuse>=2.0.0; extra == "langfuse-langfusepromptdataset"
-Provides-Extra: langfuse-langfusetracedataset
-Requires-Dist: langfuse>=2.0.0; extra == "langfuse-langfusetracedataset"
-Provides-Extra: langfuse-langfusetracedataset-autogen
-Requires-Dist: langfuse>=2.0.0; extra == "langfuse-langfusetracedataset-autogen"
-Requires-Dist: opentelemetry-sdk; extra == "langfuse-langfusetracedataset-autogen"
-Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "langfuse-langfusetracedataset-autogen"
+Requires-Dist: kedro-datasets[langchain-chatanthropicdataset,langchain-chatcoheredataset,langchain-chatopenaidataset,langchain-openaiembeddingsdataset,langchain-promptdataset]; extra == "langchain"
+Provides-Extra: langfuse-evaluationdataset
+Requires-Dist: langfuse>=3.14.0; extra == "langfuse-evaluationdataset"
+Provides-Extra: langfuse-promptdataset
+Requires-Dist: langfuse>=2.0.0; extra == "langfuse-promptdataset"
+Provides-Extra: langfuse-tracedataset
+Requires-Dist: langfuse>=2.0.0; extra == "langfuse-tracedataset"
+Provides-Extra: langfuse-tracedataset-autogen
+Requires-Dist: langfuse>=2.0.0; extra == "langfuse-tracedataset-autogen"
+Requires-Dist: opentelemetry-sdk; extra == "langfuse-tracedataset-autogen"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "langfuse-tracedataset-autogen"
 Provides-Extra: langfuse
-Requires-Dist: kedro-datasets[langfuse-langfuseevaluationdataset,langfuse-langfusepromptdataset,langfuse-langfusetracedataset,langfuse-langfusetracedataset-autogen]; extra == "langfuse"
+Requires-Dist: kedro-datasets[langfuse-evaluationdataset,langfuse-promptdataset,langfuse-tracedataset,langfuse-tracedataset-autogen]; extra == "langfuse"
 Requires-Dist: openai>=2.3.0; extra == "langfuse"
 Requires-Dist: langchain<1.0,>=0.2.0; extra == "langfuse"
 Provides-Extra: mlrun
 Requires-Dist: mlrun>=1.10.0; extra == "mlrun"
-Provides-Extra: opik-opikpromptdataset
-Requires-Dist: opik>=1.8.0; extra == "opik-opikpromptdataset"
-Provides-Extra: opik-opiktracedataset
-Requires-Dist: opik>=1.8.0; extra == "opik-opiktracedataset"
-Provides-Extra: opik-opiktracedataset-autogen
-Requires-Dist: opik>=1.8.0; extra == "opik-opiktracedataset-autogen"
-Requires-Dist: opentelemetry-sdk; extra == "opik-opiktracedataset-autogen"
-Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "opik-opiktracedataset-autogen"
+Provides-Extra: opik-evaluationdataset
+Requires-Dist: opik>=1.8.0; extra == "opik-evaluationdataset"
+Provides-Extra: opik-promptdataset
+Requires-Dist: opik>=1.8.0; extra == "opik-promptdataset"
+Provides-Extra: opik-tracedataset
+Requires-Dist: opik>=1.8.0; extra == "opik-tracedataset"
+Provides-Extra: opik-tracedataset-autogen
+Requires-Dist: opik>=1.8.0; extra == "opik-tracedataset-autogen"
+Requires-Dist: opentelemetry-sdk; extra == "opik-tracedataset-autogen"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "opik-tracedataset-autogen"
 Provides-Extra: opik
-Requires-Dist: kedro-datasets[opik-opikpromptdataset,opik-opiktracedataset,opik-opiktracedataset-autogen]; extra == "opik"
+Requires-Dist: kedro-datasets[opik-evaluationdataset,opik-promptdataset,opik-tracedataset,opik-tracedataset-autogen]; extra == "opik"
 Requires-Dist: openai>=2.3.0; extra == "opik"
 Requires-Dist: langchain>=0.2.0; extra == "opik"
 Provides-Extra: netcdf-netcdfdataset
@@ -348,7 +358,7 @@ Requires-Dist: numpy; extra == "safetensors-safetensorsdataset"
 Provides-Extra: safetensors
 Requires-Dist: kedro-datasets[safetensors-safetensorsdataset]; extra == "safetensors"
 Provides-Extra: video-videodataset
-Requires-Dist: opencv-python~=4.12.0.88; extra == "video-videodataset"
+Requires-Dist: opencv-python~=4.13.0.92; extra == "video-videodataset"
 Provides-Extra: video
 Requires-Dist: kedro-datasets[video-videodataset]; extra == "video"
 Provides-Extra: docs
@@ -370,7 +380,8 @@ Requires-Dist: accelerate<0.32; extra == "test"
 Requires-Dist: adlfs~=2023.1; extra == "test"
 Requires-Dist: biopython~=1.73; extra == "test"
 Requires-Dist: chromadb>=1.0.0; extra == "test"
-Requires-Dist: cloudpickle~=2.2.1; extra == "test"
+Requires-Dist: cloudpickle~=2.2.1; python_version < "3.14" and extra == "test"
+Requires-Dist: cloudpickle>=3.1.2; python_version >= "3.14" and extra == "test"
 Requires-Dist: compress-pickle[lz4]~=2.1.0; extra == "test"
 Requires-Dist: coverage>=7.2.0; extra == "test"
 Requires-Dist: dask[complete]>=2021.10; extra == "test"
@@ -380,7 +391,7 @@ Requires-Dist: delta-spark<4.1,>=4.0; python_version >= "3.12" and extra == "tes
 Requires-Dist: dill~=0.3.1; extra == "test"
 Requires-Dist: duckdb>=1.4.0; extra == "test"
 Requires-Dist: filelock<4.0,>=3.4.0; extra == "test"
-Requires-Dist: fiona<2.0,>=1.8; extra == "test"
+Requires-Dist: fiona<2.0,>=1.8; python_version < "3.14" and extra == "test"
 Requires-Dist: gcsfs>=2023.1; extra == "test"
 Requires-Dist: geopandas<2.0,>=0.8.0; extra == "test"
 Requires-Dist: hdfs<3.0,>=2.5.8; extra == "test"
@@ -395,7 +406,8 @@ Requires-Dist: langchain-openai>=0.1.7; extra == "test"
 Requires-Dist: langchain-cohere>=0.1.5; extra == "test"
 Requires-Dist: langchain-anthropic>=0.1.13; extra == "test"
 Requires-Dist: langchain-community>=0.2.0; extra == "test"
-Requires-Dist: lxml~=5.0; extra == "test"
+Requires-Dist: lxml~=5.0; python_version < "3.14" and extra == "test"
+Requires-Dist: lxml<7.0,>=6.1; python_version >= "3.14" and extra == "test"
 Requires-Dist: matplotlib<4.0,>=3.5; extra == "test"
 Requires-Dist: memory_profiler<1.0,>=0.50.0; extra == "test"
 Requires-Dist: moto==5.0.0; extra == "test"
@@ -404,7 +416,7 @@ Requires-Dist: openpyxl<4.0,>=3.0.3; extra == "test"
 Requires-Dist: pandas-gbq>=0.12.0; extra == "test"
 Requires-Dist: pandas>=2.0; python_version < "3.11" and extra == "test"
 Requires-Dist: pandas>=3.0; python_version >= "3.11" and extra == "test"
-Requires-Dist: Pillow~=10.0; extra == "test"
+Requires-Dist: Pillow<13.0,>=12.2; extra == "test"
 Requires-Dist: plotly<6.0,>=4.8.0; extra == "test"
 Requires-Dist: polars[deltalake,xlsx2csv]>=1.0; extra == "test"
 Requires-Dist: pyarrow>=1.0; python_version < "3.11" and extra == "test"
@@ -413,7 +425,7 @@ Requires-Dist: pyodbc~=5.0; extra == "test"
 Requires-Dist: pyspark<4.0,>=3.0; python_version < "3.11" and extra == "test"
 Requires-Dist: pyspark<4.0,>=3.4; python_version == "3.11" and extra == "test"
 Requires-Dist: pyspark<4.1,>=4.0; python_version >= "3.12" and extra == "test"
-Requires-Dist: pytest-cov~=3.0; extra == "test"
+Requires-Dist: pytest-cov<8.0,>=7.0; extra == "test"
 Requires-Dist: pytest-mock<2.0,>=1.7.1; extra == "test"
 Requires-Dist: pytest-xdist[psutil]~=2.2.1; extra == "test"
 Requires-Dist: pytest~=7.2; extra == "test"
@@ -431,8 +443,8 @@ Requires-Dist: packaging; extra == "test"
 Requires-Dist: pyOpenSSL>=22.1.0; extra == "test"
 Requires-Dist: SQLAlchemy>=1.2; extra == "test"
 Requires-Dist: tables>=3.6; extra == "test"
-Requires-Dist: tensorflow-macos~=2.0; (platform_system == "Darwin" and platform_machine == "arm64") and extra == "test"
-Requires-Dist: tensorflow~=2.0; (platform_system != "Darwin" or platform_machine != "arm64") and extra == "test"
+Requires-Dist: tensorflow-macos~=2.0; (platform_system == "Darwin" and platform_machine == "arm64" and python_version < "3.14") and extra == "test"
+Requires-Dist: tensorflow~=2.0; ((platform_system != "Darwin" or platform_machine != "arm64") and python_version < "3.14") and extra == "test"
 Requires-Dist: triad<2.0,>=0.6.7; extra == "test"
 Requires-Dist: xarray>=2023.1.0; extra == "test"
 Requires-Dist: xlsxwriter~=1.0; extra == "test"
@@ -466,7 +478,7 @@ Requires-Dist: netcdf4>=1.6.4; extra == "experimental"
 Requires-Dist: xarray>=2023.1.0; extra == "experimental"
 Requires-Dist: rioxarray; extra == "experimental"
 Requires-Dist: torch; extra == "experimental"
-Requires-Dist: opencv-python~=4.12.0.88; extra == "experimental"
+Requires-Dist: opencv-python~=4.13.0.92; extra == "experimental"
 Requires-Dist: prophet>=1.1.5; extra == "experimental"
 Requires-Dist: opik; extra == "experimental"
 Requires-Dist: optuna; extra == "experimental"
@@ -487,14 +499,14 @@ Requires-Dist: netcdf4<1.7.4,>=1.6.4; extra == "experimental-test"
 Requires-Dist: xarray>=2023.1.0; extra == "experimental-test"
 Requires-Dist: rioxarray; extra == "experimental-test"
 Requires-Dist: torch; extra == "experimental-test"
-Requires-Dist: opencv-python~=4.12.0.88; extra == "experimental-test"
+Requires-Dist: opencv-python~=4.13.0.92; extra == "experimental-test"
 Requires-Dist: prophet>=1.1.5; extra == "experimental-test"
 Requires-Dist: opik; extra == "experimental-test"
 Requires-Dist: optuna; extra == "experimental-test"
 Requires-Dist: pyspark<4.0,>=3.0; python_version < "3.11" and extra == "experimental-test"
 Requires-Dist: pyspark<4.0,>=3.4; python_version == "3.11" and extra == "experimental-test"
 Requires-Dist: pyspark>=4.0; python_version >= "3.12" and extra == "experimental-test"
-Requires-Dist: pytest-cov~=3.0; extra == "experimental-test"
+Requires-Dist: pytest-cov<8.0,>=7.0; extra == "experimental-test"
 Requires-Dist: pytest-mock<2.0,>=1.7.1; extra == "experimental-test"
 Requires-Dist: pytest-xdist[psutil]~=2.2.1; extra == "experimental-test"
 Requires-Dist: pytest~=7.2; extra == "experimental-test"
@@ -505,6 +517,7 @@ Requires-Dist: gcsfs>=2023.1; extra == "experimental-test"
 Requires-Dist: s3fs>=2021.04; extra == "experimental-test"
 Requires-Dist: reportlab>=3.6.0; extra == "experimental-test"
 Requires-Dist: chromadb>=1.0.0; extra == "experimental-test"
+Requires-Dist: litellm<1.80.12; python_version >= "3.14" and extra == "experimental-test"
 Requires-Dist: dask[complete]>=2021.10; extra == "experimental-test"
 Provides-Extra: all
 Requires-Dist: kedro-datasets[docs,lint,test]; extra == "all"
@@ -514,7 +527,7 @@ Requires-Dist: kedro-datasets[docs,lint,test]; extra == "all"
 <!-- Note that the contents of this file are also used in the documentation, see docs/source/index.md -->
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/kedro-org/kedro-plugins/blob/main/LICENSE.md)
-[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/kedro-datasets/)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://pypi.org/project/kedro-datasets/)
 [![PyPI Version](https://badge.fury.io/py/kedro-datasets.svg)](https://pypi.org/project/kedro-datasets/)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-black.svg)](https://github.com/ambv/black)
 

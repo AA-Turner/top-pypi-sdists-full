@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keepercommander
-Version: 18.0.3
+Version: 18.0.4
 Summary: Keeper Commander for Python 3
 Home-page: https://keepersecurity.com/
 Download-URL: https://github.com/Keeper-Security/Commander/releases
@@ -42,6 +42,7 @@ Requires-Dist: pyngrok
 Requires-Dist: pyperclip
 Requires-Dist: python-dotenv
 Requires-Dist: keyring
+Requires-Dist: platformdirs
 Requires-Dist: requests>=2.31.0
 Requires-Dist: tabulate
 Requires-Dist: websockets

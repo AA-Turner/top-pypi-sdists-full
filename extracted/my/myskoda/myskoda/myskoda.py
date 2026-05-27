@@ -46,6 +46,7 @@ from .__version__ import __version__ as version
 from .auth.authorization import Authorization
 from .const import (
     BASE_URL_SKODA,
+    CACHE_CLOCK_SKEW_TOLERANCE_IN_HOURS,
     CACHE_USER_ENDPOINT_IN_HOURS,
     CACHE_VEHICLE_HEALTH_IN_HOURS,
     CLIENT_ID,
@@ -68,7 +69,7 @@ from .models.auxiliary_heating import (
     AuxiliaryHeatingTimer,
 )
 from .models.charging import ChargeMode, Charging
-from .models.charging_history import ChargingHistory, ChargingSession
+from .models.charging_history import ChargingHistory, ChargingSession, ChargingStatistics
 from .models.chargingprofiles import ChargingProfiles
 from .models.common import Vin
 from .models.departure import DepartureInfo, DepartureTimer
@@ -110,7 +111,7 @@ from .models.vehicle_connection_status import VehicleConnectionStatus
 from .models.vehicle_info import VehicleEquipment, VehicleFullInfo, VehicleInfo, VehicleRenders
 from .models.widget import WidgetResponse
 from .mqtt import MySkodaMqttClient
-from .rest_api import GetEndpointResult, RestApi
+from .rest_api import GetEndpointResult, OffsetType, RestApi
 from .utils import async_debounce
 from .vehicle import Vehicle
 
@@ -387,6 +388,15 @@ class MySkoda:
 
         return total_sessions
 
+    async def get_charging_statistics(
+        self,
+        vin: Vin,
+        start: datetime,
+        end: datetime,
+    ) -> ChargingStatistics:
+        """Retrieve charging session statistics from the cariad endpoint."""
+        return (await self.rest_api.get_charging_statistics(vin, start, end)).result
+
     async def get_status(self, vin: Vin, anonymize: bool = False) -> Status:
         """Retrieve the current status for the specified vehicle."""
         return (await self.rest_api.get_status(vin, anonymize=anonymize)).result
@@ -428,9 +438,27 @@ class MySkoda:
             )
         ).result
 
-    async def get_trip_statistics(self, vin: Vin, anonymize: bool = False) -> TripStatistics:
-        """Retrieve statistics about past trips."""
-        return (await self.rest_api.get_trip_statistics(vin, anonymize=anonymize)).result
+    async def get_trip_statistics(
+        self,
+        vin: Vin,
+        anonymize: bool = False,
+        offset: int = 0,
+        offset_type: OffsetType = OffsetType.WEEK,
+    ) -> TripStatistics:
+        """Retrieve statistics about past trips.
+
+        Args:
+            vin: vehicle VIN
+            offset_type: Type of period — WEEK or MONTH.
+            offset: Which period to fetch. 0 = most recent, 1 = one period back,
+                2 = two periods back, etc.
+            anonymize: set to true if personal information should be removed from result
+        """
+        return (
+            await self.rest_api.get_trip_statistics(
+                vin, offset=offset, offset_type=offset_type, anonymize=anonymize
+            )
+        ).result
 
     async def get_maintenance(self, vin: Vin, anonymize: bool = False) -> Maintenance:
         """Retrieve maintenance report, settings and history."""
@@ -857,9 +885,17 @@ class MySkoda:
             self._notify_callbacks(vin)
 
     @async_debounce(immediate=True)
-    async def refresh_trip_statistics(self, vin: Vin, notify: bool = True) -> None:
+    async def refresh_trip_statistics(
+        self,
+        vin: Vin,
+        notify: bool = True,
+        offset: int = 0,
+        offset_type: OffsetType = OffsetType.WEEK,
+    ) -> None:
         """Refresh trip_statistics data for the provided Vin."""
-        self._vehicles[vin].trip_statistics = await self.get_trip_statistics(vin)
+        self._vehicles[vin].trip_statistics = await self.get_trip_statistics(
+            vin, offset=offset, offset_type=offset_type
+        )
         if notify:
             self._notify_callbacks(vin)
 
@@ -1178,13 +1214,21 @@ class MySkoda:
         event: ServiceEventChangeSoc,
     ) -> None:
         """Update charging with the event_data when the event is newer."""
-        if charging.car_captured_timestamp and event.timestamp <= charging.car_captured_timestamp:
-            _LOGGER.debug(
-                "Ignoring stale charging MQTT event: event timestamp %s, charging snapshot %s",
-                event.timestamp,
-                charging.car_captured_timestamp,
-            )
-            return
+        if charging.car_captured_timestamp:
+            threshold = datetime.now(UTC) + timedelta(hours=CACHE_CLOCK_SKEW_TOLERANCE_IN_HOURS)
+            if charging.car_captured_timestamp > threshold:
+                _LOGGER.warning(
+                    "Timestamp %s is more than %sh ahead; possible vehicle clock issue.",
+                    charging.car_captured_timestamp,
+                    CACHE_CLOCK_SKEW_TOLERANCE_IN_HOURS,
+                )
+            elif event.timestamp <= charging.car_captured_timestamp:
+                _LOGGER.debug(
+                    "Ignoring stale charging MQTT event: event timestamp %s, charging snapshot %s",
+                    event.timestamp,
+                    charging.car_captured_timestamp,
+                )
+                return
 
         if not (charging_status := charging.status):
             return
@@ -1206,7 +1250,14 @@ class MySkoda:
         event: ServiceEventChangeSoc,
     ) -> None:
         """Update driving_range with the event_data when the event is newer."""
-        if event.timestamp <= driving_range.car_captured_timestamp:
+        threshold = datetime.now(UTC) + timedelta(hours=CACHE_CLOCK_SKEW_TOLERANCE_IN_HOURS)
+        if driving_range.car_captured_timestamp > threshold:
+            _LOGGER.warning(
+                "Timestamp %s is more than %sh ahead; possible vehicle clock issue.",
+                driving_range.car_captured_timestamp,
+                CACHE_CLOCK_SKEW_TOLERANCE_IN_HOURS,
+            )
+        elif event.timestamp <= driving_range.car_captured_timestamp:
             _LOGGER.debug(
                 "Ignoring stale driving-range MQTT event: "
                 "event timestamp %s, driving-range snapshot %s",

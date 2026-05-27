@@ -1,18 +1,18 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: visions
-Version: 0.8.1
+Version: 0.8.2
 Summary: Visions
 Author-email: Dylan Profiler <visions@ictopzee.nl>
-License: BSD License
+License-Expression: BSD-4-Clause
 Project-URL: Repository, https://github.com/dylan-profiler/visions
 Project-URL: Documentation, https://dylan-profiler.github.io/visions
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.23.2
@@ -58,6 +58,7 @@ Provides-Extra: dev
 Requires-Dist: visions[plotting,testing]; extra == "dev"
 Provides-Extra: all
 Requires-Dist: visions[plotting,type_geometry,type_image_path]; extra == "all"
+Dynamic: license-file
 
 <div align="center">
   <img src="images/visions.png" width="600px"><br>

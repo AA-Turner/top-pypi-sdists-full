@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyPDFForm
-Version: 5.1.0
+Version: 5.1.1
 Summary: The Python library & CLI for PDF forms.
 Author: Jinge Li
 License-Expression: MIT
@@ -26,16 +26,16 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cryptography<49.0.0,>=48.0.0
 Requires-Dist: fonttools<5.0.0,>=4.63.0
-Requires-Dist: pikepdf<11.0.0,>=10.5.1
+Requires-Dist: pikepdf<11.0.0,>=10.7.2
 Requires-Dist: pillow<13.0.0,>=12.2.0
-Requires-Dist: pypdf<7.0.0,>=6.11.0
+Requires-Dist: pypdf<7.0.0,>=6.12.2
 Requires-Dist: reportlab<5.0.0,>=4.5.1
 Provides-Extra: cli
-Requires-Dist: typer<1.0.0,>=0.25.1; extra == "cli"
+Requires-Dist: typer<1.0.0,>=0.26.1; extra == "cli"
 Requires-Dist: jsonschema<5.0.0,>=4.26.0; extra == "cli"
 Provides-Extra: dev
 Requires-Dist: black<27.0.0,>=26.5.1; extra == "dev"
-Requires-Dist: coverage<8.0.0,>=7.14.0; extra == "dev"
+Requires-Dist: coverage<8.0.0,>=7.14.1; extra == "dev"
 Requires-Dist: isort<9.0.0,>=8.0.1; extra == "dev"
 Requires-Dist: mike<3.0.0,>=2.2.0; extra == "dev"
 Requires-Dist: mkdocs<2.0.0,>=1.6.1; extra == "dev"
@@ -45,7 +45,7 @@ Requires-Dist: pylint<5.0.0,>=4.0.5; extra == "dev"
 Requires-Dist: pyright<2.0.0,>=1.1.409; extra == "dev"
 Requires-Dist: pytest<10.0.0,>=9.0.3; extra == "dev"
 Requires-Dist: requests<3.0.0,>=2.34.2; extra == "dev"
-Requires-Dist: ruff<1.0.0,>=0.15.13; extra == "dev"
+Requires-Dist: ruff<1.0.0,>=0.15.14; extra == "dev"
 Dynamic: license-file
 
 <p align="center"><img src="https://github.com/chinapandaman/PyPDFForm/raw/master/docs/img/logo.png"></p>

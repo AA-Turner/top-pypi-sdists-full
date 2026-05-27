@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
+# DEPRECATED: This barrel re-export file is frozen. No new symbols should be added.
+# Import directly from submodules instead: e.g., from omnibase_spi.protocols.node.protocol_node import ...
+# See OMN-11831 for migration context.
+
 """
 ONEX Protocol Interfaces
 
@@ -369,11 +373,13 @@ from omnibase_spi.protocols.primitive_effect_executor import (
     ProtocolPrimitiveEffectExecutorV2,
 )
 
-# Projections protocols (5 protocols) - Projection persistence and state reading
+# Projections protocols (7 protocols) - Projection persistence and state reading
 # Projector writes projections with ordering; Reader queries materialized state
 from omnibase_spi.protocols.projections import (
     ProtocolBatchPersistResult,
     ProtocolPersistResult,
+    ProtocolProjectionDatabase,
+    ProtocolProjectionDatabaseSync,
     ProtocolProjectionReader,
     ProtocolProjector,
     ProtocolSequenceInfo,
@@ -654,6 +660,8 @@ __all__ = [
     "ProtocolPersistResult",
     "ProtocolPrimitiveEffectExecutor",
     "ProtocolPrimitiveEffectExecutorV2",
+    "ProtocolProjectionDatabase",
+    "ProtocolProjectionDatabaseSync",
     "ProtocolProjectionReader",
     "ProtocolProjector",
     "ProtocolProjectorLoader",

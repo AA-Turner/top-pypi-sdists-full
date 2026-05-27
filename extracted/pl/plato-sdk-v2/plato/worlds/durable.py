@@ -38,7 +38,7 @@ import re
 import string
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, ClassVar, Generic, TypeVar, Union, cast, get_args, get_origin, get_type_hints
 
@@ -637,7 +637,7 @@ async def _report_stage_completed(
             status="completed",
             started_at=started_at,
             output_type=output_type,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
             elapsed_seconds=elapsed,
             base_path=base_path,
             metadata=metadata,
@@ -659,7 +659,7 @@ async def _report_stage_failed(
             status="failed",
             started_at=started_at,
             output_type=output_type,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
             base_path=base_path,
             error_message=error[:2000],
         )
@@ -691,7 +691,7 @@ def _report_stage_sync(
             status="completed",
             started_at=started_at,
             output_type=output_type,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
             elapsed_seconds=elapsed,
             base_path=base_path,
             trace_id=trace_id,
@@ -781,7 +781,7 @@ def durable(
                 from plato.worlds.stage_tracking import _current_stage_public_id, serialize_args
 
                 with _start_otel_span(fn.__name__):
-                    stage_started_at = datetime.now(timezone.utc)
+                    stage_started_at = datetime.now(UTC)
                     stage_public_id = await _report_stage_started(
                         fn.__name__,
                         return_type.__name__,
@@ -857,7 +857,7 @@ def durable(
                 from plato.worlds.stage_tracking import serialize_args
 
                 with _start_otel_span(fn.__name__):
-                    stage_started_at = datetime.now(timezone.utc)
+                    stage_started_at = datetime.now(UTC)
                     trace_id, span_id = _get_otel_ids()
                     _report_sync(
                         stage_name=fn.__name__,

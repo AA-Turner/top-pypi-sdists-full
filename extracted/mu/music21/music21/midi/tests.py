@@ -1316,9 +1316,9 @@ class Test(unittest.TestCase):
         # part.show('midi')
 
         mf = streamToMidiFile(part)
-        match = [(0, 'KEY_SIGNATURE', None),  # Conductor track
+        match = [(0, 'SET_TEMPO', None),
+                 (0, 'KEY_SIGNATURE', None),  # Conductor track
                  (0, 'TIME_SIGNATURE', None),
-                 (0, 'SET_TEMPO', None),
                  (10080, 'END_OF_TRACK', None),
                  (0, 'SEQUENCE_TRACK_NAME', None),  # Music track
                  (0, 'PITCH_BEND', None),
@@ -1607,6 +1607,27 @@ class Test(unittest.TestCase):
                 m = converter.parseData(b, fmt='midi', encoding=encoding)
                 for n in m.flatten().notes:
                     self.assertEqual(n.lyric, lyric)
+
+    def testAddEndDelay(self):
+        from music21 import defaults
+        s = stream.Stream()
+        s.repeatAppend(note.Note('C4', quarterLength=1.0), 2)
+
+        # default keeps the trailing rest
+        mfDefault = streamToMidiFile(s)
+        endDtDefault = mfDefault.tracks[-1].events[-2]
+        self.assertEqual(endDtDefault.time, defaults.ticksAtStart)
+
+        # addEndDelay=False removes the trailing rest
+        mfNoDelay = streamToMidiFile(s, addEndDelay=False)
+        endDtNoDelay = mfNoDelay.tracks[-1].events[-2]
+        self.assertEqual(endDtNoDelay.time, 0)
+
+    def testGetEndEventsAddEndDelay(self):
+        from music21 import defaults
+        from music21.midi.translate import getEndEvents
+        self.assertEqual(getEndEvents()[0].time, defaults.ticksAtStart)
+        self.assertEqual(getEndEvents(addEndDelay=False)[0].time, 0)
 
 
 # ------------------------------------------------------------------------------

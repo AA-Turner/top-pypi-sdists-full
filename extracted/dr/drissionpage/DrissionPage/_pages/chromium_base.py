@@ -12,7 +12,7 @@ from re import findall
 from threading import Thread
 from time import perf_counter, sleep
 
-from DataRecorder.tools import make_valid_name
+from DrissionRecord.tools import make_valid_name
 
 from .._base.base import BasePage
 from .._elements.chromium_element import run_js, make_chromium_eles
@@ -116,8 +116,8 @@ class ChromiumBase(BasePage):
         self._driver.set_callback('Page.javascriptDialogOpening', self._on_alert_open, immediate=True)
         self._driver.set_callback('Page.javascriptDialogClosed', self._on_alert_close)
 
-        self._driver.run('DOM.enable')
         self._driver.run('Page.enable')
+        self._driver.run('DOM.enable')
         self._driver.run('Emulation.setFocusEmulationEnabled', enabled=True)
 
         r = self._run_cdp('Page.getFrameTree')

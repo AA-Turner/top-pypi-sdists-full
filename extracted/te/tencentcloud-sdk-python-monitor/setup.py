@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-monitor',
-    install_requires=["tencentcloud-sdk-python-common>=3.1.100,<4.0.0"],
+    install_requires=["tencentcloud-sdk-python-common>=3.1.102,<4.0.0"],
     
     version=tencentcloud.__version__,
     description='Tencent Cloud Monitor SDK for Python',

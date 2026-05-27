@@ -176,7 +176,7 @@ def calculate_envelope_squared(field, device=None):
     else:
         return calculate_envelope_squared_cpu(field)
 
-def getPattern(pathFile):
+def get_pattern(pathFile):
     """
     Extract the pattern from a file path.
 
@@ -218,7 +218,7 @@ def detect_space_0_and_space_1(hex_string):
 
     return space_0, space_1
 
-def getAngle(pathFile):
+def get_angle(pathFile):
     """
     Extract the angle from a file path.
 
@@ -242,7 +242,7 @@ def getAngle(pathFile):
         print(f"Error reading angle from file: {e}")
         return None
 
-def getFrequency(fileName, num_elements, dx):
+def get_frequency(fileName, num_elements, dx):
     """
     Calculate the spatial frequency from a file name.
 

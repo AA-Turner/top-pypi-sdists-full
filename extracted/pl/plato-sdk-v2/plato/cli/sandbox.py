@@ -338,6 +338,11 @@ def sandbox_start(
     dataset: str = typer.Option("base", "--dataset", "-d", help="Dataset we are using"),
     connect_network: bool = typer.Option(True, "--network/--no-network", help="Connect WireGuard to the sandbox"),
     timeout: int = typer.Option(1800, "--timeout", "-t", help="VM lifetime in seconds"),
+    provider: str | None = typer.Option(
+        None,
+        "--provider",
+        help="VM provider for blank/config modes: firecracker or qemu. Use qemu for Windows VMs.",
+    ),
     json_output: JsonArg = False,
     verbose: VerboseArg = False,
 ):
@@ -351,6 +356,7 @@ def sandbox_start(
         plato sandbox start -c                   # From plato-config.yml
         plato sandbox start -a <uuid>            # From artifact
         plato sandbox start -b --cpus 4          # Blank VM
+        plato sandbox start -b --provider qemu   # Blank Windows VM
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
         out.console.print("Starting sandbox...")
@@ -362,6 +368,7 @@ def sandbox_start(
                 dataset=dataset,
                 connect_network=connect_network,
                 timeout=timeout,
+                provider=provider,
             )
         elif blank:
             state = client.start(
@@ -373,6 +380,7 @@ def sandbox_start(
                 disk=disk,
                 connect_network=connect_network,
                 timeout=timeout,
+                provider=provider,
             )
         elif artifact_id:
             state = client.start(
@@ -381,6 +389,7 @@ def sandbox_start(
                 dataset=dataset,
                 connect_network=connect_network,
                 timeout=timeout,
+                provider=provider,
             )
         elif from_config:
             state = client.start(
@@ -388,6 +397,7 @@ def sandbox_start(
                 dataset=dataset,
                 connect_network=connect_network,
                 timeout=timeout,
+                provider=provider,
             )
         else:
             out.error("Must specify a mode: --blank, --artifact-id, --simulator, or --from-config.")

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "massive"
-version = "2.7.0"
+version = "2.8.0"
 description = "Official Massive (formerly Polygon.io) REST and Websocket client."
 authors = ["massive.com"]
 license = "MIT"

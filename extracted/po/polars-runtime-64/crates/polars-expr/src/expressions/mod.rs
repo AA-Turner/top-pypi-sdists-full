@@ -12,7 +12,6 @@ mod field;
 mod filter;
 mod gather;
 mod group_iter;
-mod len;
 mod literal;
 #[cfg(feature = "dynamic_group_by")]
 mod rolling;
@@ -43,7 +42,6 @@ pub(crate) use eval::*;
 pub(crate) use field::*;
 pub(crate) use filter::*;
 pub(crate) use gather::*;
-pub(crate) use len::*;
 pub(crate) use literal::*;
 use polars_core::prelude::*;
 use polars_io::predicates::PhysicalIoExpr;
@@ -268,7 +266,7 @@ impl<'a> AggregationContext<'a> {
         self.state.rename(name);
     }
 
-    pub(crate) fn from_agg_state(
+    fn from_agg_state(
         agg_state: AggState,
         groups: Cow<'a, GroupPositions>,
     ) -> AggregationContext<'a> {
@@ -653,7 +651,7 @@ impl<'a> AggregationContext<'a> {
 
     /// Fixes groups for `AggregatedScalar` and `LiteralScalar` so that they point to valid
     /// data elements in the `AggState` values.
-    pub(crate) fn set_groups_for_undefined_agg_states(&mut self) {
+    fn set_groups_for_undefined_agg_states(&mut self) {
         match &self.state {
             AggState::AggregatedList(_) | AggState::NotAggregated(_) => {},
             AggState::AggregatedScalar(c) => {
@@ -662,7 +660,6 @@ impl<'a> AggregationContext<'a> {
                     let groups = (0..c.len() as IdxSize).map(|i| [i, 1]).collect();
                     GroupsType::new_slice(groups, false, true).into_sliceable()
                 });
-                self.set_original_len(false);
             },
             AggState::LiteralScalar(c) => {
                 assert_eq!(c.len(), 1);
@@ -671,7 +668,6 @@ impl<'a> AggregationContext<'a> {
                     let groups = vec![[0, 1]; self.groups.len()];
                     GroupsType::new_slice(groups, true, true).into_sliceable()
                 });
-                self.set_original_len(false);
             },
         }
     }

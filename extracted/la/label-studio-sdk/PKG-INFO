@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: label-studio-sdk
-Version: 2.0.22
+Version: 2.0.23
 Summary: 
 Requires-Python: >=3.10,<4
 Classifier: Intended Audience :: Developers
@@ -43,6 +43,7 @@ Requires-Dist: typer (>=0.12.3)
 Requires-Dist: typing_extensions (>=4.0.0)
 Requires-Dist: ujson (>=5.8.0)
 Requires-Dist: urllib3 (>=2.5.0)
+Requires-Dist: watchfiles (>=0.21.0)
 Requires-Dist: xmljson (==0.2.1)
 Project-URL: Repository, https://github.com/HumanSignal/label-studio-sdk
 Description-Content-Type: text/markdown

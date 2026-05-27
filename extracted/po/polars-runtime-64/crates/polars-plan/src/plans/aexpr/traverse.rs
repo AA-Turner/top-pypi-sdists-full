@@ -326,7 +326,19 @@ impl AExpr {
                 return self;
             },
             Agg(a) => {
-                a.set_input(inputs[0]);
+                match a {
+                    IRAggExpr::Quantile {
+                        expr,
+                        quantile,
+                        method: _,
+                    } => {
+                        *expr = inputs[0];
+                        *quantile = inputs[1];
+                    },
+                    _ => {
+                        a.set_input(inputs[0]);
+                    },
+                }
                 return self;
             },
             Ternary {
@@ -436,7 +448,17 @@ impl AExpr {
                 return self;
             },
             Agg(a) => {
-                a.set_input(inputs[0]);
+                if let IRAggExpr::Quantile {
+                    expr,
+                    quantile,
+                    method: _,
+                } = a
+                {
+                    *expr = inputs[0];
+                    *quantile = inputs[1];
+                } else {
+                    a.set_input(inputs[0]);
+                }
                 return self;
             },
             Ternary {
@@ -536,6 +558,7 @@ impl IRAggExpr {
             Item { input, .. } => Single(*input),
             Mean(input) => Single(*input),
             Implode { input, .. } => Single(*input),
+            Quantile { expr, quantile, .. } => Many(vec![*expr, *quantile]),
             Sum(input) => Single(*input),
             Count { input, .. } => Single(*input),
             Std(input, _) => Single(*input),
@@ -557,6 +580,7 @@ impl IRAggExpr {
             Item { input, .. } => input,
             Mean(input) => input,
             Implode { input, .. } => input,
+            Quantile { expr, .. } => expr,
             Sum(input) => input,
             Count { input, .. } => input,
             Std(input, _) => input,
@@ -596,40 +620,20 @@ where
     tree_traversal(root_ae_node, expr_arena, visit_stack, edges, visitor)
 }
 
-struct ExtendWrap<'a, T>(&'a mut dyn FnMut(T));
-
-impl<'a, T> Extend<T> for ExtendWrap<'a, T> {
-    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        for v in iter.into_iter() {
-            (self.0)(v)
-        }
-    }
-}
-
 impl GetNodeInputs<Node> for Arena<AExpr> {
-    fn get_node_inputs(&self, key: Node, push_fn: &mut dyn FnMut(Node)) {
-        self.get(key).inputs(&mut ExtendWrap(push_fn));
+    fn push_inputs_for_key<C>(&self, key: Node, container: &mut C)
+    where
+        C: Extend<Node>,
+    {
+        self.get(key).inputs(container);
     }
 }
 
 impl GetNodeInputs<Node> for &Arena<AExpr> {
-    fn get_node_inputs(&self, key: Node, push_fn: &mut dyn FnMut(Node)) {
-        self.get(key).inputs(&mut ExtendWrap(push_fn));
-    }
-}
-
-impl GetNodeInputs<Node> for Arena<IR> {
-    fn get_node_inputs(&self, key: Node, push_fn: &mut dyn FnMut(Node)) {
-        for v in self.get(key).inputs() {
-            push_fn(v)
-        }
-    }
-}
-
-impl GetNodeInputs<Node> for &Arena<IR> {
-    fn get_node_inputs(&self, key: Node, push_fn: &mut dyn FnMut(Node)) {
-        for v in self.get(key).inputs() {
-            push_fn(v)
-        }
+    fn push_inputs_for_key<C>(&self, key: Node, container: &mut C)
+    where
+        C: Extend<Node>,
+    {
+        self.get(key).inputs(container);
     }
 }

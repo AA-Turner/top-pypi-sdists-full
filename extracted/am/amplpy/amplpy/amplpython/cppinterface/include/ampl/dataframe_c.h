@@ -68,7 +68,7 @@ typedef struct AMPL_DataFrame AMPL_DATAFRAME;
  * \param numberOfIndexColumns Number of index columns.
  * \param numberOfDataColumns Number of data columns.
  * \param headers Column headers.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameCreate(AMPL_DATAFRAME **dataframe,
                                  size_t numberOfIndexColumns,
@@ -80,7 +80,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameCreate(AMPL_DATAFRAME **dataframe,
  *
  * \param dataframe Pointer to the pointer of the AMPL_DATAFRAME struct.
  * \param numberOfIndexColumns Number of index columns.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameCreate2(AMPL_DATAFRAME **dataframe,
                                   size_t numberOfIndexColumns);
@@ -90,7 +90,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameCreate2(AMPL_DATAFRAME **dataframe,
  *
  * \param dataframe Pointer to the pointer of the AMPL_DATAFRAME struct.
  * \param copy Pointer to the AMPL_DATAFRAME struct to copy.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameCopy(AMPL_DATAFRAME **dataframe,
                                AMPL_DATAFRAME *copy);
@@ -99,7 +99,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameCopy(AMPL_DATAFRAME **dataframe,
  * Frees the AMPL_DATAFRAME struct.
  *
  * \param dataframe Pointer to the pointer of the AMPL_DATAFRAME struct.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI void AMPL_DataFrameFree(AMPL_DATAFRAME **dataframe);
 
@@ -109,7 +109,7 @@ AMPLAPI void AMPL_DataFrameFree(AMPL_DATAFRAME **dataframe);
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param size Pointer to the size of the headers.
  * \param headers Pointer to array of headers.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetHeaders(AMPL_DATAFRAME *dataframe, size_t *size,
                                      char ***headers);
@@ -120,7 +120,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetHeaders(AMPL_DATAFRAME *dataframe, size
  * \param df1 Pointer to the first AMPL_DATAFRAME struct.
  * \param df2 Pointer to the second AMPL_DATAFRAME struct.
  * \param equals Pointer to the result of the equality check.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameEquals(AMPL_DATAFRAME *df1, AMPL_DATAFRAME *df2,
                                  int *equals);
@@ -129,7 +129,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameEquals(AMPL_DATAFRAME *df1, AMPL_DATAFRAME
  * 
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param output Pointer to the tabular string representation.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameToString(AMPL_DATAFRAME *dataframe, char **output);
 
@@ -139,7 +139,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameToString(AMPL_DATAFRAME *dataframe, char *
  *
  * \param dataframe	Pointer to the AMPL_DATAFRAME struct.
  * \param numRows	Number of rows to be allocated.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameReserve(AMPL_DATAFRAME *dataframe, size_t numRows);
 
@@ -149,7 +149,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameReserve(AMPL_DATAFRAME *dataframe, size_t 
  * 
  * \param dataframe	Pointer to the AMPL_DATAFRAME struct.
  * \param value	A tuple containing all the values for the row to be added.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameAddRow(AMPL_DATAFRAME *dataframe, AMPL_TUPLE *value);
 
@@ -160,7 +160,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameAddRow(AMPL_DATAFRAME *dataframe, AMPL_TUP
  * \param header The header of the column to be set.
  * \param column The values to set.
  * \param n	The number of items in the column.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetColumnArg(AMPL_DATAFRAME *dataframe,
                                        const char *header, AMPL_ARGS *column,
@@ -173,7 +173,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetColumnArg(AMPL_DATAFRAME *dataframe,
  * \param header The header of the column to be set.
  * \param column The values to set.
  * \param n	The number of items in the column.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetColumnArgDouble(AMPL_DATAFRAME *dataframe,
                                              const char *header,
@@ -186,7 +186,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetColumnArgDouble(AMPL_DATAFRAME *datafra
  * \param header The header of the column to be set.
  * \param column The values to set.
  * \param n	The number of items in the column.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetColumnArgString(AMPL_DATAFRAME *dataframe,
                                              const char *header,
@@ -200,7 +200,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetColumnArgString(AMPL_DATAFRAME *datafra
  * \param rowIndex A tuple identiying the row to modify.
  * \param header The header of the column to modify.
  * \param value The value to assign.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetValue(AMPL_DATAFRAME *dataframe,
                                    AMPL_TUPLE *rowIndex, const char *header,
@@ -214,7 +214,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetValue(AMPL_DATAFRAME *dataframe,
  * \param colNumber The 0-based index of the column to modify (including
  *                 indices).
  * \param value The value to assign.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetValueByIndex(AMPL_DATAFRAME *dataframe,
                                           size_t rowNumber, size_t colNumber,
@@ -226,7 +226,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetValueByIndex(AMPL_DATAFRAME *dataframe,
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param header The name of the new column header.
  * \param values Pointer to the new column.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameAddColumn(AMPL_DATAFRAME *dataframe,
                                     const char *header, AMPL_ARGS *values);
@@ -237,7 +237,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameAddColumn(AMPL_DATAFRAME *dataframe,
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param header The name of the new column header.
  * \param values Array of doubles representing the new column.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameAddColumnDouble(AMPL_DATAFRAME *dataframe,
                                           const char *header,
@@ -249,7 +249,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameAddColumnDouble(AMPL_DATAFRAME *dataframe,
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param header The name of the new column header.
  * \param values Array of strings representing the new column.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameAddColumnString(AMPL_DATAFRAME *dataframe,
                                           const char *header,
@@ -260,7 +260,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameAddColumnString(AMPL_DATAFRAME *dataframe,
  * 
  * \param dataframe	Pointer to the AMPL_DATAFRAME struct.
  * \param header The name of the new columnheader.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameAddEmptyColumn(AMPL_DATAFRAME *dataframe,
                                          const char *header);
@@ -271,7 +271,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameAddEmptyColumn(AMPL_DATAFRAME *dataframe,
  * 
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param num Pointer to the number of columns.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetNumCols(AMPL_DATAFRAME *dataframe, size_t *num);
 
@@ -280,7 +280,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetNumCols(AMPL_DATAFRAME *dataframe, size
  * 
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param num Pointer to the number of data rows.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetNumRows(AMPL_DATAFRAME *dataframe, size_t *num);
 
@@ -290,7 +290,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetNumRows(AMPL_DATAFRAME *dataframe, size
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param num Pointer to the number of indices needed to access one row of this
  *            dataframe.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetNumIndices(AMPL_DATAFRAME *dataframe, size_t *num);
 
@@ -302,7 +302,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetNumIndices(AMPL_DATAFRAME *dataframe, s
  * \param values  An array containing the values to be set.
  * \param l0 The size of the two arrays passed.
  * \param indices0 The indices of the values to set as AMPL_ARGS.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetArray(AMPL_DATAFRAME *dataframe,
                                    const double *values, size_t l0,
@@ -316,7 +316,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetArray(AMPL_DATAFRAME *dataframe,
  * \param values An array containing the values to be set
  * \param l0 The size of the two arrays passed.
  * \param indices0 The indices of the values to set
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetArrayString(AMPL_DATAFRAME *dataframe,
                                          const char *const *values, size_t l0,
@@ -332,7 +332,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetArrayString(AMPL_DATAFRAME *dataframe,
  * \param indices0 The values of the first indexing column.
  * \param l1 The size of the second indexing column.
  * \param indices1 The values of the second indexing column.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetMatrix(AMPL_DATAFRAME *dataframe,
                                     const double *values, size_t l0,
@@ -349,7 +349,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetMatrix(AMPL_DATAFRAME *dataframe,
  * \param indices0 The values of the first indexing column.
  * \param l1 The size of the second indexing column.
  * \param indices1 The values of the second indexing column.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetMatrixStringString(AMPL_DATAFRAME *dataframe,
                                                 const double *values, size_t l0,
@@ -367,7 +367,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetMatrixStringString(AMPL_DATAFRAME *data
  * \param indices0 The values of the first indexing column.
  * \param l1 The size of the second indexing column.
  * \param indices1 The values of the second indexing column.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetMatrixString(AMPL_DATAFRAME *dataframe,
                                           const char *const *values, size_t l0,
@@ -380,7 +380,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameSetMatrixString(AMPL_DATAFRAME *dataframe,
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param name The header of the column.
  * \param columnindex Pointer to the index of the column.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetColumnIndex(AMPL_DATAFRAME *dataframe,
                                          const char *name, size_t *columnindex);
@@ -391,7 +391,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetColumnIndex(AMPL_DATAFRAME *dataframe,
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param rowindex The index of the row.
  * \param index Pointer to the tuple representing the index of the row.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetIndexingTuple(AMPL_DATAFRAME *dataframe,
                                            size_t rowindex, AMPL_TUPLE **index);
@@ -402,7 +402,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetIndexingTuple(AMPL_DATAFRAME *dataframe
  * \param dataframe Pointer to the AMPL_DATAFRAME struct.
  * \param index	Tuple representing the index of the desired row.
  * \param rowindex Pointer to the index of the row.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetRowIndex(AMPL_DATAFRAME *dataframe,
                                       AMPL_TUPLE *index, size_t *rowindex);
@@ -414,7 +414,7 @@ AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameGetRowIndex(AMPL_DATAFRAME *dataframe,
  * \param rowindex The index of the row.
  * \param colindex The index of the column.
  * \param v Pointer to element.
- * \return Pointer to the AMPL error info struct.
+ * \return Pointer to the AMPL_ERRORINFO struct.
  */
 AMPLAPI AMPL_ERRORINFO *AMPL_DataFrameElement(AMPL_DATAFRAME *dataframe, size_t rowindex,
                                   size_t colindex, AMPL_VARIANT **v);

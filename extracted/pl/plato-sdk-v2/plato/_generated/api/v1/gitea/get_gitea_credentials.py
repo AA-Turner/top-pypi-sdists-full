@@ -35,7 +35,8 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> GiteaCredentialsResponse:
-    """Get Gitea credentials for the organization"""
+    """Mint a fresh per-user PAT. Previous PAT named 'plato-sdk' is revoked
+    so leaked credentials become invalid on next call."""
 
     request_args = _build_request_args(
         authorization=authorization,
@@ -52,7 +53,8 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> GiteaCredentialsResponse:
-    """Get Gitea credentials for the organization"""
+    """Mint a fresh per-user PAT. Previous PAT named 'plato-sdk' is revoked
+    so leaked credentials become invalid on next call."""
 
     request_args = _build_request_args(
         authorization=authorization,

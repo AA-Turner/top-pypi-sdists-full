@@ -98,7 +98,6 @@ def getNumber(midiBytes: bytes|int, length: int) -> tuple[int, bytes|int]:
     >>> midi.getNumber(b'test', 0)
     (0, b'test')
 
-
     The method can also take in an integer and return an integer and the remainder part.
     This usage might be deprecated in the future and has already been replaced within
     music21 internal code.
@@ -106,7 +105,7 @@ def getNumber(midiBytes: bytes|int, length: int) -> tuple[int, bytes|int]:
     >>> midi.getNumber(516, 1)   # = 2*256 + 4
     (4, 512)
 
-    Changed in v10: remove Python 2 legacy string as input -- use bytes instead.
+    * Changed in v10: remove Python 2 legacy string as input -- use bytes instead.
     '''
     summation = 0
     if isinstance(midiBytes, bytes):
@@ -247,7 +246,6 @@ def putVariableLengthNumber(x: int) -> bytes:
     >>> bytes([255])
     b'\xff'
 
-
     This method can also deal with numbers > 255, which `bytes` cannot.
 
     >>> midi.putVariableLengthNumber(256)
@@ -327,7 +325,6 @@ def putNumbersAsList(numList: Iterable[int]) -> bytes:
 
     >>> bytes([0, 0, 0, 3])
     b'\x00\x00\x00\x03'
-
 
     If a number is < 0 then it wraps around from the top.  This is used in places
     like MIDI key signatures where flats are represented by `256 - flats`.
@@ -485,7 +482,7 @@ class MidiEvent(prebase.ProtoM21Object):
     >>> me2
     <music21.midi.MidiEvent SEQUENCE_TRACK_NAME, track=1, data=b'guitar'>
 
-    Changed in v9.7 - None is not a valid type anymore.  Use MetaEvents.UNKNOWN instead.
+    * Changed in v9.7: None is not a valid type anymore.  Use MetaEvents.UNKNOWN instead.
         Channel defaults to 1.
     '''
     # noinspection PyShadowingBuiltins
@@ -785,7 +782,6 @@ class MidiEvent(prebase.ProtoM21Object):
         >>> midBytes += b'hello'
         >>> midBytes
         b'\x92<xhello'
-
 
         Now see how parsing this ChannelVoiceMessage changes the MidiEvent
 
@@ -1291,7 +1287,7 @@ class DeltaTime(MidiEvent):
         >>> dt.readUntilLowByte(b'\x82hello')
         (360, b'ello')
 
-        Changed in v9: had an incompatible signature with MidiEvent
+        * Changed in v9: had an incompatible signature with MidiEvent.
         '''
         self.time, newBytes = getVariableLengthNumber(oldBytes)
         return self.time, newBytes
@@ -1359,7 +1355,7 @@ class MidiTrack(prebase.ProtoM21Object):
     >>> mt.length
     22
 
-    New in v9.7: len(mt) returns the same as mt.length, but more Pythonic.
+    * New in v9.7: len(mt) returns the same as mt.length, but more Pythonic.
 
     >>> len(mt)
     22
@@ -1399,7 +1395,7 @@ class MidiTrack(prebase.ProtoM21Object):
 
     def __len__(self) -> int:
         '''
-        New in v9.7
+        * New in v9.7.
         '''
         return len(self.data)
 

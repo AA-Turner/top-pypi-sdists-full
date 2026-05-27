@@ -906,6 +906,20 @@ class AgentLoop:
         except Exception as e:  # noqa: BLE001
             logger.debug("math docs inject skipped: %s", e)
 
+        # === PRE-LLM RENAME SCAFFOLDING ===
+        # When the prompt says "rename X to Y" and X appears in 2+ .py
+        # files of the cwd, run the rename ourselves BEFORE the LLM
+        # turn and tell the model "rename done, make contextual fixes."
+        # Targets the surgery walls (P4-S1 units→quantity rename, partial
+        # P6-S1 ItemRepo extract) where the model fails to propagate the
+        # rename across all callsites. Gemma 4 ignores nudges that tell
+        # it HOW to do this; doing it FOR the model bypasses that.
+        # Gated by DRYDOCK_PRE_RENAME (default on).
+        try:
+            self._maybe_pre_rename(user_msg)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("pre-rename hook skipped: %s", e)
+
         # === AUTO-PREFETCH RETRIEVE ===
         # HLE Phase 1 finding (memory: project_graphrag_underused.md): Gemma 4
         # almost never calls retrieve() on its own for general-knowledge
@@ -4360,6 +4374,197 @@ class AgentLoop:
             )
         return filtered
 
+    # rename old to new — case-insensitive, allows backticks/quotes/asterisks
+    # around either token, and accepts "to", "→", or "->" as the connector.
+    # Anchored on the bare verb "rename" to avoid false positives on
+    # paraphrases like "renaming files" or "renames the database". Captures
+    # both tokens directly; downstream code validates them as Python idents.
+    _PRE_RENAME_PATTERN = __import__("re").compile(
+        r"\brename\s+"
+        r"(?:the\s+)?(?:internal\s+)?(?:field\s+|variable\s+|function\s+|class\s+)?"
+        r"[`'\"\*]?(?P<old>[A-Za-z_][A-Za-z0-9_]+)[`'\"\*]?"
+        r"\s*(?:to|→|->)\s*"
+        r"[`'\"\*]?(?P<new>[A-Za-z_][A-Za-z0-9_]+)[`'\"\*]?",
+        __import__("re").IGNORECASE,
+    )
+
+    def _maybe_pre_rename(self, user_msg: str) -> None:
+        """Detect a rename-task prompt and run mechanical_rename ourselves.
+
+        Targets the surgery walls (P4-S1 units→quantity, partial P6-S1
+        ItemRepo extract) where the model fails to propagate a rename
+        across all callsites. Nudges telling Gemma 4 to "use
+        mechanical_rename" have not worked in production; doing the
+        rename for the model and telling it "done, now make contextual
+        fixes" should bypass that failure mode.
+
+        Fires only when:
+        - DRYDOCK_PRE_RENAME is set (default on; opt out with =0)
+        - The user message matches the rename regex
+        - Both names are valid Python identifiers and differ
+        - The OLD name appears as a word-bounded token in 2+ .py files
+          of the current package (rooted by walking up from cwd looking
+          for __init__.py — same logic the multi-file rename guard uses)
+        - The NEW name does NOT yet appear as a word-bounded token in
+          those files (i.e. the rename hasn't already been done)
+        - Under pytest: silent no-op (env not set in test runs)
+
+        Result is reported via _inject_system_note so the model sees:
+        "✓ Pre-rename done — X→Y across N files. Make any remaining
+        non-code fixes (docs, CSV headers, etc.) and run tests."
+        """
+        import os as _os
+        if _os.environ.get(
+            "DRYDOCK_PRE_RENAME", "1"
+        ).strip().lower() in ("0", "false", "no"):
+            return
+        if not user_msg or len(user_msg) < 10:
+            return
+
+        m = self._PRE_RENAME_PATTERN.search(user_msg)
+        if not m:
+            return
+        old_name = m.group("old")
+        new_name = m.group("new")
+        if old_name == new_name:
+            return
+        # Skip tiny tokens — high false-positive risk ("rename a to b",
+        # "rename it to that").
+        if len(old_name) < 3 or len(new_name) < 3:
+            return
+        # Reject obvious English-prose false positives. "Add a rename
+        # feature to the CLI" matches the verb pattern with
+        # old='feature' new='the' but is clearly not a code rename.
+        # Real identifier renames either use code markup (backticks,
+        # asterisks) or use distinctive lowercase_with_underscores /
+        # CamelCase. Block common English filler/structural words from
+        # being treated as identifiers.
+        _NOT_IDENTIFIERS = {
+            "the", "this", "that", "these", "those", "thing", "things",
+            "stuff", "all", "any", "every", "some", "one", "two", "three",
+            "code", "name", "names", "file", "files", "feature", "features",
+            "function", "functions", "class", "classes", "method", "methods",
+            "variable", "variables", "field", "fields", "module", "modules",
+            "tests", "test", "thing", "way", "ways", "step", "steps",
+            "next", "last", "first", "from", "into", "onto", "with", "without",
+        }
+        if (old_name.lower() in _NOT_IDENTIFIERS
+                or new_name.lower() in _NOT_IDENTIFIERS):
+            return
+
+        from pathlib import Path as _Path
+        import re as _re
+
+        cwd = _Path(getattr(self, "cwd", None) or _os.getcwd())
+
+        # Find the package root (same heuristic as the multi-file rename
+        # guard: walk up while __init__.py exists, then walk to the
+        # topmost __init__.py-bearing dir).
+        pkg_root = None
+        current = cwd.resolve()
+        for _ in range(6):
+            if (current / "__init__.py").is_file():
+                pkg_root = current
+                while (current.parent / "__init__.py").is_file():
+                    current = current.parent
+                    pkg_root = current
+                break
+            # Also try one level down — if cwd is the project root, its
+            # children may be packages.
+            sub_pkgs = [
+                d for d in current.iterdir()
+                if d.is_dir() and (d / "__init__.py").is_file()
+            ] if current.is_dir() else []
+            if len(sub_pkgs) == 1:
+                pkg_root = sub_pkgs[0]
+                break
+            current = current.parent
+            if current == current.parent:
+                break
+
+        # Fall back to cwd itself when no package root is detectable.
+        scope = pkg_root or cwd
+        if not scope.is_dir():
+            return
+
+        word_pat = _re.compile(rf"\b{_re.escape(old_name)}\b")
+        new_pat = _re.compile(rf"\b{_re.escape(new_name)}\b")
+
+        # Survey: count files containing OLD (≥2 required to fire) and
+        # whether NEW already appears (signal the rename is partially or
+        # fully done — skip to avoid double-renames).
+        files_with_old: list[_Path] = []
+        files_with_new = 0
+        scanned = 0
+        for fp in scope.rglob("*.py"):
+            parts = set(fp.parts)
+            if parts & {"__pycache__", ".git", ".venv", "venv", ".tox"}:
+                continue
+            scanned += 1
+            if scanned > 200:
+                break  # bound the scan
+            try:
+                text = fp.read_text(errors="replace")
+            except OSError:
+                continue
+            if word_pat.search(text):
+                files_with_old.append(fp)
+            if new_pat.search(text):
+                files_with_new += 1
+
+        if len(files_with_old) < 2:
+            return  # not a multi-file rename — let the model handle it
+        if files_with_new >= len(files_with_old) // 2:
+            # NEW token is already common; the rename is partly done or
+            # the tokens are coincidental (e.g. `quantity` already exists
+            # in unrelated code). Skip to avoid messing it up.
+            return
+
+        # Execute: word-bounded sub across each file containing OLD.
+        # Snapshot originals first so we can roll back if anything looks
+        # off post-write.
+        originals: dict[_Path, str] = {}
+        changed: list[_Path] = []
+        occurrences = 0
+        for fp in files_with_old:
+            try:
+                text = fp.read_text(errors="replace")
+            except OSError:
+                continue
+            new_text, n = word_pat.subn(new_name, text)
+            if n > 0 and new_text != text:
+                originals[fp] = text
+                try:
+                    fp.write_text(new_text)
+                except OSError:
+                    continue
+                changed.append(fp)
+                occurrences += n
+
+        if not changed:
+            return  # nothing to report
+
+        try:
+            rel_files = [str(f.relative_to(scope.parent)) for f in changed[:8]]
+        except ValueError:
+            rel_files = [f.name for f in changed[:8]]
+        more = f" (+{len(changed) - 8} more)" if len(changed) > 8 else ""
+        note = (
+            f"✓ Pre-rename complete: `{old_name}` → `{new_name}` "
+            f"({occurrences} occurrence(s) across {len(changed)} .py file(s): "
+            f"{', '.join(rel_files)}{more}).\n"
+            f"Drydock did the identifier rename for you. Now make any "
+            f"REMAINING contextual fixes the PRD calls for — e.g. "
+            f"non-code references (CSV headers, docs, comments), or "
+            f"places where the OLD name must intentionally survive "
+            f"(external API boundaries). Then run the test suite."
+        )
+        self._inject_system_note(note)
+        logger.warning(
+            "[pre-rename] applied %s → %s across %d files (%d sites)",
+            old_name, new_name, len(changed), occurrences,
+        )
+
     def _maybe_inject_math_docs(self, user_msg: str) -> None:
         """Append the math/science tool cheat sheet (gemma4_math.md) to
         the system prompt as a NOTE-style injection — but only when the
@@ -4840,11 +5045,25 @@ class AgentLoop:
         ):
             if last_tool in ("bash", "run_command"):
                 # Bash identical-call loops (e.g. repeated import checks) are
-                # never legitimate — escalate to FORCE_STOP (text-only for 1
-                # turn) so the model must summarise instead of looping.
-                # Temperature bump alone doesn't break these; the model needs
-                # to be unable to call bash.
-                self._hot_tool_path = None
+                # never legitimate — remove bash from available_tools for 1
+                # turn so the model must use write_file/search_replace instead.
+                # Setting _hot_tool_path to ("bash", cmd) takes the surgical
+                # removal path (not tool_choice=none), which lets the model
+                # still call other tools to make progress.
+                _last_bash_cmd = ""
+                for _bm in reversed(self.messages[-20:]):
+                    if _bm.role == Role.assistant and _bm.tool_calls:
+                        for _btc in _bm.tool_calls:
+                            if _btc.function and _btc.function.name in ("bash", "run_command"):
+                                try:
+                                    _last_bash_cmd = json.loads(_btc.function.arguments or "{}").get("command", "")
+                                except (json.JSONDecodeError, AttributeError):
+                                    pass
+                                if _last_bash_cmd:
+                                    break
+                    if _last_bash_cmd:
+                        break
+                self._hot_tool_path = ("bash", _last_bash_cmd) if _last_bash_cmd else None
                 return "FORCE_STOP"
             return f"WARNING|{last_tool}"
 
@@ -5014,6 +5233,7 @@ class AgentLoop:
         # Without #2, a user with a populated home DB never saw their
         # own project's chunks because home always won.
         env_db = os.environ.get("DRYDOCK_GRAPHRAG_DB")
+        home_db = str(Path.home() / ".drydock" / "graphrag.sqlite")
         if env_db:
             primary_db = env_db
         else:
@@ -5021,7 +5241,7 @@ class AgentLoop:
             if project_db.is_file():
                 primary_db = str(project_db)
             else:
-                primary_db = str(Path.home() / ".drydock" / "graphrag.sqlite")
+                primary_db = home_db
         fallback_default = "/data3/arxiv_corpus/graphrag.sqlite"
         fallback_db_raw = os.environ.get(
             "DRYDOCK_GRAPHRAG_FALLBACK_DB", fallback_default
@@ -5029,7 +5249,21 @@ class AgentLoop:
         fallback_db = fallback_db_raw if fallback_db_raw else None
         # Don't double-search the same db.
         db_chain: list[str] = [primary_db]
-        if fallback_db and Path(fallback_db).resolve() != Path(primary_db).resolve():
+        # Cookbook insertion: when primary is a per-project DB, slot the
+        # home cookbook in between project and arxiv so curated Python
+        # recipes are reachable from any cwd. Without this, a project
+        # with its own .drydock/graphrag.sqlite never sees the cookbook
+        # (observed 2026-05-27: 403_tool_agent shakedown 0/9 cookbook
+        # hits because primary = project DB → arxiv, skipping home).
+        if (
+            primary_db != home_db
+            and Path(home_db).is_file()
+            and Path(home_db).resolve() != Path(primary_db).resolve()
+        ):
+            db_chain.append(home_db)
+        if fallback_db and Path(fallback_db).resolve() not in {
+            Path(d).resolve() for d in db_chain
+        }:
             db_chain.append(fallback_db)
 
         good_hits: list = []

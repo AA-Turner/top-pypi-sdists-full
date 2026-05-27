@@ -40,7 +40,11 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> ResetSessionResponse:
-    """Reset all jobs in a session to initial state."""
+    """Reset all jobs in a session to initial state.
+
+    If ``model`` is provided, the session is linked to the org's
+    AgentArtifact for that model — looked up by JSON ``data->>'model'``,
+    or created with the model string as the alias if none exists."""
 
     request_args = _build_request_args(
         session_id=session_id,
@@ -61,7 +65,11 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> ResetSessionResponse:
-    """Reset all jobs in a session to initial state."""
+    """Reset all jobs in a session to initial state.
+
+    If ``model`` is provided, the session is linked to the org's
+    AgentArtifact for that model — looked up by JSON ``data->>'model'``,
+    or created with the model string as the alias if none exists."""
 
     request_args = _build_request_args(
         session_id=session_id,

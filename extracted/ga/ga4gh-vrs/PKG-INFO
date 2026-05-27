@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ga4gh.vrs
-Version: 2.3.1
+Version: 2.3.2
 Summary: GA4GH Variation Representation Specification (VRS) reference implementation
 Author-email: Larry Babb <lbabb@broadinstitute.org>, Reece Hart <reecehart@gmail.com>, Andreas Prlic <andreas.prlic@gmail.com>, Alex Wagner <alex.wagner@nationwidechildrens.org>
 License: 

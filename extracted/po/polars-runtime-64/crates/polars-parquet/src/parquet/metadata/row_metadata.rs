@@ -1,42 +1,46 @@
 use std::sync::Arc;
 
 use hashbrown::hash_map::RawEntryMut;
-use polars_parquet_format::SortingColumn;
+use polars_parquet_format::{RowGroup, SortingColumn};
 use polars_utils::aliases::{InitHashMaps, PlHashMap};
 use polars_utils::idx_vec::UnitVec;
 use polars_utils::pl_str::PlSmallStr;
 use polars_utils::unitvec;
 
-use super::column_chunk_metadata::{ColumnChunkMetadata, column_metadata_byte_range_compact};
-use super::column_descriptor::ColumnDescriptorRef;
-use super::compact::CompactRowGroup;
+use super::column_chunk_metadata::{ColumnChunkMetadata, column_metadata_byte_range};
 use super::schema_descriptor::SchemaDescriptor;
 use crate::parquet::error::{ParquetError, ParquetResult};
 
 type ColumnLookup = PlHashMap<PlSmallStr, UnitVec<usize>>;
 
-#[inline(always)]
-fn add_column(lookup: &mut ColumnLookup, index: usize, column: &ColumnChunkMetadata) {
-    let root_name = &column.descriptor().path_in_schema[0];
+trait InitColumnLookup {
+    fn add_column(&mut self, index: usize, column: &ColumnChunkMetadata);
+}
 
-    match lookup.raw_entry_mut().from_key(root_name) {
-        RawEntryMut::Vacant(slot) => {
-            slot.insert(root_name.clone(), unitvec![index]);
-        },
-        RawEntryMut::Occupied(mut slot) => {
-            slot.get_mut().push(index);
-        },
+impl InitColumnLookup for ColumnLookup {
+    #[inline(always)]
+    fn add_column(&mut self, index: usize, column: &ColumnChunkMetadata) {
+        let root_name = &column.descriptor().path_in_schema[0];
+
+        match self.raw_entry_mut().from_key(root_name) {
+            RawEntryMut::Vacant(slot) => {
+                slot.insert(root_name.clone(), unitvec![index]);
+            },
+            RawEntryMut::Occupied(mut slot) => {
+                slot.get_mut().push(index);
+            },
+        };
     }
 }
 
 /// Metadata for a row group.
 #[derive(Debug, Clone, Default)]
 pub struct RowGroupMetadata {
-    // `ColumnChunkMetadata` is large, so we use `Arc<Vec<_>>` instead of `Arc<[_]>` to avoid
-    // moving every value into a fresh Arc allocation when collecting. The `Arc<Vec<...>>`
-    // form just wraps the existing Vec buffer: one Arc bump, zero element moves.
+    // Moving of `ColumnChunkMetadata` is very expensive they are rather big. So, we arc the vec
+    // instead of having an arc slice. This way we don't to move the vec values into an arc when
+    // collecting.
     columns: Arc<Vec<ColumnChunkMetadata>>,
-    column_lookup: ColumnLookup,
+    column_lookup: PlHashMap<PlSmallStr, UnitVec<usize>>,
     num_rows: usize,
     total_byte_size: usize,
     full_byte_range: core::ops::Range<u64>,
@@ -65,7 +69,7 @@ impl RowGroupMetadata {
     }
 
     pub fn parquet_columns(&self) -> &[ColumnChunkMetadata] {
-        &self.columns
+        self.columns.as_ref().as_slice()
     }
 
     /// Number of rows in this row group.
@@ -79,14 +83,10 @@ impl RowGroupMetadata {
     }
 
     /// Total size of all compressed column data in this row group.
-    ///
-    /// Per-chunk sizes are clamped at zero before summing so a malformed
-    /// file with a negative `compressed_size` cannot underflow into a huge
-    /// `usize`.
     pub fn compressed_size(&self) -> usize {
         self.columns
             .iter()
-            .map(|c| c.compressed_size().max(0) as usize)
+            .map(|c| c.compressed_size() as usize)
             .sum::<usize>()
     }
 
@@ -94,7 +94,7 @@ impl RowGroupMetadata {
         self.full_byte_range.clone()
     }
 
-    pub fn byte_ranges_iter(&self) -> impl ExactSizeIterator<Item = core::ops::Range<u64>> + '_ {
+    pub fn byte_ranges_iter(&self) -> impl '_ + ExactSizeIterator<Item = core::ops::Range<u64>> {
         self.columns.iter().map(|x| x.byte_range())
     }
 
@@ -102,11 +102,10 @@ impl RowGroupMetadata {
         self.sorting_columns.as_deref()
     }
 
-    /// Build a `RowGroupMetadata` from a [`CompactRowGroup`], joining each
-    /// chunk to its descriptor in the schema.
-    pub(crate) fn from_compact(
+    /// Method to convert from Thrift.
+    pub(crate) fn try_from_thrift(
         schema_descr: &SchemaDescriptor,
-        rg: CompactRowGroup,
+        rg: RowGroup,
     ) -> ParquetResult<RowGroupMetadata> {
         if schema_descr.columns().len() != rg.columns.len() {
             return Err(ParquetError::oos(format!(
@@ -119,34 +118,35 @@ impl RowGroupMetadata {
         let num_rows = rg.num_rows.try_into()?;
 
         let mut column_lookup = ColumnLookup::with_capacity(rg.columns.len());
-        let mut full_byte_range = match rg.columns.first() {
-            Some(first) => column_metadata_byte_range_compact(&first.meta_data),
-            None => 0..0,
+        let mut full_byte_range = if let Some(first_column_chunk) = rg.columns.first() {
+            let Some(metadata) = &first_column_chunk.meta_data else {
+                return Err(ParquetError::oos("Column chunk requires metadata"));
+            };
+            column_metadata_byte_range(metadata)
+        } else {
+            0..0
         };
 
-        let sorting_columns = rg.sorting_columns;
-
-        // Refcount-bump the schema's `Arc<Vec<ColumnDescriptor>>` once; each
-        // chunk holds a [`ColumnDescriptorRef`] that bumps the refcount again
-        // (cheap), instead of deep-cloning the descriptor.
-        let column_descrs = Arc::clone(schema_descr.columns_arc());
+        let sorting_columns = rg.sorting_columns.clone();
 
         let columns = rg
             .columns
             .into_iter()
+            .zip(schema_descr.columns())
             .enumerate()
-            .map(|(i, column_chunk)| {
-                let column = ColumnChunkMetadata::from_compact(
-                    ColumnDescriptorRef::new(Arc::clone(&column_descrs), i),
-                    column_chunk,
-                );
-                add_column(&mut column_lookup, i, &column);
+            .map(|(i, (column_chunk, descriptor))| {
+                let column =
+                    ColumnChunkMetadata::try_from_thrift(descriptor.clone(), column_chunk)?;
+
+                column_lookup.add_column(i, &column);
+
                 let byte_range = column.byte_range();
                 full_byte_range = full_byte_range.start.min(byte_range.start)
                     ..full_byte_range.end.max(byte_range.end);
-                column
+
+                Ok(column)
             })
-            .collect::<Vec<_>>();
+            .collect::<ParquetResult<Vec<_>>>()?;
         let columns = Arc::new(columns);
 
         Ok(RowGroupMetadata {

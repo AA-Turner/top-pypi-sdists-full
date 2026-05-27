@@ -62,7 +62,6 @@ class SubConverter:
         stringEncoding = string (default 'utf-8'). If codecWrite is True, this specifies what
             encoding to use
 
-
     '''
     readBinary: bool = False
     canBePickled: bool = True
@@ -216,7 +215,7 @@ class SubConverter:
         app=None,
         subformats=(),
         **keywords
-    ) -> None:
+    ) -> t.Any|None:
         '''
         Write the data, then show the generated data, using `.launch()` or printing
         to a console.
@@ -260,7 +259,7 @@ class SubConverter:
         >>> import os  #_DOCS_HIDE
         >>> os.remove(tf)  #_DOCS_HIDE
 
-        * Changed in v6: returns pathlib.Path
+        * Changed in v6: returns pathlib.Path.
         '''
         ext = self.getExtensionForSubformats(subformats)
         fp = environLocal.getTempFile(ext, returnPathlib=True)
@@ -355,7 +354,7 @@ class ConverterIPython(SubConverter):
     registerOutputSubformatExtensions = {'lilypond': 'ly'}
 
     def show(self, obj, fmt, app=None, subformats=(),
-             **keywords):  # pragma: no cover
+             **keywords) -> t.Any:  # pragma: no cover
         '''
         show a specialized for Jupyter Notebook using the appropriate subformat.
 
@@ -387,10 +386,11 @@ class ConverterIPython(SubConverter):
                 subformats=helperSubformats,
                 **keywords,
             )
+            return None
         elif helperFormat == 'midi':
             if t.TYPE_CHECKING:
                 assert isinstance(helperSubConverter, ConverterMidi)
-            ip21_converters.displayMusic21jMIDI(
+            return ip21_converters.displayMusic21jMIDI(
                 obj,
                 subConverter=helperSubConverter,
                 fmt=helperFormat,
@@ -743,7 +743,6 @@ class ConverterNoteworthy(SubConverter):
 
     Users should not need this routine.  The basic format is converter.parse('file.nwctxt')
 
-
     >>> nwcTranslatePath = common.getSourceFilePath() / 'noteworthy' #_DOCS_HIDE
     >>> paertPath = nwcTranslatePath / 'Part_OWeisheit.nwctxt' #_DOCS_HIDE
     >>> #_DOCS_SHOW paertPath = converter.parse(r'd:/desktop/arvo_part_o_weisheit.nwctxt')
@@ -888,7 +887,7 @@ class ConverterMusicXML(SubConverter):
         Writes `dataStr` which must be bytes to `fp`.
         Adds `.musicxml` suffix to `fp` if it does not already contain some suffix.
 
-        * Changed in v7: returns a pathlib.Path
+        * Changed in v7: returns a pathlib.Path.
 
         OMIT_FROM_DOCS
 
@@ -1089,6 +1088,7 @@ class ConverterMidi(SubConverter):
               subformats=(),
               *,
               addStartDelay: bool = False,
+              addEndDelay: bool = True,
               encoding: str = '',
               **keywords):  # pragma: no cover
         from music21.midi import translate as midiTranslate
@@ -1096,6 +1096,7 @@ class ConverterMidi(SubConverter):
             fp = self.getTemporaryFile()
 
         mf = midiTranslate.music21ObjectToMidiFile(obj, addStartDelay=addStartDelay,
+                                                   addEndDelay=addEndDelay,
                                                    encoding=encoding or self.encoding)
         mf.open(fp, 'wb')  # write binary
         mf.write()

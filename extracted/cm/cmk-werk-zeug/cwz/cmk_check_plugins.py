@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 
 """cmk-check-plugins"""
+# ruff: noqa: RUF100 Unused `noqa` directive
+
 # Not yet implemented:
 # - [ ] accept directories rather than discrete files for walks and agent outputs
 # - [ ] performance measurements
+
+# try:
+#     import debugpy  # noqa: T100 Import for `debugpy` found
+# except ImportError:
+#     debugpy = None
 
 import cProfile
 import inspect
@@ -17,10 +24,17 @@ import time
 from argparse import ArgumentParser
 from argparse import Namespace as Args
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from contextlib import ExitStack, suppress
 from pathlib import Path
+from unittest.mock import patch
 
+import cmk.agent_based.v2
+
+# from cmk.agent_based.v1.value_store import set_value_store_manager
+from cmk.agent_based.v2 import StringTable
+
+# from cmk.checkengine import value_store
 from rich import print as rich_print
 from rich import traceback
 from rich.console import Console
@@ -28,6 +42,7 @@ from rich.status import Status
 
 try:
     from cmk.agent_based.internal import evaluate_snmp_detection
+    from cmk.agent_based.v1._value_store_utils import GetRateError
     from cmk.base import config
     from cmk.ccc.hostaddress import HostAddress, HostName
     from cmk.checkengine.plugins import AgentBasedPlugins, SNMPSectionPlugin
@@ -100,7 +115,9 @@ def _agent_based_plugins() -> Sequence[AgentBasedPlugins]:
     return plugins
 
 
-def _get_string_table(section_plugin: SNMPSectionPlugin, backend: StoredWalkSNMPBackend) -> int:
+def _get_string_table(
+    section_plugin: SNMPSectionPlugin, backend: StoredWalkSNMPBackend
+) -> Sequence[StringTable]:
     return [
         get_snmp_table(
             section_name=SNMPSectionName(section_plugin.name),
@@ -173,7 +190,50 @@ def _load_sections(lines: Iterable[str]) -> Mapping[str, Sequence[Sequence[str]]
     return result
 
 
-def check(cli_args: Args, status: Status, results: list[str], tmp_dir: Path) -> None:
+def _get_check_results(check_plugin: int, parsed_section: int, service_item: str) -> Sequence:
+    # print(inspect.signature(check_plugin.check_function).parameters)
+    # print(check_plugin.check_default_parameters)
+    for i in reversed(range(10)):
+        try:
+            return list(
+                check_plugin.check_function(
+                    **{
+                        key: {
+                            "item": service_item,
+                            "params": check_plugin.check_default_parameters,
+                            "section": parsed_section,
+                            # "value_store": {},
+                        }.get(key)
+                        for key in inspect.signature(check_plugin.check_function).parameters
+                    }
+                )
+            )
+        except GetRateError as exc:
+            log().debug(f"{i} {exc}")
+            if i == 0:
+                raise
+    return []
+
+
+def _get_discovered_items(check_plugin: int, parsed_section: int) -> Sequence:
+    # print(inspect.signature(check_plugin.discovery_function).parameters)
+    # print(check_plugin.discovery_default_parameters)
+    return list(
+        check_plugin.discovery_function(
+            **{
+                key: {
+                    "params": [check_plugin.discovery_default_parameters],
+                    "section": parsed_section,
+                }.get(key)
+                for key in inspect.signature(check_plugin.discovery_function).parameters
+            }
+        )
+    )
+
+
+def check(
+    cli_args: Args, status: Status, results: MutableMapping[str, object], tmp_dir: Path
+) -> None:
     """Traverses SNMP and agent plugins and checks them against provided SNMP walks and agent outputs"""
     broken_walks = ",".join(  # noqa: FLY002
         (
@@ -185,6 +245,16 @@ def check(cli_args: Args, status: Status, results: list[str], tmp_dir: Path) -> 
         )
     )
     # ,fcswitch-brocade-9,firewall-checkpoint-10,firewall-pfsense-1
+    mocked_timestamp = time.time() // 1000 * 1000
+
+    # quick and dirty
+    value_store = dict[str, object]()
+
+    def _get_value_store() -> dict[str, object]:
+        return value_store
+
+    cmk.agent_based.v2.get_value_store = _get_value_store
+
     show_all = cli_args.show_all
     filter_sections = (cli_args.filter_sections or "").split(",")
     error_file = (
@@ -219,6 +289,7 @@ def check(cli_args: Args, status: Status, results: list[str], tmp_dir: Path) -> 
     console.print(f"Found {len(snmp_section_plugins_to_check)} SNMP section plugins")
     for snmp_section_plugin in snmp_section_plugins_to_check.values():
         if inspect.isgeneratorfunction(snmp_section_plugin.parse_function):
+            # fixme(frans): should be a warning / error
             console.print(f"[red]{snmp_section_plugin}[/]")
 
     status.update("find agent section plugins to check..")
@@ -233,10 +304,11 @@ def check(cli_args: Args, status: Status, results: list[str], tmp_dir: Path) -> 
             console.print(f"[red]{section_plugin}[/]")
 
     status.update("find check plugins to check..")
-    check_plugins_to_check = {
+    check_plugins_to_check = {  # noqa: C416 Unnecessary dict comprehension
         name: element
         for name, element in all_plugins.check_plugins.items()
-        if not filter_sections or any(f in name.lower() for f in filter_sections)
+        # fixme(frans): needs extra argument
+        # if not filter_sections or any(f in name.lower() for f in filter_sections)
     }
     console.print(f"Found {len(check_plugins_to_check)} check plugins")
 
@@ -271,43 +343,37 @@ def check(cli_args: Args, status: Status, results: list[str], tmp_dir: Path) -> 
     for plugin_name, agent_section_plugin in agent_section_plugins_to_check.items():
         if not (entries := all_agent_sections.get(plugin_name)):
             continue
-        check_plugin = check_plugins_to_check.get(plugin_name)
+
+        check_plugin = check_plugins_to_check.get(agent_section_plugin.parsed_section_name)
 
         if not check_plugin:  # fixme(frans): make optional
             continue
 
         for filename, string_table in entries.items():
+            task_key = f"{plugin_name}:{Path(filename).name}"
             status_string = f"plugin=[cyan]{plugin_name}[/]:[yellow]{Path(filename).name}[/]"
             status.update(f"{status_string} ..")
             exception = None
             try:
-                parsed_section = agent_section_plugin.parse_function(string_table)
-                status_string = f"{status_string} {type(parsed_section)}"
-                if not check_plugin:
-                    continue
+                with patch("time.time", return_value=mocked_timestamp):
+                    parsed_section = agent_section_plugin.parse_function(string_table)
+                    status_string = f"{status_string} {type(parsed_section)}"
+                    if not check_plugin:
+                        continue
 
-                discovered_items = list(check_plugin.discovery_function(parsed_section))
-                # results[task_key]["discovery"] = list(map(str, discovered_items))
-                check_results = {
-                    service.item: list(
-                        check_plugin.check_function(
-                            **{
-                                key: {
-                                    "item": service.item,
-                                    "params": check_plugin.check_default_parameters,
-                                    "section": parsed_section,
-                                }.get(key)
-                                for key in inspect.signature(check_plugin.check_function).parameters
-                            }
-                        )
-                    )
-                    for service in discovered_items
-                }
-                # check_result = list(check_plugin.check_function(item=service.item, params={}, section=parsed_section))
-                # out_str += f" check_result={check_result}"
-                # results[task_key]["check_results"] = {
-                #    key: list(map(str, value)) for key, value in check_results.items()
-                # }
+                    discovered_items = _get_discovered_items(check_plugin, parsed_section)
+                    # results[task_key]["discovery"] = list(map(str, discovered_items))
+                    check_results = {
+                        service.item: _get_check_results(check_plugin, parsed_section, service.item)
+                        for service in discovered_items
+                    }
+
+                    results[task_key]["check_results"] = {
+                        # fixme(frans): sorting should be optional
+                        key: sorted(map(str, value))
+                        for key, value in check_results.items()
+                    }
+                    # out_str += f" check_result={check_result}"
             except Exception as exc:
                 exception = exc
                 raise
@@ -321,7 +387,7 @@ def check(cli_args: Args, status: Status, results: list[str], tmp_dir: Path) -> 
     snmp_backends = {}
     console.print(
         f"Now validate {len(snmp_section_plugins_to_check)} SNMP section"
-        " plugins against {len(walks)} walks .."
+        f" plugins against {len(walks)} walks .."
     )
 
     for plugin_name, snmp_section_plugin in snmp_section_plugins_to_check.items():
@@ -334,80 +400,79 @@ def check(cli_args: Args, status: Status, results: list[str], tmp_dir: Path) -> 
             task_key = f"{plugin_name}:{path.name}"
             status.update(f"plugin=[cyan]{plugin_name}[/]:[yellow]{path.name}[/]..")
             try:
-                if path not in snmp_backends:
-                    snmp_backends[path] = _create_snmp_backend(path, tmp_dir)
-                backend = snmp_backends[path]
+                with patch("time.time", return_value=mocked_timestamp):
+                    if path not in snmp_backends:
+                        snmp_backends[path] = _create_snmp_backend(path, tmp_dir)
+                    backend = snmp_backends[path]
 
-                is_detected = _snmp_is_detected(snmp_section_plugin, backend)
-                out_str = f"  - {'✅' if is_detected else '❌'} walk={path.name!r:<40}"
-                # f" ({int(dur * 1_000_000)}µs)"
-                if True and is_detected:
-                    string_table = _get_string_table(snmp_section_plugin, backend)
-                    results[task_key]["string_table"] = string_table
+                    is_detected = _snmp_is_detected(snmp_section_plugin, backend)
+                    out_str = f"  - {'✅' if is_detected else '❌'} walk={path.name!r:<40}"
+                    # f" ({int(dur * 1_000_000)}µs)"
+                    if True and is_detected:
+                        string_table = _get_string_table(snmp_section_plugin, backend)
+                        results[task_key]["string_table"] = string_table
 
-                    parsed_section = snmp_section_plugin.parse_function(string_table)
+                        parsed_section = snmp_section_plugin.parse_function(string_table)
 
-                    # assert isinstance(parsed_section, dict), f"{parsed_section.__class__}"
-                    match parsed_section:
-                        case dict():
-                            # fixme(frans): make more fine grained
-                            results[task_key]["section"] = {
-                                key: str(value) for key, value in parsed_section.items()
-                            }
-                        case list():
-                            # fixme(frans): make more fine grained
-                            results[task_key]["section"] = list(map(str, parsed_section))
-                        case None:
-                            # fixme(frans): report error
-                            continue
-                        case _:
-                            raise RuntimeError(f"{parsed_section.__class__}")
-
-                    check_plugin = check_plugins_to_check[plugin_name]
-                    discovered_items = list(check_plugin.discovery_function(parsed_section))
-                    results[task_key]["discovery"] = list(map(str, discovered_items))
-                    check_results = {
-                        service.item: list(
-                            check_plugin.check_function(
-                                **{
-                                    key: {
-                                        "item": service.item,
-                                        "params": check_plugin.check_default_parameters,
-                                        "section": parsed_section,
-                                    }.get(key)
-                                    for key in inspect.signature(
-                                        check_plugin.check_function
-                                    ).parameters
+                        # assert isinstance(parsed_section, dict), f"{parsed_section.__class__}"
+                        match parsed_section:
+                            case dict():
+                                # fixme(frans): make more fine grained
+                                results[task_key]["section"] = {
+                                    key: str(value) for key, value in parsed_section.items()
                                 }
+                            case list():
+                                # fixme(frans): make more fine grained
+                                results[task_key]["section"] = [
+                                    str(v).replace(", name=''", "") for v in parsed_section
+                                ]
+                            case None:
+                                # fixme(frans): report error
+                                raise RuntimeError(f"{plugin_name=} / {path=} {parsed_section=}")
+                                continue
+                            case _:
+                                raise RuntimeError(f"{parsed_section.__class__}")
+
+                        check_plugin = check_plugins_to_check[
+                            snmp_section_plugin.parsed_section_name
+                        ]
+                        # print(inspect.signature(check_plugin.discovery_function).parameters)
+                        discovered_items = _get_discovered_items(check_plugin, parsed_section)
+                        results[task_key]["discovery"] = list(map(str, discovered_items))
+                        value_store = dict[str, object]()
+
+                        check_results = {
+                            service.item: _get_check_results(
+                                check_plugin, parsed_section, service.item
                             )
-                        )
-                        for service in discovered_items
-                    }
-                    # check_result = list(check_plugin.check_function(item=service.item, params={}, section=parsed_section))
-                    # out_str += f" check_result={check_result}"
-                    results[task_key]["check_results"] = {
-                        key: list(map(str, value)) for key, value in check_results.items()
-                    }
+                            for service in discovered_items
+                        }
+                        # out_str += f" check_result={check_result}"
+                        results[task_key]["check_results"] = {
+                            # fixme(frans): sorting should be optional
+                            key: sorted(str(v) for v in value)
+                            for key, value in check_results.items()
+                        }
 
-                    # inventory_plugin = inventory_plugins_to_check[name]
+                        # inventory_plugin = inventory_plugins_to_check[name]
 
-                    # print(yaml.dump(parsed_section))
-                    # print(yaml.dump([i for a in parsed_section for i in a.inet6]))
-                    # labels = list(host_labels_if_snmp(parsed_section))
-                    # out_str += f" labels={' '.join(map(str, labels)):<50}"
-                    # inventory = list(inventorize_ip_addresses_snmp(parsed_section))
-                    # out_str += f" HaSI: {len(inventory)}"
+                        # print(yaml.dump(parsed_section))
+                        # print(yaml.dump([i for a in parsed_section for i in a.inet6]))
+                        # labels = list(host_labels_if_snmp(parsed_section))
+                        # out_str += f" labels={' '.join(map(str, labels)):<50}"
+                        # inventory = list(inventorize_ip_addresses_snmp(parsed_section))
+                        # out_str += f" HaSI: {len(inventory)}"
 
-                # if True and is_detected:
-                #    parsed_section = get_parsed_snmp_section(section, backend)
-                # out_str += f" {parsed_section}"
+                    # if True and is_detected:
+                    #    parsed_section = get_parsed_snmp_section(section, backend)
+                    # out_str += f" {parsed_section}"
 
-                if is_detected or show_all:
-                    console.print(out_str)
-                    # console.print(parsed_section)
+                    if is_detected or show_all:
+                        console.print(out_str)
+                        # console.print(parsed_section)
 
-                detect_count += is_detected
-                no_detect_count += not is_detected
+                    detect_count += is_detected
+                    no_detect_count += not is_detected
 
             except Exception as exc:
                 error_count += 1
@@ -415,6 +480,8 @@ def check(cli_args: Args, status: Status, results: list[str], tmp_dir: Path) -> 
                     console.print(f"  - ⚠️  walk='{path.name}' [red bold]UnicodeDecodeError[/]")
                 else:
                     console.print(f"  - ⚠️  walk='{path.name}' Error: [red bold]{exc!r}[/]")
+                    raise
+
                 if not (ignored_errors and type(exc).__name__.lower() in ignored_errors):
                     if error_file:
                         error_file.write(f"{path}\n")
@@ -440,6 +507,7 @@ console = Console()
 
 def main(args: None | Sequence[str] = None) -> int:
     """See main docstring"""
+    traceback.install()
     cli_args = parse_arguments(args or sys.argv[1:])
     # logging.basicConfig(level=logging.DEBUG)
     # setup_logging(log(), level=cli_args.log_level, show_name=20, show_funcname=30)
@@ -450,7 +518,9 @@ def main(args: None | Sequence[str] = None) -> int:
         try:
             status = context.enter_context(console.status("doing"))
             context.enter_context(suppress(KeyboardInterrupt))
-            tmp_dir = Path(context.enter_context(tempfile.TemporaryDirectory()))
+            tmp_dir = Path(
+                context.enter_context(tempfile.TemporaryDirectory(prefix="cwz-reencoded-"))
+            )
             rich_print(
                 f"Use temporary directory for re-encoded SNMP walks/agent outputs: {tmp_dir}"
             )
@@ -464,13 +534,13 @@ def main(args: None | Sequence[str] = None) -> int:
                 console.print("uvx snakeviz profile_stats.prof")
 
         finally:
+            results_path = "results.json"
+            status.update(f"store {results_path}..")
             with Path("results.json").open("w") as results_file:
                 json.dump(results, results_file, sort_keys=True, indent=4)
-            # traceback.print_exc()
 
     return 0
 
 
 if __name__ == "__main__":
-    traceback.install()
     raise SystemExit(main())

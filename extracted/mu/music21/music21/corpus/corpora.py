@@ -164,7 +164,6 @@ class Corpus(prebase.ProtoM21Object):
         >>> coreCorpus.translateExtensions(('xml',))
         ('.xml', '.mxl', '.musicxml')
 
-
         # With multiple extensions:
 
         >>> coreCorpus.translateExtensions(('.mid', '.musicxml'), expandExtensions=False)
@@ -172,7 +171,7 @@ class Corpus(prebase.ProtoM21Object):
         >>> coreCorpus.translateExtensions(('.mid', '.musicxml'))
         ('.mid', '.midi', '.xml', '.mxl', '.musicxml')
 
-        * Changed in v9: returns a tuple, not a list.  first element must be an Iterable of strings
+        * Changed in v9: returns a tuple, not a list. First element must be an Iterable of strings.
 
         TODO: unify with tools in common.formats
         '''

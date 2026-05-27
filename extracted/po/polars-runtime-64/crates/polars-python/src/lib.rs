@@ -60,4 +60,3 @@ pub use crate::expr::PyExpr;
 pub use crate::lazyframe::PyLazyFrame;
 pub use crate::lazygroupby::PyLazyGroupBy;
 pub use crate::series::PySeries;
-pub mod interned;

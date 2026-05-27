@@ -163,7 +163,6 @@ class StreamFreezer(StreamFreezeThawBase):
     {6.0} <music21.note.Note F#>
     {7.0} <music21.note.Note G>
 
-
     >>> c = corpus.parse('luca/gloria')
     >>> sf = freezeThaw.StreamFreezer(c)
     >>> data = sf.writeStr(fmt='pickle')
@@ -492,7 +491,6 @@ class StreamFreezer(StreamFreezeThawBase):
 
         if hierarchyObject is None, uses self.stream.
 
-
         >>> sc = stream.Score()
         >>> p1 = stream.Part()
         >>> p2 = stream.Part()
@@ -799,7 +797,6 @@ class StreamThawer(StreamFreezeThawBase):
         _storedElementOffsetTuples
         and restore it to the ._elements and ._endElements lists
         in the proper locations:
-
 
         >>> s = stream.Measure()
         >>> s._elements, s._endElements
@@ -1154,7 +1151,7 @@ class Test(unittest.TestCase):
         stream2.append(m)
         # c.show('t')
         variant.addVariant(c.parts[0], 6.0, stream2,
-                           variantName='rhythmic_switch', replacementDuration=3.0)
+                           variantName='rhythmic_switch', replacementQuarterLength=3.0)
 
         # test Variant is in stream
         unused_v1 = c.parts.first().getElementsByClass(variant.Variant).first()

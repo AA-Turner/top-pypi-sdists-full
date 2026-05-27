@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from omnibase_core.models.container.model_protocols_namespace import (
     ModelProtocolsNamespace,
 )
+from omnibase_core.models.contracts.model_contract_config import ModelContractConfig
 from omnibase_core.models.contracts.subcontracts.model_protocol_dependency import (
     ModelProtocolDependency,
 )
@@ -407,6 +408,26 @@ class NodeCoreBase(ABC):
     def get_state(self) -> dict[str, str]:
         return dict(self.state)
 
+    @property
+    def contract_config(self) -> ModelContractConfig:
+        """Contract-declared config section, or default ModelContractConfig if absent.
+
+        Reads the `config:` key from self.contract_data (dict or Pydantic model).
+        Never falls back to env vars — absent config means empty ModelContractConfig.
+        """
+        raw = get_contract_attr(self.contract_data, "config")
+        if raw is None:
+            return ModelContractConfig()
+        if isinstance(raw, ModelContractConfig):
+            return raw
+        if isinstance(raw, Mapping):
+            return ModelContractConfig.model_validate(dict(raw))
+        raise ModelOnexError(
+            message="Contract config must be a mapping or ModelContractConfig.",
+            error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+            received_type=type(raw).__name__,
+        )
+
     async def _load_contract(self) -> None:
         """
         Load and validate contract configuration.
@@ -424,6 +445,7 @@ class NodeCoreBase(ABC):
             contract_service: Any = None
             try:
                 # NOTE(OMN-1302): String-based DI lookup returns Protocol. Safe because validated at registration.
+                # Why: Runtime validation narrows this dynamic payload before use.
                 contract_service = self.container.get_service("contract_service")  # type: ignore[arg-type]
             except (
                 Exception  # noqa: BLE001
@@ -708,6 +730,7 @@ class NodeCoreBase(ABC):
             event_bus: Any = None
             try:
                 # NOTE(OMN-1302): String-based DI lookup returns Protocol. Safe because validated at registration.
+                # Why: Runtime validation narrows this dynamic payload before use.
                 event_bus = self.container.get_service("event_bus")  # type: ignore[arg-type]
             except Exception:  # noqa: BLE001  # fallback-ok: event bus is optional for node operation
                 event_bus = None

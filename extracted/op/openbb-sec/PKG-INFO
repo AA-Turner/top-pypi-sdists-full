@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openbb-sec
-Version: 1.6.0
+Version: 1.6.1
 Summary: SEC extension for OpenBB
 License: AGPL-3.0-only
 Author: OpenBB Team
@@ -18,7 +18,7 @@ Requires-Dist: aiosqlite (>=0.20.0,<0.21.0)
 Requires-Dist: beautifulsoup4 (>=4.12,<5.0)
 Requires-Dist: defusedxml (>=0.7.1)
 Requires-Dist: lxml (>=5.2.1)
-Requires-Dist: openbb-core (>=1.6.1,<2.0.0)
+Requires-Dist: openbb-core (>=1.6.10,<2.0.0)
 Requires-Dist: xmltodict (>=0.13.0,<0.14.0)
 Description-Content-Type: text/markdown
 

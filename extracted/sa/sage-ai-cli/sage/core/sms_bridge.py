@@ -471,6 +471,11 @@ def _find_kdeconnect_cli() -> str | None:
         r"C:\Program Files\KDE Connect\kdeconnect-cli.exe",
         r"C:\Program Files (x86)\KDE Connect\kdeconnect-cli.exe",
     ]
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        candidates.append(os.path.join(local_appdata, "Programs", "KDE Connect", "bin", "kdeconnect-cli.exe"))
+    candidates.append(os.path.expanduser("~/AppData/Local/Programs/KDE Connect/bin/kdeconnect-cli.exe"))
+
     for c in candidates:
         if os.path.exists(c):
             return c
@@ -552,7 +557,12 @@ def _kdeconnectd_running() -> tuple[bool, str]:
     try:
         r = subprocess.run([cli, "--list-available", "--id-only"],
                            capture_output=True, text=True, timeout=5)
-        devices = [d.strip() for d in (r.stdout or "").splitlines() if d.strip()]
+        devices = []
+        for line in (r.stdout or "").splitlines():
+            line = line.strip()
+            if not line or "devices found" in line.lower() or " " in line:
+                continue
+            devices.append(line)
         if not devices:
             return False, "no paired+reachable KDE Connect devices"
         return True, ""
@@ -618,7 +628,12 @@ def _send_via_kdeconnect(phone_number: str, text: str) -> bool:
             [cli, "--list-available", "--id-only"],
             capture_output=True, text=True, timeout=5,
         )
-        devices = [d.strip() for d in (result.stdout or "").splitlines() if d.strip()]
+        devices = []
+        for line in (result.stdout or "").splitlines():
+            line = line.strip()
+            if not line or "devices found" in line.lower() or " " in line:
+                continue
+            devices.append(line)
         if not devices:
             logger.debug("KDE Connect: no paired+reachable devices")
             return False
@@ -788,7 +803,7 @@ class SAGEMessageBridge:
         self._stop = threading.Event()
         self._bridge_email = ""
         self._announced = False
-        self._log_fp = SMS_LOG_FILE.open("a", buffering=1)
+        self._log_fp = SMS_LOG_FILE.open("a", buffering=1, encoding="utf-8")
         # Tracks the last seen Messages chat.db ROWID so we only process new
         # inbound iMessage / SMS after the bridge starts (not the entire
         # historical chat log).

@@ -9,7 +9,7 @@ from pygitguardian import GGClient
 from pygitguardian.models import MCPActivityResponse
 
 from ggshield.utils.git_shell import Filemode
-from ggshield.verticals.ai.agents import Claude, Copilot, Cursor
+from ggshield.verticals.ai.agents import Agent, Claude, Codex, Copilot, Cursor, VSCode
 from ggshield.verticals.ai.hooks import AIHookScanner, find_filepaths, parse_hook_input
 from ggshield.verticals.ai.mcp import send_mcp_activity
 from ggshield.verticals.ai.models import EventType, HookPayload, HookResult, Tool
@@ -161,9 +161,9 @@ class TestAIHookScannerScan:
         code = scanner.scan(json.dumps(data))
         assert code == 0
         mock_notify.assert_called_once()
-        args = mock_notify.call_args[0]
-        assert args[0] == 1  # nbr_secrets
-        assert args[1] == Tool.BASH  # tool
+        result = mock_notify.call_args[0][0]
+        assert result.nbr_secrets == 1  # nbr_secrets
+        assert result.payload.tool == Tool.BASH  # tool
 
     def test_scan_pre_tool_use_with_secrets_blocks(self):
         """scan() on PRE_TOOL_USE with secrets returns block result."""
@@ -316,19 +316,43 @@ class TestMessageFromSecrets:
 class TestSendSecretNotification:
     """Unit tests for AIHookScanner._send_secret_notification."""
 
+    def _result(
+        self,
+        nbr_secrets: int,
+        tool: Tool,
+        agent: Agent,
+        input_command: str = "",
+    ) -> HookResult:
+        return HookResult(
+            block=True,
+            message="",
+            nbr_secrets=nbr_secrets,
+            payload=HookPayload(
+                event_type=EventType.PRE_TOOL_USE,
+                tool=tool,
+                content="",
+                identifier="",
+                agent=agent,
+                raw={"tool_input": {"command": input_command}},
+            ),
+        )
+
     @patch("ggshield.verticals.ai.hooks.Notify")
     def test_notification_for_bash_tool(self, mock_notify_cls: MagicMock):
-        """Notification for BASH tool says 'running a command'."""
-        AIHookScanner._send_secret_notification(1, Tool.BASH, "Claude Code")
+        """Notification for BASH tool says 'running the command'
+        and contains the command run."""
+        AIHookScanner._send_secret_notification(
+            self._result(1, Tool.BASH, Claude(), input_command="ls -la")
+        )
         instance = mock_notify_cls.return_value
-        assert "running a command" in instance.message
+        assert "running the command `ls -la`" in instance.message
         assert "Claude Code" in instance.message
         instance.send.assert_called_once()
 
     @patch("ggshield.verticals.ai.hooks.Notify")
     def test_notification_for_read_tool(self, mock_notify_cls: MagicMock):
         """Notification for READ tool says 'reading a file'."""
-        AIHookScanner._send_secret_notification(2, Tool.READ, "Cursor")
+        AIHookScanner._send_secret_notification(self._result(2, Tool.READ, Cursor()))
         instance = mock_notify_cls.return_value
         assert "reading a file" in instance.message
         assert "2" in instance.message
@@ -337,7 +361,7 @@ class TestSendSecretNotification:
     @patch("ggshield.verticals.ai.hooks.Notify")
     def test_notification_for_other_tool(self, mock_notify_cls: MagicMock):
         """Notification for OTHER tool says 'using a tool'."""
-        AIHookScanner._send_secret_notification(1, Tool.OTHER, "Copilot")
+        AIHookScanner._send_secret_notification(self._result(1, Tool.OTHER, Copilot()))
         instance = mock_notify_cls.return_value
         assert "using a tool" in instance.message
         instance.send.assert_called_once()
@@ -561,12 +585,12 @@ class TestAIHookScannerParseInput:
         assert payload.tool is None
         assert isinstance(payload.agent, Claude)
 
-    def test_copilot_user_prompt(self):
-        """Test Copilot UserPromptSubmit parsing."""
+    def test_vscode_user_prompt(self):
+        """Test VSCode UserPromptSubmit parsing."""
         data = {
             "timestamp": "2026-02-26T11:28:53.112Z",
-            "hookEventName": "UserPromptSubmit",
-            "sessionId": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
             "transcript_path": (
                 "/home/user1/.config/Code/User/workspaceStorage/"
                 "abc123/GitHub.copilot-chat/transcripts/69cc6a03.jsonl"
@@ -578,15 +602,15 @@ class TestAIHookScannerParseInput:
         assert payload.event_type == EventType.USER_PROMPT
         assert "hello world" in payload.content
         assert payload.tool is None
-        assert isinstance(payload.agent, Copilot)
+        assert isinstance(payload.agent, VSCode)
 
-    def test_copilot_pre_tool_use_run_in_terminal(self):
-        """Test Copilot PreToolUse with run_in_terminal (shell) parsing."""
+    def test_vscode_pre_tool_use_run_in_terminal(self):
+        """Test VSCode PreToolUse with run_in_terminal (shell) parsing."""
         # From raw_hooks_logs: Copilot PreToolUse run_in_terminal
         data = {
             "timestamp": "2026-02-26T11:29:05.821Z",
-            "hookEventName": "PreToolUse",
-            "sessionId": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "hook_event_name": "PreToolUse",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
             "transcript_path": (
                 "/home/user1/.config/Code/User/workspaceStorage/"
                 "abc123/GitHub.copilot-chat/transcripts/69cc6a03.jsonl"
@@ -606,15 +630,15 @@ class TestAIHookScannerParseInput:
         assert payload.event_type == EventType.PRE_TOOL_USE
         assert payload.tool == Tool.BASH
         assert "whoami" in payload.content
-        assert isinstance(payload.agent, Copilot)
+        assert isinstance(payload.agent, VSCode)
 
-    def test_copilot_pre_tool_use_read_file(self, tmp_file: Path):
-        """Test Copilot PreToolUse with read_file parsing."""
-        # From raw_hooks_logs: Copilot PreToolUse read_file (nonexistent path for deterministic test)
+    def test_vscode_pre_tool_use_read_file(self, tmp_file: Path):
+        """Test VSCode PreToolUse with read_file parsing."""
+        # From raw_hooks_logs: VSCode PreToolUse read_file (nonexistent path for deterministic test)
         data = {
             "timestamp": "2026-02-26T11:53:49.593Z",
-            "hookEventName": "PreToolUse",
-            "sessionId": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "hook_event_name": "PreToolUse",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
             "transcript_path": (
                 "/home/user1/.config/Code/User/workspaceStorage/"
                 "abc123/GitHub.copilot-chat/transcripts/69cc6a03.jsonl"
@@ -634,15 +658,15 @@ class TestAIHookScannerParseInput:
         assert payload.identifier == tmp_file.as_posix()
         assert payload.content == ""
         assert payload.scannable.content == "this is the content"
-        assert isinstance(payload.agent, Copilot)
+        assert isinstance(payload.agent, VSCode)
 
-    def test_copilot_post_tool_use_run_in_terminal(self):
-        """Test Copilot PostToolUse with run_in_terminal (simulated cat result)."""
+    def test_vscode_post_tool_use_run_in_terminal(self):
+        """Test VSCode PostToolUse with run_in_terminal (simulated cat result)."""
         # From raw_hooks_logs: Copilot PostToolUse run_in_terminal - tool_response is string
         data = {
             "timestamp": "2026-02-26T11:53:47.392Z",
-            "hookEventName": "PostToolUse",
-            "sessionId": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "hook_event_name": "PostToolUse",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
             "transcript_path": (
                 "/home/user1/.config/Code/User/workspaceStorage/"
                 "abc123/GitHub.copilot-chat/transcripts/69cc6a03.jsonl"
@@ -663,7 +687,152 @@ class TestAIHookScannerParseInput:
         assert payload.event_type == EventType.POST_TOOL_USE
         assert payload.tool == Tool.BASH
         assert "user1" in payload.content
+        assert isinstance(payload.agent, VSCode)
+
+    def test_copilot_user_prompt(self):
+        """Test Copilot UserPromptSubmit parsing."""
+        data = {
+            "timestamp": "2026-02-26T11:28:53.112Z",
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "prompt": "hello world",
+            "cwd": "/home/user1/foo",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert payload.event_type == EventType.USER_PROMPT
+        assert "hello world" in payload.content
+        assert payload.tool is None
         assert isinstance(payload.agent, Copilot)
+
+    def test_copilot_pre_tool_use_run_in_terminal(self):
+        """Test Copilot PreToolUse with bash parsing."""
+        data = {
+            "timestamp": "2026-02-26T11:29:05.821Z",
+            "hook_event_name": "PreToolUse",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "tool_name": "bash",
+            "tool_input": {
+                "command": "whoami",
+                "description": "whoami to test preToolUse hook",
+                "mode": "sync",
+                "initial_wait": 30,
+            },
+            "cwd": "/home/user1/foo",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert payload.event_type == EventType.PRE_TOOL_USE
+        assert payload.tool == Tool.BASH
+        assert "whoami" in payload.content
+        assert isinstance(payload.agent, Copilot)
+
+    def test_copilot_pre_tool_use_read_file(self, tmp_file: Path):
+        """Test Copilot PreToolUse with read_file parsing."""
+        # From raw_hooks_logs: Copilot PreToolUse read_file (nonexistent path for deterministic test)
+        data = {
+            "timestamp": "2026-02-26T11:53:49.593Z",
+            "hook_event_name": "PreToolUse",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "tool_name": "view",
+            "tool_input": {
+                "path": tmp_file.as_posix(),
+            },
+            "cwd": "/home/user1/foo",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert payload.event_type == EventType.PRE_TOOL_USE
+        assert payload.tool == Tool.READ
+        assert payload.identifier == tmp_file.as_posix()
+        assert payload.content == ""
+        assert payload.scannable.content == "this is the content"
+        assert isinstance(payload.agent, Copilot)
+
+    def test_copilot_pre_tool_use_mcp(self):
+        """Test Copilot PreToolUse is correctly overriden to MCP."""
+        data = {
+            "timestamp": "2026-02-26T11:53:49.593Z",
+            "hook_event_name": "PreToolUse",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "tool_name": "server-name-tool-name",
+            "tool_input": {
+                "arg": "value",
+            },
+            "cwd": "/home/user1/foo",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert payload.event_type == EventType.PRE_TOOL_USE
+        assert payload.tool == Tool.MCP
+        assert isinstance(payload.agent, Copilot)
+
+    def test_copilot_post_tool_use_run_in_terminal(self):
+        """Test Copilot PostToolUse with bash"""
+        data = {
+            "timestamp": "2026-02-26T11:53:47.392Z",
+            "hook_event_name": "PostToolUse",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "tool_name": "run_in_terminal",
+            "tool_input": {
+                "command": "whoami",
+                "explanation": "whoami to test postToolUse hook",
+                "goal": "whoami to test postToolUse hook",
+                "isBackground": False,
+                "timeout": 0,
+            },
+            "tool_result": {
+                "result_type": "success",
+                "text_result_for_llm": "user1\n<exited with exit code 0>",
+            },
+            "cwd": "/home/user1/foo",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert payload.event_type == EventType.POST_TOOL_USE
+        assert payload.tool == Tool.BASH
+        assert "user1" in payload.content
+        assert isinstance(payload.agent, Copilot)
+
+    def test_raises_if_no_agent_recognized(self):
+        """Test raises if no agent can be recognized."""
+        data = {
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "hello world",
+        }
+        with pytest.raises(ValueError, match="Unrecognized agent"):
+            parse_hook_input(json.dumps(data))
+
+    def test_codex_user_prompt(self):
+        """Test Codex UserPromptSubmit parsing."""
+        data = {
+            "session_id": "273ad859-3608-4799-9971-fa15ecb1a65c",
+            "transcript_path": "/home/user/.codex/sessions/2026/04/30/session.jsonl",
+            "cwd": "/home/user/project",
+            "hook_event_name": "UserPromptSubmit",
+            "turn_id": "turn_123",
+            "model": "gpt-5.4",
+            "prompt": "hello world",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert payload.event_type == EventType.USER_PROMPT
+        assert payload.content == "hello world"
+        assert payload.tool is None
+        assert isinstance(payload.agent, Codex)
+
+    def test_codex_pre_tool_use_bash(self):
+        """Test Codex PreToolUse with Bash parsing."""
+        data = {
+            "session_id": "273ad859-3608-4799-9971-fa15ecb1a65c",
+            "transcript_path": "/home/user/.codex/sessions/2026/04/30/session.jsonl",
+            "cwd": "/home/user/project",
+            "hook_event_name": "PreToolUse",
+            "turn_id": "turn_123",
+            "model": "gpt-5.4",
+            "tool_name": "Bash",
+            "tool_input": {"command": "whoami"},
+            "tool_use_id": "call_123",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert payload.event_type == EventType.PRE_TOOL_USE
+        assert payload.tool == Tool.BASH
+        assert payload.content == "whoami"
+        assert isinstance(payload.agent, Codex)
 
     def test_pre_tool_use_read_with_missing_file(self):
         """PRE_TOOL_USE with tool_name 'read' and non-existing file yields empty content."""
@@ -705,6 +874,25 @@ class TestAIHookScannerParseInput:
         assert payload.event_type == EventType.OTHER
         assert payload.content == ""
         assert payload.tool is None
+
+    def test_windows_GetContent_parsing(self):
+        """The Bash/Get-Content tool use in windows is parsed as file reading."""
+        # This case was observed with Codex on Windows.
+        data = {
+            "session_id": "273ad859-3608-4799-9971-fa15ecb1a65c",
+            "transcript_path": "/home/user/.codex/sessions/2026/04/30/session.jsonl",
+            "cwd": "/home/user/project",
+            "hook_event_name": "PreToolUse",
+            "turn_id": "turn_123",
+            "model": "gpt-5.4",
+            "tool_name": "Bash",
+            "tool_input": {"command": "Get-Content README.md"},
+            "tool_use_id": "call_123",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert payload.event_type == EventType.PRE_TOOL_USE
+        assert payload.tool == Tool.READ
+        assert payload.identifier == "README.md"
 
 
 class TestFlavorOutputResult:
@@ -889,6 +1077,82 @@ class TestFlavorOutputResult:
         out = json.loads(args[0])
         assert not out["continue"]
 
+    @patch("ggshield.verticals.ai.agents.codex.click.echo")
+    def test_codex_output_result_allow(self, mock_echo: MagicMock):
+        """Codex with block=False: empty JSON to stdout, return 0."""
+        result = HookResult.allow(_dummy_payload(EventType.PRE_TOOL_USE))
+        code = Codex().output_result(result)
+        assert code == 0
+        mock_echo.assert_called_once_with("{}")
+
+    @patch("ggshield.verticals.ai.agents.codex.click.echo")
+    def test_codex_output_result_pre_tool_use_block(self, mock_echo: MagicMock):
+        """Codex PRE_TOOL_USE with block=True: permission deny JSON, return 0."""
+        result = HookResult(
+            block=True,
+            message="Secrets detected in command",
+            nbr_secrets=1,
+            payload=_dummy_payload(EventType.PRE_TOOL_USE),
+        )
+        code = Codex().output_result(result)
+        assert code == 0
+        args, kwargs = mock_echo.call_args
+        assert kwargs.get("err", False) is False
+        out = json.loads(args[0])
+        assert out["systemMessage"] == "Secrets detected in command"
+        assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+        assert (
+            out["hookSpecificOutput"]["permissionDecisionReason"]
+            == "Secrets detected in command"
+        )
+
+    @patch("ggshield.verticals.ai.agents.codex.click.echo")
+    def test_codex_output_result_user_prompt_block(self, mock_echo: MagicMock):
+        """Codex USER_PROMPT with block=True: block decision JSON, return 0."""
+        result = HookResult(
+            block=True,
+            message="Secrets detected in prompt",
+            nbr_secrets=1,
+            payload=_dummy_payload(EventType.USER_PROMPT),
+        )
+        code = Codex().output_result(result)
+        assert code == 0
+        args, _ = mock_echo.call_args
+        out = json.loads(args[0])
+        assert out["systemMessage"] == "Secrets detected in prompt"
+        assert out["decision"] == "block"
+        assert out["reason"] == "Secrets detected in prompt"
+
+    @patch("ggshield.verticals.ai.agents.codex.click.echo")
+    def test_codex_output_result_post_tool_use_block(self, mock_echo: MagicMock):
+        """Codex POST_TOOL_USE with block=True: block decision JSON, return 0."""
+        result = HookResult(
+            block=True,
+            message="Secrets detected in tool output",
+            nbr_secrets=1,
+            payload=_dummy_payload(EventType.POST_TOOL_USE),
+        )
+        code = Codex().output_result(result)
+        assert code == 0
+        args, _ = mock_echo.call_args
+        out = json.loads(args[0])
+        assert out["systemMessage"] == "Secrets detected in tool output"
+        assert out["decision"] == "block"
+        assert out["reason"] == "Secrets detected in tool output"
+
+    @patch("ggshield.verticals.ai.agents.codex.click.echo")
+    def test_codex_output_result_other_block(self, mock_echo: MagicMock):
+        """Codex unsupported event with block=True writes to stderr and returns 2."""
+        result = HookResult(
+            block=True,
+            message="Unsupported Codex event",
+            nbr_secrets=1,
+            payload=_dummy_payload(EventType.OTHER),
+        )
+        code = Codex().output_result(result)
+        assert code == 2
+        mock_echo.assert_called_once_with("Unsupported Codex event", err=True)
+
 
 @pytest.mark.parametrize(
     "prompt, filepaths",
@@ -901,6 +1165,7 @@ class TestFlavorOutputResult:
         ("@filename.txt", {"filename.txt"}),
         ("same @file @file twice", {"file"}),
         ("File can start with a dot: @.env", {".env"}),
+        ("File can contain underscores: @my_file.txt", {"my_file.txt"}),
         (
             "Files simply mentioned without @ prefix are not matched: foo.txt bar.txt.",
             set(),
@@ -934,6 +1199,8 @@ class TestFlavorOutputResult:
             {"config.json", "big file.txt"},
         ),
         ("Newline before @: line1\n@file.txt", {"file.txt"}),
+        ("VSCode-style path: @file:file.txt", {"file.txt"}),
+        ("VSCode-style path with folder: @file:folder/file.txt", {"folder/file.txt"}),
     ],
 )
 def test_find_filepaths(prompt: str, filepaths: Set[str]):

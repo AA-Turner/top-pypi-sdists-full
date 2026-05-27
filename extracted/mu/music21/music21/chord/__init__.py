@@ -70,7 +70,6 @@ class ChordBase(note.NotRest):
     >>> cb.notes
     (<music21.note.Note C>, <music21.note.Note E>, <music21.note.Note G>)
 
-
     **Equality**
 
     Equality on ChordBase is strange, but necessary to help Chord and PercussionChord
@@ -210,7 +209,7 @@ class ChordBase(note.NotRest):
 
         Also requires that notes be iterable.
 
-        Changed in v9: incorrect arguments raise TypeError
+        * Changed in v9: incorrect arguments raise TypeError.
         '''
         # quickDuration specifies whether the duration object for the chord
         # should be taken from the first note of the list.
@@ -326,7 +325,6 @@ class ChordBase(note.NotRest):
         >>> c.remove(pitch.Pitch('F#5'))
         Traceback (most recent call last):
         ValueError: Chord.remove(x), x not in chord
-
 
         The Note also does not need to be the exact note of the
         chord, just matches on equality
@@ -565,7 +563,7 @@ class ChordBase(note.NotRest):
         >>> c.volume
         <music21.volume.Volume realized=0.76>
 
-        * New in v8: replaces setting .volume to a list
+        * New in v8: replaces setting .volume to a list.
         '''
         # if setting components, remove single velocity
         self._volume = None
@@ -608,7 +606,6 @@ class Chord(ChordBase):
     >>> myChord
     <music21.chord.Chord A4 C#5 E5>
 
-
     Or you can combine already created Notes or Pitches:
 
     >>> cNote = note.Note('C')
@@ -650,7 +647,6 @@ class Chord(ChordBase):
     12, then a MIDI number.  To create chords below MIDI 12, create a Pitch object with that
     MIDI number instead and then pass that to the Chord creator).
 
-
     Duration or quarterLength also works:
 
     >>> d = duration.Duration(2.0)
@@ -667,7 +663,6 @@ class Chord(ChordBase):
     'half'
     >>> myChord.duration.dots
     3
-
 
     OMIT_FROM_DOCS
 
@@ -1341,7 +1336,6 @@ class Chord(ChordBase):
         >>> strange_chord.bass()
         <music21.pitch.Pitch G--4>
 
-
         By default, if nothing has been overridden, this method uses a
         quick algorithm to find the bass among the
         chord's pitches, if no bass has been previously specified. If this is
@@ -1665,7 +1659,6 @@ class Chord(ChordBase):
         >>> cChord = chord.Chord(['C', 'E', 'G', 'B'])
         >>> cChord.containsSeventh()
         True
-
 
         Empty chord returns False
 
@@ -2432,7 +2425,7 @@ class Chord(ChordBase):
         sets the value to be returned later, which might be useful for
         cases where the chords are poorly spelled, or there is an added note.
 
-        * Changed in v8: deal with chords without pitches
+        * Changed in v8: deal with chords without pitches.
         '''
         if not self.pitches:
             return -1
@@ -2916,7 +2909,6 @@ class Chord(ChordBase):
         each third and fifth above the root.
         Chord MAY BE SPELLED INCORRECTLY. Otherwise returns False.
 
-
         >>> c = chord.Chord('C D# G- A')
         >>> c.isFalseDiminishedSeventh()
         True
@@ -2975,7 +2967,7 @@ class Chord(ChordBase):
         >>> fr6c.isFrenchAugmentedSixth(permitAnyInversion=True)
         True
 
-        * Changed in v7: `permitAnyInversion` added
+        * Changed in v7: `permitAnyInversion` added.
 
         OMIT_FROM_DOCS
 
@@ -2998,7 +2990,6 @@ class Chord(ChordBase):
         Returns True if the chord is a German augmented sixth chord
         (flat 6th scale degree in bass, tonic, flat third scale degree, and raised 4th).
 
-
         >>> gr6a = chord.Chord(['A-3', 'C4', 'E-4', 'F#4'])
         >>> gr6a.isGermanAugmentedSixth()
         True
@@ -3020,7 +3011,7 @@ class Chord(ChordBase):
         >>> gr6c.isGermanAugmentedSixth(permitAnyInversion=True)
         True
 
-        * Changed in v7: `permitAnyInversion` added
+        * Changed in v7: `permitAnyInversion` added.
 
         OMIT_FROM_DOCS
 
@@ -3050,7 +3041,6 @@ class Chord(ChordBase):
         fifth, and seventh above the root.
         Chord must be spelled correctly. Otherwise returns false.
 
-
         >>> c1 = chord.Chord(['C4', 'E-4', 'G-4', 'B-4'])
         >>> c1.isHalfDiminishedSeventh()
         True
@@ -3075,7 +3065,6 @@ class Chord(ChordBase):
         '''
         Returns True if the chord is an incomplete Major triad, or, essentially,
         a dyad of root and major third
-
 
         >>> c1 = chord.Chord(['C4', 'E3'])
         >>> c1.isMajorTriad()
@@ -3358,7 +3347,6 @@ class Chord(ChordBase):
         >>> chord.Chord(['A#', 'D', 'F']).forteClassTn == '3-11B'
         True
 
-
         OMIT_FROM_DOCS
 
         Strange chords like [C,E###,G---] used to return True.  E### = G
@@ -3369,7 +3357,6 @@ class Chord(ChordBase):
         False
         >>> chord.Chord(['C', 'E', 'G', 'E###', 'G---']).isMajorTriad()
         False
-
 
         >>> chord.Chord().isMajorTriad()
         False
@@ -3632,7 +3619,7 @@ class Chord(ChordBase):
         >>> ch3.isSwissAugmentedSixth(permitAnyInversion=True)
         True
 
-        * Changed in v7: `permitAnyInversion` added
+        * Changed in v7: `permitAnyInversion` added.
         '''
         return self._isAugmentedSixthHelper(
             (4, 27, -1),
@@ -3889,7 +3876,6 @@ class Chord(ChordBase):
         >>> cSus4.root() is cSus4.pitches[0]
         True
 
-
         You might also want to supply an "implied root." For instance, some people
         call a diminished seventh chord (generally viio7)
         a dominant chord with an omitted root (Vo9) -- here we will specify the root
@@ -3939,7 +3925,6 @@ class Chord(ChordBase):
         algorithm will skip the slow part of finding the root if it
         has been specified (or already found and no pitches have changed).
 
-
         A chord with no pitches has no root and raises a ChordException.
 
         >>> chord.Chord().root()
@@ -3947,7 +3932,7 @@ class Chord(ChordBase):
         music21.chord.ChordException: no pitches in chord <music21.chord.Chord ...>
 
         * Changed in v5.2: `find` is a keyword-only parameter,
-          `newroot` finds `Pitch` in `Chord`
+          `newroot` finds `Pitch` in `Chord`.
         '''
         # None value for find indicates: return override if overridden, cache if cached
         # or find new value if neither is the case.
@@ -4145,7 +4130,6 @@ class Chord(ChordBase):
         8
         >>> print(aChord.semitonesFromChordStep(2))
         None
-
 
         Test whether this strange chord gets the B# as 0 semitones:
 
@@ -4809,7 +4793,6 @@ class Chord(ChordBase):
         >>> c4b.commonName
         'German augmented sixth chord in root position'
 
-
         Dyads are called by actual name:
 
         >>> dyad1 = chord.Chord('C E')
@@ -4831,15 +4814,12 @@ class Chord(ChordBase):
         >>> dyad1.commonName
         'Major Third with octave doublings'
 
-
         If there are multiple enharmonics present just the simple
         number of semitones is returned.
 
         >>> dyad1 = chord.Chord('C4 E5 F-5 B#7')
         >>> dyad1.commonName
         '4 semitones'
-
-
 
         Special handling of one- and two-pitchClass chords:
 
@@ -4878,7 +4858,7 @@ class Chord(ChordBase):
         >>> chord.Chord('C4 E-4 G4 A#4 D4').commonName
         'enharmonic equivalent to minor-ninth chord'
 
-        * Changed in v5.5: special cases for checking enharmonics in some cases
+        * Changed in v5.5: special cases for checking enharmonics in some cases.
         * Changed in v6.5: better handling of 0-, 1-, and 2-pitchClass and microtonal chords.
         * Changed in v7: Inversions of augmented sixth-chords are specified.
         * Changed in v7.3: Enharmonic equivalents to common seventh and ninth chords are specified.
@@ -5374,7 +5354,7 @@ class Chord(ChordBase):
         >>> c1
         <music21.chord.Chord D#4 C#4>
 
-        * New in v5.7
+        * New in v5.7.
         '''
         return tuple(self._notes)
 
@@ -5625,7 +5605,6 @@ class Chord(ChordBase):
         >>> c4.pitchedCommonName
         'enharmonic equivalent to major triad above D'
 
-
         A single pitch just returns that pitch name:
 
         >>> chord.Chord(['D3']).pitchedCommonName
@@ -5638,7 +5617,6 @@ class Chord(ChordBase):
         >>> chord.Chord('D3 D4 D5').pitchedCommonName
         'multiple octaves above D'
 
-
         Two different pitches give interval names:
 
         >>> chord.Chord('F3 C4').pitchedCommonName
@@ -5650,7 +5628,6 @@ class Chord(ChordBase):
         'Major Thirteenth above Eb'
         >>> chord.Chord('E-3 C5 C6').pitchedCommonName
         'Major Sixth with octave doublings above Eb'
-
 
         These one-pitch-class and two-pitch-class chords with multiple enharmonics are unusual:
 
@@ -5717,7 +5694,6 @@ class Chord(ChordBase):
 
         >>> c.root()
         <music21.pitch.Pitch A4>
-
 
         Note here that the list will be converted to a tuple:
 
@@ -5940,7 +5916,7 @@ class Chord(ChordBase):
         >>> chord.Chord('C4 E4 G4').scaleDegrees is None
         True
 
-        * Changed in v6.5: will return `None` if no context can be found:
+        * Changed in v6.5: will return `None` if no context can be found.
         '''
         from music21 import scale
         # roman numerals have this built in as the key attribute
@@ -5990,7 +5966,7 @@ class Chord(ChordBase):
         >>> c.seventh
         <music21.pitch.Pitch B#4>
 
-        * Changed in v6.5: return None on empty chords/errors
+        * Changed in v6.5: return `None` on empty chords/errors.
 
         OMIT_FROM_DOCS
 
@@ -6015,7 +5991,7 @@ class Chord(ChordBase):
         >>> cMaj1stInv.third.octave
         3
 
-        * Changed in v6.5: return `None` on empty chords/errors
+        * Changed in v6.5: return `None` on empty chords/errors.
 
         OMIT_FROM_DOCS
 

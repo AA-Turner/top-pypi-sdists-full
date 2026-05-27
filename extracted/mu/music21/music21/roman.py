@@ -317,7 +317,7 @@ def _postFigureFromChordAndKey(chordObj: chord.Chord, keyObj: key.Key) -> str:
     Known bug: Fails on German Augmented 6th chords in root position.  Calls them
     half-diminished chords.
 
-    Changed in v10: made _postFigureFromChordAndKey private, keyObj is not optional.
+    * Changed in v10: made _postFigureFromChordAndKey private, keyObj is not optional.
     '''
     chordFigureTuples = figureTuples(chordObj, keyObj)
     bassFigureAlter = chordFigureTuples[0].alter
@@ -829,7 +829,6 @@ def romanNumeralFromChord(
     >>> romanNumeral10
     <music21.roman.RomanNumeral #iiiø7 in d minor>
 
-
     Augmented 6ths without key context
 
     >>> roman.romanNumeralFromChord(
@@ -926,7 +925,6 @@ def romanNumeralFromChord(
     ...     chord.Chord('E4 G4 B-4 C#5')
     ...     )
     <music21.roman.RomanNumeral io6b5b3 in c# minor>
-
 
     The preferSecondaryDominants option defaults to False, but if set to True,
     then certain rare figures are swapped with their
@@ -1038,7 +1036,6 @@ def romanNumeralFromChord(
 
     # >>> roman.romanNumeralFromChord(chord.Chord('B3 D3 E-3 G3'), key.Key('c'))
     # <music21.roman.RomanNumeral III+642 in c minor>
-
 
     These two are debatable -- is the harmonic minor or the natural minor used as the basis?
 
@@ -1414,7 +1411,6 @@ class RomanNumeral(harmony.Harmony):
     >>> roman.RomanNumeral('v64', 'c').pitches
     (<music21.pitch.Pitch D4>, <music21.pitch.Pitch G4>, <music21.pitch.Pitch B-4>)
 
-
     If no Key is given then it exists as a theoretical, keyless RomanNumeral;
     e.g., V in any key.  But when realized, keyless RomanNumerals are
     treated as if they are in C major.
@@ -1511,7 +1507,6 @@ class RomanNumeral(harmony.Harmony):
     >>> cp(minorSharpSix)
     ['C#5', 'E5', 'G#5']
 
-
     These rules can be changed by passing in a `sixthMinor` or `seventhMinor` parameter set to
     a member of :class:`music21.roman.Minor67Default`:
 
@@ -1530,7 +1525,6 @@ class RomanNumeral(harmony.Harmony):
     >>> majHarmonicSeven = roman.RomanNumeral('bVII', em, seventhMinor=roman.Minor67Default.SHARP)
     >>> cp(majHarmonicSeven)
     ['D5', 'F#5', 'A5']
-
 
     >>> majHarmonicSix = roman.RomanNumeral('VI', em, sixthMinor=roman.Minor67Default.FLAT)
     >>> cp(majHarmonicSix)
@@ -1775,7 +1769,6 @@ class RomanNumeral(harmony.Harmony):
     >>> r2.secondaryRomanNumeral.secondaryRomanNumeral
     <music21.roman.RomanNumeral vi in C major>
 
-
     The I64 chord can also be specified as Cad64, which
     simply parses as I64:
 
@@ -1798,7 +1791,6 @@ class RomanNumeral(harmony.Harmony):
     <music21.roman.RomanNumeral Cad64/V in c minor>
     >>> cp(r)
     ['D5', 'G5', 'B5']
-
 
     In a major context, i7 and iv7 and their inversions are treated as minor-7th
     chords:
@@ -1833,7 +1825,6 @@ class RomanNumeral(harmony.Harmony):
     >>> cp(roman.RomanNumeral('i#7', 'c'))
     ['C4', 'E-4', 'G4', 'B4']
 
-
     >>> cp(roman.RomanNumeral('i42[#7]', 'C'))
     ['B4', 'C5', 'E-5', 'G5']
 
@@ -1849,15 +1840,12 @@ class RomanNumeral(harmony.Harmony):
     >>> cp(roman.RomanNumeral('i7[#7]', 'c'))
     ['C4', 'E-4', 'G4', 'B4']
 
-
     Other inversions are the same as with major keys:
 
     >>> cp(roman.RomanNumeral('i65[#7]', 'c'))
     ['E-4', 'G4', 'B4', 'C5']
     >>> cp(roman.RomanNumeral('i43[#7]', 'c'))
     ['G4', 'B4', 'C5', 'E-5']
-
-
 
     The RomanNumeral constructor accepts a keyword 'updatePitches' which is
     passed to harmony.Harmony. By default, it
@@ -1903,16 +1891,13 @@ class RomanNumeral(harmony.Harmony):
     >>> rn5 == rn7
     False
 
-
     * Changed in v6.5: caseMatters is keyword only. It along with sixthMinor and
       seventhMinor are now the only allowable keywords to pass in.
     * Changed in v7: RomanNumeral.romanNumeral will always give a "b" for a flattened
       degree (i.e., '-II' becomes 'bII') as this is what people expect in looking at
       the figure.
-
     * Changed in v7.3: figures that are not normally used to indicate inversion
       such as V54 (a suspension) no longer give strange inversions.
-
     * Changed in v8: Figures are now validated as alphanumeric or containing one of
       the following symbols (after the example "V"):
 
@@ -2128,7 +2113,7 @@ class RomanNumeral(harmony.Harmony):
 
             Changing this value will not change existing pitches.
 
-            * Changed in v6.5: always returns a string, never None
+            * Changed in v6.5: always returns a string, never None.
             ''',
         'frontAlterationString': '''
             A string representing the chromatic alteration of a RomanNumeral, if any
@@ -2140,7 +2125,7 @@ class RomanNumeral(harmony.Harmony):
 
             Changing this value will not change existing pitches.
 
-            * Changed in v6.5: always returns a string, never None
+            * Changed in v6.5: always returns a string, never None.
             ''',
         'frontAlterationTransposeInterval': '''
             An optional :class:`~music21.interval.Interval` object
@@ -2961,7 +2946,6 @@ class RomanNumeral(harmony.Harmony):
         >>> rn.scaleDegreeWithAlteration
         (4, <music21.pitch.Accidental sharp>)
 
-
         Working figures might be changed to defaults:
 
         >>> rn = roman.RomanNumeral()
@@ -3070,7 +3054,7 @@ class RomanNumeral(harmony.Harmony):
         Note that this function is not called in parsing, but a private function having the
         guts of this function is called.
 
-        * Changed in v6.4: public function became hook to private function having the actual guts
+        * Changed in v6.5: public function became hook to private function having the actual guts.
         '''
         unused_workingFigure = self._adjustMinorVIandVIIByQuality('', useScale)
 
@@ -3101,7 +3085,7 @@ class RomanNumeral(harmony.Harmony):
         >>> ' '.join([p.name for p in rn.pitches])
         'G# B D G##'
 
-        * Changed in v6.4: Made private when `workingFigure`
+        * Changed in v6.5: Made private when `workingFigure`
           was added to the signature and returned.
         '''
         def sharpen(wFig: str) -> str:
@@ -3969,7 +3953,7 @@ RomanNumeral.figure.__doc__ = '''
 
     Changing this value will not change existing pitches.
 
-    * Changed in v6.5: empty RomanNumerals now have figure of '' not None
+    * Changed in v6.5: empty RomanNumerals now have figure of '' not None.
     '''
 
 

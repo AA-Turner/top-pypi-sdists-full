@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 import os
-from typing import Any, Optional, Dict
+from typing import TYPE_CHECKING, Any, List, Optional, Dict
 
 from authlib.integrations.base_client import BaseOAuth
 
 from safety_schemas.models import Stage
+
+if TYPE_CHECKING:
+    from safety.platform import SafetyPlatformClient
 
 
 @dataclass
@@ -24,11 +27,24 @@ class Organization:
 
 @dataclass
 class Auth:
-    org: Optional[Organization]
-    keys: Any
-    client: Any
+    """
+    Authentication state container for Safety CLI.
+
+    This dataclass holds all authentication-related state including credentials,
+    platform client, user information, and organization context.
+
+
+    Each CLI invocation resolves to exactly one auth path (API key, OAuth2, or
+    machine token). The single HTTP client lives in ``platform.http_client``.
+    """
+
+    org: Optional[Organization]  # TODO: Mix SSO orgs with non SSO orgs
+
+    platform: "SafetyPlatformClient"
     code_verifier: str
     client_id: str
+    jwks: Optional[Dict[str, List[Dict[str, Any]]]] = None
+    org_name: Optional[str] = None
     stage: Optional[Stage] = Stage.development
     email: Optional[str] = None
     name: Optional[str] = None
@@ -44,13 +60,19 @@ class Auth:
         if os.getenv("SAFETY_DB_DIR"):
             return True
 
-        if not self.client:
+        if not self.platform:
             return False
 
-        if self.client.api_key:
+        if self.platform.api_key:
             return True
 
-        return bool(self.client.token and self.email_verified)
+        if self.platform.token and self.email_verified:
+            return True
+
+        if self.platform.has_machine_token:
+            return True
+
+        return False
 
     def refresh_from(self, info: Dict) -> None:
         """
@@ -63,22 +85,8 @@ class Auth:
 
         self.name = info.get("name")
         self.email = info.get("email")
+        self.org_name = info.get("https://api.safetycli.com/org_name")
         self.email_verified = is_email_verified(info)  # type: ignore
-
-    def get_auth_method(self) -> str:
-        """
-        Get the authentication method.
-
-        Returns:
-            str: The authentication method.
-        """
-        if self.client.api_key:
-            return "API Key"
-
-        if self.client.token:
-            return "Token"
-
-        return "None"
 
 
 class XAPIKeyAuth(BaseOAuth):

@@ -130,6 +130,7 @@ __all__ = (
     "ContainerFindingResourceTypeDef",
     "ContainerInstanceDetailsTypeDef",
     "ContainerTypeDef",
+    "ContinuousScanDetailsTypeDef",
     "CountryTypeDef",
     "CoverageEc2InstanceDetailsTypeDef",
     "CoverageEcsClusterDetailsTypeDef",
@@ -437,6 +438,7 @@ __all__ = (
     "ScanConditionOutputTypeDef",
     "ScanConditionPairTypeDef",
     "ScanConditionTypeDef",
+    "ScanConfigurationContinuousScanDetailsTypeDef",
     "ScanConfigurationRecoveryPointTypeDef",
     "ScanConfigurationTypeDef",
     "ScanDetectionsTypeDef",
@@ -476,6 +478,7 @@ __all__ = (
     "ThreatIntelligenceDetailTypeDef",
     "ThreatTypeDef",
     "ThreatsDetectedItemCountTypeDef",
+    "TimestampTypeDef",
     "TotalTypeDef",
     "TriggerDetailsTypeDef",
     "UnarchiveFindingsRequestTypeDef",
@@ -707,6 +710,8 @@ class SecurityContextTypeDef(TypedDict):
 class VolumeMountTypeDef(TypedDict):
     Name: NotRequired[str]
     MountPath: NotRequired[str]
+
+TimestampTypeDef = Union[datetime, str]
 
 class CountryTypeDef(TypedDict):
     CountryCode: NotRequired[str]
@@ -1310,9 +1315,6 @@ class RecoveryPointDetailsTypeDef(TypedDict):
     RecoveryPointArn: NotRequired[str]
     BackupVaultName: NotRequired[str]
 
-class RecoveryPointTypeDef(TypedDict):
-    BackupVaultName: str
-
 class S3ObjectTypeDef(TypedDict):
     ETag: NotRequired[str]
     Key: NotRequired[str]
@@ -1337,8 +1339,9 @@ class ScanConditionPairTypeDef(TypedDict):
     Key: str
     Value: NotRequired[str]
 
-class ScanConfigurationRecoveryPointTypeDef(TypedDict):
-    BackupVaultName: NotRequired[str]
+class ScanConfigurationContinuousScanDetailsTypeDef(TypedDict):
+    EndTime: datetime
+    StartTime: NotRequired[datetime]
 
 class TriggerDetailsTypeDef(TypedDict):
     GuardDutyFindingId: NotRequired[str]
@@ -1497,6 +1500,10 @@ class ContainerTypeDef(TypedDict):
     ImagePrefix: NotRequired[str]
     VolumeMounts: NotRequired[list[VolumeMountTypeDef]]
     SecurityContext: NotRequired[SecurityContextTypeDef]
+
+class ContinuousScanDetailsTypeDef(TypedDict):
+    EndTime: TimestampTypeDef
+    StartTime: NotRequired[TimestampTypeDef]
 
 class CoverageEcsClusterDetailsTypeDef(TypedDict):
     ClusterName: NotRequired[str]
@@ -2028,11 +2035,6 @@ class S3BucketTypeDef(TypedDict):
     BucketPublicAccess: NotRequired[PublicAccessConfigurationTypeDef]
     S3ObjectUids: NotRequired[list[str]]
 
-class StartMalwareScanConfigurationTypeDef(TypedDict):
-    Role: str
-    IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
-    RecoveryPoint: NotRequired[RecoveryPointTypeDef]
-
 class SendObjectMalwareScanRequestTypeDef(TypedDict):
     S3Object: NotRequired[S3ObjectForSendObjectMalwareScanTypeDef]
 
@@ -2042,11 +2044,9 @@ class ScanConditionOutputTypeDef(TypedDict):
 class ScanConditionTypeDef(TypedDict):
     MapEquals: Sequence[ScanConditionPairTypeDef]
 
-class ScanConfigurationTypeDef(TypedDict):
-    Role: NotRequired[str]
-    TriggerDetails: NotRequired[TriggerDetailsTypeDef]
-    IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
-    RecoveryPoint: NotRequired[ScanConfigurationRecoveryPointTypeDef]
+class ScanConfigurationRecoveryPointTypeDef(TypedDict):
+    BackupVaultName: NotRequired[str]
+    ContinuousScanDetails: NotRequired[ScanConfigurationContinuousScanDetailsTypeDef]
 
 class ScanThreatNameTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -2132,6 +2132,10 @@ class GetFilterResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 FindingCriteriaUnionTypeDef = Union[FindingCriteriaTypeDef, FindingCriteriaOutputTypeDef]
+
+class RecoveryPointTypeDef(TypedDict):
+    BackupVaultName: str
+    ContinuousScanDetails: NotRequired[ContinuousScanDetailsTypeDef]
 
 class CoverageResourceDetailsTypeDef(TypedDict):
     EksClusterDetails: NotRequired[CoverageEksClusterDetailsTypeDef]
@@ -2363,11 +2367,6 @@ ResourceDataTypeDef = TypedDict(
     },
 )
 
-class StartMalwareScanRequestTypeDef(TypedDict):
-    ResourceArn: str
-    ClientToken: NotRequired[str]
-    ScanConfiguration: NotRequired[StartMalwareScanConfigurationTypeDef]
-
 class ScanResourceCriteriaOutputTypeDef(TypedDict):
     Include: NotRequired[dict[Literal["EC2_INSTANCE_TAG"], ScanConditionOutputTypeDef]]
     Exclude: NotRequired[dict[Literal["EC2_INSTANCE_TAG"], ScanConditionOutputTypeDef]]
@@ -2375,6 +2374,12 @@ class ScanResourceCriteriaOutputTypeDef(TypedDict):
 class ScanResourceCriteriaTypeDef(TypedDict):
     Include: NotRequired[Mapping[Literal["EC2_INSTANCE_TAG"], ScanConditionTypeDef]]
     Exclude: NotRequired[Mapping[Literal["EC2_INSTANCE_TAG"], ScanConditionTypeDef]]
+
+class ScanConfigurationTypeDef(TypedDict):
+    Role: NotRequired[str]
+    TriggerDetails: NotRequired[TriggerDetailsTypeDef]
+    IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
+    RecoveryPoint: NotRequired[ScanConfigurationRecoveryPointTypeDef]
 
 class ThreatDetectedByNameTypeDef(TypedDict):
     ItemCount: NotRequired[int]
@@ -2461,6 +2466,11 @@ class UpdateFilterRequestTypeDef(TypedDict):
     Action: NotRequired[FilterActionType]
     Rank: NotRequired[int]
     FindingCriteria: NotRequired[FindingCriteriaUnionTypeDef]
+
+class StartMalwareScanConfigurationTypeDef(TypedDict):
+    Role: str
+    IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
+    RecoveryPoint: NotRequired[RecoveryPointTypeDef]
 
 class CoverageResourceTypeDef(TypedDict):
     ResourceId: NotRequired[str]
@@ -2661,6 +2671,11 @@ S3BucketDetailTypeDef = TypedDict(
         "S3ObjectDetails": NotRequired[list[S3ObjectDetailTypeDef]],
     },
 )
+
+class StartMalwareScanRequestTypeDef(TypedDict):
+    ResourceArn: str
+    ClientToken: NotRequired[str]
+    ScanConfiguration: NotRequired[StartMalwareScanConfigurationTypeDef]
 
 class ListCoverageResponseTypeDef(TypedDict):
     Resources: list[CoverageResourceTypeDef]

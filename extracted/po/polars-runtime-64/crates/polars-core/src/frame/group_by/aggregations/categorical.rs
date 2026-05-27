@@ -12,7 +12,7 @@ impl<T: PolarsCategoricalType> CategoricalChunked<T> {
         let arr = phys.downcast_as_array();
         let cats: ChunkedArray<T::PolarsPhysical> = match groups {
             GroupsType::Idx(groups) => {
-                RAYON.install(|| {
+                POOL.install(|| {
                     groups
                         .into_par_iter()
                         .map(|(first, idx)| {
@@ -41,7 +41,7 @@ impl<T: PolarsCategoricalType> CategoricalChunked<T> {
                 groups: groups_slice,
                 ..
             } => {
-                RAYON.install(|| {
+                POOL.install(|| {
                     groups_slice
                         .par_iter()
                         .copied()
@@ -78,7 +78,7 @@ impl<T: PolarsCategoricalType> CategoricalChunked<T> {
         let arr = phys.downcast_as_array();
         let cats: ChunkedArray<T::PolarsPhysical> = match groups {
             GroupsType::Idx(groups) => {
-                RAYON.install(|| {
+                POOL.install(|| {
                     groups
                         .into_par_iter()
                         .map(|(first, idx)| {
@@ -107,7 +107,7 @@ impl<T: PolarsCategoricalType> CategoricalChunked<T> {
                 groups: groups_slice,
                 ..
             } => {
-                RAYON.install(|| {
+                POOL.install(|| {
                     groups_slice
                         .par_iter()
                         .copied()

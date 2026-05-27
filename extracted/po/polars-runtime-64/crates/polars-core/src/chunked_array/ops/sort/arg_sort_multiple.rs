@@ -64,10 +64,10 @@ pub(crate) fn arg_sort_multiple_impl<T: TotalOrd + IsNull + Send + Copy>(
     };
 
     match (options.multithreaded, options.maintain_order) {
-        (true, true) => RAYON.install(|| {
+        (true, true) => POOL.install(|| {
             vals.par_sort_by(compare);
         }),
-        (true, false) => RAYON.install(|| {
+        (true, false) => POOL.install(|| {
             vals.par_sort_unstable_by(compare);
         }),
         (false, true) => vals.sort_by(compare),
@@ -92,7 +92,7 @@ pub(crate) fn argsort_multiple_row_fmt(
     let mut items: Vec<_> = rows_encoded.iter().enumerate_idx().collect();
 
     if parallel {
-        RAYON.install(|| items.par_sort_by_key(|i| i.1));
+        POOL.install(|| items.par_sort_by_key(|i| i.1));
     } else {
         items.sort_by_key(|i| i.1);
     }

@@ -232,6 +232,9 @@ from it automatically.
 CLOUD_WORKSPACE_ID_ENV_VAR: str = "AIRBYTE_CLOUD_WORKSPACE_ID"
 """The environment variable name for the Airbyte Cloud workspace ID."""
 
+CLOUD_ORGANIZATION_ID_ENV_VAR: str = "AIRBYTE_CLOUD_ORGANIZATION_ID"
+"""The environment variable name for the Airbyte Cloud organization ID."""
+
 CLOUD_BEARER_TOKEN_ENV_VAR: str = "AIRBYTE_CLOUD_BEARER_TOKEN"
 """The environment variable name for the Airbyte Cloud bearer token.
 
@@ -310,6 +313,9 @@ MCP_CONFIG_CLIENT_SECRET: str = "client_secret"
 MCP_CONFIG_API_URL: str = "api_url"
 """Config arg name for the API URL setting."""
 
+MCP_CONFIG_CONFIG_API_URL: str = "config_api_url"
+"""Config arg name for the Config API URL setting."""
+
 # MCP HTTP Header Keys for credentials
 
 MCP_BEARER_TOKEN_HEADER: str = "Authorization"
@@ -323,3 +329,6 @@ MCP_CLIENT_SECRET_HEADER: str = "X-Airbyte-Cloud-Client-Secret"
 
 MCP_API_URL_HEADER: str = "X-Airbyte-Cloud-Api-Url"
 """HTTP header key for API URL."""
+
+MCP_CONFIG_API_URL_HEADER: str = "X-Airbyte-Cloud-Config-Api-Url"
+"""HTTP header key for Config API URL."""

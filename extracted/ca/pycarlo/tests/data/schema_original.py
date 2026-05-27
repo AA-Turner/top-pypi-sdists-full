@@ -10070,9 +10070,9 @@ class EvaluationTemplateRef(sgqlc.types.Input):
     """
 
     prompt_override = sgqlc.types.Field(String, graphql_name="promptOverride")
-    """Replacement prompt body. Uses Jinja-style {{prompts}} /
-    {{completions}} placeholders. Overrides the template's catalog
-    prompt when set.
+    """Replacement prompt body that overrides the template's catalog
+    prompt. May reference Jinja-style placeholders that the engine
+    substitutes with the span's prompts and completions.
     """
 
     model_name = sgqlc.types.Field(String, graphql_name="modelName")
@@ -50826,7 +50826,12 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
-                ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
+                (
+                    "name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="name", default=None
+                    ),
+                ),
                 (
                     "source_domain_uuid",
                     sgqlc.types.Arg(UUID, graphql_name="sourceDomainUuid", default=None),
@@ -50838,18 +50843,17 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Update an agentic domain. Source linking can be
-    set, re-targeted, or unlinked.
+    """(experimental) Full replacement update (PUT) of an agentic domain.
+    Pass sourceDomainUuid to link or re-target; omit it to set
+    account-wide coverage.
 
     Arguments:
 
-    * `description` (`String`): New description. Omit to leave
-      unchanged.
-    * `name` (`String`): New name. Omit to leave unchanged.
-    * `source_domain_uuid` (`UUID`): Set to a metadata-domain UUID to
-      re-target a linked domain. Omit to leave the current source
-      unchanged. Unlinking is not supported on update — delete and
-      recreate instead.
+    * `description` (`String`): Description for the domain. Omit or
+      pass null to clear.
+    * `name` (`String!`): New name for the domain.
+    * `source_domain_uuid` (`UUID`): Metadata-domain UUID to link this
+      domain to. Omit or pass null to set account-wide asset coverage.
     * `uuid` (`UUID!`): UUID of the agentic domain.
     """
 
@@ -56578,6 +56582,12 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "auto_enable_table_monitoring",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="autoEnableTableMonitoring", default=False
+                    ),
+                ),
+                (
                     "auto_prune_enabled",
                     sgqlc.types.Arg(Boolean, graphql_name="autoPruneEnabled", default=True),
                 ),
@@ -56656,6 +56666,9 @@ class Mutation(sgqlc.types.Type):
 
     * `asset_selection` (`AssetSelectionInput!`): Tables to monitor
     * `audiences` (`[String]`): Notification audiences
+    * `auto_enable_table_monitoring` (`Boolean`): For CBPV1 accounts,
+      automatically create or update a companion table monitor for the
+      selected root tables so PII scans can run. (default: `false`)
     * `auto_prune_enabled` (`Boolean`): After each table's first scan
       completes with no PII detected, automatically remove the child
       monitor to reduce credit usage. Tables are re-scanned if new
@@ -89669,11 +89682,13 @@ class UpdateAgentParameters(sgqlc.types.Type):
 
 
 class UpdateAgenticDomain(sgqlc.types.Type):
-    """Update an agentic domain's name, description, or source link.
-    Pass ``sourceDomainUuid`` to re-target a linked domain to a new
-    metadata source. Unlinking is not supported — a domain's linked
-    vs. account-wide shape is fixed at creation. Delete and recreate
-    to switch shapes.
+    """Full replacement update (PUT semantics) of an agentic domain.  All
+    provided fields replace existing values. Pass ``sourceDomainUuid``
+    to link or re-target the domain to a metadata source
+    (``includeAllAssets`` is set to ``false`` automatically). Omit
+    ``sourceDomainUuid`` or pass ``null`` to set the domain to
+    account-wide coverage (``includeAllAssets`` becomes ``true``).
+    ``name`` is required.
     """
 
     __schema__ = schema

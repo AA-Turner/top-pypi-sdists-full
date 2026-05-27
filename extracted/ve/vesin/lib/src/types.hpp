@@ -183,7 +183,14 @@ public:
             if (!periodic_[dim]) {
                 // add a 1% margin to make sure all points are strictly inside the
                 // bounding box
-                distances_between_faces_[dim] = max_positions_[dim] * 1.01 - min_positions_[dim];
+                distances_between_faces_[dim] = (max_positions_[dim] - min_positions_[dim]) * 1.01;
+
+                // make sure the distance is not too small (to prevent searching
+                // too many cells down the line). This can happen if all point
+                // are in the same plane in this direction
+                if (distances_between_faces_[dim] < 1.0) {
+                    distances_between_faces_[dim] = 1.0;
+                }
             }
         }
     }

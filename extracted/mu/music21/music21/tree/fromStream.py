@@ -40,7 +40,7 @@ def listOfTreesByClass(
 ) -> list[trees.OffsetTree|timespanTree.TimespanTree]:
     # noinspection PyShadowingNames
     r'''
-    To be DEPRECATED in v8: this is no faster than calling streamToTimespanTree
+    To be DEPRECATED in v11: this is no faster than calling streamToTimespanTree
     multiple times with different classLists.
 
     Recurses through `inputStream`, and constructs TimespanTrees for each
@@ -52,7 +52,6 @@ def listOfTreesByClass(
     a single optimized pass through the `inputStream`.
 
     This is used internally by `streamToTimespanTree`.
-
 
     >>> score = tree.examples.makeExampleScore()
 

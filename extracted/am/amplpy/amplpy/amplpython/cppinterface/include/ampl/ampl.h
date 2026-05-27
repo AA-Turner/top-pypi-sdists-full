@@ -16,7 +16,6 @@
 #include "ampl/string.h"
 #include "ampl/tuple.h"
 
-
 #ifdef __GNUC__
 #define AMPL_DEPRECATED(func) func __attribute__((deprecated))
 #else
@@ -161,7 +160,7 @@ class AMPL {
    * \param options
    *              Include options if set to true.
    */
-  std::string snapshot(fmt::CStringRef fileName = "", bool model = true, 
+  std::string snapshot(fmt::CStringRef fileName = "", bool model = true,
                        bool data = true, bool options = true) const {
     char *output;
     AMPL_CALL_CPP(AMPL_Snapshot(ampl_, fileName.c_str(), model, data, options, &output));

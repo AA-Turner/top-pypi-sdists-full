@@ -81,6 +81,7 @@ class SandboxState(BaseModel):
 
     # Blank mode fields
     dataset: str | None = None
+    provider: str | None = None
     cpus: int | None = None
     memory: int | None = None
     disk: int | None = None

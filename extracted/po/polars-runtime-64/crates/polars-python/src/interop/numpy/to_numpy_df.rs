@@ -15,7 +15,6 @@ use super::utils::{
 };
 use crate::conversion::Wrap;
 use crate::dataframe::PyDataFrame;
-use crate::interned;
 use crate::utils::EnterPolarsExt;
 
 #[pymethods]
@@ -64,7 +63,7 @@ pub(super) fn df_to_numpy(
                         "copy not allowed: cannot create a writable array without copying data",
                     ));
                 }
-                arr = arr.call_method0(py, interned::COPY.get(py))?;
+                arr = arr.call_method0(py, intern!(py, "copy"))?;
             }
             return Ok(arr);
         }
@@ -277,14 +276,14 @@ fn df_columns_to_numpy(
 
         // Convert multidimensional arrays to 1D object arrays.
         let shape: Vec<usize> = arr
-            .getattr(py, interned::SHAPE.get(py))
+            .getattr(py, intern!(py, "shape"))
             .unwrap()
             .extract(py)
             .unwrap();
         if shape.len() > 1 {
             // TODO: Downcast the NumPy array to Rust and split without calling into Python.
             let subarrays = (0..shape[0]).map(|idx| {
-                arr.call_method1(py, interned::DUNDER_GETITEM.get(py), (idx,))
+                arr.call_method1(py, intern!(py, "__getitem__"), (idx,))
                     .unwrap()
             });
             arr = PyArray1::from_iter(py, subarrays).into_py_any(py).unwrap();

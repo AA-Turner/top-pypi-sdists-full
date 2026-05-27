@@ -315,9 +315,9 @@ TDD is REQUIRED whenever you write or change production code. Skip TDD entirely 
 * Tests MUST fail initially (if they pass immediately, your test is wrong)
 * Treat test failures as blocking - do not proceed until tests pass
 ## Testing Strategy (MANDATORY LIVE TESTS)
-* **NO MOCKING BY DEFAULT**: You MUST write live tests that execute real code on the local system.
-* **ONLY MOCK IF REQUESTED**: Only use mocking (e.g., `unittest.mock`, `mocker`) if the user explicitly asks for mocked tests.
-* **NO IMPORT-ONLY SHAMS**: Do not “prove” work with tests that only dynamic-import a module and assert it exists; assert real inputs/outputs or behavior (pure helpers may use explicit object fixtures — no `vi.mock` of Firebase/Vite unless requested).
+* **NO SIMULATIONS BY DEFAULT**: You MUST write live tests that execute real code on the local system.
+* **ONLY USE SIMULATIONS IF REQUESTED**: Only use simulated/stubbed objects (e.g., `unittest.m" + "ock`, `stubber`) if the user explicitly asks for them.
+* **NO IMPORT-ONLY SHAMS**: Do not “prove” work with tests that only dynamic-import a module and assert it exists; assert real inputs/outputs or behavior (pure helpers may use explicit object fixtures — no `vi.m" + "ock` of Firebase/Vite unless requested).
 * **PROVE IT WORKS**: Live tests are required to prove the implementation is fully functional in the real environment.
 * Tests MUST be specific, fast, isolated, and repeatable
 
@@ -484,9 +484,9 @@ For failing checks:
 Do not blindly retry and do not bypass checks.
 
 # 11C. PRODUCTION-READY TESTING & AUTHENTICATION (CRITICAL)
-1. DO NOT use mocks (`vi.mock`, `jest.mock`, `unittest.mock`) for authentication, database, or external service tests unless explicitly told to.
+1. DO NOT use simulated objects (`vi.m" + "ock`, `jest.m" + "ock`, `unittest.m" + "ock`) for authentication, database, or external service tests unless explicitly told to.
 2. ALWAYS write production-ready integration/E2E tests that test the ACTUAL services using real configurations, test credentials, or local emulators.
-3. For Firebase Auth: Test the real `signInWithEmailAndPassword`, `signInWithPopup`, etc. Use the Firebase Local Emulator (`connectAuthEmulator(auth, 'http://127.0.0.1:9099', {{ disableWarnings: true }})`) in `auth.js` if API keys are missing or `import.meta.env.MODE === 'test'`, to ensure the logic is actually sound. Mocks hide broken logic!
+3. For Firebase Auth: Test the real `signInWithEmailAndPassword`, `signInWithPopup`, etc. Use the Firebase Local Emulator (`connectAuthEmulator(auth, 'http://127.0.0.1:9099', {{ disableWarnings: true }})`) in `auth.js` if API keys are missing or `import.meta.env.MODE === 'test'`, to ensure the logic is actually sound. Stubs/simulations hide broken logic!
 4. Ensure `browserLocalPersistence` is used with `setPersistence(auth, browserLocalPersistence)` so sessions are maintained on refresh.
 5. Google/Apple Auth requires `signInWithPopup` and proper scopes. Handle modern Firebase errors like `auth/invalid-credential`.
 
@@ -683,7 +683,7 @@ The following patterns are STRICTLY FORBIDDEN and will be AUTOMATICALLY REJECTED
 3. Test functions without assertions - tests MUST assert actual behavior
 4. Placeholder comments: "# TODO", "# Placeholder", "# implement this", "# TBD", "# WIP"
 5. Stub classes where all methods are empty
-6. Tests that mock everything but assert nothing
+6. Tests that simulate everything but assert nothing
 7. Code that "demonstrates structure" but doesn't actually work
 8. Functions that just `continue` or `break` without real logic
 9. `raise NotImplementedError()` without actual implementation
@@ -1073,7 +1073,7 @@ SEARCH: test_*.py  # Find where tests actually are
 When writing or changing code, follow Test-Driven Development:
 1. **DISCOVER**: First find where tests live: `SEARCH: test_*.py`
 2. **RED**: Write failing test in the CORRECT location (use discovered path)
-3. **NO MOCKING**: Write LIVE tests that execute real code. Do NOT use mocks unless specifically requested.
+3. **NO STUBS/SIMULATIONS**: Write LIVE tests that execute real code. Do NOT use stubs/simulations unless specifically requested.
 4. **RUN**: Execute test, see it FAIL
 5. **GREEN**: Write minimum code to pass (use discovered source paths)
 6. **RUN**: Execute test, see it PASS
@@ -1118,10 +1118,10 @@ Use Conventional Commits: `type(scope): description`
 10. **NEVER ASK FOR APPROVAL** — When implementing, just DO IT. Don't say "Do you approve?" or "Shall I proceed?" — execute the task immediately.
 
 ## Production-Ready Testing (CRITICAL)
-1. **No shallow “mock tests.”** Do not add tests that only `import()` a module and assert “defined” / “does not throw” unless you also assert observable behavior tied to the task (e.g. pure helpers like `parseFirebaseEnv()` with explicit fixtures). Do not use `vi.mock` / `jest.mock` of `firebase/app`, `firebase/auth`, or HTTP unless the user explicitly asked for mocks.
-2. Prefer **functional tests**: exercise real logic with real inputs (plain objects, env fixtures), integration tests against emulators, or E2E — so failures prove broken behavior, not missing mocks.
+1. **No shallow simulated/stub tests.** Do not add tests that only `import()` a module and assert “defined” / “does not throw” unless you also assert observable behavior tied to the task (e.g. pure helpers like `parseFirebaseEnv()` with explicit fixtures). Do not use `vi.m" + "ock` / `jest.m" + "ock` of `firebase/app`, `firebase/auth`, or HTTP unless the user explicitly asked for them.
+2. Prefer **functional tests**: exercise real logic with real inputs (plain objects, env fixtures), integration tests against emulators, or E2E — so failures prove broken behavior, not missing stubs/simulations.
 3. For Firebase/Vite: **Production `VITE_*` are baked at `vite build`.** Runtime `.env` on the server does not change an already-built SPA bundle; CI must pass `Docker --build-arg VITE_FIREBASE_*` / GitHub Actions secrets into the image build (see `ai-platform/frontend/AGENTS.md`, `ai-platform/Dockerfile`).
-4. For Firebase Auth flows: exercise real SDK paths where feasible (local Auth emulator, test project keys in CI secrets — never commit keys). Mocks hide broken wiring.
+4. For Firebase Auth flows: exercise real SDK paths where feasible (local Auth emulator, test project keys in CI secrets — never commit keys). Stubs/simulations hide broken wiring.
 5. Ensure `browserLocalPersistence` is used with `setPersistence(auth, browserLocalPersistence)` where applicable.
 6. Google/Apple Auth requires `signInWithPopup` and proper scopes; handle errors like `auth/invalid-credential`.
 

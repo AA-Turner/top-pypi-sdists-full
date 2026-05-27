@@ -22,7 +22,10 @@ from rich.text import Text
 from rich.tree import Tree
 
 from lamindb.errors import DoesNotExist, InvalidArgument, ValidationError
-from lamindb.models._from_values import _format_values
+from lamindb.models._from_values import (
+    _format_values,
+    build_not_validated_values_message,
+)
 from lamindb.models.feature import (
     serialize_pandas_dtype,
     suggest_categorical_for_str_iterable,
@@ -64,7 +67,7 @@ if TYPE_CHECKING:
     )
     from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
-    from ..base.types import DtypeObject
+    from ..base.types import SimpleDvalue
     from .record import Record
     from .run import Run
 
@@ -208,27 +211,27 @@ def format_dtype_for_display(dtype_str: str) -> str:
     if ("Record[" in dtype_str or "ULabel[" in dtype_str) and "]" in dtype_str:
         try:
             parsed = parse_dtype(dtype_str)
-            if parsed and parsed[0].get("record_uid"):
-                record_uid = parsed[0]["record_uid"]
+            if parsed and parsed[0].get("type_uid"):
+                type_uid = parsed[0]["type_uid"]
                 registry_str = parsed[0].get("registry_str", "")
                 try:
                     # Determine which registry to use
                     if registry_str == "Record":
-                        record_type = Record.get(uid=record_uid)
+                        record_type = Record.get(uid=type_uid)
                         # Replace Record[uid] with Record[TypeName]
                         dtype_str = dtype_str.replace(
-                            f"Record[{record_uid}]", f"Record[{record_type.name}]"
+                            f"Record[{type_uid}]", f"Record[{record_type.name}]"
                         )
                     elif registry_str == "ULabel":
-                        record_type = ULabel.get(uid=record_uid)
+                        record_type = ULabel.get(uid=type_uid)
                         # Replace ULabel[uid] with ULabel[TypeName]
                         dtype_str = dtype_str.replace(
-                            f"ULabel[{record_uid}]", f"ULabel[{record_type.name}]"
+                            f"ULabel[{type_uid}]", f"ULabel[{record_type.name}]"
                         )
                 except Exception as e:
                     # If we can't find the record, just return the original
                     logger.debug(
-                        f"Could not find {registry_str} with uid '{record_uid}' for display formatting: {e}"
+                        f"Could not find {registry_str} with uid '{type_uid}' for display formatting: {e}"
                     )
         except Exception as e:
             # If parsing fails, return the original
@@ -411,7 +414,7 @@ def get_non_categoricals(
                     pass
 
             # Handle special datetime types
-            if feature_dtype == "datetime":
+            if feature_dtype in {"datetime", "datetime64[ns, UTC]"}:
                 values = {datetime.fromisoformat(value) for value in values}
             if feature_dtype == "date":
                 # date.fromisoformat() cannot handle cases like 2025-01-17T00:00:00.000Z
@@ -731,15 +734,28 @@ def infer_convert_dtype_key_value(
     elif isinstance(value, float):
         return "float", value, message
     elif isinstance(value, datetime):
-        return "datetime", value.isoformat(), message
+        return (
+            "datetime64[ns, UTC]" if value.tzinfo is not None else "datetime",
+            value.isoformat(),
+            message,
+        )
     elif isinstance(value, date):
         return "date", value.isoformat(), message
     elif isinstance(value, str):
-        if dtype_str in {None, "datetime", "date"} and (
-            datetime_str := is_valid_datetime_str(value)
-        ):
+        if dtype_str in {
+            None,
+            "datetime",
+            "datetime64[ns, UTC]",
+            "date",
+        } and (datetime_str := is_valid_datetime_str(value)):
             dt_type = (
-                "date" if len(value) == 10 else "datetime"
+                "date"
+                if len(value) == 10
+                else (
+                    "datetime64[ns, UTC]"
+                    if dtype_str == "datetime64[ns, UTC]"
+                    else "datetime"
+                )
             )  # YYYY-MM-DD is exactly 10 characters
             sanitized_value = datetime_str[:10] if dt_type == "date" else datetime_str  # type: ignore
             return dt_type, sanitized_value, message  # type: ignore
@@ -1060,11 +1076,11 @@ class FeatureManager:
     def __getitem__(
         self, feature: str
     ) -> (
-        DtypeObject
+        SimpleDvalue
         | BasicQuerySet
         | SQLRecord
         | SQLRecordList
-        | dict[str, DtypeObject | BasicQuerySet | SQLRecord | SQLRecordList]
+        | dict[str, SimpleDvalue | BasicQuerySet | SQLRecord | SQLRecordList]
     ):
         """Get values by feature name.
 
@@ -1126,7 +1142,7 @@ class FeatureManager:
                 for dtype, value in dtype_values:
                     if dtype == "date":
                         value = pd.to_datetime(value, format="ISO8601").date()
-                    elif dtype == "datetime":
+                    elif dtype in {"datetime", "datetime64[ns, UTC]"}:
                         value = datetime.fromisoformat(value)
                     feature_values_qs.append(value)
             else:
@@ -1338,15 +1354,7 @@ class FeatureManager:
     ) -> None:
         if not not_validated_values:
             return None
-        hint = ""
-        for key, (field, values_list) in not_validated_values.items():
-            key_str = "ln.Record" if key == "Record" else key
-            create_true = ", create=True" if "bionty." not in key else ""
-            hint += f"  records = {key_str}.from_values({values_list}, field='{field}'{create_true}).save()\n"
-        msg = (
-            f"These values could not be validated: {dict(not_validated_values)}\n"
-            f"Here is how to create records for them:\n\n{hint}"
-        )
+        msg = build_not_validated_values_message(not_validated_values)
         raise ValidationError(msg)
 
     def _collect_record_feature_writes(

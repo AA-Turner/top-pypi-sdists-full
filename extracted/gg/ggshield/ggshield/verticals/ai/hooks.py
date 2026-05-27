@@ -12,7 +12,7 @@ from ggshield.core.scanner_ui import create_message_only_scanner_ui
 from ggshield.core.text_utils import pluralize, translate_validity
 from ggshield.verticals.ai.mcp import send_mcp_activity
 
-from .agents import Claude, Copilot, Cursor
+from .agents import AGENTS
 from .models import Agent, EventType, HookPayload, HookResult, Tool
 
 
@@ -29,6 +29,7 @@ TOOL_NAME_TO_TOOL = {
     "run_in_terminal": Tool.BASH,  # Copilot
     "read": Tool.READ,  # Claude/Cursor
     "read_file": Tool.READ,  # Copilot
+    "view": Tool.READ,  # Copilot CLI
 }
 
 
@@ -45,7 +46,9 @@ def lookup(data: Dict[str, Any], keys: Sequence[str], default: Any = None) -> An
 _FILE_PATH_REGEX = re.compile(
     r'@"((?:[^"\\]|\\.)*)"'  # quoted: @"..."
     r"|"
-    r"(?:\W|^)@([\w/\\.-]+)",  # unquoted: @path
+    r"(?:\W|^)@"  # unquoted: @path
+    r"(?:file:)?"  # some agents add a "file:" prefix
+    r"([\w/\\.-]+)",
     re.MULTILINE,
 )
 
@@ -104,19 +107,23 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
 
     elif event_type == EventType.PRE_TOOL_USE:
         tool = _parse_tool(data)
+        # NOTE: if we ever support agents that use another field than "tool_input.command",
+        # remember to update the line that reads the command to fill the notification message.
         tool_input = data.get("tool_input", {})
         # Select the content based on the tool
         if tool == Tool.BASH:
             content = tool_input.get("command", "")
             identifier = content
+            # Try to detect a command that could be used to read a file.
+            payloads.extend(_parse_command(content, event_type, agent))
         elif tool == Tool.READ:
             # We only need to deal with the identifier, the content will be read by the Scannable
-            identifier = lookup(tool_input, ["file_path", "filePath"], "")
+            identifier = lookup(tool_input, ["file_path", "filePath", "path"], "")
 
     elif event_type == EventType.POST_TOOL_USE:
         tool = _parse_tool(data)
-        content = data.get("tool_output", "") or data.get("tool_response", {})
-        # Claude Code returns a dict for the tool output
+        content = lookup(data, ["tool_output", "tool_response", "tool_result"], {})
+        # Some agents return a dict for the tool output. Also support lists just in case.
         if isinstance(content, (dict, list)):
             content = json.dumps(content)
 
@@ -134,6 +141,11 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
             raw=data,
         )
     )
+
+    # Allow the agent to post-process the payloads (e.g overriding the tool)
+    for payload in payloads:
+        agent.post_process_payload(payload)
+
     return payloads
 
 
@@ -147,15 +159,10 @@ def _parse_tool(data: Dict[str, Any]) -> Tool:
 
 def _detect_agent(data: Dict[str, Any]) -> Agent:
     """Detect the AI code assistant."""
-    if "cursor_version" in data:
-        return Cursor()
-    elif "github.copilot-chat" in data.get("transcript_path", "").lower():
-        return Copilot()
-    # no .lower() here to reduce the risk of false positives (this is also why this check is last)
-    elif "session_id" in data and "claude" in data.get("transcript_path", ""):
-        return Claude()
-    # No other agent is supported yet
-    raise ValueError("Unsupported agent")
+    for agent in AGENTS.values():
+        if agent.is_caller(data):
+            return agent
+    raise ValueError("Unrecognized agent")
 
 
 def _parse_user_prompt(
@@ -174,6 +181,30 @@ def _parse_user_prompt(
                 tool=Tool.READ,
                 content="",
                 identifier=match,
+                agent=agent,
+                raw={},
+            )
+        )
+    return payloads
+
+
+def _parse_command(
+    content: str, event_type: EventType, agent: Agent
+) -> List[HookPayload]:
+    """Parse the command for additional payloads that we may miss."""
+    # In Windows, some agents (at least Codex) use the Get-Content command to read a file.
+    # We might as well try to detect other commands like "cat".
+    payloads = []
+
+    if content.startswith(("Get-Content ", "cat ")):
+        # Extract the filename (remove the command)
+        identifier = content.partition(" ")[2].strip()
+        payloads.append(
+            HookPayload(
+                event_type=event_type,
+                tool=Tool.READ,
+                content="",
+                identifier=identifier,
                 agent=agent,
                 raw={},
             )
@@ -205,13 +236,9 @@ class AIHookScanner:
         result = self._scan_payloads(payloads)
         payload = result.payload
 
-        # Special case: in post-tool use, the action is already done: at least notify the user
-        if result.block and payload.event_type == EventType.POST_TOOL_USE:
-            self._send_secret_notification(
-                result.nbr_secrets,
-                payload.tool or Tool.OTHER,
-                payload.agent.display_name,
-            )
+        # Sometimes the secret has already leaked to the agent. Notify the user.
+        if result.block and payload.agent.has_secret_already_leaked(payload):
+            self._send_secret_notification(result)
 
         return payload.agent.output_result(result)
 
@@ -332,7 +359,7 @@ class AIHookScanner:
 
     @staticmethod
     def _send_secret_notification(
-        nbr_secrets: int, tool: Tool, agent_name: str
+        result: HookResult,
     ) -> None:
         """
         Send desktop notification when secrets are detected.
@@ -342,16 +369,21 @@ class AIHookScanner:
             tool: Tool used to detect the secrets
             agent_name: Name of the agent that detected the secrets
         """
+        tool = result.payload.tool
         source = "using a tool"
         if tool == Tool.READ:
             source = "reading a file"
         elif tool == Tool.BASH:
-            source = "running a command"
+            # This should always be present, unless agents changed their payload in an update.
+            command = result.payload.raw.get("tool_input", {}).get("command", "")
+            source = (
+                f"running the command `{command}`" if command else "running a command"
+            )
         notification = Notify()
         notification.title = "ggshield - Secrets Detected"
         notification.message = (
-            f"{agent_name} got access to {nbr_secrets}"
-            f" {pluralize('secret', nbr_secrets)} by {source}"
+            f"{result.payload.agent.display_name} got access to {result.nbr_secrets}"
+            f" {pluralize('secret', result.nbr_secrets)} by {source}"
         )
         notification.application_name = "ggshield"
         try:

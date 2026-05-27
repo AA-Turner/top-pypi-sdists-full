@@ -7,6 +7,7 @@ use polars_core::schema::SchemaRef;
 use polars_core::series::Series;
 use polars_utils::range::check_range;
 
+use crate::morsel::MorselSeq;
 use crate::pipe::PortReceiver;
 
 #[derive(Clone, Debug)]
@@ -155,7 +156,7 @@ impl DataFrameSearchBuffer {
     }
 
     pub(super) async fn stop_and_buffer_from_pipe(&mut self, port: Option<&mut PortReceiver>) {
-        stop_and_buffer_pipe_contents(port, &mut |df| self.push_df(df)).await
+        stop_and_buffer_pipe_contents(port, &mut |df, _| self.push_df(df)).await
     }
 }
 
@@ -164,7 +165,7 @@ pub(super) async fn stop_and_buffer_pipe_contents<F>(
     port: Option<&mut PortReceiver>,
     buffer_morsel: &mut F,
 ) where
-    F: FnMut(DataFrame),
+    F: FnMut(DataFrame, MorselSeq),
 {
     let Some(port) = port else {
         return;
@@ -172,8 +173,8 @@ pub(super) async fn stop_and_buffer_pipe_contents<F>(
 
     while let Ok(morsel) = port.recv().await {
         morsel.source_token().stop();
-        let (df, _, _, _) = morsel.into_inner();
-        buffer_morsel(df);
+        let (df, seq, _, _) = morsel.into_inner();
+        buffer_morsel(df, seq);
     }
 }
 

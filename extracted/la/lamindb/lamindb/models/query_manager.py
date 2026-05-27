@@ -36,6 +36,7 @@ def _search(
     string: str,
     *,
     field: StrField | list[StrField] | None = None,
+    # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
     limit: int | None = 20,
     case_sensitive: bool = False,
     truncate_string: bool = False,
@@ -60,8 +61,8 @@ def _search(
 
         ::
 
-            records = ln.Record.from_values(["Label1", "Label2", "Label3"], field="name").save()
-            ln.Record.search("Label2")
+            records = ln.ULabel.from_values(["Label1", "Label2", "Label3"]).save()
+            ln.ULabel.search("Label2")
     """
     if string is None:
         raise ValueError("Cannot search for None value! Please pass a valid string.")
@@ -251,9 +252,9 @@ class QueryManager(Manager):
 
         Populate the `.parents` ManyToMany relationship (a `QueryManager`)::
 
-            ln.Record.from_values(["Label1", "Label2", "Label3"], field="name")).save()
-            labels = ln.Record.filter(name__icontains="label")
-            label1 = ln.Record.get(name="Label1")
+            ln.ULabel.from_values(["Label1", "Label2", "Label3"]).save()
+            labels = ln.ULabel.filter(name__icontains="label")
+            label1 = ln.ULabel.get(name="Label1")
             label1.parents.set(labels)
 
         Convert all linked parents to a `DataFrame`::
@@ -311,9 +312,9 @@ class RelatedManager(QueryManager):
 
         Populate the `.parents` ManyToMany relationship (a `RelatedManager`)::
 
-            ln.Record.from_values(["Label1", "Label2", "Label3"], field="name")).save()
-            labels = ln.Record.filter(name__icontains="label")
-            label1 = ln.Record.get(name="Label1")
+            ln.ULabel.from_values(["Label1", "Label2", "Label3"]).save()
+            labels = ln.ULabel.filter(name__icontains="label")
+            label1 = ln.ULabel.get(name="Label1")
             label1.parents.set(labels)
 
         Convert all linked parents to a `DataFrame`::

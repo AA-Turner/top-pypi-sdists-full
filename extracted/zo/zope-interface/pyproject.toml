@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zope.interface"
-version = "8.4"
+version = "8.5"
 description = "Interfaces for Python"
 keywords = ["interface", "components", "plugins"]
 dynamic = ["readme"]
@@ -82,3 +82,8 @@ source = [
 
 [tool.setuptools.dynamic]
 readme = {file = ["README.rst", "CHANGES.rst"]}
+
+
+[tool.zest-releaser]
+create-wheel = false
+upload-pypi = false

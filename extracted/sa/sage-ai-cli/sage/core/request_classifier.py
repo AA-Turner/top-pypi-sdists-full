@@ -516,6 +516,28 @@ class RequestClassifier:
         quantity = extract_quantity_comprehensive(request)
         priority_ranking = bool(re.search(r"\b(rank|priorit|order)\w*\s+by\b", request_lower))
 
+        # Explicit implementation override check
+        is_explicit_impl = (
+            re.search(r"\b(build|implement|create|write|develop)\s+(?:this|it|them|the|an?|our)\b", request_lower) is not None
+            or re.search(r"\b(build|implement|create|develop|write)\s+(?:\w+\s+)*(?:platform|app|application|website|site|dashboard|database|system|project|repo|repository|engine|script|config|manifest|game|file|files|code|program|tool|utility|backend|frontend|service|api|endpoint|test|tests)\b", request_lower) is not None
+            or re.search(r"\bin\s+it'?s\s+entiret(y|ies)\b", request_lower) is not None
+        )
+        if is_explicit_impl:
+            is_fix_all = "entirety" in request_lower or "all" in request_lower or bool(quantity)
+            return ClassifiedRequest(
+                original_request=request,
+                request_type=RequestType.FIX_ALL if is_fix_all else RequestType.IMPLEMENTATION,
+                expected_format=OutputFormat.MIXED if is_fix_all else OutputFormat.CODE_FILES,
+                pipeline_type=PipelineType.MULTI_STEP if is_fix_all else PipelineType.IMPLEMENTATION,
+                quantity_required=quantity,
+                priority_ranking=priority_ranking,
+                classification_confidence=0.95,
+                alternative_types=[],
+                read_only=False,
+                requires_tdd=True,
+                tdd_strict_mode=True,
+            )
+
         # Item 7: Calculate confidence and alternatives
         scores = self._calculate_type_scores(request)
         sorted_scores = sorted(scores.items(), key=lambda x: -x[1])

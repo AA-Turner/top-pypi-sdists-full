@@ -38,6 +38,8 @@ __all__ = [
     'unique',
 ]
 
+from functools import cache
+
 if t.TYPE_CHECKING:
     _T = t.TypeVar('_T')
 
@@ -107,7 +109,6 @@ def getMissingImportStr(modNameList):
     '''
     Given a list of missing module names, returns a nicely-formatted message to the user
     that gives instructions on how to expand music21 with optional packages.
-
 
     >>> print(common.getMissingImportStr(['matplotlib']))
     Certain music21 functions might need the optional package matplotlib;
@@ -209,21 +210,32 @@ def pitchList(pitchL):
     return '[' + ', '.join([x.nameWithOctave for x in pitchL]) + ']'
 
 
+@cache
 def runningInNotebook() -> bool:
     '''
     return bool if we are running under Jupyter Notebook (not IPython terminal)
-    or Google Colabatory (colab).
+    or Google Colabatory (colab) or Marimo.
 
     Methods based on:
 
     https://stackoverflow.com/questions/15411967/how-can-i-check-if-code-is-executed-in-the-ipython-notebook
-
     (No tests provided here, since results will differ depending on environment)
     '''
-    if sys.stderr.__class__.__name__ == 'OutStream':
+    if runningInJupyterOrColab():
+        return True
+    elif runningInMarimo():
         return True
     else:
         return False
+
+def runningInJupyterOrColab() -> bool:
+    return sys.stderr.__class__.__name__ == 'OutStream'
+
+def runningInMarimo() -> bool:
+    if 'marimo' not in sys.modules:  # only True if it's been loaded already
+        return False
+    # so this is very fast, even if False.
+    return __import__('marimo').running_in_notebook()
 
 
 # ----------------------------

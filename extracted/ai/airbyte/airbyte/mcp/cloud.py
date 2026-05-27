@@ -20,14 +20,16 @@ from pydantic import BaseModel, Field
 
 from airbyte import cloud, get_destination, get_source
 from airbyte._util import api_util
+from airbyte.cloud.client import CloudClient
 from airbyte.cloud.connectors import CustomCloudSourceDefinition
 from airbyte.cloud.constants import FAILED_STATUSES
-from airbyte.cloud.workspaces import CloudOrganization, CloudWorkspace
+from airbyte.cloud.workspaces import CloudWorkspace
 from airbyte.constants import (
     MCP_CONFIG_API_URL,
     MCP_CONFIG_BEARER_TOKEN,
     MCP_CONFIG_CLIENT_ID,
     MCP_CONFIG_CLIENT_SECRET,
+    MCP_CONFIG_CONFIG_API_URL,
     MCP_CONFIG_WORKSPACE_ID,
 )
 from airbyte.destinations.util import get_noop_destination
@@ -38,7 +40,6 @@ from airbyte.mcp._tool_utils import (
     check_guid_created_in_session,
     register_guid_created_in_session,
 )
-from airbyte.secrets import SecretString
 
 
 CLOUD_AUTH_TIP_TEXT = (
@@ -232,14 +233,12 @@ class SyncJobResult(BaseModel):
 
 
 class SyncJobListResult(BaseModel):
-    """Result of listing sync jobs with pagination support."""
+    """Result of listing sync jobs with limit support."""
 
     jobs: list[SyncJobResult]
     """List of sync jobs."""
     jobs_count: int
     """Number of jobs returned in this response."""
-    jobs_offset: int
-    """Offset used for this request (0 if not specified)."""
     from_tail: bool
     """Whether jobs are ordered newest-first (True) or oldest-first (False)."""
 
@@ -265,17 +264,28 @@ def _get_cloud_workspace(
             guidance="Set AIRBYTE_CLOUD_WORKSPACE_ID env var or pass workspace_id parameter.",
         )
 
+    return _get_cloud_client(ctx).get_workspace(resolved_workspace_id)
+
+
+def _get_cloud_client(
+    ctx: Context,
+    *,
+    organization_id: str | None = None,
+) -> CloudClient:
+    """Get an authenticated `CloudClient` from MCP config."""
     bearer_token = get_mcp_config(ctx, MCP_CONFIG_BEARER_TOKEN)
     client_id = get_mcp_config(ctx, MCP_CONFIG_CLIENT_ID)
     client_secret = get_mcp_config(ctx, MCP_CONFIG_CLIENT_SECRET)
-    api_url = get_mcp_config(ctx, MCP_CONFIG_API_URL) or api_util.CLOUD_API_ROOT
+    api_url = get_mcp_config(ctx, MCP_CONFIG_API_URL)
+    config_api_url = get_mcp_config(ctx, MCP_CONFIG_CONFIG_API_URL)
 
-    return CloudWorkspace(
-        workspace_id=resolved_workspace_id,
-        client_id=SecretString(client_id) if client_id else None,
-        client_secret=SecretString(client_secret) if client_secret else None,
-        bearer_token=SecretString(bearer_token) if bearer_token else None,
-        api_root=api_url,
+    return CloudClient(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        public_api_root=api_url,
+        config_api_root=config_api_url,
+        organization_id=organization_id,
     )
 
 
@@ -731,18 +741,7 @@ def list_cloud_sync_jobs(
             description=(
                 "When True, jobs are ordered newest-first (createdAt DESC). "
                 "When False, jobs are ordered oldest-first (createdAt ASC). "
-                "Defaults to True if `jobs_offset` is not specified. "
-                "Cannot combine `from_tail=True` with `jobs_offset`."
-            ),
-            default=None,
-        ),
-    ],
-    jobs_offset: Annotated[
-        int | None,
-        Field(
-            description=(
-                "Number of jobs to skip from the beginning. "
-                "Cannot be combined with `from_tail=True`."
+                "Defaults to True."
             ),
             default=None,
         ),
@@ -759,24 +758,14 @@ def list_cloud_sync_jobs(
         ),
     ],
 ) -> SyncJobListResult:
-    """List sync jobs for a connection with pagination support.
+    """List sync jobs for a connection with limit support.
 
     This tool allows you to retrieve a list of sync jobs for a connection,
-    with control over ordering and pagination. By default, jobs are returned
-    newest-first (from_tail=True).
+    with control over ordering and result limit. By default, jobs are returned
+    newest-first (`from_tail=True`).
     """
-    # Validate that jobs_offset and from_tail are not both set
-    if jobs_offset is not None and from_tail is True:
-        raise PyAirbyteInputError(
-            message="Cannot specify both 'jobs_offset' and 'from_tail=True' parameters.",
-            context={"jobs_offset": jobs_offset, "from_tail": from_tail},
-        )
-
-    # Default to from_tail=True if neither is specified
-    if from_tail is None and jobs_offset is None:
+    if from_tail is None:
         from_tail = True
-    elif from_tail is None:
-        from_tail = False
 
     workspace: CloudWorkspace = _get_cloud_workspace(ctx, workspace_id)
     connection = workspace.get_connection(connection_id=connection_id)
@@ -786,7 +775,6 @@ def list_cloud_sync_jobs(
 
     sync_results = connection.get_previous_sync_logs(
         limit=effective_limit,
-        offset=jobs_offset,
         from_tail=from_tail,
         job_type=job_type,
     )
@@ -806,7 +794,6 @@ def list_cloud_sync_jobs(
     return SyncJobListResult(
         jobs=jobs,
         jobs_count=len(jobs),
-        jobs_offset=jobs_offset or 0,
         from_tail=from_tail,
     )
 
@@ -834,7 +821,7 @@ def list_deployed_cloud_source_connectors(
             default=None,
         ),
     ],
-    max_items_limit: Annotated[
+    limit: Annotated[
         int | None,
         Field(
             description="Optional maximum number of items to return (default: no limit)",
@@ -844,16 +831,14 @@ def list_deployed_cloud_source_connectors(
 ) -> list[CloudSourceResult]:
     """List all deployed source connectors in the Airbyte Cloud workspace."""
     workspace: CloudWorkspace = _get_cloud_workspace(ctx, workspace_id)
-    sources = workspace.list_sources()
+    sources = workspace.list_sources(limit=None if name_contains else limit)
 
     # Filter by name if requested
     if name_contains:
         needle = name_contains.lower()
         sources = [s for s in sources if s.name is not None and needle in s.name.lower()]
-
-    # Apply limit if requested
-    if max_items_limit is not None:
-        sources = sources[:max_items_limit]
+    if limit is not None:
+        sources = sources[:limit]
 
     # Note: name and url are guaranteed non-null from list API responses
     return [
@@ -889,7 +874,7 @@ def list_deployed_cloud_destination_connectors(
             default=None,
         ),
     ],
-    max_items_limit: Annotated[
+    limit: Annotated[
         int | None,
         Field(
             description="Optional maximum number of items to return (default: no limit)",
@@ -899,16 +884,14 @@ def list_deployed_cloud_destination_connectors(
 ) -> list[CloudDestinationResult]:
     """List all deployed destination connectors in the Airbyte Cloud workspace."""
     workspace: CloudWorkspace = _get_cloud_workspace(ctx, workspace_id)
-    destinations = workspace.list_destinations()
+    destinations = workspace.list_destinations(limit=None if name_contains else limit)
 
     # Filter by name if requested
     if name_contains:
         needle = name_contains.lower()
         destinations = [d for d in destinations if d.name is not None and needle in d.name.lower()]
-
-    # Apply limit if requested
-    if max_items_limit is not None:
-        destinations = destinations[:max_items_limit]
+    if limit is not None:
+        destinations = destinations[:limit]
 
     # Note: name and url are guaranteed non-null from list API responses
     return [
@@ -1202,7 +1185,7 @@ def list_deployed_cloud_connections(
             default=None,
         ),
     ],
-    max_items_limit: Annotated[
+    limit: Annotated[
         int | None,
         Field(
             description="Optional maximum number of items to return (default: no limit)",
@@ -1235,7 +1218,9 @@ def list_deployed_cloud_connections(
     This implicitly enables with_connection_status.
     """
     workspace: CloudWorkspace = _get_cloud_workspace(ctx, workspace_id)
-    connections = workspace.list_connections()
+    connections = workspace.list_connections(
+        limit=None if name_contains or failing_connections_only else limit
+    )
 
     # Filter by name if requested
     if name_contains:
@@ -1294,125 +1279,25 @@ def list_deployed_cloud_connections(
             )
         )
 
-        if max_items_limit is not None and len(results) >= max_items_limit:
+        if limit is not None and len(results) >= limit:
             break
 
     return results
-
-
-def _resolve_organization(
-    organization_id: str | None,
-    organization_name: str | None,
-    *,
-    api_root: str,
-    client_id: SecretString | None,
-    client_secret: SecretString | None,
-    bearer_token: SecretString | None = None,
-) -> CloudOrganization:
-    """Resolve organization from either ID or exact name match.
-
-    Args:
-        organization_id: The organization ID (if provided directly)
-        organization_name: The organization name (exact match required)
-        api_root: The API root URL
-        client_id: OAuth client ID (optional if bearer_token is provided)
-        client_secret: OAuth client secret (optional if bearer_token is provided)
-        bearer_token: Bearer token for authentication (optional if client credentials provided)
-
-    Returns:
-        A CloudOrganization object with credentials for lazy loading of billing info.
-
-    Raises:
-        PyAirbyteInputError: If neither or both parameters are provided,
-            or if no organization matches the exact name
-        AirbyteMissingResourceError: If the organization is not found
-    """
-    if organization_id and organization_name:
-        raise PyAirbyteInputError(
-            message="Provide either 'organization_id' or 'organization_name', not both."
-        )
-    if not organization_id and not organization_name:
-        raise PyAirbyteInputError(
-            message="Either 'organization_id' or 'organization_name' must be provided."
-        )
-
-    # Get all organizations for the user
-    orgs = api_util.list_organizations_for_user(
-        api_root=api_root,
-        client_id=client_id,
-        client_secret=client_secret,
-        bearer_token=bearer_token,
-    )
-
-    org_response: api_util.models.OrganizationResponse | None = None
-
-    if organization_id:
-        # Find by ID
-        matching_orgs = [org for org in orgs if org.organization_id == organization_id]
-        if not matching_orgs:
-            raise AirbyteMissingResourceError(
-                resource_type="organization",
-                context={
-                    "organization_id": organization_id,
-                    "message": f"No organization found with ID '{organization_id}' "
-                    "for the current user.",
-                },
-            )
-        org_response = matching_orgs[0]
-    else:
-        # Find by exact name match (case-sensitive)
-        matching_orgs = [org for org in orgs if org.organization_name == organization_name]
-
-        if not matching_orgs:
-            raise AirbyteMissingResourceError(
-                resource_type="organization",
-                context={
-                    "organization_name": organization_name,
-                    "message": f"No organization found with exact name '{organization_name}' "
-                    "for the current user.",
-                },
-            )
-
-        if len(matching_orgs) > 1:
-            raise PyAirbyteInputError(
-                message=f"Multiple organizations found with name '{organization_name}'. "
-                "Please use 'organization_id' instead to specify the exact organization."
-            )
-
-        org_response = matching_orgs[0]
-
-    # Return a CloudOrganization with credentials for lazy loading of billing info
-    return CloudOrganization(
-        organization_id=org_response.organization_id,
-        organization_name=org_response.organization_name,
-        email=org_response.email,
-        api_root=api_root,
-        client_id=client_id,
-        client_secret=client_secret,
-        bearer_token=bearer_token,
-    )
 
 
 def _resolve_organization_id(
     organization_id: str | None,
     organization_name: str | None,
     *,
-    api_root: str,
-    client_id: SecretString | None,
-    client_secret: SecretString | None,
-    bearer_token: SecretString | None = None,
+    client: CloudClient,
 ) -> str:
-    """Resolve organization ID from either ID or exact name match.
+    """Resolve organization ID from either ID or exact name match."""
+    if organization_id is not None:
+        return organization_id
 
-    This is a convenience wrapper around _resolve_organization that returns just the ID.
-    """
-    org = _resolve_organization(
+    org = client.get_organization(
         organization_id=organization_id,
         organization_name=organization_name,
-        api_root=api_root,
-        client_id=client_id,
-        client_secret=client_secret,
-        bearer_token=bearer_token,
     )
     return org.organization_id
 
@@ -1449,7 +1334,7 @@ def list_cloud_workspaces(
             default=None,
         ),
     ],
-    max_items_limit: Annotated[
+    limit: Annotated[
         int | None,
         Field(
             description="Optional maximum number of items to return (default: no limit)",
@@ -1463,28 +1348,18 @@ def list_cloud_workspaces(
     This tool will NOT list workspaces across all organizations - you must specify
     which organization to list workspaces from.
     """
-    bearer_token = get_mcp_config(ctx, MCP_CONFIG_BEARER_TOKEN)
-    client_id = get_mcp_config(ctx, MCP_CONFIG_CLIENT_ID)
-    client_secret = get_mcp_config(ctx, MCP_CONFIG_CLIENT_SECRET)
-    api_url = get_mcp_config(ctx, MCP_CONFIG_API_URL) or api_util.CLOUD_API_ROOT
+    client = _get_cloud_client(ctx)
 
     resolved_org_id = _resolve_organization_id(
         organization_id=organization_id,
         organization_name=organization_name,
-        api_root=api_url,
-        client_id=SecretString(client_id) if client_id else None,
-        client_secret=SecretString(client_secret) if client_secret else None,
-        bearer_token=SecretString(bearer_token) if bearer_token else None,
+        client=client,
     )
 
-    workspaces = api_util.list_workspaces_in_organization(
+    workspaces = client.list_workspaces(
         organization_id=resolved_org_id,
-        api_root=api_url,
-        client_id=SecretString(client_id) if client_id else None,
-        client_secret=SecretString(client_secret) if client_secret else None,
-        bearer_token=SecretString(bearer_token) if bearer_token else None,
         name_contains=name_contains,
-        max_items_limit=max_items_limit,
+        limit=limit,
     )
 
     return [
@@ -1528,18 +1403,9 @@ def describe_cloud_organization(
     Requires either organization_id OR organization_name (exact match) to be provided.
     This tool is useful for looking up an organization's ID from its name, or vice versa.
     """
-    bearer_token = get_mcp_config(ctx, MCP_CONFIG_BEARER_TOKEN)
-    client_id = get_mcp_config(ctx, MCP_CONFIG_CLIENT_ID)
-    client_secret = get_mcp_config(ctx, MCP_CONFIG_CLIENT_SECRET)
-    api_url = get_mcp_config(ctx, MCP_CONFIG_API_URL) or api_util.CLOUD_API_ROOT
-
-    org = _resolve_organization(
+    org = _get_cloud_client(ctx).get_organization(
         organization_id=organization_id,
         organization_name=organization_name,
-        api_root=api_url,
-        client_id=SecretString(client_id) if client_id else None,
-        client_secret=SecretString(client_secret) if client_secret else None,
-        bearer_token=SecretString(bearer_token) if bearer_token else None,
     )
 
     # CloudOrganization has lazy loading of billing properties

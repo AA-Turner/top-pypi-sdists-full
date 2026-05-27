@@ -24,10 +24,10 @@ bitflags! {
         /// Run common-subexpression-elimination. This elides duplicate expressions and caches their
         /// outputs.
         const COMM_SUBEXPR_ELIM = 1 << 9;
-        /// Is the query going to run on the GPU engine.
-        const GPU = 1 << 10;
-        /// Run on the streaming engine.
-        const STREAMING = 1 << 11;
+
+        // const STREAMING = 1 << 10; // Legacy flag for removed old streaming engine.
+
+        const NEW_STREAMING = 1 << 11;
         /// Run every node eagerly. This turns off multi-node optimizations.
         const EAGER = 1 << 12;
         /// Try to estimate the number of rows so that joins can determine which side to keep in memory.
@@ -39,6 +39,8 @@ bitflags! {
         const CHECK_ORDER_OBSERVE = 1 << 15;
         /// Collapse consecutive sort nodes and pull them up through selecting nodes.
         const SORT_COLLAPSE = 1 << 16;
+        /// Is the query going to run on the GPU engine.
+        const GPU = 1 << 17;
     }
 }
 
@@ -68,8 +70,8 @@ impl OptFlags {
     pub fn slice_pushdown(&self) -> bool {
         self.contains(OptFlags::SLICE_PUSHDOWN)
     }
-    pub fn streaming(&self) -> bool {
-        self.contains(OptFlags::STREAMING)
+    pub fn new_streaming(&self) -> bool {
+        self.contains(OptFlags::NEW_STREAMING)
     }
     pub fn fast_projection(&self) -> bool {
         self.contains(OptFlags::FAST_PROJECTION)
@@ -81,7 +83,7 @@ impl OptFlags {
 
 impl Default for OptFlags {
     fn default() -> Self {
-        Self::from_bits_truncate(u32::MAX) & !Self::STREAMING & !Self::EAGER & !Self::GPU
+        Self::from_bits_truncate(u32::MAX) & !Self::NEW_STREAMING & !Self::EAGER & !Self::GPU
     }
 }
 

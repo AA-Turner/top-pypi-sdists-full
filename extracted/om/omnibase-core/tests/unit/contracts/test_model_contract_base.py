@@ -25,6 +25,7 @@ from omnibase_core.enums import EnumNodeType
 from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
 from omnibase_core.enums.enum_dependency_type import EnumDependencyType
 from omnibase_core.models.contracts.model_contract_base import ModelContractBase
+from omnibase_core.models.contracts.model_contract_config import ModelContractConfig
 from omnibase_core.models.contracts.model_dependency import ModelDependency
 from omnibase_core.models.errors.model_onex_error import ModelOnexError
 from omnibase_core.models.primitives.model_semver import ModelSemVer
@@ -164,7 +165,7 @@ class TestModelContractBase:
 
     def test_node_type_enum_validation_valid_enum(self):
         """Test node_type validation with valid EnumNodeType values."""
-        for node_type in EnumNodeType:
+        for node_type in EnumNodeType.__members__.values():
             data = {**self.minimal_valid_data, "node_type": node_type}
             contract = SampleContractModel(**data)
             assert contract.node_type == node_type
@@ -537,3 +538,43 @@ class TestModelContractBase:
         assert "input_type" in context
         assert "expected_type" in context
         assert "example" in context
+
+
+@pytest.mark.unit
+class TestModelContractBaseConfig:
+    """Tests for the config field on ModelContractBase (OMN-10815)."""
+
+    def setup_method(self):
+        self.minimal_valid_data = {
+            "name": "test_contract",
+            "contract_version": ModelSemVer(major=1, minor=0, patch=0),
+            "description": "Test contract",
+            "node_type": EnumNodeType.COMPUTE_GENERIC,
+            "input_model": "omnibase_core.models.test.TestInput",
+            "output_model": "omnibase_core.models.test.TestOutput",
+        }
+
+    def test_config_defaults_to_empty_model(self):
+        contract = SampleContractModel(**self.minimal_valid_data)
+        assert isinstance(contract.config, ModelContractConfig)
+        assert contract.config.model_extra == {}
+
+    def test_config_accepts_string_values(self):
+        data = {**self.minimal_valid_data, "config": {"key": "value", "env": "prod"}}
+        contract = SampleContractModel(**data)
+        assert contract.config.key == "value"
+        assert contract.config.env == "prod"
+
+    def test_config_accepts_mixed_value_types(self):
+        data = {
+            **self.minimal_valid_data,
+            "config": {"count": 42, "flag": True, "label": "x"},
+        }
+        contract = SampleContractModel(**data)
+        assert contract.config.count == 42
+        assert contract.config.flag is True
+
+    def test_config_absent_in_constructor_gives_empty_model(self):
+        contract = SampleContractModel(**self.minimal_valid_data)
+        assert isinstance(contract.config, ModelContractConfig)
+        assert contract.config.model_extra == {}

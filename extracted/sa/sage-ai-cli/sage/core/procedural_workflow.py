@@ -733,7 +733,7 @@ CRITICAL TDD REQUIREMENTS:
 1. Each test MUST have real assertions (assert, assertEqual, assertTrue, etc.)
 2. NEVER write empty test functions with just 'pass'
 3. NEVER use placeholder comments like '# TODO' or '# implement this'
-4. NO MOCKING BY DEFAULT: You MUST write live tests that execute real code on the local system. Only use mocks if the user specifically asked for them.
+4. NO SIMULATIONS/STUBS BY DEFAULT: You MUST write live tests that execute real code on the local system. Only use simulations/stubs if the user specifically asked for them.
 5. Tests should test ACTUAL expected behavior, not just "it works"
 6. Include edge cases and error handling tests
 

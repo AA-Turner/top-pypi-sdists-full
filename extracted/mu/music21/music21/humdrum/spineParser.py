@@ -976,7 +976,6 @@ class GlobalCommentLine(HumdrumLine):
     The constructor can be passed (lineNumber, contents); if contents begins with
     bangs, they are removed along with up to one space directly afterwards.
 
-
     >>> com1 = humdrum.spineParser.GlobalCommentLine(
     ...          lineNumber=4, contents='!! this comment is global')
     >>> com1
@@ -1036,7 +1035,7 @@ class ProtoSpine(prebase.ProtoM21Object):
     See :meth:`~music21.humdrum.spineParser.parseProtoSpinesAndEventCollections`
     for more details on how ProtoSpine objects are created.
 
-    * Changed in v10: ProtoSpines now iterate over their eventLists and are ProtoM21Objects
+    * Changed in v10: ProtoSpines now iterate over their eventLists and are ProtoM21Objects.
     '''
 
     def __init__(self, eventList: list[SpineEvent|None]|None = None) -> None:
@@ -1289,8 +1288,8 @@ class HumdrumSpine(prebase.ProtoM21Object):
             m1TimeSignature = m1.timeSignature
             if m1TimeSignature is not None:
                 if m1.duration.quarterLength < m1TimeSignature.barDuration.quarterLength:
-                    m1.paddingLeft = (m1TimeSignature.barDuration.quarterLength
-                                      - m1.duration.quarterLength)
+                    m1.paddingLeft = opFrac(m1TimeSignature.barDuration.quarterLength
+                                            - m1.duration.quarterLength)
 
         return streamOut
 
@@ -2165,7 +2164,7 @@ class EventCollection(prebase.ProtoM21Object):
 
     In the future, EventCollection may enforce that all events have the same lineNumber
 
-    * New in v10: lineNumber
+    * New in v10: lineNumber.
     '''
     def __init__(self, maxSpines: int = 0, lineNumber: int = 0) -> None:
         self.events: common.defaultlist = common.defaultlist(lambda: None)
@@ -2409,8 +2408,8 @@ def hdStringToNote(contents: str) -> note.GeneralNote:
     foundNumber = re.search(r'(\d+)', contents)
     if foundRational:
         durationFirst = int(foundRational.group(1))
-        durationSecond = float(foundRational.group(2))
-        thisObject.duration.quarterLength = 4 * durationSecond / durationFirst
+        durationSecond = int(foundRational.group(2))
+        thisObject.duration.quarterLength = opFrac(4 * durationSecond / durationFirst)
         if '.' in contents:
             thisObject.duration.dots = contents.count('.')
 
@@ -2495,10 +2494,10 @@ def hdStringToMeasure(
     kern uses an equals sign followed by processing instructions to
     create new measures.
 
-    Changed in v10: repeat dots are encoded as :class:`~music21.bar.Repeat`
-    objects instead of being stuffed into a non-existent ``Barline.repeatDots``
-    attribute.  ``:|:`` now produces an end-Repeat on the previous measure's
-    right barline AND a start-Repeat on the new measure's left barline.
+    * Changed in v10: repeat dots are encoded as :class:`~music21.bar.Repeat`
+        objects instead of being stuffed into a non-existent ``Barline.repeatDots``
+        attribute.  ``:|:`` now produces an end-Repeat on the previous measure's
+        right barline AND a start-Repeat on the new measure's left barline.
     '''
     if contents == '==|':
         environLocal.warn(

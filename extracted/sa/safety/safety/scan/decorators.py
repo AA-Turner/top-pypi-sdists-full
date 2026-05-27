@@ -2,18 +2,15 @@ from functools import wraps
 import logging
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import TYPE_CHECKING, Optional
 
-from rich.padding import Padding
 from safety_schemas.models import ConfigModel, ProjectModel
-from rich.console import Console
 from safety.auth.cli import render_email_note
 from safety.cli_util import process_auth_status_not_ready
-from safety.console import main_console
-from safety.constants import SYSTEM_POLICY_FILE, USER_POLICY_FILE
+from safety.console import SafeConsole, main_console
 from safety.errors import SafetyException
 from safety.scan.main import download_policy, load_policy_file, resolve_policy
-from safety.scan.models import ScanOutput, SystemScanOutput
+from safety.scan.models import ScanOutput
 from safety.scan.render import (
     print_announcements,
     print_header,
@@ -23,7 +20,7 @@ from safety.scan.util import GIT
 from ..codebase_utils import load_unverified_project_from_config
 
 
-from safety.util import build_telemetry_data, pluralize
+from safety.util import build_telemetry_data
 from safety_schemas.models import (
     MetadataModel,
     ScanType,
@@ -34,6 +31,13 @@ from safety_schemas.models import (
 LOG = logging.getLogger(__name__)
 
 
+if TYPE_CHECKING:
+    from safety.cli_util import CustomContext
+    from safety.models import SafetyCLI
+
+    SafetyContext = CustomContext[SafetyCLI]
+
+
 def scan_project_command_init(func):
     """
     Decorator to make general verifications before each project scan command.
@@ -41,11 +45,11 @@ def scan_project_command_init(func):
 
     @wraps(func)
     def inner(
-        ctx,
+        ctx: "SafetyContext",
         policy_file_path: Optional[Path],
         target: Path,
         output: ScanOutput,
-        console: Console = main_console,
+        console: "SafeConsole" = main_console,
         *args,
         **kwargs,
     ):
@@ -54,6 +58,9 @@ def scan_project_command_init(func):
 
         if output.is_silent():
             console.quiet = True
+
+        if not ctx.obj.auth:
+            raise SafetyException("Authentication not initialized.")
 
         if not ctx.obj.auth.is_valid():
             process_auth_status_not_ready(console=console, auth=ctx.obj.auth, ctx=ctx)
@@ -66,7 +73,7 @@ def scan_project_command_init(func):
         print_header(console=console, targets=[target])
 
         stage = ctx.obj.auth.stage
-        session = ctx.obj.auth.client
+        platform = ctx.obj.auth.platform
         git_data = GIT(root=target).build_git_data()
         origin = None
         branch = None
@@ -87,7 +94,7 @@ def scan_project_command_init(func):
             verify_project(
                 console,
                 ctx,
-                session,
+                platform,
                 unverified_project,
                 origin,
                 link_behavior=link_behavior,
@@ -99,6 +106,9 @@ def scan_project_command_init(func):
                 name="Undefined project",
                 project_path=unverified_project.project_path,
             )
+
+        if not ctx.obj.project:
+            raise SafetyException("Codebase not loaded.")
 
         ctx.obj.project.git = git_data
         ctx.obj.project.upload_request_id = upload_request_id
@@ -116,7 +126,7 @@ def scan_project_command_init(func):
                 (
                     download_policy,
                     {
-                        "session": session,
+                        "platform": platform,
                         "project_id": ctx.obj.project.id,
                         "stage": stage,
                         "branch": branch,
@@ -143,18 +153,21 @@ def scan_project_command_init(func):
         if ctx.obj.auth.org and ctx.obj.auth.org.name:
             console.print(f"[bold]Organization[/bold]: {ctx.obj.auth.org.name}")
 
-        # Check if an API key is set
-        if ctx.obj.auth.client.get_authentication_type() == "api_key":
+        # Display account info based on auth type
+        auth_type = ctx.obj.auth.platform.get_authentication_type()
+        if auth_type == "api_key":
             details = {"Account": "API key used"}
-        else:
-            if ctx.obj.auth.client.get_authentication_type() == "token":
-                content = ctx.obj.auth.email
-                if ctx.obj.auth.name != ctx.obj.auth.email:
-                    content = f"{ctx.obj.auth.name}, {ctx.obj.auth.email}"
+        elif auth_type == "token":
+            content = ctx.obj.auth.email
+            if ctx.obj.auth.name != ctx.obj.auth.email:
+                content = f"{ctx.obj.auth.name}, {ctx.obj.auth.email}"
 
-                details = {"Account": f"{content} {render_email_note(ctx.obj.auth)}"}
-            else:
-                details = {"Account": f"Offline - {os.getenv('SAFETY_DB_DIR')}"}
+            details = {"Account": f"{content} {render_email_note(ctx.obj.auth)}"}
+        elif auth_type == "machine_token":
+            machine_id = ctx.obj.auth.platform.machine_id or "unknown"
+            details = {"Account": f"Machine token (machine:{machine_id})"}
+        else:
+            details = {"Account": f"Offline - {os.getenv('SAFETY_DB_DIR')}"}
 
         if ctx.obj.project.id:
             details["Project"] = ctx.obj.project.id
@@ -162,7 +175,7 @@ def scan_project_command_init(func):
         if ctx.obj.project.git:
             details[" Git branch"] = ctx.obj.project.git.branch  # type: ignore
 
-        details[" Environment"] = ctx.obj.auth.stage
+        details[" Environment"] = ctx.obj.auth.stage if ctx.obj.auth.stage else "-"
 
         msg = "None, using Safety CLI default policies"
 
@@ -194,115 +207,6 @@ def scan_project_command_init(func):
     return inner
 
 
-def scan_system_command_init(func):
-    """
-    Decorator to make general verifications before each system scan command.
-    """
-
-    @wraps(func)
-    def inner(
-        ctx,
-        policy_file_path: Optional[Path],
-        targets: List[Path],
-        output: SystemScanOutput,
-        console: Console = main_console,
-        *args,
-        **kwargs,
-    ):
-        ctx.obj.console = console
-        ctx.params.pop("console", None)
-
-        if output.is_silent():
-            console.quiet = True
-
-        if not ctx.obj.auth.is_valid():
-            process_auth_status_not_ready(console=console, auth=ctx.obj.auth, ctx=ctx)
-
-        console.print()
-        print_header(console=console, targets=targets, is_system_scan=True)
-
-        if not policy_file_path:
-            if SYSTEM_POLICY_FILE.exists():
-                policy_file_path = SYSTEM_POLICY_FILE
-            elif USER_POLICY_FILE.exists():
-                policy_file_path = USER_POLICY_FILE
-
-        # Load Policy file
-        ctx.obj.system_scan_policy = (
-            load_policy_file(policy_file_path) if policy_file_path else None
-        )
-        config = (
-            ctx.obj.system_scan_policy.config
-            if ctx.obj.system_scan_policy and ctx.obj.system_scan_policy.config
-            else ConfigModel()
-        )
-
-        # Preserve global telemetry preference.
-        if ctx.obj.config:
-            if ctx.obj.config.telemetry_enabled is not None:
-                config.telemetry_enabled = ctx.obj.config.telemetry_enabled
-
-        ctx.obj.config = config
-
-        if not any(targets):
-            if any(config.scan.system_targets):
-                targets = [
-                    Path(t).expanduser().absolute() for t in config.scan.system_targets
-                ]
-            else:
-                targets = [Path("/")]
-
-            ctx.obj.metadata.scan_locations = targets
-
-        console.print()
-
-        if ctx.obj.auth.org and ctx.obj.auth.org.name:
-            console.print(f"[bold]Organization[/bold]: {ctx.obj.auth.org.name}")
-
-        details = {
-            "Account": f"{ctx.obj.auth.name}, {ctx.obj.auth.email}",
-            "Scan stage": ctx.obj.auth.stage,
-        }
-
-        if ctx.obj.system_scan_policy:
-            if ctx.obj.system_scan_policy.source is PolicySource.cloud:
-                policy_type = "remote"
-            else:
-                policy_type = f'local ("{ctx.obj.system_scan_policy.id}")'
-
-            org_name = " "
-            if ctx.obj.auth.org and ctx.obj.auth.org.name:
-                org_name = f" {ctx.obj.auth.org.name} "
-
-            details["System scan policy"] = (
-                f"{policy_type}{org_name}organization policy:"
-            )
-
-        for k, v in details.items():
-            console.print(f"[bold]{k}[/bold]: {v}")
-
-        if ctx.obj.system_scan_policy:
-            dirs = [ign for ign in ctx.obj.config.scan.ignore if Path(ign).is_dir()]
-
-            policy_details = [
-                f"-> scanning from root {', '.join([str(t) for t in targets])} to a max folder depth of {ctx.obj.config.scan.max_depth}",
-                f"-> excluding {len(dirs)} {pluralize('directory', len(dirs))} and their sub-directories",
-                "-> target ecosystems: Python",
-            ]
-            for policy_detail in policy_details:
-                console.print(Padding(policy_detail, (0, 0, 0, 1)), emoji=True)
-
-        print_announcements(console=console, ctx=ctx)
-
-        console.print()
-
-        kwargs.update({"targets": targets})
-        result = func(ctx, *args, **kwargs)
-        return result
-
-    return inner
-
-
 def inject_metadata(func):
     """
     Build metadata per subcommand. A system scan can trigger a project scan,
@@ -310,14 +214,20 @@ def inject_metadata(func):
     """
 
     @wraps(func)
-    def inner(ctx, *args, **kwargs):
+    def inner(ctx: "SafetyContext", *args, **kwargs):
+        if not ctx.obj.config:
+            raise SafetyException("Default configuration not found.")
+
+        if not ctx.obj.auth:
+            raise SafetyException("Authentication not initialized.")
+
         telemetry = build_telemetry_data(
             telemetry=ctx.obj.config.telemetry_enabled,
             command=ctx.command.name,
             subcommand=ctx.invoked_subcommand,
         )
 
-        auth_type = ctx.obj.auth.client.get_authentication_type()
+        auth_type = ctx.obj.auth.platform.get_authentication_type()
 
         scan_type = ScanType(ctx.command.name)
         target = kwargs.get("target", None)
@@ -333,10 +243,10 @@ def inject_metadata(func):
 
         metadata = MetadataModel(
             scan_type=scan_type,
-            stage=ctx.obj.auth.stage,
+            stage=ctx.obj.auth.stage,  # type: ignore
             scan_locations=targets,  # type: ignore
-            authenticated=ctx.obj.auth.client.is_using_auth_credentials(),
-            authentication_type=auth_type,
+            authenticated=ctx.obj.auth.platform.is_using_auth_credentials(),
+            authentication_type=auth_type,  # type: ignore
             telemetry=telemetry,
             schema_version=ReportSchemaVersion.v3_0,
         )

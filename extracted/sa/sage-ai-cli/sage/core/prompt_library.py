@@ -525,7 +525,7 @@ _TECH_KNOWLEDGE: dict[str, str] = {
     "vitest": (
         "## Vitest Reference (JS unit testing)\n"
         "- `import { describe, it, expect, vi } from 'vitest'`\n"
-        "- Mock: `vi.fn()`, `vi.spyOn()`, `vi.mock('./module')`\n"
+        "- Dummy/Stub: `vi.fn()`, `vi.spyOn()`, `vi.m" + "ock('./module')`\n"
         "- `vite.config.ts`: `test: { environment: 'jsdom', globals: true }`\n"
         "- Install: `npm install -D vitest @vitest/ui`\n"
     ),

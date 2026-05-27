@@ -239,6 +239,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         workspaces: list[Workspace] | None = None,
         mounts: list[AgentWorkspaceMount] | None = None,
         warm_pool: WarmPool | None = None,
+        use_warm_pool: bool = True,
         agent_code_path: Path | None = None,
         total_agents: int | None = None,
         review_fn: Any | None = None,
@@ -257,6 +258,9 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             total_agents: Total number of agents that will run through the pool.
                 Scales the VM sandbox timeout to ``runtime.vm.timeout * total_agents``
                 so pooled VMs stay alive long enough for all sequential reuse.
+            use_warm_pool: Whether to use the config-backed shared warm pool.
+                Set to ``False`` for one-shot agents whose VM must be destroyed
+                immediately after the run.
             review_fn: Optional async review function. When set, each agent
                 execution is followed by a review; merge happens only on pass,
                 otherwise the agent is continued with feedback. The function
@@ -270,6 +274,9 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         from plato.agents.execution import AgentExecutionManager
         from plato.agents.mounts import AgentWorkspaceMount
         from plato.agents.task import AgentTask, create_agent_runtime
+
+        if warm_pool is not None and not use_warm_pool:
+            raise ValueError("Pass either warm_pool=... or use_warm_pool=False, not both")
 
         ssh_key_path = self._runtime_info.ssh_key_path if self._runtime_info else None
 
@@ -310,7 +317,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             review_exhaustion_policy=review_exhaustion_policy,
         )
 
-        if warm_pool is None:
+        if warm_pool is None and use_warm_pool:
             primary_mount = resolved_mounts[0] if resolved_mounts else None
             primary_workspace = workspaces[0] if workspaces else self._resolve_primary_workspace(primary_mount)
             manager_key = self._agent_execution_manager_key(config, primary_mount)

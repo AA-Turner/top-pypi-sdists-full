@@ -9,14 +9,13 @@ import shutil
 import sys
 from collections import defaultdict
 from itertools import chain
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
     NamedTuple,
     TypeVar,
-    Union,
     overload,
 )
 
@@ -46,7 +45,6 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
-from lamindb_setup.core.upath import extract_suffix_from_path
 from upath import UPath
 
 from lamindb.base.users import current_user_id
@@ -70,9 +68,11 @@ from ..base.types import (
 from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
-    InvalidArgument,
     NoWriteAccess,
     ValidationError,
+)
+from ..errors import (
+    IntegrityError as LaminIntegrityError,
 )
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .query_manager import QueryManager, _lookup, _search
@@ -82,13 +82,11 @@ if TYPE_CHECKING:
 
     import pandas as pd
 
-    from .artifact import Artifact
     from .block import BranchBlock, SpaceBlock
     from .project import Project
     from .query_manager import RelatedManager
     from .query_set import SQLRecordList
     from .run import Run, User
-    from .transform import Transform
     from .ulabel import ULabel
 
 
@@ -122,6 +120,34 @@ def _is_branch_sensitive_model(model: type[BaseSQLRecord]) -> bool:
     return (
         issubclass(model, SQLRecord) and model.__name__ not in {"Storage", "Source"}
     ) or model.__name__ in BRANCH_SENSITIVE_BLOCK_MODEL_NAMES
+
+
+def _format_versioned_record(record: IsVersioned) -> str:
+    details: list[str] = []
+    for field_name in ("uid", "key", "version", "branch_id"):
+        value = getattr(record, field_name, None)
+        if value is not None:
+            details.append(f"{field_name}={value}")
+    class_name = record.__class__.__name__
+    if not details:
+        return class_name
+    return f"{class_name}({', '.join(details)})"
+
+
+def _pull_latest_version_if_stale(
+    record: IsVersioned, branch_id: int | None = None
+) -> IsVersioned:
+    if not record.is_latest:
+        latest_version_qs = record.__class__.objects.filter(
+            uid__startswith=record.stem_uid,
+            is_latest=True,
+        )
+        if branch_id is not None:
+            latest_version_qs = latest_version_qs.filter(branch_id=branch_id)
+        latest_version = latest_version_qs.order_by("-created_at", "-id").first()
+        if latest_version is not None:
+            return latest_version
+    return record
 
 
 # -------------------------------------------------------------------------------------
@@ -301,7 +327,9 @@ def is_approx_pascal_case(s: str) -> bool:
     return last_component[:1].isupper() and "_" not in last_component
 
 
-def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
+def init_self_from_db(
+    self: SQLRecord, existing_record: SQLRecord, db: str | None = "default"
+):
     from .run import current_run
 
     new_args = [
@@ -309,7 +337,7 @@ def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
     ]
     super(self.__class__, self).__init__(*new_args)
     self._state.adding = False  # mimic from_db
-    self._state.db = "default"
+    self._state.db = db
     # if run was not set on the existing record, set it to the current_run
     if hasattr(self, "run_id") and self.run_id is None and current_run() is not None:
         logger.warning(f"run was not set on {self}, setting to current run")
@@ -650,7 +678,7 @@ class Registry(ModelBase):
             expressions: Fields and values passed as Django query expressions.
 
         See Also:
-            - Guide: :doc:`docs:registries`
+            - Guide: :doc:`docs:query-search`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
         Examples:
@@ -680,7 +708,7 @@ class Registry(ModelBase):
             :exc:`lamindb.errors.ObjectDoesNotExist`: In case no matching record is found.
 
         See Also:
-            - Guide: :doc:`registries`
+            - Guide: :doc:`query-search`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
         Examples:
@@ -699,6 +727,7 @@ class Registry(ModelBase):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
+        # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
         limit: int | None = 100,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
@@ -709,7 +738,7 @@ class Registry(ModelBase):
 
         By default, maps simple fields and foreign keys onto `DataFrame` columns.
 
-        Guide: :doc:`docs:registries`
+        Guide: :doc:`docs:query-search`
 
         Args:
             include: Related data to include as columns. Takes strings of
@@ -763,6 +792,7 @@ class Registry(ModelBase):
         string: str,
         *,
         field: StrField | None = None,
+        # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
         limit: int | None = 20,
         case_sensitive: bool = False,
     ) -> QuerySet:
@@ -1070,7 +1100,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         # track original values of fields that are tracked for changes
         self._populate_tracked_fields()
         # TODO: refactor to use _TRACK_FIELDS
-        track_current_key_and_name_values(self)
+        track_current_name_value(self)
 
     # used in __init__
     # populates the _original_values dictionary with the original values of the tracked fields
@@ -1092,10 +1122,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         else:
             self._original_values = None
 
-    def _field_changed(self, field_name: str) -> bool:
+    def _field_changed(self, field_name: str, check_is_saved: bool = True) -> bool:
         """Check if the field has changed since the record was saved."""
         # use _id fields for foreign keys in field_name
-        if self._state.adding:
+        if check_is_saved and self._state.adding:
             return False
         # check if the field is tracked for changes
         track_fields = self._TRACK_FIELDS
@@ -1150,21 +1180,36 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             init_self_from_db(self, pre_existing_record)
         else:
             # TODO: refactor to use _TRACK_FIELDS
-            check_key_change(self)
             check_name_change(self)
             try:
                 # save versioned record in presence of self._revises
                 if isinstance(self, IsVersioned) and self._revises is not None:
                     revises = self._revises
+                    # For branch-aware models (SQLRecord), keep source-branch latest
+                    # intact and only demote within the same branch. For other
+                    # versioned models (e.g. blocks), keep previous behavior.
+                    should_demote = True
+                    has_branch_id = hasattr(revises, "branch_id") and hasattr(
+                        self, "branch_id"
+                    )
+                    if has_branch_id:
+                        should_demote = revises.branch_id == self.branch_id
                     with transaction.atomic():
-                        # For branch-aware models (SQLRecord), keep source-branch latest
-                        # intact and only demote within the same branch. For other
-                        # versioned models (e.g. blocks), keep previous behavior.
-                        should_demote = True
-                        if hasattr(revises, "branch_id") and hasattr(self, "branch_id"):
-                            should_demote = revises.branch_id == self.branch_id
                         if should_demote:
-                            assert revises.is_latest  # noqa: S101
+                            revises.refresh_from_db(fields=["is_latest"])
+                            if getattr(self, "_refresh_revises_if_stale", False):
+                                revises = _pull_latest_version_if_stale(
+                                    revises, self.branch_id if has_branch_id else None
+                                )
+                                self._revises = revises
+                            if not revises.is_latest:
+                                raise LaminIntegrityError(
+                                    "Cannot revise a non-latest record: "
+                                    f"revises={_format_versioned_record(revises)} (is_latest=False), "
+                                    f"new={_format_versioned_record(self)}. "
+                                    "This usually means a newer revision was created concurrently "
+                                    "or an older record was selected for `revises`."
+                                )
                             revises.is_latest = False
                             revises._revises = None  # ensure we don't start a recursion
                             revises.save()
@@ -1264,7 +1309,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 else:
                     raise
             # call the below in case a user makes more updates to the record
-            track_current_key_and_name_values(self)
+            track_current_name_value(self)
         # perform transfer of many-to-many fields
         # only supported for Artifact and Collection records
         if db is not None and db != "default" and using_key is None:
@@ -1410,30 +1455,37 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
 
 class Space(BaseSQLRecord):
-    """Spaces with managed access for specific users or teams.
+    """Spaces for access permissions.
 
-    If not setting a space, a :class:`~lamindb.models.SQLRecord` object is accessible to all collaborators of the LaminDB instance because its :attr:`~lamindb.models.SQLRecord.space` field defaults to the built-in `all` space.
+    Every :class:`~lamindb.models.SQLRecord` object lives in a space that determines its access permissions.
+
+    If not configuring a restricted space, a :class:`~lamindb.models.SQLRecord` object is accessible to all collaborators
+    of the LaminDB instance because its :attr:`~lamindb.models.SQLRecord.space` field defaults to the built-in `all` space.
     You can create a restricted space through LaminHub either on the instance settings page or the *Spaces* tab of your account page.
 
-    Examples:
+    Guide: :doc:`docs:permissions`.
 
-        After creating a restricted space through LaminHub, create an artifact in the space::
+    Examples
+    --------
 
-            space = ln.Space.get(name="Our space")  # get a space
-            ln.Artifact("./test.txt", key="test.txt", space=space).save()  # save artifact in space
+    After creating a restricted space through LaminHub, create an artifact in the space::
 
-        You can also move an existing object into a space::
+        space = ln.Space.get(name="Our space")  # get a space
+        ln.Artifact("./test.txt", key="test.txt", space=space).save()  # save artifact in space
 
-            space = ln.Space.get(name="Our space")  # select a space
-            record = ln.Record.get(name="existing label")
-            record.space = space
-            record.save()  # saved in space "Our space"
+    You can also move an existing object into a space::
 
-        For more examples and background, see :doc:`docs:permissions`, in particular, section :ref:`docs:use-a-restricted-space`.
+        space = ln.Space.get(name="Our space")  # select a space
+        record = ln.Record.get(name="existing label")
+        record.space = space
+        record.save()  # saved in space "Our space"
 
-    Notes:
+    For more examples and background, see :doc:`docs:permissions`, in particular, section :ref:`docs:use-a-restricted-space`.
 
-        All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
+    Notes
+    -----
+
+    All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
     """
 
     class Meta:
@@ -1506,6 +1558,9 @@ class Space(BaseSQLRecord):
 class Branch(BaseSQLRecord):
     """Branches for change management with archive and trash states.
 
+    Every :class:`~lamindb.models.SQLRecord` object lives on a branch that determines
+    its life cycle and visibility in queries and searches.
+
     .. dropdown:: The 3 built-in branches: `main`, `trash` & `archive`
 
         The `main` branch acts as the default branch.
@@ -1516,65 +1571,71 @@ class Branch(BaseSQLRecord):
         The `archive` acts like an archive that hides objects from queries and searches without scheduling them for deletion.
         To move an object into the archive, run: `obj.branch_id = 0; obj.save()`.
 
+    Guide: :doc:`manage-changes`.
+
     Args:
         name: A unique name. When lower-cased, is constrained to be unique across all branches.
         description: A description.
 
-    Examples:
+    Examples
+    --------
 
-        To create a contribution branch and switch to it, run::
+    To create a contribution branch and switch to it, run::
 
-            lamin switch -c my_branch
+        lamin switch -c my_branch
 
-        To merge a contribution branch into `main`, run::
+    To merge a contribution branch into `main`, run::
 
-            lamin switch main  # switch to the main branch
-            lamin merge my_branch  # merge contribution branch into main
+        lamin switch main  # switch to the main branch
+        lamin merge my_branch  # merge contribution branch into main
 
-        To see the current branch along with other information, run::
+    To see the current branch along with other information, run::
 
-            lamin info
+        lamin info
 
-        To annotate the current branch with a `README.md`, run::
+    To annotate the current branch with a `README.md`, run::
 
-            lamin annotate branch --readme README.md
+        lamin annotate branch --readme README.md
 
-        To comment on the current branch, run::
+    To comment on the current branch, run::
 
-            lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
+        lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
 
-        To describe the current branch (optionally include comments), run::
+    To describe the current branch (optionally include comments), run::
 
-            lamin describe branch --include comments
+        lamin describe branch --include comments
 
-        To trace on which branch a `SQLRecord` object was created, run::
+    To trace on which branch a `SQLRecord` object was created, run::
 
-            sqlrecord.created_on.describe()
+        sqlrecord.created_on.describe()
 
-        To open a Change Request for a branch, run:
+    To open a Change Request for a branch, run:
 
-        .. tab-set::
+    .. tab-set::
 
-            .. tab-item:: CLI
+        .. tab-item:: CLI
 
-                .. code-block:: bash
+            .. code-block:: bash
 
-                    lamin update branch --status draft  # for current branch
-                    lamin update branch --name my_branch --status review  # for any branch
+                lamin update branch --status draft  # for current branch
+                lamin update branch --name my_branch --status review  # for any branch
 
-            .. tab-item:: Python
+        .. tab-item:: Python
 
-                .. code-block:: python
+            .. code-block:: python
 
-                    branch = ln.Branch.get(name="my_branch")
-                    branch.status = "draft"
-                    branch.save()
+                branch = ln.Branch.get(name="my_branch")
+                branch.status = "draft"
+                branch.save()
 
-                    branch.status = "review"
-                    branch.save()
+                branch.status = "review"
+                branch.save()
 
-        Just like Pull Requests on GitHub, branches are never deleted
-        so that the provenance of a change stays traceable.
+    Just like Pull Requests on GitHub, branches are never deleted
+    so that the provenance of a change stays traceable.
+
+    Notes
+    -----
 
     .. dropdown:: Managing `is_latest` during branching
 
@@ -1965,10 +2026,20 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
         if "*db_args" in params_block:
             continue
 
-        params = []
+        params: list[tuple[str, str]] = []
         for line in params_block.split("\n"):
             line = line.strip()
             if not line or "self" in line:
+                continue
+
+            # Handle multiline union annotations formatted as:
+            #   dtype: A
+            #       | B
+            #       | C,
+            if line.startswith("|") and params:
+                prev_name, prev_type = params[-1]
+                continuation = line.rstrip(",").strip()
+                params[-1] = (prev_name, f"{prev_type} {continuation}")
                 continue
 
             # Extract name and type annotation
@@ -2207,15 +2278,10 @@ def transfer_to_default_db(
     return None
 
 
-def track_current_key_and_name_values(record: SQLRecord):
-    from lamindb.models import Artifact
-
+def track_current_name_value(record: SQLRecord):
     # below, we're using __dict__ to avoid triggering the refresh from the database
     # which can lead to a recursion
-    if isinstance(record, Artifact):
-        record._old_key = record.__dict__.get("key")  # type: ignore
-        record._old_suffix = record.__dict__.get("suffix")  # type: ignore
-    elif hasattr(record, "_name_field"):
+    if hasattr(record, "_name_field"):
         record._old_name = record.__dict__.get(record._name_field)
 
 
@@ -2237,7 +2303,7 @@ def check_name_change(record: SQLRecord):
     ):
         return
 
-    # checked in check_key_change or not checked at all
+    # key-like records are not checked here
     if isinstance(record, (Artifact, Collection, Transform)):
         return
 
@@ -2283,46 +2349,6 @@ def check_name_change(record: SQLRecord):
                     f"{n} artifact{s} no longer match{es} the feature name in storage: {artifact_uids}\n"
                     "  → consider re-curating"
                 )
-
-
-def check_key_change(record: Union[Artifact, Transform]):
-    """Errors if a record's key has falsely changed."""
-    from .artifact import Artifact
-
-    if not isinstance(record, Artifact) or not hasattr(record, "_old_key"):
-        return
-    if hasattr(record, "_skip_key_change_check") and record._skip_key_change_check:
-        return
-    if record._old_suffix != record.suffix:  # type: ignore
-        raise InvalidArgument(
-            f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{record._old_suffix}' to '{record.suffix}'."  # type: ignore
-        )
-
-    old_key = record._old_key  # type: ignore
-    new_key = record.key
-
-    if old_key != new_key:
-        if not record._key_is_virtual:
-            raise InvalidArgument(
-                f"Changing a non-virtual key of an artifact is not allowed! You tried to change it from '{old_key}' to '{new_key}'."
-            )
-        if old_key is not None:
-            old_key_suffix = extract_suffix_from_path(
-                PurePosixPath(old_key), arg_name="key"
-            )
-            assert old_key_suffix == record.suffix, (  # noqa: S101
-                old_key_suffix,
-                record.suffix,
-            )
-        else:
-            old_key_suffix = record.suffix
-        new_key_suffix = extract_suffix_from_path(
-            PurePosixPath(new_key), arg_name="key"
-        )
-        if old_key_suffix != new_key_suffix:
-            raise InvalidArgument(
-                f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{old_key_suffix}'."
-            )
 
 
 def format_field_value(value: datetime | str | Any, none: str = "None") -> str:

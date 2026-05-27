@@ -1,6 +1,7 @@
 use std::fmt;
 use std::sync::Arc;
 
+use polars_core::prelude::PlHashSet;
 use polars_utils::pl_str::PlSmallStr;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -27,27 +28,29 @@ pub enum HintIR {
 }
 
 impl HintIR {
-    /// Removes hints based on column name and filter function. Returns false if no hints were retained.
-    pub fn retain_names<F>(&mut self, mut f: F) -> bool
-    where
-        F: FnMut(&str) -> bool,
-    {
+    pub fn project(&self, projected_names: &PlHashSet<PlSmallStr>) -> Option<HintIR> {
         match self {
             Self::Sorted(s) => {
-                let Some(i) = s.iter().position(|s| f(&s.column)) else {
-                    return false;
-                };
+                let num_matches = s
+                    .iter()
+                    .filter(|i| projected_names.contains(&i.column))
+                    .count();
 
-                *s = s
-                    .get(i)
-                    .into_iter()
-                    .chain(s.iter().skip(1 + i).filter(|s| f(&s.column)))
-                    .cloned()
-                    .collect()
+                if num_matches == s.len() {
+                    return Some(Self::Sorted(s.clone()));
+                } else if num_matches == 0 {
+                    return None;
+                }
+
+                let mut sorted = Vec::with_capacity(num_matches);
+                sorted.extend(
+                    s.iter()
+                        .filter(|i| projected_names.contains(&i.column))
+                        .cloned(),
+                );
+                Some(Self::Sorted(sorted.into()))
             },
         }
-
-        true
     }
 }
 

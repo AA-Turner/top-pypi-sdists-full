@@ -239,7 +239,7 @@ jobs:
           set -xe
           echo "## Coverage: $(python -m coverage report --format=total)%" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          python -m coverage report --skip-covered >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage report -m --skip-covered >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: "Get total"

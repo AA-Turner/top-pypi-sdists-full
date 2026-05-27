@@ -574,6 +574,53 @@ def get_feature_annotate_kwargs(
         logger.important(
             f"queried for all categorical features of dtypes Record or ULabel and non-categorical features: ({len(feature_qs)}) {feature_qs.to_list('name')}"
         )
+
+    # Duplicate feature names map to ambiguous dataframe columns.
+    # - for explicit user-provided lists, fail fast and ask for disambiguation
+    # - for implicit feature inclusion, choose deterministically and warn
+    feature_name_to_features: dict[str, list[Feature]] = defaultdict(list)
+    for feature in feature_qs.order_by("id"):
+        feature_name_to_features[feature.name].append(feature)
+    duplicate_feature_names = {
+        name: [feature.id for feature in records]
+        for name, records in feature_name_to_features.items()
+        if len(records) > 1
+    }
+    if duplicate_feature_names:
+        if isinstance(features, list):
+            duplicate_features_requested = {
+                name: ids
+                for name, ids in duplicate_feature_names.items()
+                if name in features
+            }
+            if duplicate_features_requested:
+                raise ValueError(
+                    "Ambiguous feature names passed in `features`: "
+                    f"{duplicate_features_requested}. "
+                    "Pass disambiguated feature names or avoid duplicate feature names."
+                )
+        logger.warning(
+            "detected duplicate feature names while building dataframe features; "
+            "keeping one feature per name (preferring relational dtypes, then "
+            "the first by ascending id). "
+            f"duplicates: {duplicate_feature_names}"
+        )
+        unique_feature_ids = []
+        for records in feature_name_to_features.values():
+            if len(records) == 1:
+                unique_feature_ids.append(records[0].id)
+                continue
+            relational_records = [
+                record
+                for record in records
+                if record._dtype_str.startswith("cat[")
+                or record._dtype_str.startswith("list[cat[")
+            ]
+            selected_record = (
+                relational_records[0] if relational_records else records[0]
+            )
+            unique_feature_ids.append(selected_record.id)
+        feature_qs = feature_qs.filter(id__in=unique_feature_ids)
     # Get the categorical features
     cat_feature_types = {
         parse_dtype(feature._dtype_str)[0]["registry_str"]
@@ -901,6 +948,11 @@ def reshape_annotate_result(
                 result_encoded[feature.name] = pd.to_datetime(
                     result_encoded[feature.name], format="ISO8601", utc=True
                 ).dt.tz_localize(None)
+            if dtype_str == "datetime64[ns, UTC]":
+                # store timezone-aware datetimes normalized to UTC
+                result_encoded[feature.name] = pd.to_datetime(
+                    result_encoded[feature.name], format="ISO8601", utc=True
+                )
             if dtype_str == "date":
                 # see comments for datetime
                 result_encoded[feature.name] = (
@@ -1084,6 +1136,7 @@ class BasicQuerySet(models.QuerySet):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
+        # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
         limit: int | None = 100,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
@@ -1165,6 +1218,16 @@ class BasicQuerySet(models.QuerySet):
         if limit is not None and len(df) > limit:
             is_truncated = True
             df = df.iloc[:limit].copy()
+        # Keep the default limit at 100 until 2.6.0 while preparing users
+        # for the upcoming switch to 20.
+        if limit == 100 and 20 < len(df) < 100:
+            warnings.warn(
+                "The default `to_dataframe(limit=...)` will change from 100 to 20 in"
+                " lamindb 2.6.0. Pass `limit=100` to keep the current behavior or"
+                " `limit=20` to adopt the future default now.",
+                FutureWarning,
+                stacklevel=2,
+            )
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
@@ -1606,42 +1669,43 @@ class DB:
     Args:
         instance: Instance identifier in format "account/instance".
 
-    Examples:
+    Examples
+    --------
 
-        Query objects from an instance::
+    Query objects from an instance::
 
-            db = ln.DB("laminlabs/cellxgene")
+        db = ln.DB("laminlabs/cellxgene")
 
-        Query artifacts and filter by `suffix`::
+    Query artifacts and filter by `suffix`::
 
-            db.Artifact.filter(suffix=".h5ad").to_dataframe()
+        db.Artifact.filter(suffix=".h5ad").to_dataframe()
 
-        Get a single artifact by uid::
+    Get a single artifact by uid::
 
-            artifact = db.Artifact.get("abcDEF123456")
+        artifact = db.Artifact.get("abcDEF123456")
 
-        Query records and filter by name::
+    Query records and filter by name::
 
-            db.Record.filter(name__startswith="sample").to_dataframe()
+        db.Record.filter(name__startswith="sample").to_dataframe()
 
-        Get a cell type object::
+    Get a cell type object::
 
-            t_cell = db.bionty.CellType.get(name="T cell")
+        t_cell = db.bionty.CellType.get(name="T cell")
 
-        Create a lookup object to auto-complete all cell types in the database::
+    Create a lookup object to auto-complete all cell types in the database::
 
-            cell_types = db.bionty.CellType.lookup()
+        cell_types = db.bionty.CellType.lookup()
 
-        Return a `DataFrame` with additional info::
+    Return a `DataFrame` with additional info::
 
-            db.Artifact.filter(
-                suffix=".h5ad",
-                description__contains="immune",
-                size__gt=1e9,  # size > 1GB
-                cell_types__name__in=["B cell", "T cell"],
-            ).order_by("created_at").to_dataframe(
-                include=["cell_types__name", "created_by__handle"]  # include additional info
-            ).head()
+        db.Artifact.filter(
+            suffix=".h5ad",
+            description__contains="immune",
+            size__gt=1e9,  # size > 1GB
+            cell_types__name__in=["B cell", "T cell"],
+        ).order_by("created_at").to_dataframe(
+            include=["cell_types__name", "created_by__handle"]  # include additional info
+        ).head()
     """
 
     Artifact: QuerySet[Artifact]  # type: ignore[type-arg]
@@ -1667,11 +1731,21 @@ class DB:
         self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | PertdbDB] = {}
         self._available_registries: set[str] | None = None
 
-        owner, instance_name = instance.split("/")
+        owner, instance_name = (
+            ln_setup._connect_instance.get_owner_name_from_identifier(instance)
+        )
         instance_info = ln_setup._connect_instance._connect_instance(
             owner=owner, name=instance_name
         )
         self._modules = ["lamindb"] + list(instance_info.modules)
+        warning = ln_setup.core.django._warn_module_mismatch(
+            target_apps={"lamindb"} | instance_info.modules,
+            # Read-only DB querying should only warn when instance modules are missing
+            # from the local environment, not when local modules are additional.
+            current_apps={"lamindb"} | (setup_settings.modules & instance_info.modules),
+        )
+        if warning is not None:
+            logger.warning(warning)
 
     def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | PertdbDB:
         """Access a registry class or schema namespace for this database instance.

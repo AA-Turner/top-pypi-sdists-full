@@ -113,7 +113,7 @@ _BACKEND_FILE_BLUEPRINTS: tuple[tuple[str, str, bool], ...] = (
     ),
     (
         "backend/tests/unit/test_{module}_service.py",
-        "pytest unit tests for {Class}Service. Mocks the repository + integrations. "
+        "pytest unit tests for {Class}Service. Uses fake repository + integrations. "
         "CRITICAL: async test functions MUST be `async def test_...` with @pytest.mark.asyncio. "
         "Do NOT put import statements inside function bodies. "
         "All imports must be at the top of the file.",
@@ -286,7 +286,7 @@ _RNW_FRONTEND_BLUEPRINTS: tuple[tuple[str, str, bool], ...] = (
     (
         "frontend/__tests__/hooks/use{Class}.test.tsx",
         "Tests for use{Class}List + useCreate{Class}. Uses QueryClientProvider "
-        "wrapper, msw to mock API, asserts loading/success/error states.",
+        "wrapper, msw to simulate API, asserts loading/success/error states.",
         True,
     ),
 )

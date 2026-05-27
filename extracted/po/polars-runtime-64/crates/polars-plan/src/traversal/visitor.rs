@@ -14,11 +14,7 @@ pub trait NodeVisitor {
     type Edge;
     type BreakValue;
 
-    fn default_edge(
-        &mut self,
-        key: Self::Key,
-        parent_key_and_port: Option<(Self::Key, usize)>,
-    ) -> Self::Edge;
+    fn default_edge(&mut self) -> Self::Edge;
 
     fn pre_visit(
         &mut self,
@@ -26,15 +22,6 @@ pub trait NodeVisitor {
         storage: &mut Self::Storage,
         edges: &mut dyn NodeEdgesProvider<Self::Edge>,
     ) -> ControlFlow<Self::BreakValue, SubtreeVisit>;
-
-    /// Indicates this edge is deleted. This edge will not appear when visiting
-    /// the node pointed to by this edge. If this edge is the sole edge pointing
-    /// to that node, that node will not be visited.
-    ///
-    /// Called before pre_visit of each node.
-    fn is_deleted_edge(&mut self, _edge: &Self::Edge) -> Option<bool> {
-        None
-    }
 
     fn post_visit(
         &mut self,
@@ -103,11 +90,7 @@ where
     type Edge = Edge;
     type BreakValue = BreakValue;
 
-    fn default_edge(
-        &mut self,
-        _key: Self::Key,
-        _parent_key_and_port: Option<(Self::Key, usize)>,
-    ) -> Self::Edge {
+    fn default_edge(&mut self) -> Self::Edge {
         (self.default_edge_fn)()
     }
 

@@ -149,9 +149,6 @@ pub enum FunctionExpr {
     Shift,
     DropNans,
     DropNulls,
-    Quantile {
-        method: QuantileMethod,
-    },
     #[cfg(feature = "mode")]
     Mode {
         maintain_order: bool,
@@ -492,7 +489,6 @@ impl Hash for FunctionExpr {
                 descending.hash(state);
                 nulls_last.hash(state);
             },
-            Quantile { method } => method.hash(state),
             #[cfg(feature = "mode")]
             Mode { maintain_order } => maintain_order.hash(state),
             #[cfg(feature = "abs")]
@@ -742,7 +738,6 @@ impl Display for FunctionExpr {
             ShiftAndFill => "shift_and_fill",
             DropNans => "drop_nans",
             DropNulls => "drop_nulls",
-            Quantile { method: _ } => "quantile",
             #[cfg(feature = "mode")]
             Mode { maintain_order } => {
                 if *maintain_order {

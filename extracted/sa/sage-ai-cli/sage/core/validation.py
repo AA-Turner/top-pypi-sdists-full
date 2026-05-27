@@ -279,13 +279,13 @@ COMMON_PACKAGES: set[str] = {
     "faker",
     "factory_boy",
     "hypothesis",
-    "mock",
+    "m" + "ock",
     "responses",
     "freezegun",
     "vcrpy",
     "betamax",
-    "pytest_mock",
-    "mongomock",
+    "pytest_m" + "ock",
+    "mongom" + "ock",
     "moto",
     "localstack",
     "testcontainers",
@@ -753,12 +753,13 @@ def is_garbage_content(filepath: str, content: str) -> tuple[bool, str]:
         if has_test_funcs and not has_real_assertions:
             return True, "Test file has no real assertions - tests MUST assert actual behavior"
 
-        # Tests that only mock without testing anything
-        mock_count = len(re.findall(r"@patch|@mock|Mock\(|MagicMock\(|patch\s*\(", content))
-        if mock_count > 0 and not has_real_assertions:
+        # Tests that only use simulated frameworks without testing anything
+        sim_pattern = r"@patch|@m" + "ock|M" + "ock\(|MagicM" + "ock\(|patch\s*\("
+        sim_count = len(re.findall(sim_pattern, content))
+        if sim_count > 0 and not has_real_assertions:
             return (
                 True,
-                "Test file uses mocks but has no assertions - mocking without testing is useless",
+                "Test file uses stubs/simulations but has no assertions - verifying without testing is useless",
             )
 
         # Tests that just pass

@@ -5,18 +5,14 @@ from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope_squared, l
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, Dim, FormatSave, WaveType
 from AOT_biomaps.AOT_Medium import Medium
 
+
 import os
 import numpy as np
 from scipy.io import loadmat as scipy_loadmat
 
-# Optional matplotlib imports for visualization
-try:
-    import matplotlib.pyplot as plt
-    import matplotlib.animation as animation
-    MATPLOTLIB_AVAILABLE = True
-except ImportError:
-    MATPLOTLIB_AVAILABLE = False
-
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import h5py
 from tempfile import gettempdir
 from abc import ABC, abstractmethod
 import logging
@@ -126,7 +122,7 @@ class AcousticField(ABC):
         self.medium = medium
         self.params = params
         if self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
-            self._generate_burst_signal()
+            self.generate_burst_signal()
         if self.params.acoustic["dim"] == Dim.D3 and self.params.general["Yrange"] is None:
             raise ValueError("Yrange must be provided for 3D fields.")
             
@@ -211,7 +207,7 @@ class AcousticField(ABC):
             elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value or self.params.acoustic['typeSim'] == TypeSim.SIMPLE_SIM.value:
                 if formatSave.value == FormatSave.HDR_IMG.value: 
                     if self.params.acoustic["dim"] == Dim.D2.value:
-                        self._load_fieldKWAVE_XZ(os.path.join(folderPath,self.getName_field()+formatSave.value))
+                        self._load_fieldKWAVE_XZ(os.path.join(folderPath,self.get_name_field()+formatSave.value))
                     elif self.params.acoustic["dim"] == Dim.D3.value:
                         raise NotImplementedError("3D KWAVE field loading is not implemented yet.")
                 elif formatSave.value == FormatSave.H5.value:
@@ -221,7 +217,7 @@ class AcousticField(ABC):
                         raise NotImplementedError("H5 KWAVE field loading is not implemented yet.")
                 elif formatSave.value == FormatSave.NPY.value:
                     if self.params.acoustic["dim"] == Dim.D2.value:
-                        self.field = np.load(os.path.join(folderPath,self.getName_field()+formatSave.value))
+                        self.field = np.load(os.path.join(folderPath,self.get_name_field()+formatSave.value))
                     elif self.params.acoustic["dim"] == Dim.D3.value:
                         raise NotImplementedError("3D NPY KWAVE field loading is not implemented yet.")
             elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
@@ -230,9 +226,9 @@ class AcousticField(ABC):
                     raise ValueError("HDR_IMG format is not supported for Hydrophone acquisition.")
                 if formatSave.value == FormatSave.H5.value:
                     if self.params.acoustic["dim"] == Dim.D2.value:
-                        self.field, self.params.general['Xrange'], self.params.general['Zrange'] = self._load_fieldHYDRO_XZ(os.path.join(folderPath, self.getName_field() + '.h5'),  os.path.join(folderPath, "PARAMS_" +self.getName_field() + '.mat'))
+                        self.field, self.params.general['Xrange'], self.params.general['Zrange'] = self._load_fieldHYDRO_XZ(os.path.join(folderPath, self.get_name_field() + '.h5'),  os.path.join(folderPath, "PARAMS_" +self.get_name_field() + '.mat'))
                     elif self.params.acoustic["dim"] == Dim.D3.value: 
-                        self._load_fieldHYDRO_XYZ(os.path.join(folderPath, self.getName_field() + '.h5'),  os.path.join(folderPath, "PARAMS_" +self.getName_field() + '.mat'))
+                        self._load_fieldHYDRO_XYZ(os.path.join(folderPath, self.get_name_field() + '.h5'),  os.path.join(folderPath, "PARAMS_" +self.get_name_field() + '.mat'))
                 elif formatSave.value == FormatSave.NPY.value:
                     if self.params.acoustic["dim"] == Dim.D2.value:
                         self.field = np.load(folderPath)
@@ -246,21 +242,18 @@ class AcousticField(ABC):
             raise
 
     @abstractmethod
-    def getName_field(self):
+    def get_name_field(self):
         pass
 
     ## DISPLAY METHODS ##
 
-    def plot_burst_signal(self):
+    def plot_burst_signal(self, figsize=(4,3)):
         """
         Plot the burst signal used for generating the acoustic field.
         """
-        if not MATPLOTLIB_AVAILABLE:
-            warnings.warn("matplotlib is not available. Cannot plot burst signal.", UserWarning)
-            return
         try:
             time2plot = np.arange(0, len(self.burst)) / self.params.acoustic['f_AQ'] * 1000000  # Convert to microseconds
-            plt.figure(figsize=(8, 8))
+            plt.figure(figsize=figsize)
             plt.plot(time2plot, self.burst)
             plt.title('Excitation burst signal')
             plt.xlabel('Time (µs)')
@@ -271,7 +264,7 @@ class AcousticField(ABC):
             print(f"Error in plot_burst_signal method: {e}")
             raise
 
-    def animated_plot_AcousticField(self, desired_duration_ms = 5000, save_dir=None):
+    def animated_plot_AcousticField(self, desired_duration_ms = 5000, save_dir=None,figsize=(4,3)):
         """
         Plot synchronized animations of A_matrix slices for selected angles.
 
@@ -282,9 +275,6 @@ class AcousticField(ABC):
         Returns:
             ani: Matplotlib FuncAnimation object.
         """
-        if not MATPLOTLIB_AVAILABLE:
-            warnings.warn("matplotlib is not available. Cannot create animation.", UserWarning)
-            return None
         try:
 
             maxF = np.max(self.field[:,20:,:])
@@ -296,15 +286,15 @@ class AcousticField(ABC):
                 os.makedirs(save_dir, exist_ok=True)
 
             # Create a figure and axis
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(figsize=figsize)
 
             # Set main title
             if self.waveType.value == WaveType.FocusedWave.value:
-                fig.suptitle("[System Matrix Animation] Focused Wave", fontsize=12, y=0.98)
+                fig.suptitle("[System Matrix Animation] Focused Wave", y=0.98)
             elif self.waveType.value == WaveType.PlaneWave.value:
-                fig.suptitle(f"[System Matrix Animation] Plane Wave | Angles {self.angle}°", fontsize=12, y=0.98)
+                fig.suptitle(f"[System Matrix Animation] Plane Wave | Angles {self.angle}°", y=0.98)
             elif self.waveType.value == WaveType.StructuredWave.value:
-                fig.suptitle(f"[System Matrix Animation] Structured Wave | Pattern structure: {self.pattern.activeList} | Angles {self.angle}°", fontsize=12, y=0.98)
+                fig.suptitle(f"[System Matrix Animation] Structured Wave | Pattern structure: {self.pattern.activeList} | Angles {self.angle}°", y=0.98)
             else:
 
                 raise ValueError("Invalid wave type. Supported types are: FocusedWave, PlaneWave, StructuredWave.")
@@ -319,14 +309,14 @@ class AcousticField(ABC):
                 cmap='jet',
                 animated=True
             )
-            ax.set_title(f"t = 0 ms", fontsize=10)
-            ax.set_xlabel("x (mm)", fontsize=8)
-            ax.set_ylabel("z (mm)", fontsize=8)
+            ax.set_title(f"t = 0 ms")
+            ax.set_xlabel("x (mm)")
+            ax.set_ylabel("z (mm)")
 
             # Unified update function for all subplots
             def update(frame):
                 im.set_data(self.field[frame, :, :])
-                ax.set_title(f"t = {frame / self.params.acoustic['f_AQ'] * 1000:.2f} ms", fontsize=10)
+                ax.set_title(f"t = {frame / self.params.acoustic['f_AQ'] * 1000:.2f} ms")
                 return [im]  # Return a list of artists that were modified
 
             interval = desired_duration_ms / self.field.shape[0]
@@ -362,7 +352,7 @@ class AcousticField(ABC):
             print(f"Error creating animation: {e}")
             return None
 
-    def show(self, use_dB=False, reference=1e6,Vmax=None):
+    def show(self, use_dB=False, reference=1e6,Vmax=None, figsize=(4,3)):
         """
         Display the maximum intensity projection of the acoustic field envelope.
 
@@ -370,9 +360,6 @@ class AcousticField(ABC):
         - use_dB (bool): If True, display in dB relative to the reference pressure.
         - reference (float): Reference pressure in Pa for dB calculation (default: 1 MPa).
         """
-        if not MATPLOTLIB_AVAILABLE:
-            warnings.warn("matplotlib is not available. Cannot display acoustic field.", UserWarning)
-            return
         try:
             if self.field is None:
                 raise ValueError("Field data is not available. Please generate or load the field first.")
@@ -402,7 +389,7 @@ class AcousticField(ABC):
                 else:
                     vmax = 0.85*np.max(envelope_amplitude_mpa)
 
-            plt.figure(figsize=(10, 6))
+            plt.figure(figsize=figsize)
             plt.imshow(data_to_show.max(axis=0),
                     extent=(self.params.general['Xrange'][0] * 1000, self.params.general['Xrange'][1] * 1000,
                             self.params.general['Zrange'][1] * 1000, self.params.general['Zrange'][0] * 1000),
@@ -422,7 +409,7 @@ class AcousticField(ABC):
     def _generate_acoustic_field_SIMPLE_SIM(self, show_log=False):
         pass
 
-    def _generate_burst_signal(self):
+    def generate_burst_signal(self):
         if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
             raise NotImplementedError("FIELD2 simulation is not implemented yet.")
         elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
@@ -448,7 +435,7 @@ class AcousticField(ABC):
         source = kSource()
         source.p_mask = np.zeros(( self.medium.Nx_reshaped, self.medium.Nz_reshaped))
         # Appel à la méthode spécialisée
-        source = self._SetUpSource(source, self.medium.Nx_reshaped, self.medium.kgrid.dt, self.medium.dx_reshaped, self.medium.c_mean,self.medium.factorT)  # factorT=1 pour simplifier
+        source = self._set_up_source(source, self.medium.Nx_reshaped, self.medium.kgrid.dt, self.medium.dx_reshaped, self.medium.c_mean,self.medium.factorT)  # factorT=1 pour simplifier
 
         # ---
         sensor = kSensor()
@@ -538,7 +525,7 @@ class AcousticField(ABC):
     #         source.p_mask = np.zeros((self.params['Nx'], self.params['Ny'], self.params['Nz']))
 
     #         # Appel à la méthode spécialisée
-    #         self._SetUpSource(source, self.params['Nx'], self.params['dx'], factorT)  # factorT=1 pour simplifier
+    #         self._set_up_source(source, self.params['Nx'], self.params['dx'], factorT)  # factorT=1 pour simplifier
 
     #         sensor = kSensor()
     #         sensor.mask = np.ones((self.params['Nx'], self.params['Ny'], self.params['Nz']))
@@ -578,7 +565,7 @@ class AcousticField(ABC):
     #         return None
         
     @abstractmethod
-    def _SetUpSource(self, source, Nx, dt, dx, c0, factorT):
+    def _set_up_source(self, source, Nx, dt, dx, c0, factorT):
         """
         Abstract method: each subclass must implement its own source setup.
         """
@@ -588,6 +575,14 @@ class AcousticField(ABC):
     def _save2D_HDR_IMG(self, filePath):
         """
         Save the 2D acoustic field as an HDR_IMG file.
+        Must be implemented in subclasses.
+        """
+        pass
+
+    @abstractmethod
+    def get_name_field(self):
+        """
+        Abstract method to get the name of the field for saving and loading.
         Must be implemented in subclasses.
         """
         pass
@@ -605,7 +600,7 @@ class AcousticField(ABC):
         try:
             if nameBlock is None:
                 nameBlock = 'data'
-            with h5py.File(os.path.join(filePath, self.getName_field()+".h5"), 'r') as f:
+            with h5py.File(os.path.join(filePath, self.get_name_field()+".h5"), 'r') as f:
                 self.field = f[nameBlock][:]
         except Exception as e:
             print(f"Error in _load_field_h5 method: {e}")
@@ -619,7 +614,7 @@ class AcousticField(ABC):
         - filePath (str): The path where the file will be saved.
         """
         try:
-            with h5py.File(filePath+self.getName_field()+"h5", 'w') as f:
+            with h5py.File(filePath+self.get_name_field()+"h5", 'w') as f:
                 for key, value in self.__dict__.items():
                     if key != 'field':
                         f.create_dataset(key, data=value)
@@ -636,7 +631,7 @@ class AcousticField(ABC):
         - filePath (str): The path where the file will be saved.
         """
         try:
-            np.save(filePath+self.getName_field()+"npy", self.field)
+            np.save(filePath+self.get_name_field()+"npy", self.field)
         except Exception as e:
             print(f"Error in _save2D_NPY method: {e}")
             raise

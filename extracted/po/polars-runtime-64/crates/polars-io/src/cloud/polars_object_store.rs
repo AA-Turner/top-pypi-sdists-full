@@ -12,6 +12,7 @@ use polars_error::{PolarsError, PolarsResult};
 use polars_utils::pl_path::PlRefPath;
 use tokio::io::AsyncWriteExt;
 
+use crate::metrics::HEAD_RESPONSE_SIZE_ESTIMATE;
 use crate::pl_async::{
     self, MAX_BUDGET_PER_REQUEST, get_concurrency_limit, get_download_chunk_size,
     tune_with_concurrency_budget, with_concurrency_budget,
@@ -81,7 +82,6 @@ mod inner {
     struct Inner {
         store: tokio::sync::RwLock<Arc<dyn ObjectStore>>,
         builder: PolarsObjectStoreBuilder,
-        rebuilt: RelaxedCell<bool>,
     }
 
     /// Polars wrapper around [`ObjectStore`] functionality. This struct is cheaply cloneable.
@@ -90,6 +90,9 @@ mod inner {
         inner: Arc<Inner>,
         /// Avoid contending the Mutex `lock()` until the first re-build.
         initial_store: std::sync::Arc<dyn ObjectStore>,
+        /// Used for interior mutability. Doesn't need to be shared with other threads so it's not
+        /// inside `Arc<>`.
+        rebuilt: RelaxedCell<bool>,
         io_metrics: OptIOMetrics,
     }
 
@@ -103,9 +106,9 @@ mod inner {
                 inner: Arc::new(Inner {
                     store: tokio::sync::RwLock::new(store),
                     builder,
-                    rebuilt: RelaxedCell::from(false),
                 }),
                 initial_store,
+                rebuilt: RelaxedCell::from(false),
                 io_metrics: OptIOMetrics(None),
             }
         }
@@ -121,7 +124,7 @@ mod inner {
 
         /// Gets the underlying [`ObjectStore`] implementation.
         pub async fn to_dyn_object_store(&self) -> Cow<'_, Arc<dyn ObjectStore>> {
-            if !self.inner.rebuilt.load() {
+            if !self.rebuilt.load() {
                 Cow::Borrowed(&self.initial_store)
             } else {
                 Cow::Owned(self.inner.store.read().await.clone())
@@ -147,7 +150,7 @@ mod inner {
                         })?;
             }
 
-            self.inner.rebuilt.store(true);
+            self.rebuilt.store(true);
 
             Ok((*current_store).clone())
         }
@@ -433,7 +436,10 @@ impl PolarsObjectStore {
         with_concurrency_budget(1, || {
             self.exec_with_rebuild_retry_on_err(|s| {
                 async move {
-                    let head_result = self.io_metrics().record_io_read(0, s.head(path)).await;
+                    let head_result = self
+                        .io_metrics()
+                        .record_io_read(HEAD_RESPONSE_SIZE_ESTIMATE, s.head(path))
+                        .await;
 
                     if head_result.is_err() {
                         // Pre-signed URLs forbid the HEAD method, but we can still retrieve the header
@@ -441,7 +447,7 @@ impl PolarsObjectStore {
                         let get_range_0_1_result = self
                             .io_metrics()
                             .record_io_read(
-                                0,
+                                HEAD_RESPONSE_SIZE_ESTIMATE + 1,
                                 s.get_opts(
                                     path,
                                     object_store::GetOptions {

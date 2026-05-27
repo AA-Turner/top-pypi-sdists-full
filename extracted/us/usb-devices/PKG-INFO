@@ -1,22 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: usb-devices
-Version: 0.4.5
+Version: 0.5.0
 Summary: Tools for mapping, describing, and resetting USB devices
-Home-page: https://github.com/bluetooth-devices/usb-devices
 License: MIT
+License-File: LICENSE
 Author: J. Nick Koston
 Author-email: nick@koston.org
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Project-URL: Bug Tracker, https://github.com/bluetooth-devices/usb-devices/issues
 Project-URL: Changelog, https://github.com/bluetooth-devices/usb-devices/blob/main/CHANGELOG.md

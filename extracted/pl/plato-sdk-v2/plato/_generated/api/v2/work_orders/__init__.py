@@ -7,6 +7,7 @@ from . import (
     create_work_order_item,
     get_work_order,
     list_work_orders,
+    update_work_order_item,
 )
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "get_work_order",
     "create_work_order_item",
     "archive_work_order",
+    "update_work_order_item",
     "archive_work_order_item",
 ]

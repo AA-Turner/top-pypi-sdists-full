@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: safety
-Version: 3.7.0
+Version: 3.8.0
 Summary: Scan dependencies for known vulnerabilities and licenses.
 Project-URL: homepage, https://safetycli.com
 Project-URL: source, https://github.com/pyupio/safety
@@ -32,6 +32,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security
 Requires-Python: >=3.9
 Requires-Dist: authlib>=1.2.0
+Requires-Dist: certifi
 Requires-Dist: click>=8.0.2
 Requires-Dist: dparse>=0.6.4
 Requires-Dist: filelock<4.0,>=3.16.1
@@ -41,13 +42,13 @@ Requires-Dist: marshmallow>=3.15.0
 Requires-Dist: nltk>=3.9
 Requires-Dist: packaging>=21.0
 Requires-Dist: pydantic>=2.6.0
-Requires-Dist: requests
 Requires-Dist: ruamel-yaml>=0.17.21
 Requires-Dist: safety-schemas==0.0.16
 Requires-Dist: tenacity>=8.1.0
 Requires-Dist: tomli; python_version < '3.11'
 Requires-Dist: tomlkit
-Requires-Dist: typer>=0.16.0
+Requires-Dist: truststore>=0.10.4; python_version >= '3.10'
+Requires-Dist: typer<0.26.0,>=0.16.0
 Requires-Dist: typing-extensions>=4.7.1
 Provides-Extra: github
 Requires-Dist: pygithub>=1.43.3; extra == 'github'
@@ -131,7 +132,7 @@ Leveraging the industry's most comprehensive database of vulnerabilities and mal
 - `safety --help`: Access help and display all available commands.
 - `safety auth`: Start authentication flow or display status.
 - `safety scan`: Perform a vulnerability scan in the current directory.
-- `safety system-scan`: Perform a scan across the entire development machine.
+- `safety system-scan`: Discover supply-chain assets on your development machine — AI assistants (e.g. Claude Code, Claude Desktop), dependencies, runtimes, environments, and developer tools. Available as part of the Safety commercial product — see [https://getsafety.com/](https://getsafety.com/).
 - `safety scan --apply-fixes`: Update vulnerable dependencies.
 
 # Service-Level Agreement (SLA)
@@ -150,7 +151,6 @@ Included in the documentation are the following key topics:
 - [Quick Start Guide](https://docs.safetycli.com/safety-docs/safety-cli-3/quick-start-guide)
 - [Installation and Authentication](https://docs.safetycli.com/safety-docs/safety-cli-3/installation-and-authentication)
 - [Scanning for Vulnerable and Malicious Packages](https://docs.safetycli.com/safety-docs/safety-cli-3/scanning-for-vulnerable-and-malicious-packages)
-- [System-Wide Developer Machine Scanning](https://docs.safetycli.com/safety-docs/safety-cli-3/system-wide-developer-machine-scanning)
 - [Viewing Scan Results](https://docs.safetycli.com/safety-docs/safety-cli-3/viewing-scan-results)
 - [Available Commands and Inputs](https://docs.safetycli.com/safety-docs/safety-cli-3/available-commands-and-inputs)
 - [Scanning in CI/CD](https://docs.safetycli.com/safety-docs/safety-cli-3/scanning-in-ci-cd)

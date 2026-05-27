@@ -5055,7 +5055,6 @@ static const char __pyx_k_A_2_4xq_aq_1_U_a_E_aq_7_1_AQ_q[] = "\200A\360\024\000\
 static const char __pyx_k_A_F_31D_aq_E_aq_4AT_s_iqPQ_7_q[] = "\200A\330\010\022\220!\360\010\000\t\025\220F\320\0323\2601\260D\270\006\270a\270q\330\010\014\210E\220\025\220a\220q\330\014\030\230\006\320\0364\260A\260T\270\026\270s\300$\300i\310q\320PQ\330\014\023\2207\230!\230=\250\001\250\021\330\010\017\210q";
 static const char __pyx_k_A_G1F_a_vWA_q_q_q_d_7_WA_d_7_Q[] = "\200\001\360\010\000\005\r\210A\330\004\014\210G\2201\220F\230,\240a\330\004\007\200v\210W\220A\330\010\022\220!\330\010\027\220q\340\010\027\220q\330\004\007\200q\330\010\017\320\017.\250d\260!\2607\270+\300W\310A\340\010\017\320\017.\250d\260!\2607\270+\300Q";
 static const char __pyx_k_A_q_JhgQjPSSVVYYZZ_1_AXWAQ_Qaq[] = "\320\004$\240A\360\024\000\t\032\230\036\240q\250\004\250J\260h\270g\300Q\300j\320PS\320SV\320VY\320YZ\320Z[\330\010\013\2101\330\014\030\230\001\230\021\330\010\021\220\023\220A\220X\230W\240A\240Q\330\r\035\230Q\230a\230q\340\010\017\210q";
-static const char __pyx_k_A_s_4_m1_D_AWHCt_WAQ_gRq_3a_Cr[] = "\320\004$\240A\360\010\000\t\020\210s\220'\230\021\330\010\023\2204\320\027(\250\001\330\010\022\220$\220m\2401\330\010\022\220!\330\014\024\220D\230\014\240A\240W\250H\260C\260t\270:\300W\310A\310Q\340\010\026\220g\230R\230q\330\010\013\2103\210a\210}\230C\230r\240\024\240\\\260\023\260A\330\014\024\220B\220k\240\034\250Q\330\020\021\220\024\220\\\240\021\240'\250\030\260\023\260D\270\n\300!\330\020\026\220a\340\014\023\2202\220Z\230q\240\t\250\026\250q\340\014\024\220C\220r\230\021\230$\230l\250!\2507\260(\270#\270T\300\032\3101\330\014\024\220A\220W\230C\230q\240\005\240R\240w\250c\260\021\260#\260T\270\027\300\001\330\014\017\210v\220S\230\001\330\020\027\220r\230\032\2401\240I\250V\2601\340\020\027\220r\230\032\2401\240I\250V\2601";
 static const char __pyx_k_DataFrame__from_data_frame_ref[] = "DataFrame._from_data_frame_ref";
 static const char __pyx_k_ErrorHandler___setstate_cython[] = "ErrorHandler.__setstate_cython__";
 static const char __pyx_k_K_3Gq_HIV6_vYaq_Kq_4xs_wc_Kq_T[] = "\320\004\034\230K\240|\3203G\300q\360$\000\t\r\210H\220I\230V\2406\250\021\330\014\017\210v\220Y\230a\230q\330\020\024\220K\230q\240\010\250\001\330\010\013\2104\210x\220s\230!\330\014\017\210w\220c\230\021\330\020\024\220K\230q\240\n\250!\330\014\025\220T\230\033\240A\240R\240z\260\021\330\014\017\210q\330\020\027\220q\340\014\030\230\006\230k\250\021\250$\250j\270\007\270w\300a\300z\320QW\320W^\320^_\320_`";
@@ -5079,7 +5078,9 @@ static const char __pyx_k_A_4_1D_jPTT_a_B_B_M_M_N_N_O_1_1[] = "\200A\360\n\000\t
 static const char __pyx_k_A_AS_a_1A_auBa_E_aq_vQe1BgQa_at[] = "\200A\360\"\000\t\021\220\004\220A\220S\230\001\230\025\230a\330\010\030\230\003\2301\230A\330\010\"\240.\260\006\260a\260u\270B\270a\340\010\014\210E\220\025\220a\220q\330\014\021\220\021\220%\220v\230Q\230e\2401\240B\240g\250Q\250a\340\010\022\220!\330\010\031\320\031>\270a\270t\300:\310W\320T[\320[\\\320\\f\320fz\360\000\000{\001B\002\360\000\000B\002C\002\330\010\014\210E\220\025\220a\220q\330\014\020\220\001\220\025\220a\220q\330\010\014\210A\210Q\330\010\013\2101\330\014\030\230\001\230\021";
 static const char __pyx_k_A_QgQ_AT_zQUU_aajjoouuv_AT_zQUU[] = "\200A\360\020\000\t\014\210:\220Q\220g\230Q\330\014\030\230\006\320\036<\270A\270T\300\026\300z\320QU\320U]\320]a\320aj\320jo\320ou\320uv\340\014\030\230\006\320\036<\270A\270T\300\026\300z\320QU\320U]\320]a\320aj\320jo\320op\320pq";
 static const char __pyx_k_A_a_Q_3aq_QfAT_YfAU_A_U_1_auF_6[] = "\200A\360\024\000\t'\240a\330\010%\240Q\330\010\033\2303\230a\230q\330\010\013\210:\220Q\220f\230A\230T\240\021\330\014\035\230Y\240f\250A\250U\260\"\260A\330\014\020\220\005\220U\230!\2301\330\020\036\230a\230u\240F\250!\2506\260\021\260\"\260G\2701\270A\330\014\035\320\035>\270a\270t\3008\3106\320QX\320XY\320Yc\320cw\360\000\000x\001H\002\360\000\000H\002I\002\330\014\020\220\005\220U\230!\2301\330\020\023\220>\240\021\240#\240S\250\001\330\024\030\230\001\230\036\240q\250\001\330\014\020\220\001\220\021\330\014\017\210q\330\020\034\230A\230Q\340\014\035\230Z\240v\250Q\250e\2602\260Q\330\014\020\220\005\220U\230!\2301\330\020\023\220<\230q\240\006\240a\240q\330\024\"\240!\2405\250\r\260Q\260f\270A\270Q\340\024\037\230q\330\024\"\240!\2405\320(8\270\001\270\026\270q\300\001\330\024\027\220~\240Q\330\030\036\230i\240q\250\001\330\014\035\320\035>\270a\270t\3008\3106\320QX\320XY\320Yc\320cs\320st\330\014\020\220\001\220\021\330\014\017\210q\330\020\034\230A\230Q";
-static const char __pyx_k_A_s_QfBa_A_s_4xs_IT_AT_A_Be2U_c[] = "\200A\360\n\000\t\020\210s\220'\230\021\330\010\013\210:\220Q\220f\230B\230a\330\014\024\220A\330\014\017\210s\220!\2204\220x\230s\240!\330\020\032\230\"\230I\240T\250\027\260\001\330\021\024\220A\220T\230\030\240\023\240A\330\020\032\230\"\230B\230e\2402\240U\250$\250c\260\027\270\t\300\021\300#\300R\300t\3107\320RS\340\020\026\220a\340\014\022\220!\330\010\017\210s\220!\2206\230\027\240\010\250\001";
+static const char __pyx_k_A_s_q_4_m1_D_AWHCt_WAQ_gRq_3a_C[] = "\320\004$\240A\360\010\000\t\020\210s\220'\230\026\230q\330\010\023\2204\320\027(\250\001\330\010\022\220$\220m\2401\330\010\022\220!\330\014\024\220D\230\014\240A\240W\250H\260C\260t\270:\300W\310A\310Q\340\010\026\220g\230R\230q\330\010\013\2103\210a\210}\230C\230r\240\024\240\\\260\023\260A\330\014\024\220B\220k\240\034\250Q\330\020\021\220\024\220\\\240\021\240'\250\030\260\023\260D\270\n\300!\330\020\026\220a\340\014\023\2202\220Z\230q\240\t\250\026\250q\340\014\024\220C\220r\230\021\230$\230l\250!\2507\260(\270#\270T\300\032\3101\330\014\024\220A\220W\230C\230q\240\005\240R\240w\250c\260\021\260#\260T\270\027\300\001\330\014\017\210v\220S\230\001\330\020\027\220r\230\032\2401\240I\250V\2601\340\020\027\220r\230\032\2401\240I\250V\2601";
+static const char __pyx_k_A_s_q_QfBa_A_s_4xs_IT_AT_A_Be2U[] = "\200A\360\n\000\t\020\210s\220'\230\026\230q\330\010\013\210:\220Q\220f\230B\230a\330\014\024\220A\330\014\017\210s\220!\2204\220x\230s\240!\330\020\032\230\"\230I\240T\250\027\260\001\330\021\024\220A\220T\230\030\240\023\240A\330\020\032\230\"\230B\230e\2402\240U\250$\250c\260\027\270\t\300\021\300#\300R\300t\3107\320RS\340\020\026\220a\340\014\022\220!\330\010\017\210s\220!\2206\230\027\240\010\250\001";
+static const char __pyx_k_A_t_3awc_4z_q_WA_E_D_3awc_1_z_t[] = "\200A\360\020\000\t\020\210t\220?\240'\250\021\360\006\000\t\014\2103\210a\210w\220c\230\022\2304\230z\250\021\250%\250q\260\005\260W\270A\330\014\024\220E\230\021\230!\330\014\024\220D\230\001\230\021\330\010\013\2103\210a\210w\220c\230\021\330\014\023\2201\360\006\000\r\030\220z\240\021\240!\330\014\017\210t\220?\240(\250!\330\020!\320!6\260a\260t\2706\300\032\3104\310x\320W`\320`a\320ab\330\025$\240A\240Q\240a\330\020\023\2201\330\024 \240\001\240\021\330\020\031\230\035\240a\240t\320+;\2704\270x\300x\310v\320UZ\320Z`\320`a\330\020\027\220q\340\020\027\220}\240A\240T\320)9\270\024\270X\300T\310\030\320QZ\320Z[";
 static const char __pyx_k_OutputHandler___setstate_cython[] = "OutputHandler.__setstate_cython__";
 static const char __pyx_k_Q_1G1_r_AZxq_XQfA_q_fARvQ_har_q[] = "\320\000%\240Q\330\004\n\210)\2201\220G\2301\330\004\n\210%\210r\220\023\220A\220Z\230x\240q\320(:\270#\270X\300Q\300f\310A\330\004\007\200q\330\010\016\210f\220A\220R\220v\230Q\340\010\016\210h\220a\220r\230\026\230q";
 static const char __pyx_k_Q_iq_4wa_81_E_xt2T_Qb_T_1Cq_r_a[] = "\200\001\330\004\r\210Q\330\004\010\210\006\210i\220q\330\010\013\2104\210w\220a\330\014\022\220!\2208\2301\340\014\020\220\004\220E\230\021\230!\330\014\017\210x\220t\2302\230T\240\034\250Q\250b\260\005\260T\270\021\270!\2701\270C\270q\330\014\017\210r\220\027\230\001\330\020\026\220a\220u\230A\330\014\017\210s\220!\2207\230#\230Q\330\020\030\230\005\230Q\230a\330\014\022\220!\2202\220Q\220i\230q\330\004\013\2101";
@@ -5118,13 +5119,14 @@ static const char __pyx_k_A_Qha_t1_q_F_D_q_AQ_q_QfA_uD_9Bl[] = "\200A\360\"\000\
 static const char __pyx_k_A_Zt7_QhVWWX_1_waq_Qaq_1_s_1_5_1[] = "\200A\360$\000\t\032\230\037\250\001\250\024\250Z\260t\2707\300!\300:\310Q\310h\320VW\320WX\330\010\013\2101\330\014\030\230\001\230\021\340\010\020\220\007\220w\230a\230q\330\r\035\230Q\230a\230q\330\010\013\2101\330\014\r\330\020\027\220s\230!\2301\330\023\024\330\020\021\330\024\033\2305\240\001\240\021\330\027\030\330\024\033\2301";
 static const char __pyx_k_A_q_1_j_G1JVW_q_q_0_Zt7_UV_q_q_0[] = "\200A\360\034\000\t\014\210<\220q\230\001\330\014\030\230\006\320\0361\260\021\260$\260j\300\004\300G\3101\310J\320VW\330\r\027\220q\230\007\230q\330\014\030\230\006\320\0360\260\001\260\024\260Z\270t\3007\310!\310:\320UV\330\r\027\220q\230\007\230q\330\014\030\230\006\320\0360\260\001\260\024\260Z\270t\3007\310!\310:\320UV\330\r\027\220q\230\007\230q\330\014\030\230\006\230o\250Q\250d\260*\270D\300\007\300q\310\n\320RW\320W^\320^_\320_`\340\014\022\220!";
 static const char __pyx_k_A_s_6_S_3avS_D_z_4vZtS_aab_1G1_9[] = "\200A\360\036\000\t\020\210s\220!\2206\230\024\230S\240\001\360\006\000\t\014\2103\210a\210v\220S\230\001\330\014\024\220D\230\001\230\021\340\014\017\210z\230\021\230'\240\021\330\020!\320!:\270!\2704\270v\300Z\310t\320S[\320[`\320`a\320ab\330\021\033\2301\230G\2401\330\020!\320!9\270\021\270$\270f\300J\310d\320RZ\320Z_\320_f\320fg\320gh\340\020\026\220a\340\014\023\2208\2301\330\014\017\210t\220:\230Q\230h\240g\250Q\330\020\030\230\001\230\021\330\014\026\220j\240\001\240\021\330\014\017\210z\230\021\230'\240\021\330\020!\320!G\300q\310\004\310F\320R\\\320\\`\320`h\320hq\320qv\320vw\320wx\330\025$\240A\240Q\240a\330\021\033\2301\230G\2401\330\020!\320!F\300a\300t\3106\320Q[\320[_\320_g\320gp\320pu\320u|\320|}\320}~\330\025$\240A\240Q\240a\340\025$\240A\240Q\240a\330\020\026\220a\330\010\013\2101\330\014\030\230\001\230\021";
-static const char __pyx_k_A_s_Qd_A_Qa_Qd_A_3at3a_3avRvXXRx[] = "\200A\330):\270!\360\020\000\t\020\210s\220'\230\021\330\010\013\210:\220Q\220d\230\"\230A\330\014\021\220\022\220:\230Q\230a\340\014\023\220:\230Q\230d\240\"\240A\330\010\013\2103\210a\210t\2203\220a\330\014\023\2203\220a\220v\230R\230v\240X\250X\260R\260x\270w\300a\330\010\013\210:\220Q\220b\230\006\230a\230t\2401\330\014\016\210i\220r\230\033\240L\260\001\260\022\2606\270\027\300\001\330\010\013\210;\220c\230\022\2306\240\031\250\"\250A\330\014\021\220\022\2206\230\021\330\014\017\210z\230\021\230$\230b\240\001\330\020\025\220R\220z\240\021\240!\330\010\013\210:\220Q\220b\230\006\230a\230t\2401\330\014\023\2202\220V\2307\240!\340\014\023\2202\220V\2304\230w\240b\250\001\330\010\020\220\002\220\"\220I\230R\230x\240t\2503\250j\270\t\300\021\300#\300R\300q\330\010\013\210<\220w\230a\330\014\023\2203\220a\220w\230c\240\023\240A\240Q\330\014\020\220\005\220U\230!\2303\230a\230q\330\020\025\220Q\220f\230K\240q\250\004\250E\260\021\260\"\260A\260Q\330\010\022\220\"\220C\220q\230\010\240\002\240!\2406\250\027\260\004\260D\270\t\300\022\3008\3107\320RS\330\010\017\210s\220!\2206\230\027\240\010\250\001";
+static const char __pyx_k_A_s_q_Qd_A_Qa_Qd_A_3at3a_3avRvXX[] = "\200A\330):\270!\360\020\000\t\020\210s\220'\230\026\230q\330\010\013\210:\220Q\220d\230\"\230A\330\014\021\220\022\220:\230Q\230a\340\014\023\220:\230Q\230d\240\"\240A\330\010\013\2103\210a\210t\2203\220a\330\014\023\2203\220a\220v\230R\230v\240X\250X\260R\260x\270w\300a\330\010\013\210:\220Q\220b\230\006\230a\230t\2401\330\014\016\210i\220r\230\033\240L\260\001\260\022\2606\270\027\300\001\330\010\013\210;\220c\230\022\2306\240\031\250\"\250A\330\014\021\220\022\2206\230\021\330\014\017\210z\230\021\230$\230b\240\001\330\020\025\220R\220z\240\021\240!\330\010\013\210:\220Q\220b\230\006\230a\230t\2401\330\014\023\2202\220V\2307\240!\340\014\023\2202\220V\2304\230w\240b\250\001\330\010\020\220\002\220\"\220I\230R\230x\240t\2503\250j\270\t\300\021\300#\300R\300q\330\010\013\210<\220w\230a\330\014\023\2203\220a\220w\230c\240\023\240A\240Q\330\014\020\220\005\220U\230!\2303\230a\230q\330\020\025\220Q\220f\230K\240q\250\004\250E\260\021\260\"\260A\260Q\330\010\022\220\"\220C\220q\230\010\240\002\240!\2406\250\027\260\004\260D\270\t\300\022\3008\3107\320RS\330\010\017\210s\220!\2206\230\027\240\010\250\001";
 static const char __pyx_k_A_t_1A_at6_4xqP_1_E_aq_ay_c_E_aq[] = "\200A\360\016\000\t\020\210t\220?\240'\250\021\360\006\000\t*\250\032\2601\260A\360\006\000\t\032\320\031.\250a\250t\2606\270\032\3004\300x\310q\320P[\320[\\\320\\]\330\010\013\2101\330\014\030\230\001\230\021\330\010\014\210E\220\025\220a\220q\330\014\024\320\024&\240a\240y\260\t\270\021\270$\270c\300\021\330\020\024\220E\230\025\230a\230q\330\031(\250\001\250\021\250)\2601\260A\330\020\024\220A\220Q\330\020\027\220}\240A\240T\320)9\270\024\270X\300T\310\030\320QZ\320Z[\330\010\014\210E\220\025\220a\220q\330\021 \240\001\240\021\240)\2501\250A\330\010\014\210A\210Q\330\r\034\230A\230Q\230a\330\010\017\210q";
-static const char __pyx_k_A_t_3awc_4z_q_WA_E_D_3awc_5T_XVS[] = "\200A\360\020\000\t\020\210t\220?\240'\250\021\360\006\000\t\014\2103\210a\210w\220c\230\022\2304\230z\250\021\250%\250q\260\005\260W\270A\330\014\024\220E\230\021\230!\330\014\024\220D\230\001\230\021\330\010\013\2103\210a\210w\220c\230\021\330\014\023\220=\240\001\240\024\320%5\260T\270\030\300\024\300X\310V\320ST\340\014\027\220z\240\021\240!\330\014\017\210t\220?\240(\250!\330\020!\320!6\260a\260t\2706\300\032\3104\310x\320W`\320`a\320ab\330\025$\240A\240Q\240a\330\020\023\2201\330\024 \240\001\240\021\330\020\031\230\035\240a\240t\320+;\2704\270x\300x\310v\320UZ\320Z`\320`a\330\020\027\220q\340\020\027\220}\240A\240T\320)9\270\024\270X\300T\310\030\320QZ\320Z[";
 static const char __pyx_k_All_values_must_be_either_number[] = "All values must be either numbers or strings";
 static const char __pyx_k_Dictionary_must_contain_either_a[] = "Dictionary must contain either all strings or all numbers";
 static const char __pyx_k_Excepted_dictionary_of_set_membe[] = "Excepted dictionary of set members for each index.";
 static const char __pyx_k_Failed_to_cast_value_to_int_floa[] = "Failed to cast value to int/float/double";
+static const char __pyx_k_Failed_to_import_numpy_Ensure_nu[] = "Failed to import numpy. Ensure numpy is installed and importable.";
+static const char __pyx_k_Failed_to_import_pandas_Ensure_p[] = "Failed to import pandas. Ensure pandas is installed and importable.";
 static const char __pyx_k_Incompatible_checksums_0x_x_vs_0[] = "Incompatible checksums (0x%x vs (0xe3b0c44, 0xda39a3e, 0xd41d8cd) = ())";
 static const char __pyx_k_InstanceIterator___reduce_cython[] = "InstanceIterator.__reduce_cython__";
 static const char __pyx_k_InstanceIterator___setstate_cyth[] = "InstanceIterator.__setstate_cython__";
@@ -5623,7 +5625,7 @@ typedef struct {
   PyObject *__pyx_k_;
   PyObject *__pyx_tuple[30];
   PyObject *__pyx_codeobj_tab[262];
-  PyObject *__pyx_string_tab[945];
+  PyObject *__pyx_string_tab[947];
   PyObject *__pyx_float_1_0;
   PyObject *__pyx_int_0;
   PyObject *__pyx_int_1;
@@ -5962,754 +5964,756 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_FOR __pyx_string_tab[194]
 #define __pyx_kp_u_Failed_to_access_value __pyx_string_tab[195]
 #define __pyx_kp_u_Failed_to_cast_value_to_int_floa __pyx_string_tab[196]
-#define __pyx_n_u_Formatter __pyx_string_tab[197]
-#define __pyx_n_u_IF __pyx_string_tab[198]
-#define __pyx_n_u_IOError __pyx_string_tab[199]
-#define __pyx_n_u_ImportError __pyx_string_tab[200]
-#define __pyx_kp_u_Incompatible_checksums_0x_x_vs_0 __pyx_string_tab[201]
-#define __pyx_n_u_InfeasibilityException __pyx_string_tab[202]
-#define __pyx_kp_u_InfeasibilityException_2 __pyx_string_tab[203]
-#define __pyx_n_u_InstanceIterator __pyx_string_tab[204]
-#define __pyx_n_u_InstanceIterator___reduce_cython __pyx_string_tab[205]
-#define __pyx_n_u_InstanceIterator___setstate_cyth __pyx_string_tab[206]
-#define __pyx_n_u_InstanceIterator_size __pyx_string_tab[207]
-#define __pyx_n_u_Iterable __pyx_string_tab[208]
-#define __pyx_n_u_KeyError __pyx_string_tab[209]
-#define __pyx_n_u_Kind __pyx_string_tab[210]
-#define __pyx_n_u_LET __pyx_string_tab[211]
-#define __pyx_n_u_LOAD __pyx_string_tab[212]
-#define __pyx_n_u_LOOPEND __pyx_string_tab[213]
-#define __pyx_n_u_MISC __pyx_string_tab[214]
-#define __pyx_n_u_MemberRangeIterator __pyx_string_tab[215]
-#define __pyx_n_u_MemberRangeIterator___reduce_cyt __pyx_string_tab[216]
-#define __pyx_n_u_MemberRangeIterator___setstate_c __pyx_string_tab[217]
-#define __pyx_n_u_MemberRangeIterator_size __pyx_string_tab[218]
-#define __pyx_n_u_MultiIndex __pyx_string_tab[219]
-#define __pyx_kp_u_None __pyx_string_tab[220]
-#define __pyx_n_u_NotImplementedError __pyx_string_tab[221]
-#define __pyx_n_u_OBJECTIVE __pyx_string_tab[222]
-#define __pyx_n_u_OPTION __pyx_string_tab[223]
-#define __pyx_n_u_OPTION_RESET __pyx_string_tab[224]
-#define __pyx_n_u_Objective __pyx_string_tab[225]
-#define __pyx_n_u_Objective___reduce_cython __pyx_string_tab[226]
-#define __pyx_n_u_Objective___setstate_cython __pyx_string_tab[227]
-#define __pyx_n_u_Objective_astatus __pyx_string_tab[228]
-#define __pyx_n_u_Objective_drop __pyx_string_tab[229]
-#define __pyx_n_u_Objective_exitcode __pyx_string_tab[230]
-#define __pyx_n_u_Objective_message __pyx_string_tab[231]
-#define __pyx_n_u_Objective_minimization __pyx_string_tab[232]
-#define __pyx_n_u_Objective_restore __pyx_string_tab[233]
-#define __pyx_n_u_Objective_result __pyx_string_tab[234]
-#define __pyx_n_u_Objective_sstatus __pyx_string_tab[235]
-#define __pyx_n_u_Objective_value __pyx_string_tab[236]
-#define __pyx_n_u_Objectives __pyx_string_tab[237]
-#define __pyx_n_u_Options __pyx_string_tab[238]
-#define __pyx_n_u_OutputHandler __pyx_string_tab[239]
-#define __pyx_n_u_OutputHandler___reduce_cython __pyx_string_tab[240]
-#define __pyx_n_u_OutputHandler___setstate_cython __pyx_string_tab[241]
-#define __pyx_n_u_OutputHandler_output __pyx_string_tab[242]
-#define __pyx_n_u_PRINT __pyx_string_tab[243]
-#define __pyx_n_u_PRINTF __pyx_string_tab[244]
-#define __pyx_n_u_PROBLEM __pyx_string_tab[245]
-#define __pyx_n_u_PROMPT __pyx_string_tab[246]
-#define __pyx_n_u_PURGE __pyx_string_tab[247]
-#define __pyx_n_u_Parameter __pyx_string_tab[248]
-#define __pyx_n_u_Parameter___reduce_cython __pyx_string_tab[249]
-#define __pyx_n_u_Parameter___setstate_cython __pyx_string_tab[250]
-#define __pyx_n_u_Parameter_has_default __pyx_string_tab[251]
-#define __pyx_n_u_Parameter_is_symbolic __pyx_string_tab[252]
-#define __pyx_n_u_Parameter_set __pyx_string_tab[253]
-#define __pyx_n_u_Parameter_set_values __pyx_string_tab[254]
-#define __pyx_n_u_Parameter_value __pyx_string_tab[255]
-#define __pyx_n_u_Parameters __pyx_string_tab[256]
-#define __pyx_n_u_PickleError __pyx_string_tab[257]
-#define __pyx_kp_u_Please_make_sure_that_the_AMPL __pyx_string_tab[258]
-#define __pyx_n_u_PresolveException __pyx_string_tab[259]
-#define __pyx_kp_u_PresolveException_2 __pyx_string_tab[260]
-#define __pyx_n_u_RBRACE __pyx_string_tab[261]
-#define __pyx_n_u_READ __pyx_string_tab[262]
-#define __pyx_n_u_READTABLE __pyx_string_tab[263]
-#define __pyx_n_u_READ_TABLE __pyx_string_tab[264]
-#define __pyx_n_u_RELOAD __pyx_string_tab[265]
-#define __pyx_n_u_REMOVE __pyx_string_tab[266]
-#define __pyx_n_u_REPEAT __pyx_string_tab[267]
-#define __pyx_n_u_REPEAT_END __pyx_string_tab[268]
-#define __pyx_n_u_RESET __pyx_string_tab[269]
-#define __pyx_n_u_RESTORE __pyx_string_tab[270]
-#define __pyx_n_u_RUN_ARGS __pyx_string_tab[271]
-#define __pyx_n_u_Real __pyx_string_tab[272]
-#define __pyx_kp_u_Represents_the_type_of_the_outp __pyx_string_tab[273]
-#define __pyx_n_u_Row __pyx_string_tab[274]
-#define __pyx_n_u_RowIterator __pyx_string_tab[275]
-#define __pyx_n_u_RowIterator___reduce_cython __pyx_string_tab[276]
-#define __pyx_n_u_RowIterator___setstate_cython __pyx_string_tab[277]
-#define __pyx_n_u_Row___reduce_cython __pyx_string_tab[278]
-#define __pyx_n_u_Row___setstate_cython __pyx_string_tab[279]
-#define __pyx_n_u_Row_to_string __pyx_string_tab[280]
-#define __pyx_n_u_RuntimeError __pyx_string_tab[281]
-#define __pyx_n_u_SEMICOLON __pyx_string_tab[282]
-#define __pyx_n_u_SHELL_MESSAGE __pyx_string_tab[283]
-#define __pyx_n_u_SHELL_OUTPUT __pyx_string_tab[284]
-#define __pyx_n_u_SHOW __pyx_string_tab[285]
-#define __pyx_n_u_SOLUTION __pyx_string_tab[286]
-#define __pyx_n_u_SOLVE __pyx_string_tab[287]
-#define __pyx_n_u_SSTEP __pyx_string_tab[288]
-#define __pyx_n_u_SUPPORT_MESSAGE __pyx_string_tab[289]
-#define __pyx_n_u_Series __pyx_string_tab[290]
-#define __pyx_n_u_Set __pyx_string_tab[291]
-#define __pyx_n_u_Set___reduce_cython __pyx_string_tab[292]
-#define __pyx_n_u_Set___setstate_cython __pyx_string_tab[293]
-#define __pyx_n_u_Set_arity __pyx_string_tab[294]
-#define __pyx_n_u_Set_contains __pyx_string_tab[295]
-#define __pyx_n_u_Set_get_values __pyx_string_tab[296]
-#define __pyx_n_u_Set_instances __pyx_string_tab[297]
-#define __pyx_n_u_Set_members __pyx_string_tab[298]
-#define __pyx_n_u_Set_set_values __pyx_string_tab[299]
-#define __pyx_n_u_Set_size __pyx_string_tab[300]
-#define __pyx_n_u_Sets __pyx_string_tab[301]
-#define __pyx_n_u_StopIteration __pyx_string_tab[302]
-#define __pyx_n_u_StreamHandler __pyx_string_tab[303]
-#define __pyx_n_u_SystemError __pyx_string_tab[304]
-#define __pyx_n_u_THEN __pyx_string_tab[305]
-#define __pyx_kp_u_Trying_to_assign_tuples_to_set_o __pyx_string_tab[306]
-#define __pyx_n_u_TypeError __pyx_string_tab[307]
-#define __pyx_n_u_UNFIX __pyx_string_tab[308]
-#define __pyx_n_u_UNLOAD __pyx_string_tab[309]
-#define __pyx_n_u_UPDATE __pyx_string_tab[310]
-#define __pyx_kp_u_Unexpected_data_type __pyx_string_tab[311]
-#define __pyx_kp_u_Unknown_entity_class __pyx_string_tab[312]
-#define __pyx_kp_u_Unknown_exception __pyx_string_tab[313]
-#define __pyx_n_u_ValueError __pyx_string_tab[314]
-#define __pyx_n_u_Variable __pyx_string_tab[315]
-#define __pyx_n_u_Variable___reduce_cython __pyx_string_tab[316]
-#define __pyx_n_u_Variable___setstate_cython __pyx_string_tab[317]
-#define __pyx_n_u_Variable_astatus __pyx_string_tab[318]
-#define __pyx_n_u_Variable_defeqn __pyx_string_tab[319]
-#define __pyx_n_u_Variable_dual __pyx_string_tab[320]
-#define __pyx_n_u_Variable_fix __pyx_string_tab[321]
-#define __pyx_n_u_Variable_init __pyx_string_tab[322]
-#define __pyx_n_u_Variable_init0 __pyx_string_tab[323]
-#define __pyx_n_u_Variable_lb __pyx_string_tab[324]
-#define __pyx_n_u_Variable_lb0 __pyx_string_tab[325]
-#define __pyx_n_u_Variable_lb1 __pyx_string_tab[326]
-#define __pyx_n_u_Variable_lb2 __pyx_string_tab[327]
-#define __pyx_n_u_Variable_lrc __pyx_string_tab[328]
-#define __pyx_n_u_Variable_lslack __pyx_string_tab[329]
-#define __pyx_n_u_Variable_rc __pyx_string_tab[330]
-#define __pyx_n_u_Variable_set_value __pyx_string_tab[331]
-#define __pyx_n_u_Variable_slack __pyx_string_tab[332]
-#define __pyx_n_u_Variable_sstatus __pyx_string_tab[333]
-#define __pyx_n_u_Variable_status __pyx_string_tab[334]
-#define __pyx_n_u_Variable_ub __pyx_string_tab[335]
-#define __pyx_n_u_Variable_ub0 __pyx_string_tab[336]
-#define __pyx_n_u_Variable_ub1 __pyx_string_tab[337]
-#define __pyx_n_u_Variable_ub2 __pyx_string_tab[338]
-#define __pyx_n_u_Variable_unfix __pyx_string_tab[339]
-#define __pyx_n_u_Variable_urc __pyx_string_tab[340]
-#define __pyx_n_u_Variable_uslack __pyx_string_tab[341]
-#define __pyx_n_u_Variable_value __pyx_string_tab[342]
-#define __pyx_n_u_Variables __pyx_string_tab[343]
-#define __pyx_n_u_WAITING __pyx_string_tab[344]
-#define __pyx_n_u_WARNING __pyx_string_tab[345]
-#define __pyx_n_u_WRITE __pyx_string_tab[346]
-#define __pyx_n_u_WRITETABLE __pyx_string_tab[347]
-#define __pyx_n_u_WRITE_TABLE __pyx_string_tab[348]
-#define __pyx_n_u_XREF __pyx_string_tab[349]
-#define __pyx_kp_u__10 __pyx_string_tab[350]
-#define __pyx_kp_u__11 __pyx_string_tab[351]
-#define __pyx_kp_u__12 __pyx_string_tab[352]
-#define __pyx_kp_u__13 __pyx_string_tab[353]
-#define __pyx_kp_u__14 __pyx_string_tab[354]
-#define __pyx_kp_u__15 __pyx_string_tab[355]
-#define __pyx_kp_u__16 __pyx_string_tab[356]
-#define __pyx_kp_u__17 __pyx_string_tab[357]
-#define __pyx_kp_u__18 __pyx_string_tab[358]
-#define __pyx_kp_u__2 __pyx_string_tab[359]
-#define __pyx_kp_u__3 __pyx_string_tab[360]
-#define __pyx_kp_u__4 __pyx_string_tab[361]
-#define __pyx_kp_u__5 __pyx_string_tab[362]
-#define __pyx_kp_u__6 __pyx_string_tab[363]
-#define __pyx_kp_u__7 __pyx_string_tab[364]
-#define __pyx_kp_u__8 __pyx_string_tab[365]
-#define __pyx_kp_u__9 __pyx_string_tab[366]
-#define __pyx_n_u_addColumn __pyx_string_tab[367]
-#define __pyx_n_u_addHandler __pyx_string_tab[368]
-#define __pyx_n_u_addRow __pyx_string_tab[369]
-#define __pyx_n_u_add_column __pyx_string_tab[370]
-#define __pyx_n_u_add_column_locals_genexpr __pyx_string_tab[371]
-#define __pyx_n_u_add_row __pyx_string_tab[372]
-#define __pyx_n_u_ampl __pyx_string_tab[373]
-#define __pyx_n_u_ampl_expressions __pyx_string_tab[374]
-#define __pyx_n_u_ampl_instance __pyx_string_tab[375]
-#define __pyx_n_u_ampl_libpath __pyx_string_tab[376]
-#define __pyx_n_u_amplpy __pyx_string_tab[377]
-#define __pyx_n_u_amplpy_ampl __pyx_string_tab[378]
-#define __pyx_kp_u_amplpy_ampl_pyx __pyx_string_tab[379]
-#define __pyx_kp_u_amplpy_constraint_pxi __pyx_string_tab[380]
-#define __pyx_n_u_amplpy_copt __pyx_string_tab[381]
-#define __pyx_kp_u_amplpy_copt_package_not_found __pyx_string_tab[382]
-#define __pyx_n_u_amplpy_cplex __pyx_string_tab[383]
-#define __pyx_kp_u_amplpy_cplex_package_not_found __pyx_string_tab[384]
-#define __pyx_kp_u_amplpy_dataframe_pxi __pyx_string_tab[385]
-#define __pyx_kp_u_amplpy_entity_pxi __pyx_string_tab[386]
-#define __pyx_kp_u_amplpy_environment_pxi __pyx_string_tab[387]
-#define __pyx_kp_u_amplpy_errorhandler_pxi __pyx_string_tab[388]
-#define __pyx_kp_u_amplpy_exceptions_pxi __pyx_string_tab[389]
-#define __pyx_n_u_amplpy_gurobi __pyx_string_tab[390]
-#define __pyx_kp_u_amplpy_gurobi_package_not_found __pyx_string_tab[391]
-#define __pyx_n_u_amplpy_highs __pyx_string_tab[392]
-#define __pyx_kp_u_amplpy_highs_package_not_found __pyx_string_tab[393]
-#define __pyx_kp_u_amplpy_iterators_pxi __pyx_string_tab[394]
-#define __pyx_kp_u_amplpy_objective_pxi __pyx_string_tab[395]
-#define __pyx_kp_u_amplpy_outputhandler_pxi __pyx_string_tab[396]
-#define __pyx_kp_u_amplpy_parameter_pxi __pyx_string_tab[397]
-#define __pyx_n_u_amplpy_scip __pyx_string_tab[398]
-#define __pyx_kp_u_amplpy_scip_package_not_found __pyx_string_tab[399]
-#define __pyx_kp_u_amplpy_set_pxi __pyx_string_tab[400]
-#define __pyx_kp_u_amplpy_variable_pxi __pyx_string_tab[401]
-#define __pyx_n_u_amplpy_xpress __pyx_string_tab[402]
-#define __pyx_kp_u_amplpy_xpress_package_not_found __pyx_string_tab[403]
-#define __pyx_n_u_args __pyx_string_tab[404]
-#define __pyx_n_u_arity __pyx_string_tab[405]
-#define __pyx_n_u_array __pyx_string_tab[406]
-#define __pyx_n_u_ast __pyx_string_tab[407]
-#define __pyx_n_u_astatus __pyx_string_tab[408]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[409]
-#define __pyx_n_u_auxfiles __pyx_string_tab[410]
-#define __pyx_n_u_bin_dir __pyx_string_tab[411]
-#define __pyx_n_u_bin_dir_c __pyx_string_tab[412]
-#define __pyx_n_u_bin_name __pyx_string_tab[413]
-#define __pyx_n_u_bin_name_c __pyx_string_tab[414]
-#define __pyx_n_u_binary_directory __pyx_string_tab[415]
-#define __pyx_n_u_binary_name __pyx_string_tab[416]
-#define __pyx_n_u_body __pyx_string_tab[417]
-#define __pyx_n_u_bool __pyx_string_tab[418]
-#define __pyx_n_u_builtins __pyx_string_tab[419]
-#define __pyx_n_u_c __pyx_string_tab[420]
-#define __pyx_n_u_c_double_array __pyx_string_tab[421]
-#define __pyx_n_u_c_string_array __pyx_string_tab[422]
-#define __pyx_kp_u_cannot_be_found __pyx_string_tab[423]
-#define __pyx_kp_u_cannot_convert_to_dictionary_wit __pyx_string_tab[424]
-#define __pyx_n_u_cast_row __pyx_string_tab[425]
-#define __pyx_n_u_cast_value __pyx_string_tab[426]
-#define __pyx_n_u_cd __pyx_string_tab[427]
-#define __pyx_n_u_chain __pyx_string_tab[428]
-#define __pyx_n_u_check __pyx_string_tab[429]
-#define __pyx_n_u_cindex __pyx_string_tab[430]
-#define __pyx_n_u_class_getitem __pyx_string_tab[431]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[432]
-#define __pyx_n_u_close __pyx_string_tab[433]
-#define __pyx_n_u_cls __pyx_string_tab[434]
-#define __pyx_n_u_cname __pyx_string_tab[435]
-#define __pyx_n_u_col __pyx_string_tab[436]
-#define __pyx_n_u_collections_abc __pyx_string_tab[437]
-#define __pyx_n_u_column __pyx_string_tab[438]
-#define __pyx_n_u_column_names __pyx_string_tab[439]
-#define __pyx_n_u_columns __pyx_string_tab[440]
-#define __pyx_n_u_con __pyx_string_tab[441]
-#define __pyx_n_u_con_2 __pyx_string_tab[442]
-#define __pyx_n_u_con_locals_Constraints __pyx_string_tab[443]
-#define __pyx_n_u_con_locals_Constraints___getite __pyx_string_tab[444]
-#define __pyx_n_u_con_locals_Constraints___init __pyx_string_tab[445]
-#define __pyx_n_u_con_locals_Constraints___iter __pyx_string_tab[446]
-#define __pyx_n_u_con_locals_Constraints___setite __pyx_string_tab[447]
-#define __pyx_n_u_contains __pyx_string_tab[448]
-#define __pyx_n_u_contains_c __pyx_string_tab[449]
-#define __pyx_n_u_conv_to_list __pyx_string_tab[450]
-#define __pyx_n_u_copt __pyx_string_tab[451]
-#define __pyx_kp_u_copt_cplex_gurobi_highs_scip_xpr __pyx_string_tab[452]
-#define __pyx_n_u_cplex __pyx_string_tab[453]
-#define __pyx_n_u_d __pyx_string_tab[454]
-#define __pyx_n_u_data __pyx_string_tab[455]
-#define __pyx_n_u_data_c __pyx_string_tab[456]
-#define __pyx_n_u_data_frame __pyx_string_tab[457]
-#define __pyx_n_u_decode __pyx_string_tab[458]
-#define __pyx_n_u_defeqn __pyx_string_tab[459]
-#define __pyx_n_u_defvar __pyx_string_tab[460]
-#define __pyx_n_u_df __pyx_string_tab[461]
-#define __pyx_n_u_df_c __pyx_string_tab[462]
-#define __pyx_n_u_df_ref __pyx_string_tab[463]
-#define __pyx_n_u_dic __pyx_string_tab[464]
-#define __pyx_n_u_dict __pyx_string_tab[465]
-#define __pyx_n_u_dict_2 __pyx_string_tab[466]
-#define __pyx_n_u_dimen __pyx_string_tab[467]
-#define __pyx_n_u_dinit __pyx_string_tab[468]
-#define __pyx_n_u_dinit0 __pyx_string_tab[469]
-#define __pyx_kp_u_disable __pyx_string_tab[470]
-#define __pyx_n_u_display __pyx_string_tab[471]
-#define __pyx_n_u_display_error_message __pyx_string_tab[472]
-#define __pyx_n_u_doc __pyx_string_tab[473]
-#define __pyx_n_u_driver __pyx_string_tab[474]
-#define __pyx_n_u_drop __pyx_string_tab[475]
-#define __pyx_n_u_dual __pyx_string_tab[476]
-#define __pyx_n_u_e __pyx_string_tab[477]
-#define __pyx_kp_u_enable __pyx_string_tab[478]
-#define __pyx_n_u_encode __pyx_string_tab[479]
-#define __pyx_n_u_end __pyx_string_tab[480]
-#define __pyx_n_u_endswith __pyx_string_tab[481]
-#define __pyx_n_u_entity __pyx_string_tab[482]
-#define __pyx_n_u_entitytype __pyx_string_tab[483]
-#define __pyx_n_u_enumerate __pyx_string_tab[484]
-#define __pyx_n_u_environ __pyx_string_tab[485]
-#define __pyx_n_u_environment __pyx_string_tab[486]
-#define __pyx_n_u_error __pyx_string_tab[487]
-#define __pyx_n_u_error_handler __pyx_string_tab[488]
-#define __pyx_n_u_error_handler_wrapper __pyx_string_tab[489]
-#define __pyx_n_u_errorinfo __pyx_string_tab[490]
-#define __pyx_n_u_errors __pyx_string_tab[491]
-#define __pyx_n_u_eval __pyx_string_tab[492]
-#define __pyx_n_u_exception __pyx_string_tab[493]
-#define __pyx_n_u_exists __pyx_string_tab[494]
-#define __pyx_n_u_exitcode __pyx_string_tab[495]
-#define __pyx_n_u_exp __pyx_string_tab[496]
-#define __pyx_n_u_exportData __pyx_string_tab[497]
-#define __pyx_n_u_exportModel __pyx_string_tab[498]
-#define __pyx_n_u_export_copt_model __pyx_string_tab[499]
-#define __pyx_n_u_export_cplex_model __pyx_string_tab[500]
-#define __pyx_n_u_export_data __pyx_string_tab[501]
-#define __pyx_n_u_export_gurobi_model __pyx_string_tab[502]
-#define __pyx_n_u_export_highs_model __pyx_string_tab[503]
-#define __pyx_n_u_export_model __pyx_string_tab[504]
-#define __pyx_n_u_export_scip_model __pyx_string_tab[505]
-#define __pyx_n_u_export_xpress_model __pyx_string_tab[506]
-#define __pyx_n_u_exprs __pyx_string_tab[507]
-#define __pyx_n_u_file __pyx_string_tab[508]
-#define __pyx_n_u_filename __pyx_string_tab[509]
-#define __pyx_n_u_find __pyx_string_tab[510]
-#define __pyx_n_u_fix __pyx_string_tab[511]
-#define __pyx_n_u_flat __pyx_string_tab[512]
-#define __pyx_n_u_flush __pyx_string_tab[513]
-#define __pyx_n_u_format __pyx_string_tab[514]
-#define __pyx_n_u_formatter __pyx_string_tab[515]
-#define __pyx_n_u_fromDict __pyx_string_tab[516]
-#define __pyx_n_u_fromNumpy __pyx_string_tab[517]
-#define __pyx_n_u_fromPandas __pyx_string_tab[518]
-#define __pyx_n_u_from_arrays __pyx_string_tab[519]
-#define __pyx_n_u_from_data_frame_ref __pyx_string_tab[520]
-#define __pyx_n_u_from_dict __pyx_string_tab[521]
-#define __pyx_n_u_from_dict_locals_genexpr __pyx_string_tab[522]
-#define __pyx_n_u_from_dict_locals_to_tuple __pyx_string_tab[523]
-#define __pyx_n_u_from_numpy __pyx_string_tab[524]
-#define __pyx_n_u_from_pandas __pyx_string_tab[525]
-#define __pyx_n_u_from_tuples __pyx_string_tab[526]
-#define __pyx_n_u_func __pyx_string_tab[527]
-#define __pyx_kp_u_gc __pyx_string_tab[528]
-#define __pyx_n_u_genexpr __pyx_string_tab[529]
-#define __pyx_n_u_get __pyx_string_tab[530]
-#define __pyx_n_u_getBinDir __pyx_string_tab[531]
-#define __pyx_n_u_getBinName __pyx_string_tab[532]
-#define __pyx_n_u_getColumn __pyx_string_tab[533]
-#define __pyx_n_u_getConstraint __pyx_string_tab[534]
-#define __pyx_n_u_getConstraints __pyx_string_tab[535]
-#define __pyx_n_u_getCurrentObjective __pyx_string_tab[536]
-#define __pyx_n_u_getData __pyx_string_tab[537]
-#define __pyx_n_u_getEntity __pyx_string_tab[538]
-#define __pyx_n_u_getErrorHandler __pyx_string_tab[539]
-#define __pyx_n_u_getHeaders __pyx_string_tab[540]
-#define __pyx_n_u_getIndexingSets __pyx_string_tab[541]
-#define __pyx_n_u_getLineNumber __pyx_string_tab[542]
-#define __pyx_n_u_getLogger __pyx_string_tab[543]
-#define __pyx_n_u_getMessage __pyx_string_tab[544]
-#define __pyx_n_u_getNumCols __pyx_string_tab[545]
-#define __pyx_n_u_getNumIndices __pyx_string_tab[546]
-#define __pyx_n_u_getNumRows __pyx_string_tab[547]
-#define __pyx_n_u_getObjective __pyx_string_tab[548]
-#define __pyx_n_u_getObjectives __pyx_string_tab[549]
-#define __pyx_n_u_getOffset __pyx_string_tab[550]
-#define __pyx_n_u_getOption __pyx_string_tab[551]
-#define __pyx_n_u_getOutput __pyx_string_tab[552]
-#define __pyx_n_u_getOutputHandler __pyx_string_tab[553]
-#define __pyx_n_u_getParameter __pyx_string_tab[554]
-#define __pyx_n_u_getParameters __pyx_string_tab[555]
-#define __pyx_n_u_getRecordedEntities __pyx_string_tab[556]
-#define __pyx_n_u_getRow __pyx_string_tab[557]
-#define __pyx_n_u_getRowByIndex __pyx_string_tab[558]
-#define __pyx_n_u_getSet __pyx_string_tab[559]
-#define __pyx_n_u_getSets __pyx_string_tab[560]
-#define __pyx_n_u_getSourceName __pyx_string_tab[561]
-#define __pyx_n_u_getValue __pyx_string_tab[562]
-#define __pyx_n_u_getValues __pyx_string_tab[563]
-#define __pyx_n_u_getVariable __pyx_string_tab[564]
-#define __pyx_n_u_getVariables __pyx_string_tab[565]
-#define __pyx_n_u_get_bin_dir __pyx_string_tab[566]
-#define __pyx_n_u_get_bin_name __pyx_string_tab[567]
-#define __pyx_n_u_get_column __pyx_string_tab[568]
-#define __pyx_n_u_get_constraint __pyx_string_tab[569]
-#define __pyx_n_u_get_constraints __pyx_string_tab[570]
-#define __pyx_n_u_get_current_objective __pyx_string_tab[571]
-#define __pyx_n_u_get_data __pyx_string_tab[572]
-#define __pyx_n_u_get_entity __pyx_string_tab[573]
-#define __pyx_n_u_get_error_handler __pyx_string_tab[574]
-#define __pyx_n_u_get_headers __pyx_string_tab[575]
-#define __pyx_n_u_get_headers_locals_genexpr __pyx_string_tab[576]
-#define __pyx_n_u_get_iis __pyx_string_tab[577]
-#define __pyx_n_u_get_indexing_sets __pyx_string_tab[578]
-#define __pyx_n_u_get_line_number __pyx_string_tab[579]
-#define __pyx_n_u_get_message __pyx_string_tab[580]
-#define __pyx_n_u_get_num_cols __pyx_string_tab[581]
-#define __pyx_n_u_get_num_indices __pyx_string_tab[582]
-#define __pyx_n_u_get_num_rows __pyx_string_tab[583]
-#define __pyx_n_u_get_objective __pyx_string_tab[584]
-#define __pyx_n_u_get_objectives __pyx_string_tab[585]
-#define __pyx_n_u_get_offset __pyx_string_tab[586]
-#define __pyx_n_u_get_option __pyx_string_tab[587]
-#define __pyx_n_u_get_output __pyx_string_tab[588]
-#define __pyx_n_u_get_output_handler __pyx_string_tab[589]
-#define __pyx_n_u_get_parameter __pyx_string_tab[590]
-#define __pyx_n_u_get_parameters __pyx_string_tab[591]
-#define __pyx_n_u_get_row __pyx_string_tab[592]
-#define __pyx_n_u_get_row_by_index __pyx_string_tab[593]
-#define __pyx_n_u_get_set __pyx_string_tab[594]
-#define __pyx_n_u_get_sets __pyx_string_tab[595]
-#define __pyx_n_u_get_solution __pyx_string_tab[596]
-#define __pyx_n_u_get_source_name __pyx_string_tab[597]
-#define __pyx_n_u_get_value __pyx_string_tab[598]
-#define __pyx_n_u_get_values __pyx_string_tab[599]
-#define __pyx_n_u_get_variable __pyx_string_tab[600]
-#define __pyx_n_u_get_variables __pyx_string_tab[601]
-#define __pyx_n_u_getitem __pyx_string_tab[602]
-#define __pyx_n_u_getstate __pyx_string_tab[603]
-#define __pyx_n_u_gurobi __pyx_string_tab[604]
-#define __pyx_n_u_handler __pyx_string_tab[605]
-#define __pyx_n_u_hasDefault __pyx_string_tab[606]
-#define __pyx_n_u_hasHandlers __pyx_string_tab[607]
-#define __pyx_n_u_has_default __pyx_string_tab[608]
-#define __pyx_n_u_header __pyx_string_tab[609]
-#define __pyx_n_u_headers __pyx_string_tab[610]
-#define __pyx_n_u_headers_py __pyx_string_tab[611]
-#define __pyx_n_u_highs __pyx_string_tab[612]
-#define __pyx_n_u_i __pyx_string_tab[613]
-#define __pyx_kp_u_i_in_1__ncons__con_i_iis_non__c __pyx_string_tab[614]
-#define __pyx_kp_u_i_in_1__nvars__var_i_iis_non__v __pyx_string_tab[615]
-#define __pyx_kp_u_i_in_1__nvars__var_i_val_0__var __pyx_string_tab[616]
-#define __pyx_kp_u_i_in_1__nvars__varname_i__var_i __pyx_string_tab[617]
-#define __pyx_n_u_iis_con __pyx_string_tab[618]
-#define __pyx_n_u_iis_var __pyx_string_tab[619]
-#define __pyx_n_u_impl __pyx_string_tab[620]
-#define __pyx_n_u_import_ampls_solution __pyx_string_tab[621]
-#define __pyx_n_u_import_ampls_solution_locals_gen __pyx_string_tab[622]
-#define __pyx_n_u_import_entities __pyx_string_tab[623]
-#define __pyx_n_u_index __pyx_string_tab[624]
-#define __pyx_n_u_index_c __pyx_string_tab[625]
-#define __pyx_n_u_index_names __pyx_string_tab[626]
-#define __pyx_n_u_indexarity __pyx_string_tab[627]
-#define __pyx_n_u_indices_c __pyx_string_tab[628]
-#define __pyx_n_u_init __pyx_string_tab[629]
-#define __pyx_n_u_init0 __pyx_string_tab[630]
-#define __pyx_n_u_init_2 __pyx_string_tab[631]
-#define __pyx_n_u_initializing __pyx_string_tab[632]
-#define __pyx_n_u_instances __pyx_string_tab[633]
-#define __pyx_n_u_isLogical __pyx_string_tab[634]
-#define __pyx_n_u_isRunning __pyx_string_tab[635]
-#define __pyx_n_u_isScalar __pyx_string_tab[636]
-#define __pyx_n_u_isSymbolic __pyx_string_tab[637]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[638]
-#define __pyx_n_u_is_logical __pyx_string_tab[639]
-#define __pyx_kp_u_is_not_supported_please_choose __pyx_string_tab[640]
-#define __pyx_n_u_is_running __pyx_string_tab[641]
-#define __pyx_n_u_is_scalar __pyx_string_tab[642]
-#define __pyx_n_u_is_symbolic __pyx_string_tab[643]
-#define __pyx_kp_u_isenabled __pyx_string_tab[644]
-#define __pyx_n_u_isrunning __pyx_string_tab[645]
-#define __pyx_n_u_items __pyx_string_tab[646]
-#define __pyx_n_u_iter __pyx_string_tab[647]
-#define __pyx_n_u_iter___locals_genexpr __pyx_string_tab[648]
-#define __pyx_n_u_itertools __pyx_string_tab[649]
-#define __pyx_n_u_j __pyx_string_tab[650]
-#define __pyx_n_u_k __pyx_string_tab[651]
-#define __pyx_n_u_keep_files __pyx_string_tab[652]
-#define __pyx_n_u_key __pyx_string_tab[653]
-#define __pyx_n_u_keys __pyx_string_tab[654]
-#define __pyx_n_u_kind __pyx_string_tab[655]
-#define __pyx_n_u_kwargs __pyx_string_tab[656]
-#define __pyx_n_u_last_exception __pyx_string_tab[657]
-#define __pyx_n_u_lb __pyx_string_tab[658]
-#define __pyx_n_u_lb0 __pyx_string_tab[659]
-#define __pyx_n_u_lb1 __pyx_string_tab[660]
-#define __pyx_n_u_lb2 __pyx_string_tab[661]
-#define __pyx_n_u_lbs __pyx_string_tab[662]
-#define __pyx_n_u_ldual __pyx_string_tab[663]
-#define __pyx_kp_u_let __pyx_string_tab[664]
-#define __pyx_kp_u_levelname_s_message_s __pyx_string_tab[665]
-#define __pyx_kp_u_line __pyx_string_tab[666]
-#define __pyx_kp_u_line_2 __pyx_string_tab[667]
-#define __pyx_n_u_line_number __pyx_string_tab[668]
-#define __pyx_n_u_literal_eval __pyx_string_tab[669]
-#define __pyx_n_u_loadSession __pyx_string_tab[670]
-#define __pyx_n_u_load_session __pyx_string_tab[671]
-#define __pyx_n_u_logger __pyx_string_tab[672]
-#define __pyx_n_u_logging __pyx_string_tab[673]
-#define __pyx_n_u_lrc __pyx_string_tab[674]
-#define __pyx_n_u_lslack __pyx_string_tab[675]
-#define __pyx_n_u_lst __pyx_string_tab[676]
-#define __pyx_n_u_lst_columns __pyx_string_tab[677]
-#define __pyx_n_u_lst_index __pyx_string_tab[678]
-#define __pyx_n_u_lst_solution __pyx_string_tab[679]
-#define __pyx_n_u_main __pyx_string_tab[680]
-#define __pyx_n_u_map __pyx_string_tab[681]
-#define __pyx_n_u_members __pyx_string_tab[682]
-#define __pyx_n_u_message __pyx_string_tab[683]
-#define __pyx_n_u_metaclass __pyx_string_tab[684]
-#define __pyx_n_u_minimization __pyx_string_tab[685]
-#define __pyx_n_u_minimize __pyx_string_tab[686]
-#define __pyx_n_u_model __pyx_string_tab[687]
-#define __pyx_n_u_model_c __pyx_string_tab[688]
-#define __pyx_n_u_module __pyx_string_tab[689]
-#define __pyx_n_u_mro_entries __pyx_string_tab[690]
-#define __pyx_n_u_msg __pyx_string_tab[691]
-#define __pyx_n_u_multi_index __pyx_string_tab[692]
-#define __pyx_n_u_n __pyx_string_tab[693]
-#define __pyx_n_u_name __pyx_string_tab[694]
-#define __pyx_n_u_name_2 __pyx_string_tab[695]
-#define __pyx_n_u_name_c __pyx_string_tab[696]
-#define __pyx_n_u_name_c_2 __pyx_string_tab[697]
-#define __pyx_n_u_names __pyx_string_tab[698]
-#define __pyx_n_u_ncols __pyx_string_tab[699]
-#define __pyx_n_u_ncolumns __pyx_string_tab[700]
-#define __pyx_n_u_ndarray __pyx_string_tab[701]
-#define __pyx_n_u_nested __pyx_string_tab[702]
-#define __pyx_n_u_nested_dict_of_suffixes __pyx_string_tab[703]
-#define __pyx_n_u_new __pyx_string_tab[704]
-#define __pyx_n_u_next __pyx_string_tab[705]
-#define __pyx_n_u_nindices __pyx_string_tab[706]
-#define __pyx_n_u_nlevels __pyx_string_tab[707]
-#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[708]
-#define __pyx_n_u_np __pyx_string_tab[709]
-#define __pyx_n_u_nt __pyx_string_tab[710]
-#define __pyx_n_u_num __pyx_string_tab[711]
-#define __pyx_n_u_numInstances __pyx_string_tab[712]
-#define __pyx_n_u_num_instances __pyx_string_tab[713]
-#define __pyx_n_u_number __pyx_string_tab[714]
-#define __pyx_n_u_numbers __pyx_string_tab[715]
-#define __pyx_n_u_numpy __pyx_string_tab[716]
-#define __pyx_n_u_obj __pyx_string_tab[717]
-#define __pyx_n_u_obj_2 __pyx_string_tab[718]
-#define __pyx_n_u_obj_locals_Objectives __pyx_string_tab[719]
-#define __pyx_n_u_obj_locals_Objectives___getitem __pyx_string_tab[720]
-#define __pyx_n_u_obj_locals_Objectives___init __pyx_string_tab[721]
-#define __pyx_n_u_obj_locals_Objectives___iter __pyx_string_tab[722]
-#define __pyx_n_u_object __pyx_string_tab[723]
-#define __pyx_n_u_objname __pyx_string_tab[724]
-#define __pyx_n_u_objname_c __pyx_string_tab[725]
-#define __pyx_n_u_offset __pyx_string_tab[726]
-#define __pyx_kp_u_offset_2 __pyx_string_tab[727]
-#define __pyx_n_u_open __pyx_string_tab[728]
-#define __pyx_n_u_option __pyx_string_tab[729]
-#define __pyx_n_u_option_2 __pyx_string_tab[730]
-#define __pyx_n_u_option_locals_Options __pyx_string_tab[731]
-#define __pyx_n_u_option_locals_Options___getitem __pyx_string_tab[732]
-#define __pyx_n_u_option_locals_Options___init __pyx_string_tab[733]
-#define __pyx_n_u_option_locals_Options___setitem __pyx_string_tab[734]
-#define __pyx_n_u_option_locals_Options___setitem_2 __pyx_string_tab[735]
-#define __pyx_n_u_options __pyx_string_tab[736]
-#define __pyx_n_u_options_2 __pyx_string_tab[737]
-#define __pyx_n_u_options_c __pyx_string_tab[738]
-#define __pyx_n_u_options_dict __pyx_string_tab[739]
-#define __pyx_n_u_os __pyx_string_tab[740]
-#define __pyx_n_u_output __pyx_string_tab[741]
-#define __pyx_n_u_output_c __pyx_string_tab[742]
-#define __pyx_n_u_output_handler __pyx_string_tab[743]
-#define __pyx_n_u_p __pyx_string_tab[744]
-#define __pyx_n_u_pandas __pyx_string_tab[745]
-#define __pyx_n_u_param __pyx_string_tab[746]
-#define __pyx_n_u_param_2 __pyx_string_tab[747]
-#define __pyx_n_u_param_locals_Parameters __pyx_string_tab[748]
-#define __pyx_n_u_param_locals_Parameters___getit __pyx_string_tab[749]
-#define __pyx_n_u_param_locals_Parameters___init __pyx_string_tab[750]
-#define __pyx_n_u_param_locals_Parameters___iter __pyx_string_tab[751]
-#define __pyx_n_u_param_locals_Parameters___setit __pyx_string_tab[752]
-#define __pyx_n_u_path __pyx_string_tab[753]
-#define __pyx_n_u_pd __pyx_string_tab[754]
-#define __pyx_n_u_pickle __pyx_string_tab[755]
-#define __pyx_n_u_pop __pyx_string_tab[756]
-#define __pyx_n_u_prepare __pyx_string_tab[757]
-#define __pyx_n_u_print __pyx_string_tab[758]
-#define __pyx_n_u_problem __pyx_string_tab[759]
-#define __pyx_n_u_propagate __pyx_string_tab[760]
-#define __pyx_n_u_property __pyx_string_tab[761]
-#define __pyx_n_u_py_list __pyx_string_tab[762]
-#define __pyx_n_u_py_variant __pyx_string_tab[763]
-#define __pyx_n_u_pylist __pyx_string_tab[764]
-#define __pyx_n_u_pyx_PickleError __pyx_string_tab[765]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[766]
-#define __pyx_n_u_pyx_result __pyx_string_tab[767]
-#define __pyx_n_u_pyx_state __pyx_string_tab[768]
-#define __pyx_n_u_pyx_type __pyx_string_tab[769]
-#define __pyx_n_u_pyx_unpickle_AMPLException __pyx_string_tab[770]
-#define __pyx_n_u_pyx_unpickle_ErrorHandler __pyx_string_tab[771]
-#define __pyx_n_u_pyx_unpickle_OutputHandler __pyx_string_tab[772]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[773]
-#define __pyx_n_u_qualname __pyx_string_tab[774]
-#define __pyx_n_u_range __pyx_string_tab[775]
-#define __pyx_n_u_rc __pyx_string_tab[776]
-#define __pyx_n_u_read __pyx_string_tab[777]
-#define __pyx_n_u_readData __pyx_string_tab[778]
-#define __pyx_n_u_readTable __pyx_string_tab[779]
-#define __pyx_n_u_read_data __pyx_string_tab[780]
-#define __pyx_n_u_read_table __pyx_string_tab[781]
-#define __pyx_n_u_reduce __pyx_string_tab[782]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[783]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[784]
-#define __pyx_n_u_replace __pyx_string_tab[785]
-#define __pyx_n_u_reset __pyx_string_tab[786]
-#define __pyx_n_u_restore __pyx_string_tab[787]
-#define __pyx_n_u_result __pyx_string_tab[788]
-#define __pyx_n_u_return_output __pyx_string_tab[789]
-#define __pyx_n_u_rmtree __pyx_string_tab[790]
-#define __pyx_n_u_row __pyx_string_tab[791]
-#define __pyx_n_u_rowindex __pyx_string_tab[792]
-#define __pyx_n_u_scalar_expression __pyx_string_tab[793]
-#define __pyx_n_u_scip __pyx_string_tab[794]
-#define __pyx_n_u_self __pyx_string_tab[795]
-#define __pyx_kp_u_self__c_ampl_cannot_be_converted __pyx_string_tab[796]
-#define __pyx_kp_u_self__c_ampl_self__index_self_be __pyx_string_tab[797]
-#define __pyx_kp_u_self__df_cannot_be_converted_to __pyx_string_tab[798]
-#define __pyx_kp_u_self__index_cannot_be_converted __pyx_string_tab[799]
-#define __pyx_kp_u_self_begin_cannot_be_converted_t __pyx_string_tab[800]
-#define __pyx_kp_u_self_begin_self_end_self_env_c_s __pyx_string_tab[801]
-#define __pyx_n_u_send __pyx_string_tab[802]
-#define __pyx_n_u_set __pyx_string_tab[803]
-#define __pyx_n_u_setBinDir __pyx_string_tab[804]
-#define __pyx_n_u_setBinName __pyx_string_tab[805]
-#define __pyx_n_u_setColumn __pyx_string_tab[806]
-#define __pyx_n_u_setData __pyx_string_tab[807]
-#define __pyx_n_u_setDual __pyx_string_tab[808]
-#define __pyx_n_u_setErrorHandler __pyx_string_tab[809]
-#define __pyx_n_u_setFormatter __pyx_string_tab[810]
-#define __pyx_n_u_setLevel __pyx_string_tab[811]
-#define __pyx_n_u_setOption __pyx_string_tab[812]
-#define __pyx_n_u_setOutputHandler __pyx_string_tab[813]
-#define __pyx_n_u_setValue __pyx_string_tab[814]
-#define __pyx_n_u_setValues __pyx_string_tab[815]
-#define __pyx_n_u_setValues_2 __pyx_string_tab[816]
-#define __pyx_n_u_set_2 __pyx_string_tab[817]
-#define __pyx_n_u_set_bin_dir __pyx_string_tab[818]
-#define __pyx_n_u_set_bin_name __pyx_string_tab[819]
-#define __pyx_n_u_set_column __pyx_string_tab[820]
-#define __pyx_n_u_set_data __pyx_string_tab[821]
-#define __pyx_n_u_set_dual __pyx_string_tab[822]
-#define __pyx_n_u_set_error_handler __pyx_string_tab[823]
-#define __pyx_n_u_set_error_handler_locals_ErrorHa __pyx_string_tab[824]
-#define __pyx_n_u_set_error_handler_locals_ErrorHa_2 __pyx_string_tab[825]
-#define __pyx_n_u_set_error_handler_locals_ErrorHa_3 __pyx_string_tab[826]
-#define __pyx_n_u_set_error_handler_locals_ErrorHa_4 __pyx_string_tab[827]
-#define __pyx_n_u_set_error_handler_locals_ErrorHa_5 __pyx_string_tab[828]
-#define __pyx_n_u_set_locals_Sets __pyx_string_tab[829]
-#define __pyx_n_u_set_locals_Sets___getitem __pyx_string_tab[830]
-#define __pyx_n_u_set_locals_Sets___init __pyx_string_tab[831]
-#define __pyx_n_u_set_locals_Sets___iter __pyx_string_tab[832]
-#define __pyx_n_u_set_locals_Sets___setitem __pyx_string_tab[833]
-#define __pyx_n_u_set_name __pyx_string_tab[834]
-#define __pyx_n_u_set_name_2 __pyx_string_tab[835]
-#define __pyx_n_u_set_option __pyx_string_tab[836]
-#define __pyx_n_u_set_option_2 __pyx_string_tab[837]
-#define __pyx_n_u_set_option_locals_genexpr __pyx_string_tab[838]
-#define __pyx_n_u_set_output_handler __pyx_string_tab[839]
-#define __pyx_n_u_set_value __pyx_string_tab[840]
-#define __pyx_n_u_set_values __pyx_string_tab[841]
-#define __pyx_n_u_set_values_2 __pyx_string_tab[842]
-#define __pyx_n_u_set_values_locals_cast_row __pyx_string_tab[843]
-#define __pyx_n_u_set_values_locals_cast_value __pyx_string_tab[844]
-#define __pyx_n_u_set_values_locals_conv_to_list __pyx_string_tab[845]
-#define __pyx_n_u_set_values_locals_genexpr __pyx_string_tab[846]
-#define __pyx_n_u_setitem __pyx_string_tab[847]
-#define __pyx_n_u_sets __pyx_string_tab[848]
-#define __pyx_n_u_setstate __pyx_string_tab[849]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[850]
-#define __pyx_n_u_shape __pyx_string_tab[851]
-#define __pyx_n_u_shutil __pyx_string_tab[852]
-#define __pyx_n_u_size __pyx_string_tab[853]
-#define __pyx_n_u_skip_index __pyx_string_tab[854]
-#define __pyx_n_u_slack __pyx_string_tab[855]
-#define __pyx_n_u_snapshot __pyx_string_tab[856]
-#define __pyx_kp_u_sol __pyx_string_tab[857]
-#define __pyx_n_u_solfile __pyx_string_tab[858]
-#define __pyx_kp_u_solution __pyx_string_tab[859]
-#define __pyx_kp_u_solve __pyx_string_tab[860]
-#define __pyx_n_u_solve_2 __pyx_string_tab[861]
-#define __pyx_n_u_solve_result __pyx_string_tab[862]
-#define __pyx_n_u_solve_result_num __pyx_string_tab[863]
-#define __pyx_n_u_solver __pyx_string_tab[864]
-#define __pyx_n_u_solver_list __pyx_string_tab[865]
-#define __pyx_n_u_source_name __pyx_string_tab[866]
-#define __pyx_n_u_spec __pyx_string_tab[867]
-#define __pyx_n_u_split __pyx_string_tab[868]
-#define __pyx_n_u_sstatus __pyx_string_tab[869]
-#define __pyx_n_u_stack __pyx_string_tab[870]
-#define __pyx_n_u_startRecording __pyx_string_tab[871]
-#define __pyx_n_u_start_recording __pyx_string_tab[872]
-#define __pyx_n_u_state __pyx_string_tab[873]
-#define __pyx_n_u_statements __pyx_string_tab[874]
-#define __pyx_n_u_statements_c __pyx_string_tab[875]
-#define __pyx_n_u_status __pyx_string_tab[876]
-#define __pyx_n_u_stderr __pyx_string_tab[877]
-#define __pyx_n_u_stmt __pyx_string_tab[878]
-#define __pyx_n_u_stopRecording __pyx_string_tab[879]
-#define __pyx_n_u_stop_recording __pyx_string_tab[880]
-#define __pyx_kp_u_stringsource __pyx_string_tab[881]
-#define __pyx_n_u_suffixes __pyx_string_tab[882]
-#define __pyx_n_u_suffixes_c __pyx_string_tab[883]
-#define __pyx_n_u_super __pyx_string_tab[884]
-#define __pyx_n_u_sys __pyx_string_tab[885]
-#define __pyx_n_u_t __pyx_string_tab[886]
-#define __pyx_n_u_t_c __pyx_string_tab[887]
-#define __pyx_n_u_table_name __pyx_string_tab[888]
-#define __pyx_n_u_test __pyx_string_tab[889]
-#define __pyx_n_u_throw __pyx_string_tab[890]
-#define __pyx_n_u_throw_on_warnings __pyx_string_tab[891]
-#define __pyx_n_u_tmpdir __pyx_string_tab[892]
-#define __pyx_n_u_toDict __pyx_string_tab[893]
-#define __pyx_n_u_toList __pyx_string_tab[894]
-#define __pyx_n_u_toPandas __pyx_string_tab[895]
-#define __pyx_n_u_toString __pyx_string_tab[896]
-#define __pyx_n_u_to_ampls __pyx_string_tab[897]
-#define __pyx_n_u_to_dict __pyx_string_tab[898]
-#define __pyx_n_u_to_list __pyx_string_tab[899]
-#define __pyx_n_u_to_pandas __pyx_string_tab[900]
-#define __pyx_n_u_to_string __pyx_string_tab[901]
-#define __pyx_n_u_to_string_c __pyx_string_tab[902]
-#define __pyx_n_u_to_tuple __pyx_string_tab[903]
-#define __pyx_n_u_tolist __pyx_string_tab[904]
-#define __pyx_n_u_tools __pyx_string_tab[905]
-#define __pyx_n_u_tuple __pyx_string_tab[906]
-#define __pyx_n_u_tuple_c __pyx_string_tab[907]
-#define __pyx_n_u_ub __pyx_string_tab[908]
-#define __pyx_n_u_ub0 __pyx_string_tab[909]
-#define __pyx_n_u_ub1 __pyx_string_tab[910]
-#define __pyx_n_u_ub2 __pyx_string_tab[911]
-#define __pyx_n_u_ubs __pyx_string_tab[912]
-#define __pyx_n_u_udual __pyx_string_tab[913]
-#define __pyx_n_u_unfix __pyx_string_tab[914]
-#define __pyx_kp_u_unsupported_type __pyx_string_tab[915]
-#define __pyx_n_u_update __pyx_string_tab[916]
-#define __pyx_n_u_urc __pyx_string_tab[917]
-#define __pyx_n_u_use_setstate __pyx_string_tab[918]
-#define __pyx_n_u_uslack __pyx_string_tab[919]
-#define __pyx_kp_u_utf_8 __pyx_string_tab[920]
-#define __pyx_n_u_v __pyx_string_tab[921]
-#define __pyx_n_u_val __pyx_string_tab[922]
-#define __pyx_n_u_value __pyx_string_tab[923]
-#define __pyx_n_u_value_c __pyx_string_tab[924]
-#define __pyx_n_u_values __pyx_string_tab[925]
-#define __pyx_n_u_var __pyx_string_tab[926]
-#define __pyx_n_u_var_2 __pyx_string_tab[927]
-#define __pyx_n_u_var_locals_Variables __pyx_string_tab[928]
-#define __pyx_n_u_var_locals_Variables___getitem __pyx_string_tab[929]
-#define __pyx_n_u_var_locals_Variables___init __pyx_string_tab[930]
-#define __pyx_n_u_var_locals_Variables___iter __pyx_string_tab[931]
-#define __pyx_n_u_var_locals_Variables___setitem __pyx_string_tab[932]
-#define __pyx_n_u_verbose __pyx_string_tab[933]
-#define __pyx_n_u_warning __pyx_string_tab[934]
-#define __pyx_n_u_workdir __pyx_string_tab[935]
-#define __pyx_n_u_workdir_c __pyx_string_tab[936]
-#define __pyx_n_u_write __pyx_string_tab[937]
-#define __pyx_n_u_writeTable __pyx_string_tab[938]
-#define __pyx_n_u_write_sol __pyx_string_tab[939]
-#define __pyx_n_u_write_table __pyx_string_tab[940]
-#define __pyx_n_u_xpress __pyx_string_tab[941]
-#define __pyx_n_u_xref __pyx_string_tab[942]
-#define __pyx_n_u_zeros __pyx_string_tab[943]
-#define __pyx_n_u_zip __pyx_string_tab[944]
+#define __pyx_kp_u_Failed_to_import_numpy_Ensure_nu __pyx_string_tab[197]
+#define __pyx_kp_u_Failed_to_import_pandas_Ensure_p __pyx_string_tab[198]
+#define __pyx_n_u_Formatter __pyx_string_tab[199]
+#define __pyx_n_u_IF __pyx_string_tab[200]
+#define __pyx_n_u_IOError __pyx_string_tab[201]
+#define __pyx_n_u_ImportError __pyx_string_tab[202]
+#define __pyx_kp_u_Incompatible_checksums_0x_x_vs_0 __pyx_string_tab[203]
+#define __pyx_n_u_InfeasibilityException __pyx_string_tab[204]
+#define __pyx_kp_u_InfeasibilityException_2 __pyx_string_tab[205]
+#define __pyx_n_u_InstanceIterator __pyx_string_tab[206]
+#define __pyx_n_u_InstanceIterator___reduce_cython __pyx_string_tab[207]
+#define __pyx_n_u_InstanceIterator___setstate_cyth __pyx_string_tab[208]
+#define __pyx_n_u_InstanceIterator_size __pyx_string_tab[209]
+#define __pyx_n_u_Iterable __pyx_string_tab[210]
+#define __pyx_n_u_KeyError __pyx_string_tab[211]
+#define __pyx_n_u_Kind __pyx_string_tab[212]
+#define __pyx_n_u_LET __pyx_string_tab[213]
+#define __pyx_n_u_LOAD __pyx_string_tab[214]
+#define __pyx_n_u_LOOPEND __pyx_string_tab[215]
+#define __pyx_n_u_MISC __pyx_string_tab[216]
+#define __pyx_n_u_MemberRangeIterator __pyx_string_tab[217]
+#define __pyx_n_u_MemberRangeIterator___reduce_cyt __pyx_string_tab[218]
+#define __pyx_n_u_MemberRangeIterator___setstate_c __pyx_string_tab[219]
+#define __pyx_n_u_MemberRangeIterator_size __pyx_string_tab[220]
+#define __pyx_n_u_MultiIndex __pyx_string_tab[221]
+#define __pyx_kp_u_None __pyx_string_tab[222]
+#define __pyx_n_u_NotImplementedError __pyx_string_tab[223]
+#define __pyx_n_u_OBJECTIVE __pyx_string_tab[224]
+#define __pyx_n_u_OPTION __pyx_string_tab[225]
+#define __pyx_n_u_OPTION_RESET __pyx_string_tab[226]
+#define __pyx_n_u_Objective __pyx_string_tab[227]
+#define __pyx_n_u_Objective___reduce_cython __pyx_string_tab[228]
+#define __pyx_n_u_Objective___setstate_cython __pyx_string_tab[229]
+#define __pyx_n_u_Objective_astatus __pyx_string_tab[230]
+#define __pyx_n_u_Objective_drop __pyx_string_tab[231]
+#define __pyx_n_u_Objective_exitcode __pyx_string_tab[232]
+#define __pyx_n_u_Objective_message __pyx_string_tab[233]
+#define __pyx_n_u_Objective_minimization __pyx_string_tab[234]
+#define __pyx_n_u_Objective_restore __pyx_string_tab[235]
+#define __pyx_n_u_Objective_result __pyx_string_tab[236]
+#define __pyx_n_u_Objective_sstatus __pyx_string_tab[237]
+#define __pyx_n_u_Objective_value __pyx_string_tab[238]
+#define __pyx_n_u_Objectives __pyx_string_tab[239]
+#define __pyx_n_u_Options __pyx_string_tab[240]
+#define __pyx_n_u_OutputHandler __pyx_string_tab[241]
+#define __pyx_n_u_OutputHandler___reduce_cython __pyx_string_tab[242]
+#define __pyx_n_u_OutputHandler___setstate_cython __pyx_string_tab[243]
+#define __pyx_n_u_OutputHandler_output __pyx_string_tab[244]
+#define __pyx_n_u_PRINT __pyx_string_tab[245]
+#define __pyx_n_u_PRINTF __pyx_string_tab[246]
+#define __pyx_n_u_PROBLEM __pyx_string_tab[247]
+#define __pyx_n_u_PROMPT __pyx_string_tab[248]
+#define __pyx_n_u_PURGE __pyx_string_tab[249]
+#define __pyx_n_u_Parameter __pyx_string_tab[250]
+#define __pyx_n_u_Parameter___reduce_cython __pyx_string_tab[251]
+#define __pyx_n_u_Parameter___setstate_cython __pyx_string_tab[252]
+#define __pyx_n_u_Parameter_has_default __pyx_string_tab[253]
+#define __pyx_n_u_Parameter_is_symbolic __pyx_string_tab[254]
+#define __pyx_n_u_Parameter_set __pyx_string_tab[255]
+#define __pyx_n_u_Parameter_set_values __pyx_string_tab[256]
+#define __pyx_n_u_Parameter_value __pyx_string_tab[257]
+#define __pyx_n_u_Parameters __pyx_string_tab[258]
+#define __pyx_n_u_PickleError __pyx_string_tab[259]
+#define __pyx_kp_u_Please_make_sure_that_the_AMPL __pyx_string_tab[260]
+#define __pyx_n_u_PresolveException __pyx_string_tab[261]
+#define __pyx_kp_u_PresolveException_2 __pyx_string_tab[262]
+#define __pyx_n_u_RBRACE __pyx_string_tab[263]
+#define __pyx_n_u_READ __pyx_string_tab[264]
+#define __pyx_n_u_READTABLE __pyx_string_tab[265]
+#define __pyx_n_u_READ_TABLE __pyx_string_tab[266]
+#define __pyx_n_u_RELOAD __pyx_string_tab[267]
+#define __pyx_n_u_REMOVE __pyx_string_tab[268]
+#define __pyx_n_u_REPEAT __pyx_string_tab[269]
+#define __pyx_n_u_REPEAT_END __pyx_string_tab[270]
+#define __pyx_n_u_RESET __pyx_string_tab[271]
+#define __pyx_n_u_RESTORE __pyx_string_tab[272]
+#define __pyx_n_u_RUN_ARGS __pyx_string_tab[273]
+#define __pyx_n_u_Real __pyx_string_tab[274]
+#define __pyx_kp_u_Represents_the_type_of_the_outp __pyx_string_tab[275]
+#define __pyx_n_u_Row __pyx_string_tab[276]
+#define __pyx_n_u_RowIterator __pyx_string_tab[277]
+#define __pyx_n_u_RowIterator___reduce_cython __pyx_string_tab[278]
+#define __pyx_n_u_RowIterator___setstate_cython __pyx_string_tab[279]
+#define __pyx_n_u_Row___reduce_cython __pyx_string_tab[280]
+#define __pyx_n_u_Row___setstate_cython __pyx_string_tab[281]
+#define __pyx_n_u_Row_to_string __pyx_string_tab[282]
+#define __pyx_n_u_RuntimeError __pyx_string_tab[283]
+#define __pyx_n_u_SEMICOLON __pyx_string_tab[284]
+#define __pyx_n_u_SHELL_MESSAGE __pyx_string_tab[285]
+#define __pyx_n_u_SHELL_OUTPUT __pyx_string_tab[286]
+#define __pyx_n_u_SHOW __pyx_string_tab[287]
+#define __pyx_n_u_SOLUTION __pyx_string_tab[288]
+#define __pyx_n_u_SOLVE __pyx_string_tab[289]
+#define __pyx_n_u_SSTEP __pyx_string_tab[290]
+#define __pyx_n_u_SUPPORT_MESSAGE __pyx_string_tab[291]
+#define __pyx_n_u_Series __pyx_string_tab[292]
+#define __pyx_n_u_Set __pyx_string_tab[293]
+#define __pyx_n_u_Set___reduce_cython __pyx_string_tab[294]
+#define __pyx_n_u_Set___setstate_cython __pyx_string_tab[295]
+#define __pyx_n_u_Set_arity __pyx_string_tab[296]
+#define __pyx_n_u_Set_contains __pyx_string_tab[297]
+#define __pyx_n_u_Set_get_values __pyx_string_tab[298]
+#define __pyx_n_u_Set_instances __pyx_string_tab[299]
+#define __pyx_n_u_Set_members __pyx_string_tab[300]
+#define __pyx_n_u_Set_set_values __pyx_string_tab[301]
+#define __pyx_n_u_Set_size __pyx_string_tab[302]
+#define __pyx_n_u_Sets __pyx_string_tab[303]
+#define __pyx_n_u_StopIteration __pyx_string_tab[304]
+#define __pyx_n_u_StreamHandler __pyx_string_tab[305]
+#define __pyx_n_u_SystemError __pyx_string_tab[306]
+#define __pyx_n_u_THEN __pyx_string_tab[307]
+#define __pyx_kp_u_Trying_to_assign_tuples_to_set_o __pyx_string_tab[308]
+#define __pyx_n_u_TypeError __pyx_string_tab[309]
+#define __pyx_n_u_UNFIX __pyx_string_tab[310]
+#define __pyx_n_u_UNLOAD __pyx_string_tab[311]
+#define __pyx_n_u_UPDATE __pyx_string_tab[312]
+#define __pyx_kp_u_Unexpected_data_type __pyx_string_tab[313]
+#define __pyx_kp_u_Unknown_entity_class __pyx_string_tab[314]
+#define __pyx_kp_u_Unknown_exception __pyx_string_tab[315]
+#define __pyx_n_u_ValueError __pyx_string_tab[316]
+#define __pyx_n_u_Variable __pyx_string_tab[317]
+#define __pyx_n_u_Variable___reduce_cython __pyx_string_tab[318]
+#define __pyx_n_u_Variable___setstate_cython __pyx_string_tab[319]
+#define __pyx_n_u_Variable_astatus __pyx_string_tab[320]
+#define __pyx_n_u_Variable_defeqn __pyx_string_tab[321]
+#define __pyx_n_u_Variable_dual __pyx_string_tab[322]
+#define __pyx_n_u_Variable_fix __pyx_string_tab[323]
+#define __pyx_n_u_Variable_init __pyx_string_tab[324]
+#define __pyx_n_u_Variable_init0 __pyx_string_tab[325]
+#define __pyx_n_u_Variable_lb __pyx_string_tab[326]
+#define __pyx_n_u_Variable_lb0 __pyx_string_tab[327]
+#define __pyx_n_u_Variable_lb1 __pyx_string_tab[328]
+#define __pyx_n_u_Variable_lb2 __pyx_string_tab[329]
+#define __pyx_n_u_Variable_lrc __pyx_string_tab[330]
+#define __pyx_n_u_Variable_lslack __pyx_string_tab[331]
+#define __pyx_n_u_Variable_rc __pyx_string_tab[332]
+#define __pyx_n_u_Variable_set_value __pyx_string_tab[333]
+#define __pyx_n_u_Variable_slack __pyx_string_tab[334]
+#define __pyx_n_u_Variable_sstatus __pyx_string_tab[335]
+#define __pyx_n_u_Variable_status __pyx_string_tab[336]
+#define __pyx_n_u_Variable_ub __pyx_string_tab[337]
+#define __pyx_n_u_Variable_ub0 __pyx_string_tab[338]
+#define __pyx_n_u_Variable_ub1 __pyx_string_tab[339]
+#define __pyx_n_u_Variable_ub2 __pyx_string_tab[340]
+#define __pyx_n_u_Variable_unfix __pyx_string_tab[341]
+#define __pyx_n_u_Variable_urc __pyx_string_tab[342]
+#define __pyx_n_u_Variable_uslack __pyx_string_tab[343]
+#define __pyx_n_u_Variable_value __pyx_string_tab[344]
+#define __pyx_n_u_Variables __pyx_string_tab[345]
+#define __pyx_n_u_WAITING __pyx_string_tab[346]
+#define __pyx_n_u_WARNING __pyx_string_tab[347]
+#define __pyx_n_u_WRITE __pyx_string_tab[348]
+#define __pyx_n_u_WRITETABLE __pyx_string_tab[349]
+#define __pyx_n_u_WRITE_TABLE __pyx_string_tab[350]
+#define __pyx_n_u_XREF __pyx_string_tab[351]
+#define __pyx_kp_u__10 __pyx_string_tab[352]
+#define __pyx_kp_u__11 __pyx_string_tab[353]
+#define __pyx_kp_u__12 __pyx_string_tab[354]
+#define __pyx_kp_u__13 __pyx_string_tab[355]
+#define __pyx_kp_u__14 __pyx_string_tab[356]
+#define __pyx_kp_u__15 __pyx_string_tab[357]
+#define __pyx_kp_u__16 __pyx_string_tab[358]
+#define __pyx_kp_u__17 __pyx_string_tab[359]
+#define __pyx_kp_u__18 __pyx_string_tab[360]
+#define __pyx_kp_u__2 __pyx_string_tab[361]
+#define __pyx_kp_u__3 __pyx_string_tab[362]
+#define __pyx_kp_u__4 __pyx_string_tab[363]
+#define __pyx_kp_u__5 __pyx_string_tab[364]
+#define __pyx_kp_u__6 __pyx_string_tab[365]
+#define __pyx_kp_u__7 __pyx_string_tab[366]
+#define __pyx_kp_u__8 __pyx_string_tab[367]
+#define __pyx_kp_u__9 __pyx_string_tab[368]
+#define __pyx_n_u_addColumn __pyx_string_tab[369]
+#define __pyx_n_u_addHandler __pyx_string_tab[370]
+#define __pyx_n_u_addRow __pyx_string_tab[371]
+#define __pyx_n_u_add_column __pyx_string_tab[372]
+#define __pyx_n_u_add_column_locals_genexpr __pyx_string_tab[373]
+#define __pyx_n_u_add_row __pyx_string_tab[374]
+#define __pyx_n_u_ampl __pyx_string_tab[375]
+#define __pyx_n_u_ampl_expressions __pyx_string_tab[376]
+#define __pyx_n_u_ampl_instance __pyx_string_tab[377]
+#define __pyx_n_u_ampl_libpath __pyx_string_tab[378]
+#define __pyx_n_u_amplpy __pyx_string_tab[379]
+#define __pyx_n_u_amplpy_ampl __pyx_string_tab[380]
+#define __pyx_kp_u_amplpy_ampl_pyx __pyx_string_tab[381]
+#define __pyx_kp_u_amplpy_constraint_pxi __pyx_string_tab[382]
+#define __pyx_n_u_amplpy_copt __pyx_string_tab[383]
+#define __pyx_kp_u_amplpy_copt_package_not_found __pyx_string_tab[384]
+#define __pyx_n_u_amplpy_cplex __pyx_string_tab[385]
+#define __pyx_kp_u_amplpy_cplex_package_not_found __pyx_string_tab[386]
+#define __pyx_kp_u_amplpy_dataframe_pxi __pyx_string_tab[387]
+#define __pyx_kp_u_amplpy_entity_pxi __pyx_string_tab[388]
+#define __pyx_kp_u_amplpy_environment_pxi __pyx_string_tab[389]
+#define __pyx_kp_u_amplpy_errorhandler_pxi __pyx_string_tab[390]
+#define __pyx_kp_u_amplpy_exceptions_pxi __pyx_string_tab[391]
+#define __pyx_n_u_amplpy_gurobi __pyx_string_tab[392]
+#define __pyx_kp_u_amplpy_gurobi_package_not_found __pyx_string_tab[393]
+#define __pyx_n_u_amplpy_highs __pyx_string_tab[394]
+#define __pyx_kp_u_amplpy_highs_package_not_found __pyx_string_tab[395]
+#define __pyx_kp_u_amplpy_iterators_pxi __pyx_string_tab[396]
+#define __pyx_kp_u_amplpy_objective_pxi __pyx_string_tab[397]
+#define __pyx_kp_u_amplpy_outputhandler_pxi __pyx_string_tab[398]
+#define __pyx_kp_u_amplpy_parameter_pxi __pyx_string_tab[399]
+#define __pyx_n_u_amplpy_scip __pyx_string_tab[400]
+#define __pyx_kp_u_amplpy_scip_package_not_found __pyx_string_tab[401]
+#define __pyx_kp_u_amplpy_set_pxi __pyx_string_tab[402]
+#define __pyx_kp_u_amplpy_variable_pxi __pyx_string_tab[403]
+#define __pyx_n_u_amplpy_xpress __pyx_string_tab[404]
+#define __pyx_kp_u_amplpy_xpress_package_not_found __pyx_string_tab[405]
+#define __pyx_n_u_args __pyx_string_tab[406]
+#define __pyx_n_u_arity __pyx_string_tab[407]
+#define __pyx_n_u_array __pyx_string_tab[408]
+#define __pyx_n_u_ast __pyx_string_tab[409]
+#define __pyx_n_u_astatus __pyx_string_tab[410]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[411]
+#define __pyx_n_u_auxfiles __pyx_string_tab[412]
+#define __pyx_n_u_bin_dir __pyx_string_tab[413]
+#define __pyx_n_u_bin_dir_c __pyx_string_tab[414]
+#define __pyx_n_u_bin_name __pyx_string_tab[415]
+#define __pyx_n_u_bin_name_c __pyx_string_tab[416]
+#define __pyx_n_u_binary_directory __pyx_string_tab[417]
+#define __pyx_n_u_binary_name __pyx_string_tab[418]
+#define __pyx_n_u_body __pyx_string_tab[419]
+#define __pyx_n_u_bool __pyx_string_tab[420]
+#define __pyx_n_u_builtins __pyx_string_tab[421]
+#define __pyx_n_u_c __pyx_string_tab[422]
+#define __pyx_n_u_c_double_array __pyx_string_tab[423]
+#define __pyx_n_u_c_string_array __pyx_string_tab[424]
+#define __pyx_kp_u_cannot_be_found __pyx_string_tab[425]
+#define __pyx_kp_u_cannot_convert_to_dictionary_wit __pyx_string_tab[426]
+#define __pyx_n_u_cast_row __pyx_string_tab[427]
+#define __pyx_n_u_cast_value __pyx_string_tab[428]
+#define __pyx_n_u_cd __pyx_string_tab[429]
+#define __pyx_n_u_chain __pyx_string_tab[430]
+#define __pyx_n_u_check __pyx_string_tab[431]
+#define __pyx_n_u_cindex __pyx_string_tab[432]
+#define __pyx_n_u_class_getitem __pyx_string_tab[433]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[434]
+#define __pyx_n_u_close __pyx_string_tab[435]
+#define __pyx_n_u_cls __pyx_string_tab[436]
+#define __pyx_n_u_cname __pyx_string_tab[437]
+#define __pyx_n_u_col __pyx_string_tab[438]
+#define __pyx_n_u_collections_abc __pyx_string_tab[439]
+#define __pyx_n_u_column __pyx_string_tab[440]
+#define __pyx_n_u_column_names __pyx_string_tab[441]
+#define __pyx_n_u_columns __pyx_string_tab[442]
+#define __pyx_n_u_con __pyx_string_tab[443]
+#define __pyx_n_u_con_2 __pyx_string_tab[444]
+#define __pyx_n_u_con_locals_Constraints __pyx_string_tab[445]
+#define __pyx_n_u_con_locals_Constraints___getite __pyx_string_tab[446]
+#define __pyx_n_u_con_locals_Constraints___init __pyx_string_tab[447]
+#define __pyx_n_u_con_locals_Constraints___iter __pyx_string_tab[448]
+#define __pyx_n_u_con_locals_Constraints___setite __pyx_string_tab[449]
+#define __pyx_n_u_contains __pyx_string_tab[450]
+#define __pyx_n_u_contains_c __pyx_string_tab[451]
+#define __pyx_n_u_conv_to_list __pyx_string_tab[452]
+#define __pyx_n_u_copt __pyx_string_tab[453]
+#define __pyx_kp_u_copt_cplex_gurobi_highs_scip_xpr __pyx_string_tab[454]
+#define __pyx_n_u_cplex __pyx_string_tab[455]
+#define __pyx_n_u_d __pyx_string_tab[456]
+#define __pyx_n_u_data __pyx_string_tab[457]
+#define __pyx_n_u_data_c __pyx_string_tab[458]
+#define __pyx_n_u_data_frame __pyx_string_tab[459]
+#define __pyx_n_u_decode __pyx_string_tab[460]
+#define __pyx_n_u_defeqn __pyx_string_tab[461]
+#define __pyx_n_u_defvar __pyx_string_tab[462]
+#define __pyx_n_u_df __pyx_string_tab[463]
+#define __pyx_n_u_df_c __pyx_string_tab[464]
+#define __pyx_n_u_df_ref __pyx_string_tab[465]
+#define __pyx_n_u_dic __pyx_string_tab[466]
+#define __pyx_n_u_dict __pyx_string_tab[467]
+#define __pyx_n_u_dict_2 __pyx_string_tab[468]
+#define __pyx_n_u_dimen __pyx_string_tab[469]
+#define __pyx_n_u_dinit __pyx_string_tab[470]
+#define __pyx_n_u_dinit0 __pyx_string_tab[471]
+#define __pyx_kp_u_disable __pyx_string_tab[472]
+#define __pyx_n_u_display __pyx_string_tab[473]
+#define __pyx_n_u_display_error_message __pyx_string_tab[474]
+#define __pyx_n_u_doc __pyx_string_tab[475]
+#define __pyx_n_u_driver __pyx_string_tab[476]
+#define __pyx_n_u_drop __pyx_string_tab[477]
+#define __pyx_n_u_dual __pyx_string_tab[478]
+#define __pyx_n_u_e __pyx_string_tab[479]
+#define __pyx_kp_u_enable __pyx_string_tab[480]
+#define __pyx_n_u_encode __pyx_string_tab[481]
+#define __pyx_n_u_end __pyx_string_tab[482]
+#define __pyx_n_u_endswith __pyx_string_tab[483]
+#define __pyx_n_u_entity __pyx_string_tab[484]
+#define __pyx_n_u_entitytype __pyx_string_tab[485]
+#define __pyx_n_u_enumerate __pyx_string_tab[486]
+#define __pyx_n_u_environ __pyx_string_tab[487]
+#define __pyx_n_u_environment __pyx_string_tab[488]
+#define __pyx_n_u_error __pyx_string_tab[489]
+#define __pyx_n_u_error_handler __pyx_string_tab[490]
+#define __pyx_n_u_error_handler_wrapper __pyx_string_tab[491]
+#define __pyx_n_u_errorinfo __pyx_string_tab[492]
+#define __pyx_n_u_errors __pyx_string_tab[493]
+#define __pyx_n_u_eval __pyx_string_tab[494]
+#define __pyx_n_u_exception __pyx_string_tab[495]
+#define __pyx_n_u_exists __pyx_string_tab[496]
+#define __pyx_n_u_exitcode __pyx_string_tab[497]
+#define __pyx_n_u_exp __pyx_string_tab[498]
+#define __pyx_n_u_exportData __pyx_string_tab[499]
+#define __pyx_n_u_exportModel __pyx_string_tab[500]
+#define __pyx_n_u_export_copt_model __pyx_string_tab[501]
+#define __pyx_n_u_export_cplex_model __pyx_string_tab[502]
+#define __pyx_n_u_export_data __pyx_string_tab[503]
+#define __pyx_n_u_export_gurobi_model __pyx_string_tab[504]
+#define __pyx_n_u_export_highs_model __pyx_string_tab[505]
+#define __pyx_n_u_export_model __pyx_string_tab[506]
+#define __pyx_n_u_export_scip_model __pyx_string_tab[507]
+#define __pyx_n_u_export_xpress_model __pyx_string_tab[508]
+#define __pyx_n_u_exprs __pyx_string_tab[509]
+#define __pyx_n_u_file __pyx_string_tab[510]
+#define __pyx_n_u_filename __pyx_string_tab[511]
+#define __pyx_n_u_find __pyx_string_tab[512]
+#define __pyx_n_u_fix __pyx_string_tab[513]
+#define __pyx_n_u_flat __pyx_string_tab[514]
+#define __pyx_n_u_flush __pyx_string_tab[515]
+#define __pyx_n_u_format __pyx_string_tab[516]
+#define __pyx_n_u_formatter __pyx_string_tab[517]
+#define __pyx_n_u_fromDict __pyx_string_tab[518]
+#define __pyx_n_u_fromNumpy __pyx_string_tab[519]
+#define __pyx_n_u_fromPandas __pyx_string_tab[520]
+#define __pyx_n_u_from_arrays __pyx_string_tab[521]
+#define __pyx_n_u_from_data_frame_ref __pyx_string_tab[522]
+#define __pyx_n_u_from_dict __pyx_string_tab[523]
+#define __pyx_n_u_from_dict_locals_genexpr __pyx_string_tab[524]
+#define __pyx_n_u_from_dict_locals_to_tuple __pyx_string_tab[525]
+#define __pyx_n_u_from_numpy __pyx_string_tab[526]
+#define __pyx_n_u_from_pandas __pyx_string_tab[527]
+#define __pyx_n_u_from_tuples __pyx_string_tab[528]
+#define __pyx_n_u_func __pyx_string_tab[529]
+#define __pyx_kp_u_gc __pyx_string_tab[530]
+#define __pyx_n_u_genexpr __pyx_string_tab[531]
+#define __pyx_n_u_get __pyx_string_tab[532]
+#define __pyx_n_u_getBinDir __pyx_string_tab[533]
+#define __pyx_n_u_getBinName __pyx_string_tab[534]
+#define __pyx_n_u_getColumn __pyx_string_tab[535]
+#define __pyx_n_u_getConstraint __pyx_string_tab[536]
+#define __pyx_n_u_getConstraints __pyx_string_tab[537]
+#define __pyx_n_u_getCurrentObjective __pyx_string_tab[538]
+#define __pyx_n_u_getData __pyx_string_tab[539]
+#define __pyx_n_u_getEntity __pyx_string_tab[540]
+#define __pyx_n_u_getErrorHandler __pyx_string_tab[541]
+#define __pyx_n_u_getHeaders __pyx_string_tab[542]
+#define __pyx_n_u_getIndexingSets __pyx_string_tab[543]
+#define __pyx_n_u_getLineNumber __pyx_string_tab[544]
+#define __pyx_n_u_getLogger __pyx_string_tab[545]
+#define __pyx_n_u_getMessage __pyx_string_tab[546]
+#define __pyx_n_u_getNumCols __pyx_string_tab[547]
+#define __pyx_n_u_getNumIndices __pyx_string_tab[548]
+#define __pyx_n_u_getNumRows __pyx_string_tab[549]
+#define __pyx_n_u_getObjective __pyx_string_tab[550]
+#define __pyx_n_u_getObjectives __pyx_string_tab[551]
+#define __pyx_n_u_getOffset __pyx_string_tab[552]
+#define __pyx_n_u_getOption __pyx_string_tab[553]
+#define __pyx_n_u_getOutput __pyx_string_tab[554]
+#define __pyx_n_u_getOutputHandler __pyx_string_tab[555]
+#define __pyx_n_u_getParameter __pyx_string_tab[556]
+#define __pyx_n_u_getParameters __pyx_string_tab[557]
+#define __pyx_n_u_getRecordedEntities __pyx_string_tab[558]
+#define __pyx_n_u_getRow __pyx_string_tab[559]
+#define __pyx_n_u_getRowByIndex __pyx_string_tab[560]
+#define __pyx_n_u_getSet __pyx_string_tab[561]
+#define __pyx_n_u_getSets __pyx_string_tab[562]
+#define __pyx_n_u_getSourceName __pyx_string_tab[563]
+#define __pyx_n_u_getValue __pyx_string_tab[564]
+#define __pyx_n_u_getValues __pyx_string_tab[565]
+#define __pyx_n_u_getVariable __pyx_string_tab[566]
+#define __pyx_n_u_getVariables __pyx_string_tab[567]
+#define __pyx_n_u_get_bin_dir __pyx_string_tab[568]
+#define __pyx_n_u_get_bin_name __pyx_string_tab[569]
+#define __pyx_n_u_get_column __pyx_string_tab[570]
+#define __pyx_n_u_get_constraint __pyx_string_tab[571]
+#define __pyx_n_u_get_constraints __pyx_string_tab[572]
+#define __pyx_n_u_get_current_objective __pyx_string_tab[573]
+#define __pyx_n_u_get_data __pyx_string_tab[574]
+#define __pyx_n_u_get_entity __pyx_string_tab[575]
+#define __pyx_n_u_get_error_handler __pyx_string_tab[576]
+#define __pyx_n_u_get_headers __pyx_string_tab[577]
+#define __pyx_n_u_get_headers_locals_genexpr __pyx_string_tab[578]
+#define __pyx_n_u_get_iis __pyx_string_tab[579]
+#define __pyx_n_u_get_indexing_sets __pyx_string_tab[580]
+#define __pyx_n_u_get_line_number __pyx_string_tab[581]
+#define __pyx_n_u_get_message __pyx_string_tab[582]
+#define __pyx_n_u_get_num_cols __pyx_string_tab[583]
+#define __pyx_n_u_get_num_indices __pyx_string_tab[584]
+#define __pyx_n_u_get_num_rows __pyx_string_tab[585]
+#define __pyx_n_u_get_objective __pyx_string_tab[586]
+#define __pyx_n_u_get_objectives __pyx_string_tab[587]
+#define __pyx_n_u_get_offset __pyx_string_tab[588]
+#define __pyx_n_u_get_option __pyx_string_tab[589]
+#define __pyx_n_u_get_output __pyx_string_tab[590]
+#define __pyx_n_u_get_output_handler __pyx_string_tab[591]
+#define __pyx_n_u_get_parameter __pyx_string_tab[592]
+#define __pyx_n_u_get_parameters __pyx_string_tab[593]
+#define __pyx_n_u_get_row __pyx_string_tab[594]
+#define __pyx_n_u_get_row_by_index __pyx_string_tab[595]
+#define __pyx_n_u_get_set __pyx_string_tab[596]
+#define __pyx_n_u_get_sets __pyx_string_tab[597]
+#define __pyx_n_u_get_solution __pyx_string_tab[598]
+#define __pyx_n_u_get_source_name __pyx_string_tab[599]
+#define __pyx_n_u_get_value __pyx_string_tab[600]
+#define __pyx_n_u_get_values __pyx_string_tab[601]
+#define __pyx_n_u_get_variable __pyx_string_tab[602]
+#define __pyx_n_u_get_variables __pyx_string_tab[603]
+#define __pyx_n_u_getitem __pyx_string_tab[604]
+#define __pyx_n_u_getstate __pyx_string_tab[605]
+#define __pyx_n_u_gurobi __pyx_string_tab[606]
+#define __pyx_n_u_handler __pyx_string_tab[607]
+#define __pyx_n_u_hasDefault __pyx_string_tab[608]
+#define __pyx_n_u_hasHandlers __pyx_string_tab[609]
+#define __pyx_n_u_has_default __pyx_string_tab[610]
+#define __pyx_n_u_header __pyx_string_tab[611]
+#define __pyx_n_u_headers __pyx_string_tab[612]
+#define __pyx_n_u_headers_py __pyx_string_tab[613]
+#define __pyx_n_u_highs __pyx_string_tab[614]
+#define __pyx_n_u_i __pyx_string_tab[615]
+#define __pyx_kp_u_i_in_1__ncons__con_i_iis_non__c __pyx_string_tab[616]
+#define __pyx_kp_u_i_in_1__nvars__var_i_iis_non__v __pyx_string_tab[617]
+#define __pyx_kp_u_i_in_1__nvars__var_i_val_0__var __pyx_string_tab[618]
+#define __pyx_kp_u_i_in_1__nvars__varname_i__var_i __pyx_string_tab[619]
+#define __pyx_n_u_iis_con __pyx_string_tab[620]
+#define __pyx_n_u_iis_var __pyx_string_tab[621]
+#define __pyx_n_u_impl __pyx_string_tab[622]
+#define __pyx_n_u_import_ampls_solution __pyx_string_tab[623]
+#define __pyx_n_u_import_ampls_solution_locals_gen __pyx_string_tab[624]
+#define __pyx_n_u_import_entities __pyx_string_tab[625]
+#define __pyx_n_u_index __pyx_string_tab[626]
+#define __pyx_n_u_index_c __pyx_string_tab[627]
+#define __pyx_n_u_index_names __pyx_string_tab[628]
+#define __pyx_n_u_indexarity __pyx_string_tab[629]
+#define __pyx_n_u_indices_c __pyx_string_tab[630]
+#define __pyx_n_u_init __pyx_string_tab[631]
+#define __pyx_n_u_init0 __pyx_string_tab[632]
+#define __pyx_n_u_init_2 __pyx_string_tab[633]
+#define __pyx_n_u_initializing __pyx_string_tab[634]
+#define __pyx_n_u_instances __pyx_string_tab[635]
+#define __pyx_n_u_isLogical __pyx_string_tab[636]
+#define __pyx_n_u_isRunning __pyx_string_tab[637]
+#define __pyx_n_u_isScalar __pyx_string_tab[638]
+#define __pyx_n_u_isSymbolic __pyx_string_tab[639]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[640]
+#define __pyx_n_u_is_logical __pyx_string_tab[641]
+#define __pyx_kp_u_is_not_supported_please_choose __pyx_string_tab[642]
+#define __pyx_n_u_is_running __pyx_string_tab[643]
+#define __pyx_n_u_is_scalar __pyx_string_tab[644]
+#define __pyx_n_u_is_symbolic __pyx_string_tab[645]
+#define __pyx_kp_u_isenabled __pyx_string_tab[646]
+#define __pyx_n_u_isrunning __pyx_string_tab[647]
+#define __pyx_n_u_items __pyx_string_tab[648]
+#define __pyx_n_u_iter __pyx_string_tab[649]
+#define __pyx_n_u_iter___locals_genexpr __pyx_string_tab[650]
+#define __pyx_n_u_itertools __pyx_string_tab[651]
+#define __pyx_n_u_j __pyx_string_tab[652]
+#define __pyx_n_u_k __pyx_string_tab[653]
+#define __pyx_n_u_keep_files __pyx_string_tab[654]
+#define __pyx_n_u_key __pyx_string_tab[655]
+#define __pyx_n_u_keys __pyx_string_tab[656]
+#define __pyx_n_u_kind __pyx_string_tab[657]
+#define __pyx_n_u_kwargs __pyx_string_tab[658]
+#define __pyx_n_u_last_exception __pyx_string_tab[659]
+#define __pyx_n_u_lb __pyx_string_tab[660]
+#define __pyx_n_u_lb0 __pyx_string_tab[661]
+#define __pyx_n_u_lb1 __pyx_string_tab[662]
+#define __pyx_n_u_lb2 __pyx_string_tab[663]
+#define __pyx_n_u_lbs __pyx_string_tab[664]
+#define __pyx_n_u_ldual __pyx_string_tab[665]
+#define __pyx_kp_u_let __pyx_string_tab[666]
+#define __pyx_kp_u_levelname_s_message_s __pyx_string_tab[667]
+#define __pyx_kp_u_line __pyx_string_tab[668]
+#define __pyx_kp_u_line_2 __pyx_string_tab[669]
+#define __pyx_n_u_line_number __pyx_string_tab[670]
+#define __pyx_n_u_literal_eval __pyx_string_tab[671]
+#define __pyx_n_u_loadSession __pyx_string_tab[672]
+#define __pyx_n_u_load_session __pyx_string_tab[673]
+#define __pyx_n_u_logger __pyx_string_tab[674]
+#define __pyx_n_u_logging __pyx_string_tab[675]
+#define __pyx_n_u_lrc __pyx_string_tab[676]
+#define __pyx_n_u_lslack __pyx_string_tab[677]
+#define __pyx_n_u_lst __pyx_string_tab[678]
+#define __pyx_n_u_lst_columns __pyx_string_tab[679]
+#define __pyx_n_u_lst_index __pyx_string_tab[680]
+#define __pyx_n_u_lst_solution __pyx_string_tab[681]
+#define __pyx_n_u_main __pyx_string_tab[682]
+#define __pyx_n_u_map __pyx_string_tab[683]
+#define __pyx_n_u_members __pyx_string_tab[684]
+#define __pyx_n_u_message __pyx_string_tab[685]
+#define __pyx_n_u_metaclass __pyx_string_tab[686]
+#define __pyx_n_u_minimization __pyx_string_tab[687]
+#define __pyx_n_u_minimize __pyx_string_tab[688]
+#define __pyx_n_u_model __pyx_string_tab[689]
+#define __pyx_n_u_model_c __pyx_string_tab[690]
+#define __pyx_n_u_module __pyx_string_tab[691]
+#define __pyx_n_u_mro_entries __pyx_string_tab[692]
+#define __pyx_n_u_msg __pyx_string_tab[693]
+#define __pyx_n_u_multi_index __pyx_string_tab[694]
+#define __pyx_n_u_n __pyx_string_tab[695]
+#define __pyx_n_u_name __pyx_string_tab[696]
+#define __pyx_n_u_name_2 __pyx_string_tab[697]
+#define __pyx_n_u_name_c __pyx_string_tab[698]
+#define __pyx_n_u_name_c_2 __pyx_string_tab[699]
+#define __pyx_n_u_names __pyx_string_tab[700]
+#define __pyx_n_u_ncols __pyx_string_tab[701]
+#define __pyx_n_u_ncolumns __pyx_string_tab[702]
+#define __pyx_n_u_ndarray __pyx_string_tab[703]
+#define __pyx_n_u_nested __pyx_string_tab[704]
+#define __pyx_n_u_nested_dict_of_suffixes __pyx_string_tab[705]
+#define __pyx_n_u_new __pyx_string_tab[706]
+#define __pyx_n_u_next __pyx_string_tab[707]
+#define __pyx_n_u_nindices __pyx_string_tab[708]
+#define __pyx_n_u_nlevels __pyx_string_tab[709]
+#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[710]
+#define __pyx_n_u_np __pyx_string_tab[711]
+#define __pyx_n_u_nt __pyx_string_tab[712]
+#define __pyx_n_u_num __pyx_string_tab[713]
+#define __pyx_n_u_numInstances __pyx_string_tab[714]
+#define __pyx_n_u_num_instances __pyx_string_tab[715]
+#define __pyx_n_u_number __pyx_string_tab[716]
+#define __pyx_n_u_numbers __pyx_string_tab[717]
+#define __pyx_n_u_numpy __pyx_string_tab[718]
+#define __pyx_n_u_obj __pyx_string_tab[719]
+#define __pyx_n_u_obj_2 __pyx_string_tab[720]
+#define __pyx_n_u_obj_locals_Objectives __pyx_string_tab[721]
+#define __pyx_n_u_obj_locals_Objectives___getitem __pyx_string_tab[722]
+#define __pyx_n_u_obj_locals_Objectives___init __pyx_string_tab[723]
+#define __pyx_n_u_obj_locals_Objectives___iter __pyx_string_tab[724]
+#define __pyx_n_u_object __pyx_string_tab[725]
+#define __pyx_n_u_objname __pyx_string_tab[726]
+#define __pyx_n_u_objname_c __pyx_string_tab[727]
+#define __pyx_n_u_offset __pyx_string_tab[728]
+#define __pyx_kp_u_offset_2 __pyx_string_tab[729]
+#define __pyx_n_u_open __pyx_string_tab[730]
+#define __pyx_n_u_option __pyx_string_tab[731]
+#define __pyx_n_u_option_2 __pyx_string_tab[732]
+#define __pyx_n_u_option_locals_Options __pyx_string_tab[733]
+#define __pyx_n_u_option_locals_Options___getitem __pyx_string_tab[734]
+#define __pyx_n_u_option_locals_Options___init __pyx_string_tab[735]
+#define __pyx_n_u_option_locals_Options___setitem __pyx_string_tab[736]
+#define __pyx_n_u_option_locals_Options___setitem_2 __pyx_string_tab[737]
+#define __pyx_n_u_options __pyx_string_tab[738]
+#define __pyx_n_u_options_2 __pyx_string_tab[739]
+#define __pyx_n_u_options_c __pyx_string_tab[740]
+#define __pyx_n_u_options_dict __pyx_string_tab[741]
+#define __pyx_n_u_os __pyx_string_tab[742]
+#define __pyx_n_u_output __pyx_string_tab[743]
+#define __pyx_n_u_output_c __pyx_string_tab[744]
+#define __pyx_n_u_output_handler __pyx_string_tab[745]
+#define __pyx_n_u_p __pyx_string_tab[746]
+#define __pyx_n_u_pandas __pyx_string_tab[747]
+#define __pyx_n_u_param __pyx_string_tab[748]
+#define __pyx_n_u_param_2 __pyx_string_tab[749]
+#define __pyx_n_u_param_locals_Parameters __pyx_string_tab[750]
+#define __pyx_n_u_param_locals_Parameters___getit __pyx_string_tab[751]
+#define __pyx_n_u_param_locals_Parameters___init __pyx_string_tab[752]
+#define __pyx_n_u_param_locals_Parameters___iter __pyx_string_tab[753]
+#define __pyx_n_u_param_locals_Parameters___setit __pyx_string_tab[754]
+#define __pyx_n_u_path __pyx_string_tab[755]
+#define __pyx_n_u_pd __pyx_string_tab[756]
+#define __pyx_n_u_pickle __pyx_string_tab[757]
+#define __pyx_n_u_pop __pyx_string_tab[758]
+#define __pyx_n_u_prepare __pyx_string_tab[759]
+#define __pyx_n_u_print __pyx_string_tab[760]
+#define __pyx_n_u_problem __pyx_string_tab[761]
+#define __pyx_n_u_propagate __pyx_string_tab[762]
+#define __pyx_n_u_property __pyx_string_tab[763]
+#define __pyx_n_u_py_list __pyx_string_tab[764]
+#define __pyx_n_u_py_variant __pyx_string_tab[765]
+#define __pyx_n_u_pylist __pyx_string_tab[766]
+#define __pyx_n_u_pyx_PickleError __pyx_string_tab[767]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[768]
+#define __pyx_n_u_pyx_result __pyx_string_tab[769]
+#define __pyx_n_u_pyx_state __pyx_string_tab[770]
+#define __pyx_n_u_pyx_type __pyx_string_tab[771]
+#define __pyx_n_u_pyx_unpickle_AMPLException __pyx_string_tab[772]
+#define __pyx_n_u_pyx_unpickle_ErrorHandler __pyx_string_tab[773]
+#define __pyx_n_u_pyx_unpickle_OutputHandler __pyx_string_tab[774]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[775]
+#define __pyx_n_u_qualname __pyx_string_tab[776]
+#define __pyx_n_u_range __pyx_string_tab[777]
+#define __pyx_n_u_rc __pyx_string_tab[778]
+#define __pyx_n_u_read __pyx_string_tab[779]
+#define __pyx_n_u_readData __pyx_string_tab[780]
+#define __pyx_n_u_readTable __pyx_string_tab[781]
+#define __pyx_n_u_read_data __pyx_string_tab[782]
+#define __pyx_n_u_read_table __pyx_string_tab[783]
+#define __pyx_n_u_reduce __pyx_string_tab[784]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[785]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[786]
+#define __pyx_n_u_replace __pyx_string_tab[787]
+#define __pyx_n_u_reset __pyx_string_tab[788]
+#define __pyx_n_u_restore __pyx_string_tab[789]
+#define __pyx_n_u_result __pyx_string_tab[790]
+#define __pyx_n_u_return_output __pyx_string_tab[791]
+#define __pyx_n_u_rmtree __pyx_string_tab[792]
+#define __pyx_n_u_row __pyx_string_tab[793]
+#define __pyx_n_u_rowindex __pyx_string_tab[794]
+#define __pyx_n_u_scalar_expression __pyx_string_tab[795]
+#define __pyx_n_u_scip __pyx_string_tab[796]
+#define __pyx_n_u_self __pyx_string_tab[797]
+#define __pyx_kp_u_self__c_ampl_cannot_be_converted __pyx_string_tab[798]
+#define __pyx_kp_u_self__c_ampl_self__index_self_be __pyx_string_tab[799]
+#define __pyx_kp_u_self__df_cannot_be_converted_to __pyx_string_tab[800]
+#define __pyx_kp_u_self__index_cannot_be_converted __pyx_string_tab[801]
+#define __pyx_kp_u_self_begin_cannot_be_converted_t __pyx_string_tab[802]
+#define __pyx_kp_u_self_begin_self_end_self_env_c_s __pyx_string_tab[803]
+#define __pyx_n_u_send __pyx_string_tab[804]
+#define __pyx_n_u_set __pyx_string_tab[805]
+#define __pyx_n_u_setBinDir __pyx_string_tab[806]
+#define __pyx_n_u_setBinName __pyx_string_tab[807]
+#define __pyx_n_u_setColumn __pyx_string_tab[808]
+#define __pyx_n_u_setData __pyx_string_tab[809]
+#define __pyx_n_u_setDual __pyx_string_tab[810]
+#define __pyx_n_u_setErrorHandler __pyx_string_tab[811]
+#define __pyx_n_u_setFormatter __pyx_string_tab[812]
+#define __pyx_n_u_setLevel __pyx_string_tab[813]
+#define __pyx_n_u_setOption __pyx_string_tab[814]
+#define __pyx_n_u_setOutputHandler __pyx_string_tab[815]
+#define __pyx_n_u_setValue __pyx_string_tab[816]
+#define __pyx_n_u_setValues __pyx_string_tab[817]
+#define __pyx_n_u_setValues_2 __pyx_string_tab[818]
+#define __pyx_n_u_set_2 __pyx_string_tab[819]
+#define __pyx_n_u_set_bin_dir __pyx_string_tab[820]
+#define __pyx_n_u_set_bin_name __pyx_string_tab[821]
+#define __pyx_n_u_set_column __pyx_string_tab[822]
+#define __pyx_n_u_set_data __pyx_string_tab[823]
+#define __pyx_n_u_set_dual __pyx_string_tab[824]
+#define __pyx_n_u_set_error_handler __pyx_string_tab[825]
+#define __pyx_n_u_set_error_handler_locals_ErrorHa __pyx_string_tab[826]
+#define __pyx_n_u_set_error_handler_locals_ErrorHa_2 __pyx_string_tab[827]
+#define __pyx_n_u_set_error_handler_locals_ErrorHa_3 __pyx_string_tab[828]
+#define __pyx_n_u_set_error_handler_locals_ErrorHa_4 __pyx_string_tab[829]
+#define __pyx_n_u_set_error_handler_locals_ErrorHa_5 __pyx_string_tab[830]
+#define __pyx_n_u_set_locals_Sets __pyx_string_tab[831]
+#define __pyx_n_u_set_locals_Sets___getitem __pyx_string_tab[832]
+#define __pyx_n_u_set_locals_Sets___init __pyx_string_tab[833]
+#define __pyx_n_u_set_locals_Sets___iter __pyx_string_tab[834]
+#define __pyx_n_u_set_locals_Sets___setitem __pyx_string_tab[835]
+#define __pyx_n_u_set_name __pyx_string_tab[836]
+#define __pyx_n_u_set_name_2 __pyx_string_tab[837]
+#define __pyx_n_u_set_option __pyx_string_tab[838]
+#define __pyx_n_u_set_option_2 __pyx_string_tab[839]
+#define __pyx_n_u_set_option_locals_genexpr __pyx_string_tab[840]
+#define __pyx_n_u_set_output_handler __pyx_string_tab[841]
+#define __pyx_n_u_set_value __pyx_string_tab[842]
+#define __pyx_n_u_set_values __pyx_string_tab[843]
+#define __pyx_n_u_set_values_2 __pyx_string_tab[844]
+#define __pyx_n_u_set_values_locals_cast_row __pyx_string_tab[845]
+#define __pyx_n_u_set_values_locals_cast_value __pyx_string_tab[846]
+#define __pyx_n_u_set_values_locals_conv_to_list __pyx_string_tab[847]
+#define __pyx_n_u_set_values_locals_genexpr __pyx_string_tab[848]
+#define __pyx_n_u_setitem __pyx_string_tab[849]
+#define __pyx_n_u_sets __pyx_string_tab[850]
+#define __pyx_n_u_setstate __pyx_string_tab[851]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[852]
+#define __pyx_n_u_shape __pyx_string_tab[853]
+#define __pyx_n_u_shutil __pyx_string_tab[854]
+#define __pyx_n_u_size __pyx_string_tab[855]
+#define __pyx_n_u_skip_index __pyx_string_tab[856]
+#define __pyx_n_u_slack __pyx_string_tab[857]
+#define __pyx_n_u_snapshot __pyx_string_tab[858]
+#define __pyx_kp_u_sol __pyx_string_tab[859]
+#define __pyx_n_u_solfile __pyx_string_tab[860]
+#define __pyx_kp_u_solution __pyx_string_tab[861]
+#define __pyx_kp_u_solve __pyx_string_tab[862]
+#define __pyx_n_u_solve_2 __pyx_string_tab[863]
+#define __pyx_n_u_solve_result __pyx_string_tab[864]
+#define __pyx_n_u_solve_result_num __pyx_string_tab[865]
+#define __pyx_n_u_solver __pyx_string_tab[866]
+#define __pyx_n_u_solver_list __pyx_string_tab[867]
+#define __pyx_n_u_source_name __pyx_string_tab[868]
+#define __pyx_n_u_spec __pyx_string_tab[869]
+#define __pyx_n_u_split __pyx_string_tab[870]
+#define __pyx_n_u_sstatus __pyx_string_tab[871]
+#define __pyx_n_u_stack __pyx_string_tab[872]
+#define __pyx_n_u_startRecording __pyx_string_tab[873]
+#define __pyx_n_u_start_recording __pyx_string_tab[874]
+#define __pyx_n_u_state __pyx_string_tab[875]
+#define __pyx_n_u_statements __pyx_string_tab[876]
+#define __pyx_n_u_statements_c __pyx_string_tab[877]
+#define __pyx_n_u_status __pyx_string_tab[878]
+#define __pyx_n_u_stderr __pyx_string_tab[879]
+#define __pyx_n_u_stmt __pyx_string_tab[880]
+#define __pyx_n_u_stopRecording __pyx_string_tab[881]
+#define __pyx_n_u_stop_recording __pyx_string_tab[882]
+#define __pyx_kp_u_stringsource __pyx_string_tab[883]
+#define __pyx_n_u_suffixes __pyx_string_tab[884]
+#define __pyx_n_u_suffixes_c __pyx_string_tab[885]
+#define __pyx_n_u_super __pyx_string_tab[886]
+#define __pyx_n_u_sys __pyx_string_tab[887]
+#define __pyx_n_u_t __pyx_string_tab[888]
+#define __pyx_n_u_t_c __pyx_string_tab[889]
+#define __pyx_n_u_table_name __pyx_string_tab[890]
+#define __pyx_n_u_test __pyx_string_tab[891]
+#define __pyx_n_u_throw __pyx_string_tab[892]
+#define __pyx_n_u_throw_on_warnings __pyx_string_tab[893]
+#define __pyx_n_u_tmpdir __pyx_string_tab[894]
+#define __pyx_n_u_toDict __pyx_string_tab[895]
+#define __pyx_n_u_toList __pyx_string_tab[896]
+#define __pyx_n_u_toPandas __pyx_string_tab[897]
+#define __pyx_n_u_toString __pyx_string_tab[898]
+#define __pyx_n_u_to_ampls __pyx_string_tab[899]
+#define __pyx_n_u_to_dict __pyx_string_tab[900]
+#define __pyx_n_u_to_list __pyx_string_tab[901]
+#define __pyx_n_u_to_pandas __pyx_string_tab[902]
+#define __pyx_n_u_to_string __pyx_string_tab[903]
+#define __pyx_n_u_to_string_c __pyx_string_tab[904]
+#define __pyx_n_u_to_tuple __pyx_string_tab[905]
+#define __pyx_n_u_tolist __pyx_string_tab[906]
+#define __pyx_n_u_tools __pyx_string_tab[907]
+#define __pyx_n_u_tuple __pyx_string_tab[908]
+#define __pyx_n_u_tuple_c __pyx_string_tab[909]
+#define __pyx_n_u_ub __pyx_string_tab[910]
+#define __pyx_n_u_ub0 __pyx_string_tab[911]
+#define __pyx_n_u_ub1 __pyx_string_tab[912]
+#define __pyx_n_u_ub2 __pyx_string_tab[913]
+#define __pyx_n_u_ubs __pyx_string_tab[914]
+#define __pyx_n_u_udual __pyx_string_tab[915]
+#define __pyx_n_u_unfix __pyx_string_tab[916]
+#define __pyx_kp_u_unsupported_type __pyx_string_tab[917]
+#define __pyx_n_u_update __pyx_string_tab[918]
+#define __pyx_n_u_urc __pyx_string_tab[919]
+#define __pyx_n_u_use_setstate __pyx_string_tab[920]
+#define __pyx_n_u_uslack __pyx_string_tab[921]
+#define __pyx_kp_u_utf_8 __pyx_string_tab[922]
+#define __pyx_n_u_v __pyx_string_tab[923]
+#define __pyx_n_u_val __pyx_string_tab[924]
+#define __pyx_n_u_value __pyx_string_tab[925]
+#define __pyx_n_u_value_c __pyx_string_tab[926]
+#define __pyx_n_u_values __pyx_string_tab[927]
+#define __pyx_n_u_var __pyx_string_tab[928]
+#define __pyx_n_u_var_2 __pyx_string_tab[929]
+#define __pyx_n_u_var_locals_Variables __pyx_string_tab[930]
+#define __pyx_n_u_var_locals_Variables___getitem __pyx_string_tab[931]
+#define __pyx_n_u_var_locals_Variables___init __pyx_string_tab[932]
+#define __pyx_n_u_var_locals_Variables___iter __pyx_string_tab[933]
+#define __pyx_n_u_var_locals_Variables___setitem __pyx_string_tab[934]
+#define __pyx_n_u_verbose __pyx_string_tab[935]
+#define __pyx_n_u_warning __pyx_string_tab[936]
+#define __pyx_n_u_workdir __pyx_string_tab[937]
+#define __pyx_n_u_workdir_c __pyx_string_tab[938]
+#define __pyx_n_u_write __pyx_string_tab[939]
+#define __pyx_n_u_writeTable __pyx_string_tab[940]
+#define __pyx_n_u_write_sol __pyx_string_tab[941]
+#define __pyx_n_u_write_table __pyx_string_tab[942]
+#define __pyx_n_u_xpress __pyx_string_tab[943]
+#define __pyx_n_u_xref __pyx_string_tab[944]
+#define __pyx_n_u_zeros __pyx_string_tab[945]
+#define __pyx_n_u_zip __pyx_string_tab[946]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -6814,7 +6818,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_k_);
   for (int i=0; i<30; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<262; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<945; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<947; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   Py_CLEAR(clear_module_state->__pyx_float_1_0);
   Py_CLEAR(clear_module_state->__pyx_int_0);
   Py_CLEAR(clear_module_state->__pyx_int_1);
@@ -6926,7 +6930,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_k_);
   for (int i=0; i<30; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<262; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<945; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<947; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_float_1_0);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_0);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_1);
@@ -21054,7 +21058,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_36to_pandas(struct __pyx_obj_
   /* "amplpy/dataframe.pxi":478
  *         Return a pandas.DataFrame with the DataFrame data.
  *         """
- *         assert pd is not None             # <<<<<<<<<<<<<<
+ *         assert pd is not None, "Failed to import pandas. Ensure pandas is installed and importable."             # <<<<<<<<<<<<<<
  *         nindices = self._get_num_indices()
  *         headers = self._get_headers()
 */
@@ -21065,7 +21069,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_36to_pandas(struct __pyx_obj_
     __pyx_t_2 = (__pyx_t_1 != Py_None);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (unlikely(!__pyx_t_2)) {
-      __Pyx_Raise(__pyx_builtin_AssertionError, 0, 0, 0);
+      __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_mstate_global->__pyx_kp_u_Failed_to_import_pandas_Ensure_p, 0, 0);
       __PYX_ERR(1, 478, __pyx_L1_error)
     }
   }
@@ -21075,7 +21079,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_36to_pandas(struct __pyx_obj_
 
   /* "amplpy/dataframe.pxi":479
  *         """
- *         assert pd is not None
+ *         assert pd is not None, "Failed to import pandas. Ensure pandas is installed and importable."
  *         nindices = self._get_num_indices()             # <<<<<<<<<<<<<<
  *         headers = self._get_headers()
  *         columns = {
@@ -21094,7 +21098,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_36to_pandas(struct __pyx_obj_
   __pyx_t_1 = 0;
 
   /* "amplpy/dataframe.pxi":480
- *         assert pd is not None
+ *         assert pd is not None, "Failed to import pandas. Ensure pandas is installed and importable."
  *         nindices = self._get_num_indices()
  *         headers = self._get_headers()             # <<<<<<<<<<<<<<
  *         columns = {
@@ -23232,7 +23236,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_40from_pandas(PyTypeObject *_
   /* "amplpy/dataframe.pxi":550
  *             index_names: index names to use.
  *         """
- *         assert pd is not None             # <<<<<<<<<<<<<<
+ *         assert pd is not None, "Failed to import pandas. Ensure pandas is installed and importable."             # <<<<<<<<<<<<<<
  *         if isinstance(df, pd.Series):
  *             df = pd.DataFrame(df)
 */
@@ -23243,7 +23247,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_40from_pandas(PyTypeObject *_
     __pyx_t_2 = (__pyx_t_1 != Py_None);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (unlikely(!__pyx_t_2)) {
-      __Pyx_Raise(__pyx_builtin_AssertionError, 0, 0, 0);
+      __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_mstate_global->__pyx_kp_u_Failed_to_import_pandas_Ensure_p, 0, 0);
       __PYX_ERR(1, 550, __pyx_L1_error)
     }
   }
@@ -23253,7 +23257,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_40from_pandas(PyTypeObject *_
 
   /* "amplpy/dataframe.pxi":551
  *         """
- *         assert pd is not None
+ *         assert pd is not None, "Failed to import pandas. Ensure pandas is installed and importable."
  *         if isinstance(df, pd.Series):             # <<<<<<<<<<<<<<
  *             df = pd.DataFrame(df)
  *         else:
@@ -23268,7 +23272,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_40from_pandas(PyTypeObject *_
   if (__pyx_t_2) {
 
     /* "amplpy/dataframe.pxi":552
- *         assert pd is not None
+ *         assert pd is not None, "Failed to import pandas. Ensure pandas is installed and importable."
  *         if isinstance(df, pd.Series):
  *             df = pd.DataFrame(df)             # <<<<<<<<<<<<<<
  *         else:
@@ -23305,7 +23309,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_40from_pandas(PyTypeObject *_
 
     /* "amplpy/dataframe.pxi":551
  *         """
- *         assert pd is not None
+ *         assert pd is not None, "Failed to import pandas. Ensure pandas is installed and importable."
  *         if isinstance(df, pd.Series):             # <<<<<<<<<<<<<<
  *             df = pd.DataFrame(df)
  *         else:
@@ -24194,7 +24198,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_42from_numpy(PyTypeObject *__
   /* "amplpy/dataframe.pxi":580
  *         Create a :class:`~amplpy.DataFrame` from a numpy array or matrix.
  *         """
- *         assert np is not None             # <<<<<<<<<<<<<<
+ *         assert np is not None, "Failed to import numpy. Ensure numpy is installed and importable."             # <<<<<<<<<<<<<<
  *         if isinstance(data, np.ndarray):
  *             index = []
 */
@@ -24205,7 +24209,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_42from_numpy(PyTypeObject *__
     __pyx_t_2 = (__pyx_t_1 != Py_None);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (unlikely(!__pyx_t_2)) {
-      __Pyx_Raise(__pyx_builtin_AssertionError, 0, 0, 0);
+      __Pyx_Raise(__pyx_builtin_AssertionError, __pyx_mstate_global->__pyx_kp_u_Failed_to_import_numpy_Ensure_nu, 0, 0);
       __PYX_ERR(1, 580, __pyx_L1_error)
     }
   }
@@ -24215,7 +24219,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_42from_numpy(PyTypeObject *__
 
   /* "amplpy/dataframe.pxi":581
  *         """
- *         assert np is not None
+ *         assert np is not None, "Failed to import numpy. Ensure numpy is installed and importable."
  *         if isinstance(data, np.ndarray):             # <<<<<<<<<<<<<<
  *             index = []
  *             if len(data.shape) == 1:
@@ -24230,7 +24234,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_42from_numpy(PyTypeObject *__
   if (likely(__pyx_t_2)) {
 
     /* "amplpy/dataframe.pxi":582
- *         assert np is not None
+ *         assert np is not None, "Failed to import numpy. Ensure numpy is installed and importable."
  *         if isinstance(data, np.ndarray):
  *             index = []             # <<<<<<<<<<<<<<
  *             if len(data.shape) == 1:
@@ -24454,7 +24458,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_9DataFrame_42from_numpy(PyTypeObject *__
 
     /* "amplpy/dataframe.pxi":581
  *         """
- *         assert np is not None
+ *         assert np is not None, "Failed to import numpy. Ensure numpy is installed and importable."
  *         if isinstance(data, np.ndarray):             # <<<<<<<<<<<<<<
  *             index = []
  *             if len(data.shape) == 1:
@@ -25719,8 +25723,8 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
   Py_ssize_t __pyx_t_3;
   int __pyx_t_4;
   int __pyx_t_5;
-  PyObject *__pyx_t_6 = NULL;
-  AMPL_TUPLE *__pyx_t_7;
+  AMPL_TUPLE *__pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
   PyObject *__pyx_t_8 = NULL;
   PyObject *__pyx_t_9 = NULL;
   size_t __pyx_t_10;
@@ -25799,7 +25803,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
  *             index = index[0]
  *             index = list(index)             # <<<<<<<<<<<<<<
  *         if len(index) == 0:
- *             return create_entity(self.wrap_function, self._ampl, self._name, NULL, None)
+ *             return self
 */
     __pyx_t_1 = PySequence_List(__pyx_v_index); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 106, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
@@ -25819,8 +25823,8 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
  *             index = index[0]
  *             index = list(index)
  *         if len(index) == 0:             # <<<<<<<<<<<<<<
- *             return create_entity(self.wrap_function, self._ampl, self._name, NULL, None)
- *         else:
+ *             return self
+ *             #return create_entity(self.wrap_function, self._ampl, self._name, NULL, None)
 */
   __pyx_t_3 = PyObject_Length(__pyx_v_index); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(9, 107, __pyx_L1_error)
   __pyx_t_2 = (__pyx_t_3 == 0);
@@ -25829,41 +25833,36 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
     /* "amplpy/entity.pxi":108
  *             index = list(index)
  *         if len(index) == 0:
- *             return create_entity(self.wrap_function, self._ampl, self._name, NULL, None)             # <<<<<<<<<<<<<<
+ *             return self             # <<<<<<<<<<<<<<
+ *             #return create_entity(self.wrap_function, self._ampl, self._name, NULL, None)
  *         else:
- *             tuple_c =  to_c_tuple(index)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = ((PyObject *)__pyx_v_self->_ampl);
-    __Pyx_INCREF(__pyx_t_1);
-    __pyx_t_6 = __pyx_f_6amplpy_4ampl_create_entity(__pyx_v_self->wrap_function, ((struct __pyx_obj_6amplpy_4ampl_AMPL *)__pyx_t_1), __pyx_v_self->_name, NULL, Py_None); if (unlikely(!__pyx_t_6)) __PYX_ERR(9, 108, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_r = __pyx_t_6;
-    __pyx_t_6 = 0;
+    __Pyx_INCREF((PyObject *)__pyx_v_self);
+    __pyx_r = ((PyObject *)__pyx_v_self);
     goto __pyx_L0;
 
     /* "amplpy/entity.pxi":107
  *             index = index[0]
  *             index = list(index)
  *         if len(index) == 0:             # <<<<<<<<<<<<<<
- *             return create_entity(self.wrap_function, self._ampl, self._name, NULL, None)
- *         else:
+ *             return self
+ *             #return create_entity(self.wrap_function, self._ampl, self._name, NULL, None)
 */
   }
 
-  /* "amplpy/entity.pxi":110
- *             return create_entity(self.wrap_function, self._ampl, self._name, NULL, None)
+  /* "amplpy/entity.pxi":111
+ *             #return create_entity(self.wrap_function, self._ampl, self._name, NULL, None)
  *         else:
  *             tuple_c =  to_c_tuple(index)             # <<<<<<<<<<<<<<
  *             if self.wrap_function == campl.AMPL_PARAMETER:
  *                 errorinfo = campl.AMPL_InstanceGetName(self._ampl._c_ampl, self._name, tuple_c, &name_c)
 */
   /*else*/ {
-    __pyx_t_7 = __pyx_f_6amplpy_4ampl_to_c_tuple(__pyx_v_index); if (unlikely(__pyx_t_7 == ((AMPL_TUPLE *)0) && PyErr_Occurred())) __PYX_ERR(9, 110, __pyx_L1_error)
-    __pyx_v_tuple_c = __pyx_t_7;
+    __pyx_t_6 = __pyx_f_6amplpy_4ampl_to_c_tuple(__pyx_v_index); if (unlikely(__pyx_t_6 == ((AMPL_TUPLE *)0) && PyErr_Occurred())) __PYX_ERR(9, 111, __pyx_L1_error)
+    __pyx_v_tuple_c = __pyx_t_6;
 
-    /* "amplpy/entity.pxi":111
+    /* "amplpy/entity.pxi":112
  *         else:
  *             tuple_c =  to_c_tuple(index)
  *             if self.wrap_function == campl.AMPL_PARAMETER:             # <<<<<<<<<<<<<<
@@ -25873,7 +25872,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
     __pyx_t_2 = (__pyx_v_self->wrap_function == AMPL_PARAMETER);
     if (__pyx_t_2) {
 
-      /* "amplpy/entity.pxi":112
+      /* "amplpy/entity.pxi":113
  *             tuple_c =  to_c_tuple(index)
  *             if self.wrap_function == campl.AMPL_PARAMETER:
  *                 errorinfo = campl.AMPL_InstanceGetName(self._ampl._c_ampl, self._name, tuple_c, &name_c)             # <<<<<<<<<<<<<<
@@ -25882,7 +25881,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
 */
       __pyx_v_errorinfo = AMPL_InstanceGetName(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, __pyx_v_tuple_c, (&__pyx_v_name_c));
 
-      /* "amplpy/entity.pxi":113
+      /* "amplpy/entity.pxi":114
  *             if self.wrap_function == campl.AMPL_PARAMETER:
  *                 errorinfo = campl.AMPL_InstanceGetName(self._ampl._c_ampl, self._name, tuple_c, &name_c)
  *                 campl.AMPL_TupleFree(&tuple_c)             # <<<<<<<<<<<<<<
@@ -25891,7 +25890,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
 */
       (void)(AMPL_TupleFree((&__pyx_v_tuple_c)));
 
-      /* "amplpy/entity.pxi":114
+      /* "amplpy/entity.pxi":115
  *                 errorinfo = campl.AMPL_InstanceGetName(self._ampl._c_ampl, self._name, tuple_c, &name_c)
  *                 campl.AMPL_TupleFree(&tuple_c)
  *                 if errorinfo:             # <<<<<<<<<<<<<<
@@ -25901,16 +25900,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
       __pyx_t_2 = (__pyx_v_errorinfo != 0);
       if (__pyx_t_2) {
 
-        /* "amplpy/entity.pxi":115
+        /* "amplpy/entity.pxi":116
  *                 campl.AMPL_TupleFree(&tuple_c)
  *                 if errorinfo:
  *                     PY_AMPL_CALL(errorinfo)             # <<<<<<<<<<<<<<
  *                 entity = create_entity(self.wrap_function, self._ampl, name_c, NULL, None).value()
  *                 return entity
 */
-        __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 115, __pyx_L1_error)
+        __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 116, __pyx_L1_error)
 
-        /* "amplpy/entity.pxi":114
+        /* "amplpy/entity.pxi":115
  *                 errorinfo = campl.AMPL_InstanceGetName(self._ampl._c_ampl, self._name, tuple_c, &name_c)
  *                 campl.AMPL_TupleFree(&tuple_c)
  *                 if errorinfo:             # <<<<<<<<<<<<<<
@@ -25919,7 +25918,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
 */
       }
 
-      /* "amplpy/entity.pxi":116
+      /* "amplpy/entity.pxi":117
  *                 if errorinfo:
  *                     PY_AMPL_CALL(errorinfo)
  *                 entity = create_entity(self.wrap_function, self._ampl, name_c, NULL, None).value()             # <<<<<<<<<<<<<<
@@ -25928,24 +25927,24 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
 */
       __pyx_t_8 = ((PyObject *)__pyx_v_self->_ampl);
       __Pyx_INCREF(__pyx_t_8);
-      __pyx_t_9 = __pyx_f_6amplpy_4ampl_create_entity(__pyx_v_self->wrap_function, ((struct __pyx_obj_6amplpy_4ampl_AMPL *)__pyx_t_8), __pyx_v_name_c, NULL, Py_None); if (unlikely(!__pyx_t_9)) __PYX_ERR(9, 116, __pyx_L1_error)
+      __pyx_t_9 = __pyx_f_6amplpy_4ampl_create_entity(__pyx_v_self->wrap_function, ((struct __pyx_obj_6amplpy_4ampl_AMPL *)__pyx_t_8), __pyx_v_name_c, NULL, Py_None); if (unlikely(!__pyx_t_9)) __PYX_ERR(9, 117, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      __pyx_t_1 = __pyx_t_9;
-      __Pyx_INCREF(__pyx_t_1);
+      __pyx_t_7 = __pyx_t_9;
+      __Pyx_INCREF(__pyx_t_7);
       __pyx_t_10 = 0;
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
-        __pyx_t_6 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_value, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-        __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+        PyObject *__pyx_callargs[2] = {__pyx_t_7, NULL};
+        __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_value, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(9, 116, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 117, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
       }
-      __pyx_v_entity = __pyx_t_6;
-      __pyx_t_6 = 0;
+      __pyx_v_entity = __pyx_t_1;
+      __pyx_t_1 = 0;
 
-      /* "amplpy/entity.pxi":117
+      /* "amplpy/entity.pxi":118
  *                     PY_AMPL_CALL(errorinfo)
  *                 entity = create_entity(self.wrap_function, self._ampl, name_c, NULL, None).value()
  *                 return entity             # <<<<<<<<<<<<<<
@@ -25957,7 +25956,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
       __pyx_r = __pyx_v_entity;
       goto __pyx_L0;
 
-      /* "amplpy/entity.pxi":111
+      /* "amplpy/entity.pxi":112
  *         else:
  *             tuple_c =  to_c_tuple(index)
  *             if self.wrap_function == campl.AMPL_PARAMETER:             # <<<<<<<<<<<<<<
@@ -25966,7 +25965,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
 */
     }
 
-    /* "amplpy/entity.pxi":119
+    /* "amplpy/entity.pxi":120
  *                 return entity
  *             else:
  *                 return create_entity(self.wrap_function, self._ampl, self._name, tuple_c, self)             # <<<<<<<<<<<<<<
@@ -25975,11 +25974,11 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
 */
     /*else*/ {
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_6 = ((PyObject *)__pyx_v_self->_ampl);
-      __Pyx_INCREF(__pyx_t_6);
-      __pyx_t_9 = __pyx_f_6amplpy_4ampl_create_entity(__pyx_v_self->wrap_function, ((struct __pyx_obj_6amplpy_4ampl_AMPL *)__pyx_t_6), __pyx_v_self->_name, __pyx_v_tuple_c, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_9)) __PYX_ERR(9, 119, __pyx_L1_error)
+      __pyx_t_1 = ((PyObject *)__pyx_v_self->_ampl);
+      __Pyx_INCREF(__pyx_t_1);
+      __pyx_t_9 = __pyx_f_6amplpy_4ampl_create_entity(__pyx_v_self->wrap_function, ((struct __pyx_obj_6amplpy_4ampl_AMPL *)__pyx_t_1), __pyx_v_self->_name, __pyx_v_tuple_c, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_9)) __PYX_ERR(9, 120, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_r = __pyx_t_9;
       __pyx_t_9 = 0;
       goto __pyx_L0;
@@ -25997,7 +25996,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
   __Pyx_XDECREF(__pyx_t_8);
   __Pyx_XDECREF(__pyx_t_9);
   __Pyx_AddTraceback("amplpy.ampl.Entity.get", __pyx_clineno, __pyx_lineno, __pyx_filename);
@@ -26010,7 +26009,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_10get(struct __pyx_obj_6amplpy_4
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":121
+/* "amplpy/entity.pxi":122
  *                 return create_entity(self.wrap_function, self._ampl, self._name, tuple_c, self)
  * 
  *     def find(self, index):             # <<<<<<<<<<<<<<
@@ -26058,32 +26057,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_index,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(9, 121, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(9, 122, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 121, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 122, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "find", 0) < 0) __PYX_ERR(9, 121, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "find", 0) < 0) __PYX_ERR(9, 122, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("find", 1, 1, 1, i); __PYX_ERR(9, 121, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("find", 1, 1, 1, i); __PYX_ERR(9, 122, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 121, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 122, __pyx_L3_error)
     }
     __pyx_v_index = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("find", 1, 1, 1, __pyx_nargs); __PYX_ERR(9, 121, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("find", 1, 1, 1, __pyx_nargs); __PYX_ERR(9, 122, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -26128,7 +26127,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("find", 0);
 
-  /* "amplpy/entity.pxi":128
+  /* "amplpy/entity.pxi":129
  *             The wanted instance if found, otherwise it returns `None`.
  *         """
  *         assert self.wrap_function is not None             # <<<<<<<<<<<<<<
@@ -26137,30 +26136,30 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
 */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(__pyx_assertions_enabled())) {
-    __pyx_t_1 = __Pyx_PyLong_From_AMPL_ENTITYTYPE(__pyx_v_self->wrap_function); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 128, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyLong_From_AMPL_ENTITYTYPE(__pyx_v_self->wrap_function); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 129, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_2 = (__pyx_t_1 != Py_None);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (unlikely(!__pyx_t_2)) {
       __Pyx_Raise(__pyx_builtin_AssertionError, 0, 0, 0);
-      __PYX_ERR(9, 128, __pyx_L1_error)
+      __PYX_ERR(9, 129, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(9, 128, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(9, 129, __pyx_L1_error)
   #endif
 
-  /* "amplpy/entity.pxi":131
+  /* "amplpy/entity.pxi":132
  *         cdef campl.AMPL_ERRORINFO* errorinfo
  *         cdef size_t i
  *         cdef campl.AMPL_TUPLE* index_c = to_c_tuple(index)             # <<<<<<<<<<<<<<
  *         cdef campl.AMPL_TUPLE** indices_c
  *         cdef size_t size
 */
-  __pyx_t_3 = __pyx_f_6amplpy_4ampl_to_c_tuple(__pyx_v_index); if (unlikely(__pyx_t_3 == ((AMPL_TUPLE *)0) && PyErr_Occurred())) __PYX_ERR(9, 131, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_6amplpy_4ampl_to_c_tuple(__pyx_v_index); if (unlikely(__pyx_t_3 == ((AMPL_TUPLE *)0) && PyErr_Occurred())) __PYX_ERR(9, 132, __pyx_L1_error)
   __pyx_v_index_c = __pyx_t_3;
 
-  /* "amplpy/entity.pxi":134
+  /* "amplpy/entity.pxi":135
  *         cdef campl.AMPL_TUPLE** indices_c
  *         cdef size_t size
  *         errorinfo = campl.AMPL_EntityGetTuples(self._ampl._c_ampl, self._name, &indices_c, &size)             # <<<<<<<<<<<<<<
@@ -26169,7 +26168,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
 */
   __pyx_v_errorinfo = AMPL_EntityGetTuples(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, (&__pyx_v_indices_c), (&__pyx_v_size));
 
-  /* "amplpy/entity.pxi":135
+  /* "amplpy/entity.pxi":136
  *         cdef size_t size
  *         errorinfo = campl.AMPL_EntityGetTuples(self._ampl._c_ampl, self._name, &indices_c, &size)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -26179,16 +26178,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
   __pyx_t_2 = (__pyx_v_errorinfo != 0);
   if (__pyx_t_2) {
 
-    /* "amplpy/entity.pxi":136
+    /* "amplpy/entity.pxi":137
  *         errorinfo = campl.AMPL_EntityGetTuples(self._ampl._c_ampl, self._name, &indices_c, &size)
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)             # <<<<<<<<<<<<<<
  *         for i in range(size):
  *             if campl.AMPL_TupleCompare(index_c, indices_c[i]) == 0:
 */
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 136, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 137, __pyx_L1_error)
 
-    /* "amplpy/entity.pxi":135
+    /* "amplpy/entity.pxi":136
  *         cdef size_t size
  *         errorinfo = campl.AMPL_EntityGetTuples(self._ampl._c_ampl, self._name, &indices_c, &size)
  *         if errorinfo:             # <<<<<<<<<<<<<<
@@ -26197,7 +26196,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
 */
   }
 
-  /* "amplpy/entity.pxi":137
+  /* "amplpy/entity.pxi":138
  *         if errorinfo:
  *             PY_AMPL_CALL(errorinfo)
  *         for i in range(size):             # <<<<<<<<<<<<<<
@@ -26209,7 +26208,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
   for (__pyx_t_6 = 0; __pyx_t_6 < __pyx_t_5; __pyx_t_6+=1) {
     __pyx_v_i = __pyx_t_6;
 
-    /* "amplpy/entity.pxi":138
+    /* "amplpy/entity.pxi":139
  *             PY_AMPL_CALL(errorinfo)
  *         for i in range(size):
  *             if campl.AMPL_TupleCompare(index_c, indices_c[i]) == 0:             # <<<<<<<<<<<<<<
@@ -26219,7 +26218,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
     __pyx_t_2 = (AMPL_TupleCompare(__pyx_v_index_c, (__pyx_v_indices_c[__pyx_v_i])) == 0);
     if (__pyx_t_2) {
 
-      /* "amplpy/entity.pxi":139
+      /* "amplpy/entity.pxi":140
  *         for i in range(size):
  *             if campl.AMPL_TupleCompare(index_c, indices_c[i]) == 0:
  *                 for j in range(size):             # <<<<<<<<<<<<<<
@@ -26231,7 +26230,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
       for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
         __pyx_v_j = __pyx_t_9;
 
-        /* "amplpy/entity.pxi":140
+        /* "amplpy/entity.pxi":141
  *             if campl.AMPL_TupleCompare(index_c, indices_c[i]) == 0:
  *                 for j in range(size):
  *                     campl.AMPL_TupleFree(&indices_c[j])             # <<<<<<<<<<<<<<
@@ -26241,7 +26240,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
         (void)(AMPL_TupleFree((&(__pyx_v_indices_c[__pyx_v_j]))));
       }
 
-      /* "amplpy/entity.pxi":141
+      /* "amplpy/entity.pxi":142
  *                 for j in range(size):
  *                     campl.AMPL_TupleFree(&indices_c[j])
  *                 free(indices_c)             # <<<<<<<<<<<<<<
@@ -26250,7 +26249,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
 */
       free(__pyx_v_indices_c);
 
-      /* "amplpy/entity.pxi":142
+      /* "amplpy/entity.pxi":143
  *                     campl.AMPL_TupleFree(&indices_c[j])
  *                 free(indices_c)
  *                 return create_entity(self.wrap_function, self._ampl, self._name, index_c, self)             # <<<<<<<<<<<<<<
@@ -26260,14 +26259,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
       __Pyx_XDECREF(__pyx_r);
       __pyx_t_1 = ((PyObject *)__pyx_v_self->_ampl);
       __Pyx_INCREF(__pyx_t_1);
-      __pyx_t_10 = __pyx_f_6amplpy_4ampl_create_entity(__pyx_v_self->wrap_function, ((struct __pyx_obj_6amplpy_4ampl_AMPL *)__pyx_t_1), __pyx_v_self->_name, __pyx_v_index_c, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_10)) __PYX_ERR(9, 142, __pyx_L1_error)
+      __pyx_t_10 = __pyx_f_6amplpy_4ampl_create_entity(__pyx_v_self->wrap_function, ((struct __pyx_obj_6amplpy_4ampl_AMPL *)__pyx_t_1), __pyx_v_self->_name, __pyx_v_index_c, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_10)) __PYX_ERR(9, 143, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_r = __pyx_t_10;
       __pyx_t_10 = 0;
       goto __pyx_L0;
 
-      /* "amplpy/entity.pxi":138
+      /* "amplpy/entity.pxi":139
  *             PY_AMPL_CALL(errorinfo)
  *         for i in range(size):
  *             if campl.AMPL_TupleCompare(index_c, indices_c[i]) == 0:             # <<<<<<<<<<<<<<
@@ -26277,7 +26276,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
     }
   }
 
-  /* "amplpy/entity.pxi":143
+  /* "amplpy/entity.pxi":144
  *                 free(indices_c)
  *                 return create_entity(self.wrap_function, self._ampl, self._name, index_c, self)
  *         for i in range(size):             # <<<<<<<<<<<<<<
@@ -26289,7 +26288,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
   for (__pyx_t_6 = 0; __pyx_t_6 < __pyx_t_5; __pyx_t_6+=1) {
     __pyx_v_i = __pyx_t_6;
 
-    /* "amplpy/entity.pxi":144
+    /* "amplpy/entity.pxi":145
  *                 return create_entity(self.wrap_function, self._ampl, self._name, index_c, self)
  *         for i in range(size):
  *             campl.AMPL_TupleFree(&indices_c[i])             # <<<<<<<<<<<<<<
@@ -26299,7 +26298,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
     (void)(AMPL_TupleFree((&(__pyx_v_indices_c[__pyx_v_i]))));
   }
 
-  /* "amplpy/entity.pxi":145
+  /* "amplpy/entity.pxi":146
  *         for i in range(size):
  *             campl.AMPL_TupleFree(&indices_c[i])
  *         free(indices_c)             # <<<<<<<<<<<<<<
@@ -26308,7 +26307,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
 */
   free(__pyx_v_indices_c);
 
-  /* "amplpy/entity.pxi":146
+  /* "amplpy/entity.pxi":147
  *             campl.AMPL_TupleFree(&indices_c[i])
  *         free(indices_c)
  *         campl.AMPL_TupleFree(&index_c)             # <<<<<<<<<<<<<<
@@ -26317,7 +26316,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
 */
   (void)(AMPL_TupleFree((&__pyx_v_index_c)));
 
-  /* "amplpy/entity.pxi":147
+  /* "amplpy/entity.pxi":148
  *         free(indices_c)
  *         campl.AMPL_TupleFree(&index_c)
  *         return None             # <<<<<<<<<<<<<<
@@ -26328,7 +26327,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":121
+  /* "amplpy/entity.pxi":122
  *                 return create_entity(self.wrap_function, self._ampl, self._name, tuple_c, self)
  * 
  *     def find(self, index):             # <<<<<<<<<<<<<<
@@ -26348,7 +26347,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_12find(struct __pyx_obj_6amplpy_
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":149
+/* "amplpy/entity.pxi":150
  *         return None
  * 
  *     def instances(self):             # <<<<<<<<<<<<<<
@@ -26409,7 +26408,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_14instances(struct __pyx_obj_6am
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("instances", 0);
 
-  /* "amplpy/entity.pxi":153
+  /* "amplpy/entity.pxi":154
  *         Get all the instances in this entity.
  *         """
  *         return InstanceIterator.create(self._ampl, self._name, self.wrap_function, self)             # <<<<<<<<<<<<<<
@@ -26419,14 +26418,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_14instances(struct __pyx_obj_6am
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = ((PyObject *)__pyx_v_self->_ampl);
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = __pyx_f_6amplpy_4ampl_16InstanceIterator_create(((struct __pyx_obj_6amplpy_4ampl_AMPL *)__pyx_t_1), __pyx_v_self->_name, __pyx_v_self->wrap_function, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 153, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_6amplpy_4ampl_16InstanceIterator_create(((struct __pyx_obj_6amplpy_4ampl_AMPL *)__pyx_t_1), __pyx_v_self->_name, __pyx_v_self->wrap_function, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":149
+  /* "amplpy/entity.pxi":150
  *         return None
  * 
  *     def instances(self):             # <<<<<<<<<<<<<<
@@ -26446,7 +26445,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_14instances(struct __pyx_obj_6am
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":155
+/* "amplpy/entity.pxi":156
  *         return InstanceIterator.create(self._ampl, self._name, self.wrap_function, self)
  * 
  *     def name(self):             # <<<<<<<<<<<<<<
@@ -26508,7 +26507,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_16name(struct __pyx_obj_6amplpy_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("name", 0);
 
-  /* "amplpy/entity.pxi":159
+  /* "amplpy/entity.pxi":160
  *         Get the name of this entity.
  *         """
  *         return self._name.decode('utf-8')             # <<<<<<<<<<<<<<
@@ -26517,15 +26516,15 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_16name(struct __pyx_obj_6amplpy_
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = __pyx_v_self->_name;
-  __pyx_t_2 = __Pyx_ssize_strlen(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(9, 159, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_decode_c_string(__pyx_t_1, 0, __pyx_t_2, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_3)) __PYX_ERR(9, 159, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_ssize_strlen(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(9, 160, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_decode_c_string(__pyx_t_1, 0, __pyx_t_2, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_3)) __PYX_ERR(9, 160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_t_3);
   __pyx_r = __pyx_t_3;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":155
+  /* "amplpy/entity.pxi":156
  *         return InstanceIterator.create(self._ampl, self._name, self.wrap_function, self)
  * 
  *     def name(self):             # <<<<<<<<<<<<<<
@@ -26544,7 +26543,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_16name(struct __pyx_obj_6amplpy_
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":161
+/* "amplpy/entity.pxi":162
  *         return self._name.decode('utf-8')
  * 
  *     def indexarity(self):             # <<<<<<<<<<<<<<
@@ -26606,7 +26605,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_18indexarity(struct __pyx_obj_6a
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("indexarity", 0);
 
-  /* "amplpy/entity.pxi":181
+  /* "amplpy/entity.pxi":182
  *         """
  *         cdef size_t indexarity
  *         if self._index is not NULL:             # <<<<<<<<<<<<<<
@@ -26616,7 +26615,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_18indexarity(struct __pyx_obj_6a
   __pyx_t_1 = (__pyx_v_self->_index != NULL);
   if (__pyx_t_1) {
 
-    /* "amplpy/entity.pxi":182
+    /* "amplpy/entity.pxi":183
  *         cdef size_t indexarity
  *         if self._index is not NULL:
  *             indexarity = 0             # <<<<<<<<<<<<<<
@@ -26625,7 +26624,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_18indexarity(struct __pyx_obj_6a
 */
     __pyx_v_indexarity = 0;
 
-    /* "amplpy/entity.pxi":181
+    /* "amplpy/entity.pxi":182
  *         """
  *         cdef size_t indexarity
  *         if self._index is not NULL:             # <<<<<<<<<<<<<<
@@ -26635,7 +26634,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_18indexarity(struct __pyx_obj_6a
     goto __pyx_L3;
   }
 
-  /* "amplpy/entity.pxi":184
+  /* "amplpy/entity.pxi":185
  *             indexarity = 0
  *         else:
  *             PY_AMPL_CALL(campl.AMPL_EntityGetIndexarity(self._ampl._c_ampl, self._name, &indexarity))             # <<<<<<<<<<<<<<
@@ -26643,11 +26642,11 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_18indexarity(struct __pyx_obj_6a
  * 
 */
   /*else*/ {
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetIndexarity(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, (&__pyx_v_indexarity))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 184, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetIndexarity(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, (&__pyx_v_indexarity))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 185, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "amplpy/entity.pxi":185
+  /* "amplpy/entity.pxi":186
  *         else:
  *             PY_AMPL_CALL(campl.AMPL_EntityGetIndexarity(self._ampl._c_ampl, self._name, &indexarity))
  *         return indexarity             # <<<<<<<<<<<<<<
@@ -26655,13 +26654,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_18indexarity(struct __pyx_obj_6a
  *     def is_scalar(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyLong_FromSize_t(__pyx_v_indexarity); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 185, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_FromSize_t(__pyx_v_indexarity); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 186, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":161
+  /* "amplpy/entity.pxi":162
  *         return self._name.decode('utf-8')
  * 
  *     def indexarity(self):             # <<<<<<<<<<<<<<
@@ -26680,7 +26679,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_18indexarity(struct __pyx_obj_6a
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":187
+/* "amplpy/entity.pxi":188
  *         return indexarity
  * 
  *     def is_scalar(self):             # <<<<<<<<<<<<<<
@@ -26745,7 +26744,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_20is_scalar(struct __pyx_obj_6am
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_scalar", 0);
 
-  /* "amplpy/entity.pxi":195
+  /* "amplpy/entity.pxi":196
  *             True if the entity is scalar (not indexed over any set).
  *         """
  *         try:             # <<<<<<<<<<<<<<
@@ -26761,7 +26760,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_20is_scalar(struct __pyx_obj_6am
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "amplpy/entity.pxi":196
+      /* "amplpy/entity.pxi":197
  *         """
  *         try:
  *             return self.indexarity() == 0             # <<<<<<<<<<<<<<
@@ -26776,17 +26775,17 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_20is_scalar(struct __pyx_obj_6am
         PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_indexarity, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 196, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 197, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      __pyx_t_5 = __Pyx_PyLong_EqObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_0, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(9, 196, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyLong_EqObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_0, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(9, 197, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_r = __pyx_t_5;
       __pyx_t_5 = 0;
       goto __pyx_L7_try_return;
 
-      /* "amplpy/entity.pxi":195
+      /* "amplpy/entity.pxi":196
  *             True if the entity is scalar (not indexed over any set).
  *         """
  *         try:             # <<<<<<<<<<<<<<
@@ -26798,7 +26797,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_20is_scalar(struct __pyx_obj_6am
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "amplpy/entity.pxi":197
+    /* "amplpy/entity.pxi":198
  *         try:
  *             return self.indexarity() == 0
  *         except:             # <<<<<<<<<<<<<<
@@ -26808,7 +26807,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_20is_scalar(struct __pyx_obj_6am
     /*except:*/ {
       __Pyx_ErrRestore(0,0,0);
 
-      /* "amplpy/entity.pxi":198
+      /* "amplpy/entity.pxi":199
  *             return self.indexarity() == 0
  *         except:
  *             return True             # <<<<<<<<<<<<<<
@@ -26821,7 +26820,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_20is_scalar(struct __pyx_obj_6am
       goto __pyx_L6_except_return;
     }
 
-    /* "amplpy/entity.pxi":195
+    /* "amplpy/entity.pxi":196
  *             True if the entity is scalar (not indexed over any set).
  *         """
  *         try:             # <<<<<<<<<<<<<<
@@ -26842,7 +26841,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_20is_scalar(struct __pyx_obj_6am
     goto __pyx_L0;
   }
 
-  /* "amplpy/entity.pxi":187
+  /* "amplpy/entity.pxi":188
  *         return indexarity
  * 
  *     def is_scalar(self):             # <<<<<<<<<<<<<<
@@ -26857,7 +26856,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_20is_scalar(struct __pyx_obj_6am
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":200
+/* "amplpy/entity.pxi":201
  *             return True
  * 
  *     def num_instances(self):             # <<<<<<<<<<<<<<
@@ -26922,16 +26921,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_22num_instances(struct __pyx_obj
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("num_instances", 0);
 
-  /* "amplpy/entity.pxi":205
+  /* "amplpy/entity.pxi":206
  *         """
  *         cdef size_t size
  *         PY_AMPL_CALL(campl.AMPL_EntityGetNumInstances(self._ampl._c_ampl, self._name, &size))             # <<<<<<<<<<<<<<
  *         return int(size)
  * 
 */
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetNumInstances(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, (&__pyx_v_size))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 205, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetNumInstances(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, (&__pyx_v_size))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 206, __pyx_L1_error)
 
-  /* "amplpy/entity.pxi":206
+  /* "amplpy/entity.pxi":207
  *         cdef size_t size
  *         PY_AMPL_CALL(campl.AMPL_EntityGetNumInstances(self._ampl._c_ampl, self._name, &size))
  *         return int(size)             # <<<<<<<<<<<<<<
@@ -26942,7 +26941,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_22num_instances(struct __pyx_obj
   __pyx_t_2 = NULL;
   __Pyx_INCREF((PyObject *)(&PyLong_Type));
   __pyx_t_3 = ((PyObject *)(&PyLong_Type)); 
-  __pyx_t_4 = __Pyx_PyLong_FromSize_t(__pyx_v_size); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 206, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_FromSize_t(__pyx_v_size); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 207, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   {
@@ -26951,14 +26950,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_22num_instances(struct __pyx_obj
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 206, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 207, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":200
+  /* "amplpy/entity.pxi":201
  *             return True
  * 
  *     def num_instances(self):             # <<<<<<<<<<<<<<
@@ -26980,7 +26979,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_22num_instances(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":208
+/* "amplpy/entity.pxi":209
  *         return int(size)
  * 
  *     def get_indexing_sets(self):             # <<<<<<<<<<<<<<
@@ -27051,28 +27050,28 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_24get_indexing_sets(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_indexing_sets", 0);
 
-  /* "amplpy/entity.pxi":221
+  /* "amplpy/entity.pxi":222
  *         cdef size_t size
  *         cdef char** sets
  *         cdef list pylist = []             # <<<<<<<<<<<<<<
  *         PY_AMPL_CALL(campl.AMPL_EntityGetIndexingSets(self._ampl._c_ampl, self._name, &sets, &size))
  *         for i in range(size):
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 221, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 222, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_pylist = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "amplpy/entity.pxi":222
+  /* "amplpy/entity.pxi":223
  *         cdef char** sets
  *         cdef list pylist = []
  *         PY_AMPL_CALL(campl.AMPL_EntityGetIndexingSets(self._ampl._c_ampl, self._name, &sets, &size))             # <<<<<<<<<<<<<<
  *         for i in range(size):
  *             if sets[i] != NULL:
 */
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetIndexingSets(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, (&__pyx_v_sets), (&__pyx_v_size))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 222, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetIndexingSets(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, (&__pyx_v_sets), (&__pyx_v_size))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 223, __pyx_L1_error)
 
-  /* "amplpy/entity.pxi":223
+  /* "amplpy/entity.pxi":224
  *         cdef list pylist = []
  *         PY_AMPL_CALL(campl.AMPL_EntityGetIndexingSets(self._ampl._c_ampl, self._name, &sets, &size))
  *         for i in range(size):             # <<<<<<<<<<<<<<
@@ -27084,7 +27083,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_24get_indexing_sets(struct __pyx
   for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
     __pyx_v_i = __pyx_t_4;
 
-    /* "amplpy/entity.pxi":224
+    /* "amplpy/entity.pxi":225
  *         PY_AMPL_CALL(campl.AMPL_EntityGetIndexingSets(self._ampl._c_ampl, self._name, &sets, &size))
  *         for i in range(size):
  *             if sets[i] != NULL:             # <<<<<<<<<<<<<<
@@ -27094,7 +27093,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_24get_indexing_sets(struct __pyx
     __pyx_t_5 = ((__pyx_v_sets[__pyx_v_i]) != NULL);
     if (__pyx_t_5) {
 
-      /* "amplpy/entity.pxi":225
+      /* "amplpy/entity.pxi":226
  *         for i in range(size):
  *             if sets[i] != NULL:
  *                 pylist.append(sets[i].decode('utf-8'))             # <<<<<<<<<<<<<<
@@ -27102,13 +27101,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_24get_indexing_sets(struct __pyx
  *                 pylist.append(None)
 */
       __pyx_t_6 = (__pyx_v_sets[__pyx_v_i]);
-      __pyx_t_7 = __Pyx_ssize_strlen(__pyx_t_6); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(9, 225, __pyx_L1_error)
-      __pyx_t_1 = __Pyx_decode_c_string(__pyx_t_6, 0, __pyx_t_7, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 225, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_ssize_strlen(__pyx_t_6); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(9, 226, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_decode_c_string(__pyx_t_6, 0, __pyx_t_7, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 226, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_pylist, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(9, 225, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_pylist, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(9, 226, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "amplpy/entity.pxi":224
+      /* "amplpy/entity.pxi":225
  *         PY_AMPL_CALL(campl.AMPL_EntityGetIndexingSets(self._ampl._c_ampl, self._name, &sets, &size))
  *         for i in range(size):
  *             if sets[i] != NULL:             # <<<<<<<<<<<<<<
@@ -27118,7 +27117,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_24get_indexing_sets(struct __pyx
       goto __pyx_L5;
     }
 
-    /* "amplpy/entity.pxi":227
+    /* "amplpy/entity.pxi":228
  *                 pylist.append(sets[i].decode('utf-8'))
  *             else:
  *                 pylist.append(None)             # <<<<<<<<<<<<<<
@@ -27126,11 +27125,11 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_24get_indexing_sets(struct __pyx
  *         free(sets)
 */
     /*else*/ {
-      __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_pylist, Py_None); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(9, 227, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_pylist, Py_None); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(9, 228, __pyx_L1_error)
     }
     __pyx_L5:;
 
-    /* "amplpy/entity.pxi":228
+    /* "amplpy/entity.pxi":229
  *             else:
  *                 pylist.append(None)
  *             campl.AMPL_StringFree(&sets[i])             # <<<<<<<<<<<<<<
@@ -27140,7 +27139,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_24get_indexing_sets(struct __pyx
     (void)(AMPL_StringFree((&(__pyx_v_sets[__pyx_v_i]))));
   }
 
-  /* "amplpy/entity.pxi":229
+  /* "amplpy/entity.pxi":230
  *                 pylist.append(None)
  *             campl.AMPL_StringFree(&sets[i])
  *         free(sets)             # <<<<<<<<<<<<<<
@@ -27149,7 +27148,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_24get_indexing_sets(struct __pyx
 */
   free(__pyx_v_sets);
 
-  /* "amplpy/entity.pxi":231
+  /* "amplpy/entity.pxi":232
  *         free(sets)
  * 
  *         return pylist             # <<<<<<<<<<<<<<
@@ -27161,7 +27160,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_24get_indexing_sets(struct __pyx
   __pyx_r = __pyx_v_pylist;
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":208
+  /* "amplpy/entity.pxi":209
  *         return int(size)
  * 
  *     def get_indexing_sets(self):             # <<<<<<<<<<<<<<
@@ -27181,7 +27180,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_24get_indexing_sets(struct __pyx
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":233
+/* "amplpy/entity.pxi":234
  *         return pylist
  * 
  *     def xref(self):             # <<<<<<<<<<<<<<
@@ -27252,28 +27251,28 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_26xref(struct __pyx_obj_6amplpy_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("xref", 0);
 
-  /* "amplpy/entity.pxi":242
+  /* "amplpy/entity.pxi":243
  *         cdef size_t size
  *         cdef char** xref
  *         cdef list pylist = []             # <<<<<<<<<<<<<<
  *         PY_AMPL_CALL(campl.AMPL_EntityGetXref(self._ampl._c_ampl, self._name, &xref, &size))
  *         for i in range(size):
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 242, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 243, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_pylist = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "amplpy/entity.pxi":243
+  /* "amplpy/entity.pxi":244
  *         cdef char** xref
  *         cdef list pylist = []
  *         PY_AMPL_CALL(campl.AMPL_EntityGetXref(self._ampl._c_ampl, self._name, &xref, &size))             # <<<<<<<<<<<<<<
  *         for i in range(size):
  *             if xref[i] != NULL:
 */
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetXref(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, (&__pyx_v_xref), (&__pyx_v_size))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 243, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetXref(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, (&__pyx_v_xref), (&__pyx_v_size))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 244, __pyx_L1_error)
 
-  /* "amplpy/entity.pxi":244
+  /* "amplpy/entity.pxi":245
  *         cdef list pylist = []
  *         PY_AMPL_CALL(campl.AMPL_EntityGetXref(self._ampl._c_ampl, self._name, &xref, &size))
  *         for i in range(size):             # <<<<<<<<<<<<<<
@@ -27285,7 +27284,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_26xref(struct __pyx_obj_6amplpy_
   for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
     __pyx_v_i = __pyx_t_4;
 
-    /* "amplpy/entity.pxi":245
+    /* "amplpy/entity.pxi":246
  *         PY_AMPL_CALL(campl.AMPL_EntityGetXref(self._ampl._c_ampl, self._name, &xref, &size))
  *         for i in range(size):
  *             if xref[i] != NULL:             # <<<<<<<<<<<<<<
@@ -27295,7 +27294,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_26xref(struct __pyx_obj_6amplpy_
     __pyx_t_5 = ((__pyx_v_xref[__pyx_v_i]) != NULL);
     if (__pyx_t_5) {
 
-      /* "amplpy/entity.pxi":246
+      /* "amplpy/entity.pxi":247
  *         for i in range(size):
  *             if xref[i] != NULL:
  *                 pylist.append(xref[i].decode('utf-8'))             # <<<<<<<<<<<<<<
@@ -27303,13 +27302,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_26xref(struct __pyx_obj_6amplpy_
  *             else:
 */
       __pyx_t_6 = (__pyx_v_xref[__pyx_v_i]);
-      __pyx_t_7 = __Pyx_ssize_strlen(__pyx_t_6); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(9, 246, __pyx_L1_error)
-      __pyx_t_1 = __Pyx_decode_c_string(__pyx_t_6, 0, __pyx_t_7, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 246, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_ssize_strlen(__pyx_t_6); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(9, 247, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_decode_c_string(__pyx_t_6, 0, __pyx_t_7, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 247, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_pylist, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(9, 246, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_pylist, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(9, 247, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "amplpy/entity.pxi":247
+      /* "amplpy/entity.pxi":248
  *             if xref[i] != NULL:
  *                 pylist.append(xref[i].decode('utf-8'))
  *                 campl.AMPL_StringFree(&xref[i])             # <<<<<<<<<<<<<<
@@ -27318,7 +27317,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_26xref(struct __pyx_obj_6amplpy_
 */
       (void)(AMPL_StringFree((&(__pyx_v_xref[__pyx_v_i]))));
 
-      /* "amplpy/entity.pxi":245
+      /* "amplpy/entity.pxi":246
  *         PY_AMPL_CALL(campl.AMPL_EntityGetXref(self._ampl._c_ampl, self._name, &xref, &size))
  *         for i in range(size):
  *             if xref[i] != NULL:             # <<<<<<<<<<<<<<
@@ -27328,7 +27327,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_26xref(struct __pyx_obj_6amplpy_
       goto __pyx_L5;
     }
 
-    /* "amplpy/entity.pxi":249
+    /* "amplpy/entity.pxi":250
  *                 campl.AMPL_StringFree(&xref[i])
  *             else:
  *                 pylist.append(None)             # <<<<<<<<<<<<<<
@@ -27336,12 +27335,12 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_26xref(struct __pyx_obj_6amplpy_
  *         return pylist
 */
     /*else*/ {
-      __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_pylist, Py_None); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(9, 249, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_pylist, Py_None); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(9, 250, __pyx_L1_error)
     }
     __pyx_L5:;
   }
 
-  /* "amplpy/entity.pxi":250
+  /* "amplpy/entity.pxi":251
  *             else:
  *                 pylist.append(None)
  *         free(xref)             # <<<<<<<<<<<<<<
@@ -27350,7 +27349,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_26xref(struct __pyx_obj_6amplpy_
 */
   free(__pyx_v_xref);
 
-  /* "amplpy/entity.pxi":251
+  /* "amplpy/entity.pxi":252
  *                 pylist.append(None)
  *         free(xref)
  *         return pylist             # <<<<<<<<<<<<<<
@@ -27362,7 +27361,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_26xref(struct __pyx_obj_6amplpy_
   __pyx_r = __pyx_v_pylist;
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":233
+  /* "amplpy/entity.pxi":234
  *         return pylist
  * 
  *     def xref(self):             # <<<<<<<<<<<<<<
@@ -27382,7 +27381,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_26xref(struct __pyx_obj_6amplpy_
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":253
+/* "amplpy/entity.pxi":254
  *         return pylist
  * 
  *     def get_values(self, suffixes=None):             # <<<<<<<<<<<<<<
@@ -27430,24 +27429,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_suffixes,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(9, 253, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(9, 254, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 253, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 254, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_values", 0) < 0) __PYX_ERR(9, 253, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_values", 0) < 0) __PYX_ERR(9, 254, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 253, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 254, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -27458,7 +27457,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_values", 0, 0, 1, __pyx_nargs); __PYX_ERR(9, 253, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_values", 0, 0, 1, __pyx_nargs); __PYX_ERR(9, 254, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -27501,7 +27500,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
   __Pyx_RefNannySetupContext("get_values", 0);
   __Pyx_INCREF(__pyx_v_suffixes);
 
-  /* "amplpy/entity.pxi":276
+  /* "amplpy/entity.pxi":277
  *         cdef char** suffixes_c
  *         cdef size_t n
  *         if suffixes is None:             # <<<<<<<<<<<<<<
@@ -27511,7 +27510,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
   __pyx_t_1 = (__pyx_v_suffixes == Py_None);
   if (__pyx_t_1) {
 
-    /* "amplpy/entity.pxi":277
+    /* "amplpy/entity.pxi":278
  *         cdef size_t n
  *         if suffixes is None:
  *             n = 0             # <<<<<<<<<<<<<<
@@ -27520,16 +27519,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
 */
     __pyx_v_n = 0;
 
-    /* "amplpy/entity.pxi":278
+    /* "amplpy/entity.pxi":279
  *         if suffixes is None:
  *             n = 0
  *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, NULL, n, &df_c))             # <<<<<<<<<<<<<<
  *         else:
  *             if isinstance(suffixes, str):
 */
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetValues(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, NULL, __pyx_v_n, (&__pyx_v_df_c))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 278, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetValues(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, NULL, __pyx_v_n, (&__pyx_v_df_c))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 279, __pyx_L1_error)
 
-    /* "amplpy/entity.pxi":276
+    /* "amplpy/entity.pxi":277
  *         cdef char** suffixes_c
  *         cdef size_t n
  *         if suffixes is None:             # <<<<<<<<<<<<<<
@@ -27539,7 +27538,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
     goto __pyx_L3;
   }
 
-  /* "amplpy/entity.pxi":280
+  /* "amplpy/entity.pxi":281
  *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, NULL, n, &df_c))
  *         else:
  *             if isinstance(suffixes, str):             # <<<<<<<<<<<<<<
@@ -27550,22 +27549,22 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
     __pyx_t_1 = PyUnicode_Check(__pyx_v_suffixes); 
     if (__pyx_t_1) {
 
-      /* "amplpy/entity.pxi":281
+      /* "amplpy/entity.pxi":282
  *         else:
  *             if isinstance(suffixes, str):
  *                 suffixes = [suffixes]             # <<<<<<<<<<<<<<
  *             else:
  *                 suffixes = list(map(str, suffixes))
 */
-      __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 281, __pyx_L1_error)
+      __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 282, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_INCREF(__pyx_v_suffixes);
       __Pyx_GIVEREF(__pyx_v_suffixes);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_v_suffixes) != (0)) __PYX_ERR(9, 281, __pyx_L1_error);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_v_suffixes) != (0)) __PYX_ERR(9, 282, __pyx_L1_error);
       __Pyx_DECREF_SET(__pyx_v_suffixes, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "amplpy/entity.pxi":280
+      /* "amplpy/entity.pxi":281
  *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, NULL, n, &df_c))
  *         else:
  *             if isinstance(suffixes, str):             # <<<<<<<<<<<<<<
@@ -27575,7 +27574,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
       goto __pyx_L4;
     }
 
-    /* "amplpy/entity.pxi":283
+    /* "amplpy/entity.pxi":284
  *                 suffixes = [suffixes]
  *             else:
  *                 suffixes = list(map(str, suffixes))             # <<<<<<<<<<<<<<
@@ -27592,10 +27591,10 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
         __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 283, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 284, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
-      __pyx_t_4 = __Pyx_PySequence_ListKeepNew(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 283, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PySequence_ListKeepNew(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 284, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF_SET(__pyx_v_suffixes, __pyx_t_4);
@@ -27603,36 +27602,36 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
     }
     __pyx_L4:;
 
-    /* "amplpy/entity.pxi":284
+    /* "amplpy/entity.pxi":285
  *             else:
  *                 suffixes = list(map(str, suffixes))
  *             suffixes_c = <char**> malloc(len(suffixes) * sizeof(char*))             # <<<<<<<<<<<<<<
  *             for i in range(len(suffixes)):
  *                 suffixes_c[i] = strdup(suffixes[i].encode('utf-8'))
 */
-    __pyx_t_6 = PyObject_Length(__pyx_v_suffixes); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(9, 284, __pyx_L1_error)
+    __pyx_t_6 = PyObject_Length(__pyx_v_suffixes); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(9, 285, __pyx_L1_error)
     __pyx_v_suffixes_c = ((char **)malloc((__pyx_t_6 * (sizeof(char *)))));
 
-    /* "amplpy/entity.pxi":285
+    /* "amplpy/entity.pxi":286
  *                 suffixes = list(map(str, suffixes))
  *             suffixes_c = <char**> malloc(len(suffixes) * sizeof(char*))
  *             for i in range(len(suffixes)):             # <<<<<<<<<<<<<<
  *                 suffixes_c[i] = strdup(suffixes[i].encode('utf-8'))
  *             n = len(suffixes)
 */
-    __pyx_t_6 = PyObject_Length(__pyx_v_suffixes); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(9, 285, __pyx_L1_error)
+    __pyx_t_6 = PyObject_Length(__pyx_v_suffixes); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(9, 286, __pyx_L1_error)
     __pyx_t_7 = __pyx_t_6;
     for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
       __pyx_v_i = __pyx_t_8;
 
-      /* "amplpy/entity.pxi":286
+      /* "amplpy/entity.pxi":287
  *             suffixes_c = <char**> malloc(len(suffixes) * sizeof(char*))
  *             for i in range(len(suffixes)):
  *                 suffixes_c[i] = strdup(suffixes[i].encode('utf-8'))             # <<<<<<<<<<<<<<
  *             n = len(suffixes)
  *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, <const char* const*>suffixes_c, n, &df_c))
 */
-      __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_suffixes, __pyx_v_i, Py_ssize_t, 1, PyLong_FromSsize_t, 0, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(9, 286, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_GetItemInt(__pyx_v_suffixes, __pyx_v_i, Py_ssize_t, 1, PyLong_FromSsize_t, 0, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(9, 287, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_2 = __pyx_t_3;
       __Pyx_INCREF(__pyx_t_2);
@@ -27642,46 +27641,46 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 286, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 287, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      __pyx_t_9 = __Pyx_PyObject_AsString(__pyx_t_4); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(9, 286, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyObject_AsString(__pyx_t_4); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(9, 287, __pyx_L1_error)
       (__pyx_v_suffixes_c[__pyx_v_i]) = strdup(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
 
-    /* "amplpy/entity.pxi":287
+    /* "amplpy/entity.pxi":288
  *             for i in range(len(suffixes)):
  *                 suffixes_c[i] = strdup(suffixes[i].encode('utf-8'))
  *             n = len(suffixes)             # <<<<<<<<<<<<<<
  *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, <const char* const*>suffixes_c, n, &df_c))
  *             for i in range(len(suffixes)):
 */
-    __pyx_t_6 = PyObject_Length(__pyx_v_suffixes); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(9, 287, __pyx_L1_error)
+    __pyx_t_6 = PyObject_Length(__pyx_v_suffixes); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(9, 288, __pyx_L1_error)
     __pyx_v_n = __pyx_t_6;
 
-    /* "amplpy/entity.pxi":288
+    /* "amplpy/entity.pxi":289
  *                 suffixes_c[i] = strdup(suffixes[i].encode('utf-8'))
  *             n = len(suffixes)
  *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, <const char* const*>suffixes_c, n, &df_c))             # <<<<<<<<<<<<<<
  *             for i in range(len(suffixes)):
  *                 free(suffixes_c[i])
 */
-    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetValues(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, ((char const *const *)__pyx_v_suffixes_c), __pyx_v_n, (&__pyx_v_df_c))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 288, __pyx_L1_error)
+    __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_EntityGetValues(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, ((char const *const *)__pyx_v_suffixes_c), __pyx_v_n, (&__pyx_v_df_c))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 289, __pyx_L1_error)
 
-    /* "amplpy/entity.pxi":289
+    /* "amplpy/entity.pxi":290
  *             n = len(suffixes)
  *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, <const char* const*>suffixes_c, n, &df_c))
  *             for i in range(len(suffixes)):             # <<<<<<<<<<<<<<
  *                 free(suffixes_c[i])
  *             free(suffixes_c)
 */
-    __pyx_t_6 = PyObject_Length(__pyx_v_suffixes); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(9, 289, __pyx_L1_error)
+    __pyx_t_6 = PyObject_Length(__pyx_v_suffixes); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(9, 290, __pyx_L1_error)
     __pyx_t_7 = __pyx_t_6;
     for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
       __pyx_v_i = __pyx_t_8;
 
-      /* "amplpy/entity.pxi":290
+      /* "amplpy/entity.pxi":291
  *             PY_AMPL_CALL(campl.AMPL_EntityGetValues(self._ampl._c_ampl, self._name, <const char* const*>suffixes_c, n, &df_c))
  *             for i in range(len(suffixes)):
  *                 free(suffixes_c[i])             # <<<<<<<<<<<<<<
@@ -27691,7 +27690,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
       free((__pyx_v_suffixes_c[__pyx_v_i]));
     }
 
-    /* "amplpy/entity.pxi":291
+    /* "amplpy/entity.pxi":292
  *             for i in range(len(suffixes)):
  *                 free(suffixes_c[i])
  *             free(suffixes_c)             # <<<<<<<<<<<<<<
@@ -27702,7 +27701,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
   }
   __pyx_L3:;
 
-  /* "amplpy/entity.pxi":293
+  /* "amplpy/entity.pxi":294
  *             free(suffixes_c)
  * 
  *         return DataFrame.create(df_c)             # <<<<<<<<<<<<<<
@@ -27710,13 +27709,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
  *     def to_pandas(self, **kwargs):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_4 = __pyx_f_6amplpy_4ampl_9DataFrame_create(__pyx_v_df_c); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 293, __pyx_L1_error)
+  __pyx_t_4 = __pyx_f_6amplpy_4ampl_9DataFrame_create(__pyx_v_df_c); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 294, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":253
+  /* "amplpy/entity.pxi":254
  *         return pylist
  * 
  *     def get_values(self, suffixes=None):             # <<<<<<<<<<<<<<
@@ -27738,7 +27737,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_28get_values(struct __pyx_obj_6a
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":295
+/* "amplpy/entity.pxi":296
  *         return DataFrame.create(df_c)
  * 
  *     def to_pandas(self, **kwargs):             # <<<<<<<<<<<<<<
@@ -27812,7 +27811,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_30to_pandas(struct __pyx_obj_6am
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_pandas", 0);
 
-  /* "amplpy/entity.pxi":299
+  /* "amplpy/entity.pxi":300
  *         Equivalent to ``Entity.get_values().``:func:`~amplpy.DataFrame.to_pandas`.
  *         """
  *         return self.get_values().to_pandas(**kwargs)             # <<<<<<<<<<<<<<
@@ -27827,15 +27826,15 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_30to_pandas(struct __pyx_obj_6am
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_values, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 299, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 300, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_to_pandas); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 299, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_to_pandas); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 300, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 299, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 300, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 299, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 300, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -27843,7 +27842,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_30to_pandas(struct __pyx_obj_6am
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":295
+  /* "amplpy/entity.pxi":296
  *         return DataFrame.create(df_c)
  * 
  *     def to_pandas(self, **kwargs):             # <<<<<<<<<<<<<<
@@ -27864,7 +27863,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_30to_pandas(struct __pyx_obj_6am
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":301
+/* "amplpy/entity.pxi":302
  *         return self.get_values().to_pandas(**kwargs)
  * 
  *     def to_dict(self, **kwargs):             # <<<<<<<<<<<<<<
@@ -27938,7 +27937,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_32to_dict(struct __pyx_obj_6ampl
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_dict", 0);
 
-  /* "amplpy/entity.pxi":305
+  /* "amplpy/entity.pxi":306
  *         Equivalent to ``Entity.get_values().``:func:`~amplpy.DataFrame.to_dict`.
  *         """
  *         return self.get_values().to_dict(**kwargs)             # <<<<<<<<<<<<<<
@@ -27953,15 +27952,15 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_32to_dict(struct __pyx_obj_6ampl
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_values, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 305, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 306, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_to_dict); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 305, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_to_dict); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 306, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 305, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 306, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 305, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 306, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -27969,7 +27968,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_32to_dict(struct __pyx_obj_6ampl
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":301
+  /* "amplpy/entity.pxi":302
  *         return self.get_values().to_pandas(**kwargs)
  * 
  *     def to_dict(self, **kwargs):             # <<<<<<<<<<<<<<
@@ -27990,7 +27989,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_32to_dict(struct __pyx_obj_6ampl
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":307
+/* "amplpy/entity.pxi":308
  *         return self.get_values().to_dict(**kwargs)
  * 
  *     def to_list(self, **kwargs):             # <<<<<<<<<<<<<<
@@ -28064,7 +28063,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_34to_list(struct __pyx_obj_6ampl
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_list", 0);
 
-  /* "amplpy/entity.pxi":311
+  /* "amplpy/entity.pxi":312
  *         Equivalent to ``Entity.get_values().``:func:`~amplpy.DataFrame.to_list`.
  *         """
  *         return self.get_values().to_list(**kwargs)             # <<<<<<<<<<<<<<
@@ -28079,15 +28078,15 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_34to_list(struct __pyx_obj_6ampl
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_values, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 311, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 312, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_to_list); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 311, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_to_list); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 312, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 311, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 312, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 311, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 312, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -28095,7 +28094,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_34to_list(struct __pyx_obj_6ampl
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "amplpy/entity.pxi":307
+  /* "amplpy/entity.pxi":308
  *         return self.get_values().to_dict(**kwargs)
  * 
  *     def to_list(self, **kwargs):             # <<<<<<<<<<<<<<
@@ -28116,7 +28115,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_34to_list(struct __pyx_obj_6ampl
   return __pyx_r;
 }
 
-/* "amplpy/entity.pxi":313
+/* "amplpy/entity.pxi":314
  *         return self.get_values().to_list(**kwargs)
  * 
  *     def set_values(self, data):             # <<<<<<<<<<<<<<
@@ -28164,32 +28163,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_data,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(9, 313, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(9, 314, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 313, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 314, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "set_values", 0) < 0) __PYX_ERR(9, 313, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "set_values", 0) < 0) __PYX_ERR(9, 314, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("set_values", 1, 1, 1, i); __PYX_ERR(9, 313, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("set_values", 1, 1, 1, i); __PYX_ERR(9, 314, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 313, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(9, 314, __pyx_L3_error)
     }
     __pyx_v_data = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("set_values", 1, 1, 1, __pyx_nargs); __PYX_ERR(9, 313, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("set_values", 1, 1, 1, __pyx_nargs); __PYX_ERR(9, 314, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -28233,16 +28232,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("set_values", 0);
 
-  /* "amplpy/entity.pxi":338
+  /* "amplpy/entity.pxi":339
  *         cdef campl.AMPL_DATAFRAME* df_c
  *         cdef char* _name_c
  *         PY_AMPL_CALL(campl.AMPL_InstanceGetName(self._ampl._c_ampl, self._name, self._index, &_name_c))             # <<<<<<<<<<<<<<
  *         if isinstance(data, DataFrame):
  *             df = data
 */
-  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_InstanceGetName(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, __pyx_v_self->_index, (&__pyx_v__name_c))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 338, __pyx_L1_error)
+  __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(AMPL_InstanceGetName(__pyx_v_self->_ampl->_c_ampl, __pyx_v_self->_name, __pyx_v_self->_index, (&__pyx_v__name_c))); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 339, __pyx_L1_error)
 
-  /* "amplpy/entity.pxi":339
+  /* "amplpy/entity.pxi":340
  *         cdef char* _name_c
  *         PY_AMPL_CALL(campl.AMPL_InstanceGetName(self._ampl._c_ampl, self._name, self._index, &_name_c))
  *         if isinstance(data, DataFrame):             # <<<<<<<<<<<<<<
@@ -28252,7 +28251,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_data, __pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_DataFrame); 
   if (__pyx_t_1) {
 
-    /* "amplpy/entity.pxi":340
+    /* "amplpy/entity.pxi":341
  *         PY_AMPL_CALL(campl.AMPL_InstanceGetName(self._ampl._c_ampl, self._name, self._index, &_name_c))
  *         if isinstance(data, DataFrame):
  *             df = data             # <<<<<<<<<<<<<<
@@ -28261,21 +28260,21 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
     __pyx_t_2 = __pyx_v_data;
     __Pyx_INCREF(__pyx_t_2);
-    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_DataFrame))))) __PYX_ERR(9, 340, __pyx_L1_error)
+    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_DataFrame))))) __PYX_ERR(9, 341, __pyx_L1_error)
     __pyx_v_df = ((struct __pyx_obj_6amplpy_4ampl_DataFrame *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "amplpy/entity.pxi":341
+    /* "amplpy/entity.pxi":342
  *         if isinstance(data, DataFrame):
  *             df = data
  *             df_c = df.get_ptr()             # <<<<<<<<<<<<<<
  *             errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *             campl.AMPL_StringFree(&_name_c)
 */
-    __pyx_t_3 = ((struct __pyx_vtabstruct_6amplpy_4ampl_DataFrame *)__pyx_v_df->__pyx_vtab)->get_ptr(__pyx_v_df); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 341, __pyx_L1_error)
+    __pyx_t_3 = ((struct __pyx_vtabstruct_6amplpy_4ampl_DataFrame *)__pyx_v_df->__pyx_vtab)->get_ptr(__pyx_v_df); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 342, __pyx_L1_error)
     __pyx_v_df_c = __pyx_t_3;
 
-    /* "amplpy/entity.pxi":342
+    /* "amplpy/entity.pxi":343
  *             df = data
  *             df_c = df.get_ptr()
  *             errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)             # <<<<<<<<<<<<<<
@@ -28284,7 +28283,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
     __pyx_v_errorinfo = AMPL_EntitySetValues(__pyx_v_self->_ampl->_c_ampl, __pyx_v__name_c, __pyx_v_df_c);
 
-    /* "amplpy/entity.pxi":343
+    /* "amplpy/entity.pxi":344
  *             df_c = df.get_ptr()
  *             errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *             campl.AMPL_StringFree(&_name_c)             # <<<<<<<<<<<<<<
@@ -28293,7 +28292,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
     (void)(AMPL_StringFree((&__pyx_v__name_c)));
 
-    /* "amplpy/entity.pxi":344
+    /* "amplpy/entity.pxi":345
  *             errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *             campl.AMPL_StringFree(&_name_c)
  *             if errorinfo:             # <<<<<<<<<<<<<<
@@ -28303,16 +28302,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
     __pyx_t_1 = (__pyx_v_errorinfo != 0);
     if (__pyx_t_1) {
 
-      /* "amplpy/entity.pxi":345
+      /* "amplpy/entity.pxi":346
  *             campl.AMPL_StringFree(&_name_c)
  *             if errorinfo:
  *                 PY_AMPL_CALL(errorinfo)             # <<<<<<<<<<<<<<
  *         elif isinstance(data, dict):
  *             df = DataFrame.from_dict(data)
 */
-      __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 345, __pyx_L1_error)
+      __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 346, __pyx_L1_error)
 
-      /* "amplpy/entity.pxi":344
+      /* "amplpy/entity.pxi":345
  *             errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *             campl.AMPL_StringFree(&_name_c)
  *             if errorinfo:             # <<<<<<<<<<<<<<
@@ -28321,7 +28320,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
     }
 
-    /* "amplpy/entity.pxi":339
+    /* "amplpy/entity.pxi":340
  *         cdef char* _name_c
  *         PY_AMPL_CALL(campl.AMPL_InstanceGetName(self._ampl._c_ampl, self._name, self._index, &_name_c))
  *         if isinstance(data, DataFrame):             # <<<<<<<<<<<<<<
@@ -28331,7 +28330,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
     goto __pyx_L3;
   }
 
-  /* "amplpy/entity.pxi":346
+  /* "amplpy/entity.pxi":347
  *             if errorinfo:
  *                 PY_AMPL_CALL(errorinfo)
  *         elif isinstance(data, dict):             # <<<<<<<<<<<<<<
@@ -28341,7 +28340,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
   __pyx_t_1 = PyDict_Check(__pyx_v_data); 
   if (__pyx_t_1) {
 
-    /* "amplpy/entity.pxi":347
+    /* "amplpy/entity.pxi":348
  *                 PY_AMPL_CALL(errorinfo)
  *         elif isinstance(data, dict):
  *             df = DataFrame.from_dict(data)             # <<<<<<<<<<<<<<
@@ -28355,24 +28354,24 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_data};
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_from_dict, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 347, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 348, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_DataFrame))))) __PYX_ERR(9, 347, __pyx_L1_error)
+    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_DataFrame))))) __PYX_ERR(9, 348, __pyx_L1_error)
     __pyx_v_df = ((struct __pyx_obj_6amplpy_4ampl_DataFrame *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "amplpy/entity.pxi":348
+    /* "amplpy/entity.pxi":349
  *         elif isinstance(data, dict):
  *             df = DataFrame.from_dict(data)
  *             df_c = df.get_ptr()             # <<<<<<<<<<<<<<
  *             errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *             campl.AMPL_StringFree(&_name_c)
 */
-    __pyx_t_3 = ((struct __pyx_vtabstruct_6amplpy_4ampl_DataFrame *)__pyx_v_df->__pyx_vtab)->get_ptr(__pyx_v_df); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 348, __pyx_L1_error)
+    __pyx_t_3 = ((struct __pyx_vtabstruct_6amplpy_4ampl_DataFrame *)__pyx_v_df->__pyx_vtab)->get_ptr(__pyx_v_df); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 349, __pyx_L1_error)
     __pyx_v_df_c = __pyx_t_3;
 
-    /* "amplpy/entity.pxi":349
+    /* "amplpy/entity.pxi":350
  *             df = DataFrame.from_dict(data)
  *             df_c = df.get_ptr()
  *             errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)             # <<<<<<<<<<<<<<
@@ -28381,7 +28380,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
     __pyx_v_errorinfo = AMPL_EntitySetValues(__pyx_v_self->_ampl->_c_ampl, __pyx_v__name_c, __pyx_v_df_c);
 
-    /* "amplpy/entity.pxi":350
+    /* "amplpy/entity.pxi":351
  *             df_c = df.get_ptr()
  *             errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *             campl.AMPL_StringFree(&_name_c)             # <<<<<<<<<<<<<<
@@ -28390,7 +28389,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
     (void)(AMPL_StringFree((&__pyx_v__name_c)));
 
-    /* "amplpy/entity.pxi":351
+    /* "amplpy/entity.pxi":352
  *             errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *             campl.AMPL_StringFree(&_name_c)
  *             if errorinfo:             # <<<<<<<<<<<<<<
@@ -28400,16 +28399,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
     __pyx_t_1 = (__pyx_v_errorinfo != 0);
     if (__pyx_t_1) {
 
-      /* "amplpy/entity.pxi":352
+      /* "amplpy/entity.pxi":353
  *             campl.AMPL_StringFree(&_name_c)
  *             if errorinfo:
  *                 PY_AMPL_CALL(errorinfo)             # <<<<<<<<<<<<<<
  *         else:
  *             if pd is not None and isinstance(data, (pd.DataFrame, pd.Series)):
 */
-      __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 352, __pyx_L1_error)
+      __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 353, __pyx_L1_error)
 
-      /* "amplpy/entity.pxi":351
+      /* "amplpy/entity.pxi":352
  *             errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *             campl.AMPL_StringFree(&_name_c)
  *             if errorinfo:             # <<<<<<<<<<<<<<
@@ -28418,7 +28417,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
     }
 
-    /* "amplpy/entity.pxi":346
+    /* "amplpy/entity.pxi":347
  *             if errorinfo:
  *                 PY_AMPL_CALL(errorinfo)
  *         elif isinstance(data, dict):             # <<<<<<<<<<<<<<
@@ -28428,7 +28427,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
     goto __pyx_L3;
   }
 
-  /* "amplpy/entity.pxi":354
+  /* "amplpy/entity.pxi":355
  *                 PY_AMPL_CALL(errorinfo)
  *         else:
  *             if pd is not None and isinstance(data, (pd.DataFrame, pd.Series)):             # <<<<<<<<<<<<<<
@@ -28436,7 +28435,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
  *                 df_c = df.get_ptr()
 */
   /*else*/ {
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_pd); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 354, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_pd); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 355, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_6 = (__pyx_t_2 != Py_None);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -28445,14 +28444,14 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
       __pyx_t_1 = __pyx_t_6;
       goto __pyx_L7_bool_binop_done;
     }
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_pd); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 354, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_pd); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 355, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_DataFrame); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 354, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_DataFrame); if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 355, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_pd); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 354, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_pd); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 355, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Series); if (unlikely(!__pyx_t_7)) __PYX_ERR(9, 354, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Series); if (unlikely(!__pyx_t_7)) __PYX_ERR(9, 355, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_8 = PyObject_IsInstance(__pyx_v_data, __pyx_t_4); 
@@ -28470,7 +28469,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
     __pyx_L7_bool_binop_done:;
     if (__pyx_t_1) {
 
-      /* "amplpy/entity.pxi":355
+      /* "amplpy/entity.pxi":356
  *         else:
  *             if pd is not None and isinstance(data, (pd.DataFrame, pd.Series)):
  *                 df = DataFrame.from_pandas(data, indexarity=self.indexarity())             # <<<<<<<<<<<<<<
@@ -28486,37 +28485,37 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
         PyObject *__pyx_callargs[2] = {__pyx_t_9, NULL};
         __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_indexarity, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 355, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 356, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __pyx_t_5 = 0;
       {
         PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_7, __pyx_v_data};
-        __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(9, 355, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(9, 356, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_indexarity, __pyx_t_2, __pyx_t_9, __pyx_callargs+2, 0) < 0) __PYX_ERR(9, 355, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_indexarity, __pyx_t_2, __pyx_t_9, __pyx_callargs+2, 0) < 0) __PYX_ERR(9, 356, __pyx_L1_error)
         __pyx_t_4 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_from_pandas, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 355, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 356, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_DataFrame))))) __PYX_ERR(9, 355, __pyx_L1_error)
+      if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_DataFrame))))) __PYX_ERR(9, 356, __pyx_L1_error)
       __pyx_v_df = ((struct __pyx_obj_6amplpy_4ampl_DataFrame *)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "amplpy/entity.pxi":356
+      /* "amplpy/entity.pxi":357
  *             if pd is not None and isinstance(data, (pd.DataFrame, pd.Series)):
  *                 df = DataFrame.from_pandas(data, indexarity=self.indexarity())
  *                 df_c = df.get_ptr()             # <<<<<<<<<<<<<<
  *                 errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *                 campl.AMPL_StringFree(&_name_c)
 */
-      __pyx_t_3 = ((struct __pyx_vtabstruct_6amplpy_4ampl_DataFrame *)__pyx_v_df->__pyx_vtab)->get_ptr(__pyx_v_df); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 356, __pyx_L1_error)
+      __pyx_t_3 = ((struct __pyx_vtabstruct_6amplpy_4ampl_DataFrame *)__pyx_v_df->__pyx_vtab)->get_ptr(__pyx_v_df); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 357, __pyx_L1_error)
       __pyx_v_df_c = __pyx_t_3;
 
-      /* "amplpy/entity.pxi":357
+      /* "amplpy/entity.pxi":358
  *                 df = DataFrame.from_pandas(data, indexarity=self.indexarity())
  *                 df_c = df.get_ptr()
  *                 errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)             # <<<<<<<<<<<<<<
@@ -28525,7 +28524,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
       __pyx_v_errorinfo = AMPL_EntitySetValues(__pyx_v_self->_ampl->_c_ampl, __pyx_v__name_c, __pyx_v_df_c);
 
-      /* "amplpy/entity.pxi":358
+      /* "amplpy/entity.pxi":359
  *                 df_c = df.get_ptr()
  *                 errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *                 campl.AMPL_StringFree(&_name_c)             # <<<<<<<<<<<<<<
@@ -28534,7 +28533,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
       (void)(AMPL_StringFree((&__pyx_v__name_c)));
 
-      /* "amplpy/entity.pxi":359
+      /* "amplpy/entity.pxi":360
  *                 errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *                 campl.AMPL_StringFree(&_name_c)
  *                 if errorinfo:             # <<<<<<<<<<<<<<
@@ -28544,16 +28543,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
       __pyx_t_1 = (__pyx_v_errorinfo != 0);
       if (__pyx_t_1) {
 
-        /* "amplpy/entity.pxi":360
+        /* "amplpy/entity.pxi":361
  *                 campl.AMPL_StringFree(&_name_c)
  *                 if errorinfo:
  *                     PY_AMPL_CALL(errorinfo)             # <<<<<<<<<<<<<<
  *                 return
  *             raise TypeError(f"Unexpected data type: {type(data)}.")
 */
-        __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 360, __pyx_L1_error)
+        __pyx_f_6amplpy_4ampl_PY_AMPL_CALL(__pyx_v_errorinfo); if (unlikely(PyErr_Occurred())) __PYX_ERR(9, 361, __pyx_L1_error)
 
-        /* "amplpy/entity.pxi":359
+        /* "amplpy/entity.pxi":360
  *                 errorinfo = campl.AMPL_EntitySetValues(self._ampl._c_ampl, _name_c, df_c)
  *                 campl.AMPL_StringFree(&_name_c)
  *                 if errorinfo:             # <<<<<<<<<<<<<<
@@ -28562,7 +28561,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
       }
 
-      /* "amplpy/entity.pxi":361
+      /* "amplpy/entity.pxi":362
  *                 if errorinfo:
  *                     PY_AMPL_CALL(errorinfo)
  *                 return             # <<<<<<<<<<<<<<
@@ -28573,7 +28572,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
       __pyx_r = Py_None; __Pyx_INCREF(Py_None);
       goto __pyx_L0;
 
-      /* "amplpy/entity.pxi":354
+      /* "amplpy/entity.pxi":355
  *                 PY_AMPL_CALL(errorinfo)
  *         else:
  *             if pd is not None and isinstance(data, (pd.DataFrame, pd.Series)):             # <<<<<<<<<<<<<<
@@ -28582,7 +28581,7 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
 */
     }
 
-    /* "amplpy/entity.pxi":362
+    /* "amplpy/entity.pxi":363
  *                     PY_AMPL_CALL(errorinfo)
  *                 return
  *             raise TypeError(f"Unexpected data type: {type(data)}.")             # <<<<<<<<<<<<<<
@@ -28592,13 +28591,13 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
     __pyx_t_9 = NULL;
     __Pyx_INCREF(__pyx_builtin_TypeError);
     __pyx_t_2 = __pyx_builtin_TypeError; 
-    __pyx_t_7 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_data)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(9, 362, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_data)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(9, 363, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_10[0] = __pyx_mstate_global->__pyx_kp_u_Unexpected_data_type;
     __pyx_t_10[1] = __pyx_t_7;
     __pyx_t_10[2] = __pyx_mstate_global->__pyx_kp_u__2;
     __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_10, 3, 22 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7));
-    if (unlikely(!__pyx_t_11)) __PYX_ERR(9, 362, __pyx_L1_error)
+    if (unlikely(!__pyx_t_11)) __PYX_ERR(9, 363, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_5 = 1;
@@ -28608,16 +28607,16 @@ static PyObject *__pyx_pf_6amplpy_4ampl_6Entity_36set_values(struct __pyx_obj_6a
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 362, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(9, 363, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(9, 362, __pyx_L1_error)
+    __PYX_ERR(9, 363, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "amplpy/entity.pxi":313
+  /* "amplpy/entity.pxi":314
  *         return self.get_values().to_list(**kwargs)
  * 
  *     def set_values(self, data):             # <<<<<<<<<<<<<<
@@ -53287,7 +53286,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_6amplpy_4ampl_4AMPL_28solve, "AMPL.solve(self, problem='', solver='', verbose=True, return_output=False, **kwargs)\nSolve the current model or the problem specified by ``problem``.\n\nArgs:\n    problem: Name of the problem to solve.\n\n    solver: Name of the solver to use.\n\n    verbose: Display verbose output if set to ``True``.\n\n    return_output: Return output as a string if set to ``True``.\n\n    kwargs: Pass ``solvername_options`` as additional arguments.\n\nRaises:\n    RuntimeError: if the underlying interpreter is not running.");
+PyDoc_STRVAR(__pyx_doc_6amplpy_4ampl_4AMPL_28solve, "AMPL.solve(self, problem='', solver='', verbose=True, return_output=False, **kwargs)\nSolve the current model or the problem specified by ``problem``.\n\nArgs:\n    problem: Name of the problem or objective to solve.\n\n    solver: Name of the solver to use.\n\n    verbose: Display verbose output if set to ``True``.\n\n    return_output: Return output as a string if set to ``True``.\n\n    kwargs: Pass ``solvername_options`` as additional arguments.\n\nRaises:\n    RuntimeError: if the underlying interpreter is not running.");
 static PyMethodDef __pyx_mdef_6amplpy_4ampl_4AMPL_29solve = {"solve", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6amplpy_4ampl_4AMPL_29solve, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6amplpy_4ampl_4AMPL_28solve};
 static PyObject *__pyx_pw_6amplpy_4ampl_4AMPL_29solve(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -78694,230 +78693,230 @@ __Pyx_RefNannySetupContext("PyInit_ampl", 0);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_get, __pyx_t_2) < 0) __PYX_ERR(9, 93, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":121
+  /* "amplpy/entity.pxi":122
  *                 return create_entity(self.wrap_function, self._ampl, self._name, tuple_c, self)
  * 
  *     def find(self, index):             # <<<<<<<<<<<<<<
  *         """
  *         Searches the current entity for an instance with the specified index.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_13find, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_find, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[99])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 121, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_13find, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_find, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[99])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_find, __pyx_t_2) < 0) __PYX_ERR(9, 121, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_find, __pyx_t_2) < 0) __PYX_ERR(9, 122, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":149
+  /* "amplpy/entity.pxi":150
  *         return None
  * 
  *     def instances(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get all the instances in this entity.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_15instances, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_instances, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[100])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 149, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_15instances, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_instances, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[100])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 150, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_instances, __pyx_t_2) < 0) __PYX_ERR(9, 149, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_instances, __pyx_t_2) < 0) __PYX_ERR(9, 150, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":155
+  /* "amplpy/entity.pxi":156
  *         return InstanceIterator.create(self._ampl, self._name, self.wrap_function, self)
  * 
  *     def name(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get the name of this entity.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_17name, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_name, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[101])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 155, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_17name, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_name, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[101])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_name, __pyx_t_2) < 0) __PYX_ERR(9, 155, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_name, __pyx_t_2) < 0) __PYX_ERR(9, 156, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":161
+  /* "amplpy/entity.pxi":162
  *         return self._name.decode('utf-8')
  * 
  *     def indexarity(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get the indexarity of this entity (sum of the dimensions of the
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_19indexarity, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_indexarity, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[102])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 161, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_19indexarity, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_indexarity, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[102])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_indexarity, __pyx_t_2) < 0) __PYX_ERR(9, 161, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_indexarity, __pyx_t_2) < 0) __PYX_ERR(9, 162, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":187
+  /* "amplpy/entity.pxi":188
  *         return indexarity
  * 
  *     def is_scalar(self):             # <<<<<<<<<<<<<<
  *         """
  *         Check whether this entity is scalar. Equivalent to testing whether
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_21is_scalar, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_is_scalar, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[103])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 187, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_21is_scalar, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_is_scalar, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[103])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_is_scalar, __pyx_t_2) < 0) __PYX_ERR(9, 187, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_is_scalar, __pyx_t_2) < 0) __PYX_ERR(9, 188, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":200
+  /* "amplpy/entity.pxi":201
  *             return True
  * 
  *     def num_instances(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get the number of instances in this entity.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_23num_instances, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_num_instances, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[104])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 200, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_23num_instances, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_num_instances, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[104])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_num_instances, __pyx_t_2) < 0) __PYX_ERR(9, 200, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_num_instances, __pyx_t_2) < 0) __PYX_ERR(9, 201, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":208
+  /* "amplpy/entity.pxi":209
  *         return int(size)
  * 
  *     def get_indexing_sets(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get the AMPL string representation of the sets on which this entity is
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_25get_indexing_sets, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_get_indexing_sets, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[105])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 208, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_25get_indexing_sets, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_get_indexing_sets, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[105])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 209, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_get_indexing_sets, __pyx_t_2) < 0) __PYX_ERR(9, 208, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_get_indexing_sets, __pyx_t_2) < 0) __PYX_ERR(9, 209, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":233
+  /* "amplpy/entity.pxi":234
  *         return pylist
  * 
  *     def xref(self):             # <<<<<<<<<<<<<<
  *         """
  *         Get the names of all entities which depend on this one.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_27xref, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_xref, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[106])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 233, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_27xref, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_xref, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[106])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_xref, __pyx_t_2) < 0) __PYX_ERR(9, 233, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_xref, __pyx_t_2) < 0) __PYX_ERR(9, 234, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":253
+  /* "amplpy/entity.pxi":254
  *         return pylist
  * 
  *     def get_values(self, suffixes=None):             # <<<<<<<<<<<<<<
  *         """
  *         If a list of suffixes is provided, get the specified suffixes value for
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_29get_values, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_get_values, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[107])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 253, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_29get_values, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_get_values, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[107])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 254, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[16]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_get_values, __pyx_t_2) < 0) __PYX_ERR(9, 253, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_get_values, __pyx_t_2) < 0) __PYX_ERR(9, 254, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":295
+  /* "amplpy/entity.pxi":296
  *         return DataFrame.create(df_c)
  * 
  *     def to_pandas(self, **kwargs):             # <<<<<<<<<<<<<<
  *         """
  *         Equivalent to ``Entity.get_values().``:func:`~amplpy.DataFrame.to_pandas`.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_31to_pandas, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_to_pandas, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[108])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 295, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_31to_pandas, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_to_pandas, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[108])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 296, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_to_pandas, __pyx_t_2) < 0) __PYX_ERR(9, 295, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_to_pandas, __pyx_t_2) < 0) __PYX_ERR(9, 296, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":301
+  /* "amplpy/entity.pxi":302
  *         return self.get_values().to_pandas(**kwargs)
  * 
  *     def to_dict(self, **kwargs):             # <<<<<<<<<<<<<<
  *         """
  *         Equivalent to ``Entity.get_values().``:func:`~amplpy.DataFrame.to_dict`.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_33to_dict, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_to_dict, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[109])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 301, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_33to_dict, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_to_dict, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[109])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 302, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_to_dict, __pyx_t_2) < 0) __PYX_ERR(9, 301, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_to_dict, __pyx_t_2) < 0) __PYX_ERR(9, 302, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":307
+  /* "amplpy/entity.pxi":308
  *         return self.get_values().to_dict(**kwargs)
  * 
  *     def to_list(self, **kwargs):             # <<<<<<<<<<<<<<
  *         """
  *         Equivalent to ``Entity.get_values().``:func:`~amplpy.DataFrame.to_list`.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_35to_list, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_to_list, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[110])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 307, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_35to_list, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_to_list, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[110])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 308, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_to_list, __pyx_t_2) < 0) __PYX_ERR(9, 307, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_to_list, __pyx_t_2) < 0) __PYX_ERR(9, 308, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":313
+  /* "amplpy/entity.pxi":314
  *         return self.get_values().to_list(**kwargs)
  * 
  *     def set_values(self, data):             # <<<<<<<<<<<<<<
  *         """
  *         Set the values of this entiy to the correponding values of a
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_37set_values, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_set_values, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[111])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 313, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6amplpy_4ampl_6Entity_37set_values, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Entity_set_values, NULL, __pyx_mstate_global->__pyx_n_u_amplpy_ampl, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[111])); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 314, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_set_values, __pyx_t_2) < 0) __PYX_ERR(9, 313, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_set_values, __pyx_t_2) < 0) __PYX_ERR(9, 314, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":365
+  /* "amplpy/entity.pxi":366
  * 
  *     # Aliases
  *     toString = to_string             # <<<<<<<<<<<<<<
  *     getIndexingSets = get_indexing_sets
  *     getValues = get_values
 */
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_to_string); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 365, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_to_string); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 366, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_toString, __pyx_t_2) < 0) __PYX_ERR(9, 365, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_toString, __pyx_t_2) < 0) __PYX_ERR(9, 366, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":366
+  /* "amplpy/entity.pxi":367
  *     # Aliases
  *     toString = to_string
  *     getIndexingSets = get_indexing_sets             # <<<<<<<<<<<<<<
  *     getValues = get_values
  *     isScalar = is_scalar
 */
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_get_indexing_sets); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 366, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_get_indexing_sets); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 367, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_getIndexingSets, __pyx_t_2) < 0) __PYX_ERR(9, 366, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_getIndexingSets, __pyx_t_2) < 0) __PYX_ERR(9, 367, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":367
+  /* "amplpy/entity.pxi":368
  *     toString = to_string
  *     getIndexingSets = get_indexing_sets
  *     getValues = get_values             # <<<<<<<<<<<<<<
  *     isScalar = is_scalar
  *     numInstances = num_instances
 */
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_get_values); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 367, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_get_values); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 368, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_getValues, __pyx_t_2) < 0) __PYX_ERR(9, 367, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_getValues, __pyx_t_2) < 0) __PYX_ERR(9, 368, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":368
+  /* "amplpy/entity.pxi":369
  *     getIndexingSets = get_indexing_sets
  *     getValues = get_values
  *     isScalar = is_scalar             # <<<<<<<<<<<<<<
  *     numInstances = num_instances
  *     setValues = set_values
 */
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_is_scalar); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 368, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_is_scalar); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 369, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_isScalar, __pyx_t_2) < 0) __PYX_ERR(9, 368, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_isScalar, __pyx_t_2) < 0) __PYX_ERR(9, 369, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":369
+  /* "amplpy/entity.pxi":370
  *     getValues = get_values
  *     isScalar = is_scalar
  *     numInstances = num_instances             # <<<<<<<<<<<<<<
  *     setValues = set_values
 */
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_num_instances); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 369, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_num_instances); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 370, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_numInstances, __pyx_t_2) < 0) __PYX_ERR(9, 369, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_numInstances, __pyx_t_2) < 0) __PYX_ERR(9, 370, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "amplpy/entity.pxi":370
+  /* "amplpy/entity.pxi":371
  *     isScalar = is_scalar
  *     numInstances = num_instances
  *     setValues = set_values             # <<<<<<<<<<<<<<
 */
-  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_set_values); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 370, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_2, (PyObject*)__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_set_values); if (unlikely(!__pyx_t_2)) __PYX_ERR(9, 371, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_setValues_2, __pyx_t_2) < 0) __PYX_ERR(9, 370, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6amplpy_4ampl_Entity, __pyx_mstate_global->__pyx_n_u_setValues_2, __pyx_t_2) < 0) __PYX_ERR(9, 371, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "(tree fragment)":1
@@ -83180,6 +83179,8 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_FOR, sizeof(__pyx_k_FOR), 0, 1, 1}, /* PyObject cname: __pyx_n_u_FOR */
   {__pyx_k_Failed_to_access_value, sizeof(__pyx_k_Failed_to_access_value), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Failed_to_access_value */
   {__pyx_k_Failed_to_cast_value_to_int_floa, sizeof(__pyx_k_Failed_to_cast_value_to_int_floa), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Failed_to_cast_value_to_int_floa */
+  {__pyx_k_Failed_to_import_numpy_Ensure_nu, sizeof(__pyx_k_Failed_to_import_numpy_Ensure_nu), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Failed_to_import_numpy_Ensure_nu */
+  {__pyx_k_Failed_to_import_pandas_Ensure_p, sizeof(__pyx_k_Failed_to_import_pandas_Ensure_p), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Failed_to_import_pandas_Ensure_p */
   {__pyx_k_Formatter, sizeof(__pyx_k_Formatter), 0, 1, 1}, /* PyObject cname: __pyx_n_u_Formatter */
   {__pyx_k_IF, sizeof(__pyx_k_IF), 0, 1, 1}, /* PyObject cname: __pyx_n_u_IF */
   {__pyx_k_IOError, sizeof(__pyx_k_IOError), 0, 1, 1}, /* PyObject cname: __pyx_n_u_IOError */
@@ -84723,9 +84724,9 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[89] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_dataframe_pxi, __pyx_mstate->__pyx_n_u_to_list, __pyx_k_4_S_Qd_AT_U_q_NRS_4_AS_E_at_QR, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[89])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 474, 242};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 474, 244};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_multi_index, __pyx_mstate->__pyx_n_u_nindices, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_columns, __pyx_mstate->__pyx_n_u_index_names, __pyx_mstate->__pyx_n_u_index, __pyx_mstate->__pyx_n_u_header, __pyx_mstate->__pyx_n_u_header, __pyx_mstate->__pyx_n_u_header, __pyx_mstate->__pyx_n_u_key};
-    __pyx_mstate_global->__pyx_codeobj_tab[90] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_dataframe_pxi, __pyx_mstate->__pyx_n_u_to_pandas, __pyx_k_A_s_4_m1_D_AWHCt_WAQ_gRq_3a_Cr, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[90])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[90] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_dataframe_pxi, __pyx_mstate->__pyx_n_u_to_pandas, __pyx_k_A_s_q_4_m1_D_AWHCt_WAQ_gRq_3a_C, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[90])) goto bad;
   }
   {
     __Pyx_PyCode_New_function_description descr = {4, 0, 0, 21, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 499, 305};
@@ -84733,14 +84734,14 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[91] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_dataframe_pxi, __pyx_mstate->__pyx_n_u_from_dict, __pyx_k_A_1_z_q_s_5_1_D_AZs_q_d_3az_G1_S, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[91])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {4, 0, 0, 12, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 541, 366};
+    __Pyx_PyCode_New_function_description descr = {4, 0, 0, 12, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 541, 368};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_cls, __pyx_mstate->__pyx_n_u_df, __pyx_mstate->__pyx_n_u_index_names, __pyx_mstate->__pyx_n_u_indexarity, __pyx_mstate->__pyx_n_u_keys, __pyx_mstate->__pyx_n_u_index, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_columns, __pyx_mstate->__pyx_n_u_key, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_cindex, __pyx_mstate->__pyx_n_u_cname};
-    __pyx_mstate_global->__pyx_codeobj_tab[92] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_dataframe_pxi, __pyx_mstate->__pyx_n_u_from_pandas, __pyx_k_A_s_Qd_A_Qa_Qd_A_3at3a_3avRvXXRx, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[92])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[92] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_dataframe_pxi, __pyx_mstate->__pyx_n_u_from_pandas, __pyx_k_A_s_q_Qd_A_Qa_Qd_A_3at3a_3avRvXX, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[92])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 575, 131};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 575, 133};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_cls, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_index, __pyx_mstate->__pyx_n_u_columns, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_col};
-    __pyx_mstate_global->__pyx_codeobj_tab[93] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_dataframe_pxi, __pyx_mstate->__pyx_n_u_from_numpy, __pyx_k_A_s_QfBa_A_s_4xs_IT_AT_A_Be2U_c, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[93])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[93] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_dataframe_pxi, __pyx_mstate->__pyx_n_u_from_numpy, __pyx_k_A_s_q_QfBa_A_s_4xs_IT_AT_A_Be2U, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[93])) goto bad;
   }
   {
     __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 593, 17};
@@ -84763,72 +84764,72 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[97] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_to_string, __pyx_k_A_31D_j_HTUUV_1_AXWAQ_Qaq_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[97])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS), 93, 230};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARARGS), 93, 212};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_index, __pyx_mstate->__pyx_n_u_errorinfo, __pyx_mstate->__pyx_n_u_tuple_c, __pyx_mstate->__pyx_n_u_name_c, __pyx_mstate->__pyx_n_u_entity};
-    __pyx_mstate_global->__pyx_codeobj_tab[98] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_get, __pyx_k_A_t_3awc_4z_q_WA_E_D_3awc_5T_XVS, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[98])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[98] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_get, __pyx_k_A_t_3awc_4z_q_WA_E_D_3awc_1_z_t, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[98])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 121, 202};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 122, 202};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_index, __pyx_mstate->__pyx_n_u_errorinfo, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_index_c, __pyx_mstate->__pyx_n_u_indices_c, __pyx_mstate->__pyx_n_u_size, __pyx_mstate->__pyx_n_u_j};
     __pyx_mstate_global->__pyx_codeobj_tab[99] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_find, __pyx_k_A_t_1A_at6_4xqP_1_E_aq_ay_c_E_aq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[99])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 149, 27};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 150, 27};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[100] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_instances, __pyx_k_A_wat84xtCSST, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[100])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 155, 17};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 156, 17};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[101] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_name, __pyx_k_A_t6, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[101])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 161, 52};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 162, 52};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_indexarity};
     __pyx_mstate_global->__pyx_codeobj_tab[102] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_indexarity, __pyx_k_A_4xwa_7q_F_DPXXYYZ_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[102])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 187, 25};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 188, 25};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[103] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_is_scalar, __pyx_k_A_4_S_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[103])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 200, 39};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 201, 39};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_size};
     __pyx_mstate_global->__pyx_codeobj_tab[104] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_num_instances, __pyx_k_A_F_5Qd_hVWWX_s_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[104])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 208, 118};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 209, 118};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_size, __pyx_mstate->__pyx_n_u_sets, __pyx_mstate->__pyx_n_u_pylist};
     __pyx_mstate_global->__pyx_codeobj_tab[105] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_get_indexing_sets, __pyx_k_A_1_F_5Qd_hVWW___E_aq_t1Cs_gQd_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[105])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 233, 116};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 234, 116};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_size, __pyx_mstate->__pyx_n_u_xref, __pyx_mstate->__pyx_n_u_pylist, __pyx_mstate->__pyx_n_u_i};
     __pyx_mstate_global->__pyx_codeobj_tab[106] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_xref, __pyx_k_A_1_F_Qd_havUVVW_E_aq_t1Cs_gQd_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[106])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 253, 229};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 254, 229};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_suffixes, __pyx_mstate->__pyx_n_u_df_c, __pyx_mstate->__pyx_n_u_suffixes_c, __pyx_mstate->__pyx_n_u_n, __pyx_mstate->__pyx_n_u_i};
     __pyx_mstate_global->__pyx_codeobj_tab[107] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_get_values, __pyx_k_9Cq_31D_j_HTZZ___z_A_1A_4q_1E_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[107])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 295, 19};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 296, 19};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[108] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_to_pandas, __pyx_k_A_t_b_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[108])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 301, 19};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 302, 19};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[109] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_to_dict, __pyx_k_A_t_b_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[109])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 307, 19};
+    __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 308, 19};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[110] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_to_list, __pyx_k_A_t_b_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[110])) goto bad;
   }
   {
-    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 313, 284};
+    __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 314, 284};
     PyObject* varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_errorinfo, __pyx_mstate->__pyx_n_u_df, __pyx_mstate->__pyx_n_u_df_c, __pyx_mstate->__pyx_n_u_name_c_2};
     __pyx_mstate_global->__pyx_codeobj_tab[111] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_amplpy_entity_pxi, __pyx_mstate->__pyx_n_u_set_values, __pyx_k_A2_F_q_F_D_PTT___QfA_2XQ_2_4vZyP, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[111])) goto bad;
   }

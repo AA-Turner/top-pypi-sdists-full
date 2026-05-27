@@ -21,7 +21,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Bump this when the mapping logic changes to trigger a re-seed
-SEED_SCHEMA_VERSION = 19  # v19: PA-LLM-10 magic-string-typing declared
+SEED_SCHEMA_VERSION = (
+    22  # v22: magic-string-typing detector now covers sub-shape (b) enum-dispatch (#1274)
+)
 
 
 def compute_seed_version() -> str:
@@ -201,6 +203,14 @@ def _seed_semantic_kb(graph: KnowledgeGraph, stats: dict[str, int]) -> None:
     # Seed patterns as entities
     for name, pattern_data in patterns.items():
         entity_id = f"pattern:{name}"
+        # #1265: `_propose_patterns` (spec_analyze handler) reads
+        # `entry.get("triggers")` and `entry.get("category")` from the
+        # rebuilt dict in `_get_semantic_index_from_kg`. Without these in
+        # the KG metadata, the proposer matches against an empty trigger
+        # list under full-suite runs (where some earlier test initialises
+        # the KG), but works under isolation (where the TOML fallback
+        # runs). Stash every TOML field except `source` so the KG path
+        # returns the same shape as the TOML path.
         graph.create_entity(
             entity_id=entity_id,
             name=name,
@@ -209,6 +219,8 @@ def _seed_semantic_kb(graph: KnowledgeGraph, stats: dict[str, int]) -> None:
                 "source": "framework",
                 "description": pattern_data.get("description", ""),
                 "example": pattern_data.get("example", ""),
+                "triggers": pattern_data.get("triggers", []),
+                "category": pattern_data.get("category"),
             },
         )
         stats["patterns"] += 1

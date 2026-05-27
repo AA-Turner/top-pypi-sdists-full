@@ -50,7 +50,6 @@ def isNum(usrData: t.Any) -> t.TypeGuard[t.Union[float, int, Fraction]]:
     Differs from `isinstance(usrData, Rational)` primarily in that this function
     does not return True for `True, False`. See below for other differences.
 
-
     >>> common.isNum(3.0)
     True
     >>> common.isNum(3)
@@ -149,7 +148,7 @@ def isIterable(usrData: t.Any) -> t.TypeGuard[Iterable]:
     >>> common.isIterable(list)
     False
 
-    * Changed in v7.3: Classes (not instances) are not iterable
+    * Changed in v7.3: Classes (not instances) are not iterable.
     '''
     if isinstance(usrData, (str, bytes)):
         return False

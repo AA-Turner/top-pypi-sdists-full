@@ -193,7 +193,7 @@ pub fn ewm_var<I, T>(
     ignore_nulls: bool,
 ) -> PrimitiveArray<T>
 where
-    I: IntoIterator<Item = Option<T>>,
+    I: IntoIterator<Item = Option<T>> + Clone,
     I::IntoIter: TrustedLen,
     T: Float + NativeType + AddAssign + MulAssign + DivAssign,
 {

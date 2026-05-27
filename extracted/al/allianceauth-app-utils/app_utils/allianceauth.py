@@ -7,14 +7,13 @@ from typing import Optional
 
 from redis import Redis
 
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import User
 from django.core.cache import caches
 
 from allianceauth.notifications import notify
 from allianceauth.views import NightModeRedirectView
 
 from ._app_settings import APP_UTILS_NOTIFY_THROTTLED_TIMEOUT
-from .django import users_with_permission
 from .helpers import throttle
 from .testing import create_fake_user  # noqa: F401
 
@@ -32,13 +31,7 @@ def notify_admins(message: str, title: str, level: str = "info") -> None:
         title: Message title
         level: Notification level of the message.
     """
-    try:
-        perm = Permission.objects.get(codename="logging_notifications")
-    except Permission.DoesNotExist:
-        users = User.objects.filter(is_superuser=True)
-    else:
-        users = users_with_permission(perm)
-    for user in users:
+    for user in User.objects.filter(is_superuser=True):
         notify(user, title=title, message=message, level=level)
 
 

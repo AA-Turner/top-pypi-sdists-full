@@ -20,35 +20,26 @@ static TIMEOUT_REQUEST_HANDLER: LazyLock<Sender<TimeoutRequest>> = LazyLock::new
 });
 
 enum TimeoutRequest {
-    Start(Duration, u64, Option<String>),
+    Start(Duration, u64),
     Cancel(u64),
 }
 
-pub fn is_timeout_enabled() -> bool {
+pub fn get_timeout() -> Option<Duration> {
     static TIMEOUT_DISABLED: RelaxedCell<bool> = RelaxedCell::new_bool(false);
 
     // Fast path so we don't have to keep checking environment variables. Make
     // sure that if you want to use POLARS_TIMEOUT_MS it is set before the first
     // polars call.
     if TIMEOUT_DISABLED.load() {
-        return false;
-    }
-
-    let var = std::env::var("POLARS_TIMEOUT_MS").ok();
-    if var.is_none_or(|v| v.is_empty()) {
-        TIMEOUT_DISABLED.store(true);
-        return false;
-    }
-
-    true
-}
-
-pub fn get_timeout() -> Option<Duration> {
-    if !is_timeout_enabled() {
         return None;
     }
 
-    match std::env::var("POLARS_TIMEOUT_MS").unwrap().parse() {
+    let Ok(timeout) = std::env::var("POLARS_TIMEOUT_MS") else {
+        TIMEOUT_DISABLED.store(true);
+        return None;
+    };
+
+    match timeout.parse() {
         Ok(ms) => Some(Duration::from_millis(ms)),
         Err(e) => {
             eprintln!("failed to parse POLARS_TIMEOUT_MS: {e:?}");
@@ -59,27 +50,20 @@ pub fn get_timeout() -> Option<Duration> {
 
 fn timeout_thread(recv: Receiver<TimeoutRequest>) {
     let mut active_timeouts: PlHashSet<u64> = PlHashSet::new();
-    #[allow(clippy::type_complexity)]
-    let mut shortest_timeout: BinaryHeap<Priority<Reverse<Duration>, (u64, Option<String>)>> =
-        BinaryHeap::new();
+    let mut shortest_timeout: BinaryHeap<Priority<Reverse<Duration>, u64>> = BinaryHeap::new();
     loop {
         // Remove cancelled requests.
-        while let Some(Priority(_, (id, _))) = shortest_timeout.peek() {
+        while let Some(Priority(_, id)) = shortest_timeout.peek() {
             if active_timeouts.contains(id) {
                 break;
             }
             shortest_timeout.pop();
         }
 
-        let request = if let Some(Priority(timeout, (_, traceback))) = shortest_timeout.peek() {
+        let request = if let Some(Priority(timeout, _)) = shortest_timeout.peek() {
             match recv.recv_timeout(timeout.0) {
                 Err(RecvTimeoutError::Timeout) => {
-                    eprint!("exiting the process, POLARS_TIMEOUT_MS exceeded");
-                    if let Some(tb) = traceback {
-                        eprintln!(", traceback:\n{tb}");
-                    } else {
-                        eprintln!(", traceback unavailable");
-                    }
+                    eprintln!("exiting the process, POLARS_TIMEOUT_MS exceeded");
                     std::thread::sleep(Duration::from_secs_f64(1.0));
                     std::process::exit(1);
                 },
@@ -90,8 +74,8 @@ fn timeout_thread(recv: Receiver<TimeoutRequest>) {
         };
 
         match request {
-            TimeoutRequest::Start(duration, id, traceback) => {
-                shortest_timeout.push(Priority(Reverse(duration), (id, traceback)));
+            TimeoutRequest::Start(duration, id) => {
+                shortest_timeout.push(Priority(Reverse(duration), id));
                 active_timeouts.insert(id);
             },
             TimeoutRequest::Cancel(id) => {
@@ -101,13 +85,13 @@ fn timeout_thread(recv: Receiver<TimeoutRequest>) {
     }
 }
 
-pub fn schedule_polars_timeout(traceback: Option<String>) -> Option<u64> {
+pub fn schedule_polars_timeout() -> Option<u64> {
     static TIMEOUT_ID: RelaxedCell<u64> = RelaxedCell::new_u64(0);
 
     let timeout = get_timeout()?;
     let id = TIMEOUT_ID.fetch_add(1);
     TIMEOUT_REQUEST_HANDLER
-        .send(TimeoutRequest::Start(timeout, id, traceback))
+        .send(TimeoutRequest::Start(timeout, id))
         .unwrap();
     Some(id)
 }

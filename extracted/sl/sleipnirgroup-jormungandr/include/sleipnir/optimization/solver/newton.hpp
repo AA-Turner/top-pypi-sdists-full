@@ -102,7 +102,8 @@ ExitStatus newton(
       [&](const DenseVector& x) -> SparseMatrix {
         ScopedProfiler prof{H_prof};
         return matrix_callbacks.H(x);
-      }};
+      },
+      matrix_callbacks.scaling};
 #else
   const auto& matrices = matrix_callbacks;
 #endif
@@ -132,14 +133,17 @@ ExitStatus newton(
 
   Filter<Scalar> filter;
 
-  RegularizedLDLT<Scalar> solver{matrices.num_decision_variables, 0};
+  RegularizedLDLT<Scalar> solver{
+      // Use sparse solver if lower triangle fills < 25% of system
+      H.nonZeros() < 0.25 * H.size(), matrices.num_decision_variables, 0};
 
   // Variables for determining when a step is acceptable
   constexpr Scalar α_reduction_factor(0.5);
   constexpr Scalar α_min(1e-20);
 
   // Error
-  Scalar E_0 = kkt_error<Scalar, KKTErrorType::INF_NORM_SCALED>(g);
+  Scalar E_0 = unscaled_kkt_error<Scalar, KKTErrorType::INF_NORM_SCALED>(
+      matrices.scaling, g);
 
   setup_prof.stop();
 
@@ -253,16 +257,19 @@ ExitStatus newton(
     H = matrices.H(x);
 
     // Update the error
-    E_0 = kkt_error<Scalar, KKTErrorType::INF_NORM_SCALED>(g);
+    E_0 = unscaled_kkt_error<Scalar, KKTErrorType::INF_NORM_SCALED>(
+        matrices.scaling, g);
 
     inner_iter_profiler.stop();
 
     if (options.diagnostics) {
-      print_iteration_diagnostics(iterations, IterationType::NORMAL,
-                                  inner_iter_profiler.current_duration(), E_0,
-                                  f, Scalar(0), Scalar(0), Scalar(0),
-                                  solver.hessian_regularization(), α, α_max,
-                                  α_reduction_factor, Scalar(1));
+      print_iteration_diagnostics(
+          iterations, IterationType::NORMAL,
+          inner_iter_profiler.current_duration(), E_0, f, Scalar(0), Scalar(0),
+          Scalar(0), solver.hessian_regularization(),
+          solver.constraint_jacobian_regularization(),
+          p_x.template lpNorm<Eigen::Infinity>(), Scalar(1), α, α_max,
+          α_reduction_factor, Scalar(1));
     }
 
     ++iterations;

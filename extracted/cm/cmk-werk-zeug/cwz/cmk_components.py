@@ -23,6 +23,7 @@ import asyncio
 import datetime
 import json
 import logging
+import signal
 import sys
 import time
 from argparse import ArgumentParser
@@ -97,8 +98,8 @@ def parse_arguments(args: Sequence[str]) -> Args:  # noqa: PLR0915 - too many st
         parser.add_argument(
             "--mode",
             type=str,
-            choices=["rich", "json", "script"],
-            default="rich" if sys.stdout.isatty() else "script",
+            choices=["rich", "json"],
+            default="rich" if sys.stdout.isatty() else "json",
             help="Output mode",
         )
 
@@ -233,10 +234,11 @@ async def _fn_list(
     component_info = await owners_client.all_components_info()
     if cli_args.mode == "json":
         json.dump(list(component_info), sys.stdout, cls=GerritObjectsEncoder, indent=2)
-    else:  # script / rich
-        rich_print(
-            "\n".join(f"[{STYLE_COMPONENT_ID}]{component_id}[/]" for component_id in component_info)
-        )
+        return
+
+    rich_print(
+        "\n".join(f"[{STYLE_COMPONENT_ID}]{component_id}[/]" for component_id in component_info)
+    )
 
 
 @with_gerrit_client()
@@ -261,36 +263,37 @@ async def _fn_info(  # noqa: C901 - too complex
 
     if cli_args.mode == "json":
         json.dump(component_info, sys.stdout, cls=GerritObjectsEncoder, indent=2)
-    else:  # script / rich
-        for i, (component_id, component) in enumerate(sorted(component_info.items())):
-            if i:
-                print()
+        return
+
+    for i, (component_id, component) in enumerate(sorted(component_info.items())):
+        if i:
+            print()
+        rich_print(
+            rf"[{STYLE_COMPONENT_NAME}]{component.name}[/] \[[{STYLE_COMPONENT_ID}]{component_id}[/]]"
+        )
+        if component.previous_name:
+            rich_print(f"  previous name: [{STYLE_COMPONENT_NAME}]{component.previous_name}[/]")
+        rich_print(
+            f"  type: [bold]{component.type}[/] (has support component: {component.has_support_component})"
+        )
+        if component.description:
+            rich_print("  description:")
             rich_print(
-                rf"[{STYLE_COMPONENT_NAME}]{component.name}[/] \[[{STYLE_COMPONENT_ID}]{component_id}[/]]"
+                f"[{STYLE_COMPONENT_DESCRIPTION}]    {'\n    '.join(component.description.splitlines())}[/]"
             )
-            if component.previous_name:
-                rich_print(f"  previous name: [{STYLE_COMPONENT_NAME}]{component.previous_name}[/]")
-            rich_print(
-                f"  type: [bold]{component.type}[/] (has support component: {component.has_support_component})"
-            )
-            if component.description:
-                rich_print("  description:")
-                rich_print(
-                    f"[{STYLE_COMPONENT_DESCRIPTION}]    {'\n    '.join(component.description.splitlines())}[/]"
-                )
-            rich_print(f"  min. member count: {component.members_required}")
-            rich_print(f"  component lead: [{STYLE_EMAIL}]{component.component_owner_email}[/]")
-            rich_print("  additional members:")
-            for member in component.code_owners_email:
-                rich_print(f"  - [{STYLE_EMAIL}]{member}[/]")
-            rich_print("  code location:")
-            if component.code_location:
-                for path in component.code_location:
-                    rich_print(f"  - [{STYLE_PATH}]{path}[/]")
-            if component.external_code_location:
-                rich_print("  external code location:")
-                for path in component.external_code_location:
-                    rich_print(f"  - [{STYLE_PATH}]{path}[/]")
+        rich_print(f"  min. member count: {component.members_required}")
+        rich_print(f"  component lead: [{STYLE_EMAIL}]{component.component_owner_email}[/]")
+        rich_print("  additional members:")
+        for member in component.code_owners_email:
+            rich_print(f"  - [{STYLE_EMAIL}]{member}[/]")
+        rich_print("  code location:")
+        if component.code_location:
+            for path in component.code_location:
+                rich_print(f"  - [{STYLE_PATH}]{path}[/]")
+        if component.external_code_location:
+            rich_print("  external code location:")
+            for path in component.external_code_location:
+                rich_print(f"  - [{STYLE_PATH}]{path}[/]")
 
 
 @with_gerrit_client()
@@ -321,19 +324,18 @@ async def _fn_component_owners_and_members(
             sys.stdout,
             indent=2,
         )
-    else:  # script / rich
-        for ci, component in enumerate(component_info.values()):
-            if ci:
-                rich_print()
-            rich_print(
-                rf"[{STYLE_COMPONENT_NAME}]{component.name}[/] \[[{STYLE_COMPONENT_ID}]{component.component_id}[/]]"
-            )
-            for i, member in enumerate(
-                (component.component_owner_email, *(component.code_owners_email or []))
-            ):
-                rich_print(
-                    f"  - [{STYLE_EMAIL}]{member}[/][italic]{' (Lead)' if i == 0 else ''}[/]"
-                )
+        return
+
+    for ci, component in enumerate(component_info.values()):
+        if ci:
+            rich_print()
+        rich_print(
+            rf"[{STYLE_COMPONENT_NAME}]{component.name}[/] \[[{STYLE_COMPONENT_ID}]{component.component_id}[/]]"
+        )
+        for i, member in enumerate(
+            (component.component_owner_email, *(component.code_owners_email or []))
+        ):
+            rich_print(f"  - [{STYLE_EMAIL}]{member}[/][italic]{' (Lead)' if i == 0 else ''}[/]")
 
 
 @with_gerrit_client()
@@ -361,9 +363,10 @@ async def _fn_component_for_path(
     }
     if cli_args.mode == "json":
         json.dump(component_for_path, sys.stdout, cls=GerritObjectsEncoder, indent=2)
-    else:  # script / rich
-        for path, component_id in component_for_path.items():
-            rich_print(f"[{STYLE_PATH}]{path}[/]: [{STYLE_COMPONENT_ID}]{component_id}[/]")
+        return
+
+    for path, component_id in component_for_path.items():
+        rich_print(f"[{STYLE_PATH}]{path}[/]: [{STYLE_COMPONENT_ID}]{component_id}[/]")
 
 
 @with_gerrit_client()
@@ -397,15 +400,16 @@ async def _fn_component_paths(
             cls=GerritObjectsEncoder,
             indent=2,
         )
-    else:  # script / rich
-        for i, (component_id, component) in enumerate(component_info.items()):
-            if i:
-                rich_print()
-            rich_print(
-                rf"[{STYLE_COMPONENT_NAME}]{component.name}[/] \[[{STYLE_COMPONENT_ID}]{component_id}[/]]"
-            )
-            for path in component.code_location or []:
-                rich_print(f"  - [{STYLE_PATH}]{path}[/]")
+        return
+
+    for i, (component_id, component) in enumerate(component_info.items()):
+        if i:
+            rich_print()
+        rich_print(
+            rf"[{STYLE_COMPONENT_NAME}]{component.name}[/] \[[{STYLE_COMPONENT_ID}]{component_id}[/]]"
+        )
+        for path in component.code_location or []:
+            rich_print(f"  - [{STYLE_PATH}]{path}[/]")
 
 
 @with_gerrit_client()
@@ -441,17 +445,18 @@ async def _fn_owners_for(
 
     if cli_args.mode == "json":
         json.dump(owners_dict, sys.stdout, cls=GerritObjectsEncoder, indent=2)
-    else:  # script / rich
-        for path in cli_args.entities:
-            _entry, components, owners = owners_client._query(path)  # noqa: SLF001
-            if not (component_id := components[0] if components else None):
-                rich_print(f"* [{STYLE_PATH}]{path}[/]: [red]No component found[/]")
-                continue
-            component = (await owners_client.all_components_info())[component_id]
-            component_str = rf"[{STYLE_COMPONENT_NAME}]{component.name}[/] \[[{STYLE_COMPONENT_ID}]{component_id}[/]]"
-            rich_print(f"* [{STYLE_PATH}]{path}[/]: {component_str}")
-            for i, owner in enumerate(owners):
-                rich_print(f"  - [{STYLE_EMAIL}]{owner}[/][italic]{' (Lead)' if i == 0 else ''}[/]")
+        return
+
+    for path in cli_args.entities:
+        _entry, components, owners = owners_client._query(path)  # noqa: SLF001
+        if not (component_id := components[0] if components else None):
+            rich_print(f"* [{STYLE_PATH}]{path}[/]: [red]No component found[/]")
+            continue
+        component = (await owners_client.all_components_info())[component_id]
+        component_str = rf"[{STYLE_COMPONENT_NAME}]{component.name}[/] \[[{STYLE_COMPONENT_ID}]{component_id}[/]]"
+        rich_print(f"* [{STYLE_PATH}]{path}[/]: {component_str}")
+        for i, owner in enumerate(owners):
+            rich_print(f"  - [{STYLE_EMAIL}]{owner}[/][italic]{' (Lead)' if i == 0 else ''}[/]")
 
 
 @with_gerrit_client()
@@ -485,14 +490,13 @@ async def _fn_all_code_owners_config_files(
     owners_files = await owners_client.all_code_owners_config_files()
     if cli_args.mode == "json":
         json.dump(owners_files, sys.stdout, cls=GerritObjectsEncoder, indent=2)
-    else:  # script / rich
-        for owners_file in owners_files:
-            owners_file_content = await gerrit_client.repo_file_content(
-                owners_file, cli_args.project_name, cli_args.branch
-            )
-            rich_print(
-                f"[{STYLE_PATH}]{owners_file}[/] [italic]({len(owners_file_content)} bytes)[/]"
-            )
+        return
+
+    for owners_file in owners_files:
+        owners_file_content = await gerrit_client.repo_file_content(
+            owners_file, cli_args.project_name, cli_args.branch
+        )
+        rich_print(f"[{STYLE_PATH}]{owners_file}[/] [italic]({len(owners_file_content)} bytes)[/]")
 
 
 @with_gerrit_client()
@@ -503,14 +507,15 @@ async def _fn_config(
     """Display the project configuration related to code-owners"""
     if cli_args.entities:
         path_config = {path: await owners_client.config_for(path) for path in cli_args.entities}
-        sys.stdout.write(yaml.dump(path_config))
+        if cli_args.mode == "json":
+            json.dump(path_config, sys.stdout, cls=GerritObjectsEncoder, indent=2)
+        else:
+            rich_print(yaml.dump(path_config))
     else:
         project_config = await owners_client.project_config()
         if cli_args.mode == "json":
             json.dump(project_config, sys.stdout, cls=GerritObjectsEncoder, indent=2)
-        elif cli_args.mode == "script":
-            sys.stdout.write(yaml.dump(project_config))
-        else:  # rich
+        else:
             rich_print(yaml.dump(project_config))
 
 
@@ -974,6 +979,7 @@ async def _fn_tui(  # noqa: C901 - too complex
 
 def main(args: None | Sequence[str] = None) -> int:
     """See main docstring"""
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     traceback.install()
     cli_args = parse_arguments(args or sys.argv[1:])
 
@@ -1011,7 +1017,7 @@ def log() -> logging.Logger:
     return logging.getLogger("trickkiste.cmk-components")
 
 
-def rich_print(*args: None | str) -> None:
+def rich_print(*args: object) -> None:
     """Does what you'd expect from print()"""
     console.print(*args)
 

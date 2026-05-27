@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markitdown
-Version: 0.1.5
+Version: 0.1.6
 Summary: Utility tool for converting various files to Markdown
 Project-URL: Documentation, https://github.com/microsoft/markitdown#readme
 Project-URL: Issues, https://github.com/microsoft/markitdown/issues
@@ -23,6 +23,7 @@ Requires-Dist: magika~=0.6.1
 Requires-Dist: markdownify
 Requires-Dist: requests
 Provides-Extra: all
+Requires-Dist: azure-ai-contentunderstanding>=1.2.0b1; extra == 'all'
 Requires-Dist: azure-ai-documentintelligence; extra == 'all'
 Requires-Dist: azure-identity; extra == 'all'
 Requires-Dist: lxml; extra == 'all'
@@ -40,6 +41,9 @@ Requires-Dist: youtube-transcript-api~=1.0.0; extra == 'all'
 Provides-Extra: audio-transcription
 Requires-Dist: pydub; extra == 'audio-transcription'
 Requires-Dist: speechrecognition; extra == 'audio-transcription'
+Provides-Extra: az-content-understanding
+Requires-Dist: azure-ai-contentunderstanding>=1.2.0b1; extra == 'az-content-understanding'
+Requires-Dist: azure-identity; extra == 'az-content-understanding'
 Provides-Extra: az-doc-intel
 Requires-Dist: azure-ai-documentintelligence; extra == 'az-doc-intel'
 Requires-Dist: azure-identity; extra == 'az-doc-intel'
@@ -65,10 +69,13 @@ Description-Content-Type: text/markdown
 
 # MarkItDown
 
-> [!IMPORTANT]
+> [!TIP]
 > MarkItDown is a Python package and command-line utility for converting various files to Markdown (e.g., for indexing, text analysis, etc). 
 >
 > For more information, and full documentation, see the project [README.md](https://github.com/microsoft/markitdown) on GitHub.
+
+> [!IMPORTANT]
+> MarkItDown performs I/O with the privileges of the current process. Like open() or requests.get(), it will access resources that the process itself can access. Sanitize your inputs in untrusted environments, and call the narrowest `convert_*` function needed for your use case (e.g., `convert_stream()`, or `convert_local()`). See the [Security Considerations](https://github.com/microsoft/markitdown#security-considerations) section of the documentation for more information.
 
 ## Installation
 

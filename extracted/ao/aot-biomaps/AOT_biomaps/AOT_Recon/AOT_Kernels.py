@@ -677,7 +677,8 @@ def get_device_memory_info(device=None):
         except Exception:
             # Fallback for older CuPy versions
             try:
-                free, total = cp.cuda.runtime.memoryGetInfo()
+                free = cp.cuda.runtime.memoryGetInfo()[0]
+                total = cp.cuda.runtime.memoryGetInfo()[1]
                 return free, total
             except Exception:
                 return 0, 0

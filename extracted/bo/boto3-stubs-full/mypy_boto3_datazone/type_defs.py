@@ -699,6 +699,7 @@ __all__ = (
     "PutDataExportConfigurationInputTypeDef",
     "PutEnvironmentBlueprintConfigurationInputTypeDef",
     "PutEnvironmentBlueprintConfigurationOutputTypeDef",
+    "PutResourceConfigurationTypeDef",
     "QueryGraphInputPaginateTypeDef",
     "QueryGraphInputTypeDef",
     "QueryGraphOutputTypeDef",
@@ -730,6 +731,7 @@ __all__ = (
     "RelationalFilterConfigurationUnionTypeDef",
     "RemoveEntityOwnerInputTypeDef",
     "RemovePolicyGrantInputTypeDef",
+    "ResourceConfigurationTypeDef",
     "ResourceTagParameterTypeDef",
     "ResourceTagTypeDef",
     "ResourceTypeDef",
@@ -1798,6 +1800,14 @@ class EncryptionConfigurationTypeDef(TypedDict):
     sseAlgorithm: NotRequired[str]
 
 
+class ResourceConfigurationTypeDef(TypedDict):
+    identifier: str
+    name: str
+    region: str
+    parameters: dict[str, str]
+    description: NotRequired[str]
+
+
 class PackageConfigTypeDef(TypedDict):
     packageManager: Literal["UV"]
     packageSpecification: NotRequired[str]
@@ -2824,6 +2834,13 @@ class ProjectsForRuleOutputTypeDef(TypedDict):
 class ProjectsForRuleTypeDef(TypedDict):
     selectionMode: RuleScopeSelectionModeType
     specificProjects: NotRequired[Sequence[str]]
+
+
+class PutResourceConfigurationTypeDef(TypedDict):
+    name: str
+    region: str
+    parameters: Mapping[str, str]
+    description: NotRequired[str]
 
 
 class RedshiftClusterStorageTypeDef(TypedDict):
@@ -5995,8 +6012,10 @@ class EnvironmentBlueprintConfigurationItemTypeDef(TypedDict):
     manageAccessRoleArn: NotRequired[str]
     enabledRegions: NotRequired[list[str]]
     regionalParameters: NotRequired[dict[str, dict[str, str]]]
+    allowUserProvidedConfigurations: NotRequired[bool]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+    resourceConfigurations: NotRequired[list[ResourceConfigurationTypeDef]]
     provisioningConfigurations: NotRequired[list[ProvisioningConfigurationOutputTypeDef]]
 
 
@@ -6008,8 +6027,10 @@ class GetEnvironmentBlueprintConfigurationOutputTypeDef(TypedDict):
     manageAccessRoleArn: str
     enabledRegions: list[str]
     regionalParameters: dict[str, dict[str, str]]
+    allowUserProvidedConfigurations: bool
     createdAt: datetime
     updatedAt: datetime
+    resourceConfigurations: list[ResourceConfigurationTypeDef]
     provisioningConfigurations: list[ProvisioningConfigurationOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -6022,8 +6043,10 @@ class PutEnvironmentBlueprintConfigurationOutputTypeDef(TypedDict):
     manageAccessRoleArn: str
     enabledRegions: list[str]
     regionalParameters: dict[str, dict[str, str]]
+    allowUserProvidedConfigurations: bool
     createdAt: datetime
     updatedAt: datetime
+    resourceConfigurations: list[ResourceConfigurationTypeDef]
     provisioningConfigurations: list[ProvisioningConfigurationOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -6916,6 +6939,8 @@ class PutEnvironmentBlueprintConfigurationInputTypeDef(TypedDict):
     manageAccessRoleArn: NotRequired[str]
     environmentRolePermissionBoundary: NotRequired[str]
     regionalParameters: NotRequired[Mapping[str, Mapping[str, str]]]
+    resourceConfigurations: NotRequired[Sequence[PutResourceConfigurationTypeDef]]
+    allowUserProvidedConfigurations: NotRequired[bool]
     globalParameters: NotRequired[Mapping[str, str]]
     provisioningConfigurations: NotRequired[Sequence[ProvisioningConfigurationUnionTypeDef]]
 

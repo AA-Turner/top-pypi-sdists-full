@@ -137,13 +137,15 @@ class Driver(object):
             self._handle_immediate_event_th.daemon = True
             self._handle_immediate_event_th.start()
 
-    def run(self, _method, **kwargs):
+    def run(self, _method, sessionId=None, **kwargs):
         if not self.is_running:
             return {'error': 'connection disconnected', 'type': 'connection_error'}
 
         timeout = kwargs.pop('_timeout', _S.cdp_timeout)
         if self.session_id:
             result = self._send({'method': _method, 'params': kwargs, 'sessionId': self.session_id}, timeout=timeout)
+        elif sessionId:
+            result = self._send({'method': _method, 'params': kwargs, 'sessionId': sessionId}, timeout=timeout)
         else:
             result = self._send({'method': _method, 'params': kwargs}, timeout=timeout)
         if 'result' not in result and 'error' in result:

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   merge_group:
   workflow_dispatch:
 
@@ -52,13 +52,10 @@ jobs:
       - name: mypy strict
         run: uv run mypy src/omnibase_spi --strict
 
-  test:
-    name: Test (Python ${{ matrix.python-version }})
+  spi-validation-gate:
+    name: SPI Validation Gate
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      matrix:
-        python-version: ['3.12']
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
 
@@ -66,19 +63,185 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: '**/uv.lock'
-          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: uv sync --group dev
 
-      - name: Run tests
-        run: uv run pytest tests/ -x -q --tb=short
+      - name: Run comprehensive SPI validator
+        run: |
+          uv run python scripts/validation/comprehensive_spi_validator.py \
+            --json-report \
+            --config validation_config.yaml \
+            src/omnibase_spi/protocols
+
+      - name: Run SPI protocol architecture validator
+        run: |
+          uv run python scripts/validation/validate_spi_protocols.py \
+            src/ \
+            --exclude-pattern exceptions.py \
+            --exclude-pattern exceptions_skill_routing.py
+
+      - name: Run unified standalone SPI validation suite
+        run: python scripts/validation/run_all_validations.py --verbose
+
+      - name: Upload SPI validation reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: spi-validation-gate-reports
+          path: |
+            comprehensive_spi_validation_*.json
+            comprehensive_spi_validation_*.html
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Detect Changes — emits matrix/split_count/is_full_suite for test-parallel.
+  # When ENABLE_SMART_TESTS is off (default), emits 40-shard full-suite matrix.
+  # When on and change set is small, emits a smaller matrix + selected_paths.
+  # ---------------------------------------------------------------------------
+  detect-changes:
+    name: Detect Changes
+    needs: [lint, typecheck]
+    runs-on: ubuntu-latest
+    outputs:
+      is_full_suite: ${{ steps.detect.outputs.is_full_suite }}
+      full_suite_reason: ${{ steps.detect.outputs.full_suite_reason }}
+      split_count: ${{ steps.detect.outputs.split_count }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+      selected_paths: ${{ steps.detect.outputs.selected_paths }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: '**/uv.lock'
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Compute changed files
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            git fetch --no-tags --depth=1 origin "$base" || true
+            git diff --name-only "$base"...HEAD > changed.txt
+          else
+            git diff --name-only HEAD~1 HEAD > changed.txt || echo "" > changed.txt
+          fi
+          echo "Changed files:"
+          cat changed.txt
+
+      - name: Resolve test selection
+        id: detect
+        env:
+          FLAG: ${{ vars.ENABLE_SMART_TESTS == 'true' && 'on' || 'off' }}
+        run: |
+          uv run python -m scripts.ci.detect_test_paths \
+            --changed-files-from changed.txt \
+            --ref-name "${{ github.ref_name }}" \
+            --event-name "${{ github.event_name }}" \
+            --feature-flag "$FLAG" \
+            > selection.json
+          cat selection.json
+          is_full=$(jq -r '.is_full_suite' selection.json)
+          reason=$(jq -r '.full_suite_reason // ""' selection.json)
+          split_count=$(jq -r '.split_count' selection.json)
+          matrix=$(jq -c '.matrix' selection.json)
+          paths=$(jq -c '.selected_paths' selection.json)
+          echo "is_full_suite=$is_full" >> "$GITHUB_OUTPUT"
+          echo "full_suite_reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "split_count=$split_count" >> "$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "selected_paths=$paths" >> "$GITHUB_OUTPUT"
+
+      - name: Upload selection artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-selection
+          path: selection.json
+          retention-days: 7
+
+  # Parallel test execution — matrix shape driven by detect-changes output.
+  test-parallel:
+    name: Tests (Split ${{ matrix.split }}/${{ needs.detect-changes.outputs.split_count }})
+    needs: [lint, typecheck, detect-changes]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        split: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: '**/uv.lock'
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Restore test durations cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .test_durations
+          key: test-durations-${{ github.sha }}
+          restore-keys: |
+            test-durations-
+
+      - name: Run pytest (smart selection)
+        if: vars.ENABLE_SMART_TESTS == 'true' && needs.detect-changes.outputs.is_full_suite == 'false'
+        run: |
+          paths=$(echo '${{ needs.detect-changes.outputs.selected_paths }}' | jq -r '.[]')
+          uv run pytest $paths \
+            --ignore=tests/integration \
+            --splits ${{ needs.detect-changes.outputs.split_count }} \
+            --group ${{ matrix.split }} \
+            --tb=short \
+            --junitxml=junit-${{ matrix.split }}.xml
+
+      - name: Run pytest (full suite)
+        if: vars.ENABLE_SMART_TESTS != 'true' || needs.detect-changes.outputs.is_full_suite == 'true'
+        run: |
+          uv run pytest tests/ \
+            --ignore=tests/integration \
+            --splits ${{ needs.detect-changes.outputs.split_count }} \
+            --group ${{ matrix.split }} \
+            --store-durations \
+            --durations-path .test_durations \
+            --tb=short \
+            --junitxml=junit-${{ matrix.split }}.xml
+
+      - name: Save test durations (full suite only, split 1)
+        if: |
+          needs.detect-changes.outputs.is_full_suite == 'true' &&
+          matrix.split == 1 &&
+          success()
+        uses: actions/cache/save@v5
+        with:
+          path: .test_durations
+          key: test-durations-${{ github.sha }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.split }}
+          path: junit-${{ matrix.split }}.xml
+          retention-days: 7
 
   build-and-verify:
     name: Build & Package Verification
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [lint, typecheck, test, contract-compliance]
+    needs: [lint, typecheck, test-parallel, contract-compliance]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -165,16 +328,16 @@ jobs:
     name: Tests Gate
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [test]
+    needs: [test-parallel]
     if: always()
     steps:
       - name: Evaluate tests gate
         run: |
-          RESULT="${{ needs.test.result }}"
+          RESULT="${{ needs.test-parallel.result }}"
           if [ "${RESULT}" = "success" ]; then
             echo "Tests Gate PASSED (result=${RESULT})"
           else
-            echo "Tests Gate FAILED: test result=${RESULT}"
+            echo "Tests Gate FAILED: test-parallel result=${RESULT}"
             exit 1
           fi
 
@@ -208,15 +371,12 @@ jobs:
 
   contract-compliance:
     name: Contract Compliance Check
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push'
     steps:
@@ -252,7 +412,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [build-and-verify, tests-gate]
+    needs: [build-and-verify, tests-gate, spi-validation-gate]
     if: always()
     steps:
       - name: Check all jobs passed

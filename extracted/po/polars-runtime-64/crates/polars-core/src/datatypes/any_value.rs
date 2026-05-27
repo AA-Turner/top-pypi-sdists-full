@@ -1337,7 +1337,11 @@ impl AnyValue<'_> {
                 l.to_f64().unwrap().to_total_ord() == r.to_f64().unwrap().to_total_ord()
             },
 
-            (_, _) => false,
+            (_, _) => {
+                unimplemented!(
+                    "scalar eq_missing for mixed dtypes {self:?} and {other:?} is not supported"
+                )
+            },
         }
     }
 }

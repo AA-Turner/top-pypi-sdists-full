@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 from contextlib import asynccontextmanager
 from typing import (
     TYPE_CHECKING,
@@ -56,11 +57,15 @@ from ._chat_tokenizer import (
 )
 from ._chat_types import (
     ChatAction,
+    ChatGreeting,
     ChatMessage,
     ChatMessageDict,
+    ClearAction,
     ContentType,
+    GreetingOptions,
     MessagePayload,
     StoredMessage,
+    chat_greeting,
 )
 from ._html_deps_py_shiny import shinychat_dependency
 from ._typing_extensions import TypeGuard
@@ -68,6 +73,7 @@ from ._utils_types import MISSING, MISSING_TYPE
 
 if TYPE_CHECKING:
     import chatlas
+    from chatlas.types import ContentThinkingDelta
     from shiny.bookmark import BookmarkState, RestoreState
     from shiny.bookmark._types import BookmarkStore
     from shiny.reactive import ExtendedTask
@@ -75,13 +81,16 @@ if TYPE_CHECKING:
     from shiny.types import Jsonifiable
     from shiny.ui.css import CssUnit
 
+
 else:
     chatlas = object
 
 __all__ = (
     "Chat",
     "ChatExpress",
+    "ChatGreeting",
     "ChatMessage",
+    "chat_greeting",
     "chat_ui",
     "ChatMessageDict",
 )
@@ -172,6 +181,39 @@ class Chat:
     [chatlas](https://posit-dev.github.io/chatlas/) to generate responses, especially
     when responses should be aware of the chat history, support tool calls, etc.
     See this [article](https://posit-dev.github.io/chatlas/web-apps.html) to learn more.
+
+    Thinking display
+    ----------------
+
+    When a model produces reasoning or "thinking" tokens, shinychat renders them
+    in a collapsible panel above the response. The panel streams the model's
+    reasoning in real time, then auto-collapses when the response begins.
+
+    Two paths are supported:
+
+    1. **chatlas `ContentThinking` objects.** Models with a structured thinking
+       API (e.g., Claude with extended thinking) emit `ContentThinking` objects
+       during streaming. shinychat detects these and routes them to the thinking
+       panel automatically.
+
+    2. **Raw `<thinking>` tags.** Many open-source and local models (DeepSeek,
+       QwQ, Qwen, etc.) emit `<thinking>...</thinking>` tags in their markdown
+       output. shinychat detects these tags during streaming and renders the
+       enclosed text in the thinking panel with no extra configuration.
+
+    **Topic labels:** You can get labeled sub-sections within the thinking panel
+    by asking the model to emit `<topic>...</topic>` tags in its reasoning.
+    These show up as section headings inside the panel, and the current topic
+    appears in the collapsed header as a live status indicator.
+
+    To use topic labels, add something like this to your system prompt::
+
+        When thinking through a problem, wrap brief topic labels in <topic> tags
+        to indicate what you're currently reasoning about. For example:
+        <topic>parsing the input</topic>
+
+    Topic labels are optional. Without them, the thinking panel still works --
+    it just won't have sub-section headings.
 
     Parameters
     ----------
@@ -587,6 +629,13 @@ class Chat:
 
         Note that a user may also opt-out of submitting a suggestion by holding the
         `Alt/Option` key while clicking the suggestion link.
+
+        A markdown list (`<ul>` or `<ol>`) in which every item contains a single
+        suggestion element is automatically rendered as a grid of clickable cards instead
+        of inline chips. Each suggestion accepts an optional `title` attribute (plain
+        text), which becomes the card heading; the suggestion's body becomes the card
+        description. For ordered lists (`<ol>`), the list-item number is included in the
+        heading.
         :::
 
         :::{.callout-note title="Streamed messages"}
@@ -734,7 +783,7 @@ class Chat:
                 *chunk_deps,
             ]
             msg.content = self._current_stream_message
-        else:
+        elif msg.content_type != "thinking":
             self._current_stream_message += msg.content
             self._current_stream_deps.extend(chunk_deps)
 
@@ -839,6 +888,13 @@ class Chat:
 
         Note that a user may also opt-out of submitting a suggestion by holding the
         `Alt/Option` key while clicking the suggestion link.
+
+        A markdown list (`<ul>` or `<ol>`) in which every item contains a single
+        suggestion element is automatically rendered as a grid of clickable cards instead
+        of inline chips. Each suggestion accepts an optional `title` attribute (plain
+        text), which becomes the card heading; the suggestion's body becomes the card
+        description. For ordered lists (`<ol>`), the list-item number is included in the
+        heading.
         ```
 
         ```{.callout-note title="Streamed messages"}
@@ -918,9 +974,33 @@ class Chat:
             empty, chunk="start", stream_id=id, icon=icon
         )
 
+        # TODO: this is a pragmatic hack to store thinking state in a way that it
+        # can be restored later. Longer term, stored message state should support
+        # mixed content types (the thinking handling here could then be removed)
+        def flush_thinking(thinking_buffer: str) -> None:
+            self._current_stream_message += (
+                f"<thinking>\n{thinking_buffer}\n</thinking>\n\n"
+            )
+
         try:
+            thinking_buffer = ""
             async for msg in message:
+                if is_thinking_delta(msg):
+                    thinking_buffer += msg.thinking
+                    await self._append_message_chunk(
+                        msg, chunk=True, stream_id=id
+                    )
+                    continue
+
+                if thinking_buffer:
+                    flush_thinking(thinking_buffer)
+                    thinking_buffer = ""
+
                 await self._append_message_chunk(msg, chunk=True, stream_id=id)
+
+            if thinking_buffer:
+                flush_thinking(thinking_buffer)
+
             return self._current_stream_message
         finally:
             await self._append_message_chunk(empty, chunk="end", stream_id=id)
@@ -948,6 +1028,11 @@ class Chat:
         operation: Literal["append", "replace"] = "append",
         icon: HTML | Tag | TagList | None = None,
     ):
+        content_type: ContentType = (
+            message.content_type
+            if isinstance(message, ChatMessage)
+            else "html" if isinstance(message.content, HTML) else "markdown"
+        )
         message = self._as_stored_message(message)
 
         if message.role == "system":
@@ -955,7 +1040,6 @@ class Chat:
             return
 
         content = message.content
-        content_type: ContentType = "html" if isinstance(content, HTML) else "markdown"
 
         msg_payload: MessagePayload = {
             "role": message.role,
@@ -1347,12 +1431,175 @@ class Chat:
 
         self.update_user_input(value=value)
 
-    async def clear_messages(self):
+    async def clear_messages(self, *, greeting: bool = False):
         """
         Clear all chat messages.
+
+        Parameters
+        ----------
+        greeting
+            If ``True``, also clears the greeting in addition to conversation
+            messages. Clearing the greeting causes the ``{id}_greeting_requested``
+            input to fire again (if the chat is visible with no greeting and no
+            messages), enabling a regenerate pattern: clear the greeting, then
+            react to the request to generate a new one via
+            :meth:`~shinychat.Chat.set_greeting`.
         """
         self._messages.set(())
-        await self._send_action({"type": "clear"})
+        action: ClearAction = {"type": "clear"}
+        if greeting:
+            action["greeting"] = True
+        await self._send_action(action)
+
+    async def set_greeting(
+        self,
+        greeting: "str | HTML | Tag | TagList | ChatGreeting | None",
+    ) -> None:
+        """
+        Set or clear the chat greeting.
+
+        A greeting is displayed at the top of the chat before any conversation messages.
+        It can be static content, streaming content from an async iterator, or ``None``
+        to remove an existing greeting.
+
+        If the greeting has already been dismissed, calling this method updates the
+        greeting content but does not make it visible again. To show a new greeting
+        after dismissal, first clear the chat with
+        ``await chat.clear_messages(greeting=True)``.
+
+        Parameters
+        ----------
+        greeting
+            The greeting content. Can be:
+
+            * ``None``: clears the current greeting entirely (distinct from dismissal).
+              Use this before setting a new greeting when implementing a regenerate
+              pattern.
+            * A markdown string, :class:`~htmltools.HTML`, :class:`~htmltools.Tag`, or
+              :class:`~htmltools.TagList`: displayed as a stand-alone greeting.
+            * A :func:`~shinychat.chat_greeting` object with options such as
+              ``dismissible``.
+            * A :func:`~shinychat.chat_greeting` wrapping an
+              :class:`~typing.AsyncIterable` of strings: streams the greeting content
+              chunk-by-chunk.
+
+        Notes
+        -----
+        When no greeting is set and the chat is visible with no messages, an input
+        named ``{id}_greeting_requested`` fires (where ``{id}`` is the chat's ID).
+        Use ``@reactive.event(input.{id}_greeting_requested)`` to generate a greeting
+        on demand. This input fires on first load and again after
+        :meth:`~shinychat.Chat.clear_messages` is called with ``greeting=True``.
+
+        Examples
+        --------
+        Static greeting (stand-alone, dismissible by default):
+
+        ```python
+        @reactive.effect
+        async def _():
+            await chat.set_greeting("## Welcome!\\n\\nHow can I help you today?")
+        ```
+
+        Static greeting with custom options:
+
+        ```python
+        from shinychat import chat_greeting
+
+        @reactive.effect
+        async def _():
+            greeting = chat_greeting(
+                "## Welcome!",
+                dismissible=True,
+            )
+            await chat.set_greeting(greeting)
+        ```
+
+        Streaming greeting from an async iterator:
+
+        ```python
+        @reactive.effect
+        async def _():
+            async def token_stream():
+                for token in ["Hello", " there", "!"]:
+                    yield token
+
+            await chat.set_greeting(chat_greeting(token_stream()))
+        ```
+
+        LLM-generated greeting using ``greeting_requested``:
+
+        ```python
+        import chatlas
+        from shinychat import Chat, chat_greeting
+
+        chat_model = chatlas.ChatOpenAI(model="gpt-4o")
+        chat = Chat(id="chat")
+
+        @reactive.effect
+        @reactive.event(input.chat_greeting_requested)
+        async def _():
+            response = await chat_model.stream_async(
+                "Write a short, friendly welcome message."
+            )
+            await chat.set_greeting(chat_greeting(response))
+        ```
+
+        Regenerate pattern (clear and re-request):
+
+        ```python
+        @reactive.effect
+        @reactive.event(input.regenerate)
+        async def _():
+            await chat.clear_messages(greeting=True)
+
+        # greeting_requested fires again after clear_messages(greeting=True),
+        # so the LLM-generated greeting handler above will run again.
+        ```
+
+        Clear the greeting (e.g., before setting a new one):
+
+        ```python
+        await chat.set_greeting(None)
+        ```
+        """
+        if greeting is None:
+            await self._send_action({"type": "greeting_clear"})
+            return
+
+        if not isinstance(greeting, ChatGreeting):
+            greeting = chat_greeting(greeting)
+
+        options: GreetingOptions = {"dismissible": greeting.dismissible}
+        html_deps = self._serialize_html_deps(greeting.html_deps) if greeting.html_deps else None
+
+        content = greeting.content
+        if isinstance(content, AsyncIterable):
+            start_action: ChatAction = {
+                "type": "greeting_start",
+                "content": "",
+                "content_type": greeting.content_type,
+                "options": options,
+            }
+            await self._send_action(start_action)
+            try:
+                async for chunk in content:
+                    chunk_action: ChatAction = {
+                        "type": "greeting_chunk",
+                        "content": chunk,
+                        "operation": "append",
+                    }
+                    await self._send_action(chunk_action)
+            finally:
+                await self._send_action({"type": "greeting_end"})
+        else:
+            action: ChatAction = {
+                "type": "greeting",
+                "content": str(content),
+                "content_type": greeting.content_type,
+                "options": options,
+            }
+            await self._send_action(action, html_deps)
 
     def destroy(self):
         """
@@ -1597,11 +1844,14 @@ class ChatExpress(Chat):
         messages: Optional[
             Iterable[str | TagChild | ChatMessageDict | ChatMessage | Any]
         ] = None,
+        greeting: Optional[Union[str, HTML, Tag, TagList, ChatGreeting]] = None,
         placeholder: str = "Enter a message...",
         width: "CssUnit" = "min(680px, 100%)",
         height: "CssUnit" = "auto",
         fill: bool = True,
         icon_assistant: HTML | Tag | TagList | None = None,
+        enable_cancel: bool = False,
+        footer: Optional[TagChild] = None,
         **kwargs: TagAttrValue,
     ) -> Tag:
         """
@@ -1614,6 +1864,10 @@ class ChatExpress(Chat):
             string or a dictionary with `content` and `role` keys. The `content` key
             should contain the message text, and the `role` key can be "assistant" or
             "user".
+        greeting
+            An optional greeting to display at the top of the chat before any conversation
+            messages. Can be a markdown string or a :func:`~shinychat.chat_greeting`
+            object.
         placeholder
             Placeholder text for the chat input.
         width
@@ -1627,6 +1881,20 @@ class ChatExpress(Chat):
             The icon to use for the assistant chat messages. Can be a HTML or a tag in
             the form of :class:`~htmltools.HTML` or :class:`~htmltools.Tag`. If `None`,
             a default robot icon is used.
+        enable_cancel
+            Whether to show a stop button during streaming that allows the user to
+            cancel the in-progress response. When ``True``, the chat UI shows a stop
+            button in place of the send button while streaming. You must observe
+            ``input.<id>_cancel`` on the server and call ``ctrl.cancel()`` on a
+            chatlas ``StreamController`` to actually stop the stream. Defaults to
+            ``False``.
+        footer
+            Optional HTML content to display below the chat input.
+            This can be any HTML content (tags, tag lists, or strings).
+            Useful for adding disclaimers, attribution, or other information.
+            The footer text is styled slightly smaller and lighter than body text
+            by default. Customize with CSS properties ``--shiny-chat-footer-font-size``
+            and ``--shiny-chat-footer-color`` on the chat container or footer element.
         kwargs
             Additional attributes for the chat container element.
         """
@@ -1634,11 +1902,14 @@ class ChatExpress(Chat):
         return chat_ui(
             id=self.id,
             messages=messages,
+            greeting=greeting,
             placeholder=placeholder,
             width=width,
             height=height,
             fill=fill,
             icon_assistant=icon_assistant,
+            enable_cancel=enable_cancel,
+            footer=footer,
             **kwargs,
         )
 
@@ -1701,11 +1972,14 @@ def chat_ui(
     messages: Optional[
         Iterable[str | TagChild | ChatMessageDict | ChatMessage | Any]
     ] = None,
+    greeting: Optional[Union[str, HTML, Tag, TagList, ChatGreeting]] = None,
     placeholder: str = "Enter a message...",
     width: "CssUnit" = "min(680px, 100%)",
     height: "CssUnit" = "auto",
     fill: bool = True,
     icon_assistant: Optional[HTML | Tag | TagList] = None,
+    enable_cancel: bool = False,
+    footer: Optional[TagChild] = None,
     **kwargs: TagAttrValue,
 ) -> Tag:
     """
@@ -1736,6 +2010,17 @@ def chat_ui(
 
         **NOTE:** content may include specially formatted **input suggestion** links
         (see :method:`~shiny.ui.Chat.append_message` for more info).
+    greeting
+        An optional greeting to display at the top of the chat before any conversation
+        messages. Can be a markdown string or a :func:`~shinychat.chat_greeting` object.
+        For a dynamic or streaming greeting, use :meth:`~shinychat.Chat.set_greeting`
+        from the server instead.
+
+        When no greeting is set and the chat is visible with no messages, an input
+        named ``{id}_greeting_requested`` fires. Use this input with
+        ``@reactive.event(input.{id}_greeting_requested)`` to generate a greeting
+        on demand from the server. It fires again after
+        :meth:`~shinychat.Chat.clear_messages` is called with ``greeting=True``.
     placeholder
         Placeholder text for the chat input.
     width
@@ -1748,6 +2033,20 @@ def chat_ui(
             The icon to use for the assistant chat messages. Can be a HTML or a tag in
             the form of :class:`~htmltools.HTML` or :class:`~htmltools.Tag`. If `None`,
             a default robot icon is used.
+    enable_cancel
+        Whether to show a stop button during streaming that allows the user to
+        cancel the in-progress response. When ``True``, the chat UI shows a stop
+        button in place of the send button while streaming. You must observe
+        ``input.<id>_cancel`` on the server and call ``ctrl.cancel()`` on a
+        chatlas ``StreamController`` to actually stop the stream. Defaults to
+        ``False``.
+    footer
+        Optional HTML content to display below the chat input.
+        This can be any HTML content (tags, tag lists, or strings).
+        Useful for adding disclaimers, attribution, or other information.
+        The footer text is styled slightly smaller and lighter than body text
+        by default. Customize with CSS properties ``--shiny-chat-footer-font-size``
+        and ``--shiny-chat-footer-color`` on the chat container or footer element.
     kwargs
         Additional attributes for the chat container element.
     """
@@ -1780,14 +2079,40 @@ def chat_ui(
             )
         )
 
+    footer_tag = None
+    if footer is not None:
+        footer_tag = Tag("shiny-chat-footer", footer)
+
+    greeting_attr: Optional[str] = None
+    greeting_deps: list[HTMLDependency] = []
+    if greeting is not None:
+        if not isinstance(greeting, ChatGreeting):
+            greeting = chat_greeting(greeting)
+
+        if hasattr(greeting.content, "__aiter__"):
+            raise ValueError(
+                "An async iterator is not valid as a static `greeting` in `chat_ui()`. "
+                "Use `await chat.set_greeting()` from the server to stream a greeting."
+            )
+
+        greeting_payload: dict[str, object] = {
+            "content": greeting.content,
+            "content_type": greeting.content_type,
+            "options": {"dismissible": greeting.dismissible},
+        }
+        greeting_attr = json.dumps(greeting_payload)
+        greeting_deps = greeting.html_deps
+
     res = Tag(
         "shiny-chat-container",
+        *greeting_deps,
         Tag("shiny-chat-messages", *message_tags),
         Tag(
             "shiny-chat-input",
             id=f"{id}_user_input",
             placeholder=placeholder,
         ),
+        footer_tag,
         shinychat_dependency(),
         icon_deps,
         {
@@ -1799,6 +2124,8 @@ def chat_ui(
         id=id,
         placeholder=placeholder,
         fill=fill,
+        greeting=greeting_attr,
+        enable_cancel=enable_cancel,
         # Also include icon on the parent so that when messages are dynamically added,
         # we know the default icon has changed
         icon_assistant=icon_attr,
@@ -1848,6 +2175,14 @@ class MessageStream:
             message_chunk,
             stream_id=self._stream_id,
         )
+
+
+def is_thinking_delta(msg: Any) -> TypeGuard[ContentThinkingDelta]:
+    try:
+        from chatlas.types import ContentThinkingDelta
+        return isinstance(msg, ContentThinkingDelta)
+    except ImportError:
+        return False
 
 
 def is_tool_result(val: object) -> "TypeGuard[chatlas.ContentToolResult]":

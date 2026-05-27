@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ggshield
-Version: 1.50.4
+Version: 1.51.0
 Summary: Detect secrets from all sources using GitGuardian's brains
 Project-URL: Homepage, https://github.com/GitGuardian/ggshield
 Author-email: GitGuardian <support@gitguardian.com>
@@ -40,6 +40,7 @@ Requires-Dist: pyyaml~=6.0.1
 Requires-Dist: requests~=2.32.0
 Requires-Dist: rich~=13.0
 Requires-Dist: sigstore<5,>=4.0.0
+Requires-Dist: tomli>=2.4.0
 Requires-Dist: truststore>=0.10.1; python_version >= '3.10'
 Requires-Dist: typing-extensions~=4.14
 Requires-Dist: urllib3<3,>=2.2.2
@@ -224,7 +225,7 @@ To catch errors earlier, use `ggshield` as a [pre-commit, pre-push or pre-receiv
 
 You can install the hooks with the `ggshield install` command.
 
-Supported tools: **Cursor**, **Claude Code**, and **Copilot Chat**.
+Supported tools: **Cursor**, **Claude Code**, **Copilot Chat**, and **Codex**.
 
 # Learn more
 

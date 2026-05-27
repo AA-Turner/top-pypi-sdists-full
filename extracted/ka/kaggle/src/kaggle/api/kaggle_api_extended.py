@@ -63,11 +63,14 @@ from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
     ApiCreateBenchmarkTaskRequest,
     ApiListBenchmarkTasksRequest,
     ApiGetBenchmarkTaskRequest,
+    ApiGetBenchmarkTaskRunLogsRequest,
     ApiListBenchmarkTaskRunsRequest,
     ApiBenchmarkTaskSlug,
     ApiBatchScheduleBenchmarkTaskRunsRequest,
     ApiDownloadBenchmarkTaskRunOutputRequest,
+    ApiPublishBenchmarkTaskRequest,
 )
+from kagglesdk.benchmarks.types.benchmark_types import BenchmarkTaskOptions
 from kagglesdk.benchmarks.types.benchmarks_api_service import ApiListBenchmarkModelsRequest
 from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionsRequest,
@@ -673,6 +676,30 @@ class FileList(object):
         return ""
 
 
+def print_auth_help() -> None:
+    """Print friendly instructions for setting up Kaggle authentication."""
+    print(
+        "Authentication required to call the Kaggle API.\n"
+        "\n"
+        "First, you will need a Kaggle account. You can sign up at\n"
+        "  https://www.kaggle.com/account/login\n"
+        "\n"
+        "Recommended: log in with OAuth via a web-based authorization flow.\n"
+        "No token to manage; credentials are cached locally for you.\n"
+        "    kaggle auth login\n"
+        "\n"
+        "If you'd rather not use OAuth, generate an API token at\n"
+        '  https://www.kaggle.com/settings/api  (click "Generate New Token" under "API")\n'
+        "and supply it to the CLI in one of these ways:\n"
+        "\n"
+        "  Option A: Environment variable\n"
+        "    export KAGGLE_API_TOKEN=xxxxxxxxxxxxxx  # token copied from the settings UI\n"
+        "\n"
+        "  Option B: API token file\n"
+        "    Save the token to ~/.kaggle/access_token"
+    )
+
+
 class KaggleApi:
     """
     KaggleApi provides methods for interacting with Kaggle's public API.
@@ -892,6 +919,8 @@ class KaggleApi:
 
     def _calculate_backoff_delay(self, attempt, initial_delay_millis, retry_multiplier, randomness_factor):
         delay_ms = initial_delay_millis * (retry_multiplier**attempt)
+        # TODO: int() truncates (random() - 0.5) to 0 for all values in [-0.5, 0.5),
+        # making jitter always zero. Apply int() to the whole expression instead.
         random_wait_ms = int(random() - 0.5) * 2 * delay_ms * randomness_factor
         total_delay = (delay_ms + random_wait_ms) / 1000.0
         return total_delay
@@ -937,7 +966,7 @@ class KaggleApi:
                                 total_delay = self._calculate_backoff_delay(
                                     i, initial_delay_millis, retry_multiplier, randomness_factor
                                 )
-                            print("Request failed: %s. Will retry in %2.1f seconds" % (e, total_delay))
+                            print("Request failed: %s. Will retry in %2.1f seconds" % (e, total_delay), file=sys.stderr)
                             time.sleep(total_delay)
                             continue
                     raise
@@ -946,23 +975,25 @@ class KaggleApi:
 
     ## Authentication
 
+    def _load_config(self) -> None:
+        """Load configuration from file and environment variables."""
+        config_values = self.read_config_file(quiet=True)
+        self.config_values = self.read_config_environment(config_values)
+
     def authenticate(self) -> None:
         """Authenticate the user with the Kaggle API, using either a legacy API key or a Kaggle OAuth token.
 
         Returns:
             None:
         """
+        self._load_config()
         if self._authenticate_with_access_token():
             return
         if self._authenticate_with_legacy_apikey():
             return
         if self._authenticate_with_oauth_creds():
             return
-        print("You must authenticate before you can call the Kaggle API.")
-        print('Please run "kaggle auth login" to log in via OAuth')
-        print(
-            "Or use one of the alternate ways to authenticate: https://github.com/Kaggle/kaggle-cli/blob/main/docs/README.md#authentication"
-        )
+        print_auth_help()
         exit(1)
 
     def _authenticate_with_legacy_apikey(self) -> bool:
@@ -975,36 +1006,20 @@ class KaggleApi:
         Returns:
             bool: True if auth succeeded.
         """
-
-        config_values: Dict[str, str] = {}
-
         # Ex: 'datasets list', 'competitions files', 'models instances get', etc.
         api_command = " ".join(sys.argv[1:])
 
-        # Step 1: try getting username/password from environment
-        config_values = self.read_config_environment(config_values)
+        if self.CONFIG_NAME_USER in self.config_values and self.CONFIG_NAME_KEY in self.config_values:
+            self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.LEGACY_API_KEY)
+            self.logger.debug(f"Authenticated with legacy api key in: {self.config}")
+            return True
 
-        # Step 2: if credentials were not in env read in configuration file
-        if self.CONFIG_NAME_USER not in config_values or self.CONFIG_NAME_KEY not in config_values:
-            if os.path.exists(self.config):
-                config_values = self.read_config_file(config_values, quiet=True)
-            elif self._command_allows_logged_out(api_command):
-                config_values = self.read_config_file(config_values, quiet=True)
-                return True
-            else:
-                return False
+        if self._command_allows_logged_out(api_command):
+            return True
 
-        # Step 3: Validate and save
-        # Username and password are required.
-        for item in [self.CONFIG_NAME_USER, self.CONFIG_NAME_KEY]:
-            if item not in config_values:
-                raise ValueError("Error: Missing %s in configuration." % item)
-        self.config_values = config_values
-        self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.LEGACY_API_KEY)
-        self.logger.debug(f"Authenticated with legacy api key in: {self.config}")
-        return True
+        return False
 
-    def _authenticate_with_access_token(self):
+    def _authenticate_with_access_token(self) -> bool:
         access_token, source = get_access_token_from_env()
         if not access_token:
             return False
@@ -1014,11 +1029,9 @@ class KaggleApi:
             self.logger.debug(f'Ignoring invalid/expired access token in "{source}".')
             return False
 
-        self.config_values: Dict[str, str] = {
-            self.CONFIG_NAME_TOKEN: access_token,
-            self.CONFIG_NAME_USER: username,
-            self.CONFIG_NAME_AUTH_METHOD: str(AuthMethod.ACCESS_TOKEN),
-        }
+        self.config_values[self.CONFIG_NAME_TOKEN] = access_token
+        self.config_values[self.CONFIG_NAME_USER] = username
+        self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.ACCESS_TOKEN)
         self.logger.debug(f"Authenticated with access token in: {source}")
         return True
 
@@ -1035,11 +1048,9 @@ class KaggleApi:
                     creds.delete()
                     return False
                 raise
-            self.config_values: Dict[str, str] = {
-                self.CONFIG_NAME_TOKEN: access_token,
-                self.CONFIG_NAME_USER: creds.get_username(),
-                self.CONFIG_NAME_AUTH_METHOD: str(AuthMethod.OAUTH),
-            }
+            self.config_values[self.CONFIG_NAME_TOKEN] = access_token
+            self.config_values[self.CONFIG_NAME_USER] = creds.get_username()
+            self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.OAUTH)
             creds_path = os.path.expanduser(KaggleCredentials.DEFAULT_CREDENTIALS_FILE)
             self.logger.debug(f"Authenticated with OAuth credentials in: {creds_path}")
             return True
@@ -2220,22 +2231,23 @@ class KaggleApi:
         if competition is None:
             raise ValueError("No competition specified")
 
-        response = self.forums_list_topics(
-            forum_slug=competition,
+        if not quiet and (page_size is not None or page_token is not None or search is not None):
+            print(
+                "Warning: --page-size, --page-token, and --search are not supported for competition topics and will be ignored."
+            )
+
+        response = self.competition_list_topics(
+            competition=competition,
             sort_by=sort_by,
-            page_size=page_size,
-            page_token=page_token,
-            search=search,
+            page=page,
         )
         topics = response.topics
         if topics:
-            fields = self.forum_topic_fields
+            fields = self.competition_topic_fields
             if csv_display:
                 self.print_csv(topics, fields)
             else:
                 self.print_table(topics, fields)
-            if not quiet and response.next_page_token:
-                print(f"Next page token: {response.next_page_token}")
         else:
             print("No topics found")
 
@@ -2485,6 +2497,7 @@ class KaggleApi:
         page_token=None,
         csv_display=False,
         quiet=False,
+        **kwargs,
     ):
         """CLI wrapper for forums_topic_show.
 
@@ -2494,16 +2507,48 @@ class KaggleApi:
         # Support both 'forum-slug/topic-id' and 'forum-slug topic-id' forms
         if topic_id_arg is not None:
             # Two separate positional args: forum-slug topic-id
-            topic_id = int(topic_id_arg)
+            try:
+                topic_id = int(topic_id_arg)
+            except (ValueError, TypeError):
+                raise ValueError(
+                    f"Invalid topic ID: {topic_id_arg!r}. "
+                    "Expected a numeric topic ID.\n"
+                    "Usage: kaggle <entity> topics show <topic-id>\n"
+                    "       kaggle <entity> topics show <slug>/<topic-id>"
+                )
         elif topic_ref and "/" in topic_ref:
-            # Single arg with slash: forum-slug/topic-id
-            parts = topic_ref.rsplit("/", 1)
-            topic_id = int(parts[1])
+            # Single arg with slash: forum-slug/topic-id (forum-slug may contain slashes)
+            parts = topic_ref.split("/")
+            topic_id_str = parts[-1]
+            try:
+                topic_id = int(topic_id_str)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid topic reference: {topic_ref!r}. "
+                    f"The part after the last '/' must be a numeric topic ID, got {topic_id_str!r}.\n"
+                    "Usage: kaggle <entity> topics show <topic-id>\n"
+                    "       kaggle <entity> topics show <forum-slug>/<topic-id>\n"
+                    "To list topics for an entity, omit 'show':\n"
+                    "       kaggle <entity> topics <entity-ref>"
+                )
         else:
             # Just a bare topic-id
             if topic_ref is None:
-                raise ValueError("No topic specified. Usage: kaggle forums topics show <forum>/<topic-id>")
-            topic_id = int(topic_ref)
+                raise ValueError(
+                    "No topic specified.\n"
+                    "Usage: kaggle <entity> topics show <topic-id>\n"
+                    "       kaggle <entity> topics show <slug>/<topic-id>"
+                )
+            try:
+                topic_id = int(topic_ref)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid topic reference: {topic_ref!r}. Expected a numeric topic ID.\n"
+                    "Usage: kaggle <entity> topics show <topic-id>\n"
+                    "       kaggle <entity> topics show <slug>/<topic-id>\n"
+                    "To list topics for an entity, omit 'show':\n"
+                    "       kaggle <entity> topics <entity-ref>"
+                )
 
         topic, comments, next_page_token = self.forums_topic_show(topic_id, page_size=page_size, page_token=page_token)
 
@@ -2572,13 +2617,15 @@ class KaggleApi:
         return flat
 
     # ------------------------------------------------------------------
-    # Generic entity topics CLI wrappers
+    # Entity-specific topics CLI wrappers
     #
-    # These allow datasets, models, and benchmarks to reuse the forums
-    # discussion API by passing the entity ref as the forum slug.
+    # Each entity type (dataset, model, benchmark) gets its own CLI
+    # wrapper that delegates to forums_list_topics.  This avoids the
+    # generic "entity" approach whose signature didn't match the
+    # argparse namespace for each entity type.
     # ------------------------------------------------------------------
 
-    def entity_list_topics_cli(
+    def dataset_list_topics_cli(
         self,
         entity_ref=None,
         sort_by=None,
@@ -2588,14 +2635,13 @@ class KaggleApi:
         csv_display=False,
         quiet=False,
     ):
-        """Generic CLI wrapper that lists discussion topics for any entity.
+        """CLI wrapper that lists discussion topics for a dataset.
 
         Args:
-            entity_ref (str): The entity identifier used as the forum slug
-                (e.g. 'titanic', 'zillow/zecon', 'google/gemma').
+            entity_ref (str): Dataset slug (e.g. 'zillow/zecon').
         """
         if entity_ref is None:
-            raise ValueError("No entity specified")
+            raise ValueError("No dataset specified")
 
         response = self.forums_list_topics(
             forum_slug=entity_ref,
@@ -2616,28 +2662,79 @@ class KaggleApi:
         else:
             print("No topics found")
 
-    def entity_topic_show_cli(
+    def model_list_topics_cli(
         self,
         entity_ref=None,
-        topic_ref=None,
-        topic_id_arg=None,
+        sort_by=None,
         page_size=None,
         page_token=None,
+        search=None,
         csv_display=False,
         quiet=False,
     ):
-        """Generic CLI wrapper that displays a discussion topic for any entity.
+        """CLI wrapper that lists discussion topics for a model.
 
-        Delegates to forums_topic_show_cli with the same arguments.
+        Args:
+            entity_ref (str): Model slug (e.g. 'google/gemma').
         """
-        self.forums_topic_show_cli(
-            topic_ref=topic_ref,
-            topic_id_arg=topic_id_arg,
+        if entity_ref is None:
+            raise ValueError("No model specified")
+
+        response = self.forums_list_topics(
+            forum_slug=entity_ref,
+            sort_by=sort_by,
             page_size=page_size,
             page_token=page_token,
-            csv_display=csv_display,
-            quiet=quiet,
+            search=search,
         )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
+
+    def benchmark_list_topics_cli(
+        self,
+        entity_ref=None,
+        sort_by=None,
+        page_size=None,
+        page_token=None,
+        search=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper that lists discussion topics for a benchmark.
+
+        Args:
+            entity_ref (str): Benchmark slug.
+        """
+        if entity_ref is None:
+            raise ValueError("No benchmark specified")
+
+        response = self.forums_list_topics(
+            forum_slug=entity_ref,
+            sort_by=sort_by,
+            page_size=page_size,
+            page_token=page_token,
+            search=search,
+        )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
 
     def dataset_list(
         self,
@@ -6529,19 +6626,23 @@ class KaggleApi:
         return slug
 
     @staticmethod
-    def _normalize_model_list(model) -> list:
-        """Normalize a model argument (str, list, or None) into a list."""
-        if isinstance(model, list):
-            return model
-        return [model] if model else []
+    def _normalize_model_slug(slug: str) -> str:
+        """Normalize a model slug (possibly in proxy/provider format) to the database format.
+
+        e.g. 'xai/grok-4.3' -> 'grok-4.3'
+             'anthropic/claude-sonnet-4-6@default' -> 'claude-sonnet-4-6-default'
+        """
+        slug = slug.split("/")[-1] if "/" in slug else slug
+        return slug.replace("@", "-")
 
     @staticmethod
-    def _short_model_slug(slug: str) -> str:
-        """Strip the owner prefix from a model slug for display.
-
-        e.g. 'google/gemini-2.5-pro' -> 'gemini-2.5-pro'
-        """
-        return slug.split("/")[-1] if "/" in slug else slug
+    def _normalize_model_list(model) -> list:
+        """Normalize a model argument (str, list, or None) into a list of normalized slugs."""
+        if isinstance(model, list):
+            raw_list = model
+        else:
+            raw_list = [model] if model else []
+        return [KaggleApi._normalize_model_slug(m) for m in raw_list]
 
     @staticmethod
     def _paginate(fetch_page, get_items):
@@ -6565,6 +6666,45 @@ class KaggleApi:
         return s
 
     @staticmethod
+    def _format_state(state) -> str:
+        """Render an enum state in Titlecase (e.g. ``Completed``)."""
+        return KaggleApi._clean_enum_str(state).title()
+
+    @staticmethod
+    def _ansi(code: str, text: str, stream=None) -> str:
+        """Wrap text in ANSI escape codes, stripping them for non-TTY output."""
+        if stream is None:
+            stream = sys.stdout
+        if not hasattr(stream, "isatty") or not stream.isatty():
+            return text
+        return f"\033[{code}m{text}\033[0m"
+
+    @classmethod
+    def _bold(cls, text: str) -> str:
+        """Bold text, TTY-aware."""
+        return cls._ansi("1", text)
+
+    @classmethod
+    def _warn(cls, text: str, stream=None) -> str:
+        """Yellow warning text, TTY-aware."""
+        return cls._ansi("1;33", text, stream or sys.stderr)
+
+    @classmethod
+    def _warn_detail(cls, text: str, stream=None) -> str:
+        """Yellow detail text (non-bold), TTY-aware."""
+        return cls._ansi("33", text, stream or sys.stderr)
+
+    @classmethod
+    def _error(cls, text: str) -> str:
+        """Red error text, TTY-aware."""
+        return cls._ansi("1;31", text)
+
+    @classmethod
+    def _error_detail(cls, text: str) -> str:
+        """Red detail text (non-bold), TTY-aware."""
+        return cls._ansi("31", text)
+
+    @staticmethod
     def _format_time(t) -> str:
         """Format a timestamp to seconds precision for display."""
         if isinstance(t, datetime):
@@ -6577,29 +6717,27 @@ class KaggleApi:
         max_task_len = max((len(t.slug.task_slug) for t in tasks), default=40)
         max_task_len = max(max_task_len, 40)
 
-        print(f"{'Task':<{max_task_len}} {'Version':<10} {'Status':<20} {'Created':<20}")
-        print("-" * (max_task_len + 53))
+        print(f"{'Task':<{max_task_len}} {'Status':<20} {'Created':<20}")
+        print(f"{'─' * max_task_len} {'─' * 20} {'─' * 20}")
         for t in tasks:
-            version = str(t.slug.version_number) if t.slug.version_number else "unset"
             print(
-                f"{t.slug.task_slug:<{max_task_len}} {version:<10}"
-                f" {KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}"
+                f"{t.slug.task_slug:<{max_task_len}}"
+                f" {KaggleApi._clean_enum_str(t.creation_state).title():<20} {KaggleApi._format_time(t.create_time):<20}"
             )
 
     @staticmethod
     def _print_run_table(runs):
         """Print a list of benchmark task runs in an aligned table."""
-        model_col = max((len(KaggleApi._short_model_slug(r.model_version_slug)) for r in runs), default=20)
+        model_col = max((len(KaggleApi._normalize_model_slug(r.model_version_slug)) for r in runs), default=20)
         model_col = max(model_col, 20)
-        time_col = 21
-        sep = model_col + 15 + time_col + time_col
+        time_col = 19  # exact width of "%Y-%m-%d %H:%M:%S"
         print(f"{'Model':<{model_col}} {'Status':<15} {'Started':<{time_col}} {'Ended':<{time_col}}")
-        print("-" * sep)
+        print(f"{'─' * model_col} {'─' * 15} {'─' * time_col} {'─' * time_col}")
         errors = []
         for r in runs:
-            slug = KaggleApi._short_model_slug(r.model_version_slug)
+            slug = KaggleApi._normalize_model_slug(r.model_version_slug)
             print(
-                f"{slug:<{model_col}} {KaggleApi._clean_enum_str(r.state):<15} "
+                f"{slug:<{model_col}} {KaggleApi._clean_enum_str(r.state).title():<15} "
                 f"{KaggleApi._format_time(r.start_time):<{time_col}} {KaggleApi._format_time(r.end_time):<{time_col}}"
             )
             if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED and r.error_message:
@@ -6607,11 +6745,12 @@ class KaggleApi:
 
         if errors:
             print()
-            print(f"\033[1;31mErrors:\033[0m")
+            print(f"{KaggleApi._error('Errors:')}")
             for slug, msg in errors:
-                print(f"\033[1;31m  [{slug}]\033[0m")
-                for line in msg.strip().splitlines():
-                    print(f"\033[31m    {line}\033[0m")
+                # Server-captured error_message may include a full Python traceback. The actual
+                # exception line is last; everything above is stack noise. Show just that line.
+                last_line = next((ln for ln in reversed(msg.strip().splitlines()) if ln.strip()), msg.strip())
+                print(f"{KaggleApi._error(f'  [{slug}]')} {KaggleApi._error_detail(last_line.strip())}")
 
     @staticmethod
     def _strip_ipython_magics(source: str) -> str:
@@ -6735,7 +6874,7 @@ class KaggleApi:
         request = ApiGetBenchmarkTaskRequest()
         request.slug = self._make_task_slug(task)
         try:
-            return kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task(request)
+            return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task)(request)
         except HTTPError as e:
             if e.response.status_code in (403, 404):
                 if allow_not_found:
@@ -6756,69 +6895,82 @@ class KaggleApi:
 
         def _fetch(page_token):
             request.page_token = page_token
-            return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(request)
+            return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs)(request)
 
         runs = self._paginate(_fetch, lambda r: r.runs or [])
 
         # Client-side filter as fallback since the server may ignore model_version_slugs.
         if models:
             model_set = set(models)
-            runs = [
-                r
-                for r in runs
-                if r.model_version_slug in model_set or r.model_version_slug.split("/")[-1] in model_set
-                # TODO(dolaameng): Remove this fallback once the server returns
-                # BenchmarkModelVersion.Slug (e.g. "claude-sonnet-4-6-default")
-                # instead of ModelProxySlug (e.g. "anthropic/claude-sonnet-4-6@default")
-                # in ApiBenchmarkTaskRun.model_version_slug.
-                or r.model_version_slug.split("/")[-1].replace("@", "-") in model_set
-            ]
+            runs = [r for r in runs if self._normalize_model_slug(r.model_version_slug) in model_set]
 
         return runs
 
-    def _select_models_interactively(self, kaggle, page_size=20):
-        """Prompt the user to pick benchmark models from a paginated list."""
-        # TODO: Check if sys.stdin.isatty() to prevent hanging in non-interactive environments.
+    def _fetch_all_benchmark_models(self, kaggle):
+        """Fetch all available benchmark models from the server."""
 
-        def _fetch_models(page_token):
+        def _fetch_page(page_token):
             req = ApiListBenchmarkModelsRequest()
             if page_token:
                 req.page_token = page_token
-            return kaggle.benchmarks.benchmarks_api_client.list_benchmark_models(req)
+            return self.with_retry(kaggle.benchmarks.benchmarks_api_client.list_benchmark_models)(req)
 
-        available = self._paginate(_fetch_models, lambda r: r.benchmark_models)
+        return self._paginate(_fetch_page, lambda r: r.benchmark_models)
+
+    def _select_models_interactively(self, kaggle, page_size=20):
+        """Prompt the user to pick benchmark models from a paginated list."""
+        available = self._fetch_all_benchmark_models(kaggle)
         if not available:
             raise ValueError("No benchmark models available. Cannot schedule runs.")
 
         total = len(available)
         total_pages = math.ceil(total / page_size)
         current_page = 0
+        num_width = len(str(total))
 
-        print(f"No model specified. {total} model(s) available:")
+        modality_max = 20
+        modalities = [
+            self._truncate(self._format_modalities(getattr(m, "version", None)), modality_max) for m in available
+        ]
+        labels = [f"{i + 1:>{num_width}}. {m.display_name}" for i, m in enumerate(available)]
+        slugs = [m.version.slug for m in available]
+        model_col = max(len("Model"), max(len(label) for label in labels))
+        slug_col = max(len("Slug"), max((len(s) for s in slugs), default=4))
+        modality_col = max(len("Modality"), max((len(m) for m in modalities), default=8))
+
         while True:
             start = current_page * page_size
-            for i, m in enumerate(available[start : start + page_size], start=start + 1):
-                print(f"  {i}. {m.version.slug} ({m.display_name})")
+            end = min(start + page_size, total)
+            print(f"\nShowing {start + 1}-{end} of {total} models available:\n")
+            print(f"{'Model':<{model_col}} {'Slug':<{slug_col}} {'Modality':<{modality_col}}")
+            print(f"{'─' * model_col} {'─' * slug_col} {'─' * modality_col}")
+            for i in range(start, end):
+                print(f"{labels[i]:<{model_col}} {slugs[i]:<{slug_col}} {modalities[i]:<{modality_col}}")
 
             nav_hints = []
             if total_pages > 1:
-                print(f"  [Page {current_page + 1}/{total_pages}]")
+                print(f"[Page {current_page + 1}/{total_pages}]")
                 if current_page < total_pages - 1:
-                    nav_hints.append("'n'=next")
+                    nav_hints.append("'n'= next")
                 if current_page > 0:
-                    nav_hints.append("'p'=prev")
+                    nav_hints.append("'p'= prev")
 
-            prompt_parts = ["Enter model numbers (comma-separated)", "'all'"]
+            prompt_parts = ["\nEnter model numbers (comma-separated)"]
             if nav_hints:
                 prompt_parts.extend(nav_hints)
-            selection = input(", ".join(prompt_parts) + ": ").strip().lower()
+            try:
+                selection = input(", ".join(prompt_parts) + ": ").strip().lower()
+            except EOFError:
+                raise ValueError(
+                    "No model specified and no input received. "
+                    "Pass one or more models with -m/--model, or use "
+                    "'kaggle b t models' to list available models."
+                ) from None
 
             if selection == "n" and current_page < total_pages - 1:
                 current_page += 1
             elif selection == "p" and current_page > 0:
                 current_page -= 1
-            elif selection == "all":
-                return [m.version.slug for m in available]
             else:
                 try:
                     indices = [int(s) for s in selection.split(",")]
@@ -6826,17 +6978,57 @@ class KaggleApi:
                 except (ValueError, IndexError):
                     raise ValueError(f"Invalid selection: {selection}")
 
-    def _poll_task_creation(self, kaggle, task, wait, poll_interval):
-        """Poll task creation status until terminal or timeout."""
-        print("Waiting for task to be processed...")
+    @staticmethod
+    def _truncate(s: str, max_len: int) -> str:
+        """Truncate *s* to *max_len* characters, appending an ellipsis when shortened."""
+        return s if len(s) <= max_len else s[: max_len - 1] + "…"
+
+    @staticmethod
+    def _format_modalities(version) -> str:
+        """Render a model version's modalities as ``Input-to-Output`` (e.g., ``Image-Text-to-Text``)."""
+
+        def names(mods):
+            try:
+                out = []
+                for m in mods or []:
+                    name = getattr(m, "name", "")
+                    if name and "UNSPECIFIED" not in name:
+                        out.append(name.replace("MODALITY_", "").title())
+                return sorted(set(out))
+            except TypeError:
+                return []
+
+        in_names = names(getattr(version, "input_modalities", None))
+        out_names = names(getattr(version, "output_modalities", None))
+        if not in_names and not out_names:
+            return ""
+        if in_names == out_names and len(in_names) >= 3:
+            return "Any-to-Any"
+        return f"{'-'.join(in_names) or 'Unknown'}-to-{'-'.join(out_names) or 'Unknown'}"
+
+    _ADAPTIVE_POLL_START = 5  # Initial adaptive polling interval in seconds
+
+    @staticmethod
+    def _adaptive_sleep(current_interval, poll_interval, verbose=False):
+        """Sleep for the current interval and return the next adaptive interval.
+
+        The interval increases by 50% each call, capped at poll_interval.
+        """
+        if verbose:
+            print(f"  Adaptive polling sleep: {current_interval}s")
+        time.sleep(current_interval)
+        return min(poll_interval, int(current_interval * 1.5))
+
+    def _poll_task_creation(self, kaggle, task, wait, poll_interval, verbose=False):
+        """Poll task creation status until terminal or timeout. Returns True on completion, False on timeout."""
         start_time = time.time()
+        current_interval = min(self._ADAPTIVE_POLL_START, poll_interval)
         while True:
             task_info = self._get_benchmark_task(task, kaggle)
             state = task_info.creation_state
 
             if state == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED:
-                print(f"Task '{task}' creation completed.")
-                return
+                return True
             elif state not in self._PENDING_CREATION_STATES:
                 error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
                 error = getattr(task_info, "error", None) or getattr(task_info, "creation_error_message", None)
@@ -6844,31 +7036,32 @@ class KaggleApi:
                     error_msg += f" Error: {error}"
                 raise ValueError(error_msg)
 
-            print(f"  Task status: {self._clean_enum_str(state)}...")
+            print(f"   Task status: {self._clean_enum_str(state)}...")
 
             if wait > 0 and (time.time() - start_time) > wait:
                 print(f"Timed out waiting for task creation after {wait} seconds.")
-                return
+                return False
 
-            time.sleep(poll_interval)
+            current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
 
-    def _poll_runs(self, kaggle, task, models, wait, poll_interval):
+    def _poll_runs(self, kaggle, task, models, wait, poll_interval, verbose=False):
         """Poll run status until all runs are terminal or timeout."""
         print("Waiting for run(s) to complete...")
         start_time = time.time()
+        current_interval = min(self._ADAPTIVE_POLL_START, poll_interval)
         while True:
             all_runs = self._fetch_task_runs(kaggle, task, models)
 
             if all_runs and all(r.state in self._TERMINAL_RUN_STATES for r in all_runs):
                 print("All runs completed:")
                 for r in all_runs:
-                    print(f"  {self._short_model_slug(r.model_version_slug)}: {self._clean_enum_str(r.state)}")
+                    print(f"  {self._normalize_model_slug(r.model_version_slug)}: {self._clean_enum_str(r.state)}")
 
                 errored = [r for r in all_runs if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED]
                 if errored:
                     details = []
                     for r in errored:
-                        slug = self._short_model_slug(r.model_version_slug)
+                        slug = self._normalize_model_slug(r.model_version_slug)
                         msg = (getattr(r, "error_message", None) or "").strip() or "No error message"
                         details.append(f"  [{slug}]\n    {msg}")
                     raise ValueError(f"{len(errored)} run(s) failed:\n" + "\n".join(details))
@@ -6881,7 +7074,7 @@ class KaggleApi:
                 print(f"Timed out waiting for runs after {wait} seconds.")
                 return
 
-            time.sleep(poll_interval)
+            current_interval = self._adaptive_sleep(current_interval, poll_interval, verbose)
 
     # -- Public CLI methods --
 
@@ -6895,55 +7088,106 @@ class KaggleApi:
             "MODEL_PROXY_EXPIRY_TIME": response.expiry_time.isoformat() + "Z" if response.expiry_time else "",
         }
 
-    def _write_benchmarks_env(self, env_vars, no_confirm, env_file):
-        env_file = os.path.abspath(env_file)
-        api_key = env_vars.get("MODEL_PROXY_API_KEY", "")
-        masked_api_key = "****************" + api_key[-4:] if len(api_key) > 4 else api_key
+    def _write_benchmarks_env(self, env_vars, no_confirm, env_file, quiet=False):
+        env_file_abs = os.path.abspath(env_file)
 
-        print(f"The following environment variables will be written to {env_file}:\n")
-        for key, value in env_vars.items():
-            display_value = masked_api_key if key == "MODEL_PROXY_API_KEY" else value
-            print(f"  {key}={display_value}")
+        print("The following configuration will be set:")
+
+        api_key = env_vars.get("MODEL_PROXY_API_KEY", "")
+        if api_key:
+            # Showing the last 4 chars of a high-entropy token is industry standard (Stripe, GitHub, AWS)
+            # for letting users identify which credential is in use without disclosing recoverable bits.
+            print(f"  API Key  (ends in ...{api_key[-4:]})")  # lgtm[py/clear-text-logging-sensitive-data]
+        expiry_iso = env_vars.get("MODEL_PROXY_EXPIRY_TIME", "")
+        if expiry_iso:
+            print(f"  Expires: {self._format_expiry(expiry_iso)}")
+
+        label_width = 17
+        defaults = [
+            ("Default LLM", env_vars.get("LLM_DEFAULT")),
+            ("Default Judge", env_vars.get("LLM_DEFAULT_EVAL")),
+        ]
+        defaults = [(label, value) for label, value in defaults if value]
+        for i, (label, value) in enumerate(defaults):
+            prefix = "\n" if i == 0 else ""
+            print(f"{prefix}  {label.ljust(label_width)}{value}")
+
+        llms_available = env_vars.get("LLMS_AVAILABLE", "")
+        if llms_available:
+            llms = [llm.strip() for llm in llms_available.split(",") if llm.strip()]
+            if llms:
+                label = "LLMs Available".ljust(label_width)
+                print(f"\n  {label}{llms[0]}")
+                continuation = " " * (2 + label_width)
+                for llm in llms[1:]:
+                    print(f"{continuation}{llm}")
+
         print()
 
         if not no_confirm:
-            if not self.confirmation(f"write these environment variables to {env_file}", default_to_yes=True):
-                return
+            if not self.confirmation(f"write these settings to {os.path.basename(env_file_abs)}", default_to_yes=True):
+                return False
 
-        with open(env_file, "a") as f:
+        with open(env_file_abs, "a") as f:
             f.write("\n")
             for key, value in env_vars.items():
                 f.write(f"{key}={value}\n")
 
-        print(f"Environment variables have been written to {env_file}.")
+        if not quiet:
+            print(f"Environment variables have been written to {env_file_abs}.")
+        return True
 
-    def _write_benchmarks_example(self, example_file):
+    @staticmethod
+    def _format_expiry(iso_timestamp):
+        try:
+            expiry = datetime.fromisoformat(iso_timestamp.rstrip("Z")).replace(tzinfo=timezone.utc)
+        except ValueError:
+            return iso_timestamp
+        total = int((expiry - datetime.now(timezone.utc)).total_seconds())
+        if total <= 0:
+            return "Expired"
+        if total < 3600:
+            n = max(1, total // 60)
+            return f"In {n} minute{'s' if n != 1 else ''}"
+        if total < 86400:
+            n = total // 3600
+            return f"In {n} hour{'s' if n != 1 else ''}"
+        n = total // 86400
+        return f"In {n} day{'s' if n != 1 else ''}"
+
+    def _write_benchmarks_example(self, example_file, quiet=False):
         example_file = os.path.abspath(example_file)
         if os.path.exists(example_file):
-            print(f"Example file already exists at {example_file}, skipping.")
+            if not quiet:
+                print(f"Example file already exists at {example_file}, skipping.")
             return
 
         with open(example_file, "w") as f:
             f.write(BENCHMARKS_EXAMPLE_TASK)
 
-        print(f"Example benchmark task file has been written to {example_file}.")
+        if not quiet:
+            print(f"Example benchmark task file has been written to {example_file}.")
 
-    def _write_benchmarks_reference(self, directory):
+    def _write_benchmarks_reference(self, directory, quiet=False):
         ref_file = os.path.join(os.path.abspath(directory), "kaggle_benchmarks_reference.md")
         if os.path.exists(ref_file):
-            print(f"Reference file already exists at {ref_file}, skipping.")
+            if not quiet:
+                print(f"Reference file already exists at {ref_file}, skipping.")
             return
 
         with open(ref_file, "w") as f:
             f.write(BENCHMARKS_SYNTAX_REF)
 
-        print(f"Syntax reference has been written to {ref_file}.")
+        if not quiet:
+            print(f"Syntax reference has been written to {ref_file}.")
 
     def benchmarks_auth_cli(self, no_confirm=False, env_file=".env"):
         env_vars = self._fetch_model_proxy_env()
         self._write_benchmarks_env(env_vars, no_confirm, env_file)
 
     def benchmarks_init_cli(self, no_confirm=False, env_file=".env", example_file="example_task.py"):
+        print("Initializing Kaggle Benchmarks environment")
+        print(f"  Target:  {os.path.abspath(env_file)}\n")
         env_vars = self._fetch_model_proxy_env()
         env_vars.update(
             {
@@ -6952,11 +7196,26 @@ class KaggleApi:
                 "LLMS_AVAILABLE": "anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5",
             }
         )
-        self._write_benchmarks_env(env_vars, no_confirm, env_file)
-        self._write_benchmarks_example(example_file)
-        self._write_benchmarks_reference(os.path.dirname(os.path.abspath(example_file)))
+        if not self._write_benchmarks_env(env_vars, no_confirm, env_file, quiet=True):
+            return
+        self._write_benchmarks_example(example_file, quiet=True)
+        self._write_benchmarks_reference(os.path.dirname(os.path.abspath(example_file)), quiet=True)
 
-    def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=10):
+        env_name = os.path.basename(os.path.abspath(env_file))
+        example_name = os.path.basename(os.path.abspath(example_file))
+        ref_name = "kaggle_benchmarks_reference.md"
+        col_width = max(len(env_name), len(example_name), len(ref_name)) + 3
+
+        print("\nEnvironment initialized!")
+        print("\nFiles created in ./:")
+        print(f"  {env_name.ljust(col_width)}(API keys & configuration)")
+        print(f"  {example_name.ljust(col_width)}(Starter template)")
+        print(f"  {ref_name.ljust(col_width)}(Syntax guide)")
+        print("\nNext step:")
+        print("  Run your first task using the example file:")
+        print(f"  $ kaggle b t push what-is-kaggle -f {example_name} --wait")
+
+    def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=60, verbose=False, kaggle_datasets=None):
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         if not os.path.isfile(file):
@@ -6970,17 +7229,16 @@ class KaggleApi:
 
         task_slug = slugify(task)
         if task_slug != task:
-            print(
-                f"\n\033[1;33m⚠ Warning: task name '{task}' was normalized to slug '{task_slug}'.\033[0m\n"
-                f"\033[33m  Use '{task_slug}' in future commands.\033[0m\n",
-                file=sys.stderr,
-            )
+            msg1 = self._warn(f"⚠ Warning: task name {task!r} was normalized to slug {task_slug!r}.")
+            msg2 = self._warn_detail(f"  Use {task_slug!r} in future commands.")
+            print(f"\n{msg1}\n{msg2}\n", file=sys.stderr)
 
         notebook_content = self._convert_py_to_notebook(content)
 
         with self.build_kaggle_client() as kaggle:
             # If a previous push is still being created, wait or error.
             task_info = self._get_benchmark_task(task_slug, kaggle, allow_not_found=True)
+            is_new_version = task_info is not None
             if task_info and task_info.creation_state in self._PENDING_CREATION_STATES:
                 if wait is None:
                     raise ValueError(
@@ -6988,29 +7246,74 @@ class KaggleApi:
                         f"Use --wait to monitor the existing creation."
                     )
                 print(f"Task '{task_slug}' is already being created. Waiting for it to finish...")
-                self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
-                print(f"Pushing new version of '{task_slug}'...")
+                self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
+
+            # Warn if re-pushing without datasets when previous version had them
+            if task_info and not kaggle_datasets:
+                prev_options = getattr(task_info, "options", None)
+                if prev_options and prev_options.dataset_data_sources:
+                    prev_sources = ", ".join(prev_options.dataset_data_sources)
+                    msg1 = self._warn(
+                        f"⚠ Warning: The previous version of '{task_slug}' had attached "
+                        f"Kaggle datasets: {prev_sources}"
+                    )
+                    msg2 = self._warn_detail("  Re-pushing without --kaggle-dataset / -d will detach them.")
+                    msg3 = self._warn_detail(
+                        f"  To keep them, add: {' '.join(f'-d {s}' for s in prev_options.dataset_data_sources)}"
+                    )
+                    print(f"{msg1}\n{msg2}\n{msg3}", file=sys.stderr)
 
             request = ApiCreateBenchmarkTaskRequest()
             request.slug = task_slug
             request.text = notebook_content
 
-            response = kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task(request)
+            # Attach Kaggle datasets if specified
+            if kaggle_datasets:
+                options = BenchmarkTaskOptions()
+                options.dataset_data_sources = kaggle_datasets
+                request.options = options
+
+            response = self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task)(request)
             error = getattr(response, "error", None)
             if error:
                 raise ValueError(f"Failed to push task: {error}")
 
             url = self._full_task_url(response.url)
-            print(f"Task '{task_slug}' pushed.")
-            print(f"\033[1mTask URL: {url}\033[0m")
-            print(f"To run this task against models, use: kaggle b t run {task_slug}")
+            model_output_url = re.sub(r"/\d+/?$", "", url) + "?compare=true"
+            banner_subject = f"new version of {task_slug}" if is_new_version else task_slug
+            print(f"\nPushed {banner_subject}")
+            print(f"   Task Details:  {url}")
+
+            # Report datasource attachment results
+            if kaggle_datasets:
+                attached = getattr(response, "options", None)
+                if attached and attached.dataset_data_sources:
+                    print(f"Attached Kaggle dataset(s): {', '.join(attached.dataset_data_sources)}")
+                invalid = getattr(response, "invalid_dataset_sources", None)
+                if invalid:
+                    msg = self._warn(
+                        f"⚠ Warning: The following Kaggle datasets could not be resolved: " f"{', '.join(invalid)}"
+                    )
+                    print(msg, file=sys.stderr)
 
             if wait is None:
-                print(f"To check creation status, use: kaggle b t status {task_slug}")
+                print(f"   Model Output:  {model_output_url}")
+                print("\nNext steps:")
+                print("   Check creation status:")
+                print(f"   $ kaggle b t status {task_slug}\n")
+                print("   Select models to run (or use -m to skip the menu):")
+                print(f"   $ kaggle b t run {task_slug}")
             else:
-                self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
+                print("\nStatus")
+                completed = self._poll_task_creation(kaggle, task_slug, wait, poll_interval, verbose=verbose)
+                if completed:
+                    print("\nCompleted")
+                    print(f"   Model Output:  {model_output_url}")
+                    print("\nNext step:")
+                    print("   Select models to run (or use -m to skip the menu):")
+                    print(f"   $ kaggle b t run {task_slug}")
 
-    def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=10):
+    def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=60, verbose=False):
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         models = self._normalize_model_list(model)
@@ -7036,7 +7339,9 @@ class KaggleApi:
             request.model_version_slugs = models
 
             try:
-                response = kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs(request)
+                response = self.with_retry(
+                    kaggle.benchmarks.benchmark_tasks_api_client.batch_schedule_benchmark_task_runs
+                )(request)
             except HTTPError as e:
                 if e.response.status_code == 404:
                     raise ValueError(
@@ -7052,11 +7357,13 @@ class KaggleApi:
                     print(f"  {model_slug}: Skipped ({res.run_skipped_reason})")
 
             if wait is None:
-                print(f"To check status later, use: kaggle b t status {task}")
+                print("\nNext steps:")
+                print("   Check run status:")
+                print(f"   $ kaggle b t status {task}")
             else:
-                self._poll_runs(kaggle, task, models, wait, poll_interval)
+                self._poll_runs(kaggle, task, models, wait, poll_interval, verbose=verbose)
 
-    def benchmarks_tasks_list_cli(self, name_regex=None, status=None):
+    def benchmarks_tasks_list_cli(self, name_regex=None, status=None, page_size=None, show_all=False):
         request = ApiListBenchmarkTasksRequest()
         if name_regex:
             request.regex_filter = name_regex
@@ -7067,10 +7374,52 @@ class KaggleApi:
 
             def _fetch(page_token):
                 request.page_token = page_token
-                return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
+                return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks)(request)
 
             all_tasks = self._paginate(_fetch, lambda r: r.tasks or [])
-            self._print_task_table(all_tasks)
+            if show_all:
+                self._paginated_task_display(all_tasks, page_size=max(len(all_tasks), 1), interactive=False)
+            else:
+                self._paginated_task_display(all_tasks, page_size=page_size or 20)
+
+    def _paginated_task_display(self, tasks, page_size=20, interactive=True):
+        """Display *tasks* one page at a time with an interactive n/p/q prompt."""
+        total = len(tasks)
+        if total == 0:
+            print("No tasks found.")
+            return
+
+        # Extract owner username from a task URL of the form /benchmarks/tasks/{user}/{slug}/{ver}.
+        username = None
+        for t in tasks:
+            parts = (getattr(t, "url", "") or "").strip("/").split("/")
+            if len(parts) >= 3 and parts[0] == "benchmarks" and parts[1] == "tasks":
+                username = parts[2]
+                break
+
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        page = 1
+        while True:
+            start = (page - 1) * page_size
+            end = min(start + page_size, total)
+            url_hint = f" (https://www.kaggle.com/benchmarks/tasks/{username}/)" if username else ""
+            print(f"\nShowing {start + 1}-{end} of {total} tasks{url_hint}\n")
+            self._print_task_table(tasks[start:end])
+
+            if total_pages == 1 or not interactive:
+                return
+
+            print(f"\n[Page {page}/{total_pages}] [n]ext, [p]rev, [q]uit: ", end="", flush=True)
+            try:
+                choice = input().strip().lower()
+            except EOFError:
+                return
+            if choice == "q":
+                return
+            if choice == "n" and page < total_pages:
+                page += 1
+            elif choice == "p" and page > 1:
+                page -= 1
 
     def benchmarks_tasks_status_cli(self, task, model=None):
         task = slugify(task)
@@ -7079,11 +7428,15 @@ class KaggleApi:
             print(f"Task:     {task_info.slug.task_slug}")
             version = task_info.slug.version_number or "unset"
             print(f"Version:  {version}")
-            print(f"Status:   {self._clean_enum_str(task_info.creation_state)}")
+            print(f"Status:   {self._format_state(task_info.creation_state)}")
             print(f"Created:  {self._format_time(task_info.create_time)}")
+            print(f"Public:   {getattr(task_info, 'is_public', False)}")
             url = getattr(task_info, "url", None)
             if url:
-                print(f"\033[1mTask URL: {self._full_task_url(url)}\033[0m")
+                print(f"Task URL: {self._full_task_url(url)}\n")
+            options = getattr(task_info, "options", None)
+            if options and options.dataset_data_sources:
+                print(f"Datasets: {', '.join(options.dataset_data_sources)}")
 
             runs = self._fetch_task_runs(kaggle, task, model)
 
@@ -7092,8 +7445,20 @@ class KaggleApi:
                 return
 
             self._print_run_table(runs)
+            print(f"\nView logs: kaggle b t log {task} [-m <model>]")
 
-    def benchmarks_tasks_download_cli(self, task, model=None, output=None):
+    @staticmethod
+    def _format_model_hint(model):
+        """Format a human-readable model filter hint for error messages."""
+        if isinstance(model, str):
+            return f" for model '{model}'"
+        if model:
+            joined = "', '".join(model)
+            return f" for model(s) '{joined}'"
+        return ""
+
+    def benchmarks_tasks_download_cli(self, task, model=None, output=None, include_source=False, force=False):
+        """Download output files for completed/errored benchmark task runs."""
         task = slugify(task)
         output = output or "."
 
@@ -7103,14 +7468,10 @@ class KaggleApi:
             runs = self._fetch_task_runs(kaggle, task, model)
 
             if not runs:
-                if isinstance(model, str):
-                    model_hint = f" for model '{model}'"
-                elif model:
-                    model_hint = f" for models {', '.join(model)}"
-                else:
-                    model_hint = ""
+                model_hint = self._format_model_hint(model)
                 print(f"No runs found for task '{task}'{model_hint}.")
                 print(f"Use 'kaggle b t run {task}' to start one.")
+                print(f"\nDone: 0 runs downloaded.")
                 return
 
             downloadable = [r for r in runs if r.state in self._TERMINAL_RUN_STATES]
@@ -7118,49 +7479,217 @@ class KaggleApi:
                 pending = len(runs)
                 print(f"No downloadable runs yet — {pending} run(s) still in progress.")
                 print(f"Use 'kaggle b t status {task}' to check progress.")
+                print(f"\nDone: 0 runs downloaded.")
                 return
 
-            for r in downloadable:
-                dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
-                dl_request.run_id = r.id
-                slug = self._short_model_slug(r.model_version_slug)
+            target_dir = os.path.join(output, task)
+            print(f"Downloading output runs for {task}")
+            print(f"Target directory:  {target_dir}/\n")
+
+            display_files = [
+                f"{self._normalize_model_slug(r.model_version_slug)}/{r.id}/{r.id}.zip" for r in downloadable
+            ]
+            model_col = max((len(self._normalize_model_slug(r.model_version_slug)) for r in downloadable), default=20)
+            model_col = max(model_col, 20)
+            file_col = max((len(f) for f in display_files), default=40)
+            file_col = max(file_col, 40)
+            size_col = 10
+            prog_col = 10
+
+            print(f"{'Model':<{model_col}} {'File':<{file_col}} {'Size':<{size_col}} {'Progress':<{prog_col}}")
+            print(f"{'─' * model_col} {'─' * file_col} {'─' * size_col} {'─' * prog_col}")
+
+            downloaded, skipped = 0, 0
+            for r, display_file in zip(downloadable, display_files):
+                slug = self._normalize_model_slug(r.model_version_slug)
                 # Hierarchical layout: {output}/{task}/{version}/{model}/{run_id}/
                 outdir = os.path.join(output, task, version, slug, str(r.id))
+                row_prefix = f"{slug:<{model_col}} {display_file:<{file_col}}"
 
-                if os.path.isdir(outdir):
-                    print(f"Skipping {slug} (run {r.id}) — already downloaded to {outdir}")
+                if os.path.isdir(outdir) and not force:
+                    size_str = self._format_size(self._dir_size(outdir))
+                    print(f"{row_prefix} {size_str:<{size_col}} {'Skipped':<{prog_col}}")
+                    skipped += 1
                     continue
 
-                print(f"Downloading output for run {r.id} ({slug})...")
-                response = kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output(dl_request)
+                dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
+                dl_request.run_id = r.id
+                dl_request.include_source = include_source
+                response = self.with_retry(
+                    kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output
+                )(dl_request)
                 zipfile_path = outdir + ".zip"
-                self.download_file(response, zipfile_path, kaggle.http_client(), quiet=False)
-                # Extract the zip archive into the output directory.
-                # Note: extractall() is safe here because the zip originates from
-                # the trusted Kaggle server, not user-supplied input (zip-slip).
+                size_str = ""
+                # Download and extract to a staging directory, then swap on
+                # success so a failed download doesn't destroy a previous
+                # good output when using --force.
+                tmp_outdir = outdir + ".download"
+                if os.path.isdir(tmp_outdir):
+                    shutil.rmtree(tmp_outdir)
                 try:
+                    # quiet=True: intermediate zip, extracted and removed below
+                    self.download_file(response, zipfile_path, kaggle.http_client(), quiet=True)
+                    size_str = self._format_size(os.path.getsize(zipfile_path)) if os.path.exists(zipfile_path) else ""
+                    # Note: extractall() is safe here because the zip originates from
+                    # the trusted Kaggle server, not user-supplied input (zip-slip).
                     with zipfile.ZipFile(zipfile_path, "r") as zf:
-                        zf.extractall(outdir)
+                        zf.extractall(tmp_outdir)
                 except zipfile.BadZipFile:
-                    print(
-                        f"Warning: Downloaded file for {slug} (run {r.id}) is not a valid zip archive. "
-                        f"The raw file has been kept at {zipfile_path}."
-                    )
+                    print(f"{row_prefix} {size_str:<{size_col}} {'Bad zip':<{prog_col}}")
+                    if os.path.isdir(tmp_outdir):
+                        shutil.rmtree(tmp_outdir)
                     continue
+                except Exception:
+                    # Clean up partial zip and staging dir on failure
+                    if os.path.exists(zipfile_path):
+                        os.remove(zipfile_path)
+                    if os.path.isdir(tmp_outdir):
+                        shutil.rmtree(tmp_outdir)
+                    raise
                 os.remove(zipfile_path)
-                print(f"Downloaded output for {slug} to {outdir}")
+                # Swap: remove old output only after new download succeeds
+                if os.path.isdir(outdir):
+                    shutil.rmtree(outdir)
+                os.rename(tmp_outdir, outdir)
+                downloaded += 1
+                print(f"{row_prefix} {size_str:<{size_col}} {'Done':<{prog_col}}")
+
+            # Summary
+            parts = [f"{n} run(s) {label}" for n, label in ((downloaded, "downloaded"), (skipped, "skipped")) if n]
+            print(f"\nDone: {', '.join(parts) or '0 runs downloaded'}.")
+
+    @staticmethod
+    def _format_size(n) -> str:
+        """Render a byte count as ``1.06KB`` / ``2.34MB`` / etc."""
+        if n is None:
+            return ""
+        n = float(n)
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if n < 1024 or unit == "TB":
+                return f"{n:.2f}{unit}" if unit != "B" else f"{int(n)}B"
+            n /= 1024
+        return f"{n:.2f}PB"
+
+    @staticmethod
+    def _dir_size(path) -> int:
+        total = 0
+        for dirpath, _, filenames in os.walk(path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                if os.path.isfile(fp):
+                    total += os.path.getsize(fp)
+        return total
+
+    @staticmethod
+    def _print_log_entry(log_entry, flush=False):
+        """Print a single log entry, returning (lines_printed, ended_with_newline).
+
+        Log entries from the benchmark server are either:
+        - dicts with a "data" key containing the log text, or
+        - raw strings/values to print as-is.
+        """
+        if isinstance(log_entry, dict) and "data" in log_entry:
+            text = log_entry["data"]
+            print(text, end="", flush=flush)
+            # Count visual lines: newlines, plus one for a partial trailing
+            # line that is printed but has no newline terminator.
+            lines = text.count("\n")
+            if text and not text.endswith("\n"):
+                lines += 1
+            return lines, text.endswith("\n")
+        if isinstance(log_entry, dict):
+            text = json.dumps(log_entry)
+        else:
+            text = str(log_entry)
+        print(text, flush=flush)
+        return 1, True
+
+    def benchmarks_tasks_log_cli(self, task, model=None):
+        """Print execution logs for benchmark task run(s)."""
+        task = slugify(task)
+
+        with self.build_kaggle_client() as kaggle:
+            self._get_benchmark_task(task, kaggle)
+            runs = self._fetch_task_runs(kaggle, task, model)
+
+            if not runs:
+                model_hint = self._format_model_hint(model)
+                print(f"No runs found for task '{task}'{model_hint}. Use 'kaggle b t run {task}' to start one.")
+                return
+
+            for run in runs:
+                slug = self._normalize_model_slug(run.model_version_slug)
+                state = self._clean_enum_str(run.state)
+
+                print(f"\n═══ Logs for {slug} (Run {run.id}) [{state}] ═══")
+
+                request = ApiGetBenchmarkTaskRunLogsRequest()
+                request.run_id = run.id
+
+                # QUEUED runs have no logs yet — the server may return 404.
+                # Catch per-run so one missing log doesn't abort the whole command.
+                try:
+                    response = self.with_retry(
+                        kaggle.benchmarks.benchmark_tasks_api_client.get_benchmark_task_run_logs
+                    )(request)
+                except HTTPError as e:
+                    status = getattr(e.response, "status_code", None)
+                    print(f"  (No logs available — server returned {status})")
+                    print(f"═══ (0 lines) ═══")
+                    continue
+
+                line_count = 0
+                content_type = response.headers.get("Content-Type", "")
+                if "text/event-stream" in content_type:
+                    # Active run — stream SSE events in real-time.
+                    # Note: the SSE spec allows multi-line data: continuation,
+                    # but currently the server emits one data: line per event
+                    # so we treat each line independently.
+                    last_ended_with_newline = True
+                    for line in response.iter_lines():
+                        decoded = line.decode("utf-8") if isinstance(line, bytes) else line
+                        if decoded.startswith("data:"):
+                            event_data = decoded[5:].lstrip()
+                            try:
+                                entry = json.loads(event_data)
+                            except (json.JSONDecodeError, ValueError):
+                                entry = event_data
+                            lines, last_ended_with_newline = self._print_log_entry(entry, flush=True)
+                            line_count += lines
+                        elif decoded.strip():
+                            print(decoded, flush=True)
+                            line_count += 1
+                            last_ended_with_newline = True
+                    if not last_ended_with_newline:
+                        print()
+                else:
+                    # Completed/errored run — persisted log
+                    try:
+                        logs = json.loads(response.text)
+                    except (json.JSONDecodeError, ValueError):
+                        logs = None
+
+                    if isinstance(logs, list):
+                        last_ended_with_newline = True
+                        for log_entry in logs:
+                            lines, last_ended_with_newline = self._print_log_entry(log_entry)
+                            line_count += lines
+                        if not last_ended_with_newline:
+                            print()
+                    else:
+                        print(response.text)
+                        line_count = response.text.count("\n")
+
+                print(f"═══ ({line_count} lines) ═══")
+
+            # Summary
+            models_seen = {self._normalize_model_slug(r.model_version_slug) for r in runs}
+            print(f"\nShowed logs for {len(runs)} run(s) across {len(models_seen)} model(s).")
 
     def benchmarks_tasks_models_cli(self):
         """List all available benchmark models."""
         with self.build_kaggle_client() as kaggle:
-
-            def _fetch_models(page_token):
-                req = ApiListBenchmarkModelsRequest()
-                if page_token:
-                    req.page_token = page_token
-                return kaggle.benchmarks.benchmarks_api_client.list_benchmark_models(req)
-
-            models = self._paginate(_fetch_models, lambda r: r.benchmark_models)
+            models = self._fetch_all_benchmark_models(kaggle)
             if not models:
                 print("No benchmark models available.")
                 return
@@ -7176,6 +7705,41 @@ class KaggleApi:
     def benchmarks_tasks_delete_cli(self, task, no_confirm=False):
         # TODO: Normalize task name via slugify(task) when server supports delete.
         print("Delete is not supported by the server yet.")
+
+    def benchmarks_tasks_publish_cli(self, task, publish_backing_notebook=True):
+        """Publish a benchmark task, making it public."""
+        task = slugify(task)
+
+        with self.build_kaggle_client() as kaggle:
+            # Verify the task exists first
+            task_info = self._get_benchmark_task(task, kaggle)
+
+            # Check if already public
+            if getattr(task_info, "is_public", False):
+                print(f"Task '{task}' is already public.")
+                if publish_backing_notebook and not getattr(task_info, "is_backing_notebook_published", False):
+                    print("Publishing the backing notebook...")
+                elif publish_backing_notebook:
+                    print("Backing notebook is already published.")
+                    return
+                else:
+                    return
+
+            request = ApiPublishBenchmarkTaskRequest()
+            request.slug = self._make_task_slug(task)
+            request.publish_backing_notebook = publish_backing_notebook
+
+            response = self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.publish_benchmark_task)(request)
+
+            url = self._full_task_url(response.url)
+            print(f"Task '{task}' published successfully.")
+            print(f"{self._bold(f'Task URL: {url}')}")
+
+            if publish_backing_notebook:
+                if getattr(response, "is_backing_notebook_published", False):
+                    print("Backing notebook also published.")
+                else:
+                    print("Note: No backing notebook is associated with this task.")
 
 
 class TqdmBufferedReader(io.BufferedReader):

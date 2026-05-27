@@ -146,9 +146,11 @@ class TaskProgressDisplay:
     """Renders task progress to the terminal."""
 
     def __init__(self, console: Any = None):
-        from rich.console import Console
-
-        self.console = console or Console()
+        if console is None:
+            from sage.core.renderer import console as _default_console
+            self.console = _default_console
+        else:
+            self.console = console
         self._task_ids: dict[str, Any] = {}
         self._progress: Any = None
 
@@ -162,6 +164,15 @@ class TaskProgressDisplay:
             TextColumn,
             TimeElapsedColumn,
         )
+        import sys
+        import os
+        from sage.core.renderer import _no_color_enabled, _suppress_spinners
+        disable_progress = (
+            not sys.stdout.isatty()
+            or _no_color_enabled
+            or _suppress_spinners
+            or os.environ.get("TERM") == "dumb"
+        )
 
         return Progress(
             SpinnerColumn(),
@@ -170,6 +181,7 @@ class TaskProgressDisplay:
             TaskProgressColumn(),
             TimeElapsedColumn(),
             console=self.console,
+            disable=disable_progress,
         )
 
     def start(self, tasks: list[Task]) -> Any:

@@ -29,14 +29,11 @@ from airbyte.exceptions import (
     AirbyteError,
     AirbyteMissingResourceError,
     AirbyteMultipleResourcesError,
+    AirbyteWorkspaceNotEmptyError,
     PyAirbyteInputError,
 )
 from airbyte.secrets.base import SecretString
 from airbyte.secrets.util import try_get_secret
-
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 
 if TYPE_CHECKING:
@@ -49,6 +46,7 @@ if TYPE_CHECKING:
 
 JOB_WAIT_INTERVAL_SECS = 2.0
 JOB_WAIT_TIMEOUT_SECS_DEFAULT = 60 * 60  # 1 hour
+PAGE_SIZE = 100
 
 # Job ordering constants for list_jobs API
 JOB_ORDER_BY_CREATED_AT_DESC = "createdAt|DESC"
@@ -58,6 +56,22 @@ JOB_ORDER_BY_CREATED_AT_ASC = "createdAt|ASC"
 def status_ok(status_code: int) -> bool:
     """Check if a status code is OK."""
     return status_code >= 200 and status_code < 300  # noqa: PLR2004  # allow inline magic numbers
+
+
+def _validate_pagination_params(
+    *,
+    limit: int | None,
+) -> None:
+    """Validate common pagination parameters."""
+    if limit is not None and limit <= 0:
+        raise PyAirbyteInputError(message="`limit` must be greater than 0.")
+
+
+def _get_page_limit(remaining: int | None) -> int:
+    """Get the next API page limit from the remaining item count."""
+    if remaining is None:
+        return PAGE_SIZE
+    return min(remaining, PAGE_SIZE)
 
 
 def _get_sdk_error_context(error: SDKError) -> dict[str, Any]:
@@ -96,16 +110,33 @@ def _wrap_sdk_error(error: SDKError, base_context: dict[str, Any] | None = None)
     )
 
 
-def get_config_api_root(api_root: str) -> str:
-    """Get the configuration API root from the main API root.
+def _infer_config_api_root(api_root: str) -> str | None:
+    """Infer the configuration API root from a public API root."""
+    normalized_api_root = api_root.rstrip("/")
+    public_api_suffix = "/api/public/v1"
+    if normalized_api_root.endswith(public_api_suffix):
+        return normalized_api_root[: -len(public_api_suffix)] + "/api/v1"
+
+    return None
+
+
+def get_config_api_root(
+    api_root: str,
+    *,
+    config_api_root: str | None = None,
+) -> str:
+    """Get the configuration API root from the public API root.
 
     Resolution order:
-    1. If `AIRBYTE_CLOUD_CONFIG_API_URL` environment variable is set, use that value.
-    2. If `api_root` matches the default Cloud API root, return the default Config API root.
-    3. Otherwise, raise NotImplementedError (cannot derive Config API from custom API root).
+    1. If `config_api_root` is provided, use that value.
+    2. If `AIRBYTE_CLOUD_CONFIG_API_URL` environment variable is set, use that value.
+    3. If `api_root` matches the default Cloud API root, return the default Config API root.
+    4. If `api_root` looks like a self-managed public API root, infer the Config API root.
+    5. Otherwise, raise NotImplementedError (cannot derive Config API from custom API root).
 
     Args:
-        api_root: The main API root URL being used.
+        api_root: The public API root URL being used.
+        config_api_root: Optional explicit Config API root URL.
 
     Returns:
         The configuration API root URL.
@@ -113,20 +144,27 @@ def get_config_api_root(api_root: str) -> str:
     Raises:
         NotImplementedError: If the Config API root cannot be determined.
     """
-    # First, check if the Config API URL is explicitly set via environment variable
+    if config_api_root:
+        return config_api_root.rstrip("/")
+
+    # Next, check if the Config API URL is explicitly set via environment variable
     config_api_override = try_get_secret(CLOUD_CONFIG_API_ROOT_ENV_VAR, default=None)
     if config_api_override:
-        return str(config_api_override)
+        return str(config_api_override).rstrip("/")
 
     # Fall back to deriving from the main API root
     # Normalize URLs by stripping trailing slashes to handle common variants
     if api_root.rstrip("/") == CLOUD_API_ROOT.rstrip("/"):
-        return CLOUD_CONFIG_API_ROOT
+        return CLOUD_CONFIG_API_ROOT.rstrip("/")
+
+    inferred_config_api_root = _infer_config_api_root(api_root)
+    if inferred_config_api_root:
+        return inferred_config_api_root
 
     raise NotImplementedError(
         f"Configuration API root not implemented for api_root='{api_root}'. "
-        f"Set the '{CLOUD_CONFIG_API_ROOT_ENV_VAR}' environment variable "
-        "to specify the Config API URL."
+        "Provide the 'config_api_root' argument or set the "
+        f"'{CLOUD_CONFIG_API_ROOT_ENV_VAR}' environment variable to specify the Config API URL."
     )
 
 
@@ -247,6 +285,193 @@ def get_workspace(
     )
 
 
+def create_workspace(
+    *,
+    name: str,
+    api_root: str,
+    client_id: SecretString | None,
+    client_secret: SecretString | None,
+    bearer_token: SecretString | None,
+    organization_id: str | None = None,
+    region_id: str | None = None,
+) -> models.WorkspaceResponse:
+    """Create a workspace."""
+    airbyte_instance = get_airbyte_server_instance(
+        api_root=api_root,
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+    )
+    base_context = {
+        "name": name,
+        "organization_id": organization_id,
+        "region_id": region_id,
+        "api_root": api_root,
+    }
+    try:
+        response = airbyte_instance.workspaces.create_workspace(
+            request=models.WorkspaceCreateRequest(
+                name=name,
+                organization_id=organization_id,
+                region_id=region_id,
+            )
+        )
+    except SDKError as e:
+        raise _wrap_sdk_error(e, base_context) from e
+
+    if status_ok(response.status_code) and response.workspace_response:
+        return response.workspace_response
+
+    raise AirbyteError(
+        message="Could not create workspace.",
+        context={
+            **base_context,
+            "request_url": response.raw_response.url,
+            "status_code": response.status_code,
+        },
+        response=response,
+    )
+
+
+def rename_workspace(
+    workspace_id: str,
+    *,
+    name: str,
+    api_root: str,
+    client_id: SecretString | None,
+    client_secret: SecretString | None,
+    bearer_token: SecretString | None,
+) -> models.WorkspaceResponse:
+    """Rename a workspace."""
+    airbyte_instance = get_airbyte_server_instance(
+        api_root=api_root,
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+    )
+    base_context = {
+        "workspace_id": workspace_id,
+        "name": name,
+        "api_root": api_root,
+    }
+    try:
+        response = airbyte_instance.workspaces.update_workspace(
+            api.UpdateWorkspaceRequest(
+                workspace_id=workspace_id,
+                workspace_update_request=models.WorkspaceUpdateRequest(name=name),
+            )
+        )
+    except SDKError as e:
+        raise _wrap_sdk_error(e, base_context) from e
+
+    if status_ok(response.status_code) and response.workspace_response:
+        return response.workspace_response
+
+    raise AirbyteError(
+        message="Could not rename workspace.",
+        context={
+            **base_context,
+            "request_url": response.raw_response.url,
+            "status_code": response.status_code,
+        },
+        response=response,
+    )
+
+
+def permanently_delete_workspace(
+    workspace_id: str,
+    *,
+    workspace_name: str | None = None,
+    api_root: str,
+    client_id: SecretString | None,
+    client_secret: SecretString | None,
+    bearer_token: SecretString | None,
+    safe_mode: bool = True,
+) -> None:
+    """Delete an empty workspace.
+
+    Args:
+        workspace_id: The workspace ID to delete.
+        workspace_name: Optional workspace name. If not provided and safe mode is enabled,
+            the workspace name is fetched from the API for safety checks.
+        api_root: The API root URL.
+        client_id: OAuth client ID.
+        client_secret: OAuth client secret.
+        bearer_token: Bearer token for authentication.
+        safe_mode: If True, the workspace name must contain `delete-me` or `deleteme`
+            (case insensitive). Defaults to True.
+
+    Raises:
+        PyAirbyteInputError: If safe mode is True and the workspace name does not meet
+            the safety requirements.
+        AirbyteWorkspaceNotEmptyError: If the workspace contains connections.
+    """
+    if safe_mode:
+        if workspace_name is None:
+            workspace_info = get_workspace(
+                workspace_id=workspace_id,
+                api_root=api_root,
+                client_id=client_id,
+                client_secret=client_secret,
+                bearer_token=bearer_token,
+            )
+            workspace_name = workspace_info.name
+
+        if not _is_safe_name_to_delete(workspace_name):
+            raise PyAirbyteInputError(
+                message=(
+                    "Cannot delete workspace with safe_mode enabled because the workspace "
+                    "name does not contain 'delete-me' or 'deleteme'."
+                ),
+                context={
+                    "workspace_id": workspace_id,
+                    "workspace_name": workspace_name,
+                    "safe_mode": True,
+                },
+            )
+
+    connections = list_connections(
+        workspace_id=workspace_id,
+        api_root=api_root,
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        limit=1,
+    )
+    if connections:
+        raise AirbyteWorkspaceNotEmptyError(
+            workspace_id=workspace_id,
+            connection_ids=[connection.connection_id for connection in connections],
+        )
+
+    airbyte_instance = get_airbyte_server_instance(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        api_root=api_root,
+    )
+    base_context = {
+        "workspace_id": workspace_id,
+        "api_root": api_root,
+    }
+    try:
+        response = airbyte_instance.workspaces.delete_workspace(
+            api.DeleteWorkspaceRequest(workspace_id=workspace_id),
+        )
+    except SDKError as e:
+        raise _wrap_sdk_error(e, base_context) from e
+
+    if not status_ok(response.status_code):
+        raise AirbyteError(
+            context={
+                **base_context,
+                "request_url": response.raw_response.url,
+                "status_code": response.status_code,
+            },
+            response=response,
+        )
+
+
 # List resources
 
 
@@ -259,14 +484,14 @@ def list_connections(
     bearer_token: SecretString | None,
     name: str | None = None,
     name_filter: Callable[[str], bool] | None = None,
+    limit: int | None = None,
 ) -> list[models.ConnectionResponse]:
     """List connections."""
-    if name and name_filter:
+    if name is not None and name_filter:
         raise PyAirbyteInputError(message="You can provide name or name_filter, but not both.")
+    _validate_pagination_params(limit=limit)
+    name_filter = (lambda n: n == name) if name is not None else name_filter or (lambda _: True)
 
-    name_filter = (lambda n: n == name) if name else name_filter or (lambda _: True)
-
-    _ = workspace_id  # Not used (yet)
     airbyte_instance = get_airbyte_server_instance(
         client_id=client_id,
         client_secret=client_secret,
@@ -274,23 +499,20 @@ def list_connections(
         api_root=api_root,
     )
     result: list[models.ConnectionResponse] = []
-    has_more = True
-    offset, page_size = 0, 100
+    current_offset = 0
+    remaining = limit
     base_context = {"workspace_id": workspace_id, "api_root": api_root}
-    while has_more:
+    while remaining is None or remaining > 0:
         try:
             response = airbyte_instance.connections.list_connections(
                 api.ListConnectionsRequest(
                     workspace_ids=[workspace_id],
-                    offset=offset,
-                    limit=page_size,
+                    offset=current_offset,
+                    limit=PAGE_SIZE,
                 ),
             )
         except SDKError as e:
             raise _wrap_sdk_error(e, base_context) from e
-
-        has_more = bool(response.connections_response and response.connections_response.next)
-        offset += page_size
 
         if not status_ok(response.status_code):
             raise AirbyteError(
@@ -301,11 +523,24 @@ def list_connections(
                 },
             )
         assert response.connections_response is not None
-        result += [
-            connection
-            for connection in response.connections_response.data
-            if name_filter(connection.name)
+        page_data = response.connections_response.data
+        if not page_data:
+            break
+
+        matching_connections = [
+            connection for connection in page_data if name_filter(connection.name)
         ]
+        page_results = (
+            matching_connections if remaining is None else matching_connections[:remaining]
+        )
+        result += page_results
+        if remaining is not None:
+            remaining -= len(page_results)
+
+        if not response.connections_response.next:
+            break
+
+        current_offset += len(page_data)
     return result
 
 
@@ -318,14 +553,15 @@ def list_workspaces(
     bearer_token: SecretString | None,
     name: str | None = None,
     name_filter: Callable[[str], bool] | None = None,
+    limit: int | None = None,
 ) -> list[models.WorkspaceResponse]:
     """List workspaces."""
-    if name and name_filter:
+    if name is not None and name_filter:
         raise PyAirbyteInputError(message="You can provide name or name_filter, but not both.")
+    _validate_pagination_params(limit=limit)
+    has_name_filter = name is not None or name_filter is not None
+    name_filter = (lambda n: n == name) if name is not None else name_filter or (lambda _: True)
 
-    name_filter = (lambda n: n == name) if name else name_filter or (lambda _: True)
-
-    _ = workspace_id  # Not used (yet)
     airbyte_instance: airbyte_api.AirbyteAPI = get_airbyte_server_instance(
         client_id=client_id,
         client_secret=client_secret,
@@ -333,21 +569,20 @@ def list_workspaces(
         api_root=api_root,
     )
     result: list[models.WorkspaceResponse] = []
-    has_more = True
-    offset, page_size = 0, 100
+    current_offset = 0
+    remaining = limit
     base_context = {"workspace_id": workspace_id, "api_root": api_root}
-    while has_more:
+    while remaining is None or remaining > 0:
+        page_limit = PAGE_SIZE if has_name_filter else _get_page_limit(remaining)
         try:
             response: api.ListWorkspacesResponse = airbyte_instance.workspaces.list_workspaces(
                 api.ListWorkspacesRequest(
-                    workspace_ids=[workspace_id], offset=offset, limit=page_size
+                    offset=current_offset,
+                    limit=page_limit,
                 ),
             )
         except SDKError as e:
             raise _wrap_sdk_error(e, base_context) from e
-
-        has_more = bool(response.workspaces_response and response.workspaces_response.next)
-        offset += page_size
 
         if not status_ok(response.status_code):
             raise AirbyteError(
@@ -359,11 +594,20 @@ def list_workspaces(
             )
 
         assert response.workspaces_response is not None
-        result += [
-            workspace
-            for workspace in response.workspaces_response.data
-            if name_filter(workspace.name)
-        ]
+        page_data = response.workspaces_response.data
+        if not page_data:
+            break
+
+        matching_workspaces = [workspace for workspace in page_data if name_filter(workspace.name)]
+        page_results = matching_workspaces if remaining is None else matching_workspaces[:remaining]
+        result += page_results
+        if remaining is not None:
+            remaining -= len(page_results)
+
+        if not response.workspaces_response.next:
+            break
+
+        current_offset += len(page_data)
 
     return result
 
@@ -377,12 +621,13 @@ def list_sources(
     bearer_token: SecretString | None,
     name: str | None = None,
     name_filter: Callable[[str], bool] | None = None,
+    limit: int | None = None,
 ) -> list[models.SourceResponse]:
     """List sources."""
-    if name and name_filter:
+    if name is not None and name_filter:
         raise PyAirbyteInputError(message="You can provide name or name_filter, but not both.")
-
-    name_filter = (lambda n: n == name) if name else name_filter or (lambda _: True)
+    _validate_pagination_params(limit=limit)
+    name_filter = (lambda n: n == name) if name is not None else name_filter or (lambda _: True)
 
     _ = workspace_id  # Not used (yet)
     airbyte_instance: airbyte_api.AirbyteAPI = get_airbyte_server_instance(
@@ -392,23 +637,20 @@ def list_sources(
         api_root=api_root,
     )
     result: list[models.SourceResponse] = []
-    has_more = True
-    offset, page_size = 0, 100
+    current_offset = 0
+    remaining = limit
     base_context = {"workspace_id": workspace_id, "api_root": api_root}
-    while has_more:
+    while remaining is None or remaining > 0:
         try:
             response: api.ListSourcesResponse = airbyte_instance.sources.list_sources(
                 api.ListSourcesRequest(
                     workspace_ids=[workspace_id],
-                    offset=offset,
-                    limit=page_size,
+                    offset=current_offset,
+                    limit=PAGE_SIZE,
                 ),
             )
         except SDKError as e:
             raise _wrap_sdk_error(e, base_context) from e
-
-        has_more = bool(response.sources_response and response.sources_response.next)
-        offset += page_size
 
         if not status_ok(response.status_code):
             raise AirbyteError(
@@ -419,7 +661,20 @@ def list_sources(
                 },
             )
         assert response.sources_response is not None
-        result += [source for source in response.sources_response.data if name_filter(source.name)]
+        page_data = response.sources_response.data
+        if not page_data:
+            break
+
+        matching_sources = [source for source in page_data if name_filter(source.name)]
+        page_results = matching_sources if remaining is None else matching_sources[:remaining]
+        result += page_results
+        if remaining is not None:
+            remaining -= len(page_results)
+
+        if not response.sources_response.next:
+            break
+
+        current_offset += len(page_data)
 
     return result
 
@@ -433,12 +688,13 @@ def list_destinations(
     bearer_token: SecretString | None,
     name: str | None = None,
     name_filter: Callable[[str], bool] | None = None,
+    limit: int | None = None,
 ) -> list[models.DestinationResponse]:
     """List destinations."""
-    if name and name_filter:
+    if name is not None and name_filter:
         raise PyAirbyteInputError(message="You can provide name or name_filter, but not both.")
-
-    name_filter = (lambda n: n == name) if name else name_filter or (lambda _: True)
+    _validate_pagination_params(limit=limit)
+    name_filter = (lambda n: n == name) if name is not None else name_filter or (lambda _: True)
 
     _ = workspace_id  # Not used (yet)
     airbyte_instance = get_airbyte_server_instance(
@@ -448,23 +704,20 @@ def list_destinations(
         api_root=api_root,
     )
     result: list[models.DestinationResponse] = []
-    has_more = True
-    offset, page_size = 0, 100
+    current_offset = 0
+    remaining = limit
     base_context = {"workspace_id": workspace_id, "api_root": api_root}
-    while has_more:
+    while remaining is None or remaining > 0:
         try:
             response = airbyte_instance.destinations.list_destinations(
                 api.ListDestinationsRequest(
                     workspace_ids=[workspace_id],
-                    offset=offset,
-                    limit=page_size,
+                    offset=current_offset,
+                    limit=PAGE_SIZE,
                 ),
             )
         except SDKError as e:
             raise _wrap_sdk_error(e, base_context) from e
-
-        has_more = bool(response.destinations_response and response.destinations_response.next)
-        offset += page_size
 
         if not status_ok(response.status_code):
             raise AirbyteError(
@@ -475,11 +728,24 @@ def list_destinations(
                 },
             )
         assert response.destinations_response is not None
-        result += [
-            destination
-            for destination in response.destinations_response.data
-            if name_filter(destination.name)
+        page_data = response.destinations_response.data
+        if not page_data:
+            break
+
+        matching_destinations = [
+            destination for destination in page_data if name_filter(destination.name)
         ]
+        page_results = (
+            matching_destinations if remaining is None else matching_destinations[:remaining]
+        )
+        result += page_results
+        if remaining is not None:
+            remaining -= len(page_results)
+
+        if not response.destinations_response.next:
+            break
+
+        current_offset += len(page_data)
 
     return result
 
@@ -580,27 +846,30 @@ def run_connection(
 def get_job_logs(  # noqa: PLR0913  # Too many arguments - needed for auth flexibility
     workspace_id: str,
     connection_id: str,
-    limit: int = 100,
+    limit: int | None = 100,
+    offset: int | None = None,
     *,
     api_root: str,
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
-    offset: int | None = None,
     order_by: str | None = None,
     job_type: models.JobTypeEnum | None = None,
 ) -> list[models.JobResponse]:
     """Get a list of jobs for a connection.
 
+    Automatically paginates through multiple API pages when the requested
+    `limit` exceeds the per-page size.
+
     Args:
         workspace_id: The workspace ID.
         connection_id: The connection ID.
         limit: Maximum number of jobs to return. Defaults to 100.
+        offset: Number of jobs to skip from the beginning. Defaults to None (0).
         api_root: The API root URL.
         client_id: The client ID for authentication.
         client_secret: The client secret for authentication.
         bearer_token: Bearer token for authentication (alternative to client credentials).
-        offset: Number of jobs to skip from the beginning. Defaults to None (0).
         order_by: Field and direction to order by (e.g., "createdAt|DESC"). Defaults to None.
         job_type: Filter by job type (e.g., JobTypeEnum.SYNC, JobTypeEnum.REFRESH).
             If not specified, defaults to sync and reset jobs only (API default behavior).
@@ -608,35 +877,81 @@ def get_job_logs(  # noqa: PLR0913  # Too many arguments - needed for auth flexi
     Returns:
         A list of JobResponse objects.
     """
+    _validate_pagination_params(limit=limit)
     airbyte_instance = get_airbyte_server_instance(
         client_id=client_id,
         client_secret=client_secret,
         bearer_token=bearer_token,
         api_root=api_root,
     )
-    response: api.ListJobsResponse = airbyte_instance.jobs.list_jobs(
-        api.ListJobsRequest(
-            workspace_ids=[workspace_id],
-            connection_id=connection_id,
-            limit=limit,
-            offset=offset,
-            order_by=order_by,
-            job_type=job_type,
-        ),
-    )
-    if status_ok(response.status_code) and response.jobs_response:
-        return response.jobs_response.data
+    result: list[models.JobResponse] = []
+    current_offset = offset or 0
+    remaining = limit
+    base_context = {
+        "workspace_id": workspace_id,
+        "connection_id": connection_id,
+        "api_root": api_root,
+    }
+    while remaining is None or remaining > 0:
+        page_limit = _get_page_limit(remaining)
+        try:
+            response: api.ListJobsResponse = airbyte_instance.jobs.list_jobs(
+                api.ListJobsRequest(
+                    workspace_ids=[workspace_id],
+                    connection_id=connection_id,
+                    limit=page_limit,
+                    offset=current_offset,
+                    order_by=order_by,
+                    job_type=job_type,
+                ),
+            )
+        except SDKError as e:
+            raise _wrap_sdk_error(e, base_context) from e
 
-    raise AirbyteMissingResourceError(
-        response=response,
-        resource_type="job",
-        context={
-            "workspace_id": workspace_id,
-            "connection_id": connection_id,
-            "request_url": response.raw_response.url,
-            "status_code": response.status_code,
-        },
-    )
+        if not status_ok(response.status_code):
+            if response.status_code == HTTPStatus.NOT_FOUND:
+                raise AirbyteMissingResourceError(
+                    response=response,
+                    resource_type="job",
+                    context={
+                        **base_context,
+                        "request_url": response.raw_response.url,
+                        "status_code": response.status_code,
+                    },
+                )
+            raise AirbyteError(
+                message="Failed to list jobs.",
+                response=response,
+                context={
+                    **base_context,
+                    "request_url": response.raw_response.url,
+                    "status_code": response.status_code,
+                },
+            )
+        if not response.jobs_response:
+            raise AirbyteError(
+                message="Jobs response payload was empty.",
+                response=response,
+                context={
+                    **base_context,
+                    "request_url": response.raw_response.url,
+                    "status_code": response.status_code,
+                },
+            )
+
+        page_data: list[models.JobResponse] = list(response.jobs_response.data)
+        if not page_data:
+            break
+
+        result += page_data
+        if remaining is not None:
+            remaining -= len(page_data)
+        current_offset += len(page_data)
+
+        if not response.jobs_response.next or len(page_data) < page_limit:
+            break
+
+    return result if limit is None else result[:limit]
 
 
 def get_job_info(
@@ -1443,8 +1758,9 @@ def _make_config_api_request(
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
+    config_api_root: str | None = None,
 ) -> dict[str, Any]:
-    config_api_root = get_config_api_root(api_root)
+    config_api_root = get_config_api_root(api_root, config_api_root=config_api_root)
 
     # Use provided bearer token or generate one from client credentials
     if bearer_token is None:
@@ -1502,6 +1818,7 @@ def check_connector(
     bearer_token: SecretString | None,
     workspace_id: str | None = None,
     api_root: str = CLOUD_API_ROOT,
+    config_api_root: str | None = None,
 ) -> tuple[bool, str | None]:
     """Check a source.
 
@@ -1518,6 +1835,7 @@ def check_connector(
             f"{connector_type}Id": actor_id,
         },
         api_root=api_root,
+        config_api_root=config_api_root,
         client_id=client_id,
         client_secret=client_secret,
         bearer_token=bearer_token,
@@ -1825,6 +2143,7 @@ def get_connector_builder_project_for_definition_id(
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
+    config_api_root: str | None = None,
 ) -> dict[str, Any]:
     """Get the connector builder project info for a declarative source definition.
 
@@ -1840,6 +2159,7 @@ def get_connector_builder_project_for_definition_id(
         client_id: OAuth client ID
         client_secret: OAuth client secret
         bearer_token: Bearer token for authentication (alternative to client credentials).
+        config_api_root: Optional explicit Config API root URL.
 
     Returns:
         A dict containing 'builderProjectId' and 'workspaceId' (the workspace that
@@ -1852,6 +2172,7 @@ def get_connector_builder_project_for_definition_id(
             "workspaceId": workspace_id,
         },
         api_root=api_root,
+        config_api_root=config_api_root,
         client_id=client_id,
         client_secret=client_secret,
         bearer_token=bearer_token,
@@ -1866,6 +2187,7 @@ def get_connector_builder_project(
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
+    config_api_root: str | None = None,
 ) -> dict[str, Any]:
     """Get a connector builder project, including the draft manifest if one exists.
 
@@ -1881,6 +2203,7 @@ def get_connector_builder_project(
         client_id: OAuth client ID
         client_secret: OAuth client secret
         bearer_token: Bearer token for authentication (alternative to client credentials).
+        config_api_root: Optional explicit Config API root URL.
 
     Returns:
         A dictionary containing the builder project details. Key fields include:
@@ -1895,13 +2218,14 @@ def get_connector_builder_project(
             "builderProjectId": builder_project_id,
         },
         api_root=api_root,
+        config_api_root=config_api_root,
         client_id=client_id,
         client_secret=client_secret,
         bearer_token=bearer_token,
     )
 
 
-def update_connector_builder_project_testing_values(
+def update_connector_builder_project_testing_values(  # noqa: PLR0913
     *,
     workspace_id: str,
     builder_project_id: str,
@@ -1911,6 +2235,7 @@ def update_connector_builder_project_testing_values(
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
+    config_api_root: str | None = None,
 ) -> dict[str, Any]:
     """Update the testing values for a connector builder project.
 
@@ -1930,6 +2255,7 @@ def update_connector_builder_project_testing_values(
         client_id: OAuth client ID
         client_secret: OAuth client secret
         bearer_token: Bearer token for authentication (alternative to client credentials).
+        config_api_root: Optional explicit Config API root URL.
 
     Returns:
         The updated testing values from the API response
@@ -1943,6 +2269,7 @@ def update_connector_builder_project_testing_values(
             "spec": spec,
         },
         api_root=api_root,
+        config_api_root=config_api_root,
         client_id=client_id,
         client_secret=client_secret,
         bearer_token=bearer_token,
@@ -1999,8 +2326,9 @@ def list_workspaces_in_organization(
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
+    config_api_root: str | None = None,
     name_contains: str | None = None,
-    max_items_limit: int | None = None,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """List workspaces within a specific organization.
 
@@ -2012,12 +2340,14 @@ def list_workspaces_in_organization(
         client_id: OAuth client ID
         client_secret: OAuth client secret
         bearer_token: Bearer token for authentication (alternative to client credentials).
+        config_api_root: Optional explicit Config API root URL.
         name_contains: Optional substring filter for workspace names (server-side)
-        max_items_limit: Optional maximum number of workspaces to return
+        limit: Optional maximum number of workspaces to return
 
     Returns:
         List of workspace dictionaries containing workspaceId, organizationId, name, slug, etc.
     """
+    _validate_pagination_params(limit=limit)
     result: list[dict[str, Any]] = []
     page_size = 100
 
@@ -2038,6 +2368,7 @@ def list_workspaces_in_organization(
             path="/workspaces/list_by_organization_id",
             json=payload,
             api_root=api_root,
+            config_api_root=config_api_root,
             client_id=client_id,
             client_secret=client_secret,
             bearer_token=bearer_token,
@@ -2052,8 +2383,8 @@ def list_workspaces_in_organization(
         result.extend(workspaces)
 
         # Check if we've reached the limit
-        if max_items_limit is not None and len(result) >= max_items_limit:
-            return result[:max_items_limit]
+        if limit is not None and len(result) >= limit:
+            return result[:limit]
 
         # If we got fewer results than page_size, this was the last page
         if len(workspaces) < page_size:
@@ -2072,6 +2403,7 @@ def get_workspace_organization_info(
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
+    config_api_root: str | None = None,
 ) -> dict[str, Any]:
     """Get organization info for a workspace.
 
@@ -2086,6 +2418,7 @@ def get_workspace_organization_info(
         client_id: OAuth client ID
         client_secret: OAuth client secret
         bearer_token: Bearer token for authentication (alternative to client credentials).
+        config_api_root: Optional explicit Config API root URL.
 
     Returns:
         Dictionary containing organization info:
@@ -2098,6 +2431,7 @@ def get_workspace_organization_info(
         path="/workspaces/get_organization_info",
         json={"workspaceId": workspace_id},
         api_root=api_root,
+        config_api_root=config_api_root,
         client_id=client_id,
         client_secret=client_secret,
         bearer_token=bearer_token,
@@ -2111,6 +2445,7 @@ def get_connection_state(
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
+    config_api_root: str | None = None,
 ) -> dict[str, Any]:
     """Get the state for a connection.
 
@@ -2122,6 +2457,7 @@ def get_connection_state(
         client_id: OAuth client ID
         client_secret: OAuth client secret
         bearer_token: Bearer token for authentication (alternative to client credentials).
+        config_api_root: Optional explicit Config API root URL.
 
     Returns:
         Dictionary containing the connection state.
@@ -2130,6 +2466,7 @@ def get_connection_state(
         path="/state/get",
         json={"connectionId": connection_id},
         api_root=api_root,
+        config_api_root=config_api_root,
         client_id=client_id,
         client_secret=client_secret,
         bearer_token=bearer_token,
@@ -2144,6 +2481,7 @@ def replace_connection_state(
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
+    config_api_root: str | None = None,
 ) -> dict[str, Any]:
     """Replace the state for a connection.
 
@@ -2171,6 +2509,7 @@ def replace_connection_state(
         client_id: OAuth client ID.
         client_secret: OAuth client secret.
         bearer_token: Bearer token for authentication (alternative to client credentials).
+        config_api_root: Optional explicit Config API root URL.
 
     Returns:
         Dictionary containing the updated ConnectionState object.
@@ -2186,6 +2525,7 @@ def replace_connection_state(
                 },
             },
             api_root=api_root,
+            config_api_root=config_api_root,
             client_id=client_id,
             client_secret=client_secret,
             bearer_token=bearer_token,
@@ -2207,6 +2547,7 @@ def get_connection_catalog(
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
+    config_api_root: str | None = None,
 ) -> dict[str, Any]:
     """Get the configured catalog for a connection.
 
@@ -2221,6 +2562,7 @@ def get_connection_catalog(
         client_id: OAuth client ID
         client_secret: OAuth client secret
         bearer_token: Bearer token for authentication (alternative to client credentials).
+        config_api_root: Optional explicit Config API root URL.
 
     Returns:
         Dictionary containing the connection info with syncCatalog.
@@ -2229,6 +2571,7 @@ def get_connection_catalog(
         path="/web_backend/connections/get",
         json={"connectionId": connection_id, "withRefreshedCatalog": False},
         api_root=api_root,
+        config_api_root=config_api_root,
         client_id=client_id,
         client_secret=client_secret,
         bearer_token=bearer_token,
@@ -2240,6 +2583,7 @@ def replace_connection_catalog(
     configured_catalog_dict: dict[str, Any],
     *,
     api_root: str,
+    config_api_root: str | None = None,
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
@@ -2258,6 +2602,7 @@ def replace_connection_catalog(
         client_id: OAuth client ID.
         client_secret: OAuth client secret.
         bearer_token: Bearer token for authentication (alternative to client credentials).
+        config_api_root: Optional explicit Config API root URL.
 
     Returns:
         Dictionary containing the updated WebBackendConnectionRead response.
@@ -2272,6 +2617,7 @@ def replace_connection_catalog(
             "skipReset": True,
         },
         api_root=api_root,
+        config_api_root=config_api_root,
         client_id=client_id,
         client_secret=client_secret,
         bearer_token=bearer_token,
@@ -2282,6 +2628,7 @@ def get_organization_info(
     organization_id: str,
     *,
     api_root: str,
+    config_api_root: str | None = None,
     client_id: SecretString | None,
     client_secret: SecretString | None,
     bearer_token: SecretString | None,
@@ -2296,6 +2643,7 @@ def get_organization_info(
         client_id: OAuth client ID
         client_secret: OAuth client secret
         bearer_token: Bearer token for authentication (alternative to client credentials).
+        config_api_root: Optional explicit Config API root URL.
 
     Returns:
         Dictionary containing organization info:
@@ -2308,6 +2656,7 @@ def get_organization_info(
         path="/organizations/get_organization_info",
         json={"organizationId": organization_id},
         api_root=api_root,
+        config_api_root=config_api_root,
         client_id=client_id,
         client_secret=client_secret,
         bearer_token=bearer_token,

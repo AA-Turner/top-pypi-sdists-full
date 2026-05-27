@@ -16,8 +16,8 @@ CLI_SCAN_COMMAND_HELP = (
     "\nExample: safety scan to scan the current directory"
 )
 CLI_SYSTEM_SCAN_COMMAND_HELP = (
-    "\\[beta] Run a comprehensive scan for packages and vulnerabilities across your entire machine/environment."
-    "\nExample: safety system-scan"
+    "\\[beta] system-scan is part of the Safety commercial product."
+    "\nInstall Safety Client for full system-scan capabilities: https://getsafety.com/"
 )
 
 CLI_CHECK_COMMAND_HELP = (
@@ -155,6 +155,10 @@ CLI_AUTH_LOGOUT_HELP = (
 CLI_AUTH_STATUS_HELP = (
     "Show the current authentication status.\n\n"
     "[bold]Example: safety auth status[/bold]"
+)
+CLI_AUTH_ENROLL_HELP = (
+    "Enroll this machine with the Safety Platform for MDM-managed scanning.\n\n"
+    "[bold]Example: safety auth enroll YOUR_KEY[/bold]"
 )
 
 # Configure options

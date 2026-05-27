@@ -8746,10 +8746,10 @@ INCORRECT (will be rejected):
 
 Your response MUST start with a READ: or SEARCH: command directly."""
 
-        # Call LLM (will be mocked in tests)
+        # Call LLM (will be simulated in tests)
         response = _call_llm(prompt)
 
-        # Get execution context (using helper functions that can be mocked)
+        # Get execution context (using helper functions that can be simulated)
         files_read = _track_files_read()
         files_written = _track_files_written()
 
@@ -8872,7 +8872,7 @@ def _run_shell_command_helper(command: str) -> tuple[str, int]:
 
 
 def _call_llm(prompt: str) -> str:
-    """Mock LLM call for testing. Override in tests."""
+    """Simulate LLM call for testing. Override in tests."""
     # This is a test hook - real implementation would call actual LLM
     return ""
 
@@ -10533,9 +10533,12 @@ def _build_multistep_phase_prompts(
         "monorepo", "all features", "complete platform",
     ]
     task_lower = task_prompt.lower()
+    _listing = _get_project_file_listing(cwd, max_files=1) if cwd else ""
+    _is_workspace_empty = not _listing
     _is_greenfield = (
         sum(1 for s in _greenfield_signals if s in task_lower) >= 1
         or len(task_prompt) > 600
+        or _is_workspace_empty
     )
 
     if _is_greenfield:
@@ -10625,7 +10628,7 @@ def _build_multistep_phase_prompts(
                 "Now write the IMPLEMENTATION files to make the tests pass. "
                 "Based on your plan and the tests you wrote, create/modify the source files.\n\n"
                 "⚠️ CRITICAL: You MUST write REAL, functional code. No placeholders, no TODOs, "
-                "no partial implementations, and no mocked logic (unless it's a mock for a missing external service).\n"
+                "no partial implementations, and no simulated logic (unless it's a stub for a missing external service).\n"
                 "If you are fixing issues found during analysis, ensure your code explicitly addresses "
                 "the root causes identified.\n\n"
                 "RULES:\n"
@@ -10712,6 +10715,7 @@ def _build_tool_followup_prompt(
     _is_greenfield_followup = (
         sum(1 for k in _greenfield_kws if k in _task_lower) >= 1
         or len(_task_lower) > 600
+        or (cwd is not None and not _get_project_file_listing(cwd, max_files=15))
     )
 
     if _is_greenfield_followup:
@@ -11729,6 +11733,7 @@ class SAGEAgent:
         # the planning phase and consumed by the continuation loop in
         # execute_task_prompt.  Stored on the agent so it survives engine trimming.
         self._greenfield_manifest: list[str] = []
+        self._is_greenfield_task: bool = False
 
     def send_to_model(
         self,
@@ -11803,15 +11808,16 @@ class SAGEAgent:
                     return len(m.get("content", "") or "")
                 return 0
             _msg_chars = sum(_msg_len(m) for m in self.engine._messages[-3:])
+            bullet = "-" if renderer.console.no_color else "◌"
             if _msg_chars > 2000:
                 _sys.stderr.write(
-                    f"  ◌ Sending {_msg_chars // 1000}K chars to {self.model_id}"
+                    f"  {bullet} Sending {_msg_chars // 1000}K chars to {self.model_id}"
                     f" — large prompt, first token may take 30-120s...\n"
                 )
                 _sys.stderr.flush()
             else:
                 _sys.stderr.write(
-                    f"  ◌ Sending request to {self.model_id}...\n"
+                    f"  {bullet} Sending request to {self.model_id}...\n"
                 )
                 _sys.stderr.flush()
 
@@ -12833,6 +12839,7 @@ class SAGEAgent:
         last_response = ""
 
         phases = _build_multistep_phase_prompts(task_prompt, classification, self.cwd)
+        self._is_greenfield_task = any(phase_name == "implementation" for phase_name, _ in phases)
         if _should_use_seeded_synthesis_only(
             task_prompt,
             classification,
@@ -12922,7 +12929,7 @@ class SAGEAgent:
                 if mstart != -1:
                     for ml in phase_response[mstart + 14:].strip().splitlines():
                         ml = ml.strip()
-                        if ml and "." in ml and not ml.startswith("#") and "/" in ml:
+                        if ml and "." in ml and not ml.startswith("#"):
                             self._greenfield_manifest.append(ml)
 
         # ── Greenfield batch-continuation loop ──────────────────────────────
@@ -13245,6 +13252,7 @@ class SAGEAgent:
         global _current_execution_context
         self._model_timed_out = False  # reset per-task
         self._greenfield_manifest = []  # reset per-task so old manifests don't bleed through
+        self._is_greenfield_task = False
         from sage.core.tools import ExecutionLedger
         self.execution_ledger = ExecutionLedger()
         send = sender or self.send_to_model
@@ -13452,6 +13460,7 @@ class SAGEAgent:
         _is_gf_exec = (
             sum(1 for s in _gf_kws_exec if s in _task_lower_exec) >= 1
             or len(task_prompt) > 600
+            or getattr(self, "_is_greenfield_task", False)
         )
 
         if _is_gf_exec and written and not classification.read_only and not is_info:
@@ -13824,8 +13833,11 @@ def run(
     """Interactive coding agent — Claude Code–style READ/SEARCH/edit/run using your models."""
     import os
 
-    if no_color or os.environ.get("NO_COLOR"):
+    import sys
+    if no_color or os.environ.get("NO_COLOR") or not sys.stdout.isatty():
         renderer.set_no_color(True)
+    if prompt or quiet or not sys.stdout.isatty():
+        renderer.set_suppress_spinners(True)
 
     if max_retries != 10:
         renderer.warning(
@@ -16072,6 +16084,9 @@ def main(
     ] = None,
 ) -> None:
     """Sage — local-first AI coding assistant."""
+    import os
+    if os.environ.get("NO_COLOR") or os.environ.get("TERM") == "dumb":
+        renderer.set_no_color(True)
     # ── Auth gate ──────────────────────────────────────────────────────────
     # Exempt: login/logout/whoami always allowed.
     # Exempt: --help / -h anywhere in argv (Typer processes help before command body,
@@ -17275,7 +17290,12 @@ def sms_diagnose() -> None:
                     import subprocess as _sp
                     r = _sp.run([kdc, "--list-available", "--id-only"],
                                 capture_output=True, text=True, timeout=5)
-                    paired = [d for d in (r.stdout or "").splitlines() if d.strip()]
+                    paired = []
+                    for line_str in (r.stdout or "").splitlines():
+                        line_str = line_str.strip()
+                        if not line_str or "devices found" in line_str.lower() or " " in line_str:
+                            continue
+                        paired.append(line_str)
                     line(OK, f"KDE Connect: {len(paired)} paired+reachable device(s)")
                 except Exception as exc:
                     line(WARN, f"KDE Connect probe failed: {exc}")

@@ -110,6 +110,14 @@ class PermissionRule(BaseModel):
     condition: ConditionExpr | None = None  # Additional row-level check
     effect: PolicyEffect = PolicyEffect.PERMIT  # Cedar-style effect
     personas: list[str] = Field(default_factory=list)  # Persona scope (empty = any)
+    # #1281: when set, this rule explicitly denies the operation for all
+    # callers. Lets append-only entities express `permit: update: false`
+    # / `permit: delete: false` as a first-class declaration rather than
+    # relying on the soft-deny `role(nobody)` workaround. The runtime
+    # already default-denies any operation with no PERMIT rule, but the
+    # explicit flag distinguishes "intentionally forbidden" from
+    # "accidentally omitted" for the validator + audit matrix.
+    deny_all: bool = False
 
     model_config = ConfigDict(frozen=True)
 
@@ -367,6 +375,18 @@ class EntitySpec(BaseModel):
     # and synthesises a `kind` enum field. See ADR-0026.
     subtype_of: str | None = None
     subtype_children: tuple[str, ...] = ()
+    # v0.79.7 (#1283 phase 3): native document signing primitive. When True,
+    # the linker auto-injects 11 fields (status enum, signing_url,
+    # signed_document, token_hash, signer_ip/user_agent, 4× timestamps)
+    # and defaults `audit` to AuditConfig(enabled=True). The runtime
+    # signing routes (phase 3d) and the dazzle.signing backend
+    # (shipped v0.79.7 phase 2) read from these fields.
+    signable: bool = False
+    # Optional dotted-path callable invoked before signing — raises
+    # SigningError(...) to block. Used for grant checks ("signatory must
+    # hold approve_letter grant") or domain logic that can't be expressed
+    # in DSL scope rules.
+    signing_validator: str | None = None
     # v0.34.0: Bulk import/export
     bulk: BulkConfig | None = None
     state_machine: StateMachineSpec | None = None

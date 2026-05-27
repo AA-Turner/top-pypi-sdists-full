@@ -1,14 +1,22 @@
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Literal, Optional
+from typing import Any, Dict, Iterator, List, Literal
 
 import click
 from pygitguardian.models import AIDiscovery, MCPActivityRequest
 
 from ggshield.core.dirs import get_user_home_dir
 
-from ..models import Agent, EventType, HookPayload, HookResult, MCPConfiguration, Scope
+from ..models import (
+    Agent,
+    EventType,
+    HookPayload,
+    HookResult,
+    MCPConfiguration,
+    Scope,
+    Transport,
+)
 
 
 class Claude(Agent):
@@ -55,79 +63,38 @@ class Claude(Agent):
         # We don't use the return 2 convention to make sure our JSON output is read.
         return 0
 
+    def is_caller(self, hook_payload: Dict[str, Any]) -> bool:
+        return "session_id" in hook_payload and "claude" in hook_payload.get(
+            "transcript_path", ""
+        )
+
     def settings_path(self, mode: Literal["local", "global"]) -> Path:
         return Path(".claude") / "settings.json"
 
     @property
-    def settings_template(self) -> Dict[str, Any]:
-        return {
-            "hooks": {
-                "PreToolUse": [
-                    {
-                        "matcher": ".*",
-                        "hooks": [
-                            {
-                                "type": "command",
-                                "command": "<COMMAND>",
-                            }
-                        ],
-                    }
-                ],
-                "PostToolUse": [
-                    {
-                        "matcher": ".*",
-                        "hooks": [
-                            {
-                                "type": "command",
-                                "command": "<COMMAND>",
-                            }
-                        ],
-                    }
-                ],
-                "UserPromptSubmit": [
-                    {
-                        "matcher": ".*",
-                        "hooks": [
-                            {
-                                "type": "command",
-                                "command": "<COMMAND>",
-                            }
-                        ],
-                    }
-                ],
-            }
-        }
-
-    def settings_locate(
-        self, candidates: List[Dict[str, Any]], template: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
-        # We have two kind of lists: at the root of each hook (with a matcher)
-        # and in each hook (with a list of commands).
-        if "matcher" in template:
-            for obj in candidates:
-                if obj.get("matcher") == template["matcher"]:
-                    return obj
-            return None
-        for obj in candidates:
-            command = obj.get("command", "")
-            if "ggshield" in command or "<COMMAND>" in command:
-                return obj
-        return None
+    def user_mcp_file(self) -> Path:
+        return get_user_home_dir() / ".claude.json"
 
     def project_mcp_file(self, directory: Path) -> Path:
         return directory / ".mcp.json"
 
     def _get_user_mcp_configurations(self) -> Iterator[MCPConfiguration]:
+        """Yield user-scoped MCP configurations from every known Claude Code source."""
+        yield from self._get_dot_claude_json_mcp_configurations()
+        yield from self._get_plugin_mcp_configurations()
+        yield from self._get_claudeai_mcp_configurations()
+
+    def _get_dot_claude_json_mcp_configurations(self) -> Iterator[MCPConfiguration]:
         """Look into ~/.claude.json for both user-level and project-level MCP server entries."""
         # Load config file
-        filepath = get_user_home_dir() / ".claude.json"
-        if not (data := self._load_json_file(filepath)):
+        data = self._load_file(self.user_mcp_file)
+        if not data:
             return
 
         # User-level mcpServers
         yield from self._parse_servers_block(data, Scope.USER, None)
 
-        # Per-project entries in projects dict
+        # Per-project entries in projects dict (local scope: per-user, per-project)
         projects = data.get("projects", {})
         if not isinstance(projects, dict):
             return
@@ -136,6 +103,108 @@ class Claude(Agent):
                 continue
             yield from self._parse_servers_block(
                 project_data, Scope.USER, Path(project_key)
+            )
+
+    def _get_plugin_mcp_configurations(self) -> Iterator[MCPConfiguration]:
+        """Yield MCP servers contributed by installed Claude Code plugins.
+
+        Plugins are tracked in ``~/.claude/plugins/installed_plugins.json``.
+        Each plugin can declare MCP servers either in ``<installPath>/.mcp.json``
+        or inline under the ``mcpServers`` key of
+        ``<installPath>/.claude-plugin/plugin.json``.
+        """
+        installed_path = self.config_folder / "plugins" / "installed_plugins.json"
+        if not (data := self._load_file(installed_path)):
+            return
+
+        plugins = data.get("plugins", {})
+        if not isinstance(plugins, dict):
+            return
+
+        # Expected format: {plugin_id: [{installation1}, {installation2}, ...]}
+        for installations in plugins.values():
+            if not isinstance(installations, list):
+                continue
+            for installation in installations:
+                if not isinstance(installation, dict):
+                    continue
+                yield from self._parse_plugin_installation(installation)
+
+    def _parse_plugin_installation(
+        self, installation: Dict[str, Any]
+    ) -> Iterator[MCPConfiguration]:
+        """Parse a single plugin installation entry and yield any MCP servers."""
+        install_path = installation.get("installPath")
+        if not isinstance(install_path, str):
+            return
+        install_dir = Path(install_path)
+        if not install_dir.is_dir():
+            return
+
+        # Tie project/local-scoped plugins to their project. Local-scoped
+        # plugins remain Scope.USER (per-user, per-project) to match the
+        # convention used for ~/.claude.json[projects] entries.
+        scope_str = installation.get("scope", "user")
+        project_path = installation.get("projectPath")
+        project = Path(project_path) if isinstance(project_path, str) else None
+        scope = Scope.PROJECT if scope_str == "project" else Scope.USER
+
+        # Preferred location: .mcp.json at the plugin root. The file may use
+        # either the wrapped {"mcpServers": {...}} layout or the bare
+        # {"name": {...}} layout, so we normalize before parsing.
+        mcp_data = self._load_file(install_dir / ".mcp.json")
+        if mcp_data is not None:
+            if "mcpServers" not in mcp_data and "servers" not in mcp_data:
+                mcp_data = {"mcpServers": mcp_data}
+            yield from self._parse_servers_block(mcp_data, scope, project)
+            return
+
+        # Fallback: inline mcpServers in the plugin manifest.
+        manifest = self._load_file(install_dir / ".claude-plugin" / "plugin.json")
+        if not manifest:
+            return
+        inline = manifest.get("mcpServers")
+        if isinstance(inline, dict):
+            yield from self._parse_servers_block({"mcpServers": inline}, scope, project)
+
+    def _get_claudeai_mcp_configurations(self) -> Iterator[MCPConfiguration]:
+        """Yield MCP servers connected through the user's claude.ai account.
+
+        These are remote connectors hosted by Anthropic; we do not have their
+        URLs locally, only their names. We collect names from two sources
+        and deduplicate them:
+
+        - claudeAiMcpEverConnected in ~/.claude.json (historical list)
+        - ~/.claude/mcp-needs-auth-cache.json (currently-authorized list)
+        """
+        names: List[str] = []
+        seen: set = set()
+
+        def _add(name: str) -> None:
+            name = name.removeprefix("claude.ai ")
+            if name in seen:
+                return
+            seen.add(name)
+            names.append(name)
+
+        claude_json = self._load_file(get_user_home_dir() / ".claude.json")
+        if claude_json:
+            for name in claude_json.get("claudeAiMcpEverConnected", []) or []:
+                _add(name)
+
+        auth_cache = self._load_file(self.config_folder / "mcp-needs-auth-cache.json")
+        if auth_cache:
+            for name in auth_cache.keys():
+                _add(name)
+
+        for name in names:
+            yield MCPConfiguration(
+                name=name,
+                agent=self.name,
+                scope=Scope.USER,
+                transport=Transport.HTTP,
+                project=None,
+                url="claude.ai",
             )
 
     def discover_project_directories(self) -> Iterator[Path]:
@@ -160,6 +229,8 @@ class Claude(Agent):
         # The server name can be anything, but we assume no MCP tool has a "__" in its name
         tool = parts[-1]
         server_cfg_name = "__".join(parts[1:-1])
+        # Remove the optional "claude_ai_" prefix
+        server_cfg_name = server_cfg_name.removeprefix("claude_ai_")
 
         # Lookup the server name based on its configuration name
         # Fallback to the server name if not found

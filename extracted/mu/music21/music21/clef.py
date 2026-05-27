@@ -336,8 +336,7 @@ class PercussionClef(Clef):
     >>> pc.lowestLine == clef.TrebleClef().lowestLine
     True
 
-    * Changed in v7.3: setting `octaveChange` no longer affects
-      `lowestLine`
+    * Changed in v7.3: setting `octaveChange` no longer affects `lowestLine`.
     '''
     _DOC_ATTR: dict[str, str] = {}
 
@@ -743,7 +742,6 @@ def clefFromString(clefString, octaveShift=0) -> Clef:
 
     Does not refer to a violin/guitar string.
 
-
     >>> tc = clef.clefFromString('G2')
     >>> tc
     <music21.clef.TrebleClef>
@@ -759,7 +757,6 @@ def clefFromString(clefString, octaveShift=0) -> Clef:
     'D'
     >>> nonStandard2.line
     4
-
 
     >>> tc8vb = clef.clefFromString('G2', -1)
     >>> tc8vb
@@ -791,7 +788,6 @@ def clefFromString(clefString, octaveShift=0) -> Clef:
     Traceback (most recent call last):
     music21.clef.ClefException: line number (second character) must be 1-5;
                 do not use this function for clefs on special staves such as 'F6'
-
 
     Can find any clef in the module
 
@@ -940,7 +936,6 @@ def bestClef(streamObj: stream.Stream,
 
     >>> clef.bestClef(c, recurse=True)
     <music21.clef.TrebleClef>
-
 
     Notes around middle C can get Treble8vb if the setting is allowed:
 

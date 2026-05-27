@@ -14,16 +14,50 @@
 
 from os import PathLike
 from types import TracebackType
-from typing import BinaryIO, ContextManager, Optional, Protocol, Type, Self, Union
+from typing import BinaryIO, ContextManager, Protocol, Type, Self
+from typing_extensions import disjoint_base
 
 # Legacy shims
-from fastwarc.legacy.stream_io import *
+from .legacy._shims import *
+
+__all__ = [
+    'WarcReader',
+    'WarcWriter',
+    'GzipReader',
+    'GzipWriter',
+    'ZstdReader',
+    'ZstdWriter',
+    'Lz4Reader',
+    'Lz4Writer',
+    'BrotliReader',
+    'BrotliWriter',
+    'ChunkedReader',
+    'ChunkedWriter',
+    'zstd_train_dictionary_from_continuous',
+    'zstd_train_dictionary_from_files',
+    'zstd_train_dictionary_from_samples',
+
+    # Legacy names
+    'BrotliStream',
+    'BufferedReader',
+    'BytesIOStream',
+    'CompressingStream',
+    'FastWARCError',
+    'FileStream',
+    'GZipStream',
+    'IOStream',
+    'LZ4Stream',
+    'PythonIOStreamAdapter',
+    'ReaderStaleError',
+    'StreamError',
+    'wrap_stream'
+]
 
 
 class _GenericReader(Protocol):
-    def read(self, size: int = -1) -> bytes: ...
+    def read(self, size: int = ...) -> bytes: ...
 
-    def seek(self, offset: int, whence: int = 0) -> int: ...
+    def seek(self, offset: int, whence: int = ...) -> int: ...
 
     def tell(self) -> int: ...
 
@@ -38,10 +72,11 @@ class _GenericWriter(Protocol):
     def close(self) -> None: ...
 
 
-class WarcReader(ContextManager[WarcReader]):
+@disjoint_base
+class WarcReader(ContextManager["WarcReader"]):
     def __new__(cls) -> Self: ...
 
-    def read(self, size: int = -1) -> bytes: ...
+    def read(self, size: int = ...) -> bytes: ...
 
     def seek(self, offset: int, whence: int = 0) -> int: ...
 
@@ -53,19 +88,20 @@ class WarcReader(ContextManager[WarcReader]):
 
     def __exit__(
             self,
-            exc_type: Optional[Type[BaseException]],
-            exc: Optional[BaseException],
-            traceback: Optional[TracebackType]
+            exc_type: Type[BaseException] | None,
+            exc: BaseException | None,
+            traceback: TracebackType | None
     ) -> None: ...
 
     def inner_seek(self, offset: int, whence: int = 0) -> int: ...
 
     def inner_tell(self) -> int: ...
 
-    def frame_start_position(self) -> Optional[int]: ...
+    def frame_start_position(self) -> int | None: ...
 
 
-class WarcWriter(ContextManager[WarcWriter]):
+@disjoint_base
+class WarcWriter(ContextManager["WarcWriter"]):
     def __new__(cls) -> Self: ...
 
     def write(self, data: bytes) -> int: ...
@@ -78,59 +114,74 @@ class WarcWriter(ContextManager[WarcWriter]):
 
     def __exit__(
             self,
-            exc_type: Optional[Type[BaseException]],
-            exc: Optional[BaseException],
-            traceback: Optional[TracebackType]
+            exc_type: Type[BaseException] | None,
+            exc: BaseException | None,
+            traceback: TracebackType | None
     ) -> None: ...
 
     def finish(self) -> None: ...
 
 
+_ReaderInput = WarcReader | BinaryIO | _GenericReader | PathLike[str] | str
+_WriterInput = WarcWriter | BinaryIO | _GenericWriter | PathLike[str] | str
+
+
+@disjoint_base
 class GzipReader(WarcReader):
-    def __new__(cls, inner: Union[WarcReader, BinaryIO, _GenericReader, PathLike, str],
-                buffer_size=4096, zlib=False, fsspec_args=None) -> Self: ...
+    def __new__(cls, inner: _ReaderInput, buffer_size=4096, zlib=False, fsspec_args=None) -> Self: ...
 
 
+@disjoint_base
 class GzipWriter(WarcWriter):
-    def __new__(cls, inner: Union[WarcWriter, BinaryIO, _GenericWriter, PathLike, str],
-                compression_level=9, buffer_size=8192, zlib=False, fsspec_args=None) -> Self: ...
+    def __new__(cls, inner: _WriterInput, compression_level=9, buffer_size=8192, zlib=False,
+                fsspec_args=None) -> Self: ...
 
 
+@disjoint_base
 class ZstdReader(WarcReader):
-    def __new__(cls, inner: Union[WarcReader, BinaryIO, _GenericReader, PathLike, str],
-                buffer_size=4096, fsspec_args=None, dictionary=None) -> Self: ...
+    def __new__(cls, inner: _ReaderInput, buffer_size=4096, fsspec_args=None, dictionary=None) -> Self: ...
 
 
+@disjoint_base
 class ZstdWriter(WarcWriter):
-    def __new__(cls, inner: Union[WarcWriter, BinaryIO, _GenericWriter, PathLike, str],
-                buffer_size=8192, fsspec_args=None, dictionary=None, compress_dictionary_frame=False) -> Self: ...
+    def __new__(cls, inner: _WriterInput, buffer_size=8192, fsspec_args=None, dictionary=None,
+                compress_dictionary_frame=False) -> Self: ...
 
 
+@disjoint_base
 class Lz4Reader(WarcReader):
-    def __new__(cls, inner: Union[WarcReader, BinaryIO, _GenericReader, PathLike, str],
-                buffer_size=4096, fsspec_args=None) -> Self: ...
+    def __new__(cls, inner: _ReaderInput, buffer_size=4096, fsspec_args=None) -> Self: ...
 
 
+@disjoint_base
 class Lz4Writer(WarcWriter):
-    def __new__(cls, inner: Union[WarcWriter, BinaryIO, _GenericWriter, PathLike, str],
-                buffer_size=8192, fsspec_args=None) -> Self: ...
+    def __new__(cls, inner: _WriterInput, buffer_size=8192, fsspec_args=None) -> Self: ...
 
 
+@disjoint_base
 class BrotliReader(WarcReader):
-    def __new__(cls, inner: Union[WarcReader, BinaryIO, _GenericReader, PathLike, str],
-                buffer_size=4096, fsspec_args=None) -> Self: ...
+    def __new__(cls, inner: _ReaderInput, buffer_size=4096, fsspec_args=None) -> Self: ...
 
 
+@disjoint_base
 class BrotliWriter(WarcWriter):
-    def __new__(cls, inner: Union[WarcWriter, BinaryIO, _GenericWriter, PathLike, str],
-                buffer_size=8192, fsspec_args=None) -> Self: ...
+    def __new__(cls, inner: _WriterInput, buffer_size=8192, fsspec_args=None) -> Self: ...
 
 
+@disjoint_base
 class ChunkedReader(WarcReader):
-    def __new__(cls, inner: Union[WarcReader, BinaryIO, _GenericReader, PathLike, str],
-                buffer_size=1024, fsspec_args=None) -> Self: ...
+    def __new__(cls, inner: _ReaderInput, buffer_size=1024, fsspec_args=None) -> Self: ...
 
 
+@disjoint_base
 class ChunkedWriter(WarcWriter):
-    def __new__(cls, inner: Union[WarcWriter, BinaryIO, _GenericWriter, PathLike, str],
-                min_chunk_size=512, fsspec_args=None) -> Self: ...
+    def __new__(cls, inner: _WriterInput, min_chunk_size=512, fsspec_args=None) -> Self: ...
+
+
+def zstd_train_dictionary_from_continuous(sample_data: bytes, sample_sizes: list[int], max_size: int) -> bytes: ...
+
+
+def zstd_train_dictionary_from_samples(samples: list[bytes], max_size: int) -> bytes: ...
+
+
+def zstd_train_dictionary_from_files(filenames: list[str], max_size: int) -> bytes: ...

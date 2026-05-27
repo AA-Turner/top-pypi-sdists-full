@@ -174,6 +174,8 @@ __all__ = (
     "GetBackupVaultNotificationsOutputTypeDef",
     "GetLegalHoldInputTypeDef",
     "GetLegalHoldOutputTypeDef",
+    "GetPITRMalwareScanResultsInputTypeDef",
+    "GetPITRMalwareScanResultsOutputTypeDef",
     "GetRecoveryPointIndexDetailsInputTypeDef",
     "GetRecoveryPointIndexDetailsOutputTypeDef",
     "GetRecoveryPointRestoreMetadataInputTypeDef",
@@ -1143,17 +1145,6 @@ class StartRestoreJobInputTypeDef(TypedDict):
     CopySourceTagsToRestoredResource: NotRequired[bool]
 
 
-class StartScanJobInputTypeDef(TypedDict):
-    BackupVaultName: str
-    IamRoleArn: str
-    MalwareScanner: Literal["GUARDDUTY"]
-    RecoveryPointArn: str
-    ScanMode: ScanModeType
-    ScannerRoleArn: str
-    IdempotencyToken: NotRequired[str]
-    ScanBaseRecoveryPointArn: NotRequired[str]
-
-
 class StopBackupJobInputTypeDef(TypedDict):
     BackupJobId: str
 
@@ -1719,6 +1710,13 @@ class DateRangeTypeDef(TypedDict):
     ToDate: TimestampTypeDef
 
 
+class GetPITRMalwareScanResultsInputTypeDef(TypedDict):
+    RecoveryPointArn: str
+    BackupVaultName: str
+    ScanEndTime: TimestampTypeDef
+    MalwareScanner: Literal["GUARDDUTY"]
+
+
 class ListBackupJobsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -1820,6 +1818,18 @@ class ListScanJobsInputTypeDef(TypedDict):
     ByState: NotRequired[ScanStateType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class StartScanJobInputTypeDef(TypedDict):
+    BackupVaultName: str
+    IamRoleArn: str
+    MalwareScanner: Literal["GUARDDUTY"]
+    RecoveryPointArn: str
+    ScanMode: ScanModeType
+    ScannerRoleArn: str
+    ContinuousScanEndTime: NotRequired[TimestampTypeDef]
+    IdempotencyToken: NotRequired[str]
+    ScanBaseRecoveryPointArn: NotRequired[str]
 
 
 class DescribeBackupVaultOutputTypeDef(TypedDict):
@@ -1934,6 +1944,8 @@ class DescribeScanJobOutputTypeDef(TypedDict):
     BackupVaultArn: str
     BackupVaultName: str
     CompletionDate: datetime
+    ContinuousScanEndTime: datetime
+    ContinuousScanStartTime: datetime
     CreatedBy: ScanJobCreatorTypeDef
     CreationDate: datetime
     IamRoleArn: str
@@ -1953,6 +1965,15 @@ class DescribeScanJobOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetPITRMalwareScanResultsOutputTypeDef(TypedDict):
+    ScanEndTime: datetime
+    ScanResult: ScanResultInfoTypeDef
+    LastScanJobTime: datetime
+    ScanId: str
+    ScanMode: ScanModeType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ScanJobTypeDef(TypedDict):
     AccountId: str
     BackupVaultArn: str
@@ -1969,6 +1990,8 @@ class ScanJobTypeDef(TypedDict):
     ScanMode: ScanModeType
     ScannerRoleArn: str
     CompletionDate: NotRequired[datetime]
+    ContinuousScanEndTime: NotRequired[datetime]
+    ContinuousScanStartTime: NotRequired[datetime]
     ScanBaseRecoveryPointArn: NotRequired[str]
     ScanId: NotRequired[str]
     ScanResult: NotRequired[ScanResultInfoTypeDef]

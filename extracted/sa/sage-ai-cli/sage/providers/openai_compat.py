@@ -14,6 +14,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 import httpx
+import os
 
 from ..config import SageConfig
 from .anonymizer import anonymize_payload
@@ -456,7 +457,7 @@ PROVIDER_SPECS: list[ProviderSpec] = [
     ),
     ProviderSpec(
         name="openrouter",
-        base_url="https://openrouter.ai/api/v1",
+        base_url=os.environ.get("SAGE_OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
         api_key_config="openrouter",
         env_var="SAGE_OPENROUTER_API_KEY",
         models=OPENROUTER_MODELS,
@@ -553,7 +554,10 @@ class OpenAICompatProvider(ProviderBase):
                 if spec.env_var
                 else None
             )
-        self._base_url = spec.base_url.strip().strip("`").rstrip("/")
+        base_url = spec.base_url
+        if spec.name == "openrouter":
+            base_url = os.environ.get("SAGE_OPENROUTER_BASE_URL", base_url)
+        self._base_url = base_url.strip().strip("`").rstrip("/")
         self._retry_config = self._build_retry_config()
         limiter_key = f"{self._spec.name}:{'keyed' if self._api_key else 'anonymous'}"
         self._rate_limiter = get_rate_limiter(

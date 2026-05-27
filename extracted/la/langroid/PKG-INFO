@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langroid
-Version: 0.62.0
+Version: 0.63.0
 Summary: Harness LLMs with Multi-Agent Programming
 Author-email: Prasad Chalasani <pchalasani@gmail.com>
 License: MIT
@@ -82,6 +82,7 @@ Requires-Dist: python-socketio<6.0.0,>=5.11.0; extra == 'all'
 Requires-Dist: seltz>=0.2.0; extra == 'all'
 Requires-Dist: sentence-transformers<3.0.0,>=2.2.2; extra == 'all'
 Requires-Dist: sqlalchemy<3.0.0,>=2.0.19; extra == 'all'
+Requires-Dist: sqlglot>=23.0.0; extra == 'all'
 Requires-Dist: torch<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: transformers<5.0.0,>=4.40.1; extra == 'all'
 Requires-Dist: unstructured[docx,pdf,pptx]<1.0.0,>=0.16.15; extra == 'all'
@@ -103,6 +104,7 @@ Requires-Dist: psycopg2-binary>=2.9.10; extra == 'db'
 Requires-Dist: psycopg2<3.0.0,>=2.9.7; extra == 'db'
 Requires-Dist: pymysql<2.0.0,>=1.1.0; extra == 'db'
 Requires-Dist: sqlalchemy<3.0.0,>=2.0.19; extra == 'db'
+Requires-Dist: sqlglot>=23.0.0; extra == 'db'
 Provides-Extra: doc-chat
 Requires-Dist: docling<3.0.0,>=2.20.0; extra == 'doc-chat'
 Requires-Dist: marker-pdf; extra == 'doc-chat'
@@ -158,6 +160,7 @@ Provides-Extra: metaphor
 Requires-Dist: metaphor-python<0.2.0,>=0.1.23; extra == 'metaphor'
 Provides-Extra: mysql
 Requires-Dist: pymysql<2.0.0,>=1.1.0; extra == 'mysql'
+Requires-Dist: sqlglot>=23.0.0; extra == 'mysql'
 Provides-Extra: neo4j
 Requires-Dist: neo4j<6.0.0,>=5.14.1; extra == 'neo4j'
 Provides-Extra: pdf-parsers
@@ -176,6 +179,7 @@ Requires-Dist: pgvector>=0.3.6; extra == 'postgres'
 Requires-Dist: psycopg2-binary>=2.9.10; extra == 'postgres'
 Requires-Dist: psycopg2<3.0.0,>=2.9.7; extra == 'postgres'
 Requires-Dist: sqlalchemy<3.0.0,>=2.0.19; extra == 'postgres'
+Requires-Dist: sqlglot>=23.0.0; extra == 'postgres'
 Provides-Extra: pymupdf4llm
 Requires-Dist: pymupdf4llm<0.1.0,>=0.0.17; extra == 'pymupdf4llm'
 Provides-Extra: scrapy
@@ -186,6 +190,7 @@ Provides-Extra: sql
 Requires-Dist: psycopg2<3.0.0,>=2.9.7; extra == 'sql'
 Requires-Dist: pymysql<2.0.0,>=1.1.0; extra == 'sql'
 Requires-Dist: sqlalchemy<3.0.0,>=2.0.19; extra == 'sql'
+Requires-Dist: sqlglot>=23.0.0; extra == 'sql'
 Provides-Extra: tavily
 Requires-Dist: tavily-python>=0.5.0; extra == 'tavily'
 Provides-Extra: transformers

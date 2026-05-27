@@ -343,13 +343,13 @@ class QoSAddCommand(cmd.AddCommand):
                              const.ACL_PRIORITY_MAX)
         if rate is not None and not 1 <= rate <= const.QOS_BANDWIDTH_MAX:
             raise ValueError("rate(%s) must be between 1 and %s, inclusive" %
-                             rate, const.QOS_BANDWIDTH_MAX)
+                             (rate, const.QOS_BANDWIDTH_MAX))
         if burst is not None and not 1 <= burst <= const.QOS_BANDWIDTH_MAX:
             raise ValueError("burst(%s) must be between 1 and %s, "
-                             "inclusive" % burst, const.QOS_BANDWIDTH_MAX)
+                             "inclusive" % (burst, const.QOS_BANDWIDTH_MAX))
         if dscp is not None and not 0 <= dscp <= const.QOS_DSCP_MAX:
             raise ValueError("dscp(%s) must be between 0 and %s, inclusive" %
-                             dscp, const.QOS_DSCP_MAX)
+                             (dscp, const.QOS_DSCP_MAX))
         if rate is None and dscp is None:
             raise ValueError("One of the rate or dscp must be configured")
         if (external_ids_match is not None and
@@ -1293,17 +1293,17 @@ class LspAttachMirror(cmd.BaseCommand):
 
 
 class LspDetachMirror(cmd.BaseCommand):
-    def __init__(self, api, port, mirror, if_exist=False):
+    def __init__(self, api, port, mirror, if_exists=False):
         super().__init__(api)
         self.port = port
         self.mirror = mirror
-        self.if_exist = if_exist
+        self.if_exists = if_exists
 
     def run_idl(self, txn):
         try:
             lsp = self.api.lookup('Logical_Switch_Port', self.port)
             mirror = self.api.lookup('Mirror', self.mirror)
-            if mirror not in lsp.mirror_rules and not self.if_exist:
+            if mirror not in lsp.mirror_rules and not self.if_exists:
                 msg = "Mirror Rule %s doesn't exist on LSP %s" % (self.mirror,
                                                                   self.port)
                 raise RuntimeError(msg)

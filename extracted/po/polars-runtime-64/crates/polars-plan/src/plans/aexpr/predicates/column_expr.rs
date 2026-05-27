@@ -215,24 +215,32 @@ pub fn aexpr_to_column_predicates(
                             } => {
                                 into_column(input[0].node(), expr_arena)?;
 
-                                let (values, had_nulls) = super::try_extract_is_in_haystack(
+                                let values = constant_evaluate(
                                     input[1].node(),
                                     expr_arena,
                                     schema,
-                                    &dtype,
-                                    usize::MAX,
-                                )?;
+                                    0,
+                                )??;
+                                let values = values.to_any_value()?;
 
-                                // EqualOneOf describes the full set membership: include
-                                // Scalar::Null under nulls_equal=true so the specialization is
-                                // sound regardless of how the runtime chooses to invoke it.
-                                let values = values
-                                    .iter()
-                                    .map(|av| Scalar::new(dtype.clone(), av.into_static()))
-                                    .chain(
-                                        (*nulls_equal && had_nulls)
-                                            .then(|| Scalar::new(dtype.clone(), AnyValue::Null)),
-                                    )
+                                let values = match values {
+                                    AnyValue::List(v) => v,
+                                    #[cfg(feature = "dtype-array")]
+                                    AnyValue::Array(v, _) => v,
+                                    _ => return None,
+                                };
+
+                                if values.dtype() != &dtype {
+                                    return None;
+                                }
+                                if !nulls_equal && values.has_nulls() {
+                                    return None;
+                                }
+
+                                let values = values.iter()
+                                    .map(|av| {
+                                        Scalar::new(dtype.clone(), av.into_static())
+                                    })
                                     .collect();
 
                                 Some(SpecializedColumnPredicate::EqualOneOf(values))

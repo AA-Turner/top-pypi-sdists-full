@@ -16,28 +16,29 @@ from __future__ import division as _; del _  # noqa: E702 ;
 from pygeodesy.basics import _args_kwds_names, _isin, map1, map2, _xinstanceof, \
                              _xsubclassof,  typename   # .datums
 from pygeodesy.constants import EPS, INT0, _umod_360, _0_0, _0_01, _0_5, _1_0, \
-                               _2_0, _60_0, _90_0, _100_0, _180_0, _3600_0, \
+                               _2_0, _8_0, _60_0, _90_0, _100_0, _180_0, _3600_0, \
                                _N_1_0  # PYCHOK used!
-# from pygeodesy.datums import _WGS84  # from .ecef
-from pygeodesy.ecef import _EcefBase, EcefKarney, Ecef9Tuple, _llhn4, \
-                           _xyzn4,  _WGS84
+from pygeodesy.datums import Datums, _WGS84
+# from pygeodesy.dms import parseDMS  # from .units
+from pygeodesy.ecef import _EcefBase, EcefKarney, Ecef9Tuple, _llhn4, _xyzn4
 from pygeodesy.errors import _NotImplementedError, _ValueError, _xattr, \
                              _xkwds, _xkwds_get, _xkwds_pop2
 from pygeodesy.fmath import fabs, fdot, Fdot_, fdot_, Fhorner
 from pygeodesy.fsums import _floor, fsumf_
 # from pygeodesy.internals import typename  # from .basics
-from pygeodesy.interns import _0_, _COMMASPACE_, _DOT_, _ecef_, _height_, _M_, \
-                              _invalid_, _lat0_, _lon0_, _name_, _too_
+from pygeodesy.interns import _0_, _COMMASPACE_, _DOT_, _ecef_, _height_, \
+                              _invalid_, _lat0_, _lon0_, _M_, _name_, _too_
 # from pygeodesy.lazily import _ALL_LAZY  # from vector3d
 from pygeodesy.ltpTuples import Attitude4Tuple, ChLVEN2Tuple, ChLV9Tuple, \
                                 ChLVYX2Tuple, Footprint5Tuple, Local9Tuple, \
                                 ChLVyx2Tuple, _XyzLocals4, _XyzLocals5, Xyz4Tuple
 from pygeodesy.named import _name__, _name2__, _NamedBase, notOverloaded
-from pygeodesy.namedTuples import LatLon3Tuple, LatLon4Tuple, Vector3Tuple
+from pygeodesy.namedTuples import LatLon3Tuple, LatLon4Tuple, Vector3Tuple, \
+                                  Bounds4Tuple  # PYCHOK used!
 from pygeodesy.props import Property, Property_RO, property_doc_, \
                             property_ROver, _update_all
 from pygeodesy.streprs import Fmt, strs, unstr
-from pygeodesy.units import Bearing, Degrees, _isHeight, Meter
+from pygeodesy.units import Bearing, Degrees, _isHeight, Meter,  parseDMS
 from pygeodesy.utily import cotd, _loneg, sincos2d, sincos2d_, tand, tand_, \
                             wrap180, wrap360
 from pygeodesy.vector3d import _ALL_LAZY, Vector3d
@@ -45,11 +46,13 @@ from pygeodesy.vector3d import _ALL_LAZY, Vector3d
 # from math import fabs, floor as _floor  # from .fmath, .fsums
 
 __all__ = _ALL_LAZY.ltp
-__version__ = '25.05.12'
+__version__ = '26.05.24'
 
+_GRS80    =  Datums.GRS80
 _height0_ = _height_ + _0_
 _narrow_  = 'narrow'
 _wide_    = 'wide'
+# del Datums
 
 
 class Attitude(_NamedBase):
@@ -414,10 +417,10 @@ class LocalCartesian(_NamedBase):
 
        @see: Class L{Ltp}.
     '''
-    _ecef   = EcefKarney(_WGS84)
     _Ecef   = EcefKarney
+    _ecef   = EcefKarney(_WGS84)
     _lon00  = INT0  # self.lon0
-    _t0     = None  # origin (..., lat0, lon0, height0, ...) L{Ecef9Tuple}
+    _9t0    = None  # origin (..., lat0, lon0, height0, ...) L{Ecef9Tuple}
     _9Tuple = Local9Tuple
 
     def __init__(self, latlonh0=INT0, lon0=INT0, height0=INT0, ecef=None, **lon00_name):
@@ -457,7 +460,7 @@ class LocalCartesian(_NamedBase):
         '''
         return other is self or (isinstance(other, self.__class__) and
                                             other.ecef == self.ecef and
-                                            other._t0  == self._t0)
+                                            other._9t0 == self._9t0)
 
     @Property_RO
     def datum(self):
@@ -492,7 +495,7 @@ class LocalCartesian(_NamedBase):
         if ecef.datum != self.datum:
             ecef = ecef.toDatum(self.datum)
         n, kwds = _name2__(name_Xyz_kwds, _or_nameof=ecef)
-        x, y, z =  self.M.rotate(ecef.xyz, *self._t0_xyz)
+        x, y, z =  self.M.rotate(ecef.xyz, *self._9t0_xyz)
         r = Local9Tuple(x, y, z, ecef.lat, ecef.lon, ecef.height,
                                  self, ecef, None, name=n)
         if Xyz:
@@ -516,7 +519,7 @@ class LocalCartesian(_NamedBase):
                        B{C{latlonh}} is C{scalar}, ignored otherwise.
            @kwarg height: Optional height (C{meter}, conventionally) perpendicular
                           to and above (or below) the ellipsoid's surface, iff
-                          B{C{latlonh}} is C{scalar}, ignored othewrise.
+                          B{C{latlonh}} is C{scalar}, ignored otherwise.
            @kwarg M: Optionally, return the I{concatenated} rotation L{EcefMatrix},
                      iff available (C{bool}).
            @kwarg name: Optional C{B{name}=NN} (C{str}).
@@ -535,7 +538,7 @@ class LocalCartesian(_NamedBase):
         '''
         lat, lon, h, n = _llhn4(latlonh, lon, height, Error=LocalError, **name)
         t = self.ecef._forward(lat, lon, h, n, M=M)
-        x, y, z = self.M.rotate(t.xyz, *self._t0_xyz)
+        x, y, z = self.M.rotate(t.xyz, *self._9t0_xyz)
         m = self.M.multiply(t.M) if M else None
         return self._9Tuple(x, y, z, lat, lon, h, self, t, m, name=n or self.name)
 
@@ -543,13 +546,13 @@ class LocalCartesian(_NamedBase):
     def height0(self):
         '''Get the origin's height (C{meter}).
         '''
-        return self._t0.height
+        return self._9t0.height
 
     @Property_RO
     def lat0(self):
         '''Get the origin's latitude (C{degrees}).
         '''
-        return self._t0.lat
+        return self._9t0.lat
 
     @Property_RO
     def latlonheight0(self):
@@ -569,7 +572,7 @@ class LocalCartesian(_NamedBase):
                     rotation matrix C{M} (L{EcefMatrix}) if requested.
         '''
         _xinstanceof(*_XyzLocals5, local=local)
-        t = self.M.unrotate(local.xyz, *self._t0_xyz)
+        t = self.M.unrotate(local.xyz, *self._9t0_xyz)
         if nine:
             t = self.ecef.reverse(*t, M=M)
         return t
@@ -578,7 +581,7 @@ class LocalCartesian(_NamedBase):
     def lon0(self):
         '''Get the origin's longitude (C{degrees}).
         '''
-        return self._t0.lon
+        return self._9t0.lon
 
     @Property
     def lon00(self):
@@ -597,18 +600,18 @@ class LocalCartesian(_NamedBase):
     def M(self):
         '''Get the rotation matrix (C{EcefMatrix}).
         '''
-        return self._t0.M
+        return self._9t0.M
 
     def reset(self, latlonh0=INT0, lon0=INT0, height0=INT0, ecef=None, **lon00_name):
         '''Reset this converter, see L{LocalCartesian.__init__} for further details.
         '''
         _, name = _xkwds_pop2(lon00_name, lon00=None)  # PYCHOK get **name
         if isinstance(latlonh0, LocalCartesian):
-            if self._t0:
+            if self._9t0:
                 _update_all(self)
             self._ecef  =  latlonh0.ecef
             self._lon00 =  latlonh0.lon00
-            self._t0    =  latlonh0._t0
+            self._9t0   =  latlonh0._9t0
             n           = _name__(name, _or_nameof=latlonh0)
         else:
             n           = _name__(name, _or_nameof=self)
@@ -618,9 +621,9 @@ class LocalCartesian(_NamedBase):
                 _xinstanceof(self._Ecef, ecef=ecef)
                 _update_all(self)
                 self._ecef = ecef
-            elif self._t0:
+            elif self._9t0:
                 _update_all(self)
-            self._t0 = self.ecef._forward(lat0, lon0, height0, n, M=True)
+            self._9t0  =  self.ecef._forward(lat0, lon0, height0, n, M=True)
             self.lon00 = _xattr(latlonh0, lon00=_xkwds_get(lon00_name, lon00=lon0))
         if n:
             self.rename(n)
@@ -643,7 +646,7 @@ class LocalCartesian(_NamedBase):
                         I{polar} latitudes C{abs(B{lat0}) == 90} for local C{B{x}=0}
                         and C{B{y}=0} locations.
 
-           @return: An L{Local9Tuple}C{(x, y, z, lat, lon, height, ltp, ecef, M)} with
+           @return: A L{Local9Tuple}C{(x, y, z, lat, lon, height, ltp, ecef, M)} with
                     I{local} C{x}, C{y}, C{z}, I{geodetic} C{lat}, C{lon}, C{height},
                     this C{ltp}, an C{ecef} (L{Ecef9Tuple}) with the I{geocentric} C{x},
                     C{y}, C{z} (and I{geodetic} C{lat}, C{lon}, C{height}) and the
@@ -654,16 +657,16 @@ class LocalCartesian(_NamedBase):
         '''
         lon00, name =_xkwds_pop2(lon00_name, lon00=self.lon00)
         x, y, z, n = _xyzn4(xyz, y, z, _XyzLocals5, Error=LocalError, name=name)
-        c = self.M.unrotate((x, y, z), *self._t0_xyz)
+        c = self.M.unrotate((x, y, z), *self._9t0_xyz)
         t = self.ecef.reverse(*c, M=M, lon00=lon00)
         m = self.M.multiply(t.M) if M else None
         return self._9Tuple(x, y, z, t.lat, t.lon, t.height, self, t, m, name=n or self.name)
 
     @Property_RO
-    def _t0_xyz(self):
+    def _9t0_xyz(self):
         '''(INTERNAL) Get C{(x0, y0, z0)} as L{Vector3Tuple}.
         '''
-        return self._t0.xyz
+        return self._9t0.xyz
 
     def toStr(self, prec=9, **unused):  # PYCHOK signature
         '''Return this L{LocalCartesian} as a string.
@@ -685,9 +688,9 @@ class Ltp(LocalCartesian):
         '''New C{Ltp}, see L{LocalCartesian.__init__} for more details.
 
            @kwarg ecef: Optional ECEF converter (L{EcefKarney}, L{EcefFarrell21},
-                        L{EcefFarrell22}, L{EcefSudano}, L{EcefVeness} or
-                        L{EcefYou} I{instance}), overriding the default
-                        L{EcefKarney}C{(datum=Datums.WGS84)} for C{scalar}.
+                        L{EcefFarrell22}, L{EcefSudano}, L{EcefVeness} or L{EcefYou}
+                        I{instance}), overriding the default L{EcefKarney}C{(datum=Datums.WGS84)}
+                        for C{scalar} B{C{latlonh0}}.
 
            @see: Class L{LocalCartesian<LocalCartesian.__init__>} for further details.
 
@@ -710,8 +713,92 @@ class Ltp(LocalCartesian):
         '''
         _xinstanceof(_EcefBase, ecef=ecef)
         if self._ecef != ecef:  # PYCHOK no cover
-            self.reset(self._t0)
+            self.reset(self._9t0)
             self._ecef = ecef
+
+
+class LqRD(Ltp):
+    '''A I{local tangent plan} (LTP) for conversion between I{GRS80 (ETRS89) geodetic} and
+       I{local Netherlands}' C{quasi-B{R}ijksB{D}riehoeksmeting (RD)} coordinates.
+
+       This C{quasi-RD} transformer B{does not} implement any U{RD NAP<https://www.NSGI.NL/
+       coordinatenstelsels-en-transformaties/coordinatentransformaties/rdnap-etrs89-rdnaptrans>}
+       specification and B{does not} provide I{Netherlands}' C{B{N}ormaal B{A}msterdams B{P}eil
+       (NAP)} quasi-geodetic-height.
+
+       The L{LqRD.forward} C{x} and C{y} results differ 3 meter near the center up to 600 meter
+       at the corners of the L{RD region<LqRD.region>} with C{RDx} and C{RDy} values from formal
+       C{RD NAP 2018} implementations like U{pyrdnap<https://PyPI.org/project/pyrdnap>}.
+
+       The L{LqRD.forward} C{z} values represent perpendicular distances to this local tangent
+       plane (LTP).  Other heights in L{LqRD} are I{GRS80 (ETRS89) heights} above (or below)
+       the ellipsoid's surface.  B{None} are C{NAP} quasi-geodetic-heights.
+    '''
+    Amersfoort = LatLon4Tuple(parseDMS('52  9 22.178N'),  # height=0.0, not .height0_ETRS!
+                              parseDMS(' 5 23 15.5E'), _0_0, _GRS80, name='Amersfoort')
+#   _Ecef = _EcefBase
+    _ecef =  EcefKarney(_GRS80)
+    _x0   =  Meter(x0=155029.8)  # 155000.0 see pyrdnap -v1 -forward Amersfoort.latlon
+    _y0   =  Meter(y0=463109.9)  # 463000.0 see pyrdnap -v1 -forward Amersfoort.latlon
+
+    def __init__(self, latlonh0=Amersfoort, **other_Ltp_kwds):
+        '''New ECEF-based I{GRS80 (ETRS89)} L{LqRD} converter, centered at I{Amersfoort, NL}.
+
+           @kwarg latlonh0: The I{geodetic} origin and height, overriding C{Amersfoort}.
+           @kwarg other_Ltp_kwds: Optional, other L{Ltp.__init__} keyword arguments.
+
+           @see: Class L{Ltp<Ltp.__init__>} for more information.
+        '''
+        Ltp.__init__(self, latlonh0, **_xkwds(other_Ltp_kwds, ecef=None, name=LqRD.Amersfoort.name))
+
+    def forward(self, lat_latlonh, lon=None, height=0, **M_name):  # PYCHOK signature
+        '''Convert I{geodetic} C{(lat, lon, height)} to I{local} C{quasi-RD (x, y, z)}.
+
+           @return: A L{Local9Tuple}C{(x, y, z, lat, lon, height, ltp, ecef, M)}.
+
+           @see: Method L{LocalCartesian.forward} for more information.
+        '''
+        r = Ltp.forward(self, lat_latlonh, lon, height, **M_name)
+        return r.dup(x=r.x + self.x0, y=r.y + self.y0, name=r.name)
+
+    @property_ROver
+    def height0_ETRS(self):
+        '''Get C{Amersfoort}'s I{GRS80 (ETRS89) height} (C{Meter}).
+        '''
+        return Meter(height0_ETRS=43.0)  # see pyrdnap h0_ETRS
+
+    @property_ROver
+    def region(self):
+        '''Get the C{RD} region as L{Bounds4Tuple}C{(latS, lonW, latN, lonE)}, all C{GRS80 (ETRS89) degrees}.
+        '''
+        return Bounds4Tuple(50.0, _2_0, 56.0, _8_0).toUnits(name='RD region ')  # like pyrdnap
+
+    def reverse(self, x_xyz, y=None, z=None, **M_name):  # PYCHOK signature
+        '''Convert I{local} C{quasi-RD (x, y, z)} to I{geodetic} C{(lat, lon, height)}.
+
+           @return: A L{Local9Tuple}C{(x, y, z, lat, lon, height, ltp, ecef, M)}.
+
+           @see: Method L{LocalCartesian.reverse} for more information.
+        '''
+        x, y, z = x_xyz.xyz if y is z is None else map1(Meter, x_xyz, y, z)
+        r = Ltp.reverse(self, x - self.x0, y - self.y0, z, **M_name)
+        return r.dup(x=x, y=y, name=r.name)
+
+    @property_doc_(' the C{quasi-RD} false Easting (C{meter}).')
+    def x0(self):
+        return self._x0
+
+    @x0.setter  # PYCHOK setter!
+    def x0(self, meter):
+        self._x0 = Meter(x0=meter)
+
+    @property_doc_(' the C{quasi-RD} false Northing (C{meter}).')
+    def y0(self):
+        return self._y0
+
+    @y0.setter  # PYCHOK setter!
+    def y0(self, meter):
+        self._y0 = Meter(y0=meter)
 
 
 class _ChLV(object):
@@ -728,7 +815,7 @@ class _ChLV(object):
             m =  self.forward if fw else self.reverse  # PYCHOK attr
             n = _DOT_(*map1(typename, type(self), m))
             raise _NotImplementedError(unstr(n, M=M), txt=None)
-        t = Y_X_h_lat_lon_h + (self, self._t0, None)  # PYCHOK _t0
+        t = Y_X_h_lat_lon_h + (self, self._9t0, None)  # PYCHOK _9t0
         return ChLV9Tuple(t, name=name)
 
     @property_ROver

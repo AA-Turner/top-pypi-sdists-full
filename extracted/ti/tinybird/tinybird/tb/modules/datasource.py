@@ -1476,19 +1476,22 @@ def analyze_quarantine(datasource_name: str, project: Project, client: TinyB):
     user_token = config.get_user_token()
     click.echo(FeedbackManager.gray(message=f"\n» Analyzing errors in {datasource_name}_quarantine..."))
     if user_token:
-        llm = LLM(user_token=user_token, host=config.get_client().host)
-        ds_filenames = project.get_datasource_files()
-        datasource_definition = next(
-            (Path(f).read_text() for f in ds_filenames if f.endswith(f"{datasource_name}.datasource")), ""
-        )
-        response_llm = llm.ask(
-            system_prompt=quarantine_prompt(datasource_definition),
-            prompt=f"The quarantine errors are:\n{json.dumps(quarantine_data)}",
-            feature="tb_datasource_append_analyze_quarantine",
-        )
-        response = extract_xml(response_llm, "quarantine_errors")
-        error_message += "\n" + response
-        click.echo(response)
+        try:
+            llm = LLM(user_token=user_token, host=config.get_client().host)
+            ds_filenames = project.get_datasource_files()
+            datasource_definition = next(
+                (Path(f).read_text() for f in ds_filenames if f.endswith(f"{datasource_name}.datasource")), ""
+            )
+            response_llm = llm.ask(
+                system_prompt=quarantine_prompt(datasource_definition),
+                prompt=f"The quarantine errors are:\n{json.dumps(quarantine_data)}",
+                feature="tb_datasource_append_analyze_quarantine",
+            )
+            response = extract_xml(response_llm, "quarantine_errors")
+            error_message += "\n" + response
+            click.echo(response)
+        except Exception:
+            click.echo(FeedbackManager.error(message="There was an error analyzing the quarantine errors"))
     else:
         echo_safe_humanfriendly_tables_format_smart_table(
             data=[d.values() for d in res["data"]], column_names=res["data"][0].keys()

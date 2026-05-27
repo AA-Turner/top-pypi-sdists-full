@@ -130,6 +130,8 @@ from .type_defs import (
     GetBackupVaultNotificationsOutputTypeDef,
     GetLegalHoldInputTypeDef,
     GetLegalHoldOutputTypeDef,
+    GetPITRMalwareScanResultsInputTypeDef,
+    GetPITRMalwareScanResultsOutputTypeDef,
     GetRecoveryPointIndexDetailsInputTypeDef,
     GetRecoveryPointIndexDetailsOutputTypeDef,
     GetRecoveryPointRestoreMetadataInputTypeDef,
@@ -787,6 +789,17 @@ class BackupClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_legal_hold.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_backup/client/#get_legal_hold)
+        """
+
+    def get_pitr_malware_scan_results(
+        self, **kwargs: Unpack[GetPITRMalwareScanResultsInputTypeDef]
+    ) -> GetPITRMalwareScanResultsOutputTypeDef:
+        """
+        Returns the malware scan results for a specified point in time within a
+        continuous (point-in-time recovery) backup.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_pitr_malware_scan_results.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_backup/client/#get_pitr_malware_scan_results)
         """
 
     def get_recovery_point_index_details(

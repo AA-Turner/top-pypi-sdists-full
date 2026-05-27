@@ -6,9 +6,15 @@ extern "C"
 {
 #endif
 
-/*!
-Represents the type of the output coming from the interpreter
-*/
+/**
+ * \defgroup AMPL_OUTPUTKIND AMPL Outputkinds functions
+ * @{
+ *
+ */
+
+/**
+ * Represents the type of the output coming from the interpreter
+ */
 typedef enum {
   /**
    * Output ``prompt2``, returned when incomplete statements are
@@ -265,7 +271,31 @@ typedef enum {
   AMPL_OUTPUT_WRITE
 } AMPL_OUTPUTKIND;
 
-typedef void (*AMPL_OutputHandlerCb)(AMPL_OUTPUTKIND, const char*, void*);
+/**@}*/
+
+
+/**
+ * \defgroup AMPL_OUTPUTHANDLER AMPL Outputhandler  functions
+ * @{
+ *
+ */
+
+/**
+ * @typedef AMPL_OutputHandlerCb
+ * @brief Callback type for handling AMPL output messages.
+ *
+ * This callback is invoked by the AMPL runtime to deliver output generated
+ * during model execution, such as solver output, display statements, or
+ * informational messages.
+ *
+ * @param kind   The kind of output being produced (see AMPL_OUTPUTKIND)
+ * @param text   Null-terminated output text
+ * @param user   User-defined context pointer supplied when the handler
+ *               was registered
+ */
+typedef void (*AMPL_OutputHandlerCb)(AMPL_OUTPUTKIND kind, const char *text, void *user);
+
+/**@}*/
 
 #ifdef __cplusplus
 } /* extern "C" */

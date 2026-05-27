@@ -26,7 +26,7 @@ available after importing `music21`.
 <class 'music21.base.Music21Object'>
 
 >>> music21.VERSION_STR
-'10.1.0'
+'10.3.0'
 
 Alternatively, after doing a complete import, these classes are available
 under the module "base":
@@ -217,7 +217,6 @@ class Groups(list):  # no need to inherit from slotted object
     the same element cannot be provided more than once.
 
     NOTE: In the future, spaces will not be allowed in group names.
-
 
     >>> g = Groups()
     >>> g.append('hello')
@@ -1242,7 +1241,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> set(d.getSpannerSites(['Slur', 'Diminuendo'])) == {dim, slur1}
         True
 
-
         Example: see which pairs of notes are in the same slur.
 
         >>> e = note.Note('E4')
@@ -1559,7 +1557,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> n2.getOffsetBySite(n2.getContextByClass(stream.Measure))
         2.0
 
-
         Raises `ValueError` if `getElementMethod` is not a value in `ElementSearch`.
 
         >>> n2.getContextByClass(expressions.TextExpression, getElementMethod='invalid')
@@ -1570,7 +1567,7 @@ class Music21Object(prebase.ProtoM21Object):
         and `priorityTargetOnly=True`.
 
         * Changed in v5.7: added followDerivation=False and made
-          everything but the class keyword only
+          everything but the class keyword only.
         * New in v6: added priorityTargetOnly -- see contextSites for description.
         * New in v7: added getElementMethod `all` and `ElementSearch` enum.
         * Changed in v8: class-based calls return properly typed items.  Putting
@@ -2047,7 +2044,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> print(c.next('Note', activeSiteOnly=True))
         None
 
-
         *  Removed in v3: priorityTarget cannot be set, in order
            to use `.sites.yieldSites()`
         *  Changed in v5.5: all arguments are keyword only.
@@ -2190,7 +2186,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> n = note.Note('D')
         >>> s.append(n)
 
-
         >>> for ts in n.getAllContextsByClass(meter.TimeSignature):
         ...     print(ts, ts.offset)
         <music21.meter.TimeSignature 3/4> 1.0
@@ -2288,7 +2283,7 @@ class Music21Object(prebase.ProtoM21Object):
         <music21.note.Note F#> <music21.stream.Part Soprano>
         <music21.bar.Barline type=final> <music21.stream.Part Soprano>
 
-        * Changed in v6: added activeSiteOnly -- see description in `.contextSites()`
+        * Changed in v6: added activeSiteOnly -- see description in `.contextSites()`.
         '''
         allSiteContexts = list(self.contextSites(
             returnSortTuples=True,
@@ -2375,7 +2370,7 @@ class Music21Object(prebase.ProtoM21Object):
         <music21.metadata.Metadata object at 0x11116d080>
         <music21.stream.Score bach/bwv66.6.mxl>
 
-        * Changed in v6: added activeSiteOnly -- see description in `.contextSites()`
+        * Changed in v6: added activeSiteOnly -- see description in `.contextSites()`.
         '''
         # allSiteContexts = list(self.contextSites(returnSortTuples=True))
         # maxRecurse = 20
@@ -2725,7 +2720,6 @@ class Music21Object(prebase.ProtoM21Object):
         SortTuple(atEnd=1, offset=0.0, priority=0, classSortOrder=-5,
                     isNotGrace=1, insertIndex=...)
 
-
         Normally if there's a site specified and the element is not in the site,
         the offset of None will be used, but if raiseExceptionOnMiss is set to True
         then a SitesException will be raised:
@@ -3029,7 +3023,6 @@ class Music21Object(prebase.ProtoM21Object):
          <music21.stream.Part Soprano>,
          <music21.stream.Score bach/bwv66.6.mxl>]
 
-
         Note that derived objects also can follow the container hierarchy:
 
         >>> import copy
@@ -3054,7 +3047,6 @@ class Music21Object(prebase.ProtoM21Object):
          <music21.stream.Part Soprano>,
          <music21.stream.Score bach/bwv66.6.mxl>]
 
-
         The method follows activeSites, so set the activeSite as necessary.
 
         >>> p = stream.Part(id='newPart')
@@ -3068,7 +3060,7 @@ class Music21Object(prebase.ProtoM21Object):
          <music21.stream.Part newPart>]
 
         * Changed in v5.7: `followDerivation` and
-          `includeNonStreamDerivations` are now keyword only
+          `includeNonStreamDerivations` are now keyword only.
         '''
         post = []
         focus = self
@@ -3154,7 +3146,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> st.spannerList
         [<music21.expressions.TrillExtension <music21.note.Note C#><music21.note.Note C#>>]
 
-
         Make sure that ties and accidentals remain as they should be:
 
         >>> d = note.Note('D#4')
@@ -3183,7 +3174,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> h[2].pitch.accidental.displayStatus, i[2].pitch.accidental.displayStatus
         (None, False)
 
-
         If quarterLength == self.quarterLength then the second element will be None.
 
         >>> n = note.Note()
@@ -3202,7 +3192,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> firstPart is n
         False
 
-
         If quarterLength > self.quarterLength then a DurationException will be raised:
 
         >>> n = note.Note()
@@ -3212,7 +3201,7 @@ class Music21Object(prebase.ProtoM21Object):
         music21.duration.DurationException: cannot split a duration (0.5)
             at this quarterLength (7/10)
 
-        * Changed in v7: all but quarterLength are keyword only
+        * Changed in v7: all but quarterLength are keyword only.
         '''
         from music21 import chord
         from music21 import note
@@ -3481,7 +3470,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> g.tie is None
         True
 
-
         It should work for complex notes with tuplets.
 
         (this duration occurs in Modena A, Le greygnour bien, from the ars subtilior, c. 1380;
@@ -3519,7 +3507,6 @@ class Music21Object(prebase.ProtoM21Object):
         ('eighth', 0, (<music21.duration.Tuplet 3/2/eighth>,))
         >>> (last.duration.type, last.duration.dots, last.duration.tuplets)
         ('64th', 0, (<music21.duration.Tuplet 3/2/64th>,))
-
 
         TODO: unite this and other functions into a "split" function -- document obscure uses.
 
@@ -3570,7 +3557,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> n2.measureNumber
         11
 
-
         The most recent measure added to is used unless activeSite is a measure:
 
         >>> m.append(n2)
@@ -3605,7 +3591,7 @@ class Music21Object(prebase.ProtoM21Object):
                     mNumber = m.number  # type: ignore
         return mNumber
 
-    def _getMeasureOffset(self, includeMeasurePadding=True) -> float|fractions.Fraction:
+    def _getMeasureOffset(self, includeMeasurePadding: bool = True) -> OffsetQL:
         # noinspection PyShadowingNames
         '''
         Try to obtain the nearest Measure that contains this object,
@@ -3637,11 +3623,11 @@ class Music21Object(prebase.ProtoM21Object):
 
         # TODO: v8 -- expose as public.
         activeS = self.activeSite
-        if activeS is not None and activeS.isMeasure:
+        if activeS is not None and isinstance(activeS, stream.Measure):
             # environLocal.printDebug(['found activeSite as Measure, using for offset'])
             offsetLocal = activeS.elementOffset(self)
-            if includeMeasurePadding:
-                offsetLocal += activeS.paddingLeft
+            if includeMeasurePadding and activeS.paddingLeft:
+                offsetLocal = opFrac(offsetLocal + activeS.paddingLeft)
         else:
             # environLocal.printDebug(['did not find activeSite as Measure,
             #    doing context search', 'self.activeSite', self.activeSite])
@@ -3652,8 +3638,8 @@ class Music21Object(prebase.ProtoM21Object):
                 # environLocal.printDebug(['using found Measure for offset access'])
                 try:
                     offsetLocal = m.elementOffset(self)
-                    if includeMeasurePadding:
-                        offsetLocal += m.paddingLeft
+                    if includeMeasurePadding and m.paddingLeft:
+                        offsetLocal = opFrac(offsetLocal + m.paddingLeft)
                 except SitesException:
                     offsetLocal = self.offset
 
@@ -3698,7 +3684,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> [n.beat for n in m.notes]
         [1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
 
-
         Fractions are returned for positions that cannot be represented perfectly using floats:
 
         >>> m.timeSignature = meter.TimeSignature('6/8')
@@ -3710,7 +3695,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> s.repeatAppend(note.Note(), 8)
         >>> [n.beat for n in s.notes]
         [1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0, 2.0]
-
 
         Notes inside flat streams can still find the original beat placement from outer
         streams:
@@ -3729,7 +3713,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> p.append([m1, m2])
         >>> [n.beat for n in p.flatten().notes]
         [1.0, 1.5, 2.0, 2.5, 1.0, 1.5, 2.0, 2.5]
-
 
         Fractions print out as improper fraction strings
 
@@ -3764,8 +3747,7 @@ class Music21Object(prebase.ProtoM21Object):
         >>> math.isnan(isolatedNote.beat)
         True
 
-        * Changed in v6.3: returns `nan` if
-          there is no TimeSignature in sites.
+        * Changed in v6.3: returns `nan` if there is no TimeSignature in sites.
           Previously raised an exception.
         '''
         try:
@@ -3781,7 +3763,6 @@ class Music21Object(prebase.ProtoM21Object):
         this object as found in the most recently positioned
         Measure. Beat values count from 1 and contain a
         fractional designation to show progress through the beat.
-
 
         >>> n = note.Note(type='eighth')
         >>> m = stream.Measure()
@@ -3807,8 +3788,7 @@ class Music21Object(prebase.ProtoM21Object):
         >>> isolatedNote.beatStr
         'nan'
 
-        * Changed in v6.3: returns 'nan' if
-          there is no TimeSignature in sites.
+        * Changed in v6.3: returns 'nan' if there is no TimeSignature in sites.
           Previously raised an exception.
         '''
         try:
@@ -3884,7 +3864,6 @@ class Music21Object(prebase.ProtoM21Object):
         of this object does not match a defined accent weight, a
         minimum accent weight will be returned.
 
-
         >>> n = note.Note(type='eighth')
         >>> m = stream.Measure()
         >>> m.timeSignature = meter.TimeSignature('3/4')
@@ -3904,7 +3883,6 @@ class Music21Object(prebase.ProtoM21Object):
         >>> [n.beatStrength for n in m.notes]
         [1.0, 0.25, 0.25, 0.5, 0.25, 0.25]
 
-
         Importantly, the actual numbers here have no particular meaning.  You cannot
         "add" two beatStrengths of 0.25 and say that they have the same beat strength
         as one note of 0.5.  Only the ordinal relations really matter.  Even taking
@@ -3923,14 +3901,12 @@ class Music21Object(prebase.ProtoM21Object):
         >>> [n.beatStrength for n in s.notes]
         [1.0, 0.25, 0.5, 0.25, 1.0, 0.25, 0.5, 0.25, 1.0, 0.25, 0.5, 0.25]
 
-
         Changing the meter changes the output, of course, as can be seen from the
         fourth quarter note onward:
 
         >>> s.insert(4.0, meter.TimeSignature('3/4'))
         >>> [n.beatStrength for n in s.notes]
         [1.0, 0.25, 0.5, 0.25, 1.0, 0.5, 0.5, 1.0, 0.5, 0.5, 1.0, 0.5]
-
 
         The method returns correct numbers for the prevailing time signature
         even if no measures have been made:

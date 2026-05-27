@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth-app-utils
-Version: 1.31.0
+Version: 1.32.0
 Summary: Commonly used utilities and helpers for rapid development of Alliance Auth apps.
 Author-email: Erik Kalkoken <kalkoken87@gmail.com>
 Requires-Python: >=3.8

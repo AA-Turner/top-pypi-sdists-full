@@ -1,21 +1,22 @@
-from yagmail.sender import SMTP
-import sys
+import argparse
+
+from yagmail.sender import Client
 
 try:
     import keyring
 except (ImportError, NameError, RuntimeError):
-    pass
+    keyring = None  # type: ignore
 
 
-def register(username, password):
+def register(username: str, password: str) -> None:
     """ Use this to add a new gmail account to your OS' keyring so it can be used in yagmail """
+    if keyring is None:
+        raise ImportError("keyring package is not installed.")
     keyring.set_password("yagmail", username, password)
 
 
-def main():
+def main() -> None:
     """ This is the function that is run from commandline with `yagmail` """
-    import argparse
-
     parser = argparse.ArgumentParser(description="Send a (g)mail with yagmail.")
     parser.add_argument("-to", "-t", help='Send an email to address "TO"', nargs="+")
     parser.add_argument("-subject", "-s", help="Subject of email", nargs="+")
@@ -26,5 +27,9 @@ def main():
         "-password", "-p", help="Preferable to use keyring rather than password here"
     )
     args = parser.parse_args()
-    yag = SMTP(args.user, args.password)
+    if args.to is None:
+        parser.print_help()
+        return
+    yag = Client(args.user, args.password)
+
     yag.send(to=args.to, subject=args.subject, contents=args.contents, attachments=args.attachments)

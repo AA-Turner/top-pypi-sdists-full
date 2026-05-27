@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: workos
-Version: 7.0.1
+Version: 8.0.0
 Summary: WorkOS Python Client
 Author: WorkOS
 Author-email: WorkOS <sdk@workos.com>
 License-Expression: MIT
-Requires-Dist: cryptography~=46.0
+Requires-Dist: cryptography~=48.0
 Requires-Dist: httpx~=0.28
 Requires-Dist: pyjwt~=2.12
 Requires-Dist: typing-extensions~=4.0 ; python_full_version < '3.11'

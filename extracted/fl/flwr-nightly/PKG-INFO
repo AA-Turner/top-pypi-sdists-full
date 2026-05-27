@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flwr-nightly
-Version: 1.31.0.dev20260525
+Version: 1.31.0.dev20260526
 Summary: Flower: A Friendly Federated AI Framework
 Keywords: Artificial Intelligence,Federated AI,Federated Analytics,Federated Evaluation,Federated Learning,Flower,Machine Learning
 Author: The Flower Authors
@@ -47,8 +47,8 @@ Requires-Dist: sqlalchemy>=2.0.45,<3.0.0
 Requires-Dist: alembic>=1.18.1,<2.0.0
 Requires-Dist: starlette>=0.50.0,<0.51.0 ; extra == 'rest'
 Requires-Dist: uvicorn[standard]>=0.40.0,<0.41.0 ; extra == 'rest'
-Requires-Dist: ray==2.51.1 ; python_full_version >= '3.11' and python_full_version < '3.13' and extra == 'simulation'
-Requires-Dist: ray==2.51.1 ; python_full_version == '3.13.*' and sys_platform != 'win32' and extra == 'simulation'
+Requires-Dist: ray==2.55.1 ; python_full_version >= '3.11' and python_full_version < '3.13' and extra == 'simulation'
+Requires-Dist: ray==2.55.1 ; python_full_version >= '3.13' and python_full_version < '3.15' and sys_platform != 'win32' and extra == 'simulation'
 Requires-Python: >=3.11, <4.0
 Project-URL: homepage, https://flower.ai
 Project-URL: repository, https://github.com/flwrlabs/flower

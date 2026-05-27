@@ -140,7 +140,7 @@ _CLOUD_MODEL_PROFILES: dict[str, dict] = {
         "speed": "fast",
         "context_size": 8192,
     },
-    # Vision model — review tasks (look at screenshots, mockups, etc.).
+    # Vision model — review tasks (look at screenshots, designs, etc.).
     # Deliberately NO IMPLEMENTATION here so the swarm doesn't route code
     # tasks to a vision specialist.
     "llava-next-7b": {

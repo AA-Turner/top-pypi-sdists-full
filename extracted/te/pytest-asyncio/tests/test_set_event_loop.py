@@ -30,18 +30,12 @@ def test_set_event_loop_none(
     test_loop_scope: str,
     loop_breaking_action: str,
 ):
-    pytester.makeini(
-        dedent(
-            f"""\
+    pytester.makeini(dedent(f"""\
             [pytest]
             asyncio_default_test_loop_scope = {test_loop_scope}
             asyncio_default_fixture_loop_scope = function
-            """
-        )
-    )
-    pytester.makepyfile(
-        dedent(
-            f"""\
+            """))
+    pytester.makepyfile(dedent(f"""\
             import asyncio
             import pytest
 
@@ -57,9 +51,7 @@ def test_set_event_loop_none(
             @pytest.mark.asyncio
             async def test_after():
                 pass
-            """
-        )
-    )
+            """))
     result = pytester.runpytest_subprocess()
     result.assert_outcomes(passed=3)
 
@@ -79,18 +71,12 @@ def test_set_event_loop_none(
     ],
 )
 def test_set_event_loop_none_class(pytester: Pytester, loop_breaking_action: str):
-    pytester.makeini(
-        dedent(
-            """\
+    pytester.makeini(dedent("""\
             [pytest]
             asyncio_default_test_loop_scope = class
             asyncio_default_fixture_loop_scope = function
-            """
-        )
-    )
-    pytester.makepyfile(
-        dedent(
-            f"""\
+            """))
+    pytester.makepyfile(dedent(f"""\
             import asyncio
             import pytest
 
@@ -108,11 +94,43 @@ def test_set_event_loop_none_class(pytester: Pytester, loop_breaking_action: str
                 @pytest.mark.asyncio
                 async def test_after(self):
                     pass
-            """
-        )
-    )
+            """))
     result = pytester.runpytest_subprocess()
     result.assert_outcomes(passed=3)
+
+
+def test_asyncio_run_after_async_fixture_does_not_leak_loop(
+    pytester: Pytester,
+):
+    pytester.makeini(dedent("""\
+            [pytest]
+            asyncio_default_fixture_loop_scope = function
+            """))
+    pytester.makepyfile(dedent("""\
+            import asyncio
+            import gc
+            import pytest
+            import pytest_asyncio
+
+            pytest_plugins = "pytest_asyncio"
+
+            @pytest_asyncio.fixture
+            async def async_fixture():
+                yield
+
+            @pytest.mark.asyncio
+            async def test_async_function_uses_async_fixture(async_fixture):
+                pass
+
+            def test_collect_unclosed_loops():
+                async def amain():
+                    pass
+
+                asyncio.run(amain())
+                gc.collect()
+            """))
+    result = pytester.runpytest_subprocess("-W", "error")
+    result.assert_outcomes(passed=2)
 
 
 @pytest.mark.parametrize("test_loop_scope", ("module", "package", "session"))
@@ -135,18 +153,12 @@ def test_original_shared_loop_is_reinstated_not_fresh_loop(
     test_loop_scope: str,
     loop_breaking_action: str,
 ):
-    pytester.makeini(
-        dedent(
-            f"""\
+    pytester.makeini(dedent(f"""\
             [pytest]
             asyncio_default_test_loop_scope = {test_loop_scope}
             asyncio_default_fixture_loop_scope = function
-            """
-        )
-    )
-    pytester.makepyfile(
-        dedent(
-            f"""\
+            """))
+    pytester.makepyfile(dedent(f"""\
             import asyncio
             import pytest
 
@@ -170,9 +182,7 @@ def test_original_shared_loop_is_reinstated_not_fresh_loop(
                 assert current_loop is original_shared_loop
                 assert hasattr(current_loop, '_custom_marker')
                 assert current_loop._custom_marker == "original_loop_marker"
-            """
-        )
-    )
+            """))
     result = pytester.runpytest("--asyncio-mode=strict")
     result.assert_outcomes(passed=3)
 
@@ -197,18 +207,12 @@ def test_shared_loop_with_fixture_preservation(
     test_loop_scope: str,
     loop_breaking_action: str,
 ):
-    pytester.makeini(
-        dedent(
-            f"""\
+    pytester.makeini(dedent(f"""\
             [pytest]
             asyncio_default_test_loop_scope = {test_loop_scope}
             asyncio_default_fixture_loop_scope = {test_loop_scope}
-            """
-        )
-    )
-    pytester.makepyfile(
-        dedent(
-            f"""\
+            """))
+    pytester.makepyfile(dedent(f"""\
             import asyncio
             import pytest
             import pytest_asyncio
@@ -249,9 +253,7 @@ def test_shared_loop_with_fixture_preservation(
                 current_loop = asyncio.get_running_loop()
                 assert current_loop is fixture_loop
                 assert not long_running_task.done()
-            """
-        )
-    )
+            """))
     result = pytester.runpytest("--asyncio-mode=strict")
     result.assert_outcomes(passed=3)
 
@@ -287,18 +289,12 @@ def test_shared_loop_with_multiple_fixtures_preservation(
     second_scope: str,
     loop_breaking_action: str,
 ):
-    pytester.makeini(
-        dedent(
-            """\
+    pytester.makeini(dedent("""\
             [pytest]
             asyncio_default_test_loop_scope = session
             asyncio_default_fixture_loop_scope = session
-            """
-        )
-    )
-    pytester.makepyfile(
-        dedent(
-            f"""\
+            """))
+    pytester.makepyfile(dedent(f"""\
             import asyncio
             import pytest
             import pytest_asyncio
@@ -364,8 +360,63 @@ def test_shared_loop_with_multiple_fixtures_preservation(
                 current_loop = asyncio.get_running_loop()
                 assert current_loop is second_fixture_loop
                 assert not second_long_running_task.done()
-            """
-        )
-    )
+            """))
     result = pytester.runpytest("--asyncio-mode=strict")
     result.assert_outcomes(passed=5)
+
+
+@pytest.mark.parametrize("test_loop_scope", ("module", "package", "session"))
+@pytest.mark.parametrize(
+    "loop_breaking_action",
+    [
+        "asyncio.set_event_loop(None)",
+        "asyncio.run(asyncio.sleep(0))",
+        pytest.param(
+            "with asyncio.Runner(): pass",
+            marks=pytest.mark.skipif(
+                sys.version_info < (3, 11),
+                reason="asyncio.Runner requires Python 3.11+",
+            ),
+        ),
+    ],
+)
+def test_sync_fixture_sees_correct_loop_after_loop_broken_with_factory(
+    pytester: Pytester,
+    test_loop_scope: str,
+    loop_breaking_action: str,
+):
+    pytester.makeini(dedent(f"""\
+            [pytest]
+            asyncio_default_test_loop_scope = {test_loop_scope}
+            asyncio_default_fixture_loop_scope = function
+            """))
+    pytester.makepyfile(dedent(f"""\
+            import asyncio
+            import pytest
+            import pytest_asyncio
+
+            pytest_plugins = "pytest_asyncio"
+
+            class CustomEventLoop(asyncio.SelectorEventLoop):
+                pass
+
+            def pytest_asyncio_loop_factories(config, item):
+                return {{"custom": CustomEventLoop}}
+
+            @pytest.mark.asyncio
+            async def test_before():
+                pass
+
+            def test_break_event_loop():
+                {loop_breaking_action}
+
+            @pytest_asyncio.fixture(loop_scope="{test_loop_scope}")
+            def sync_fixture_loop_id():
+                return id(asyncio.get_event_loop())
+
+            @pytest.mark.asyncio
+            async def test_sync_fixture_sees_correct_loop(sync_fixture_loop_id):
+                assert sync_fixture_loop_id == id(asyncio.get_running_loop())
+            """))
+    result = pytester.runpytest_subprocess()
+    result.assert_outcomes(passed=3)

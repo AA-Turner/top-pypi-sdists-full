@@ -204,7 +204,7 @@ def _extract_cn_via_stdlib(cert_path: Path) -> str | None:
     try:
         import base64
         import re
-        pem = cert_path.read_text()
+        pem = cert_path.read_text(encoding="utf-8")
         m = re.search(
             r"-----BEGIN CERTIFICATE-----\s*(.+?)\s*-----END CERTIFICATE-----",
             pem,
@@ -361,6 +361,10 @@ def _find_kdeconnectd() -> str | None:
             r"C:\Program Files\KDE Connect\kdeconnectd.exe",
             r"C:\Program Files (x86)\KDE Connect\kdeconnectd.exe",
         ]
+        local_appdata = os.environ.get("LOCALAPPDATA")
+        if local_appdata:
+            candidates.append(os.path.join(local_appdata, "Programs", "KDE Connect", "bin", "kdeconnectd.exe"))
+        candidates.append(os.path.expanduser("~/AppData/Local/Programs/KDE Connect/bin/kdeconnectd.exe"))
     else:
         candidates += [
             "/usr/bin/kdeconnectd",

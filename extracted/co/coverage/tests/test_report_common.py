@@ -139,7 +139,7 @@ class ReportMapsPathsTest(CoverageTest):
         cov = coverage.Coverage()
         cov.load()
         cov.html_report()
-        contains("htmlcov/index.html", os_sep("src&#8201;/&#8201;program.py"))
+        contains("htmlcov/index.html", f'src<span class="sep">{os_sep("/")}</span>program.py')
         doesnt_contain("htmlcov/index.html", "ver1", "ver2")
 
     def test_map_paths_during_xml_report(self) -> None:

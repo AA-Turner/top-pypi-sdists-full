@@ -45,7 +45,6 @@ class ProtoM21Object:
     >>> repr(pc)
     '<...PitchCounter no pitches>'
 
-
     ProtoM21Objects, like other Python primitives, cannot be put into streams --
     this is what base.Music21Object does.
 
@@ -97,7 +96,6 @@ class ProtoM21Object:
         >>> d.classes
         ('Duration', 'ProtoM21Object', 'SlottedObjectMixin', 'object')
 
-
         Having quick access to these things as strings makes it easier to do comparisons:
 
         Example: find GClefs that are not Treble clefs (or treble 8vb, etc.):
@@ -116,7 +114,7 @@ class ProtoM21Object:
         {10.0} <music21.clef.GClef>
         {30.0} <music21.clef.FrenchViolinClef>
 
-        Changed in v2: returns a tuple, not a list.
+        * Changed in v2: returns a tuple, not a list.
         '''
         try:
             return self._classTupleCacheDict[self.__class__]

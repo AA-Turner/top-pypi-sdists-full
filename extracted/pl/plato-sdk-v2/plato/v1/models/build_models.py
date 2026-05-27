@@ -33,11 +33,10 @@ class AdaptiveObject(BaseModel, ABC):
             except ValidationError:
                 continue
 
-        message = "Could not resolve input to a valid type. Possible types: "
-        message += ", ".join([subcls.__name__ for subcls in possible_types])
         raise PydanticCustomError(
             "adaptive-object",
-            message,
+            "Could not resolve input to a valid type. Possible types: {possible_types}",
+            {"possible_types": ", ".join([subcls.__name__ for subcls in possible_types])},
         )
 
     @classmethod

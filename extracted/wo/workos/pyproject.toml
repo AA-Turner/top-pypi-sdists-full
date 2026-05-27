@@ -1,6 +1,6 @@
 [project]
 name = "workos"
-version = "7.0.1"
+version = "8.0.0"
 description = "WorkOS Python Client"
 readme = "README.md"
 license = "MIT"
@@ -8,7 +8,7 @@ authors = [{ name = "WorkOS", email = "sdk@workos.com" }]
 requires-python = ">=3.10"
 
 dependencies = [
-  "cryptography~=46.0",
+  "cryptography~=48.0",
   "httpx~=0.28",
   "pyjwt~=2.12",
   "typing_extensions~=4.0; python_version < '3.11'",

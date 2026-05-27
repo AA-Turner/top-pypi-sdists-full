@@ -1,19 +1,8 @@
-use std::ops::ControlFlow;
+use std::collections::BTreeMap;
 
-use polars_core::prelude::{PlHashMap, PlHashSet};
-use polars_error::PolarsResult;
-use polars_utils::aliases::{InitHashMaps, PlIndexMap};
-use polars_utils::arena::{Arena, Node};
-use polars_utils::pl_str::PlSmallStr;
 use polars_utils::unique_id::UniqueId;
 
-use crate::dsl::Expr;
-use crate::plans::deep_copy::deep_copy_ir_delete_caches;
-use crate::plans::optimizer::ir_traversal::ir_graph_traversal;
-use crate::plans::optimizer::ir_traversal::storage::IRTraversalStorage;
-use crate::plans::{AExpr, IR, PredicatePushDown};
-use crate::traversal::visitor::{FnVisitors, SubtreeVisit};
-use crate::utils::aexpr_to_leaf_names;
+use super::*;
 
 fn get_upper_projections(
     parent: Node,
@@ -24,15 +13,16 @@ fn get_upper_projections(
 ) -> bool {
     let parent = lp_arena.get(parent);
 
+    use IR::*;
     // During projection pushdown all accumulated.
     match parent {
-        IR::SimpleProjection { columns, .. } => {
+        SimpleProjection { columns, .. } => {
             let iter = columns.iter_names_cloned();
             names_scratch.extend(iter);
             *found_required_columns = true;
             false
         },
-        IR::Filter { predicate, .. } => {
+        Filter { predicate, .. } => {
             // Also add predicate, as the projection is above the filter node.
             names_scratch.extend(aexpr_to_leaf_names(predicate.node(), expr_arena));
 
@@ -51,13 +41,14 @@ fn get_upper_predicates(
 ) -> bool {
     let parent = lp_arena.get(parent);
 
+    use IR::*;
     match parent {
-        IR::Filter { predicate, .. } => {
+        Filter { predicate, .. } => {
             let expr = predicate.to_expr(expr_arena);
             predicate_scratch.push(expr);
             false
         },
-        IR::SimpleProjection { .. } => true,
+        SimpleProjection { .. } => true,
         // Only filter and projection nodes are allowed, any other node we stop.
         _ => false,
     }
@@ -127,14 +118,14 @@ type TwoParents = [Option<Node>; 2];
 // - Above the filters the caches are the same -> run predicate pd from the filter node -> finish
 // - There is a cache without predicates above the cache node -> run predicate form the cache nodes -> finish
 // - The predicates above the cache nodes are all different -> remove the cache nodes -> finish
-pub(crate) fn set_cache_states(
+pub(super) fn set_cache_states(
     root: Node,
     lp_arena: &mut Arena<IR>,
     expr_arena: &mut Arena<AExpr>,
     scratch: &mut Vec<Node>,
     verbose: bool,
     pushdown_maintain_errors: bool,
-    streaming: bool,
+    new_streaming: bool,
 ) -> PolarsResult<()> {
     let mut stack = Vec::with_capacity(4);
     let mut names_scratch = vec![];
@@ -154,7 +145,7 @@ pub(crate) fn set_cache_states(
         // Union over predicates.
         predicate_union: PlHashMap<Expr, u32>,
     }
-    let mut cache_schema_and_children = PlIndexMap::new();
+    let mut cache_schema_and_children = BTreeMap::new();
 
     // Stack frame
     #[derive(Default, Clone)]
@@ -162,6 +153,7 @@ pub(crate) fn set_cache_states(
         current: Node,
         cache_id: Option<UniqueId>,
         parent: TwoParents,
+        previous_cache: Option<UniqueId>,
     }
     let init = Frame {
         current: root,
@@ -170,30 +162,6 @@ pub(crate) fn set_cache_states(
 
     stack.push(init);
 
-    // Create the indexmap entries in topological graph order.
-    ir_graph_traversal(
-        root,
-        &mut FnVisitors::new(
-            || (),
-            |key, storage: &mut IRTraversalStorage<'_>, _| {
-                if let IR::Cache { input: _, id } = storage.get(key) {
-                    cache_schema_and_children.insert(*id, Value::default());
-                }
-
-                ControlFlow::Continue(SubtreeVisit::Visit)
-            },
-            |_, _, _| ControlFlow::<()>::Continue(()),
-        ),
-        &mut vec![],
-        &mut vec![],
-        IRTraversalStorage {
-            arena: lp_arena,
-            skip_subtree: |_| false,
-        },
-    )
-    .continue_value()
-    .unwrap();
-
     // # First traversal.
     // Collect the union of columns per cache id.
     // And find the cache parents.
@@ -201,7 +169,12 @@ pub(crate) fn set_cache_states(
         let lp = lp_arena.get(frame.current);
         lp.copy_inputs(scratch);
 
-        if let IR::Cache { input, id, .. } = lp {
+        use IR::*;
+
+        if let Cache { input, id, .. } = lp {
+            if let Some(cache_id) = frame.cache_id {
+                frame.previous_cache = Some(cache_id)
+            }
             if frame.parent[0].is_some() {
                 // Projection pushdown has already run and blocked on cache nodes
                 // the pushed down columns are projected just above this cache
@@ -210,7 +183,9 @@ pub(crate) fn set_cache_states(
                 // we never want to naively take parents, as a join or aggregate for instance
                 // change the schema
 
-                let v = cache_schema_and_children.get_mut(id).unwrap();
+                let v = cache_schema_and_children
+                    .entry(*id)
+                    .or_insert_with(Value::default);
                 v.children.push(*input);
                 v.parents.push(frame.parent);
                 v.cache_nodes.push(frame.current);
@@ -280,10 +255,9 @@ pub(crate) fn set_cache_states(
     // and finally remove that last projection and stitch the subplan
     // back to the cache node again
     if !cache_schema_and_children.is_empty() {
-        let mut pred_pd = PredicatePushDown::new(pushdown_maintain_errors, streaming);
-        // rev() the iter to visit/optimize the caches below the current cache before the current cache,
-        // otherwise we get `IR::Invalid` as predicate pd `take()`s from the IR arena.
-        for v in cache_schema_and_children.into_values().rev() {
+        let mut proj_pd = ProjectionPushDown::new();
+        let mut pred_pd = PredicatePushDown::new(pushdown_maintain_errors, new_streaming);
+        for (_cache_id, v) in cache_schema_and_children {
             // # CHECK IF WE NEED TO REMOVE CACHES
             // If we encounter multiple predicates we remove the cache nodes completely as we don't
             // want to loose predicate pushdown in favor of scan sharing.
@@ -291,23 +265,29 @@ pub(crate) fn set_cache_states(
                 if verbose {
                     eprintln!("cache nodes will be removed because predicates don't match")
                 }
-                for ((_, cache), parents) in v.children.iter().zip(v.cache_nodes).zip(v.parents) {
+                for ((&child, cache), parents) in
+                    v.children.iter().zip(v.cache_nodes).zip(v.parents)
+                {
+                    // Remove the cache and assign the child the cache location.
+                    lp_arena.swap(child, cache);
+
                     // Restart predicate and projection pushdown from most top parent.
                     // This to ensure we continue the optimization where it was blocked initially.
                     // We pick up the blocked filter and projection.
                     let mut node = cache;
                     for p_node in parents.into_iter().flatten() {
-                        match lp_arena.get(p_node) {
-                            IR::Filter { .. } | IR::SimpleProjection { .. } => true,
-                            _ => break,
-                        };
-
-                        node = p_node
+                        if matches!(
+                            lp_arena.get(p_node),
+                            IR::Filter { .. } | IR::SimpleProjection { .. }
+                        ) {
+                            node = p_node
+                        } else {
+                            break;
+                        }
                     }
 
-                    let copied_node = deep_copy_ir_delete_caches(node, lp_arena, expr_arena);
-
-                    let lp = lp_arena.take(copied_node);
+                    let lp = lp_arena.take(node);
+                    let lp = proj_pd.optimize(lp, lp_arena, expr_arena)?;
                     let lp = pred_pd.optimize(lp, lp_arena, expr_arena)?;
                     lp_arena.replace(node, lp);
                 }
@@ -317,6 +297,61 @@ pub(crate) fn set_cache_states(
             // on the first cache node. As it are cache nodes, the others are the same
             // and we can reuse the optimized state for all inputs.
             // See #21637
+
+            // # RUN PROJECTION PUSHDOWN
+            if !v.names_union.is_empty() {
+                let first_child = *v.children.first().expect("at least on child");
+
+                let columns = &v.names_union;
+                let child_lp = lp_arena.take(first_child);
+
+                // Make sure we project in the order of the schema
+                // if we don't a union may fail as we would project by the
+                // order we discovered all values.
+                let child_schema = child_lp.schema(lp_arena);
+                let child_schema = child_schema.as_ref();
+                let projection = child_schema
+                    .iter_names()
+                    .flat_map(|name| columns.get(name.as_str()).cloned())
+                    .collect::<Vec<_>>();
+
+                let new_child = lp_arena.add(child_lp);
+
+                let lp = IRBuilder::new(new_child, expr_arena, lp_arena)
+                    .project_simple(projection)
+                    .expect("unique names")
+                    .build();
+
+                let lp = proj_pd.optimize(lp, lp_arena, expr_arena)?;
+                // Optimization can lead to a double projection. Only take the last.
+                let lp = if let IR::SimpleProjection { input, columns } = lp {
+                    let input =
+                        if let IR::SimpleProjection { input: input2, .. } = lp_arena.get(input) {
+                            *input2
+                        } else {
+                            input
+                        };
+                    IR::SimpleProjection { input, columns }
+                } else {
+                    lp
+                };
+                lp_arena.replace(first_child, lp.clone());
+
+                // Set the remaining children to the same node.
+                for &child in &v.children[1..] {
+                    lp_arena.replace(child, lp.clone());
+                }
+            } else {
+                // No upper projections to include, run projection pushdown from cache node.
+                let first_child = *v.children.first().expect("at least on child");
+                let child_lp = lp_arena.take(first_child);
+                let lp = proj_pd.optimize(child_lp, lp_arena, expr_arena)?;
+                lp_arena.replace(first_child, lp.clone());
+
+                for &child in &v.children[1..] {
+                    lp_arena.replace(child, lp.clone());
+                }
+            }
 
             // # RUN PREDICATE PUSHDOWN
             // Run this after projection pushdown, otherwise the predicate columns will not be projected.
@@ -334,10 +369,12 @@ pub(crate) fn set_cache_states(
                     .expect("expected filter; this is an optimizer bug");
                 let start_lp = lp_arena.take(node);
 
-                let mut pred_pd =
-                    PredicatePushDown::new(pushdown_maintain_errors, streaming).block_at_cache(1);
+                let mut pred_pd = PredicatePushDown::new(pushdown_maintain_errors, new_streaming)
+                    .block_at_cache(1);
                 let lp = pred_pd.optimize(start_lp, lp_arena, expr_arena)?;
                 lp_arena.replace(node, lp.clone());
+
+                // TODO: Drop filter column if it isn't used after the filter.
 
                 let mut updated_cache_node = node;
 
@@ -370,6 +407,9 @@ pub(crate) fn set_cache_states(
                             lp_arena.get(updated_cache_node).clone()
                         },
                     };
+
+                    // Projection PD automatically stops at cache.
+                    let new_lp = proj_pd.optimize(new_lp, lp_arena, expr_arena)?;
 
                     lp_arena.replace(filter_node, new_lp);
                 }

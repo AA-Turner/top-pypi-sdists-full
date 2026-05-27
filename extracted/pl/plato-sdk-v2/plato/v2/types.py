@@ -5,7 +5,7 @@ Re-exports generated models and provides ergonomic factory methods.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from plato._generated.models import (
     AppSchemasBuildModelsSimConfigCompute as SimConfigCompute,
@@ -14,6 +14,7 @@ from plato._generated.models import (
     EnvFromArtifact,
     EnvFromResource,
     EnvFromSimulator,
+    Provider,
 )
 
 
@@ -119,6 +120,7 @@ class Env:
         sim_config: SimConfigCompute | None = None,
         *,
         alias: str | None = None,
+        provider: Literal["firecracker", "qemu"] | None = None,
         docker_image_url: str | None = None,
         upload_rootfs: bool | None = True,
         rootfs_storage_backend: str | None = None,
@@ -129,6 +131,7 @@ class Env:
             simulator: Simulator/service name
             sim_config: Resource configuration (CPUs, memory, disk). If None, uses defaults.
             alias: Custom name for this environment
+            provider: VM provider/hypervisor. Use "qemu" for Windows VMs.
             docker_image_url: Custom Docker image URL (ECR). If not set, uses default.
             upload_rootfs: Upload rootfs to S3/snapshot-store if not cached. Set False for one-off VMs.
             rootfs_storage_backend: Storage backend ('sparse-s3' or 'snapshot-store'). If not set, uses default.
@@ -147,6 +150,7 @@ class Env:
             simulator=simulator,
             sim_config=sim_config,
             alias=alias,
+            provider=Provider(provider) if provider is not None else None,
             docker_image_url=docker_image_url,
             upload_rootfs=upload_rootfs,
             rootfs_storage_backend=rootfs_storage_backend,

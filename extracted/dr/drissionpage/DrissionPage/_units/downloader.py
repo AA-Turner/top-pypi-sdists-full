@@ -10,7 +10,7 @@ from pathlib import Path
 from shutil import move
 from time import sleep, perf_counter
 
-from DataRecorder.tools import get_usable_path
+from DrissionRecord.tools import get_usable_path
 
 from .._functions.settings import Settings as _S
 

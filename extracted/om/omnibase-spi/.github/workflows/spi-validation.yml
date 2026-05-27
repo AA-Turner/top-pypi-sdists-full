@@ -9,7 +9,7 @@ on:
       - 'validation_config.yaml'
       - '.github/workflows/spi-validation.yml'
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev, develop]
     paths:
       - 'src/**/*.py'
       - 'scripts/validation/**'
@@ -81,7 +81,6 @@ jobs:
           fi
 
           echo "SPI validation completed successfully"
-        continue-on-error: true
 
       - name: Upload validation reports
         uses: actions/upload-artifact@v7

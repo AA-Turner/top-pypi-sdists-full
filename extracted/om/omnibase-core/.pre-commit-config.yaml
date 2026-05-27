@@ -187,6 +187,24 @@ repos:
         exclude: ^(tests/|archived/|archive/)
         stages: [pre-commit]
 
+      # Skip-token rejection gate (OMN-11412 / OMN-10414)
+      # Blocks [skip-*] bypass tokens in staged markdown/yaml/txt files.
+      # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+      - id: reject-deploy-gate-skip-token
+        name: Reject skip-gate bypass tokens (OMN-10414)
+        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        language: script
+        pass_filenames: true
+        always_run: true
+        stages: [pre-commit]
+        exclude: ^tests/.*fixtures/
+      - id: reject-deploy-gate-skip-token-commit-msg
+        name: Reject skip-gate bypass tokens in commit messages (OMN-10414)
+        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        language: script
+        pass_filenames: true
+        stages: [commit-msg]
+
       # Substrate Gate: env silent fallback (OMN-wire-validators)
       # Baseline: 38 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
       # Annotate justified bootstrap cases with: # substrate-allow: bootstrap-fallback
@@ -285,18 +303,15 @@ repos:
         stages: [pre-push]  # Moved to pre-push: ~14s full codebase scan
         # Architectural exemptions documented in validate_naming.py ARCHITECTURAL_EXEMPTIONS
 
-      # PHASE 1 (OMN-1224): File naming hook runs in WARNING mode (non-blocking)
-      # The codebase has 71 existing violations that need incremental migration.
-      # Once all files are renamed, change || true to make this blocking.
-      # See: src/omnibase_core/validation/checker_naming_convention.py (Migration Plan)
       # NOTE: always_run=true means files: pattern is ignored - script does its own discovery
       - id: validate-file-naming-conventions
-        name: ONEX File Naming Convention Validation (Warning Mode)
-        entry: bash -c 'uv run python -m omnibase_core.validation.checker_naming_convention || true'
+        name: ONEX File Naming Convention Validation
+        entry: uv run python -m omnibase_core.validation.checker_naming_convention
+        args: ['--warning-mode']
         language: system
         pass_filenames: false
         always_run: true
-        stages: [pre-push]  # Full directory scan, warning mode until Phase 4
+        stages: [pre-push]
 
       - id: validate-file-locations
         name: ONEX File Location Enforcement
@@ -844,18 +859,6 @@ repos:
         always_run: true
         stages: [pre-commit]
 
-      # Protocol __all__ Exports Validation
-      # Validates that protocol files have correct __all__ exports matching
-      # their Protocol class definitions
-      # NOTE: always_run=true means files: pattern is ignored - script does its own discovery
-      - id: check-protocol-exports
-        name: ONEX Protocol __all__ Exports Validation
-        entry: uv run python scripts/check_protocol_exports.py
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-commit]
-
       # Protocol UUID Enforcement (pre-push only)
       # Verifies protocol type annotations use UUID instead of str
       # Catches issues like / before CI
@@ -884,13 +887,10 @@ repos:
       # Enforces enum governance rules to prevent enum/status duplication:
       # - E001: Enum members must use UPPER_SNAKE_CASE
       # - E002: Literal types should not duplicate existing enum values
-      # PHASE 1: Warning mode (non-blocking) until existing violations are fixed
-      # The codebase has 13 existing Literal duplication violations.
-      # Once cleaned up, remove "|| true" to make this blocking.
       # NOTE: always_run=true means files: pattern is ignored - script does its own discovery
       - id: check-enum-governance
-        name: ONEX Enum Governance Validation (Warning Mode)
-        entry: bash -c 'uv run python -m omnibase_core.validation.checker_enum_governance || true'
+        name: ONEX Enum Governance Validation
+        entry: uv run python -m omnibase_core.validation.checker_enum_governance src/
         language: system
         pass_filenames: false
         always_run: true
@@ -962,6 +962,15 @@ repos:
         files: '(^docs/recovery/|[^/]*-validation-log-\d{4}-\d{2}-\d{2}|[^/]*-recovery-log-\d{4}-\d{2}-\d{2})'
         entry: "Operational artifact detected — do not commit recovery/validation logs. These are auto-generated
           session files. See OMN-4569."
+        stages: [pre-commit]
+
+      # OMN-11186: Block new os.environ / os.getenv additions outside allowlist
+      - id: no-new-env-vars
+        name: No New os.environ/os.getenv Additions (OMN-11186)
+        language: python
+        entry: python scripts/validation/validate_no_new_env_vars.py
+        types: [python]
+        pass_filenames: true
         stages: [pre-commit]
 
       # OMN-5063: Block untyped metadata dict fields

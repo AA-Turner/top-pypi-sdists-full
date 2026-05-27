@@ -12,7 +12,7 @@ from __future__ import annotations
 from enum import Enum, unique
 from typing import TYPE_CHECKING
 
-from omnibase_core.utils.util_str_enum_base import StrValueHelper
+from omnibase_core.utils.util_str_enum_base import UtilStrValueHelper
 
 if TYPE_CHECKING:
     from omnibase_core.enums.enum_node_kind import EnumNodeKind
@@ -97,7 +97,7 @@ def _populate_kind_map() -> None:
 
 
 @unique
-class EnumNodeType(StrValueHelper, str, Enum):
+class EnumNodeType(UtilStrValueHelper, str, Enum):
     """
     Specific node implementation types for ONEX architecture.
 
@@ -338,6 +338,7 @@ class EnumNodeType(StrValueHelper, str, Enum):
 # The setattr() call dynamically attaches _KIND_MAP to the class for direct
 # test access where tests reference EnumNodeType._KIND_MAP as an attribute. Mypy
 # cannot statically verify dynamically attached attributes, so it may report
+# Why: Decorator, DI container, or optional dependency provides this attribute at runtime.
 # [attr-defined] errors. If such errors arise, `# type: ignore[attr-defined]`
 # suppression is acceptable because:
 # - The attribute IS defined at runtime (verified by tests)
@@ -357,6 +358,7 @@ class EnumNodeType(StrValueHelper, str, Enum):
 #
 # Type Safety Note: The setattr() below dynamically attaches _KIND_MAP to the
 # EnumNodeType class. If mypy reports [attr-defined] errors, use
+# Why: Decorator, DI container, or optional dependency provides this attribute at runtime.
 # `# type: ignore[attr-defined]` - this is an ACCEPTED EXCEPTION to strict mypy
 # rules per the documentation block above (lines 327-353). The attribute IS
 # defined at runtime and verified by tests. See CLAUDE.md section "Node

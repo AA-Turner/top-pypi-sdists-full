@@ -3252,6 +3252,7 @@ class DownloadArtifactOptions(_JobStepConfiguration_9caff420):
     jsii_type="projen.github.DownloadArtifactWith",
     jsii_struct_bases=[],
     name_mapping={
+        "artifact_ids": "artifactIds",
         "merge_multiple": "mergeMultiple",
         "name": "name",
         "path": "path",
@@ -3265,6 +3266,7 @@ class DownloadArtifactWith:
     def __init__(
         self,
         *,
+        artifact_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         merge_multiple: typing.Optional[builtins.bool] = None,
         name: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
@@ -3274,6 +3276,7 @@ class DownloadArtifactWith:
         token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
+        :param artifact_ids: (experimental) IDs of the artifacts to download. Either inputs ``artifact-ids`` or ``name`` can be used, but not both.
         :param merge_multiple: (experimental) When multiple artifacts are matched, this changes the behavior of the destination directories If true, the downloaded artifacts will be in the same directory specified by path If false, the downloaded artifacts will be extracted into individual named directories within the specified path. Default: false
         :param name: (experimental) Name of the artifact to download. Default: - If unspecified, all artifacts for the run are downloaded
         :param path: (experimental) A file, directory or wildcard pattern that describes what to download. Supports basic tilde expansion. Default: - $GITHUB_WORKSPACE
@@ -3286,6 +3289,7 @@ class DownloadArtifactWith:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e5008f68a85d8490ecf62a54f413b82cc795d9a14d3bc8eabcc2720f31de50c)
+            check_type(argname="argument artifact_ids", value=artifact_ids, expected_type=type_hints["artifact_ids"])
             check_type(argname="argument merge_multiple", value=merge_multiple, expected_type=type_hints["merge_multiple"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -3294,6 +3298,8 @@ class DownloadArtifactWith:
             check_type(argname="argument run_id", value=run_id, expected_type=type_hints["run_id"])
             check_type(argname="argument token", value=token, expected_type=type_hints["token"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if artifact_ids is not None:
+            self._values["artifact_ids"] = artifact_ids
         if merge_multiple is not None:
             self._values["merge_multiple"] = merge_multiple
         if name is not None:
@@ -3308,6 +3314,17 @@ class DownloadArtifactWith:
             self._values["run_id"] = run_id
         if token is not None:
             self._values["token"] = token
+
+    @builtins.property
+    def artifact_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) IDs of the artifacts to download.
+
+        Either inputs ``artifact-ids`` or ``name`` can be used, but not both.
+
+        :stability: experimental
+        '''
+        result = self._values.get("artifact_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def merge_multiple(self) -> typing.Optional[builtins.bool]:
@@ -10481,6 +10498,7 @@ def _typecheckingstub__c7f153d5c1001fcb119385a05448ea85e212f46cc420d578734261b83
 
 def _typecheckingstub__3e5008f68a85d8490ecf62a54f413b82cc795d9a14d3bc8eabcc2720f31de50c(
     *,
+    artifact_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     merge_multiple: typing.Optional[builtins.bool] = None,
     name: typing.Optional[builtins.str] = None,
     path: typing.Optional[builtins.str] = None,

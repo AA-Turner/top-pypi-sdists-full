@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gofeatureflag-python-provider
-Version: 1.0.1
+Version: 1.1.0
 Summary: GO Feature Flag provider for OpenFeature
 Project-URL: Bug Tracker, https://github.com/thomaspoignant/go-feature-flag/issues
 Project-URL: Source Code, https://github.com/thomaspoignant/go-feature-flag/tree/main/openfeature/providers/python-provider

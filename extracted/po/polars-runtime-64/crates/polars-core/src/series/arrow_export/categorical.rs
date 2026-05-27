@@ -216,7 +216,7 @@ impl CategoricalArrayToArrowConverter {
         let dictionary_dtype = ArrowDataType::Dictionary(
             <T as DictionaryKey>::KEY_TYPE,
             Box::new(values.dtype().clone()),
-            dtype.is_enum(),
+            false, // is_sorted
         );
 
         unsafe {

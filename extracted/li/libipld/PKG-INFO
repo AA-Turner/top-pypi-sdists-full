@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: libipld
-Version: 3.3.2
+Version: 3.4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -28,10 +28,10 @@ Author-email: "Ilya (Marshal)" <ilya@marshal.dev>
 License-Expression: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Author, https://github.com/MarshalX
 Project-URL: Homepage, https://github.com/MarshalX/python-libipld
 Project-URL: Repository, https://github.com/MarshalX/python-libipld
 Project-URL: Tracker, https://github.com/MarshalX/python-libipld/issues
-Project-URL: Author, https://github.com/MarshalX
 
 ## Python IPLD
 
@@ -91,11 +91,33 @@ You can install or upgrade `libipld` via
 pip install -U libipld
 ```
 
+### Performance
+
+Benchmarks against [`cbrrr`](https://github.com/DavidBuchanan314/dag-cbrrr) (C), [`py-ipld-dag`](https://github.com/ipld/py-ipld-dag) (Python wrapper over Rust-backed [`cbor2`](https://github.com/agronholm/cbor2)) and [`dag_cbor`](https://github.com/hashberg-io/dag-cbor) (pure Python), measured on the four classic [nativejson-benchmark](https://github.com/miloyip/nativejson-benchmark) fixtures (round-tripped through DAG-CBOR). Bars are operations/second relative to pure-Python `dag_cbor`; higher is better.
+
+Measured on Apple M1, macOS 15 (Darwin 24.6.0), CPython 3.14.0, `libipld` installed from PyPI (PGO + LTO wheel).
+
+#### Deserialization
+
+![deserialization](https://raw.githubusercontent.com/MarshalX/python-libipld/main/benchmark/deserialization.png)
+
+#### Serialization
+
+![serialization](https://raw.githubusercontent.com/MarshalX/python-libipld/main/benchmark/serialization.png)
+
+Reproduce locally:
+
+```bash
+cd benchmark && ./run.sh
+```
+
+See [`benchmark/README.md`](./benchmark/README.md) for details.
+
 ### Contributing
 
-Contributions of all sizes are welcome.
+Contributions of all sizes are welcome. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for setup, build, test, and benchmarking workflow.
 
 ### License
 
-MIT
+MIT – see [LICENSE](./LICENSE).
 

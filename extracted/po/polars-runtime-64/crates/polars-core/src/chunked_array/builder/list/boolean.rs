@@ -38,7 +38,7 @@ impl ListBooleanChunkedBuilder {
             self.fast_explode = false;
         }
         let value_builder = self.builder.mut_values();
-        value_builder.extend(ca.iter());
+        value_builder.extend(ca);
         self.builder.try_push_valid().unwrap();
     }
 }

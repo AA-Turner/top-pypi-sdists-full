@@ -6,49 +6,42 @@ http://blog.macuyiko.com/post/2016/how-to-send-html-mails-with-oauth2-and-gmail-
 2. Generate a new access tokens using a refresh token(refresh_token)
 3. Generate an OAuth2 string to use for login (access_token)
 """
-import os
 import base64
-import json
 import getpass
-
-try:
-    from urllib.parse import urlencode, quote, unquote, parse_qs, urlsplit
-    from urllib.request import urlopen
-except ImportError:
-    from urllib import urlencode, quote, unquote, urlopen
-    from urlparse import parse_qs, urlsplit
-
-try:
-    input = raw_input
-except NameError:
-    pass
+import json
+import os
+from typing import Any, Dict, Optional, Tuple
+from urllib.parse import parse_qs, quote, urlencode, urlsplit
+from urllib.request import urlopen
 
 GOOGLE_ACCOUNTS_BASE_URL = 'https://accounts.google.com'
 REDIRECT_URI = 'http://localhost'
 
 
-def command_to_url(command):
-    return '%s/%s' % (GOOGLE_ACCOUNTS_BASE_URL, command)
+def command_to_url(command: str) -> str:
+    return f'{GOOGLE_ACCOUNTS_BASE_URL}/{command}'
 
 
-def url_format_params(params):
+def url_format_params(params: Dict[str, str]) -> str:
     param_fragments = []
     for param in sorted(params.items(), key=lambda x: x[0]):
         escaped_url = quote(param[1], safe='~-._')
-        param_fragments.append('%s=%s' % (param[0], escaped_url))
+        param_fragments.append(f'{param[0]}={escaped_url}')
     return '&'.join(param_fragments)
 
 
-def generate_permission_url(client_id):
+def generate_permission_url(client_id: str) -> str:
     params = {}
     params['client_id'] = client_id
     params['redirect_uri'] = REDIRECT_URI
     params['scope'] = 'https://mail.google.com/'
     params['response_type'] = 'code'
-    return '%s?%s' % (command_to_url('o/oauth2/auth'), url_format_params(params))
+    return '{}?{}'.format(command_to_url('o/oauth2/auth'), url_format_params(params))
 
 
-def call_authorize_tokens(client_id, client_secret, authorization_code):
+def call_authorize_tokens(
+    client_id: str, client_secret: str, authorization_code: str
+) -> Dict[str, Any]:
     params = {}
     params['client_id'] = client_id
     params['client_secret'] = client_secret
@@ -61,7 +54,7 @@ def call_authorize_tokens(client_id, client_secret, authorization_code):
     return json.loads(response)
 
 
-def call_refresh_token(client_id, client_secret, refresh_token):
+def call_refresh_token(client_id: str, client_secret: str, refresh_token: str) -> Dict[str, Any]:
     params = {}
     params['client_id'] = client_id
     params['client_secret'] = client_secret
@@ -73,14 +66,14 @@ def call_refresh_token(client_id, client_secret, refresh_token):
     return json.loads(response)
 
 
-def generate_oauth2_string(username, access_token, as_base64=False):
-    auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username, access_token)
+def generate_oauth2_string(username: str, access_token: str, as_base64: bool = False) -> str:
+    auth_string = f'user={username}\1auth=Bearer {access_token}\1\1'
     if as_base64:
         auth_string = base64.b64encode(auth_string.encode('ascii')).decode('ascii')
     return auth_string
 
 
-def get_authorization(google_client_id, google_client_secret):
+def get_authorization(google_client_id: str, google_client_secret: str) -> Tuple[str, str, int]:
     permission_url = generate_permission_url(google_client_id)
     print('Navigate to the following URL to auth:\n' + permission_url)
     url = input('Enter the localhost URL you were redirected to: ')
@@ -89,19 +82,25 @@ def get_authorization(google_client_id, google_client_secret):
     return response['refresh_token'], response['access_token'], response['expires_in']
 
 
-def refresh_authorization(google_client_id, google_client_secret, google_refresh_token):
+def refresh_authorization(
+    google_client_id: str, google_client_secret: str, google_refresh_token: str
+) -> Tuple[str, int]:
     response = call_refresh_token(google_client_id, google_client_secret, google_refresh_token)
     return response['access_token'], response['expires_in']
 
 
-def get_oauth_string(user, oauth2_info):
+def get_oauth_string(user: str, oauth2_info: Dict[str, Any]) -> str:
     access_token, expires_in = refresh_authorization(**oauth2_info)
     auth_string = generate_oauth2_string(user, access_token, as_base64=True)
     return auth_string
 
 
-def get_oauth2_info(oauth2_file: str, email_addr: str):
-    oauth_setup_readme_link = "See readme for proper setup, preventing authorization from expiring after 7 days! https://github.com/kootenpv/yagmail/blob/master/README.md#preventing-oauth-authorization-from-expiring-after-7-days"
+def get_oauth2_info(oauth2_file: str, email_addr: Optional[str]) -> Dict[str, Any]:
+    oauth_setup_readme_link = (
+        "See readme for proper setup, preventing authorization from expiring after 7 days! "
+        "https://github.com/kootenpv/yagmail/blob/master/README.md"
+        "#preventing-oauth-authorization-from-expiring-after-7-days"
+    )
     oauth2_file = os.path.expanduser(oauth2_file)
     if os.path.isfile(oauth2_file):
         with open(oauth2_file) as f:

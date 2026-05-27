@@ -443,8 +443,8 @@ class DataFrame;  // forward declaration for setValues below
 class SetInstance : public Instance {
  public:
   /**
-  Returns a string representation of this set instance
-  */
+   * Returns a string representation of this set instance
+   */
   std::string toString() const {
     char *c_str;
     AMPL_CALL_CPP(AMPL_SetInstanceToString(ampl_, entityname_.c_str(), key_, &c_str));
@@ -454,8 +454,8 @@ class SetInstance : public Instance {
   }
 
   /**
-  Get the number of tuples in this set instance
-  */
+   * Get the number of tuples in this set instance
+   */
   std::size_t size() { 
     size_t size;
     AMPL_CALL_CPP(AMPL_SetInstanceGetSize(ampl_, entityname_.c_str(), key_, &size));
@@ -485,84 +485,135 @@ class SetInstance : public Instance {
   Class to access the members (tuples) in this set instance
   */
   class MemberRange {
-   private:
-     std::vector<Tuple> members_;
+    private:
+      AMPL_TUPLE** members_;
+      std::size_t size_;
 
-   public:
-    /**
-    Constructor
-    */
-    explicit MemberRange(SetInstance* impl_) {
-      AMPL_TUPLE** raw_members = nullptr;
-      std::size_t size = 0;
-      AMPL_CALL_CPP(AMPL_SetInstanceGetValues(
-        impl_->ampl_, impl_->entityname_.c_str(), impl_->key_, &raw_members, &size));
-    
-      members_.reserve(size);
-      for (std::size_t i = 0; i < size; ++i) {
-        if (raw_members[i]) {
-          members_.emplace_back(Tuple(raw_members[i]));
-        }
-      }
-
-      for (std::size_t i = 0; i < size; ++i)
-        AMPL_TupleFree(&raw_members[i]);
-      free(raw_members);
+    public:
+      explicit MemberRange(SetInstance* impl_)
+        : members_(nullptr), size_(0) {
+        AMPL_CALL_CPP(
+            AMPL_SetInstanceGetValues(
+                impl_->ampl_,
+                impl_->entityname_.c_str(),
+                impl_->key_,
+                &members_,
+                &size_));
     }
 
-    /**
-     * Destructor
-     */
-    ~MemberRange() = default;
+    ~MemberRange() {
+        for (std::size_t i = 0; i < size_; ++i)
+            if (members_[i]) AMPL_TupleFree(&members_[i]); // release refcount
+        free(members_);
+    }
+
+    MemberRange(const MemberRange& other) : members_(nullptr), size_(other.size_) {
+      if (size_ > 0) {
+        members_ = (AMPL_TUPLE**)malloc(size_ * sizeof(AMPL_TUPLE*));
+        for (std::size_t i = 0; i < size_; ++i) {
+          members_[i] = nullptr;
+          if (other.members_[i])
+            AMPL_TupleCopy(&members_[i], other.members_[i]);
+        }
+      }
+    }
+
+  MemberRange& operator=(const MemberRange& other) {
+    if (this != &other) {
+        // Free current tuples
+        for (std::size_t i = 0; i < size_; ++i)
+            if (members_[i]) AMPL_TupleFree(&members_[i]);
+        free(members_);
+
+        // Copy from other
+        size_ = other.size_;
+        if (size_ > 0) {
+            members_ = (AMPL_TUPLE**)malloc(size_ * sizeof(AMPL_TUPLE*));
+            for (std::size_t i = 0; i < size_; ++i) {
+                members_[i] = nullptr;
+                if (other.members_[i]) {
+                    AMPL_TupleCopy(&members_[i], other.members_[i]);
+                }
+            }
+        } else {
+            members_ = nullptr;
+        }
+    }
+    return *this;
+  }
+
 
     /**
-    Iterator
-    */
-   class iterator {
-    public:
-      using internal_iterator = std::vector<Tuple>::const_iterator;
-  
-    private:
-      internal_iterator it_;
-  
-    public:
-      explicit iterator(internal_iterator it) : it_(it) {}
-  
-      const Tuple& operator*() const { return *it_; }
+     * Iterator
+     */
+    class iterator {
+      public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = Tuple;
+        using difference_type = std::ptrdiff_t;
+        using pointer = void;
+        using reference = value_type;
+
+      private:
+        AMPL_TUPLE** ptr_;
+        explicit iterator(AMPL_TUPLE** ptr) : ptr_(ptr) {}
+
+        friend class MemberRange;
+
+      public:
+        /**
+         * Dereference — return Tuple BY VALUE
+         */
+        Tuple operator*() const {
+          return Tuple(*ptr_);
+        }
+
+      /**
+       * Prefix increment
+       */
       iterator& operator++() {
-        ++it_;
+        ++ptr_;
         return *this;
       }
+
+      /**
+       * Postfix increment
+       */
       iterator operator++(int) {
-        iterator temp = *this;
-        ++it_;
-        return temp;
+        iterator tmp(*this);
+        ++ptr_;
+        return tmp;
       }
-      bool operator==(const iterator& other) const { return it_ == other.it_; }
-      bool operator!=(const iterator& other) const { return it_ != other.it_; }
+
+      bool operator==(const iterator& other) const {
+        return ptr_ == other.ptr_;
+      }
+
+      bool operator!=(const iterator& other) const {
+        return ptr_ != other.ptr_;
+      }
     };
 
     /**
-    Returns an iterator to the beginning of the members
-    collection
-    */
-    iterator begin() const { return iterator(members_.begin()); }
+     * Begin iterator
+     */
+    iterator begin() const { return iterator(members_); }
 
     /**
-    Returns an iterator to the first item after the end of
-    the collection
-    */
-    iterator end() const { return iterator(members_.end()); }
+     * End iterator
+     */
+    iterator end() const { return iterator(members_ + size_); }
 
     /**
-    Returns the size of the collection
-    */
-    std::size_t size() const { return members_.size(); }
+     * Size
+     */
+    std::size_t size() const { return size_; }
   };
 
+
   /**
-  Get all members (tuples) in this set instance
-  */
+   * Get all members (tuples) in this set instance
+   */
   MemberRange members() { return MemberRange(this); }
 
   /**

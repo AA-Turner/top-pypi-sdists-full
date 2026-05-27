@@ -104,6 +104,14 @@ class Pipeline(Protocol):
     def delete(self, *names: KeyT) -> "Pipeline": ...
     def expire(self, name: KeyT, time: ExpiryT) -> "Pipeline": ...
     def hgetall(self, name: KeyT) -> "Pipeline": ...
+    def hincrby(self, name: KeyT, key: KeyT, amount: int = 1) -> "Pipeline": ...
+    def hset(
+        self,
+        name: KeyT,
+        key: KeyT | None = None,
+        value: EncodableT | None = None,
+        mapping: Mapping[KeyT, EncodableT] | None = None,
+    ) -> "Pipeline": ...
     def sadd(self, name: KeyT, *values: EncodableT) -> "Pipeline": ...
     def xack(self, name: KeyT, groupname: KeyT, *ids: StreamIDT) -> "Pipeline": ...
     def xdel(self, name: KeyT, *ids: StreamIDT) -> "Pipeline": ...
@@ -170,20 +178,6 @@ class Pipeline(Protocol):
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> bool | None: ...
-
-
-class Script(Protocol):
-    """A registered Lua script.  Return type varies by script body, so it is
-    typed as ``Any`` here and annotated locally at each call site (e.g.
-    ``result: list[int] = await my_script(keys=..., args=...)``).
-    """
-
-    async def __call__(
-        self,
-        keys: Sequence[KeyT] = ...,
-        args: Sequence[EncodableT] = ...,
-        client: "RedisClient | None" = None,
-    ) -> Any: ...
 
 
 class Lock(Protocol):
@@ -505,7 +499,10 @@ class RedisClient(Protocol):
         count: int | None = None,
         _type: str | None = None,
     ) -> AsyncIterator[bytes]: ...
-    def register_script(self, script: str | bytes) -> Script: ...
+    async def evalsha(
+        self, sha: str, numkeys: int, *keys_and_args: KeyT | EncodableT
+    ) -> Any: ...
+    async def script_load(self, script: str | bytes) -> str: ...
     def pipeline(
         self,
         transaction: bool = True,

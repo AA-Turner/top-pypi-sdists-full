@@ -75,7 +75,7 @@ where
     let offsets = probe_to_offsets(&probe);
     // next we probe the other relation
     // code duplication is because we want to only do the swap check once
-    let out = RAYON.install(|| {
+    let out = POOL.install(|| {
         let tuples = probe
             .into_par_iter()
             .zip(offsets)

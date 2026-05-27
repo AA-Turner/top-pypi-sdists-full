@@ -115,9 +115,6 @@ class _TracedIterable(wrapt.ObjectProxy):
             self._finish_spans()
             raise
 
-    # PY2 Support
-    next = __next__
-
     def close(self):
         if getattr(self.__wrapped__, "close", None):
             self.__wrapped__.close()
@@ -778,7 +775,7 @@ def _on_botocore_trace_context_injection_prepared(
     if cloud_service is not None:
         span = ctx.span
         inject_kwargs = dict(endpoint_service=endpoint_name) if cloud_service == "sns" else dict()
-        schematize_kwargs = dict(cloud_provider="aws", cloud_service=cloud_service)
+        schematize_kwargs = dict[str, Any](cloud_provider="aws", cloud_service=cloud_service)
         if endpoint_name != "lambda":
             schematize_kwargs["direction"] = SpanDirection.OUTBOUND
         try:

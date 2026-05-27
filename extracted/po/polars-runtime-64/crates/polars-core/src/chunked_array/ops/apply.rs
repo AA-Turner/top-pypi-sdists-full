@@ -489,9 +489,15 @@ impl<'a> ChunkApply<'a, Series> for ListChunked {
             out
         };
         let mut ca: ListChunked = {
-            self.series_iter()
-                .map(|opt_v| opt_v.map(&mut function))
-                .collect_trusted()
+            if !self.has_nulls() {
+                self.into_no_null_iter()
+                    .map(&mut function)
+                    .collect_trusted()
+            } else {
+                self.into_iter()
+                    .map(|opt_v| opt_v.map(&mut function))
+                    .collect_trusted()
+            }
         };
         if fast_explode {
             ca.set_fast_explode()
@@ -506,7 +512,7 @@ impl<'a> ChunkApply<'a, Series> for ListChunked {
         if self.is_empty() {
             return self.clone();
         }
-        self.series_iter().map(f).collect_trusted()
+        self.into_iter().map(f).collect_trusted()
     }
 
     fn apply_to_slice<F, T>(&'a self, f: F, slice: &mut [T])
@@ -542,7 +548,7 @@ where
     where
         F: Fn(&'a T) -> T + Copy,
     {
-        let mut ca: ObjectChunked<T> = self.iter().map(|opt_v| opt_v.map(f)).collect();
+        let mut ca: ObjectChunked<T> = self.into_iter().map(|opt_v| opt_v.map(f)).collect();
         ca.rename(self.name().clone());
         ca
     }
@@ -551,7 +557,7 @@ where
     where
         F: Fn(Option<&'a T>) -> Option<T> + Copy,
     {
-        let mut ca: ObjectChunked<T> = self.iter().map(f).collect();
+        let mut ca: ObjectChunked<T> = self.into_iter().map(f).collect();
         ca.rename(self.name().clone());
         ca
     }

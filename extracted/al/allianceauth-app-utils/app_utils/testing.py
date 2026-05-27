@@ -30,6 +30,8 @@ from allianceauth.tests.auth_utils import AuthUtils
 from app_utils.datetime import dt_eveformat
 from app_utils.helpers import random_string
 
+from .django import add_permissions_to_user_by_name
+
 try:
     from app_utils.esi_testing import (  # noqa: F401
         BravadoOperationStub,
@@ -351,8 +353,8 @@ def create_fake_user(
         alliance_name=alliance_name,
     )
     if permissions:
-        perm_objs = [AuthUtils.get_permission_by_name(perm) for perm in permissions]
-        user = AuthUtils.add_permissions_to_user(perms=perm_objs, user=user)
+        add_permissions_to_user_by_name(user=user, permission_names=permissions)
+
     return user
 
 

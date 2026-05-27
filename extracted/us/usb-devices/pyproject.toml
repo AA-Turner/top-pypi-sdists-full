@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "usb-devices"
-version = "0.4.5"
+version = "0.5.0"
 description = "Tools for mapping, describing, and resetting USB devices"
 authors = ["J. Nick Koston <nick@koston.org>"]
 license = "MIT"
@@ -23,11 +23,11 @@ packages = [
 "Changelog" = "https://github.com/bluetooth-devices/usb-devices/blob/main/CHANGELOG.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.0"
-pytest-cov = "^3.0"
+pytest = ">=7,<10"
+pytest-cov = ">=3,<7"
 
 [tool.poetry.group.docs]
 optional = true
@@ -43,6 +43,8 @@ version_variables = [
     "src/usb_devices/__init__.py:__version__",
 ]
 build_command = "pip install poetry && poetry build"
+allow_zero_version = true
+major_on_zero = false
 
 [tool.semantic_release.changelog]
 exclude_commit_patterns = [

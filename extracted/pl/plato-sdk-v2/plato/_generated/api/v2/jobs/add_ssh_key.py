@@ -43,7 +43,9 @@ def sync(
     """Add an SSH public key to a specific job's VM.
 
     Adds the key to the specified user's authorized_keys file.
-    This is the per-job equivalent of the session-level add_ssh_key endpoint."""
+    This is the per-job equivalent of the session-level add_ssh_key endpoint.
+    Builds a hypervisor-appropriate install command — Linux for firecracker,
+    PowerShell-into-administrators_authorized_keys for QEMU/Windows."""
 
     request_args = _build_request_args(
         job_id=job_id,
@@ -67,7 +69,9 @@ async def asyncio(
     """Add an SSH public key to a specific job's VM.
 
     Adds the key to the specified user's authorized_keys file.
-    This is the per-job equivalent of the session-level add_ssh_key endpoint."""
+    This is the per-job equivalent of the session-level add_ssh_key endpoint.
+    Builds a hypervisor-appropriate install command — Linux for firecracker,
+    PowerShell-into-administrators_authorized_keys for QEMU/Windows."""
 
     request_args = _build_request_args(
         job_id=job_id,

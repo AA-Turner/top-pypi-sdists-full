@@ -24,7 +24,7 @@ keywords = ["Kaggle", "API"]
 requires-python = ">= 3.11"
 dependencies = [
     "bleach",
-    "kagglesdk >= 0.1.23, < 1.0", # sync with kagglehub
+    "kagglesdk >= 0.1.24, < 1.0", # sync with kagglehub
     "python-slugify",
     "requests",
     "python-dateutil",
@@ -100,3 +100,10 @@ module = [
     "jupytext.*"
 ]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = [
+    "src/kaggle/test",
+    "tests",
+]
+pythonpath = ["src"]

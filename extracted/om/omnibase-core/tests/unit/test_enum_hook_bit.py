@@ -8,12 +8,17 @@ import enum
 
 import pytest
 
-from omnibase_core.enums.enum_hook_bit import EnumHookBit, hook_enabled
+from omnibase_core.enums.enum_hook_bit import (
+    _DEFAULT_MASK,
+    _DISABLED_BY_DEFAULT,
+    EnumHookBit,
+    hook_enabled,
+)
 
 pytestmark = pytest.mark.unit
 
-# Frozen GATE count from Task 1 inventory. Update only when the inventory doc changes.
-_N_GATE = 60
+# Frozen GATE count from Task 1 inventory plus OMN-11083 opt-in gates.
+_N_GATE = 63
 
 
 class TestEnumHookBit:
@@ -26,7 +31,7 @@ class TestEnumHookBit:
         assert v & (v - 1) == 0, "CI_REMINDER must be a single-bit power of two"
 
     def test_every_member_is_power_of_two(self) -> None:
-        for m in EnumHookBit:
+        for m in EnumHookBit.__members__.values():
             v = int(m)
             assert v > 0
             assert v & (v - 1) == 0, f"{m.name}={v} is not a single-bit value"
@@ -36,29 +41,37 @@ class TestEnumHookBit:
         assert len(values) == len(set(values))
 
     def test_bits_fit_in_64(self) -> None:
-        for m in EnumHookBit:
+        for m in EnumHookBit.__members__.values():
             assert int(m) < (1 << 64)
 
     def test_member_count_matches_inventory(self) -> None:
         assert len(list(EnumHookBit)) == _N_GATE
 
-    def test_default_mask_covers_all_members(self) -> None:
-        from omnibase_core.enums.enum_hook_bit import _DEFAULT_MASK
+    def test_default_mask_covers_enabled_by_default_members(self) -> None:
+        for m in EnumHookBit.__members__.values():
+            if m.name in _DISABLED_BY_DEFAULT:
+                assert not _DEFAULT_MASK & m, (
+                    f"{m.name} should be omitted from _DEFAULT_MASK"
+                )
+            else:
+                assert _DEFAULT_MASK & m, f"{m.name} not covered by _DEFAULT_MASK"
 
-        for m in EnumHookBit:
-            assert _DEFAULT_MASK & m, f"{m.name} not covered by _DEFAULT_MASK"
+    def test_opt_in_gate_bit_positions_are_frozen(self) -> None:
+        assert EnumHookBit.AISLOP_GATE == 1 << 60
+        assert EnumHookBit.STOP_QUALITY_GATE == 1 << 61
+        assert EnumHookBit.INLINE_REVIEW_GATE == 1 << 62
 
     def test_default_mask_is_not_hardcoded_0xffffffff(self) -> None:
-        from omnibase_core.enums.enum_hook_bit import _DEFAULT_MASK
-
         assert _DEFAULT_MASK != 0xFFFFFFFF
 
 
 class TestHookEnabled:
-    def test_default_mask_all_on(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_default_mask_respects_contract_defaults(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.delenv("ONEX_HOOKS_MASK", raising=False)
-        for m in EnumHookBit:
-            assert hook_enabled(m) is True
+        for m in EnumHookBit.__members__.values():
+            assert hook_enabled(m) is (m.name not in _DISABLED_BY_DEFAULT)
 
     def test_explicit_mask_disables_one_bit(self) -> None:
         ci = int(EnumHookBit.CI_REMINDER)
@@ -90,11 +103,11 @@ class TestHookEnabled:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("ONEX_HOOKS_MASK", "not-a-number")
-        for m in EnumHookBit:
+        for m in EnumHookBit.__members__.values():
             assert hook_enabled(m) is True
 
     def test_explicit_negative_mask_minus_one_is_fail_open(self) -> None:
-        for m in EnumHookBit:
+        for m in EnumHookBit.__members__.values():
             assert hook_enabled(m, mask=-1) is True, (
                 f"{m.name}: mask=-1 should fail-open (True), not silently disable"
             )
@@ -102,7 +115,7 @@ class TestHookEnabled:
     def test_explicit_negative_mask_minus_two_is_fail_open(self) -> None:
         # -2 in Python two's complement: bit 0 is clear, so CI_REMINDER would
         # return False if negative masks were evaluated as-is.
-        for m in EnumHookBit:
+        for m in EnumHookBit.__members__.values():
             assert hook_enabled(m, mask=-2) is True, (
                 f"{m.name}: mask=-2 must fail-open, not clear bit 0"
             )
@@ -111,7 +124,7 @@ class TestHookEnabled:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("ONEX_HOOKS_MASK", "-2")
-        for m in EnumHookBit:
+        for m in EnumHookBit.__members__.values():
             assert hook_enabled(m) is True, (
                 f"{m.name}: ONEX_HOOKS_MASK=-2 must fail-open"
             )

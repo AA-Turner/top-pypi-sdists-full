@@ -84,6 +84,7 @@ class URLSettings(Enum):
     CLIENT_ID = "AWnwFBMr9DdZbxbDwYxjm4Gb24pFTnMp"
     AUTH_SERVER_URL = f"https://auth.{DEFAULT_DOMAIN}"
     SAFETY_PLATFORM_URL = f"https://platform.{DEFAULT_DOMAIN}"
+    SAFETY_PLATFORM_V2_URL = "https://service.platformv2.safetycli.com"
     FIREWALL_API_BASE_URL = "https://pkgs.safetycli.com"
 
 
@@ -115,16 +116,33 @@ class FeatureType(Enum):
         return f"{self.name.lower()}_enabled"
 
 
+class MissingConfigError(RuntimeError):
+    pass
+
+
 def get_config_setting(name: str, default=None) -> Optional[str]:
     """
-    Get the configuration setting from the config file or defaults.
+    Get a configuration setting with priority: env var → config file → enum default.
+
+    Environment variable lookup uses the setting name directly if it already
+    starts with ``SAFETY_``; otherwise a ``SAFETY_`` prefix is added.
 
     Args:
-        name (str): The name of the setting to retrieve.
+        name: The name of the setting to retrieve (e.g. ``"SAFETY_PLATFORM_URL"``
+              or ``"CLIENT_ID"``).
+        default: Fallback when no env var, config-file entry, or enum default
+                 exists.
 
     Returns:
-        Optional[str]: The value of the setting if found, otherwise None.
+        The resolved value, or *default* if nothing matched.
     """
+    # 1. Environment variable override (highest priority)
+    env_name = name if name.startswith("SAFETY_") else f"SAFETY_{name}"
+    env_value = os.environ.get(env_name)
+    if env_value:
+        return env_value
+
+    # 2. Config file
     config = configparser.ConfigParser()
     config.read(CONFIG)
 
@@ -136,11 +154,19 @@ def get_config_setting(name: str, default=None) -> Optional[str]:
         if value:
             return value
 
+    # 3. Enum default
     return default.value if default else default
 
 
-DATA_API_BASE_URL = get_config_setting("DATA_API_BASE_URL")
-PLATFORM_API_BASE_URL = get_config_setting("PLATFORM_API_BASE_URL")
+def get_required_config_setting(name: str) -> str:
+    value = get_config_setting(name)
+    if not value:
+        raise MissingConfigError(f"Missing required config setting: {name}")
+    return value
+
+
+DATA_API_BASE_URL = get_required_config_setting("DATA_API_BASE_URL")
+PLATFORM_API_BASE_URL = get_required_config_setting("PLATFORM_API_BASE_URL")
 
 PLATFORM_API_PROJECT_ENDPOINT = f"{PLATFORM_API_BASE_URL}/project"
 PLATFORM_API_PROJECT_CHECK_ENDPOINT = f"{PLATFORM_API_BASE_URL}/project-check"
@@ -156,7 +182,7 @@ PLATFORM_API_CHECK_UPDATES_ENDPOINT = f"{PLATFORM_API_BASE_URL}/versions-and-con
 PLATFORM_API_INITIALIZE_ENDPOINT = f"{PLATFORM_API_BASE_URL}/initialize"
 PLATFORM_API_EVENTS_ENDPOINT = f"{PLATFORM_API_BASE_URL}/events"
 
-FIREWALL_API_BASE_URL = get_config_setting("FIREWALL_API_BASE_URL")
+FIREWALL_API_BASE_URL = get_required_config_setting("FIREWALL_API_BASE_URL")
 FIREWALL_AUDIT_PYPI_PACKAGES_ENDPOINT = f"{FIREWALL_API_BASE_URL}/audit/pypi/packages/"
 FIREWALL_AUDIT_NPMJS_PACKAGES_ENDPOINT = (
     f"{FIREWALL_API_BASE_URL}/audit/npmjs/packages/"
@@ -228,6 +254,10 @@ EXIT_CODE_MALFORMED_DB = 69
 EXIT_CODE_INVALID_PROVIDED_REPORT = 70
 EXIT_CODE_INVALID_REQUIREMENT = 71
 EXIT_CODE_EMAIL_NOT_VERIFIED = 72
+EXIT_CODE_ENROLLMENT_FAILED = 73
+EXIT_CODE_MACHINE_ID_UNAVAILABLE = 74
+# BSD sysexits.h EX_TEMPFAIL — intentionally matches
+EXIT_CODE_ENROLLMENT_FAILED_RETRYABLE = 75
 
 # For Depreciated Messages
 BAR_LINE = "+===========================================================================================================================================================================================+"

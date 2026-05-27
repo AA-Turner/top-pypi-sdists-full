@@ -86,7 +86,6 @@ def offsetToMidiTicks(o: OffsetQLIn, addStartDelay: bool = False) -> int:
     >>> defaults.ticksAtStart
     10080
 
-
     >>> midi.translate.offsetToMidiTicks(0)
     0
     >>> midi.translate.offsetToMidiTicks(0, addStartDelay=True)
@@ -111,7 +110,6 @@ def durationToMidiTicks(d: duration.Duration) -> int:
 
     Depends on *defaults.ticksPerQuarter*, Returns an int.
     Does not use defaults.ticksAtStart
-
 
     >>> n = note.Note()
     >>> n.duration.type = 'half'
@@ -258,6 +256,8 @@ def getStartEvents(
 
 def getEndEvents(
     midiTrack: MidiTrack|None = None,
+    *,
+    addEndDelay: bool = True,
 ) -> list[MidiEvent|DeltaTime]:
     '''
     Returns a list of midi.MidiEvent objects found at the end of a track.
@@ -266,12 +266,22 @@ def getEndEvents(
     [<music21.midi.DeltaTime t=10080, track=None>,
      <music21.midi.MidiEvent END_OF_TRACK, track=None, data=b''>]
 
-    Changed in v10 - getEndEvents does not take a channel
+    Set `addEndDelay` to False to omit the trailing rest before END_OF_TRACK:
+
+    >>> midi.translate.getEndEvents(addEndDelay=False)
+    [<music21.midi.DeltaTime (empty) track=None>,
+     <music21.midi.MidiEvent END_OF_TRACK, track=None, data=b''>]
+
+    * Changed in v10: getEndEvents does not take a channel.
+    * New in v10.3: addEndDelay keyword.
+
+    Note: the addEndDelay keyword and its threading through the MIDI export
+    functions was AI-assisted (issue #1141).
     '''
     events: list[MidiEvent|DeltaTime] = []
 
     dt = DeltaTime(track=midiTrack)
-    dt.time = defaults.ticksAtStart
+    dt.time = defaults.ticksAtStart if addEndDelay else 0
     events.append(dt)
 
     me = MidiEvent(
@@ -291,6 +301,7 @@ def music21ObjectToMidiFile(
     music21Object: base.Music21Object,
     *,
     addStartDelay=False,
+    addEndDelay=True,
     encoding: str = 'utf-8',
 ) -> MidiFile:
     '''
@@ -298,6 +309,8 @@ def music21ObjectToMidiFile(
     puts a copy of that object into a Stream (so as
     not to change activeSites, etc.) and calls streamToMidiFile on
     that object.
+
+    * New in v10.3: addEndDelay keyword.
     '''
     if isinstance(music21Object, stream.Stream):
         if music21Object.atSoundingPitch is False:
@@ -305,12 +318,14 @@ def music21ObjectToMidiFile(
 
         return streamToMidiFile(t.cast(stream.Stream, music21Object),
                                 addStartDelay=addStartDelay,
+                                addEndDelay=addEndDelay,
                                 encoding=encoding)
     else:
         m21ObjectCopy = copy.deepcopy(music21Object)
         s: stream.Stream = stream.Stream()
         s.insert(0, m21ObjectCopy)
         return streamToMidiFile(s, addStartDelay=addStartDelay,
+                                addEndDelay=addEndDelay,
                                 encoding=encoding)
 
 
@@ -328,9 +343,9 @@ def _constructOrUpdateNotRestSubclass(
     Construct (or edit the duration of) a NotRest subclass, usually
     a note.Note (or a chord.Chord if provided to `returnClass`).
 
-    * Changed in v8: no inputM21
+    * Changed in v8: no inputM21.
     * Changed in v10: Remove part about creating an Unpitched object -- that has been wrong
-      for some time (probably since PercussionChords were introduced)
+      for some time (probably since PercussionChords were introduced).
     '''
     if not issubclass(returnClass, note.NotRest):
         raise TypeError(f'Expected subclass of note.NotRest; got {returnClass}')
@@ -369,7 +384,6 @@ def midiEventsToNote(
     >>> me1.type = midi.ChannelVoiceMessages.NOTE_ON
     >>> me1.pitch = 45
     >>> me1.velocity = 94
-
 
     This lasts until we send a NOTE_OFF event at offset 2.0.
 
@@ -416,7 +430,7 @@ def midiEventsToNote(
         :class:`~music21.note.Unpitched` instance if the event is on Channel 10.
     * Changed in v8: `inputM21` is no longer supported.
         The only supported usage now is two tuples.
-    * Changed in v9.7: Expects a single TimedNoteEvent
+    * Changed in v9.7: Expects a single TimedNoteEvent.
     '''
     tOn, tOff, midiOnEvent = timedNoteEvent
 
@@ -498,7 +512,7 @@ def noteToMidiEvents(
      <music21.midi.MidiEvent NOTE_OFF, track=None, channel=9, pitch=61, velocity=0>]
 
     * Changed in v7: made keyword-only.
-    * Changed in v8: added support for :class:`~music21.note.Unpitched`
+    * Changed in v8: added support for :class:`~music21.note.Unpitched`.
     '''
     n = inputM21
 
@@ -629,7 +643,7 @@ def midiEventsToChord(
     * Changed in v7.3: Returns a :class:`~music21.percussion.PercussionChord` if
       any event is on channel 10.
     * Changed in v8: inputM21 is no longer supported.  Flat list format is removed.
-    * Changed in v9.7: expects a list of TimedNoteEvents
+    * Changed in v9.7: expects a list of TimedNoteEvents.
     '''
     # * Changed in v10: Fix long-standing bug where only the first on-time was being used
     #   not yet -- must fix quantization tests to do so...
@@ -720,7 +734,7 @@ def chordToMidiEvents(
      <music21.midi.MidiEvent NOTE_OFF, track=None, channel=1, pitch=83, velocity=0>]
 
     * Changed in v7: made keyword-only.
-    * Changed in v8: added support for :class:`~music21.percussion.PercussionChord`
+    * Changed in v8: added support for :class:`~music21.percussion.PercussionChord`.
     '''
     mt = None  # midi track
     eventList: list[DeltaTime|MidiEvent] = []
@@ -1252,7 +1266,6 @@ def tempoToMidiEvents(
     >>> midi.translate.tempoToMidiEvents(mm, includeDeltaTime=False)
     [<music21.midi.MidiEvent SET_TEMPO...>]
 
-
     Test round-trip.  Note that for pure tempo numbers, by default
     we create a text name if there's an appropriate one:
 
@@ -1783,7 +1796,7 @@ def packetsToDeltaSeparatedEvents(
     return events
 
 
-def packetsToMidiTrack(packets, trackId=1, channel=1, instrumentObj=None):
+def packetsToMidiTrack(packets, trackId=1, channel=1, instrumentObj=None, *, addEndDelay=True):
     '''
     Given packets already allocated with channel
     and/or instrument assignments, place these in a MidiTrack.
@@ -1795,6 +1808,8 @@ def packetsToMidiTrack(packets, trackId=1, channel=1, instrumentObj=None):
     will be assigned to
 
     Use streamToPackets to convert the Stream to the packets
+
+    * New in v10.3: addEndDelay keyword.
     '''
     # TODO: for a given track id, need to find start/end channel
     mt = MidiTrack(trackId)
@@ -1808,7 +1823,7 @@ def packetsToMidiTrack(packets, trackId=1, channel=1, instrumentObj=None):
     mt.events += packetsToDeltaSeparatedEvents(trackPackets, mt)
 
     # must update all events with a ref to this MidiTrack
-    mt.events += getEndEvents(mt)
+    mt.events += getEndEvents(mt, addEndDelay=addEndDelay)
     mt.updateEvents()  # sets this track as .track for all events
     return mt
 
@@ -2633,6 +2648,7 @@ def streamHierarchyToMidiTracks(
     *,
     acceptableChannelList=None,
     addStartDelay=False,
+    addEndDelay=True,
     encoding='utf-8',
 ):
     '''
@@ -2659,6 +2675,7 @@ def streamHierarchyToMidiTracks(
 
     * Changed in v6: acceptableChannelList is keyword only.  addStartDelay is new.
     * Changed in v6.5: Track 0 (tempo/conductor track) always exported.
+    * New in v10.3: addEndDelay keyword.
     '''
     # makes a deepcopy
     s = prepareStreamForMidi(inputM21)
@@ -2714,7 +2731,8 @@ def streamHierarchyToMidiTracks(
         mt = packetsToMidiTrack(netPackets,
                                 trackId=trackId,
                                 channel=initChannel,
-                                instrumentObj=instrumentObj)
+                                instrumentObj=instrumentObj,
+                                addEndDelay=addEndDelay)
         midiTracks.append(mt)
 
     return midiTracks
@@ -2772,6 +2790,7 @@ def streamToMidiFile(
     inputM21: stream.Stream,
     *,
     addStartDelay: bool = False,
+    addEndDelay: bool = True,
     acceptableChannelList: list[int]|None = None,
     encoding: str = 'utf-8',
 ) -> MidiFile:
@@ -2800,10 +2819,15 @@ def streamToMidiFile(
     >>> #_DOCS_SHOW mf.close()
 
     See :func:`channelInstrumentData` for documentation on `acceptableChannelList`.
+
+    Set `addEndDelay` to False to skip the trailing rest added by `getEndEvents`.
+
+    * New in v10.3: addEndDelay keyword.
     '''
     s = inputM21
     midiTracks = streamHierarchyToMidiTracks(s,
                                              addStartDelay=addStartDelay,
+                                             addEndDelay=addEndDelay,
                                              acceptableChannelList=acceptableChannelList,
                                              encoding=encoding,
                                              )

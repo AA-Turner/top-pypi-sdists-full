@@ -27,6 +27,7 @@ import unittest
 
 from music21 import base
 from music21 import common
+from music21.common.numberTools import opFrac
 from music21.common.types import OffsetQL
 from music21 import defaults
 from music21 import environment
@@ -376,7 +377,6 @@ class Spanner(base.Music21Object):
         Return all the elements of `.spannerStorage` for this Spanner
         as a list of Music21Objects.
 
-
         >>> n1 = note.Note('g')
         >>> n2 = note.Note('f#')
         >>> sl = spanner.Spanner()
@@ -687,9 +687,8 @@ class Spanner(base.Music21Object):
         endOffsetInHierarchy: OffsetQL
         if endElement is not None:
             try:
-                endOffsetInHierarchy = (
-                    endElement.getOffsetInHierarchy(searchStream) + endElement.quarterLength
-                )
+                endOffsetInHierarchy = opFrac(endElement.getOffsetInHierarchy(searchStream)
+                                              + endElement.quarterLength)
             except sites.SitesException:
                 # print('end element not in searchStream')
                 self.addSpannedElements(endElement)
@@ -699,9 +698,7 @@ class Spanner(base.Music21Object):
                     endElement.activeSite = savedEndElementActiveSite
                 return
         else:
-            endOffsetInHierarchy = (
-                startOffsetInHierarchy + startElement.quarterLength
-            )
+            endOffsetInHierarchy = opFrac(startOffsetInHierarchy + startElement.quarterLength)
 
         matchIterator = (searchStream
             .recurse()
@@ -1217,7 +1214,6 @@ class SpannerBundle(prebase.ProtoM21Object):
         class have been closed.  The example below demonstrates that the
         position of the contents of the spanner have no bearing on
         its idLocal (since we don't even put anything into the spanners).
-
 
         >>> su1 = spanner.Slur()
         >>> su2 = layout.StaffGroup()

@@ -357,7 +357,7 @@ class RequestClassifierV2:
     ]
 
     IMPLEMENTATION_PATTERNS: ClassVar[list[str]] = [
-        r"\b(implement|add|create|build|write|develop)\s+(?:a\s+|the\s+|new\s+)?(?:\w+\s+)*(?:feature|function|class|module|component|api|endpoint|service|test|model|handler|controller|view|schema)\b",
+        r"\b(implement|add|create|build|write|develop|make|generate|setup|set\s+up|code)\s+(?:a\s+|the\s+|new\s+)?(?:\w+\s+)*(?:feature|function|class|module|component|api|endpoint|service|test|model|handler|controller|view|schema|platform|app|application|website|site|dashboard|database|system|project|repo|repository|engine|script|config|manifest|game|file|files|code|program|tool|utility|backend|frontend)\b",
         r"\bcode\s+(?:a\s+|the\s+)?(?:solution|feature|fix)\b",
         r"\b(refactor|restructure|reorganize|rewrite)\s+\w+\b",
         r"\b(update|modify|change|edit|patch)\s+(?:the\s+)?(?:code|file|function|class)\b",
@@ -439,10 +439,33 @@ class RequestClassifierV2:
                 f"Detected quantity: {quantity_result.quantity} ({quantity_result.detection_method})"
             )
 
-        # Item 26: Check for negation (forces read-only)
+        # Check for negation (forces read-only)
         has_negation = any(p.search(request) for p in self._negation_re)
         if has_negation:
             reasons.append("Explicit negation detected: forcing read-only")
+
+        # Explicit implementation override check
+        request_lower = request.lower()
+        is_explicit_impl = (
+            re.search(r"\b(build|implement|create|write|develop|make|generate|setup|set\s+up|code|add|fix|refactor)\s+(?:this|it|them|the|an?|our)\b", request_lower) is not None
+            or re.search(r"\b(build|implement|create|develop|write|make|generate|setup|set\s+up|code|add|fix|refactor)\s+(?:\w+\s+)*(?:platform|app|application|website|site|dashboard|database|system|project|repo|repository|engine|script|config|manifest|game|file|files|code|program|tool|utility|backend|frontend|service|api|endpoint|test|tests)\b", request_lower) is not None
+            or re.search(r"\bin\s+it'?s\s+entiret(y|ies)\b", request_lower) is not None
+        )
+
+        if is_explicit_impl and not has_negation:
+            reasons.append("Explicit implementation command override matched")
+            is_fix_all = "entirety" in request_lower or "all" in request_lower or (quantity_result.quantity is not None)
+            return ClassifiedRequestV2(
+                original_request=request,
+                request_type=RequestTypeV2.FIX_ALL if is_fix_all else RequestTypeV2.IMPLEMENTATION,
+                output_format=OutputFormatV2.MIXED if is_fix_all else OutputFormatV2.CODE_FILES,
+                pipeline_type=PipelineTypeV2.MULTI_STEP if is_fix_all else PipelineTypeV2.IMPLEMENTATION,
+                quantity_result=quantity_result,
+                classification_reasons=reasons,
+                read_only=False,
+                files_mentioned=files_mentioned,
+                requires_tdd=True
+            )
 
         # Calculate type scores
         list_score = sum(1 for p in self._list_re if p.search(request))

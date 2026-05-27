@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use polars_core::frame::DataFrame;
 use polars_core::prelude::{Column, GroupPositions};
-use polars_core::runtime::ASYNC;
 use polars_error::{PolarsResult, polars_bail};
 use polars_expr::prelude::{AggregationContext, ExecutionState, PhysicalExpr};
 
@@ -27,7 +26,7 @@ impl StreamExpr {
             let state = state.clone();
             let phys_expr = self.inner.clone();
             let df = df.clone();
-            ASYNC
+            polars_io::pl_async::get_runtime()
                 .spawn_blocking(move || phys_expr.evaluate(&df, &state))
                 .await
                 .unwrap()
@@ -79,7 +78,7 @@ impl StreamExpr {
             let groups = <GroupPositions as Clone>::clone(groups);
             let phys_expr = self.inner.clone();
             let df = df.clone();
-            ASYNC
+            polars_io::pl_async::get_runtime()
                 .spawn_blocking(move || {
                     Ok(phys_expr
                         .evaluate_on_groups(&df, &groups, &state)?

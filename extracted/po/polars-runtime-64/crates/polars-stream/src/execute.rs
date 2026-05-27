@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use crossbeam_channel::Sender;
 use parking_lot::Mutex;
-use polars_async::executor;
+use polars_core::POOL;
 use polars_core::frame::DataFrame;
-use polars_core::runtime::{ASYNC, RAYON};
 use polars_error::PolarsResult;
 use polars_expr::state::ExecutionState;
 use polars_utils::aliases::PlHashSet;
@@ -13,6 +12,7 @@ use polars_utils::reuse_vec::reuse_vec;
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 use tokio::task::JoinHandle;
 
+use crate::async_executor;
 use crate::graph::{Graph, GraphNode, GraphNodeKey, LogicalPipeKey, PortState};
 use crate::metrics::{GraphMetrics, NodeMetricsRegistrator};
 use crate::pipe::PhysicalPipe;
@@ -33,7 +33,9 @@ impl StreamingExecutionState {
     /// Spawns a task which is awaited at the end of the query.
     #[allow(unused)]
     pub fn spawn_query_task<F: Future<Output = PolarsResult<()>> + Send + 'static>(&self, fut: F) {
-        self.query_tasks_send.send(ASYNC.spawn(fut)).unwrap();
+        self.query_tasks_send
+            .send(polars_io::pl_async::get_runtime().spawn(fut))
+            .unwrap();
     }
 
     /// Spawns a task which is awaited at the end of the current subphase. That is
@@ -44,7 +46,9 @@ impl StreamingExecutionState {
         &self,
         fut: F,
     ) {
-        self.subphase_tasks_send.send(ASYNC.spawn(fut)).unwrap();
+        self.subphase_tasks_send
+            .send(polars_io::pl_async::get_runtime().spawn(fut))
+            .unwrap();
     }
 }
 
@@ -183,7 +187,7 @@ fn run_subgraph(
         }
     }
 
-    executor::task_scope(|scope| {
+    async_executor::task_scope(|scope| {
         // Using SlotMap::iter_mut we can get simultaneous mutable references. By storing them and
         // removing the references from the secondary map as we do our topological sort we ensure
         // they are unique.
@@ -287,7 +291,7 @@ fn run_subgraph(
         }
 
         // Wait until all tasks are done.
-        ASYNC.block_on(async move {
+        polars_io::pl_async::get_runtime().block_on(async move {
             for handle in join_handles {
                 handle.await?;
             }
@@ -303,8 +307,8 @@ pub fn execute_graph(
     metrics: Option<Arc<Mutex<GraphMetrics>>>,
 ) -> PolarsResult<SparseSecondaryMap<GraphNodeKey, DataFrame>> {
     // Get the number of threads from the rayon thread-pool as that respects our config.
-    let num_pipelines = RAYON.current_num_threads();
-    executor::set_num_threads(num_pipelines);
+    let num_pipelines = POOL.current_num_threads();
+    async_executor::set_num_threads(num_pipelines);
 
     let (query_tasks_send, query_tasks_recv) = crossbeam_channel::unbounded();
     let (subphase_tasks_send, subphase_tasks_recv) = crossbeam_channel::unbounded();
@@ -340,7 +344,7 @@ pub fn execute_graph(
             m.lock().flush(&graph.pipes);
         }
 
-        ASYNC.block_on(async {
+        polars_io::pl_async::get_runtime().block_on(async {
             // TODO: track this in metrics.
             while let Ok(handle) = subphase_tasks_recv.try_recv() {
                 handle.await.unwrap()?;
@@ -372,7 +376,7 @@ pub fn execute_graph(
             &state,
             metrics.clone(),
         )?;
-        ASYNC.block_on(async {
+        polars_io::pl_async::get_runtime().block_on(async {
             // TODO: track this in metrics.
             while let Ok(handle) = subphase_tasks_recv.try_recv() {
                 handle.await.unwrap()?;
@@ -390,7 +394,7 @@ pub fn execute_graph(
     }
 
     // Finalize query tasks.
-    ASYNC.block_on(async {
+    polars_io::pl_async::get_runtime().block_on(async {
         // TODO: track this in metrics.
         while let Ok(handle) = query_tasks_recv.try_recv() {
             handle.await.unwrap()?;

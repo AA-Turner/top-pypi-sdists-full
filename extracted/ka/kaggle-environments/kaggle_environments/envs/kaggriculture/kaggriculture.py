@@ -82,7 +82,7 @@ LAND_PRICES = [1000, 2000, 4000]
 
 # n-th hire of the day -> cost = FARM_HAND_COST_MULT * fib(n), where
 # fib starts 1, 1, 2, 3, 5, 8, 13, ... Configurable via `farmHandCostMult`.
-FARM_HAND_COST_MULT = 10
+FARM_HAND_COST_MULT = 1
 
 SHOPS = {
     "BAKERY":         ["EGG", "WHEAT"],
@@ -244,7 +244,7 @@ def _initialize(state, env):
     env.info["seed"] = seed
 
     board_size = int(get(configuration, "boardSize", 10))
-    starting_money = int(get(configuration, "startingMoney", 150))
+    starting_money = int(get(configuration, "startingMoney", 3000))
 
     farms = [_new_farm(board_size, starting_money) for _ in range(num_agents)]
     privates = [_new_private() for _ in range(num_agents)]
@@ -330,6 +330,21 @@ def _apply_unit_action(farm, private, idx, action, board_size, day, turns_per_da
 
     tile = farm["tiles"][fy][fx]
     if tile == "LOCKED":
+        return
+
+    if op == "DROP":
+        if not _is_shed_adjacent((fx, fy), board_size):
+            return
+        shed = private["shed"]
+        for item, n in list(inv.items()):
+            if n <= 0:
+                del inv[item]
+                continue
+            room = max(0, shed_capacity - sum(shed.values()))
+            take = min(n, room)
+            if take > 0:
+                shed[item] = shed.get(item, 0) + take
+            del inv[item]
         return
 
     if op == "PICKUP":
@@ -562,10 +577,12 @@ def _process_market(state, env):
                     continue
                 op = ostate["type"]
                 item = ostate["item"]
-                if op == "SELL" and item in PRODUCTS and item != "FERTILIZER":
+                if op == "SELL" and item in PRODUCTS:
                     quoted[player_id] = ("SELL", item, market_price(item, market["inventory"][item], market.get("params")), ostate)
-                elif op == "BUY_PRODUCT" and item in PRODUCTS:
-                    quoted[player_id] = ("BUY_PRODUCT", item, market_price(item, market["inventory"][item], market.get("params")), ostate)
+                elif op == "BUY_PRODUCT" and item in ("WHEAT", "FERTILIZER"):
+                    # Quote at post-buy inventory so a buy/sell round-trip
+                    # against an unchanged market nets zero.
+                    quoted[player_id] = ("BUY_PRODUCT", item, market_price(item, market["inventory"][item] - 1, market.get("params")), ostate)
                 elif op == "BUY_SEED" and item in CROPS:
                     quoted[player_id] = ("BUY_SEED", item, CROPS[item]["seed"], ostate)
                 elif op == "BUY_ANIMAL" and item in ANIMALS:
@@ -691,8 +708,8 @@ def _town_consume(env, state, step):
     market = obs0.market
     town = obs0.town
     cfg = env.configuration
-    shop_interval = max(1, int(get(cfg, "townShopSellInterval", 2)))
-    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 6)))
+    shop_interval = max(1, int(get(cfg, "townShopSellInterval", 4)))
+    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 12)))
     turns_per_day = max(1, int(get(cfg, "turnsPerDay", 24)))
     day = step // turns_per_day
 

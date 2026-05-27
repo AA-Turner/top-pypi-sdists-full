@@ -533,7 +533,7 @@ def run(
                         models = pd.read_sql(
                             f'SELECT DISTINCT Model FROM "{country}_{crop}" '
                             f'WHERE "Experiment Name"="outlook" '
-                            f'AND Model NOT IN ("null","trend") LIMIT 1',
+                            f'AND Model NOT IN ("null","trend","trend_all") LIMIT 1',
                             con,
                         )
                     else:

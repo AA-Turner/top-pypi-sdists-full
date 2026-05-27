@@ -119,7 +119,7 @@ fn test_projection_5086() -> PolarsResult<()> {
         .select([
             col("a"),
             col("b")
-                .gather("c", false)
+                .gather("c")
                 .cum_sum(false)
                 .over([col("a")])
                 .unwrap()

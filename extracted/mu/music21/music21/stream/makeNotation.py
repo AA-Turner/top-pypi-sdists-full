@@ -87,7 +87,6 @@ def makeBeams(
     2 <music21.beam.Beams <music21.beam.Beam 1/continue>/<music21.beam.Beam 2/start>>
     3 <music21.beam.Beams <music21.beam.Beam 1/stop>/<music21.beam.Beam 2/stop>>
 
-
     This was formerly a bug -- we could not have a partial-left beam at the start of a
     beam group.  Now merges across the archetypeSpan
 
@@ -403,9 +402,8 @@ def makeMeasures(
     >>> [allNotes[0].lyric, allNotes[1].lyric, allNotes[2].lyric]
     ['hi', None, None]
 
-    * Changed in v6: all but first attribute are keyword only
-
-    * Changed in v7: now safe to call `makeMeasures` directly on a score containing parts
+    * Changed in v6: all but first attribute are keyword only.
+    * Changed in v7: now safe to call `makeMeasures` directly on a score containing parts.
     '''
     from music21 import spanner
     from music21 import stream
@@ -830,11 +828,11 @@ def makeRests(
         {1.0 - 4.0} <music21.note.Rest dotted-half>
         {4.0 - 4.0} <music21.bar.Barline type=final>
 
-    * Changed in v6: all but first attribute are keyword only
+    * Changed in v6: all but first attribute are keyword only.
     * Changed in v7:
-      - `inPlace` defaults False
-      - Recurses into parts, measures, voices
-      - Gave priority to `timeRangeFromBarDuration` over `refStreamOrTimeRange`
+      - `inPlace` defaults False.
+      - Recurses into parts, measures, voices.
+      - Gave priority to `timeRangeFromBarDuration` over `refStreamOrTimeRange`.
     * Changed in v8: scores (or other streams having parts) edited `inPlace` return `None`.
     '''
     from music21 import stream
@@ -878,6 +876,7 @@ def makeRests(
         if m is not None:
             post -= m.paddingLeft
             post -= m.paddingRight
+            post = opFrac(post)
         return max(post, 0.0)
 
     oLowTarget: OffsetQL = 0.0
@@ -896,9 +895,9 @@ def makeRests(
         elif returnObj.hasMeasures():
             # This could be optimized to save some context searches,
             # but at the cost of readability.
-            oHighTarget = sum(
+            oHighTarget = opFrac(sum(
                 m.barDuration.quarterLength for m in returnObj.getElementsByClass(stream.Measure)
-            )
+            ))
 
     # If the above search didn't run or still yielded 0.0, use refStreamOrTimeRange
     if oHighTarget == 0.0:
@@ -1085,9 +1084,9 @@ def makeTies(
     what to split.
 
     * Changed in v4: inPlace = False by default.
-    * Changed in v6: all but first attribute are keyword only
+    * Changed in v6: all but first attribute are keyword only.
     * New in v7: `classFilterList` acts as a filter on what elements will
-      be operated on (i.e. have durations split and/or ties made.)
+      be operated on (i.e. have durations split and/or ties made).
       The default `(note.GeneralNote,)` includes Notes, Chords, and Rests.
 
     Here will we split and make ties only on Notes, leaving the too-long
@@ -1391,7 +1390,7 @@ def makeTupletBrackets(s: StreamType, *, inPlace=False) -> StreamType|None:
 
     TODO: does not handle nested tuplets
 
-    * Changed in v1.8: `inPlace` is False by default
+    * Changed in v1.8: `inPlace` is False by default.
     * Changed in v7: Legacy behavior of taking in a list of durations removed.
     '''
     durationList: list[duration.Duration] = []

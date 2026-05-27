@@ -2,17 +2,14 @@ use std::sync::Arc;
 
 use arrow::datatypes::ArrowSchemaRef;
 use async_trait::async_trait;
-use polars_async::executor::{self};
-use polars_async::primitives::wait_group::{WaitGroup, WaitToken};
 use polars_core::prelude::ArrowSchema;
-use polars_core::runtime::ASYNC;
 use polars_core::schema::{Schema, SchemaExt, SchemaRef};
 use polars_error::{PolarsResult, polars_err};
-use polars_io::RowIndex;
 use polars_io::cloud::CloudOptions;
 use polars_io::predicates::ScanIOPredicate;
 use polars_io::prelude::{FileMetadata, ParquetOptions};
 use polars_io::utils::byte_source::{BufferByteSource, DynByteSource, DynByteSourceBuilder};
+use polars_io::{RowIndex, pl_async};
 use polars_parquet::read::schema::infer_schema_with_options;
 use polars_plan::dsl::ScanSource;
 use polars_utils::IdxSize;
@@ -23,6 +20,8 @@ use super::multi_scan::reader_interface::output::{FileReaderOutputRecv, FileRead
 use super::multi_scan::reader_interface::{
     BeginReadArgs, FileReader, FileReaderCallbacks, calc_row_position_after_slice,
 };
+use crate::async_executor::{self};
+use crate::async_primitives::wait_group::{WaitGroup, WaitToken};
 use crate::metrics::OptIOMetrics;
 use crate::morsel::SourceToken;
 use crate::nodes::compute_node_prelude::*;
@@ -88,7 +87,7 @@ impl FileReader for ParquetFileReader {
         let cloud_options = self.cloud_options.clone();
         let io_metrics = self.io_metrics.clone();
 
-        let byte_source = ASYNC
+        let byte_source = pl_async::get_runtime()
             .spawn(async move {
                 scan_source
                     .as_scan_source_ref()
@@ -110,7 +109,7 @@ impl FileReader for ParquetFileReader {
             let (metadata_bytes, opt_full_bytes) = {
                 let byte_source = byte_source.clone();
 
-                ASYNC
+                pl_async::get_runtime()
                     .spawn(async move {
                         metadata_utils::read_parquet_metadata_bytes(&byte_source, verbose).await
                     })
@@ -123,7 +122,8 @@ impl FileReader for ParquetFileReader {
             }
 
             Arc::new(polars_parquet::parquet::read::deserialize_metadata(
-                metadata_bytes,
+                metadata_bytes.as_ref(),
+                metadata_bytes.len() * 2 + 1024,
             )?)
         };
 
@@ -179,7 +179,6 @@ impl FileReader for ParquetFileReader {
             cast_columns_policy: _,
             num_pipelines: _,
             disable_morsel_split: true,
-            last_morsel_pipelines: _,
             callbacks:
                 FileReaderCallbacks {
                     file_schema_tx: _,
@@ -208,7 +207,6 @@ impl FileReader for ParquetFileReader {
             cast_columns_policy,
             num_pipelines,
             disable_morsel_split,
-            last_morsel_pipelines,
             callbacks:
                 FileReaderCallbacks {
                     file_schema_tx,
@@ -255,7 +253,7 @@ impl FileReader for ParquetFileReader {
 
             return Ok((
                 rx,
-                executor::spawn(TaskPriority::Low, std::future::ready(Ok(()))),
+                async_executor::spawn(TaskPriority::Low, std::future::ready(Ok(()))),
             ));
         }
 
@@ -292,7 +290,7 @@ impl FileReader for ParquetFileReader {
         if let Some(single_morsel_height) = single_morsel_height {
             let (mut tx, rx) = FileReaderOutputSend::new_serial();
 
-            let handle = executor::spawn(TaskPriority::Low, async move {
+            let handle = async_executor::spawn(TaskPriority::Low, async move {
                 let _ = tx
                     .send_morsel(Morsel::new(
                         DataFrame::empty_with_height(single_morsel_height),
@@ -339,7 +337,6 @@ impl FileReader for ParquetFileReader {
                 num_pipelines,
                 row_group_prefetch_size,
                 target_values_per_thread,
-                last_morsel_pipelines,
             },
             verbose,
             memory_prefetch_func,
@@ -357,7 +354,7 @@ impl FileReader for ParquetFileReader {
 
         Ok((
             output_recv,
-            executor::spawn(TaskPriority::Low, async move { handle.await.unwrap() }),
+            async_executor::spawn(TaskPriority::Low, async move { handle.await.unwrap() }),
         ))
     }
 
@@ -451,9 +448,6 @@ struct Config {
     /// Minimum number of values for a parallel spawned task to process to amortize
     /// parallelism overhead.
     target_values_per_thread: usize,
-    /// Minimum number of pieces to split this file's last morsel into. Precomputed by the
-    /// multi-scan layer to share the parallelism budget across files.
-    last_morsel_pipelines: usize,
 }
 
 impl ParquetReadImpl {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandas_market_calendars
-Version: 5.3.2
+Version: 5.4.0
 Summary: Market and exchange trading calendars for pandas
 Author-email: Ryan Sheftel <rsheftel@alumni.upenn.edu>
 License: MIT
@@ -58,6 +58,13 @@ when the markets are open. Additionally the package contains product specific ca
 have different market open, closes, breaks and holidays based on product type.
 
 This package provides access to over 50+ unique exchange calendars for global equity and futures markets.
+
+Calendar Data and Updates
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Calendars and their rules are shipped as package code. pandas_market_calendars does not request market hours from a
+server at runtime. To receive corrected or updated market hours, install a newer package release or update the source
+code. Calendars mirrored from ``exchange_calendars`` likewise use the version installed in the local Python environment,
+not a live data feed.
 
 This package is a fork of the Zipline package from Quantopian and extracts just the relevant parts. All credit for
 their excellent work to Quantopian.

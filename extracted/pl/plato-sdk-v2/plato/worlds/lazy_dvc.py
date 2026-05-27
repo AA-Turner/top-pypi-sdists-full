@@ -195,7 +195,7 @@ async def unmount_lazy(mount: LazyDVCMount) -> None:
     if mount.worker_proc:
         try:
             await asyncio.wait_for(mount.worker_proc.wait(), timeout=10)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             mount.worker_proc.kill()
             await mount.worker_proc.wait()
     if mount.worker_log_tasks:

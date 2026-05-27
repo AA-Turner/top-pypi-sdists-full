@@ -1,6 +1,6 @@
 [package]
 name = "aerospike-py-native"
-version = "0.11.1"
+version = "0.12.0"
 edition = "2021"
 license = "Apache-2.0"
 # MSRV: 1.80 reflects what the codebase already requires — clippy
@@ -51,3 +51,11 @@ otel = [
     "dep:opentelemetry_sdk",
     "dep:opentelemetry-otlp",
 ]
+
+# Profiling: keep line-number debug info in release builds so Tachyon `--native`
+# can resolve Rust function names (record_to_py_inner / value_to_py / key_to_py
+# instead of opaque <native>). Adds ~5% to wheel size; perf impact negligible.
+[profile.release]
+debug = 2
+strip = "none"
+split-debuginfo = "off"

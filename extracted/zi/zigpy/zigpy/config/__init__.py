@@ -17,7 +17,6 @@ from zigpy.config.defaults import (
     CONF_NWK_EXTENDED_PAN_ID_DEFAULT,
     CONF_NWK_KEY_DEFAULT,
     CONF_NWK_KEY_SEQ_DEFAULT,
-    CONF_NWK_MAX_RETRIES_DEFAULT,
     CONF_NWK_PAN_ID_DEFAULT,
     CONF_NWK_TC_ADDRESS_DEFAULT,
     CONF_NWK_TC_LINK_KEY_DEFAULT,
@@ -68,7 +67,6 @@ CONF_NWK_EXTENDED_PAN_ID = "extended_pan_id"
 CONF_NWK_PAN_ID = "pan_id"
 CONF_NWK_KEY = "key"
 CONF_NWK_KEY_SEQ = "key_sequence_number"
-CONF_NWK_MAX_RETRIES = "max_retries"
 CONF_NWK_TC_ADDRESS = "tc_address"
 CONF_NWK_TC_LINK_KEY = "tc_link_key"
 CONF_NWK_TX_POWER = "tx_power"
@@ -292,10 +290,7 @@ SCHEMA_OTA_DEPRECATED = {
         ),
     ),
     vol.Optional(CONF_OTA_INOVELLI): vol.All(
-        cv_deprecated(
-            "The `inovelli_provider` key is deprecated, migrate your configuration"
-            " to the `extra_providers` list instead: `extra_providers: [{'type': 'inovelli'}]`"
-        ),
+        cv_deprecated("The `inovelli_provider` key is deprecated"),
         vol.Any(
             cv_boolean,
             vol.Url(),
@@ -332,10 +327,7 @@ SCHEMA_OTA_DEPRECATED = {
         ),
     ),
     vol.Optional(CONF_OTA_THIRDREALITY): vol.All(
-        cv_deprecated(
-            "The `thirdreality_provider` key is deprecated, migrate your configuration"
-            " to the `extra_providers` list instead: `extra_providers: [{'type': 'thirdreality'}]`"
-        ),
+        cv_deprecated("The `thirdreality_provider` key is deprecated"),
         vol.Any(
             cv_boolean,
             vol.Url(),
@@ -446,9 +438,6 @@ ZIGPY_SCHEMA = vol.Schema(
         vol.Optional(
             CONF_NWK_VALIDATE_SETTINGS, default=CONF_NWK_VALIDATE_SETTINGS_DEFAULT
         ): cv_boolean,
-        vol.Optional(
-            CONF_NWK_MAX_RETRIES, default=CONF_NWK_MAX_RETRIES_DEFAULT
-        ): vol.All(int, vol.Range(min=0)),
         vol.Optional(CONF_ADDITIONAL_ENDPOINTS, default=[]): [cv_simple_descriptor],
         vol.Optional(
             CONF_MAX_CONCURRENT_REQUESTS, default=CONF_MAX_CONCURRENT_REQUESTS_DEFAULT

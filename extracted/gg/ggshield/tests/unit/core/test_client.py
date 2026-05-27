@@ -7,9 +7,16 @@ import pytest
 import requests.exceptions
 from pyfakefs.fake_filesystem import FakeFilesystem
 from pygitguardian import GGClient
-from pygitguardian.models import APITokensResponse, Detail, TokenScope
+from pygitguardian.models import (
+    APITokensResponse,
+    Detail,
+    RemediationMessages,
+    SecretScanPreferences,
+    TokenScope,
+)
 
 from ggshield.core.client import (
+    RetryProfile,
     check_client_api_key,
     create_client_from_config,
     create_session,
@@ -24,12 +31,26 @@ from ggshield.core.errors import (
 )
 
 
+def _make_client_mock() -> Mock:
+    client_mock = Mock(spec=GGClient)
+    client_mock.base_uri = "http://localhost"
+    client_mock.api_key = "test-api-key"
+    client_mock.secrets_engine_version = "2.0.0"
+    client_mock.maximum_payload_size = 1_000_000
+    client_mock.secret_scan_preferences = SecretScanPreferences()
+    client_mock.remediation_messages = RemediationMessages()
+    return client_mock
+
+
 @pytest.mark.parametrize(
     ("response", "error_class"),
     (
         (Detail("Guru Meditation", 500), ServiceUnavailableError),
         (Detail("Nobody here", 404), UnexpectedError),
         (Detail("Unauthorized", 401), APIKeyCheckError),
+        # Catch-all branch for status codes we have no specific handling for
+        # (e.g. an unexpected 418 from a misconfigured reverse proxy).
+        (Detail("I'm a teapot", 418), UnexpectedError),
     ),
 )
 def test_check_client_api_key_error(response: Detail, error_class: Type[Exception]):
@@ -38,8 +59,7 @@ def test_check_client_api_key_error(response: Detail, error_class: Type[Exceptio
     WHEN check_client_api_key() is called
     THEN it raises the appropriate exception
     """
-    client_mock = Mock(spec=GGClient)
-    client_mock.base_uri = "http://localhost"
+    client_mock = _make_client_mock()
     client_mock.read_metadata.return_value = response
     with pytest.raises(error_class):
         check_client_api_key(client_mock, set())
@@ -51,8 +71,7 @@ def test_check_client_api_key_network_error():
     WHEN check_client_api_key() is called
     THEN it raises a ServiceUnavailableError
     """
-    client_mock = Mock(spec=GGClient)
-    client_mock.base_uri = "http://localhost"
+    client_mock = _make_client_mock()
     client_mock.read_metadata = Mock(
         side_effect=requests.exceptions.ConnectionError("Connection refused")
     )
@@ -66,8 +85,7 @@ def test_check_client_api_key_with_source_uuid_success():
     WHEN check_client_api_key() is called with scope scan:create-incidents
     THEN it succeeds without raising any exception
     """
-    client_mock = Mock(spec=GGClient)
-    client_mock.base_uri = "http://localhost"
+    client_mock = _make_client_mock()
     client_mock.read_metadata.return_value = None  # Success
     client_mock.api_tokens.return_value = APITokensResponse.from_dict(
         {
@@ -91,8 +109,7 @@ def test_check_client_api_key_with_source_uuid_missing_scope():
     WHEN check_client_api_key() is called with scope scan:create-incidents
     THEN it raises MissingScopesError
     """
-    client_mock = Mock(spec=GGClient)
-    client_mock.base_uri = "http://localhost"
+    client_mock = _make_client_mock()
     client_mock.read_metadata.return_value = None  # Success
     client_mock.api_tokens.return_value = APITokensResponse.from_dict(
         {
@@ -121,8 +138,7 @@ def test_check_client_api_key_with_source_uuid_api_tokens_error():
     WHEN check_client_api_key() is called with scope scan:create-incidents
     THEN it raises UnexpectedError
     """
-    client_mock = Mock(spec=GGClient)
-    client_mock.base_uri = "http://localhost"
+    client_mock = _make_client_mock()
     client_mock.read_metadata.return_value = None  # Success
     client_mock.api_tokens.return_value = Detail("API tokens error", 500)
 
@@ -136,8 +152,7 @@ def test_check_client_api_key_with_source_uuid_unexpected_response():
     WHEN check_client_api_key() is called with scope scan:create-incidents
     THEN it raises UnexpectedError
     """
-    client_mock = Mock(spec=GGClient)
-    client_mock.base_uri = "http://localhost"
+    client_mock = _make_client_mock()
     client_mock.read_metadata.return_value = None  # Success
     client_mock.api_tokens.return_value = "unexpected_response_type"
 
@@ -151,8 +166,7 @@ def test_check_client_api_key_without_source_uuid_no_token_check():
     WHEN check_client_api_key() is called without required scopes
     THEN it doesn't call api_tokens
     """
-    client_mock = Mock(spec=GGClient)
-    client_mock.base_uri = "http://localhost"
+    client_mock = _make_client_mock()
     client_mock.read_metadata.return_value = None  # Success
 
     check_client_api_key(client_mock, set())
@@ -167,8 +181,7 @@ def test_check_client_api_key_unknown_scope():
     WHEN check_client_api_key() is called with required scopes
     THEN it ignores unknown scopes and validates only the required ones
     """
-    client_mock = Mock(spec=GGClient)
-    client_mock.base_uri = "http://localhost"
+    client_mock = _make_client_mock()
     client_mock.read_metadata.return_value = None  # Success
     client_mock.api_tokens.return_value = APITokensResponse.from_dict(
         {
@@ -261,12 +274,11 @@ def test_create_session_pool_configuration():
     assert getattr(adapter, "_pool_maxsize", None) == 100
 
 
-def test_create_session_retry_configuration():
+def test_create_session_default_retry_profile():
     """
-    GIVEN create_session is called
+    GIVEN create_session is called without retry_profile
     WHEN the session is created
-    THEN the HTTPAdapter retries transient connection errors and 5xx responses,
-    including for POST requests used by scan endpoints
+    THEN the HTTPAdapter uses the DEFAULT retry profile (~15s budget)
     """
     session = create_session()
 
@@ -274,9 +286,74 @@ def test_create_session_retry_configuration():
     retries = adapter.max_retries
 
     assert retries.total == 5
-    assert retries.backoff_factor == 0.2
+    assert retries.backoff_factor == 0.5
+    assert retries.backoff_max == 8
+    assert retries.backoff_jitter == 0.5
     assert set(retries.status_forcelist) == {502, 503, 504}
     assert "POST" in retries.allowed_methods
+
+
+def test_create_session_pre_receive_retry_profile():
+    """
+    GIVEN create_session is called with PRE_RECEIVE profile
+    WHEN the session is created
+    THEN the HTTPAdapter uses a minimal retry policy that fits inside GitHub
+    Enterprise Server's 5s pre-receive hook timeout: one immediate retry, no
+    backoff
+    """
+    session = create_session(retry_profile=RetryProfile.PRE_RECEIVE)
+
+    adapter = session.get_adapter("https://example.com")
+    retries = adapter.max_retries
+
+    assert retries.total == 1
+    assert retries.backoff_factor == 0
+    assert retries.backoff_jitter == 0
+    assert set(retries.status_forcelist) == {502, 503, 504}
+    assert "POST" in retries.allowed_methods
+
+
+def test_create_client_threads_retry_profile():
+    """
+    GIVEN create_client is called with a retry_profile
+    WHEN the underlying session is created
+    THEN the session's HTTPAdapter uses that profile
+
+    Tests the low-level entry point, which is what create_client_from_config
+    forwards to.
+    """
+    from ggshield.core.client import create_client
+
+    client = create_client(
+        api_key="test-api-key",
+        api_url="https://api.example.com",
+        retry_profile=RetryProfile.PRE_RECEIVE,
+    )
+
+    adapter = client.session.get_adapter("https://example.com")
+    assert adapter.max_retries.total == 1
+    assert adapter.max_retries.backoff_factor == 0
+
+
+def test_create_client_from_config_forwards_retry_profile():
+    """
+    GIVEN create_client_from_config is called with a retry_profile
+    WHEN it delegates to create_client
+    THEN it passes the retry_profile through unchanged
+    """
+    config = Mock(spec=Config)
+    config.api_key = "test-api-key"
+    config.api_url = "https://api.example.com"
+    config.user_config = Mock()
+    config.user_config.insecure = False
+
+    with patch("ggshield.core.client.create_client") as create_client_mock:
+        create_client_from_config(config, retry_profile=RetryProfile.PRE_RECEIVE)
+
+    create_client_mock.assert_called_once()
+    assert (
+        create_client_mock.call_args.kwargs["retry_profile"] is RetryProfile.PRE_RECEIVE
+    )
 
 
 @pytest.mark.parametrize("allow_self_signed", [True, False])

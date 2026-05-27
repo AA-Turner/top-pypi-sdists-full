@@ -5849,6 +5849,21 @@ def show_agent_connector_dynamic_stats(
     connectors.show_agent_connector_dynamic_stats(ctx, connector_id, **kwargs)
 
 
+@cli.command(name="show-agent-connector-logs")
+@click.argument("connector-id")
+@click.option("--org-id", default=None)
+@click.option("--collected-since", type=click.DateTime(), default=None)
+@click.option("--watch", type=bool, is_flag=True, default=False)
+@click.option("--watch-period-seconds", type=int, default=10)
+@click.pass_context
+def show_agent_connector_logs(
+    ctx,
+    connector_id,
+    **kwargs,
+):
+    connectors.show_agent_connector_logs(ctx, connector_id, **kwargs)
+
+
 @cli.command(name="list-connector-dynamic-stats")
 @click.option("--connector-id", required=True, multiple=True)
 @click.option("--org-id", default=None)

@@ -322,7 +322,7 @@ async def _open_ssh_tunnel(
     proc.terminate()
     try:
         await asyncio.wait_for(proc.wait(), timeout=3)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
     raise RuntimeError(f"SSH -L tunnel to localhost:{local_port} never bound within {_TUNNEL_READY_TIMEOUT_S}s")
@@ -388,7 +388,7 @@ async def _terminate_tunnel(proc: asyncio.subprocess.Process) -> None:
     proc.terminate()
     try:
         await asyncio.wait_for(proc.wait(), timeout=5)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
 

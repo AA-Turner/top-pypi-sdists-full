@@ -1,4 +1,4 @@
-# Copyright (C) 2019-2025 Analog Devices, Inc.
+# Copyright (C) 2019-2026 Analog Devices, Inc.
 #
 # SPDX short identifier: ADIBSD
 
@@ -6,6 +6,7 @@ from adi.ad2s1210 import ad2s1210
 from adi.ad353xr import ad353xr
 from adi.ad405x import ad405x
 from adi.ad469x import ad469x
+from adi.ad514x import ad514x
 from adi.ad579x import ad579x
 from adi.ad717x import ad717x
 from adi.ad719x import ad719x
@@ -24,6 +25,8 @@ from adi.ad4630 import ad4630, adaq42xx
 from adi.ad4858 import ad4858
 from adi.ad5592r import ad5592r
 from adi.ad5686 import ad5686
+from adi.ad5706r import ad5706r
+from adi.ad5710r import ad5710r
 from adi.ad5754r import ad5754r
 from adi.ad5940 import ad5940
 from adi.ad6676 import ad6676
@@ -31,6 +34,7 @@ from adi.ad7091rx import ad7091rx
 from adi.ad7124 import ad7124
 from adi.ad7134 import ad7134
 from adi.ad7291 import ad7291
+from adi.ad7405 import ad7405
 from adi.ad7490 import ad7490
 from adi.ad7606 import ad7606
 from adi.ad7689 import ad7689
@@ -57,6 +61,7 @@ from adi.ad9467 import ad9467
 from adi.ad9625 import ad9625
 from adi.ad9680 import ad9680
 from adi.ada4355 import ada4355
+from adi.ada4356_lidar import ada4356_lidar
 from adi.ada4961 import ada4961
 from adi.adaq8092 import adaq8092
 from adi.adar1000 import adar1000, adar1000_array
@@ -86,6 +91,7 @@ from adi.adis16507 import adis16507
 from adi.adis16550 import adis16550
 from adi.adl5240 import adl5240
 from adi.adl5960 import adl5960
+from adi.adl8113 import adl8113
 from adi.admv8818 import admv8818
 from adi.adpd188 import adpd188
 from adi.adpd410x import adpd410x
@@ -145,5 +151,5 @@ try:
 except ImportError:
     pass
 
-__version__ = "0.0.20"
+__version__ = "0.0.21"
 name = "Analog Devices Hardware Interfaces"

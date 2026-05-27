@@ -65,7 +65,7 @@ def test_anndata_io():
 
 @pytest.mark.parametrize("adata_format", ["h5ad", "zarr"])
 def test_backed_access(adata_format):
-    fp = ln.examples.datasets.anndata_file_pbmc68k_test()
+    fp = ln.UPath(ln.examples.datasets.anndata_file_pbmc68k_test())
     if adata_format == "zarr":
         adata = load_h5ad(fp)
 
@@ -215,6 +215,14 @@ def test_write_to_disk():
     with pytest.raises(NotImplementedError):
         write_to_disk(ln.Artifact, "path")
 
+    df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
+    write_to_disk(df, "write_to_disk.csv")
+
+    file_on_disk = Path("write_to_disk.csv")
+    assert file_on_disk.exists()
+
+    file_on_disk.unlink()
+
 
 def test_backed_bad_format(bad_adata_path):
     access = backed_access(bad_adata_path, using_key=None)
@@ -288,6 +296,20 @@ def test_from_lazy():
 
     access = artifact.open()
     assert access.storage["test"][...] == "test"
+
+    artifact.delete(permanent=True, storage=True)
+
+
+def test_zarr_open_mode_overwrite_versions_false():
+    lazy = ln.Artifact.from_lazy(
+        suffix=".zarr", overwrite_versions=False, key="mydata_overwrite_false.zarr"
+    )
+    store = zarr.open(lazy.path, mode="w")
+    store["test"] = np.array(["test"])
+    artifact = lazy.save()
+
+    with pytest.raises(ValueError, match="overwrite_versions=False"):
+        artifact.open(mode="r+")
 
     artifact.delete(permanent=True, storage=True)
 
@@ -399,6 +421,7 @@ def test_open_dataframe_collection():
     df[:2].to_parquet(shard1, engine="pyarrow")
     df[2:].to_parquet(shard2, engine="pyarrow")
     # test checking and opening local paths
+    assert _flat_suffixes(shard1) == {".parquet"}
     assert _flat_suffixes([shard1, ln.UPath("some.csv")]) == {".parquet", ".csv"}
     assert _open_pyarrow_dataset([shard1, shard2]).to_table().to_pandas().equals(df)
 

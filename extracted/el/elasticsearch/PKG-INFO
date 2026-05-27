@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elasticsearch
-Version: 9.4.0
+Version: 9.4.1
 Summary: Python client for Elasticsearch
 Project-URL: Documentation, https://elasticsearch-py.readthedocs.io/
 Project-URL: Homepage, https://github.com/elastic/elasticsearch-py
@@ -27,7 +27,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
 Requires-Dist: anyio
-Requires-Dist: elastic-transport<10,>=9.2.0
+Requires-Dist: elastic-transport<10,>=9.4.1
 Requires-Dist: python-dateutil
 Requires-Dist: sniffio
 Requires-Dist: typing-extensions

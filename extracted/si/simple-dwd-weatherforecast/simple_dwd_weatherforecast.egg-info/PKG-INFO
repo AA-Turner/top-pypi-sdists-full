@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simple_dwd_weatherforecast
-Version: 3.4.4
+Version: 3.4.5
 Summary: A simple tool to retrieve a weather forecast from DWD OpenData
 Home-page: https://github.com/FL550/simple_dwd_weatherforecast.git
 Author: Max Fermor
@@ -202,6 +202,9 @@ class Weather:
     # Override coordinates to any German location
     get_radar_precipitation_forecast(lat=52.52, lon=13.41)
 ```
+
+Radar precipitation values include a built-in local noise suppression that filters
+small isolated echoes.
 
 #### Home Assistant style capability check
 

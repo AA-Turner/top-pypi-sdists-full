@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloakbrowser
-Version: 0.3.30
+Version: 0.3.31
 Summary: Stealth Chromium that passes every bot detection test. Drop-in Playwright replacement with source-level fingerprint patches.
 Project-URL: Homepage, https://github.com/CloakHQ/CloakBrowser
 Project-URL: Documentation, https://github.com/CloakHQ/CloakBrowser#readme
@@ -99,7 +99,7 @@ from cloakbrowser import launch
 
 browser = launch()
 page = browser.new_page()
-page.goto("https://protected-site.com")  # no more blocks
+page.goto("https://example.com")
 browser.close()
 ```
 
@@ -109,11 +109,33 @@ import { launch } from 'cloakbrowser';
 
 const browser = await launch();
 const page = await browser.newPage();
-await page.goto('https://protected-site.com');
+await page.goto('https://example.com');
 await browser.close();
 ```
 
 Also works with Puppeteer: `import { launch } from 'cloakbrowser/puppeteer'` ([details](#puppeteer))
+
+**For sites with anti-bot protection**, add a residential proxy and these flags:
+
+```python
+browser = launch(
+    proxy="http://user:pass@residential-proxy:port",  # residential IP, not datacenter
+    geoip=True,       # match timezone + locale to proxy IP
+    headless=False,    # some sites detect headless even with C++ patches
+    humanize=True,     # human-like mouse, keyboard, scroll
+)
+```
+
+```javascript
+const browser = await launch({
+    proxy: 'http://user:pass@residential-proxy:port',
+    geoip: true,
+    headless: false,
+    humanize: true,
+});
+```
+
+See [Troubleshooting](#troubleshooting) for site-specific issues (FingerprintJS, Kasada, reCAPTCHA).
 
 ## Install
 
@@ -168,7 +190,7 @@ Open [http://localhost:8080](http://localhost:8080). Create a profile. Click **L
 
 ---
 
-## Latest: v0.3.30 (Chromium 146.0.7680.177.5)
+## Latest: v0.3.31 (Chromium 146.0.7680.177.5)
 
 - **58 fingerprint patches** — rendering consistency improvements across Linux and Windows, corrected GPU/display/graphics parameters to match stock Chrome 146 profiles
 - **Windows native GPU passthrough** — real hardware values pass through directly instead of being spoofed, matching real browser behavior
@@ -1026,6 +1048,51 @@ If you're still blocked after this, check the font setup below.
 
 ---
 
+### Detected by FingerprintJS?
+
+FingerprintJS (`demo.fingerprint.com/playground`) checks multiple signals. Each detection has a specific cause:
+
+| Detection | Cause | Fix |
+|-----------|-------|-----|
+| **`nodriver` / bad bot** | IP reputation or missing flags | Residential proxy + config below |
+| **Browser tampering** | Noise injection detected by ML | `--fingerprint-noise=false` |
+| **Virtual machine** | Screen dimensions don't match viewport | `--fingerprint-screen-width/height` matching viewport |
+| **Incognito** | Storage quota normalized to ~500MB | Expected tradeoff — see below |
+
+Config that passes FPJS (verified on v0.3.30, Linux + Windows):
+
+```python
+browser = launch(
+    headless=False,
+    proxy="http://user:pass@residential-proxy:port",
+    geoip=True,
+    args=[
+        "--fingerprint-noise=false",          # prevents tampering detection
+        "--fingerprint-screen-width=1920",    # match your viewport
+        "--fingerprint-screen-height=1080",
+    ],
+)
+```
+
+```javascript
+const browser = await launch({
+    headless: false,
+    proxy: 'http://user:pass@residential-proxy:port',
+    geoip: true,
+    args: [
+        '--fingerprint-noise=false',
+        '--fingerprint-screen-width=1920',
+        '--fingerprint-screen-height=1080',
+    ],
+});
+```
+
+For persistent contexts (`launch_persistent_context` / `launchPersistentContext`), also add `--fingerprint-storage-quota=500` to the args.
+
+**Storage quota tradeoff:** The binary normalizes storage quota to ~500MB to pass FPJS, but this makes the session look like incognito to other detection services (e.g. BrowserScan's `notPrivate` check, -10 points). Setting `--fingerprint-storage-quota=5000` passes incognito checks but may trigger FPJS. You can't satisfy both simultaneously — choose based on what your target site checks. See the [storage quota tradeoff table](#launch_persistent_context) for details.
+
+---
+
 ### Blocked on Kasada / Akamai sites despite correct config?
 
 On minimal Linux environments, missing font packages cause canvas emoji rendering to produce hashes that anti-bot systems don't recognize. This is the most common cause of blocks on aggressive sites after proxy, geoip, and headed mode are already set up correctly.
@@ -1242,7 +1309,7 @@ Issues and PRs welcome. If something isn't working, [open an issue](https://gith
 - [@evelaa123](https://github.com/evelaa123) — humanize behavior, persistent contexts, Windows fix
 - [@yahooguntu](https://github.com/yahooguntu) — persistent contexts
 - [@kitiho](https://github.com/kitiho) — null viewport fix
-- [@eofreternal](https://github.com/eofreternal) — humanConfig type fix, humanized method option types
+- [@eofreternal](https://github.com/eofreternal) — humanConfig type fix, humanized method option types, iframe pointer-events fix
 - [@manaskarra](https://github.com/manaskarra) — iframe scope fix for humanized frame actions, GeoIP timeout guard
 - [@Youhai020616](https://github.com/Youhai020616) — SOCKS5 credential encoding logging
 - [@AlexTech314](https://github.com/AlexTech314) — AWS Lambda integration, cold-start hardening
@@ -1252,4 +1319,5 @@ Issues and PRs welcome. If something isn't working, [open an issue](https://gith
 - [@Seryiza](https://github.com/Seryiza) — Nix/NixOS flake
 - [@245678000000](https://github.com/245678000000) — package-lock sync
 - [@honor2030](https://github.com/honor2030) — cloakserve WebSocket origin guard, composable JS launch helpers
+- [@sparanoid](https://github.com/sparanoid) — Docker Xvfb lock cleanup
 - [@0xlally](https://github.com/0xlally) — security reports (cloakserve path traversal, WebSocket origin bypass)

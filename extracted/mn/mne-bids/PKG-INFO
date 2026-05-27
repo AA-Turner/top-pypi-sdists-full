@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mne-bids
-Version: 0.18.0
+Version: 0.19.0
 Summary: MNE-BIDS: Organizing MEG, EEG, and iEEG data according to the BIDS specification and facilitating their analysis with MNE-Python
 Project-URL: Bug Tracker, https://github.com/mne-tools/mne-bids/issues/
 Project-URL: Documentation, https://mne.tools/mne-bids
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
 Requires-Python: >=3.11
@@ -34,8 +35,9 @@ Requires-Dist: curryreader>=0.1.2; extra == 'dev'
 Requires-Dist: defusedxml; extra == 'dev'
 Requires-Dist: edfio>=0.4.10; extra == 'dev'
 Requires-Dist: eeglabio>=0.1.0; extra == 'dev'
-Requires-Dist: filelock; extra == 'dev'
+Requires-Dist: filelock>=3.20.4; extra == 'dev'
 Requires-Dist: h5py!=3.15.0; extra == 'dev'
+Requires-Dist: hedtools; extra == 'dev'
 Requires-Dist: intersphinx-registry; extra == 'dev'
 Requires-Dist: matplotlib; extra == 'dev'
 Requires-Dist: matplotlib>=3.6; extra == 'dev'
@@ -44,6 +46,7 @@ Requires-Dist: nibabel>=3.2.1; extra == 'dev'
 Requires-Dist: nilearn; extra == 'dev'
 Requires-Dist: numpydoc; extra == 'dev'
 Requires-Dist: openneuro-py; extra == 'dev'
+Requires-Dist: packaging; extra == 'dev'
 Requires-Dist: pandas; extra == 'dev'
 Requires-Dist: pandas>=1.3.2; extra == 'dev'
 Requires-Dist: pillow; extra == 'dev'
@@ -79,8 +82,9 @@ Requires-Dist: curryreader>=0.1.2; extra == 'full'
 Requires-Dist: defusedxml; extra == 'full'
 Requires-Dist: edfio>=0.4.10; extra == 'full'
 Requires-Dist: eeglabio>=0.1.0; extra == 'full'
-Requires-Dist: filelock; extra == 'full'
+Requires-Dist: filelock>=3.20.4; extra == 'full'
 Requires-Dist: h5py!=3.15.0; extra == 'full'
+Requires-Dist: hedtools; extra == 'full'
 Requires-Dist: matplotlib>=3.6; extra == 'full'
 Requires-Dist: nibabel>=3.2.1; extra == 'full'
 Requires-Dist: pandas>=1.3.2; extra == 'full'
@@ -92,10 +96,12 @@ Requires-Dist: curryreader>=0.1.2; extra == 'test'
 Requires-Dist: defusedxml; extra == 'test'
 Requires-Dist: edfio>=0.4.10; extra == 'test'
 Requires-Dist: eeglabio>=0.1.0; extra == 'test'
-Requires-Dist: filelock; extra == 'test'
+Requires-Dist: filelock>=3.20.4; extra == 'test'
 Requires-Dist: h5py!=3.15.0; extra == 'test'
+Requires-Dist: hedtools; extra == 'test'
 Requires-Dist: matplotlib>=3.6; extra == 'test'
 Requires-Dist: nibabel>=3.2.1; extra == 'test'
+Requires-Dist: packaging; extra == 'test'
 Requires-Dist: pandas>=1.3.2; extra == 'test'
 Requires-Dist: pybv>=0.7.5; extra == 'test'
 Requires-Dist: pymatreader; extra == 'test'

@@ -153,6 +153,14 @@ class Geocif:
             self.use_yield_trend_as_feature = "past"
         else:
             self.use_yield_trend_as_feature = None
+        # Per-admin Theil-Sen trend on ALL training years (mirrors the
+        # [trend_all] baseline model).  Default ON — cheap, leak-safe
+        # (df_train excludes the forecast year), and gives the model a
+        # strong long-horizon yield-trend signal that complements raw
+        # CIDs.  Set False in [ML] to disable.
+        self.use_trend_all_as_feature = self.parser.getboolean(
+            "ML", "use_trend_all_as_feature", fallback=True
+        )
         self.use_outlook_as_feature = self.parser.getboolean("ML", "use_outlook_as_feature")
         self.use_single_time_period_as_feature = self.parser.getboolean(
             "ML", "use_single_time_period_as_feature"
@@ -860,6 +868,7 @@ class Geocif:
         self._prepare_train_test_split(df)
         self._compute_detrended_yield()
         self._compute_yield_trend_feature()
+        self._compute_trend_all_feature()
         self._compute_region_zscore_features()
         self._add_spatial_neighbor_features()
 
@@ -1105,6 +1114,7 @@ class Geocif:
             self._prepare_train_test_split(df)
             self._compute_detrended_yield()
             self._compute_yield_trend_feature()
+            self._compute_trend_all_feature()
             self._compute_region_zscore_features()
             self._add_spatial_neighbor_features()
 
@@ -1183,6 +1193,7 @@ class Geocif:
             self._prepare_train_test_split(df)
             self._compute_detrended_yield()
             self._compute_yield_trend_feature()
+            self._compute_trend_all_feature()
             self._compute_region_zscore_features()
             self._add_spatial_neighbor_features()
 
@@ -1961,6 +1972,60 @@ class Geocif:
                 f"  Yield Trend [{region_name}]: "
                 f"slope={slope:.4f} t/ha/yr, n_used={n_used}, "
                 f"cp_used={cp_used}"
+            )
+
+    def _compute_trend_all_feature(self):
+        """Compute per-admin Theil-Sen trend on ALL training years and
+        write to ``Trend All`` column on both df_train and df_test.
+
+        Mirrors the [trend_all] baseline model: simple linear Theil-Sen
+        on every training row for the admin (no past-only filter, no
+        12-year cap, no BEAST changepoint detection).  Coexists with
+        ``Yield Trend`` (BEAST-segmented) when both flags are on — the
+        two columns are independent features and the model can choose.
+
+        LOOCV-safe: forecast year is already excluded from df_train by
+        _prepare_train_test_split, so the slope fit never sees the held-
+        out year.  Skipped when ``check_yield_trend`` is on (target
+        detrending already absorbs the trend).
+        """
+        if not self.use_trend_all_as_feature:
+            return
+        if self.check_yield_trend:
+            self.logger.warning(
+                "  use_trend_all_as_feature is incompatible with "
+                "check_yield_trend (target detrending). "
+                "Skipping Trend All feature."
+            )
+            return
+
+        from scipy.stats import theilslopes
+
+        self.df_train["Trend All"] = np.nan
+        self.df_test["Trend All"] = np.nan
+
+        for region_name, group in self.df_train.groupby("Region", observed=True):
+            x = group["Harvest Year"].astype(float).values
+            y = group[self.target].astype(float).values
+            valid = ~np.isnan(x) & ~np.isnan(y)
+            if valid.sum() < 3:
+                continue
+            xv, yv = x[valid], y[valid]
+            if len(np.unique(xv)) < 2:
+                # theilslopes requires >= 2 distinct x-values.
+                continue
+            slope, intercept, _lo, _hi = theilslopes(yv, xv)
+
+            train_mask = self.df_train["Region"] == region_name
+            test_mask = self.df_test["Region"] == region_name
+            tr_yrs = self.df_train.loc[train_mask, "Harvest Year"].astype(float).values
+            te_yrs = self.df_test.loc[test_mask, "Harvest Year"].astype(float).values
+            self.df_train.loc[train_mask, "Trend All"] = intercept + slope * tr_yrs
+            self.df_test.loc[test_mask, "Trend All"] = intercept + slope * te_yrs
+
+            self.logger.info(
+                f"  Trend All [{region_name}]: "
+                f"slope={slope:.4f} t/ha/yr, n_used={int(valid.sum())}"
             )
 
     def _compute_region_zscore_features(self):
@@ -2755,6 +2820,9 @@ class Geocif:
         if self.use_yield_trend_as_feature and "Yield Trend" in self.df_train.columns:
             self.feature_names.append("Yield Trend")
 
+        if self.use_trend_all_as_feature and "Trend All" in self.df_train.columns:
+            self.feature_names.append("Trend All")
+
         # Always include any "_zreg" sibling columns produced by
         # _compute_region_zscore_features — they're force-included so the
         # encoding-gap fix isn't silently dropped by feature selection.
@@ -3061,43 +3129,70 @@ class Geocif:
         elif self.model_name == "null":
             # Per-region mean observed yield across training years
             # (paper-conformant Null baseline; arxiv:2506.19046 sec 3.2).
-            region_id = df_region["Region_ID"].iloc[0]
-            tmask = self.df_train["Region_ID"] == region_id
-            mean_obs = float(self.df_train.loc[tmask, self.target].mean())
-            y_pred = np.full(len(X_test), mean_obs)
-        elif self.model_name == "trend":
-            # Theil-Sen linear trend on the previous 12 training years
-            # (Harvest Year < forecast_season). arxiv:2506.19046 sec 2.
-            # Filter by Region (admin name), NOT Region_ID — under
-            # cluster_strategy=single, Region_ID=1 for every admin, which
-            # collapsed all 8 (or N) admins' rows into one degenerate fit
-            # ("1 unique year across 12 rows" warning). Region is always
-            # admin-unique regardless of clustering strategy.
+            #
+            # df_region is a CLUSTER subset (rows for every admin sharing
+            # the cluster's Region_ID), not a single admin's rows.  Under
+            # cluster_strategy=single (Region_ID=1 for every admin) or
+            # =auto_detect (multiple admins per cluster), broadcasting one
+            # admin's mean across the whole cluster produces a country- /
+            # cluster-wide flat line.  Iterate per admin so each row gets
+            # ITS OWN admin's mean.
+            y_pred = np.full(len(X_test), np.nan, dtype=float)
+            for region_name, sub in df_region.groupby("Region", observed=True):
+                tmask = self.df_train["Region"] == region_name
+                mean_obs = float(self.df_train.loc[tmask, self.target].mean())
+                y_pred[sub.index.to_numpy()] = mean_obs
+        elif self.model_name in ("trend", "trend_all"):
+            # Theil-Sen linear trend.
+            #   trend     : past 12 training years only (Harvest Year <
+            #               forecast_season, .tail(12)). arxiv:2506.19046 sec 2.
+            #   trend_all : every training row for the region — no past-only
+            #               filter, no 12-year cap. df_train already excludes
+            #               the forecast year via LOOCV (_prepare_train_test_split)
+            #               so this is leak-safe; uses both pre- and post-
+            #               forecast training years.
+            #
+            # df_region is a CLUSTER subset (one row per admin × forecast
+            # year, all admins in the cluster).  Iterate per admin so each
+            # row gets ITS OWN per-admin trend instead of broadcasting the
+            # first admin's fit to the whole cluster (which produced clear
+            # year-banded predictions in the togo soybean cid_vs_yield
+            # diagnostic when cluster_strategy=auto_detect).
             from scipy.stats import theilslopes
-            region_name = df_region["Region"].iloc[0]
-            tmask = self.df_train["Region"] == region_name
-            past_mask = (
-                tmask
-                & (self.df_train["Harvest Year"].astype(float)
-                   < float(self.forecast_season))
-            )
-            past = (
-                self.df_train.loc[past_mask, ["Harvest Year", self.target]]
-                .dropna()
-                .sort_values("Harvest Year")
-                .tail(12)
-            )
-            if len(past) < 3:
-                fallback = (
-                    float(past[self.target].mean())
-                    if not past.empty else np.nan
+            y_pred = np.full(len(X_test), np.nan, dtype=float)
+            for region_name, sub in df_region.groupby("Region", observed=True):
+                tmask = self.df_train["Region"] == region_name
+
+                if self.model_name == "trend":
+                    row_mask = (
+                        tmask
+                        & (self.df_train["Harvest Year"].astype(float)
+                           < float(self.forecast_season))
+                    )
+                else:  # trend_all
+                    row_mask = tmask
+
+                past = (
+                    self.df_train.loc[row_mask, ["Harvest Year", self.target]]
+                    .dropna()
+                    .sort_values("Harvest Year")
                 )
-                y_pred = np.full(len(X_test), fallback)
-            else:
+                if self.model_name == "trend":
+                    past = past.tail(12)
+
+                positions = sub.index.to_numpy()
+                if len(past) < 3:
+                    fallback = (
+                        float(past[self.target].mean())
+                        if not past.empty else np.nan
+                    )
+                    y_pred[positions] = fallback
+                    continue
+
                 _n_uniq = int(past["Harvest Year"].nunique())
                 if _n_uniq < 2:
                     self.logger.warning(
-                        f"[trend baseline] degenerate Harvest Year for "
+                        f"[{self.model_name} baseline] degenerate Harvest Year for "
                         f"region={region_name!r} forecast_season={self.forecast_season}: "
                         f"{_n_uniq} unique year(s) across {len(past)} rows — "
                         f"scipy will emit 'All x coordinates are identical'."
@@ -3106,9 +3201,8 @@ class Geocif:
                     past[self.target].astype(float).values,
                     past["Harvest Year"].astype(float).values,
                 )
-                y_pred = np.full(
-                    len(X_test),
-                    float(intercept + slope * float(self.forecast_season)),
+                y_pred[positions] = float(
+                    intercept + slope * float(self.forecast_season)
                 )
         else:
             raise ValueError(f"Unknown baseline model: {self.model_name}")
@@ -3847,7 +3941,7 @@ class Geocif:
             self.feature_names = [f"Median {self.target}"]
             self.last_year_yield_as_feature = False
             self.analogous_year_yield_as_feature = False
-        elif self.model_name in ("null", "trend"):
+        elif self.model_name in ("null", "trend", "trend_all"):
             self.feature_names = []
             self.last_year_yield_as_feature = False
             self.median_yield_as_feature = False

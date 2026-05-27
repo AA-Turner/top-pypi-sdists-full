@@ -41,19 +41,20 @@ dynamic = [
 
 dependencies = [
   "backports-asyncio-runner>=1.1,<2; python_version<'3.11'",
-  "pytest>=8.2,<10",
+  "pytest>=8.4,<10",
   "typing-extensions>=4.12; python_version<'3.13'",
 ]
 optional-dependencies.docs = [
   "sphinx>=5.3",
   "sphinx-rtd-theme>=1",
+  "sphinx-tabs>=3.5",
 ]
 optional-dependencies.testing = [
   "coverage>=6.2",
   "hypothesis>=5.7.1",
 ]
 urls."Bug Tracker" = "https://github.com/pytest-dev/pytest-asyncio/issues"
-urls.Changelog = "https://pytest-asyncio.readthedocs.io/en/latest/reference/changelog.html"
+urls.Changelog = "https://pytest-asyncio.readthedocs.io/en/stable/reference/changelog.html"
 urls.Documentation = "https://pytest-asyncio.readthedocs.io"
 urls.Homepage = "https://github.com/pytest-dev/pytest-asyncio"
 urls."Source Code" = "https://github.com/pytest-dev/pytest-asyncio"

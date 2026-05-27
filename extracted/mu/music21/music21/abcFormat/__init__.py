@@ -85,6 +85,7 @@ import typing as t
 import unittest
 
 from music21 import common
+from music21.common.types import OffsetQL
 from music21 import defaults
 from music21 import environment
 from music21 import exceptions21
@@ -206,7 +207,7 @@ class ABCToken(prebase.ProtoM21Object, common.objects.EqualSlottedObjectMixin):
         >>> abcFormat.ABCToken.stripComment('b1 % a b-flat actually')
         'b1 '
 
-        * Changed in v6.2: made a staticmethod
+        * Changed in v6.2: made a staticmethod.
         '''
         if '%' in strSrc:
             return strSrc.split('%')[0]
@@ -601,7 +602,6 @@ class ABCMetadata(ABCToken):
         Return a music21 :class:`~music21.key.KeySignature` or :class:`~music21.key.Key`
         object for this metadata tag.
 
-
         >>> am = abcFormat.ABCMetadata('K:G')
         >>> am.preParse()
         >>> ks = am.getKeySignatureObject()
@@ -771,7 +771,6 @@ class ABCMetadata(ABCToken):
         >>> am.getDefaultQuarterLength()
         0.5
 
-
         If taking from meter, find the "fraction" and if < 0.75 use sixteenth notes.
         If >= 0.75 use eighth notes.
 
@@ -785,12 +784,10 @@ class ABCMetadata(ABCToken):
         >>> am.getDefaultQuarterLength()
         0.5
 
-
         >>> am = abcFormat.ABCMetadata('M:6/8')
         >>> am.preParse()
         >>> am.getDefaultQuarterLength()
         0.5
-
 
         Meter is only used for default length if there is no L:
 
@@ -1059,7 +1056,6 @@ class ABCTuplet(ABCToken):
         >>> at.updateRatio()
         >>> at.numberNotesActual, at.numberNotesNormal
         (2, 3)
-
 
         Some other types:
 
@@ -1403,7 +1399,7 @@ class ABCNote(ABCToken):
         # Pitch and duration attributes for m21 conversion
         # they are set via parse() based on other contextual information.
         self.pitchName: str|None = None  # if None, a rest or chord
-        self.quarterLength: float = 0.0
+        self.quarterLength: OffsetQL = 0.0
 
     @staticmethod
     def _splitChordSymbols(strSrc: str) -> tuple[list[str], str]:
@@ -1476,7 +1472,6 @@ class ABCNote(ABCToken):
 
         >>> an.getPitchName('{c}')
         ('C5', None)
-
 
         Given an active KeySignature object, the pitch name might
         change:
@@ -1597,7 +1592,7 @@ class ABCNote(ABCToken):
 
     def getQuarterLength(self,
                          strSrc: str,
-                         forceDefaultQuarterLength: float|None = None) -> float:
+                         forceDefaultQuarterLength: float|None = None) -> OffsetQL:
         '''
         Called with parse(), after context processing, to calculate duration
 
@@ -1666,7 +1661,7 @@ class ABCNote(ABCToken):
 
         # get default
         if numStr == '':
-            ql = activeDefaultQuarterLength
+            ql: OffsetQL = activeDefaultQuarterLength
         # if only, shorthand for /2
         elif numStr == '/':
             ql = activeDefaultQuarterLength * 0.5
@@ -1676,7 +1671,7 @@ class ABCNote(ABCToken):
             ql = activeDefaultQuarterLength * 0.125
         # if a half fraction
         elif numStr.startswith('/'):
-            ql = activeDefaultQuarterLength / int(numStr.split('/')[1])
+            ql = common.opFrac(activeDefaultQuarterLength / int(numStr.split('/')[1]))
         # uncommon usage: 3/ short for 3/2
         elif numStr.endswith('/'):
             n = int(numStr.split('/', maxsplit=1)[0].strip())
@@ -1695,7 +1690,7 @@ class ABCNote(ABCToken):
                 assert dStr is not None
             n = int(nStr.strip())
             d = int(dStr.strip())
-            ql = activeDefaultQuarterLength * n / d
+            ql = common.opFrac(activeDefaultQuarterLength * n / d)
         # not a fraction; a multiplier
         else:
             ql = activeDefaultQuarterLength * int(numStr)
@@ -1860,7 +1855,7 @@ class ABCHandler:
     define new phrases.  This is useful for parsing extra information from
     the Essen Folksong repertory
 
-    * New in v6.3: lineBreaksDefinePhrases -- does not yet do anything
+    * New in v6.3: lineBreaksDefinePhrases -- does not yet do anything.
     '''
     def __init__(self,
                  abcVersion: tuple[int, ...] = defaults.abcVersionDefault,
@@ -2041,7 +2036,7 @@ class ABCHandler:
         >>> ah.abcVersion
         (2, 3, 2)
 
-        Changed in v9: abcVersion defaults to (1, 3, 0) as documented.
+        * Changed in v9: abcVersion defaults to (1, 3, 0) as documented.
         '''
         verMats = reAbcVersion.search(inputSearch)
         if verMats:
@@ -2764,7 +2759,6 @@ class ABCHandler:
 
         Used in polyphonic metadata merge
 
-
         >>> abcStr = 'M:6/8\\nL:1/8\\nK:G\\n'
         >>> ah1 = abcFormat.ABCHandler()
         >>> junk = ah1.process(abcStr)
@@ -2798,13 +2792,11 @@ class ABCHandler:
         Return True if this token structure defines more than 1 reference number,
         usually implying multiple pieces encoded in one file.
 
-
         >>> abcStr = 'X:5\\nM:6/8\\nL:1/8\\nK:G\\nB3 A3 | G6 | B3 A3 | G6 ||'
         >>> ah = abcFormat.ABCHandler()
         >>> junk = ah.process(abcStr)
         >>> ah.definesReferenceNumbers()  # only one returns False
         False
-
 
         >>> abcStr = 'X:5\\nM:6/8\\nL:1/8\\nK:G\\nB3 A3 | G6 | B3 A3 | G6 ||\\n'
         >>> abcStr += 'X:6\\nM:6/8\\nL:1/8\\nK:G\\nB3 A3 | G6 | B3 A3 | G6 ||'
@@ -2939,7 +2931,6 @@ class ABCHandler:
         '''
         If tokens are processed, get the first
         reference number defined.
-
 
         >>> abcStr = 'X:5\\nM:6/8\\nL:1/8\\nK:G\\nB3 A3 | G6 | B3 A3 | G6 ||'
         >>> ah = abcFormat.ABCHandler()
@@ -3487,7 +3478,6 @@ class ABCFile(prebase.ProtoM21Object):
         Traceback (most recent call last):
         music21.abcFormat.ABCFileException: cannot find requested
             reference number in source file: 99
-
 
         If the same number is defined twice in one file (should not be) only
         the first data is returned.

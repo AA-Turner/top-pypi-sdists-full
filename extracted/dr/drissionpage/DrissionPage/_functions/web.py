@@ -11,7 +11,7 @@ from pathlib import Path
 from re import sub
 from urllib.parse import urlparse, urljoin, urlunparse
 
-from DataRecorder.tools import make_valid_name
+from DrissionRecord.tools import make_valid_name
 from requests.structures import CaseInsensitiveDict
 
 from .._functions.settings import Settings as _S

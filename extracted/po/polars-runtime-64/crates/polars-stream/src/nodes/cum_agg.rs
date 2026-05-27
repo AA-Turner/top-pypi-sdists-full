@@ -1,4 +1,3 @@
-use polars_async::executor::{JoinHandle, TaskPriority, TaskScope};
 use polars_core::prelude::{AnyValue, IntoColumn};
 use polars_core::utils::last_non_null;
 use polars_error::PolarsResult;
@@ -8,6 +7,7 @@ use polars_ops::series::{
 };
 
 use super::ComputeNode;
+use crate::async_executor::{JoinHandle, TaskPriority, TaskScope};
 use crate::execute::StreamingExecutionState;
 use crate::graph::PortState;
 use crate::pipe::{RecvPort, SendPort};

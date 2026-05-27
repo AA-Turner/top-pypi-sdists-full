@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shinychat
-Version: 0.3.2
+Version: 0.4.0
 Summary: An AI Chat interface for Shiny apps.
 Project-URL: Homepage, https://posit-dev.github.io/shinychat/
 Project-URL: Documentation, https://posit-dev.github.io/shinychat/py/
@@ -15,7 +15,7 @@ Requires-Dist: htmltools>=0.7.0
 Requires-Dist: shiny>=1.4.0
 Provides-Extra: providers
 Requires-Dist: anthropic; (python_version >= '3.11') and extra == 'providers'
-Requires-Dist: chatlas[mcp]>=0.12.0; extra == 'providers'
+Requires-Dist: chatlas[mcp]>=0.17.0; extra == 'providers'
 Requires-Dist: google-genai; extra == 'providers'
 Requires-Dist: langchain-core>=1.0.0; extra == 'providers'
 Requires-Dist: ollama>=0.4.0; extra == 'providers'

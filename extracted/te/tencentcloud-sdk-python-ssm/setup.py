@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-ssm',
-    install_requires=["tencentcloud-sdk-python-common>=3.1.70,<4.0.0"],
+    install_requires=["tencentcloud-sdk-python-common>=3.1.102,<4.0.0"],
     
     version=tencentcloud.__version__,
     description='Tencent Cloud Ssm SDK for Python',

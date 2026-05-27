@@ -1,12 +1,11 @@
-pub mod gather;
 pub mod join;
 #[cfg(feature = "pivot")]
 pub mod unpivot;
 
 pub use join::*;
-use polars_core::prelude::*;
 #[cfg(feature = "to_dummies")]
-use polars_core::runtime::RAYON;
+use polars_core::POOL;
+use polars_core::prelude::*;
 #[cfg(feature = "to_dummies")]
 use polars_core::utils::accumulate_dataframes_horizontal;
 #[cfg(feature = "to_dummies")]
@@ -109,7 +108,7 @@ pub trait DataFrameOps: IntoDf {
             PlHashSet::from_iter(df.columns().iter().map(|s| s.name().as_str()))
         };
 
-        let cols = RAYON.install(|| {
+        let cols = POOL.install(|| {
             df.columns()
                 .par_iter()
                 .map(|s| match set.contains(s.name().as_str()) {

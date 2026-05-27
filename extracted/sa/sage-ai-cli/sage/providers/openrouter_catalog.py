@@ -135,11 +135,14 @@ def _write_cache(models: list[dict]) -> None:
 def _fetch_live(api_key: str | None, timeout: float) -> list[dict] | None:
     """Hit OpenRouter's /models endpoint. Return list of model dicts or None."""
     try:
+        import os
+        base_url = os.environ.get("SAGE_OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        models_url = f"{base_url.rstrip('/')}/models"
         headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
         response = httpx.get(
-            "https://openrouter.ai/api/v1/models",
+            models_url,
             headers=headers,
             timeout=timeout,
         )

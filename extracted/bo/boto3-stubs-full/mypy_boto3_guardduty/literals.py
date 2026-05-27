@@ -292,6 +292,7 @@ MalwareProtectionResourceTypeType = Literal[
     "EC2_INSTANCE",
     "EC2_RECOVERY_POINT",
     "S3_BUCKET",
+    "S3_POINT_IN_TIME_RECOVERY",
     "S3_RECOVERY_POINT",
 ]
 MalwareProtectionScanStatusType = Literal[

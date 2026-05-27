@@ -1,7 +1,7 @@
 # This is the metadata Maturin uploads to PyPI on publish
 [project]
 name = "qcs-sdk-python"
-version = "0.26.1"
+version = "0.26.2"
 requires-python = ">=3.10,<4"
 description = "Python interface for the QCS Rust SDK"
 readme = "README-py.md"
@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "quil>=0.35.0,<0.36.0",
+    "quil>=0.35.0,<0.37.0",
     "qcs-api-client-common>=0.15.0,<0.16.0",
 ]
 

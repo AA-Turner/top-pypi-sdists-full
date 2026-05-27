@@ -97,7 +97,10 @@ class Spotify:
                     "aiohttp and asyncio are required for fetching ISRCs. Please install them to use this feature."
                 )
 
-    def _getIsrc(self, songId, session=None):
+    def getTrackFromGroover(self, songId, session=None):
+        # can also use GET "https://tools4music.com/api/spotify/isrc?id=SongID" or "https://www.chosic.com/api/tools/tracks/SongID"
+        # returns {isrc: "GBAAA9800322", name: "Teardrop", artists: ["Massive Attack", "Elizabeth Fraser"],…}
+
         url = "https://groover.co/core/distantapi/spotify/getdata/"
 
         headers = {
@@ -115,11 +118,17 @@ class Spotify:
             else:
                 response = requests.post(url, headers=headers, json=payload)
                 if response.status_code != 200:
-                    return ""
-                return response.json()["external_ids"]["isrc"]
+                    return {}
+                return response.json()
         except Exception as e:
             print("Could not fetch ISRC:", e)
-            return ""
+            return {}
+
+    def _getIsrc(self, songId, session=None):
+        data = self.getTrackFromGroover(songId, session)
+        if data == {}:
+            return data
+        return data["external_ids"]["isrc"]
 
     async def _getIsrc_async(self, session, songId):
         try:
@@ -333,6 +342,62 @@ class Spotify:
             track["external_ids"] = {"isrc": self._getIsrc(track["track_id"])}
         return track
 
+    def audio_features(self, trackIds, *args, **kwargs):
+        if type(trackIds) == str:
+            trackIds = [trackIds]
+
+        headers = {
+            "authority": "www.chosic.com",
+            "method": "GET",
+            "path": "/api/tools/audio-features/67Hna13dNDkZvBpTXRIaOJ",
+            "scheme": "https",
+            "accept": "application/json, text/javascript, */*; q=0.01",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "en-US,en;q=0.9",
+            "app": "playlist_generator",
+            "cache-control": "no-cache",
+            "dnt": "1",
+            "pragma": "no-cache",
+            "priority": "u=1, i",
+            "referer": "https://www.chosic.com/song-bpm-key-finder/",
+            "sec-ch-ua": '"Chromium";v="148", "Microsoft Edge";v="148", "Not/A)Brand";v="99"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "x-requested-with": "XMLHttpRequest"
+        }
+
+        results = []
+        for trackId in trackIds:
+            if self.isUrl(trackId):
+                trackId = self.urlToId(trackId)
+
+            session = requests.Session()
+
+            session.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0"
+            })
+
+            url = f"https://www.chosic.com/api/tools/audio-features/{trackId}"
+
+            try:
+                response = session.get(url, headers=headers)
+                if response.status_code != 200:
+                    print(f"www.chosic.com returned bad status code: {response.status_code}, you might have been blocked")
+                    results.append(None)
+                    continue
+                results.append(response.json())
+                time.sleep(1)
+            except Exception as e:
+                print(f"Could not fetch data from www.chosic.com: {e}")
+                results.append(None)
+
+        return(results)
+
     def search(self, query, type="track", *args, **kwargs):
         pages = spotapi.Public().song_search(query)
         for results in pages:  #< save first page
@@ -527,6 +592,8 @@ if __name__ == "__main__":
             json.dump(makeJsonSafe(jsonData), f, indent=4)
 
     sp = Spotify()
+    res = sp.audio_features(["https://open.spotify.com/track/4tyjNEHKos3lZPYAfTiMKH?si=b6fd0ef9ebca4a0c", "https://open.spotify.com/track/67Hna13dNDkZvBpTXRIaOJ?si=e8268aa17dc44271"])
+    pysole.probe()
     sp.login()
     #player = spotapi.player.Player(sp.user_auth)
     #status = spotapi.player.PlayerStatus(sp.user_auth)

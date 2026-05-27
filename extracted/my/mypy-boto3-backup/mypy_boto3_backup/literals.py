@@ -212,7 +212,7 @@ ScanJobStatusType = Literal[
 ]
 ScanModeType = Literal["FULL_SCAN", "INCREMENTAL_SCAN"]
 ScanResourceTypeType = Literal["EBS", "EC2", "S3"]
-ScanResultStatusType = Literal["NO_THREATS_FOUND", "THREATS_FOUND"]
+ScanResultStatusType = Literal["NO_THREATS_FOUND", "THREATS_FOUND", "UNKNOWN"]
 ScanStateType = Literal[
     "CANCELED", "COMPLETED", "COMPLETED_WITH_ISSUES", "CREATED", "FAILED", "RUNNING"
 ]

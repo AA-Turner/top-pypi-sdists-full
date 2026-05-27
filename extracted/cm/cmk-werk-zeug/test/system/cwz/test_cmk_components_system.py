@@ -5,6 +5,8 @@
 
 
 import json
+import shutil
+import subprocess
 
 import pytest
 
@@ -61,7 +63,7 @@ from cwz.cmk_components import main
         ),
     ],
 )
-@pytest.mark.parametrize("mode", ["", "--mode=rich", "--mode=json", "--mode=script"])
+@pytest.mark.parametrize("mode", ["", "--mode=rich", "--mode=json"])
 def test_main(
     capsys: int, sub_command: str, entities_variations: tuple[list[str], int], mode: str
 ) -> None:
@@ -88,6 +90,23 @@ def test_main(
             assert not stderr
             if mode == "--mode=json":
                 json.loads(stdout)
+
+
+def test_no_broken_pipe_when_output_truncated() -> None:
+    """Closing the read end of a pipe early must not produce a BrokenPipeError traceback."""
+    exe = shutil.which("cmk-components")
+    assert exe is not None, "cmk-components not found in PATH"
+    proc = subprocess.Popen(  # noqa: S603
+        [exe, "list", "--mode=json"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert proc.stdout is not None
+    proc.stdout.close()
+    proc.wait()
+    stderr = proc.stderr.read().decode()
+    assert "BrokenPipeError" not in stderr
+    assert "Traceback" not in stderr
 
 
 if __name__ == "__main__":

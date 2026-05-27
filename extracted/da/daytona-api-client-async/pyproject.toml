@@ -1,6 +1,6 @@
 [project]
 name = "daytona_api_client_async"
-version = "0.181.0"
+version = "0.182.0"
 description = "Daytona"
 authors = [
   {name = "Daytona Platforms Inc.",email = "support@daytona.com"},

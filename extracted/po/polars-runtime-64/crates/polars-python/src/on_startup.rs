@@ -277,9 +277,9 @@ pub unsafe fn register_startup_deps(catch_keyboard_interrupt: bool) {
         });
 
         // Register SERIES UDF.
-        python_dsl::CALL_PYTHON_COLUMNS_UDF.set(python_function_caller_series).unwrap();
+        python_dsl::CALL_COLUMNS_UDF_PYTHON = Some(python_function_caller_series);
         // Register DATAFRAME UDF.
-        python_dsl::CALL_PYTHON_DF_UDF.set(python_function_caller_df).unwrap();
+        python_dsl::CALL_DF_UDF_PYTHON = Some(python_function_caller_df);
         // Register warning function for `polars_warn!`.
         polars_error::set_warning_function(warning_function);
 

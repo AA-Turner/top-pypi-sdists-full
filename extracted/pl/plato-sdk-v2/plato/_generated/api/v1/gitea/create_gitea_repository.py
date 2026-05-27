@@ -38,7 +38,7 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> RepositoryResponse:
-    """Create a new Gitea repository in user's organization"""
+    """Create a new Gitea repository in user's organization."""
 
     request_args = _build_request_args(
         body=body,
@@ -57,7 +57,7 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> RepositoryResponse:
-    """Create a new Gitea repository in user's organization"""
+    """Create a new Gitea repository in user's organization."""
 
     request_args = _build_request_args(
         body=body,

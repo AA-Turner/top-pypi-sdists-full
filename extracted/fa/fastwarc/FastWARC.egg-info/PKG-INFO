@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: FastWARC
-Version: 1.0.0
+Version: 1.0.1
 Summary: A high-performance WARC parsing library for Python written in C++/Cython.
 Author: Janek Bevendorff
-License: Apache License 2.0
+License-Expression: Apache-2.0
 Project-URL: repository, https://github.com/chatnoir-eu/chatnoir-resiliparse
 Project-URL: homepage, https://resiliparse.chatnoir.eu
 Project-URL: documentation, https://resiliparse.chatnoir.eu
@@ -25,7 +25,7 @@ Requires-Dist: lz4; extra == "test"
 # FastWARC (Python)
 
 FastWARC is a high-performance WARC parsing library for Python written in Rust with Python bindings. FastWARC supports
-compressed and uncompressed WARC/1.0 and WARC/1.1 streams. Supported compression algorithms are GZip and LZ4.
+compressed and uncompressed WARC/1.0 and WARC/1.1 streams. Supported compression algorithms are Gzip and LZ4.
 
 This crate contains the Python bindings for FastWARC.
 

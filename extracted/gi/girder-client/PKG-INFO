@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: girder-client
-Version: 5.0.8
+Version: 5.0.9
 Summary: Python client for interacting with Girder servers
 Home-page: http://girder.readthedocs.org/en/latest/python-client.html
 Author: Kitware, Inc.

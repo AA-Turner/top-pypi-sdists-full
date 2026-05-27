@@ -6,15 +6,15 @@ use polars_utils::idx_vec::IdxVec;
 use rayon::iter::plumbing::UnindexedConsumer;
 use rayon::prelude::*;
 
+use crate::POOL;
 use crate::prelude::*;
-use crate::runtime::RAYON;
 use crate::utils::{NoNull, flatten, slice_slice};
 
 /// Indexes of the groups, the first index is stored separately.
 /// this make sorting fast.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct GroupsIdx {
-    pub(crate) sorted_by_first_idx: bool,
+    pub(crate) sorted: bool,
     /// Positions of the start of each group.
     first: Vec<IdxSize>,
     /// Global positions of all elements of all groups.
@@ -57,7 +57,7 @@ impl From<Vec<Vec<IdxItem>>> for GroupsIdx {
         let mut all = Vec::with_capacity(cap);
         let all_ptr = all.as_ptr() as usize;
 
-        RAYON.install(|| {
+        POOL.install(|| {
             v.into_par_iter()
                 .zip(offsets)
                 .for_each(|(mut inner, offset)| {
@@ -82,7 +82,7 @@ impl From<Vec<Vec<IdxItem>>> for GroupsIdx {
             first.set_len(cap);
         }
         GroupsIdx {
-            sorted_by_first_idx: false,
+            sorted: false,
             first,
             all,
         }
@@ -90,16 +90,12 @@ impl From<Vec<Vec<IdxItem>>> for GroupsIdx {
 }
 
 impl GroupsIdx {
-    pub fn new(first: Vec<IdxSize>, all: Vec<IdxVec>, sorted_by_first_idx: bool) -> Self {
-        Self {
-            sorted_by_first_idx,
-            first,
-            all,
-        }
+    pub fn new(first: Vec<IdxSize>, all: Vec<IdxVec>, sorted: bool) -> Self {
+        Self { sorted, first, all }
     }
 
-    pub fn sort_by_first_idx(&mut self) {
-        if self.sorted_by_first_idx {
+    pub fn sort(&mut self) {
+        if self.sorted {
             return;
         }
         let mut idx = 0;
@@ -125,13 +121,13 @@ impl GroupsIdx {
                 })
                 .collect_trusted::<Vec<_>>()
         };
-        let (first, all) = RAYON.install(|| rayon::join(take_first, take_all));
+        let (first, all) = POOL.install(|| rayon::join(take_first, take_all));
         self.first = first;
         self.all = all;
-        self.sorted_by_first_idx = true
+        self.sorted = true
     }
-    pub fn is_sorted_by_first_idx(&self) -> bool {
-        self.sorted_by_first_idx
+    pub fn is_sorted_flag(&self) -> bool {
+        self.sorted
     }
 
     pub fn iter(
@@ -168,7 +164,7 @@ impl GroupsIdx {
     // Create an 'empty group', containing 1 group of length 0
     pub fn new_empty() -> Self {
         Self {
-            sorted_by_first_idx: false,
+            sorted: false,
             first: vec![0],
             all: vec![vec![].into()],
         }
@@ -179,7 +175,7 @@ impl FromIterator<IdxItem> for GroupsIdx {
     fn from_iter<T: IntoIterator<Item = IdxItem>>(iter: T) -> Self {
         let (first, all) = iter.into_iter().unzip();
         GroupsIdx {
-            sorted_by_first_idx: false,
+            sorted: false,
             first,
             all,
         }
@@ -216,7 +212,7 @@ impl FromParallelIterator<IdxItem> for GroupsIdx {
     {
         let (first, all) = par_iter.into_par_iter().unzip();
         GroupsIdx {
-            sorted_by_first_idx: false,
+            sorted: false,
             first,
             all,
         }
@@ -252,13 +248,13 @@ impl IntoParallelIterator for GroupsIdx {
 ///
 /// Only used when group values are stored together
 ///
-/// This type should have the invariant that it is always sorted in ascending
-/// order by the start indices.
+/// This type should have the invariant that it is always sorted in ascending order.
 pub type GroupsSlice = Vec<[IdxSize; 2]>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GroupsType {
     Idx(GroupsIdx),
+    /// Slice is always sorted in ascending order.
     Slice {
         // the groups slices
         groups: GroupsSlice,
@@ -412,11 +408,11 @@ impl GroupsType {
         GroupsTypeIter::new(self)
     }
 
-    pub fn sort_by_first_idx(&mut self) {
+    pub fn sort(&mut self) {
         match self {
             GroupsType::Idx(groups) => {
-                if !groups.is_sorted_by_first_idx() {
-                    groups.sort_by_first_idx()
+                if !groups.is_sorted_flag() {
+                    groups.sort()
                 }
             },
             GroupsType::Slice { .. } => {
@@ -425,9 +421,9 @@ impl GroupsType {
         }
     }
 
-    pub(crate) fn is_sorted_by_first_idx(&self) -> bool {
+    pub(crate) fn is_sorted_flag(&self) -> bool {
         match self {
-            GroupsType::Idx(groups) => groups.is_sorted_by_first_idx(),
+            GroupsType::Idx(groups) => groups.is_sorted_flag(),
             GroupsType::Slice { .. } => true,
         }
     }
@@ -759,10 +755,10 @@ impl GroupPositions {
         slice_groups(self.original.clone(), offset, len)
     }
 
-    pub fn sort_by_first_idx(&mut self) {
-        if !self.as_ref().is_sorted_by_first_idx() {
+    pub fn sort(&mut self) {
+        if !self.as_ref().is_sorted_flag() {
             let original = Arc::make_mut(&mut self.original);
-            original.sort_by_first_idx();
+            original.sort();
 
             self.sliced = slice_groups_inner(original, self.offset, self.len);
         }
@@ -838,7 +834,7 @@ fn slice_groups_inner(g: &GroupsType, offset: i64, len: usize) -> ManuallyDrop<G
             ManuallyDrop::new(GroupsType::Idx(GroupsIdx::new(
                 first,
                 all,
-                groups.is_sorted_by_first_idx(),
+                groups.is_sorted_flag(),
             )))
         },
         GroupsType::Slice {

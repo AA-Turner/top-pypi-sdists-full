@@ -208,7 +208,12 @@ impl Expr {
 
     /// Compute the quantile per group.
     pub fn quantile(self, quantile: Expr, method: QuantileMethod) -> Self {
-        self.map_binary(FunctionExpr::Quantile { method }, quantile)
+        AggExpr::Quantile {
+            expr: Arc::new(self),
+            quantile: Arc::new(quantile),
+            method,
+        }
+        .into()
     }
 
     /// Get the group indexes of the group by operation.
@@ -354,12 +359,12 @@ impl Expr {
     }
 
     /// Take the values by idx.
-    pub fn gather<E: Into<Expr>>(self, idx: E, null_on_oob: bool) -> Self {
+    pub fn gather<E: Into<Expr>>(self, idx: E) -> Self {
         Expr::Gather {
             expr: Arc::new(self),
             idx: Arc::new(idx.into()),
             returns_scalar: false,
-            null_on_oob,
+            null_on_oob: false,
         }
     }
 
@@ -1536,19 +1541,6 @@ impl Expr {
     /// [Kleene logic]: https://en.wikipedia.org/wiki/Three-valued_logic
     pub fn all(self, ignore_nulls: bool) -> Self {
         self.map_unary(BooleanFunction::All { ignore_nulls })
-    }
-
-    /// Returns whether this column is empty.
-    ///
-    /// If `ignore_nulls` is True, the column is also considered empty if it
-    /// only consists of nulls.
-    pub fn is_empty(self, ignore_nulls: bool) -> Self {
-        self.map_unary(BooleanFunction::IsEmpty { ignore_nulls })
-    }
-
-    /// Returns whether the column contains one or more null values.
-    pub fn has_nulls(self) -> Self {
-        self.map_unary(BooleanFunction::HasNulls)
     }
 
     #[cfg(feature = "dtype-struct")]

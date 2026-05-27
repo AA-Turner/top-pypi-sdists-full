@@ -16,6 +16,8 @@
 #include "ampl/tuple.h"
 #include "ampl/variant.h"
 
+#include <iostream>
+
 namespace ampl {
 
 // Forward declaration
@@ -297,6 +299,7 @@ class BasicEntity : INHERITANCE Entity {
    * @throws ampl::UnsupportedOperationException if the entity is scalar
    */
   InstanceClass get(Tuple index) const {
+    AMPL_CALL_CPP(AMPL_EntityIsInstance(ampl_, name_.c_str(), index.impl()));
     if (!isScalar() || (index.size() == 1 && index[0].is_empty()))
       return InstanceClass(ampl_, index.impl(), name_);
     throw ampl::UnsupportedOperationException("Not valid for scalar entities.");
@@ -353,6 +356,7 @@ class BasicEntity : INHERITANCE Entity {
       explicit iterator(typename std::map<Tuple, InstanceClass>::iterator it) : _it(it) {}
       iterator& operator++() { ++_it; return *this; }
       iterator operator++(int) { iterator tmp = *this; ++_it; return tmp; }
+      bool operator==(const iterator& other) const { return _it == other._it; }
       bool operator!=(const iterator& other) const { return _it != other._it; }
       Tuple getIndex() const { return _it->first; }
       InstanceClass getInstance() const { return _it->second; }
@@ -871,7 +875,7 @@ class Parameter : public BasicEntity<Variant> {
     */
   Variant get() const {
     AMPL_VARIANT *v;
-    AMPL_CALL_CPP(AMPL_GetValue(ampl_, name_.c_str(), &v));
+    AMPL_CALL_CPP(AMPL_ParameterGetValue(ampl_, name_.c_str(), &v));
     Variant vpp = Variant::getVar(v);
     AMPL_VariantFree(&v);
     return vpp;
@@ -888,15 +892,8 @@ class Parameter : public BasicEntity<Variant> {
    * @throws ampl::UnsupportedOperationException if the entity is scalar
    */
   Variant get(Tuple index) const {
-    if (isScalar())
-      throw ampl::UnsupportedOperationException("Not valid for scalar entities.");
-    char *name_c;
     AMPL_VARIANT *v;
-    AMPL_ERRORINFO *err;
-    AMPL_CALL_CPP(AMPL_InstanceGetName(ampl_, name_.c_str(), index.impl(), &name_c));
-    err = AMPL_GetValue(ampl_, name_c, &v);
-    AMPL_StringFree(&name_c);
-    AMPL_CALL_CPP(err);
+    AMPL_CALL_CPP(AMPL_ParameterInstanceGetValue(ampl_, name_.c_str(),index.impl(), &v));
     Variant vpp = Variant::getVar(v);
     AMPL_VariantFree(&v);
     return vpp;

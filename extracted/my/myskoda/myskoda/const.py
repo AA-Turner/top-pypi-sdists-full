@@ -6,6 +6,7 @@ REDIRECT_URI = "myskoda://redirect/login/"
 
 BASE_URL_SKODA = "https://mysmob.api.connect.skoda-auto.cz"
 BASE_URL_IDENT = "https://identity.vwgroup.io"
+BASE_URL_CHARGING = "https://prod.emea.mobile.charging.cariad.digital"
 
 MQTT_BROKER_HOST = "mqtt.messagehub.de"
 MQTT_BROKER_PORT = 8883
@@ -72,6 +73,7 @@ MAX_RETRIES = 5
 
 CACHE_USER_ENDPOINT_IN_HOURS = 6
 CACHE_VEHICLE_HEALTH_IN_HOURS = 6
+CACHE_CLOCK_SKEW_TOLERANCE_IN_HOURS = 4
 
 REQUEST_TIMEOUT_IN_SECONDS = 300
 DEFAULT_DEBOUNCE_WAIT_SECONDS = 10.0

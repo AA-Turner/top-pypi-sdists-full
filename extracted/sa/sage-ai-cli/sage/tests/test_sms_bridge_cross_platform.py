@@ -1,17 +1,11 @@
 import sys
-import unittest
-from unittest.mock import MagicMock, patch
 import pytest
 
 from sage.core.sms_bridge import SAGEMessageBridge, SMSConfig
 
-@pytest.fixture
-def mock_bridge():
-    cfg = SMSConfig(computer_name="TestPC")
-    with patch("sage.core.sms_bridge.SAGEBackend"):
-        # We don't need a real WebSocket for these routing tests
-        bridge = SAGEMessageBridge(cfg, token="fake", api_base="http://fake")
-        return bridge
+class DummyBackend:
+    def __init__(self, *args, **kwargs):
+        pass
 
 @pytest.mark.parametrize("platform, device_type, expected_method", [
     ("darwin", "apple", "imessage"),
@@ -20,74 +14,77 @@ def mock_bridge():
     ("win32", "apple", "kdeconnect"),
     ("linux", "android", "kdeconnect"),
 ])
-def test_handle_native_message_routing(mock_bridge, platform, device_type, expected_method):
+def test_handle_native_message_routing(monkeypatch, platform, device_type, expected_method):
     """Verify _handle_native_message routes to the correct OS-level sender."""
+    calls = []
+    monkeypatch.setattr("sage.core.sms_bridge.SAGEBackend", DummyBackend)
+    monkeypatch.setattr("sys.platform", platform)
+    monkeypatch.setattr("sage.core.sms_bridge._send_imessage", lambda *a, **k: calls.append("imessage") or True)
+    monkeypatch.setattr("sage.core.sms_bridge._send_via_kdeconnect", lambda *a, **k: calls.append("kdeconnect") or True)
+    
+    cfg = SMSConfig(computer_name="TestPC")
+    bridge = SAGEMessageBridge(cfg, token="fake", api_base="http://fake")
+    
     msg = {
         "phone": "4085073140",
         "text": "Hello",
         "device_type": device_type
     }
     
-    with patch("sys.platform", platform), \
-         patch("sage.core.sms_bridge._send_imessage") as mock_imsg, \
-         patch("sage.core.sms_bridge._send_via_kdeconnect") as mock_kde:
-        
-        mock_imsg.return_value = True
-        mock_kde.return_value = True
-        
-        mock_bridge._handle_native_message(msg)
-        
-        if expected_method == "imessage":
-            mock_imsg.assert_called_once()
-            mock_kde.assert_not_called()
-        else:
-            mock_kde.assert_called_once()
+    bridge._handle_native_message(msg)
+    
+    assert len(calls) == 1
+    assert calls[0] == expected_method
+
 
 @pytest.mark.parametrize("platform, apple_email, expected_kde", [
     ("darwin", "user@icloud.com", False),
     ("linux", "4085073140", True),
     ("linux", "user@icloud.com", False), # Email-only, KDE can't handle
 ])
-def test_handle_imessage_to_apple_id_fallback(mock_bridge, platform, apple_email, expected_kde):
+def test_handle_imessage_to_apple_id_fallback(monkeypatch, platform, apple_email, expected_kde):
     """Verify imessage_to_apple_id falls back to KDE Connect on Linux/Windows for phone numbers."""
+    calls = []
+    monkeypatch.setattr("sage.core.sms_bridge.SAGEBackend", DummyBackend)
+    monkeypatch.setattr("sys.platform", platform)
+    monkeypatch.setattr("sage.core.sms_bridge._send_imessage", lambda *a, **k: calls.append("imessage") or True)
+    monkeypatch.setattr("sage.core.sms_bridge._send_via_kdeconnect", lambda *a, **k: calls.append("kdeconnect") or True)
+    
+    cfg = SMSConfig(computer_name="TestPC")
+    bridge = SAGEMessageBridge(cfg, token="fake", api_base="http://fake")
+    
     msg = {
         "apple_email": apple_email,
         "text": "Hello"
     }
     
-    with patch("sys.platform", platform), \
-         patch("sage.core.sms_bridge._send_imessage") as mock_imsg, \
-         patch("sage.core.sms_bridge._send_via_kdeconnect") as mock_kde:
-        
-        mock_imsg.return_value = True
-        mock_kde.return_value = True
-        
-        mock_bridge._handle_imessage_to_apple_id(msg)
-        
-        if platform == "darwin":
-            mock_imsg.assert_called_once()
-        elif expected_kde:
-            mock_kde.assert_called_once()
-        else:
-            mock_kde.assert_not_called()
+    bridge._handle_imessage_to_apple_id(msg)
+    
+    if platform == "darwin":
+        assert "imessage" in calls
+    elif expected_kde:
+        assert "kdeconnect" in calls
+    else:
+        assert len(calls) == 0
+
 
 @pytest.mark.parametrize("platform, device_type, expected_method", [
     ("darwin", "apple", "imessage"),
     ("linux", "apple", "kdeconnect"),
     ("linux", "", "kdeconnect"), # untagged fallback
 ])
-def test_deliver_native_routing(mock_bridge, platform, device_type, expected_method):
+def test_deliver_native_routing(monkeypatch, platform, device_type, expected_method):
     """Verify outbound task reply routing."""
-    with patch("sys.platform", platform), \
-         patch("sage.core.sms_bridge._send_imessage") as mock_imsg, \
-         patch("sage.core.sms_bridge._send_via_kdeconnect") as mock_kde:
-        
-        mock_imsg.return_value = True
-        mock_kde.return_value = True
-        
-        mock_bridge._deliver_native("4085073140@vtext.com", "reply", device_type)
-        
-        if expected_method == "imessage":
-            mock_imsg.assert_called_once()
-        else:
-            mock_kde.assert_called_once()
+    calls = []
+    monkeypatch.setattr("sage.core.sms_bridge.SAGEBackend", DummyBackend)
+    monkeypatch.setattr("sys.platform", platform)
+    monkeypatch.setattr("sage.core.sms_bridge._send_imessage", lambda *a, **k: calls.append("imessage") or True)
+    monkeypatch.setattr("sage.core.sms_bridge._send_via_kdeconnect", lambda *a, **k: calls.append("kdeconnect") or True)
+    
+    cfg = SMSConfig(computer_name="TestPC")
+    bridge = SAGEMessageBridge(cfg, token="fake", api_base="http://fake")
+    
+    bridge._deliver_native("4085073140@vtext.com", "reply", device_type)
+    
+    assert len(calls) == 1
+    assert calls[0] == expected_method

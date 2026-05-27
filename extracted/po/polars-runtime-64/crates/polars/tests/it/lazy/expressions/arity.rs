@@ -35,7 +35,11 @@ fn ternary_expand_sizes() -> PolarsResult<()> {
                 .alias("c"),
         )
         .collect()?;
-    let vals = out.column("c")?.str()?.no_null_iter().collect::<Vec<_>>();
+    let vals = out
+        .column("c")?
+        .str()?
+        .into_no_null_iter()
+        .collect::<Vec<_>>();
     assert_eq!(vals, &["a1", "b2", "otherwise"]);
     Ok(())
 }
@@ -362,7 +366,7 @@ fn test_binary_group_consistency() -> PolarsResult<()> {
             keep_nulls: true
         })?
         .str()?
-        .no_null_iter()
+        .into_no_null_iter()
         .collect::<Vec<_>>(),
         &["a", "b", "c", "d"]
     );

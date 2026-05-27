@@ -13,11 +13,11 @@ import os
 import re
 import shlex
 import time as _time
+import tomllib
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import tomllib
 from opentelemetry import trace
 
 from plato.agents.context import AgentContext, OTelContext

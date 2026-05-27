@@ -3,13 +3,14 @@
 # SPDX-License-Identifier: MIT
 
 """
-ONEX AI-Slop Pattern Checker v1.0
+ONEX AI-Slop Pattern Checker v2.0
 
-This pre-commit hook and CI gate detects AI-generated boilerplate ("slop") patterns
-in Python and Markdown files. Uses AST analysis for docstring patterns and line-based
-regex for non-docstring patterns.
+Pre-commit hook and CI gate that detects AI-generated boilerplate ("slop") in
+Python and Markdown files.  Rule patterns are loaded from the bundled default
+YAML (omnibase_core/contracts/aislop_default_rules.yaml) and can be overridden
+per-repo via .onex/aislop-rules.yaml (OMN-11132).
 
-Rule set v1.0 (locked 2026-03-02, OMN-3191):
+Rule set v1.0 (locked 2026-03-02, OMN-3191) — unchanged defaults:
 - ERROR: sycophancy (sycophantic docstring openers: "Excellent", "Great", "Sure")
 - ERROR: rest_docstring (reST-style :param:, :type:, :returns:, :rtype:)
 - WARNING: boilerplate_docstring ("This module/class/function provides/implements/contains")
@@ -22,6 +23,8 @@ Rule set v1.0 (locked 2026-03-02, OMN-3191):
 - INFO: obvious_comment (self-evident inline comments, report mode only)
 
 Rule change log:
+  v2.0 (2026-05-17, OMN-11132): rules loaded from YAML; --config flag added.
+    Backwards-compatible: default behavior identical to v1.0.
   v1.0 (2026-03-02): step_narration scoped to Markdown files only; code fences skipped.
     Rationale: 48h post-rollout audit (OMN-3191) found "# Step N:" in Python code
     triggers 110+ false positives in omniintelligence and omniclaude alone.
@@ -46,8 +49,9 @@ Usage:
     python scripts/validation/check_ai_slop.py [files...]
     python scripts/validation/check_ai_slop.py --strict [files...]
     python scripts/validation/check_ai_slop.py --report src/
+    python scripts/validation/check_ai_slop.py --config /path/to/repo/root [files...]
 
-Linear tickets: OMN-2971 (original), OMN-3191 (v1.0 tuning)
+Linear tickets: OMN-2971 (original), OMN-3191 (v1.0 tuning), OMN-11132 (configurable)
 """
 
 from __future__ import annotations
@@ -73,29 +77,6 @@ CHECK_MD_SEPARATOR = "md_separator"
 CHECK_OBVIOUS_COMMENT = "obvious_comment"
 
 SUPPRESSION_MARKER = "ai-slop-ok"
-
-# Sycophantic openers (case-insensitive, must be at start of docstring content)
-_SYCOPHANCY_RE = re.compile(
-    r"^\s*(Excellent|Great|Sure|Certainly|Absolutely|Of course|Happy to|"
-    r"I would be|Gladly|Wonderful|Perfect|Fantastic|Awesome)[!,. ]",
-    re.IGNORECASE,
-)
-
-# reST docstring markers
-_REST_RE = re.compile(r"^\s*:(param|type|returns?|rtype|raises?|var|ivar|cvar)\b")
-
-# Boilerplate "This <thing> provides/implements/contains/is responsible for"
-_BOILERPLATE_RE = re.compile(
-    r"^\s*This\s+(module|class|function|method|file|script|node|handler|service)"
-    r"\s+(provides?|implements?|contains?|is responsible for|handles?|manages?|offers?)",
-    re.IGNORECASE,
-)
-
-# Step narration: "# Step N:" or "# Step N -"
-_STEP_NARRATION_RE = re.compile(r"#\s*Step\s+\d+\s*[:\-]", re.IGNORECASE)
-
-# Markdown separator: 4+ = characters in a docstring line
-_MD_SEPARATOR_RE = re.compile(r"={4,}")
 
 
 class SlopViolation:
@@ -131,6 +112,88 @@ class SlopViolation:
 
 
 # ---------------------------------------------------------------------------
+# Rule loader — builds compiled regexes from the configured rule set
+# ---------------------------------------------------------------------------
+
+
+def _build_docstring_regexes(
+    repo_root: Path | None,
+) -> dict[str, tuple[re.Pattern[str], str]]:
+    """Return {rule_name: (compiled_pattern, severity)} for AST-docstring rules.
+
+    Falls back to hardcoded patterns if the rule loader is unavailable (e.g.
+    when running the script before omnibase_core is installed).
+    """
+    try:
+        from omnibase_core.validation.aislop_rule_loader import resolve_rules
+
+        ruleset = resolve_rules(repo_root or Path.cwd())
+        result: dict[str, tuple[re.Pattern[str], str]] = {}
+        for rule in ruleset.rules:
+            if rule.pattern_type == "regex_ast_docstring" and rule.enabled:
+                result[rule.name] = (
+                    re.compile(rule.pattern, re.IGNORECASE | re.VERBOSE),
+                    rule.severity,
+                )
+        return result
+    except Exception:
+        # Fallback: hardcoded v1.0 patterns (identical to original defaults)
+        return {
+            CHECK_SYCOPHANCY: (
+                re.compile(
+                    r"^\s*(Excellent|Great|Sure|Certainly|Absolutely|Of course|Happy to|"
+                    r"I would be|Gladly|Wonderful|Perfect|Fantastic|Awesome)[!,. ]",
+                    re.IGNORECASE,
+                ),
+                SEVERITY_ERROR,
+            ),
+            CHECK_REST_DOCSTRING: (
+                re.compile(r"^\s*:(param|type|returns?|rtype|raises?|var|ivar|cvar)\b"),
+                SEVERITY_ERROR,
+            ),
+            CHECK_BOILERPLATE_DOCSTRING: (
+                re.compile(
+                    r"^\s*This\s+(module|class|function|method|file|script|node|handler|service)"
+                    r"\s+(provides?|implements?|contains?|is responsible for|handles?|manages?|offers?)",
+                    re.IGNORECASE,
+                ),
+                SEVERITY_WARNING,
+            ),
+            CHECK_MD_SEPARATOR: (
+                re.compile(r"={4,}"),
+                SEVERITY_WARNING,
+            ),
+        }
+
+
+def _build_line_regexes(
+    repo_root: Path | None,
+) -> dict[str, tuple[re.Pattern[str], str, list[str]]]:
+    """Return {rule_name: (compiled_pattern, severity, file_globs)} for line rules."""
+    try:
+        from omnibase_core.validation.aislop_rule_loader import resolve_rules
+
+        ruleset = resolve_rules(repo_root or Path.cwd())
+        result: dict[str, tuple[re.Pattern[str], str, list[str]]] = {}
+        for rule in ruleset.rules:
+            if rule.pattern_type == "regex_line" and rule.enabled:
+                result[rule.name] = (
+                    re.compile(rule.pattern, re.IGNORECASE),
+                    rule.severity,
+                    rule.file_globs,
+                )
+        return result
+    except Exception:
+        return {
+            CHECK_STEP_NARRATION: (
+                re.compile(r"#\s*Step\s+\d+\s*[:\-]", re.IGNORECASE),
+                SEVERITY_WARNING,
+                ["*.md"],
+            ),
+        }
+
+
+# ---------------------------------------------------------------------------
 # AST visitor — handles docstring patterns
 # ---------------------------------------------------------------------------
 
@@ -144,10 +207,17 @@ class _DocstringVisitor(ast.NodeVisitor):
     triple-quote and the first content line are on different lines.
     """
 
-    def __init__(self, filename: str, source_lines: list[str]) -> None:
+    def __init__(
+        self,
+        filename: str,
+        source_lines: list[str],
+        docstring_rules: dict[str, tuple[re.Pattern[str], str]] | None = None,
+    ) -> None:
         self.filename = filename
         self.source_lines = source_lines
         self.violations: list[SlopViolation] = []
+        # Accepts externally-resolved rules or falls back to defaults
+        self._rules = docstring_rules or _build_docstring_regexes(None)
 
     # ------------------------------------------------------------------
     # Suppression helpers
@@ -201,62 +271,24 @@ class _DocstringVisitor(ast.NodeVisitor):
         if self._has_suppression(def_lineno, docstring_lineno):
             return
 
-        # Check each line of the docstring for patterns
         doc_lines = docstring.splitlines()
         for offset, doc_line in enumerate(doc_lines):
             actual_lineno = docstring_lineno + offset
-
-            # Sycophancy (ERROR)
-            if _SYCOPHANCY_RE.match(doc_line):
-                self.violations.append(
-                    SlopViolation(
-                        filename=self.filename,
-                        line=actual_lineno,
-                        check=CHECK_SYCOPHANCY,
-                        severity=SEVERITY_ERROR,
-                        message=f"Sycophantic opener: {doc_line.strip()!r}",
-                        source_line=doc_line,
-                    )
+            for rule_name, (pattern, severity) in self._rules.items():
+                match_fn = (
+                    pattern.match if rule_name != CHECK_MD_SEPARATOR else pattern.search
                 )
-
-            # reST docstring (ERROR)
-            if _REST_RE.match(doc_line):
-                self.violations.append(
-                    SlopViolation(
-                        filename=self.filename,
-                        line=actual_lineno,
-                        check=CHECK_REST_DOCSTRING,
-                        severity=SEVERITY_ERROR,
-                        message=f"reST-style docstring marker: {doc_line.strip()!r}",
-                        source_line=doc_line,
+                if match_fn(doc_line):
+                    self.violations.append(
+                        SlopViolation(
+                            filename=self.filename,
+                            line=actual_lineno,
+                            check=rule_name,
+                            severity=severity,
+                            message=_format_docstring_message(rule_name, doc_line),
+                            source_line=doc_line,
+                        )
                     )
-                )
-
-            # Boilerplate opener (WARNING)
-            if _BOILERPLATE_RE.match(doc_line):
-                self.violations.append(
-                    SlopViolation(
-                        filename=self.filename,
-                        line=actual_lineno,
-                        check=CHECK_BOILERPLATE_DOCSTRING,
-                        severity=SEVERITY_WARNING,
-                        message=f"Boilerplate docstring opener: {doc_line.strip()!r}",
-                        source_line=doc_line,
-                    )
-                )
-
-            # Markdown separator (WARNING)
-            if _MD_SEPARATOR_RE.search(doc_line):
-                self.violations.append(
-                    SlopViolation(
-                        filename=self.filename,
-                        line=actual_lineno,
-                        check=CHECK_MD_SEPARATOR,
-                        severity=SEVERITY_WARNING,
-                        message=f"Markdown-style separator in docstring: {doc_line.strip()!r}",
-                        source_line=doc_line,
-                    )
-                )
 
     # ------------------------------------------------------------------
     # AST visit methods
@@ -279,12 +311,126 @@ class _DocstringVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+def _format_docstring_message(rule_name: str, doc_line: str) -> str:
+    stripped = doc_line.strip()
+    if rule_name == CHECK_SYCOPHANCY:
+        return f"Sycophantic opener: {stripped!r}"
+    if rule_name == CHECK_REST_DOCSTRING:
+        return f"reST-style docstring marker: {stripped!r}"
+    if rule_name == CHECK_BOILERPLATE_DOCSTRING:
+        return f"Boilerplate docstring opener: {stripped!r}"
+    if rule_name == CHECK_MD_SEPARATOR:
+        return f"Markdown-style separator in docstring: {stripped!r}"
+    return f"Violation in docstring: {stripped!r}"
+
+
 # ---------------------------------------------------------------------------
 # Line-based checks (non-docstring patterns)
 # ---------------------------------------------------------------------------
 
 
-def _check_lines(filename: str, source_lines: list[str]) -> list[SlopViolation]:
+LineRule = tuple[str, re.Pattern[str], str]
+
+
+def _applicable_line_rules(
+    line_rules: dict[str, tuple[re.Pattern[str], str, list[str]]],
+    *,
+    is_markdown: bool,
+) -> list[LineRule]:
+    applicable: list[LineRule] = []
+    for rule_name, (pattern, severity, globs) in line_rules.items():
+        md_only = all(g == "*.md" for g in globs)
+        py_only = all(g == "*.py" for g in globs) and not any(
+            g == "*.md" for g in globs
+        )
+        if is_markdown and py_only:
+            continue
+        if not is_markdown and md_only:
+            continue
+        applicable.append((rule_name, pattern, severity))
+    return applicable
+
+
+def _toggle_triple_quote_state(
+    stripped: str, *, in_triple_quote: bool, triple_char: str
+) -> tuple[bool, str]:
+    for quote in ('"""', "'''"):
+        count = stripped.count(quote)
+        if not count:
+            continue
+        if not in_triple_quote and count % 2 == 1:
+            return True, quote
+        if quote == triple_char and count % 2 == 1:
+            return False, ""
+    return in_triple_quote, triple_char
+
+
+def _build_line_violation(
+    *,
+    filename: str,
+    lineno: int,
+    rule_name: str,
+    severity: str,
+    message: str,
+    source_line: str,
+) -> SlopViolation:
+    return SlopViolation(
+        filename=filename,
+        line=lineno,
+        check=rule_name,
+        severity=severity,
+        message=message,
+        source_line=source_line,
+    )
+
+
+def _check_line_rules(
+    *,
+    filename: str,
+    lineno: int,
+    stripped: str,
+    applicable: list[LineRule],
+) -> list[SlopViolation]:
+    if SUPPRESSION_MARKER in stripped:
+        return []
+
+    violations: list[SlopViolation] = []
+    for rule_name, pattern, severity in applicable:
+        if rule_name == CHECK_STEP_NARRATION:
+            comment_match = re.search(r"#(.+)", stripped)
+            if comment_match and pattern.search(comment_match.group(0)):
+                comment_text = comment_match.group(0)
+                violations.append(
+                    _build_line_violation(
+                        filename=filename,
+                        lineno=lineno,
+                        rule_name=rule_name,
+                        severity=severity,
+                        message=f"Step narration comment: {comment_text.strip()!r}",
+                        source_line=stripped,
+                    )
+                )
+            continue
+
+        if pattern.search(stripped):
+            violations.append(
+                _build_line_violation(
+                    filename=filename,
+                    lineno=lineno,
+                    rule_name=rule_name,
+                    severity=severity,
+                    message=f"Pattern match ({rule_name}): {stripped!r}",
+                    source_line=stripped,
+                )
+            )
+    return violations
+
+
+def _check_lines(
+    filename: str,
+    source_lines: list[str],
+    line_rules: dict[str, tuple[re.Pattern[str], str, list[str]]] | None = None,
+) -> list[SlopViolation]:
     """
     Line-based regex checks for patterns that don't require AST analysis.
     Only applies outside of docstrings (we use a simple heuristic: skip
@@ -297,8 +443,13 @@ def _check_lines(filename: str, source_lines: list[str]) -> list[SlopViolation]:
     For Markdown files, lines inside fenced code blocks (``` ... ```) are skipped
     so that quoted Python examples with '# Step N:' comments are not flagged.
     """
+    if line_rules is None:
+        line_rules = _build_line_regexes(None)
+
     violations: list[SlopViolation] = []
     is_markdown = filename.endswith(".md")
+
+    applicable = _applicable_line_rules(line_rules, is_markdown=is_markdown)
 
     in_triple_quote = False
     triple_char = ""
@@ -308,52 +459,30 @@ def _check_lines(filename: str, source_lines: list[str]) -> list[SlopViolation]:
         stripped = line.rstrip()
 
         # Toggle triple-quote tracking for Python files (simple heuristic)
-        # Count occurrences of """ and '''
         if not is_markdown:
-            for tq in ('"""', "'''"):
-                count = stripped.count(tq)
-                if count:
-                    if not in_triple_quote:
-                        if count % 2 == 1:
-                            in_triple_quote = True
-                            triple_char = tq
-                    elif tq == triple_char:
-                        if count % 2 == 1:
-                            in_triple_quote = False
-                            triple_char = ""
-
+            in_triple_quote, triple_char = _toggle_triple_quote_state(
+                stripped,
+                in_triple_quote=in_triple_quote,
+                triple_char=triple_char,
+            )
             if in_triple_quote:
                 continue
 
         # For Markdown: track fenced code blocks (``` or ~~~) to skip their content.
-        # Lines inside code fences are quoted code examples, not prose patterns.
         if is_markdown:
             if stripped.startswith(("```", "~~~")):
                 in_md_code_fence = not in_md_code_fence
             if in_md_code_fence or stripped.startswith(("```", "~~~")):
                 continue
 
-        # Step narration: "# Step N:" — Markdown files only, outside code fences.
-        # Python inline comments like "# Step 1: Clone repo" are legitimate code
-        # documentation for ordered multi-step functions; only flag in .md files
-        # where "## Step N:" / "### Step N:" is LLM-generated structural boilerplate.
-        if is_markdown:
-            comment_match = re.search(r"#(.+)", stripped)
-            if comment_match:
-                comment_text = comment_match.group(0)
-                if _STEP_NARRATION_RE.search(comment_text):
-                    # Check for suppression on this line
-                    if SUPPRESSION_MARKER not in stripped:
-                        violations.append(
-                            SlopViolation(
-                                filename=filename,
-                                line=lineno,
-                                check=CHECK_STEP_NARRATION,
-                                severity=SEVERITY_WARNING,
-                                message=f"Step narration comment: {comment_text.strip()!r}",
-                                source_line=stripped,
-                            )
-                        )
+        violations.extend(
+            _check_line_rules(
+                filename=filename,
+                lineno=lineno,
+                stripped=stripped,
+                applicable=applicable,
+            )
+        )
 
     return violations
 
@@ -363,12 +492,11 @@ def _check_lines(filename: str, source_lines: list[str]) -> list[SlopViolation]:
 # ---------------------------------------------------------------------------
 
 
-def check_file(filepath: str | Path) -> list[SlopViolation]:
-    """
-    Check a single Python file for AI-slop patterns.
-
-    Returns a list of SlopViolation instances (may be empty).
-    """
+def check_file(
+    filepath: str | Path,
+    repo_root: Path | None = None,
+) -> list[SlopViolation]:
+    """Check a single Python or Markdown file for AI-slop patterns."""
     path = Path(filepath)
     violations: list[SlopViolation] = []
 
@@ -385,30 +513,33 @@ def check_file(filepath: str | Path) -> list[SlopViolation]:
             )
         ]
 
-    try:
-        tree = ast.parse(source, filename=str(filepath))
-    except SyntaxError as exc:
-        return [
-            SlopViolation(
-                filename=str(filepath),
-                line=exc.lineno or 0,
-                check="syntax_error",
-                severity=SEVERITY_ERROR,
-                message=f"Syntax error: {exc.msg}",
-            )
-        ]
-
     source_lines = source.splitlines()
+    line_rules = _build_line_regexes(repo_root)
 
-    # AST-based docstring checks
-    visitor = _DocstringVisitor(filename=str(filepath), source_lines=source_lines)
-    visitor.visit(tree)
-    violations.extend(visitor.violations)
+    if path.suffix == ".py":
+        try:
+            tree = ast.parse(source, filename=str(filepath))
+        except SyntaxError as exc:
+            return [
+                SlopViolation(
+                    filename=str(filepath),
+                    line=exc.lineno or 0,
+                    check="syntax_error",
+                    severity=SEVERITY_ERROR,
+                    message=f"Syntax error: {exc.msg}",
+                )
+            ]
 
-    # Line-based checks (step narration, etc.)
-    violations.extend(_check_lines(str(filepath), source_lines))
+        docstring_rules = _build_docstring_regexes(repo_root)
+        visitor = _DocstringVisitor(
+            filename=str(filepath),
+            source_lines=source_lines,
+            docstring_rules=docstring_rules,
+        )
+        visitor.visit(tree)
+        violations.extend(visitor.violations)
 
-    # Sort by line number
+    violations.extend(_check_lines(str(filepath), source_lines, line_rules))
     violations.sort(key=lambda v: v.line)
     return violations
 
@@ -453,8 +584,15 @@ def main(argv: list[str] | None = None) -> int:
         dest="json_output",
         help="Output results as JSON.",
     )
+    parser.add_argument(
+        "--config",
+        metavar="REPO_ROOT",
+        default=None,
+        help="Repo root containing .onex/aislop-rules.yaml for per-repo overrides.",
+    )
 
     args = parser.parse_args(argv)
+    repo_root = Path(args.config) if args.config else None
 
     # Collect files
     files: list[Path] = []
@@ -469,23 +607,8 @@ def main(argv: list[str] | None = None) -> int:
 
     all_violations: list[SlopViolation] = []
     for filepath in files:
-        if filepath.suffix == ".py":
-            all_violations.extend(check_file(filepath))
-        # Markdown files: no AST checks, only line-based (step_narration)
-        elif filepath.suffix == ".md":
-            try:
-                source_lines = filepath.read_text(encoding="utf-8").splitlines()
-                all_violations.extend(_check_lines(str(filepath), source_lines))
-            except OSError as exc:
-                all_violations.append(
-                    SlopViolation(
-                        filename=str(filepath),
-                        line=0,
-                        check="file_read",
-                        severity=SEVERITY_ERROR,
-                        message=f"Cannot read file: {exc}",
-                    )
-                )
+        if filepath.suffix in (".py", ".md"):
+            all_violations.extend(check_file(filepath, repo_root=repo_root))
 
     # Filter by severity
     if not args.report:

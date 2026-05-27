@@ -1,7 +1,7 @@
-use polars_async::primitives::connector;
-use polars_async::primitives::wait_group::WaitGroup;
-
-use crate::morsel::{Morsel, MorselInserter, MorselLinearizer};
+use crate::async_primitives::connector;
+use crate::async_primitives::morsel_linearizer::{MorselInserter, MorselLinearizer};
+use crate::async_primitives::wait_group::WaitGroup;
+use crate::morsel::Morsel;
 
 /// This is just a generic enum that can receive from either single or multiple senders.
 pub enum FileReaderOutputRecv {

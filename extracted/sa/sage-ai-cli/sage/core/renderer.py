@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import signal
 import shutil
@@ -1192,7 +1193,28 @@ def _detect_bad_streaming_patterns(
     return False, ""
 
 
-_no_color_enabled = False
+_no_color_enabled = (
+    bool(os.environ.get("NO_COLOR"))
+    or os.environ.get("TERM") == "dumb"
+    or not sys.stdout.isatty()
+)
+_suppress_spinners = not sys.stdout.isatty() or _no_color_enabled
+_use_unicode = (
+    not bool(os.environ.get("SAGE_ASCII"))
+    and not _no_color_enabled
+    and hasattr(sys.stdout, "encoding")
+    and sys.stdout.encoding is not None
+    and sys.stdout.encoding.lower().replace("-", "") in ("utf8", "utf-8", "utf16", "utf32", "cp65001")
+)
+
+def set_suppress_spinners(enabled: bool) -> None:
+    global _suppress_spinners
+    _suppress_spinners = enabled
+
+def get_suppress_spinners() -> bool:
+    global _suppress_spinners
+    return _suppress_spinners
+
 
 
 class _BottomDockStream(TextIOBase):
@@ -1410,15 +1432,23 @@ class SysStreamProxy:
 
 
 def _build_console(*, stderr: bool = False) -> Console:
+    stream_name = "stderr" if stderr else "stdout"
+    is_a_tty = getattr(sys, stream_name).isatty()
+    no_color = (
+        _no_color_enabled 
+        or bool(os.environ.get("NO_COLOR")) 
+        or os.environ.get("TERM") == "dumb"
+        or (not is_a_tty and not os.environ.get("FORCE_COLOR"))
+    )
     if _bottom_dock_stream is not None:
         return Console(
             file=_bottom_dock_stream,
             stderr=False,
-            no_color=_no_color_enabled,
-            color_system=None if _no_color_enabled else "auto",
+            no_color=no_color,
+            color_system=None if no_color else "auto",
         )
-    stream = SysStreamProxy("stderr" if stderr else "stdout")
-    if _no_color_enabled:
+    stream = SysStreamProxy(stream_name)
+    if no_color:
         return Console(file=stream, no_color=True)
     return Console(file=stream)
 
@@ -1713,6 +1743,29 @@ def get_repl_status() -> dict:
     return _repl_status
 
 
+_ASCII_PHASE_ICONS = {
+    "thinking":   "-",
+    "planning":   "*",
+    "reading":    "*",
+    "coding":     ">",
+    "writing":    ">",
+    "testing":    "T",
+    "fixing":     "F",
+    "executing":  ">",
+    "validating": "V",
+    "searching":  "S",
+    "scanning":   "S",
+    "analyzing":  "A",
+    "compacting": ".",
+    "fetching":   "<",
+    "delete":     "x",
+    "pull":       "<",
+    "update":     "^",
+    "done":       "+",
+    "error":      "x",
+}
+
+
 def phase(name: str, detail: str = "") -> None:
     """Print a phase indicator with icon and optional detail.
 
@@ -1731,6 +1784,8 @@ def phase(name: str, detail: str = "") -> None:
             return
     # normal and verbose both show every phase
     style, icon = _PHASE_STYLES.get(name, ("dim", "·"))
+    if not _use_unicode or _no_color_enabled:
+        icon = _ASCII_PHASE_ICONS.get(name, "-")
     detail_str = f"  [dim]{detail}[/dim]" if detail else ""
     console.print(f"  [{style}]{icon} {name.capitalize()}[/{style}]{detail_str}")
 
@@ -1756,7 +1811,17 @@ def status_spinner(message: str, phase_name: str = "thinking"):
             clear_repl_status()
         return
 
+    if not sys.stdout.isatty() or _no_color_enabled or _suppress_spinners or os.environ.get("TERM") == "dumb":
+        style, icon = _PHASE_STYLES.get(phase_name, ("dim", "·"))
+        if not _use_unicode or _no_color_enabled:
+            icon = _ASCII_PHASE_ICONS.get(phase_name, "-")
+        console.print(f"  [{style}]{icon} {message}[/{style}]")
+        yield
+        return
+
     style, icon = _PHASE_STYLES.get(phase_name, ("dim", "·"))
+    if not _use_unicode or _no_color_enabled:
+        icon = _ASCII_PHASE_ICONS.get(phase_name, "-")
     spinner = Spinner("dots", text=Text.from_markup(f"  [{style}]{icon} {message}[/{style}]"))
     with Live(spinner, console=console, refresh_per_second=12, transient=True):
         yield
@@ -1819,7 +1884,14 @@ def sage_operation(operation: str, show_spinner: bool = True):
         yield
     elif is_clean():
         # Clean mode: show progress indicator only
-        if show_spinner:
+        use_live_spinner = (
+            show_spinner 
+            and sys.stdout.isatty() 
+            and not _no_color_enabled 
+            and not _suppress_spinners
+            and os.environ.get("TERM") != "dumb"
+        )
+        if use_live_spinner:
             spinner = Spinner(
                 "dots", text=Text.from_markup(f"  [bold cyan]●[/bold cyan] {operation}...")
             )
@@ -2016,20 +2088,29 @@ def stream_tokens_with_phase(
     # sage appear frozen. In clean mode it's a plain "Processing..." dot;
     # in normal/verbose modes it's the familiar "⟡ Thinking..." indicator
     # with the model name and elapsed seconds so the user knows it's working.
-    show_spinner = not has_bottom_dock() and not is_repl_active()  # always show unless dock or REPL is active
+    show_spinner = (
+        not has_bottom_dock()
+        and not is_repl_active()
+        and sys.stdout.isatty()
+        and not _no_color_enabled
+        and not _suppress_spinners
+        and os.environ.get("TERM") != "dumb"
+    )
 
     _spinner_model = f"  [dim]{model_id}[/dim]" if model_id and not clean_mode else ""
     _spinner_start = time.monotonic()
+    think_icon = "⟡" if _use_unicode else "-"
+    proc_icon = "●" if _use_unicode else "*"
 
     class _ElapsedSpinner:
         """Spinner text that updates elapsed seconds so the user can see progress."""
         def __rich__(self):
             elapsed = time.monotonic() - _spinner_start
             if clean_mode:
-                txt = "  [bold cyan]● Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
+                txt = f"  [bold cyan]{proc_icon} Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
             else:
                 txt = (
-                    f"  [bold yellow]⟡ Thinking...[/bold yellow]"
+                    f"  [bold yellow]{think_icon} Thinking...[/bold yellow]"
                     f"  [dim]{elapsed:.0f}s[/dim]{_spinner_model}"
                     f"  [dim](Ctrl+C to cancel)[/dim]"
                 )
@@ -2038,15 +2119,17 @@ def stream_tokens_with_phase(
             return s.__rich__()
 
     spinner = Spinner("dots", text=Text.from_markup(
-        "  [bold yellow]⟡ Thinking...[/bold yellow]"
+        f"  [bold yellow]{think_icon} Thinking...[/bold yellow]"
         f"{_spinner_model}  [dim](Ctrl+C to cancel)[/dim]"
         if not clean_mode
-        else "  [bold cyan]● Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
+        else f"  [bold cyan]{proc_icon} Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
     ))
     live = Live(spinner, console=console, refresh_per_second=4, transient=True)
 
     def _update_spinner() -> None:
         """Refresh spinner text with elapsed time — called on each token loop tick."""
+        if spinner_stopped:
+            return
         elapsed = time.monotonic() - _spinner_start
         if is_repl_active():
             set_repl_status("Thinking...", "thinking", model_id=model_id, elapsed=elapsed)
@@ -2054,10 +2137,10 @@ def stream_tokens_with_phase(
         if not live.is_started:
             return
         if clean_mode:
-            txt = "  [bold cyan]● Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
+            txt = f"  [bold cyan]{proc_icon} Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
         else:
             txt = (
-                f"  [bold yellow]⟡ Thinking...  {elapsed:.0f}s[/bold yellow]"
+                f"  [bold yellow]{think_icon} Thinking...  {elapsed:.0f}s[/bold yellow]"
                 f"{_spinner_model}  [dim](Ctrl+C to cancel)[/dim]"
             )
         spinner.text = Text.from_markup(txt)
@@ -2077,10 +2160,18 @@ def stream_tokens_with_phase(
         has_first_token, first_token = _next_token_with_timeout(tokens_iter, first_token_timeout)
         token_stream = chain([first_token], tokens_iter) if has_first_token else iter(())
 
+        spinner_stopped = False
         for token in token_stream:
             if _sigint_received:
                 cancelled = True
                 break
+
+            if not spinner_stopped:
+                spinner_stopped = True
+                if live.is_started:
+                    live.stop()
+                if is_repl_active():
+                    clear_repl_status()
 
             # Tick the elapsed-time counter so the spinner shows "5s", "10s"…
             # keeping the user informed the model is still working.
@@ -2322,24 +2413,41 @@ def stream_tokens_minimal(tokens: Iterator[str], model_id: str = "") -> str:
         signal.signal(signal.SIGINT, _handle_sigint)
 
     # Show thinking spinner
+    think_icon = "⟡" if _use_unicode else "-"
     spinner = Spinner(
         "dots",
         text=Text.from_markup(
-            "  [bold yellow]⟡ Thinking...[/bold yellow]"
+            f"  [bold yellow]{think_icon} Thinking...[/bold yellow]"
             + (f"  [dim]({model_id})[/dim]" if model_id else "")
         ),
+    )
+    show_spinner = (
+        not has_bottom_dock()
+        and not is_repl_active()
+        and sys.stdout.isatty()
+        and not _no_color_enabled
+        and not _suppress_spinners
+        and os.environ.get("TERM") != "dumb"
     )
     live = Live(spinner, console=console, refresh_per_second=12, transient=True)
     if is_repl_active():
         set_repl_status("Thinking...", "thinking", model_id=model_id, elapsed=0.0)
-    elif not has_bottom_dock():
+    elif show_spinner:
         live.start()
 
     try:
+        spinner_stopped = False
         for token in tokens:
             if _sigint_received:
                 cancelled = True
                 break
+
+            if not spinner_stopped:
+                spinner_stopped = True
+                if live.is_started:
+                    live.stop()
+                if is_repl_active():
+                    clear_repl_status()
 
             parts.append(token)
             token_count += 1
@@ -2841,7 +2949,7 @@ def print_agent_help() -> None:
         "  [#8bb8ff]/tdd[/#8bb8ff] [on|off]                     Toggle test-driven development (TDD) mode\n"
         "  [#8bb8ff]/phd[/#8bb8ff] <topic>                      Run PhD-level strategic research on a topic\n"
         "  [#8bb8ff]/expert[/#8bb8ff] <domain> [query]          Consult a domain expert persona\n"
-        "  [#8bb8ff]/swarm[/#8bb8ff]                            Coordinate a swarm of mock/worker sub-agents\n"
+        "  [#8bb8ff]/swarm[/#8bb8ff]                            Coordinate a swarm of simulated/worker sub-agents\n"
         "  [#8bb8ff]/sandbox[/#8bb8ff] [cmd]                    Run command/Python script in Docker sandbox\n"
         "  [#8bb8ff]/autoorg[/#8bb8ff] [task]                   Run multi-step AI orchestration\n"
         "  [#8bb8ff]/autofleet[/#8bb8ff] [task]                 Run fleet (multi-agent) orchestration\n"

@@ -23,6 +23,7 @@ from django.db.models import Q
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
+from pandera.engines import pandas_engine
 
 from lamindb.base.dtypes import check_dtype
 from lamindb.base.types import FieldAttr  # noqa
@@ -33,7 +34,11 @@ from lamindb.models import (
     Schema,
     SQLRecord,
 )
-from lamindb.models._from_values import _format_values, _from_values
+from lamindb.models._from_values import (
+    _format_values,
+    _from_values,
+    build_create_records_hint,
+)
 from lamindb.models.artifact import (
     data_is_scversedatastructure,
     data_is_soma_experiment,
@@ -580,9 +585,15 @@ class ComponentCurator(Curator):
                         ),
                     )
                 else:
-                    pandera_dtype = (
-                        dtype_str if not dtype_str.startswith("cat") else "category"
-                    )
+                    if dtype_str == "datetime64[ns, UTC]":
+                        pandera_dtype = pandas_engine.DateTime(
+                            time_zone_agnostic=True,
+                            tz="UTC" if feature.coerce else None,
+                        )
+                    else:
+                        pandera_dtype = (
+                            dtype_str if not dtype_str.startswith("cat") else "category"
+                        )
                     pandera_columns[feature.name] = pandera.Column(
                         pandera_dtype,
                         nullable=feature.nullable,
@@ -1153,6 +1164,8 @@ class SpatialDataCurator(SlotsCurator):
 
     {}
 
+    Background: `blog.lamin.ai/spatialdata <https://blog.lamin.ai/spatialdata>`__.
+
     Args:
         dataset: The SpatialData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
@@ -1327,7 +1340,7 @@ class CatVector:
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         filter_str: str = "",
-        record_uid: str | None = None,
+        type_uid: str | None = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
         schema: Schema = None,
     ) -> None:
@@ -1339,7 +1352,7 @@ class CatVector:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
-        self._record_uid = record_uid
+        self._type_uid = type_uid
         self._subtype_query_set = None
         self._cat_manager = cat_manager
         self.feature = feature
@@ -1370,11 +1383,11 @@ class CatVector:
             self._registry, self._filter_kwargs
         )
 
-        # get the dtype associated record based on the record_uid
-        if self._record_uid:
+        # get the dtype associated record based on the type_uid
+        if self._type_uid:
             self._type_record = get_record_type_from_uid(
                 self._registry,
-                self._record_uid,
+                self._type_uid,
             )
 
         if hasattr(self._registry, "_name_field"):
@@ -1714,26 +1727,27 @@ class CatVector:
             slot = None
         in_slot = f" in slot '{slot}'" if slot is not None else ""
         slot_prefix = f".slots['{slot}']" if slot is not None else ""
-        non_validated_hint_print = (
-            f"curator{slot_prefix}.cat.add_new_from('{self._key}')"
-        )
+        cat_prefix = f"curator{slot_prefix}.cat"
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
-            logger.success(
+            logger.debug(
                 f'"{self._key}" is validated against {colors.italic(model_field)}'
             )
             return [], {}
         else:
             s = "" if n_non_validated == 1 else "s"
             print_values = _format_values(non_validated)
-            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} not validated in feature '{self._key}'{in_slot}: {colors.red(print_values)}\n"
+            key_label = (
+                "columns" if self._key == "columns" else f"feature '{self._key}'"
+            )
+            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} not validated in {key_label}{in_slot}: {colors.red(print_values)}\n"
             # log synonyms if any
             if syn_mapper:
                 s = "" if len(syn_mapper) == 1 else "s"
                 syn_mapper_print = _format_values(
                     [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
                 )
-                hint_msg = f'.standardize("{self._key}")'
+                hint_msg = f'{cat_prefix}.standardize("{self._key}")'
                 warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via: {colors.cyan(hint_msg)}"
             if n_non_validated > len(syn_mapper):
                 if syn_mapper:
@@ -1745,11 +1759,20 @@ class CatVector:
                 ):
                     organism = self._filter_kwargs.get("organism", None)
                     check_organism = f"fix organism '{organism}', "
-                warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
+                registry_str = self._registry.__get_name_with_module__()
+                create_hint = build_create_records_hint(
+                    {registry_str: (self._field_name, non_validated)},
+                    title=None,
+                )
+                warning_message += (
+                    f"    → {check_organism}fix typos, remove non-existent values, "
+                    "or create objects via:\n\n"
+                    f"{colors.cyan(create_hint)}"
+                )
                 if self._subtype_query_set is not None and self._type_record:
                     warning_message += f"\n    → a valid label for subtype '{self._type_record.name}' has to be one of {self._subtype_query_set.to_list('name')}"
-            logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
-            logger.warning(warning_message)
+            logger.debug(f'mapping "{self._key}" on {colors.italic(model_field)}')
+            logger.debug(warning_message)
             if self._cat_manager is not None:
                 self._cat_manager._validate_category_error_messages = strip_ansi_codes(
                     warning_message
@@ -1821,7 +1844,7 @@ class DataFrameCatManager:
         self._non_validated = None
         self._index = index
         self._artifact: Artifact = None  # pass the dataset as an artifact
-        self._dataset: Any = df  # pass the dataset as a UPathStr or data object
+        self._dataset: Any = df  # pass the dataset as an AnyPathStr or data object
         if isinstance(self._dataset, Artifact):
             self._artifact = self._dataset
             self._dataset = self._dataset.load(is_run_input=False)
@@ -1876,7 +1899,7 @@ class DataFrameCatManager:
                     feature=feature,
                     cat_manager=self,
                     filter_str=result["filter_str"],
-                    record_uid=result.get("record_uid"),
+                    type_uid=result.get("type_uid"),
                 )
         if index is not None and index._dtype_str.startswith("cat"):
             result = parse_dtype(index._dtype_str)[0]
@@ -1891,7 +1914,7 @@ class DataFrameCatManager:
                 feature=index,
                 cat_manager=self,
                 filter_str=result["filter_str"],
-                record_uid=result.get("record_uid"),
+                type_uid=result.get("type_uid"),
             )
 
     @property

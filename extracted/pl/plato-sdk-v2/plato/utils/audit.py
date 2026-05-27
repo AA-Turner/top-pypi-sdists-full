@@ -11,7 +11,7 @@ import logging
 import posixpath
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -290,7 +290,7 @@ def parse_audit_raw(raw_output: str) -> Iterator[AuditEventInput]:
 
         how = au.aup_normalize_how()
         ts = au.get_timestamp()
-        timestamp = datetime.fromtimestamp(ts.sec + ts.milli / 1000, tz=timezone.utc)
+        timestamp = datetime.fromtimestamp(ts.sec + ts.milli / 1000, tz=UTC)
 
         # Get uid from subject
         uid: int | None = None

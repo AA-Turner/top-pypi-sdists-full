@@ -30,7 +30,7 @@ GROUPS["tutorial"] = [
     "README.ipynb",
     "sync.ipynb",
     "arrays.ipynb",
-    "registries.ipynb",
+    "query-search.ipynb",
 ]
 GROUPS["guide"] = [
     "track.ipynb",
@@ -59,7 +59,7 @@ def install(session):
         ".[full,dev]",
     ]
     cmds = [
-        f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
+        f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps {' '.join(base_deps)}",
     ] + [
         f"uv pip install {'--system' if CI else ''} --no-cache-dir -e {dep}"
         for dep in top_deps
@@ -81,6 +81,7 @@ def install(session):
         "biology",
         "faq",
         "storage",
+        "transfer",
         "curator",
         "integrations",
         "docs",
@@ -94,6 +95,7 @@ def install_ci(session, group):
         extras += "fcs"
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system mudata")
+        run(session, "uv pip install --system marimo")
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
@@ -276,6 +278,7 @@ def prepare(session):
         "biology",
         "faq",
         "storage",
+        "transfer",
         "cli",
         "permissions",
     ],
@@ -340,6 +343,8 @@ def test(session, group):
         run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
+    elif group == "transfer":
+        run(session, f"pytest {coverage_args} tests/transfer {duration_args}")
     elif group == "curator":
         run(
             session,

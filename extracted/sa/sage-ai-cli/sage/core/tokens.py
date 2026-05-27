@@ -499,7 +499,9 @@ class CostTracker:
 
     def render_summary(self, console: Console | None = None) -> None:
         """Render cost summary to console."""
-        console = console or Console()
+        if console is None:
+            from sage.core.renderer import console as _default_console
+            console = _default_console
         summary = self.get_summary()
 
         table = Table(title="Usage Summary")
@@ -558,7 +560,9 @@ def display_token_estimate(
     console: Console | None = None,
 ) -> None:
     """Display token estimate with context window usage."""
-    console = console or Console()
+    if console is None:
+        from sage.core.renderer import console as _default_console
+        console = _default_console
 
     usage_pct = (estimate.total / max_tokens) * 100
     color = "green" if usage_pct < 50 else "yellow" if usage_pct < 80 else "red"
@@ -576,7 +580,9 @@ def display_pre_generation_estimate(
     console: Console | None = None,
 ) -> None:
     """Display token estimate before generation."""
-    console = console or Console()
+    if console is None:
+        from sage.core.renderer import console as _default_console
+        console = _default_console
     estimator = TokenEstimator(model)
 
     prompt_est = estimator.estimate(prompt)

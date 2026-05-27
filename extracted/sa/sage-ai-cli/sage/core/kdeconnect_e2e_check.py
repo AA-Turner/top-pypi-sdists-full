@@ -23,6 +23,13 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 from sage.core.kdeconnect_listener import (
     KDC_PORT,
     KDEConnectInboundListener,

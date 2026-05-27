@@ -179,10 +179,6 @@ impl PartialEq for DataType {
                 (Array(left_inner, left_width), Array(right_inner, right_width)) => {
                     left_width == right_width && left_inner == right_inner
                 },
-                #[cfg(feature = "dtype-extension")]
-                (Extension(ext_l, storage_l), Extension(ext_r, storage_r)) => {
-                    ext_l == ext_r && storage_l == storage_r
-                },
                 (Unknown(l), Unknown(r)) => match (l, r) {
                     (UnknownKind::Int(_), UnknownKind::Int(_)) => true,
                     _ => l == r,
@@ -904,8 +900,6 @@ impl DataType {
                 PlSmallStr::from_static(PL_KEY),
                 PlSmallStr::from_static(MAINTAIN_PL_TYPE),
             )])),
-            #[cfg(feature = "dtype-extension")]
-            DataType::Extension(_ext, storage) => storage.to_arrow_field_metadata(),
             _ => None,
         }
     }
@@ -1038,7 +1032,7 @@ impl DataType {
                 Ok(ArrowDataType::Dictionary(
                     arrow_phys,
                     Box::new(values),
-                    matches!(self, Enum(_, _)),
+                    false,
                 ))
             },
             #[cfg(feature = "dtype-struct")]

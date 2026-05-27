@@ -5,9 +5,9 @@ name: Omni* Ecosystem Standards Compliance
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, dev, "hotfix/**"]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, dev]
 
 env:
   PYTHON_VERSION: "3.12"
@@ -24,10 +24,6 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    # Pre-existing violations on main (9 as of activation). Non-blocking until resolved.
-    # See: mixin_event_bus.py, mixin_health_check.py, util_compute_path_resolver.py,
-    #      util_str_enum_base.py, model_github_pr_status_event.py
-    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -351,3 +347,25 @@ jobs:
             fi
           done
           echo "CI naming convention: PASS"
+
+  no-new-env-vars:
+    name: No New os.environ/os.getenv Additions (OMN-11186)
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Check for new env var additions
+        run: |
+          find src/ -name "*.py" -print0 | xargs -0 python scripts/validation/validate_no_new_env_vars.py

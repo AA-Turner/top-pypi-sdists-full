@@ -21,8 +21,9 @@
 - id: check-local-paths
   name: Check for local path references
   description: >
-    Detect machine-specific absolute paths (/Volumes/..., /Users/..., /home/..., C:\Users\...) that break
-    portability when code or skills are distributed. Add `# local-path-ok` to suppress a specific line.
+    Detect machine-specific absolute paths that break portability when code or skills are distributed.
+    Covers /Volumes/, /Users/, /home/, and Windows user paths. Add `# local-path-ok` to suppress a specific
+    line.
   language: python
   entry: python -m omnibase_core.validation.validator_local_paths
   types: [text]
@@ -68,6 +69,19 @@
   pass_filenames: true
   stages: [pre-commit]
 
+- id: no-new-env-vars
+  name: No New os.environ/os.getenv Additions (OMN-11186)
+  description: >
+    Block new os.environ[...], os.environ.get(...), and os.getenv(...) calls outside the established allowlist.
+    All config must flow through contract YAML or Infisical. Exempts test files, scripts/, and lines annotated
+    with `# env-var-ok`. Extend _BOOTSTRAP_ALLOWLIST in scripts/validation/validate_no_new_env_vars.py
+    via PR review for structural bootstrap vars.
+  language: python
+  entry: python scripts/validation/validate_no_new_env_vars.py
+  types: [python]
+  pass_filenames: true
+  stages: [pre-commit]
+
 - id: check-hardcoded-topics-v2
   name: Hardcoded ONEX Topic Strings (contract-driven)
   description: >
@@ -79,4 +93,17 @@
   types_or: [python, yaml, shell, dockerfile]
   pass_filenames: true
   require_serial: true
+  stages: [pre-commit]
+
+- id: check-antipatterns
+  name: KB Antipattern Checker (offline, non-semantic rules only)
+  description: >
+    Offline antipattern checker (OMN-11923). Loads the resolved antipattern registry (defaults + per-repo
+    .onex/antipattern-overrides.yaml), filters to non-semantic rules (regex_line, regex_ast_docstring,
+    grep_code), and validates staged Python files. No network calls. Outputs registry version and SHA-256
+    hash for reproducibility. Suppression: per-entry suppression_annotation inline comment (e.g. # ai-slop-ok).
+  language: python
+  entry: python -m omnibase_core.validation.antipattern_checker
+  types: [python]
+  pass_filenames: true
   stages: [pre-commit]

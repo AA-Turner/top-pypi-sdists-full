@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.118
+Version: 2.3.119
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -1443,6 +1443,8 @@ Class | Method | HTTP request | Description
  - [NavActivityAdjustmentResponse](docs/NavActivityAdjustmentResponse.md)
  - [NavActivityAdjustmentResponseType](docs/NavActivityAdjustmentResponseType.md)
  - [NavActivityAdjustmentType](docs/NavActivityAdjustmentType.md)
+ - [NavSettlementConfiguration](docs/NavSettlementConfiguration.md)
+ - [NavSettlementConfigurationCategory](docs/NavSettlementConfigurationCategory.md)
  - [NavType](docs/NavType.md)
  - [NavTypeDefinition](docs/NavTypeDefinition.md)
  - [NewInstrument](docs/NewInstrument.md)

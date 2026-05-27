@@ -13,23 +13,20 @@
 # limitations under the License.
 
 import importlib
-import sys
 
 _native = importlib.import_module("._fastwarc", __name__)
 _legacy_shims = importlib.import_module(".legacy._shims", __name__)
 
-from ._fastwarc import *  # noqa: F401,F403
+import fastwarc.stream_io as stream_io  # noqa: F401
+import fastwarc.warc as warc  # noqa: F401
 
-stream_io = _native.stream_io
-warc = _native.warc
-
-sys.modules[__name__ + ".stream_io"] = stream_io
-sys.modules[__name__ + ".warc"] = warc
+# Re-export module attributes
+globals().update({attr: getattr(_native, attr) for attr in _native.__all__})
 
 # Patch legacy shims onto stream_io
 for name in _legacy_shims.__all__:
     setattr(stream_io, name, getattr(_legacy_shims, name))
-stream_io.__all__ += getattr(_legacy_shims, "__all__", ())
+stream_io.__all__ += getattr(_legacy_shims, "__all__", ())  # type: ignore[attr-defined]
 
 FileStream = _legacy_shims.FileStream
 GZipStream = _legacy_shims.GZipStream
@@ -39,9 +36,9 @@ StreamError = _legacy_shims.StreamError
 
 __all__ = [
     *_native.__all__,
-    "FileStream",
-    "GZipStream",
-    "LZ4Stream",
-    "FastWARCError",
-    "StreamError",
+    'FileStream',
+    'GZipStream',
+    'LZ4Stream',
+    'FastWARCError',
+    'StreamError',
 ]

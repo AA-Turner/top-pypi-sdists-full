@@ -154,7 +154,7 @@ class _Translator(ABC):  # noqa: B024
         """Instantiate and return an HgvsTools instance"""
         return HgvsTools(self.data_proxy)
 
-    def _from_vrs(self, var: dict) -> models._VariationBase | None:
+    def _from_vrs(self, var: dict, **kwargs) -> models._VariationBase | None:  # noqa: ARG002
         """Convert from dict representation of VRS JSON to VRS object"""
         if not isinstance(var, Mapping):
             return None
@@ -573,7 +573,7 @@ class CnvTranslator(_Translator):
         )
 
         copies = kwargs.get("copies")
-        if copies:
+        if copies is not None:
             cnv = models.CopyNumberCount(location=location, copies=copies)
         else:
             copy_change = kwargs.get("copy_change")

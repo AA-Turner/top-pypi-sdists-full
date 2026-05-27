@@ -141,7 +141,7 @@ def row_by_record(idl_, table, record):
     rl = _LOOKUP_TABLE.get(table, RowLookup(table, get_index_column(t), None))
     # no table means uuid only, no column means lookup table only has one row
     if rl.table is None:
-        raise ValueError("Table %s can only be queried by UUID") % table
+        raise ValueError("Table %s can only be queried by UUID" % table)
     if rl.column is None:
         return next(iter(t.rows.values()))
     row = row_by_value(idl_, rl.table, rl.column, record)
@@ -275,6 +275,19 @@ def get_column_value(row, col):
         # ovs-vsctl treats lists of 1 as single results
         if col_type.is_optional():
             val = val[0]
+    return val
+
+
+def rows_to_uuids(val):
+    """Replace any idl.Row objects in val with their UUIDs."""
+    if isinstance(val, idl.Row):
+        return val.uuid
+    if isinstance(val, list):
+        return [v.uuid if isinstance(v, idl.Row) else v for v in val]
+    if isinstance(val, dict):
+        return {(k.uuid if isinstance(k, idl.Row) else k):
+                (v.uuid if isinstance(v, idl.Row) else v)
+                for k, v in val.items()}
     return val
 
 
@@ -466,9 +479,20 @@ def process_value_for_str(row, col):
 
         @classmethod
         def from_col(cls, col_src, value):
-            if col_src.is_ref():
+            if not col_src.is_ref():
+                return cls(int=value.int)
+            try:
                 return cls(int=value.uuid.int)
-            return cls(int=value.int)
+            except AttributeError:
+                pass
+            # Dangling ref: walk the .value chain to find a uuid.UUID
+            v = value
+            while not isinstance(v, uuid.UUID):
+                if not hasattr(v, 'value'):
+                    raise AttributeError(
+                        "Cannot extract UUID from %r" % (value,))
+                v = v.value
+            return cls(int=v.int)
 
     # If we are passed UUID as a column, just return the modified row.uuid
     if col == 'uuid':

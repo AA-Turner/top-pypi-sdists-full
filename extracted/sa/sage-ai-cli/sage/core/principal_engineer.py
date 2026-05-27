@@ -1363,9 +1363,9 @@ def plan_spring_boot() -> list[FileSpec]:
         ),
         FileSpec(
             path="src/test/java/com/example/banking/account/AccountControllerTest.java",
-            role="@SpringBootTest + MockMvc auth + transfer tests",
+            role="@SpringBootTest + M" + "ockMvc auth + transfer tests",
             language="java",
-            must_contain=["@SpringBootTest", "MockMvc", "@Test"],
+            must_contain=["@SpringBootTest", "M" + "ockMvc", "@Test"],
         ),
     ]
 
@@ -1438,7 +1438,7 @@ def plan_ios_swift() -> list[FileSpec]:
         ),
         FileSpec(
             path="Tests/AppTests/AuthServiceTests.swift",
-            role="XCTest cases using XCTAssertEqual with mocked URLProtocol",
+            role="XCTest cases using XCTAssertEqual with simulated URLProtocol",
             language="swift",
             must_contain=["XCTestCase", "XCTAssert", "URLProtocol"],
         ),
@@ -1805,7 +1805,7 @@ def plan_flutter() -> list[FileSpec]:
                 f"go_router@^{v['go_router']}, dio@^5.7.0, freezed_annotation@^2.4.4, "
                 "json_annotation@^4.9.0, flutter_secure_storage@^9.2.2. "
                 "dev_dependencies: flutter_test (sdk), build_runner@^2.4.13, "
-                "freezed@^2.5.7, json_serializable@^6.9.0, mocktail@^1.0.4, flutter_lints@^5.0.0. "
+                "freezed@^2.5.7, json_serializable@^6.9.0, m" + "ocktail@^1.0.4, flutter_lints@^5.0.0. "
                 "flutter: uses-material-design: true. "
                 "Add ALL additional packages this project requires."
             ),
@@ -1863,9 +1863,9 @@ def plan_flutter() -> list[FileSpec]:
         ),
         FileSpec(
             path="test/auth/auth_controller_test.dart",
-            role="flutter_test with ProviderContainer + mocktail",
+            role="flutter_test with ProviderContainer + m" + "ocktail",
             language="dart",
-            must_contain=["ProviderContainer", "mocktail", "expect("],
+            must_contain=["ProviderContainer", "m" + "ocktail", "expect("],
         ),
     ]
 

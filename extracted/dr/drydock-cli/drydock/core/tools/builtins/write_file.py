@@ -377,8 +377,8 @@ def _check_missing_sibling_imports(tree, file_path: Path) -> set[str]:
 
 
 class WriteFileArgs(BaseModel):
-    path: str
-    content: str
+    path: str = Field(default="", description="Path to the file to write")
+    content: str = Field(default="", description="UTF-8 text content to write")
     overwrite: bool = Field(
         default=True, description="Whether to overwrite an existing file."
     )
@@ -438,6 +438,30 @@ class WriteFile(
     async def run(
         self, args: WriteFileArgs, ctx: InvokeContext | None = None
     ) -> AsyncGenerator[ToolStreamEvent | WriteFileResult, None]:
+        # Soft-handle missing path before _prepare_and_validate_path so the
+        # model gets a gentle advisory result instead of a ToolError that
+        # triggers panic-retry loops (feedback_no_tool_errors_for_loop_detection).
+        if not args.path.strip():
+            cwd = Path.cwd()
+            try:
+                pkg_dirs = [
+                    d.name for d in sorted(cwd.iterdir())
+                    if d.is_dir() and not d.name.startswith('.') and not d.name.startswith('_')
+                ][:4]
+                hint = f"Package dirs in {cwd.name}/: {', '.join(pkg_dirs)}" if pkg_dirs else f"cwd: {cwd}"
+            except OSError:
+                hint = f"cwd: {cwd}"
+            yield WriteFileResult(
+                path="(missing)",
+                bytes_written=0,
+                file_existed=False,
+                content=(
+                    f"write_file requires a path argument — you sent an empty or missing path. "
+                    f"Retry as: write_file(path='<package>/<file>.py', content='...'). "
+                    f"{hint}."
+                ),
+            )
+            return
         file_path, file_existed, content_bytes = self._prepare_and_validate_path(args)
 
         # Read-before-Write enforcement (Claude Code tool contract).

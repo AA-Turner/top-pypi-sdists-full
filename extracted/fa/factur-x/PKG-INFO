@@ -1,12 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: factur-x
-Version: 4.2
+Version: 4.3
 Summary: Factur-X and Order-X: electronic invoicing and ordering standards
 Project-URL: Homepage, https://github.com/akretion/factur-x
 Project-URL: Source, https://github.com/akretion/factur-x
 Project-URL: Issues, https://github.com/akretion/factur-x/issues
 Author-email: Alexis de Lattre <alexis.delattre@akretion.com>
-License: Copyright (c) 2016-2023, Alexis de Lattre <alexis.delattre@akretion.com>
+License: 
+        Copyright (c) 2016-2023, Alexis de Lattre <alexis.delattre@akretion.com>
         All rights reserved.
         
         Redistribution and use in source and binary forms, with or without
@@ -30,18 +31,23 @@ License: Copyright (c) 2016-2023, Alexis de Lattre <alexis.delattre@akretion.com
         LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
         NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
         SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-File: LICENSE.txt
 Keywords: Factur-X,Order-X,ZUGFeRD,e-invoice,e-procurement
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Office/Business :: Financial :: Accounting
-Requires-Python: >=3.7
-Requires-Dist: importlib-resources; python_version < '3.9'
+Requires-Python: >=3.9
 Requires-Dist: lxml
 Requires-Dist: pypdf>=5.3.0
 Requires-Dist: saxonche
+Provides-Extra: test
+Requires-Dist: coverage[toml]; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
 Description-Content-Type: text/x-rst
 
 Factur-X and Order-X Python library
@@ -81,6 +87,26 @@ Usage
 The PDF file *regular_pdf_file* will be updated to Factur-X/Order-X. If you want to write the resulting Factur-X/Order-X PDF to another file, use the argument *output_pdf_file*.
 
 To have more examples, look at the docstrings in the source code or look at the source code of the command line tools located in the *bin* subdirectory.
+
+Development
+=============
+
+Use hatch
+-------------
+
+Install the env with all lib
+
+```
+hatch env create
+```
+
+Execute the test
+-------------------
+
+```
+hatch run test:pytest
+```
+
 
 Command line tools
 ==================

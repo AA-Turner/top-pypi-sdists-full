@@ -355,9 +355,8 @@ impl PyExpr {
             .into()
     }
 
-    #[pyo3(signature = (idx, null_on_oob=false))]
-    fn gather(&self, idx: Self, null_on_oob: bool) -> Self {
-        self.inner.clone().gather(idx.inner, null_on_oob).into()
+    fn gather(&self, idx: Self) -> Self {
+        self.inner.clone().gather(idx.inner).into()
     }
 
     #[pyo3(signature = (idx, null_on_oob=false))]
@@ -887,13 +886,6 @@ impl PyExpr {
     }
     fn all(&self, ignore_nulls: bool) -> Self {
         self.inner.clone().all(ignore_nulls).into()
-    }
-    fn is_empty(&self, ignore_nulls: bool) -> Self {
-        self.inner.clone().is_empty(ignore_nulls).into()
-    }
-
-    fn has_nulls(&self) -> Self {
-        self.inner.clone().has_nulls().into()
     }
 
     fn log(&self, base: PyExpr) -> Self {

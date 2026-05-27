@@ -272,7 +272,6 @@ class RehearsalMark(Expression):
         >>> expressions.RehearsalMark('Z').nextContent()
         'AA'
 
-
         With rehearsal mark 'I' default is to consider it
         as a roman numeral:
 
@@ -312,7 +311,6 @@ class RehearsalMark(Expression):
         >>> rm = expressions.RehearsalMark('C')
         >>> rm.nextMark()
         <music21.expressions.RehearsalMark 'D'>
-
 
         >>> rm = expressions.RehearsalMark('IV', numbering='roman')
         >>> nm = rm.nextMark()
@@ -596,7 +594,7 @@ class Ornament(Expression):
         and a list of notes after the "main note".
 
         * New in v8: inPlace boolean; note that some ornaments
-          might not return a Note in the second position at all (such as trills)
+          might not return a Note in the second position at all (such as trills),
           so inPlace does nothing.
         * Changed in v9: Optional keySig can be passed in (useful in cases where there
           is no keySig in srcObj's context, or where a different keySig is desired).
@@ -795,7 +793,6 @@ class GeneralMordent(Ornament):
         If keySig is None, srcNote's context will be searched for a key signature.
         If no key signature is found, a key signature with no sharps and no flats
         will be used.
-
 
         A mordent on a G in a key with no sharps or flats (ornamental pitch will be F).
 
@@ -1001,7 +998,6 @@ class Mordent(GeneralMordent):
         A musical ornament consisting of the alternation of the written note
         with the note immediately below it.
 
-
     A mordent has the size of a second, of some form, depending on the note
     that will have the mordent, the current key signature in that note's context, as
     well as any accidental on the mordent itself.
@@ -1049,8 +1045,6 @@ class Mordent(GeneralMordent):
     <music21.interval.Interval M-2>
     >>> mNotFlatWithKeyFromContext.getSize(noteB3)
     <music21.interval.Interval M-2>
-
-
 
     * Changed in v7: Mordent sizes are GenericIntervals -- as was originally
       intended but programmed incorrectly.
@@ -1651,7 +1645,6 @@ class Trill(Ornament):
           <music21.note.Note C>,
           <music21.note.Note D#>], None, [])
 
-
         To avoid this case, create a :class:`~music21.expressions.HalfStepTrill` or
         :class:`~music21.expressions.WholeStepTrill`.
 
@@ -2246,8 +2239,8 @@ class Turn(Ornament):
         keySig: key.KeySignature|None = None,
         inPlace: bool = False
     ) -> tuple[list[note.Note|note.Unpitched],
-                note.Note|note.Unpitched|None,
-                list[note.Note|note.Unpitched]]:
+               note.Note|note.Unpitched|None,
+               list[note.Note|note.Unpitched]]:
         # noinspection PyShadowingNames
         '''
         realize a turn.
@@ -2373,7 +2366,7 @@ class Turn(Ornament):
         if turnDuration < 4 * self.quarterLength:
             if not self.autoScale:
                 raise ExpressionException('The note is not long enough to realize a turn')
-            useQL = opFrac(turnDuration / 4)
+            useQL = turnDuration / 4
         elif turnDuration > 4 * self.quarterLength:
             # in this case, we keep the first 3 turn notes as self.quarterLength, and
             # extend the 4th turn note to finish up the turnDuration
@@ -2486,7 +2479,6 @@ class GeneralAppoggiatura(Ornament):
         >>> a1 = expressions.Appoggiatura()
         >>> a1.realize(n1)
         ([<music21.note.Note D>], <music21.note.Note C>, [])
-
 
         >>> n2 = note.Note('C4')
         >>> n2.quarterLength = 1
@@ -2658,7 +2650,6 @@ class Tremolo(Ornament):
         {0.625} <music21.note.Note C>
         {0.75} <music21.note.Note C>
         {0.875} <music21.note.Note C>
-
 
         >>> trem.numberOfMarks = 1
         >>> y = stream.makeNotation.realizeOrnaments(s)

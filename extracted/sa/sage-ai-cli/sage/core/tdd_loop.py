@@ -9,7 +9,7 @@ For each `Feature`:
 
 Safety: a `StuckTracker` watches failure counts. If 3 consecutive rounds
 fail to reduce the failure count, mark the feature as `stuck` and move
-on. Without this a single impossible test (mock returning wrong type,
+on. Without this a single impossible test (stub returning wrong type,
 unreachable network, etc.) would lock the whole build forever.
 """
 

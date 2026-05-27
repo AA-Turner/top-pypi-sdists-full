@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: csp
-Version: 0.15.0
+Version: 0.16.0
 Summary: csp is a high performance reactive stream processing library, written in C++ and Python
 Author-email: the csp authors <CSPOpenSource@point72.com>
 License:                                  Apache License

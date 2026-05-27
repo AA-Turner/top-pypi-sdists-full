@@ -788,7 +788,9 @@ class WorkflowManager:
 
     def render_workflow(self, workflow: Workflow, console: Console | None = None) -> None:
         """Render workflow steps."""
-        console = console or Console()
+        if console is None:
+            from sage.core.renderer import console as _default_console
+            console = _default_console
 
         console.print(f"\n[bold cyan]{workflow.name}[/bold cyan]")
         console.print(f"[dim]{workflow.description}[/dim]\n")

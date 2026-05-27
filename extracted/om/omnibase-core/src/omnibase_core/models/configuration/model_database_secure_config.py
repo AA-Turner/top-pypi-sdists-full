@@ -71,24 +71,6 @@ class ModelPerformanceProfile(BaseModel):
     )
 
 
-class ModelTroubleshootingGuide(BaseModel):
-    """Troubleshooting guide for database connections."""
-
-    connection_failures: list[str] = Field(
-        default_factory=list, description="Connection failure tips"
-    )
-    ssl_issues: list[str] = Field(default_factory=list, description="SSL issue tips")
-    authentication_failures: list[str] = Field(
-        default_factory=list, description="Authentication failure tips"
-    )
-    performance_issues: list[str] = Field(
-        default_factory=list, description="Performance issue tips"
-    )
-    driver_specific: list[str] = Field(
-        default_factory=list, description="Driver-specific tips"
-    )
-
-
 class ModelDatabaseSecureConfig(ModelSecureCredentials):
     """
     Enterprise-grade secure database configuration with comprehensive connection
@@ -666,6 +648,7 @@ class ModelDatabaseSecureConfig(ModelSecureCredentials):
 
         # Performance profile based on driver
         if self.driver == "postgresql":
+            # Why: Runtime compatibility requires assigning through a broader static type.
             recommendations.performance_profile = {  # type: ignore[assignment]
                 "recommended_pool_size": min(20, max(5, self.pool_size)),
                 "recommended_max_overflow": min(30, max(10, self.max_overflow)),
@@ -673,6 +656,7 @@ class ModelDatabaseSecureConfig(ModelSecureCredentials):
                 "concurrent_connections_limit": 100,
             }
         elif self.driver == "mysql":
+            # Why: Runtime compatibility requires assigning through a broader static type.
             recommendations.performance_profile = {  # type: ignore[assignment]
                 "recommended_pool_size": min(15, max(5, self.pool_size)),
                 "recommended_max_overflow": min(25, max(10, self.max_overflow)),
@@ -997,6 +981,7 @@ class ModelDatabaseSecureConfig(ModelSecureCredentials):
         # Remove None values
         config_data = {k: v for k, v in config_data.items() if v is not None}
 
+        # Why: Runtime validation narrows this dynamic payload before use.
         return cls(**config_data)  # type: ignore[arg-type]
 
     # === Factory Methods ===

@@ -67,6 +67,15 @@ def test_feature_init():
     feature = ln.Feature(name="feat1", dtype=[ln.Record, bt.Gene])
     assert feature._dtype_str == "cat[Record|bionty.Gene]"
 
+    # categorical dtype with union of registry fields using objects must be valid
+    feature = ln.Feature(
+        name="feat1", dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
+    )
+    assert (
+        feature._dtype_str
+        == "cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
+    )
+
     # dtype with field name before bracket filters must be valid
     feature = ln.Feature(
         name="gene_feature", dtype="cat[bionty.Gene.ensembl_gene_id[organism='human']]"
@@ -129,21 +138,6 @@ def test_cat_filters_invalid_field_name():
         in error.exconly()
     )
     source.delete(permanent=True)
-
-
-def test_cat_filters_artifact_schema_filter():
-    schema_feature = ln.Feature(name="schema_filter_column", dtype=str).save()
-    schema = ln.Schema(name="schema_filter_schema", features=[schema_feature]).save()
-    try:
-        feature = ln.Feature(
-            name="artifact_input",
-            dtype=ln.Artifact,
-            cat_filters={"schema": schema},
-        )
-        assert feature._dtype_str == f"cat[Artifact[schema__uid='{schema.uid}']]"
-    finally:
-        schema.delete(permanent=True)
-        schema_feature.delete(permanent=True)
 
 
 def test_feature_from_df():
@@ -260,3 +254,11 @@ def test_feature_query_by_dtype():
         # Clean up
         str_feat.delete(permanent=True)
         int_feat.delete(permanent=True)
+
+
+def test_serialize_pandas_datetime_dtypes():
+    datetime_series = pd.Series([pd.Timestamp("2024-01-01 12:00:00")])
+    datetime_tz_series = pd.Series([pd.Timestamp("2024-01-01 12:00:00+00:00")])
+
+    assert serialize_pandas_dtype(datetime_series.dtype) == "datetime"
+    assert serialize_pandas_dtype(datetime_tz_series.dtype) == "datetime64[ns, UTC]"

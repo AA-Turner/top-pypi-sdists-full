@@ -67,6 +67,7 @@ def run_setup(try_c: bool = True):
         ],
         extras_require={
             "sqlalchemy": ["sqlalchemy>=1.4.40,<3.0"],
+            "alembic": ["sqlalchemy>=1.4.40,<3.0", "alembic>=1.16"],
             "numpy": ["numpy"],
             "pandas": ["pandas>=2,<4"],
             "polars": ["polars>=1.0"],
@@ -74,7 +75,7 @@ def run_setup(try_c: bool = True):
             "orjson": ["orjson"],
             "tzlocal": ["tzlocal>=4.0"],
             "tzdata": ["tzdata"],
-            "async": ["aiohttp>=3.8.0"],
+            "async": ["aiohttp>=3.9.0"],
         },
         tests_require=["pytest"],
         entry_points={

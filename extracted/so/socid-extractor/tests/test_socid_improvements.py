@@ -176,9 +176,9 @@ def test_twitchtracker_embedded_channel_script():
 <script>\n\t\twindow.channel = {\n\t\t\tid: 37402112,\n\t\t\tname: 'shroud',\n\t\t\tcreated_at: '2012-11-03'\n\t\t}\n\t</script>
 </body></html>"""
     info = extract(html)
-    assert info.get('twitchtracker_channel_id') == '37402112'
-    assert info.get('twitchtracker_username') == 'shroud'
-    assert info.get('twitchtracker_created_at') == '2012-11-03'
+    assert info.get('twitch_channel_id') == '37402112'
+    assert info.get('twitch_username') == 'shroud'
+    assert info.get('created_at') == '2012-11-03'
 
 
 def test_chess_com_pub_api_json():
@@ -260,7 +260,7 @@ def test_xvideos_profile_full():
     assert info.get('country') == 'Honduras'
     assert info.get('profile_hits') == '1,768'
     assert info.get('follower_count') == '4'
-    assert 'July 16, 2022' in info.get('created_at', '')
+    assert info.get('created_at') == '2022-07-16 00:00:00 UTC'
 
 
 def test_lnk_bio_next_data_fixture():
@@ -400,20 +400,33 @@ def test_hashnode_graphql_api_json():
         "data": {
             "user": {
                 "name": "Melwin D'Almeida",
-                "username": "melwinalm"
+                "username": "melwinalm",
+                "tagline": "Cloud enthusiast",
+                "dateJoined": "2018-02-18T15:24:29.694Z",
+                "socialMediaLinks": {
+                    "twitter": "https://twitter.com/melwinalm",
+                    "github": "",
+                    "linkedin": None,
+                    "website": ""
+                }
             }
         }
     })
     info = extract(body)
     assert info.get('username') == 'melwinalm'
     assert info.get('fullname') == "Melwin D'Almeida"
+    assert info.get('bio') == 'Cloud enthusiast'
+    assert info.get('created_at') == '2018-02-18T15:24:29.694Z'
+    assert info.get('twitter_username') == 'melwinalm'
 
 
 def test_hashnode_graphql_api_null_user():
     """hashnode GraphQL API: null user (unclaimed) should yield empty result."""
     body = json.dumps({
         "data": {
-            "user": None
+            "user": None,
+            "dateJoined": None,
+            "socialMediaLinks": None
         }
     })
     info = extract(body)
@@ -538,9 +551,9 @@ def test_periscope_profile_extraction():
     assert info.get('broadcasts_count') == '42'
     assert info.get('is_beta_user') == 'False'
     assert info.get('is_employee') == 'False'
-    assert info.get('isVerified') == 'False'
+    assert info.get('is_verified') == 'False'
     assert info.get('is_twitter_verified') == 'True'
-    assert info.get('twitterUserId') == '78901234'
+    assert info.get('twitter_uid') == '78901234'
     assert info.get('twitter_screen_name') == 'polina_z'
     assert info.get('created_at') == '2016-04-10T18:22:05.411012300+00:00'
 
@@ -1046,7 +1059,9 @@ def test_youtube_ytinitialdata():
     assert info.get('channel_url') == 'http://www.youtube.com/@Google'
     assert info.get('keywords') == 'Google Technology'
     assert info.get('is_family_safe') == 'True'
-    assert info.get('facebook_id') == 'Google'
+    # 'Google' is a username, not a numeric ID
+    assert info.get('facebook_username') == 'Google'
+    assert 'facebook_id' not in info
 
 
 def test_lesswrong_graphql_api():
@@ -1969,3 +1984,137 @@ def test_vimeo_html_minimal_profile():
     assert info.get('bio') is None
     assert info.get('twitter_url') is None
     assert info.get('links') is None
+
+
+def test_discourse_api_json():
+    """Discourse API: extract user fields from JSON response."""
+    body = json.dumps({
+        "user": {
+            "id": 42,
+            "username": "jdoe",
+            "name": "John Doe",
+            "title": "Regular",
+            "bio_raw": "Hello from Discourse.",
+            "website": "https://example.com",
+            "location": "New York",
+            "avatar_template": "/user_avatar/meta.discourse.org/jdoe/{size}/1234.png",
+            "trust_level": 2,
+            "moderator": False,
+            "admin": False,
+            "badge_count": 5,
+            "profile_view_count": 100,
+            "created_at": "2020-01-15T10:00:00.000Z",
+            "last_seen_at": "2024-03-01T08:30:00.000Z",
+        },
+        "trust_level": 2,
+        "badge_count": 5,
+        "profile_view_count": 100,
+    })
+    info = extract(body)
+    assert info.get('uid') == '42'
+    assert info.get('username') == 'jdoe'
+    assert info.get('fullname') == 'John Doe'
+    assert info.get('title') == 'Regular'
+    assert info.get('bio') == 'Hello from Discourse.'
+    assert info.get('website') == 'https://example.com'
+    assert info.get('location') == 'New York'
+    assert '240' in info.get('image', '')
+    assert info.get('trust_level') == '2'
+    assert info.get('badge_count') == '5'
+    assert info.get('views_count') == '100'
+    assert info.get('created_at') == '2020-01-15T10:00:00.000Z'
+    assert info.get('latest_activity_at') == '2024-03-01T08:30:00.000Z'
+
+
+def test_github_api_url_mutations():
+    """GitHub API: profile URLs of shape `github.com/{username}` are
+    rewritten to the REST endpoint `api.github.com/users/{username}`
+    so the CLI can fetch the JSON user object automatically. The
+    mutation must match the bare profile path only — repo paths
+    (e.g. `github.com/torvalds/linux`) must not fire so we don't
+    waste an API hit on `/users/torvalds/linux`."""
+    from socid_extractor.main import mutate_url
+
+    # Bare profile URL → API user endpoint
+    for url in (
+        'https://github.com/soxoj',
+        'http://github.com/soxoj',
+        'https://www.github.com/soxoj',
+        'https://github.com/soxoj/',
+    ):
+        urls = [r[0] for r in mutate_url(url)]
+        assert 'https://api.github.com/users/soxoj' in urls, url
+
+    # Repo URL must NOT be rewritten to /users/torvalds/linux
+    urls = [r[0] for r in mutate_url('https://github.com/torvalds/linux')]
+    assert not any('api.github.com/users/' in u for u in urls)
+
+
+def test_github_social_accounts_api():
+    """GitHub /users/{u}/social_accounts: separate endpoint that lists
+    accounts the main /users/{u} response doesn't expose. Schema must
+    fire on this array shape, surface every URL in `links`, and parse
+    handles for each known provider (twitter, bluesky, mastodon,
+    linkedin, youtube, twitch, facebook, instagram, reddit)."""
+    # Real GitHub API responses are compact (no whitespace) — flag
+    # `'"provider":"'` won't match if json.dumps adds default spaces.
+    page = json.dumps([
+        {"provider": "twitter",   "url": "https://twitter.com/sox0j"},
+        {"provider": "bluesky",   "url": "https://bsky.app/profile/soxoj.bsky.social"},
+        {"provider": "mastodon",  "url": "https://infosec.exchange/@soxoj"},
+        {"provider": "linkedin",  "url": "https://www.linkedin.com/in/soxoj/"},
+        {"provider": "youtube",   "url": "https://www.youtube.com/@soxoj"},
+        {"provider": "twitch",    "url": "https://www.twitch.tv/soxoj"},
+        {"provider": "facebook",  "url": "https://www.facebook.com/soxoj"},
+        {"provider": "instagram", "url": "https://www.instagram.com/soxoj"},
+        {"provider": "reddit",    "url": "https://www.reddit.com/user/soxoj"},
+    ], separators=(',', ':'))
+    info = extract(page)
+    assert info.get('_extractor') == 'GitHub Social Accounts API'
+    assert info.get('twitter_username') == 'sox0j'
+    assert info.get('bluesky_username') == 'soxoj.bsky.social'
+    assert info.get('mastodon_username') == 'soxoj'
+    assert info.get('linkedin_username') == 'soxoj'
+    assert info.get('youtube_username') == 'soxoj'
+    assert info.get('twitch_username') == 'soxoj'
+    assert info.get('facebook_username') == 'soxoj'
+    assert info.get('instagram_username') == 'soxoj'
+    assert info.get('reddit_username') == 'soxoj'
+    assert 'https://bsky.app/profile/soxoj.bsky.social' in info.get('links', '')
+    assert 'https://infosec.exchange/@soxoj' in info.get('links', '')
+
+
+def test_github_social_accounts_url_mutation():
+    """GitHub Social Accounts API: bare profile URL `github.com/{u}`
+    auto-mutates to the social_accounts endpoint so the CLI can fetch
+    Bluesky/Mastodon/etc. without a second manual call."""
+    from socid_extractor.main import mutate_url
+    urls = [r[0] for r in mutate_url('https://github.com/soxoj')]
+    assert 'https://api.github.com/users/soxoj/social_accounts' in urls
+
+
+def test_gitlab_api_with_public_email():
+    """Gitlab API: response from /api/v4/users?username=… exposes
+    `public_email` and `web_url` in addition to the basic identity
+    fields. The scheme requires `"public_email"` in flags so it only
+    fires on the array-form user-search response, then surfaces the
+    email as both `email` and `emails`, and the profile URL as
+    `website`."""
+    page = json.dumps([{
+        "id": 1244269,
+        "username": "ainslie",
+        "public_email": "ainslie@example.com",
+        "name": "ainslie cleverdon",
+        "state": "active",
+        "avatar_url": "https://secure.gravatar.com/avatar/eb7d.jpg",
+        "web_url": "https://gitlab.com/ainslie",
+    }])
+    info = extract(page)
+    assert info.get('_extractor') == 'Gitlab API'
+    assert info.get('uid') == '1244269'
+    assert info.get('username') == 'ainslie'
+    assert info.get('fullname') == 'ainslie cleverdon'
+    assert info.get('state') == 'active'
+    assert info.get('email') == 'ainslie@example.com'
+    assert 'ainslie@example.com' in info.get('emails', '')
+    assert info.get('website') == 'https://gitlab.com/ainslie'

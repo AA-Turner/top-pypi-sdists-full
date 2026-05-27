@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connector-py
-Version: 4.223.0
+Version: 4.224.0
 Summary: An Abstract Tool to Perform Actions on Integrations.
 Author-email: teamlumos <security@lumos.com>
 License-Expression: Apache-2.0
@@ -562,6 +562,8 @@ A scaffolded connector has OAuth authentication, and a Settings type with `accou
 ### Where should I set my connector's configuration?
 
 A quick rule is sensitive data that would allow an attacker the ability to access the underlying app, goes into the `auth` payload. Anything else that's not sensitive, not absolutely required to connect to a tenant, or can have a sane default, is `settings`.
+
+A note on field names: if your connector declares an auth model other than `BasicCredential`, avoid using `username` and `password` as keys in your `settings` model. On the legacy on-prem Connect path, Lumos identifies which auth model to store credentials under by matching field names against the SDK's built-in auth models, and a settings dict containing both `username` and `password` will be routed into `auth.basic` at storage time regardless of the auth model your connector declared. Two ways to work around this: prefix the setting names (e.g. `myapp_username`, `myapp_password`) so they don't collide with the matcher, or declare `BasicCredential` as the auth model and read the values via `get_basic_auth(args)`.
 
 ### The connection sequence for Lumos
 

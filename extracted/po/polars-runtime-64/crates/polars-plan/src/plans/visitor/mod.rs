@@ -3,7 +3,7 @@
 use arrow::legacy::error::PolarsResult;
 mod expr;
 #[cfg(feature = "cse")]
-pub(crate) mod hash;
+mod hash;
 mod lp;
 mod visitors;
 

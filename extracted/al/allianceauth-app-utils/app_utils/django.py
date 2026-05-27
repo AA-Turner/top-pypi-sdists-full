@@ -2,12 +2,15 @@
 
 # pylint: disable = unused-import
 
-from typing import Optional
+from typing import List, Optional
 
 from django.apps import apps
 from django.contrib.auth.models import Permission, User
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils.html import format_html
+
+from allianceauth.tests.auth_utils import AuthUtils
 
 from .app_settings import clean_setting  # noqa: F401 - for backwards compatibility only
 from .urls import static_file_absolute_url
@@ -58,3 +61,33 @@ def admin_boolean_icon_html(value) -> Optional[str]:
         return make_html(icon_url, "False")
 
     return None
+
+
+def add_permissions_to_user_by_name(user: User, permission_names: List[str]):
+    permissions = [permission_by_name(p) for p in set(permission_names)]
+    return AuthUtils.add_permissions_to_user(permissions, user)
+
+
+def permission_by_name(perm: str) -> Permission:
+    """Return permission specified by qualified name, e.g. `'app_label.codename'`.
+
+    Note that an app can have multiple permissions with the same codename.
+    This function will return the first such permission.
+    This emulates Django's behavior in permission checks,
+    where permission with the same codename are threated as the same permission.
+    """
+    perm_parts = perm.split(".")
+    if len(perm_parts) != 2:
+        raise ValueError("Invalid format for permission name")
+
+    p = (
+        Permission.objects.filter(
+            content_type__app_label=perm_parts[0], codename=perm_parts[1]
+        )
+        .order_by()
+        .first()
+    )
+    if not p:
+        raise ObjectDoesNotExist(f"No permission with the name: {perm}")
+
+    return p

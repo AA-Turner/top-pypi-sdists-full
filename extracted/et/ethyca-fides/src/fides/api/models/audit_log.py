@@ -1,0 +1,35 @@
+from enum import Enum as EnumType
+
+from sqlalchemy import Column, String
+from sqlalchemy import Enum as EnumColumn
+
+from fides.api.db.base_class import Base
+
+
+class AuditLogAction(str, EnumType):
+    """Enum for audit log actions, reflecting what a user did."""
+
+    approved = "approved"
+    denied = "denied"
+    email_sent = "email_sent"
+    finished = "finished"
+    policy_evaluated = "policy_evaluated"
+    pre_approval_webhook_triggered = "pre_approval_webhook_triggered"
+    pre_approval_eligible = "pre_approval_eligible"
+    pre_approval_not_eligible = "pre_approval_not_eligible"
+    access_package_approved = "access_package_approved"
+    access_package_redacted = "access_package_redacted"
+
+
+class AuditLog(Base):
+    """The log of all user actions within the system."""
+
+    user_id = Column(String, nullable=True, index=True)
+    privacy_request_id = Column(String, nullable=True, index=True)
+    action = Column(
+        EnumColumn(AuditLogAction),
+        index=True,
+        nullable=False,
+    )
+    message = Column(String, nullable=True)
+    webhook_id = Column(String, nullable=True, index=True)

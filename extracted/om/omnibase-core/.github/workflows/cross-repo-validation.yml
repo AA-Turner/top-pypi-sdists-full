@@ -21,7 +21,7 @@ on:
     - cron: '0 7 * * *'
   # Also run on pushes to main to keep the dashboard current
   push:
-    branches: [main]
+    branches: [main, dev, "hotfix/**"]
   workflow_dispatch:
     inputs:
       skip_kafka:
@@ -46,8 +46,6 @@ jobs:
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 20
-    # Validation findings are informational — do not block merges
-    continue-on-error: true
 
     steps:
       - name: Checkout code

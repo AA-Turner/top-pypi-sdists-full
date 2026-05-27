@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: DrissionPage
-Version: 4.1.1.2
+Version: 4.1.1.4
 Summary: Python based web automation tool. It can control the browser and send and receive data packets.
 Home-page: https://DrissionPage.cn
 Author: g1879
@@ -15,11 +15,23 @@ License-File: LICENSE
 Requires-Dist: lxml
 Requires-Dist: requests
 Requires-Dist: cssselect
-Requires-Dist: DownloadKit>=2.0.7
+Requires-Dist: DrissionGet
+Requires-Dist: DrissionRecord
 Requires-Dist: websocket-client
 Requires-Dist: click
 Requires-Dist: tldextract>=3.4.4
 Requires-Dist: psutil
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # ✨️ 概述
 
@@ -32,6 +44,9 @@ DrissionPage 是一个基于 python 的网页自动化工具。
 它功能强大，内置无数人性化设计和便捷功能。
 
 它的语法简洁而优雅，代码量少，对新手友好。
+
+> <a href="https://www.ipwo.net/?code=OHDQCHF9A" target="_blank"><img src="https://drissionpage.cn/img/ad.jpg"/></a>
+> IPWO 提供的真实住宅 IP，大幅降低被封禁风险。195 + 国家 / 地区精准定位，轻松应对大型爬虫任务。让爬虫更简单，让数据更安全。戳本信息注册可获得有效保护账号的高匿名ip流量。
 
 ---
 

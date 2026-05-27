@@ -39,19 +39,19 @@ classifiers = [
 "Author" = "https://github.com/MarshalX"
 
 [dependency-groups]
-dev = ["maturin>=1.8.7,<2.0"]
+dev = ["maturin>=1.8.7,<2.0", "ruff>=0.8"]
 testing = [
     { include-group = "dev" },
     'pytest==8.3.5; python_version == "3.8"',
-    'pytest==8.4.1; python_version >= "3.9"',
+    'pytest==8.4.2; python_version >= "3.9"',
     'pytest-benchmark==4.0.0; python_version == "3.8"',
-    'pytest-benchmark==5.1.0; python_version >= "3.9"',
+    'pytest-benchmark==5.2.3; python_version >= "3.9"',
     'pytest-xdist==3.6.1; python_version == "3.8"',
     'pytest-xdist==3.8.0; python_version >= "3.9"',
 ]
 codspeed = [
     # only run on CI with the latest Python version
-    'pytest-codspeed==4.2.0; python_version == "3.14" and implementation_name == "cpython"',
+    'pytest-codspeed==5.0.3; python_version == "3.14" and implementation_name == "cpython"',
 ]
 
 all = [
@@ -73,6 +73,14 @@ python-source = "python"
 module-name = "libipld._libipld"
 bindings = "pyo3"
 features = ["pyo3/extension-module"]
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+multiline-quotes = "double"
+inline-quotes = "single"
 
 [build-system]
 requires = ["maturin>=1.8.7,<2.0"]

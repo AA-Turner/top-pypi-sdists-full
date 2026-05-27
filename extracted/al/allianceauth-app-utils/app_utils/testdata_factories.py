@@ -16,8 +16,8 @@ from allianceauth.eveonline.models import (
     EveCharacter,
     EveCorporationInfo,
 )
-from allianceauth.tests.auth_utils import AuthUtils
 
+from .django import add_permissions_to_user_by_name
 from .testing import add_character_to_user
 
 T = TypeVar("T")
@@ -59,8 +59,7 @@ class UserFactory(factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[U
         if not create:
             return
         permissions = extracted or []
-        for permission_name in permissions:
-            AuthUtils.add_permission_to_user_by_name(permission_name, obj)
+        add_permissions_to_user_by_name(obj, permissions)
 
     @classmethod
     def _after_postgeneration(cls, obj, create, results=None):

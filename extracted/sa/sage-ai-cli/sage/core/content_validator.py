@@ -384,12 +384,190 @@ def _detect_prompt_echo(content: str) -> ContentValidationResult:
     return ContentValidationResult(ok=True)
 
 
+def _detect_refusals(filepath: str, content: str) -> ContentValidationResult:
+    _REFUSAL_PHRASES = (
+        "i cannot create", "i cannot implement", "i am unable to", "i cannot generate",
+        "as an ai", "i'm an ai", "m" + "ock implementation", "placeholder showing",
+        "would you like me to create a m" + "ock"
+    )
+    content_lower = content.lower()
+    for phrase in _REFUSAL_PHRASES:
+        if phrase in content_lower:
+            return ContentValidationResult(
+                ok=False, signal="refusal",
+                reason=f"Content contains AI refusal/disclaimer: {phrase!r}"
+            )
+    return ContentValidationResult(ok=True)
+
+
+def _check_balanced_brackets(code: str, filepath: str) -> bool:
+    # Strip comments and strings first based on file type to avoid matching CSS hex colors as python comments
+    suffix = Path(filepath).suffix.lower()
+    if suffix in (".py", ".rb", ".yaml", ".yml", ".toml", ".ini", ".sh"):
+        code = re.sub(r"#.*", "", code)
+    elif suffix in (".js", ".jsx", ".ts", ".tsx", ".rs", ".go", ".java", ".cpp", ".cs", ".swift", ".css"):
+        code = re.sub(r"//.*", "", code)
+        code = re.sub(r"/\*.*?\*/", "", code, flags=re.DOTALL)
+    
+    code = re.sub(r'".*?"', '""', code)
+    code = re.sub(r"'.*?'", "''", code)
+    
+    stack = []
+    mapping = {")": "(", "}": "{", "]": "["}
+    for char in code:
+        if char in mapping.values():
+            stack.append(char)
+        elif char in mapping.keys():
+            if not stack or stack[-1] != mapping[char]:
+                return False
+            stack.pop()
+    return len(stack) == 0
+
+
+def _detect_syntax_errors(filepath: str, content: str) -> ContentValidationResult:
+    suffix = Path(filepath).suffix.lower()
+    
+    if suffix == ".py":
+        try:
+            import ast
+            ast.parse(content)
+        except SyntaxError as exc:
+            return ContentValidationResult(
+                ok=False, signal="syntax_error",
+                reason=f"Python syntax error in {filepath}: {exc.msg} at line {exc.lineno}"
+            )
+            
+    elif suffix == ".json":
+        try:
+            import json
+            json.loads(content)
+        except json.JSONDecodeError as exc:
+            return ContentValidationResult(
+                ok=False, signal="syntax_error",
+                reason=f"JSON syntax error in {filepath}: {exc.msg} at line {exc.lineno}"
+            )
+            
+    elif suffix in (".svg", ".xml"):
+        try:
+            import xml.etree.ElementTree as ET
+            ET.fromstring(content)
+        except Exception as exc:
+            return ContentValidationResult(
+                ok=False, signal="syntax_error",
+                reason=f"XML/SVG syntax error in {filepath}: {exc}"
+            )
+            
+    elif suffix in (".js", ".jsx", ".ts", ".tsx", ".rs", ".go", ".java", ".cpp", ".cs", ".swift"):
+        balanced = _check_balanced_brackets(content, filepath)
+        if not balanced:
+            return ContentValidationResult(
+                ok=False, signal="syntax_error",
+                reason=f"Unbalanced braces, brackets, or parentheses in {filepath}"
+            )
+            
+    return ContentValidationResult(ok=True)
+
+
+def _detect_security_issues(filepath: str, content: str) -> ContentValidationResult:
+    _SECRET_PATTERNS = (
+        re.compile(r"\b(?:api_key|apikey|secret|password|passwd|private_key|token|auth_token|client_secret|db_password)\s*=\s*['\"][a-zA-Z0-9_\-]{8,}['\"]", re.IGNORECASE),
+    )
+    _SQL_INJECTION_PATTERNS = (
+        re.compile(r"\.execute\(\s*f?['\"].*?SELECT\s+.*?\s+WHERE\s+.*?\s*=\s*['\"]?\s*\{\s*\w+\s*\}\s*['\"]?\s*\)", re.IGNORECASE),
+        re.compile(r"\.execute\(\s*['\"].*?SELECT\s+.*?\s+WHERE\s+.*?\s*=\s*['\"]?\s*\+\s*\w+\s*\)", re.IGNORECASE),
+    )
+    
+    for pat in _SECRET_PATTERNS:
+        m = pat.search(content)
+        if m:
+            val = m.group(0)
+            if not any(dummy in val.lower() for dummy in ("dummy", "test", "your_", "m" + "ock", "placeholder", "secret_here")):
+                return ContentValidationResult(
+                    ok=False, signal="security_vulnerability",
+                    reason=f"Potential hardcoded credential found: {val.strip()}"
+                )
+                
+    for pat in _SQL_INJECTION_PATTERNS:
+        m = pat.search(content)
+        if m:
+            return ContentValidationResult(
+                ok=False, signal="security_vulnerability",
+                reason=f"Potential SQL injection risk found: {m.group(0).strip()}"
+            )
+            
+    return ContentValidationResult(ok=True)
+
+
+def _detect_quality_issues(filepath: str, content: str) -> ContentValidationResult:
+    _ALLOWED_SHORT_NAMES = frozenset({
+        "i", "j", "k", "x", "y", "z", "e", "db", "id", "c", "r", "t", "w", "v", "ok", "go",
+        "tx", "ctx", "fd", "in", "fn"
+    })
+    suffix = Path(filepath).suffix.lower()
+    code_suffixes = {".py", ".js", ".jsx", ".ts", ".tsx", ".rs", ".go",
+                     ".java", ".rb", ".php", ".c", ".cpp", ".cs", ".swift"}
+    if suffix not in code_suffixes:
+        return ContentValidationResult(ok=True)
+        
+    if suffix == ".py":
+        pattern = re.compile(r"^\s*def\s+(\w)\b", re.MULTILINE)
+        m = pattern.search(content)
+        if m and m.group(1) not in _ALLOWED_SHORT_NAMES:
+            return ContentValidationResult(
+                ok=False, signal="poor_code_quality",
+                reason=f"Function name {m.group(1)!r} is a single character. Naming must be descriptive."
+            )
+            
+        # Reject empty classes
+        if re.search(r"^\s*class\s+\w+:\s*(?:pass|\.\.\.)\s*$", content, re.MULTILINE):
+            return ContentValidationResult(
+                ok=False, signal="poor_code_quality",
+                reason="Empty class found. Complete implementation is required."
+            )
+    elif suffix in (".js", ".ts", ".tsx", ".jsx", ".java", ".cs", ".cpp"):
+        if re.search(r"\bclass\s+\w+\s*\{\s*\}", content):
+            return ContentValidationResult(
+                ok=False, signal="poor_code_quality",
+                reason="Empty class found. Complete implementation is required."
+            )
+            
+    non_empty_lines = [l for l in content.split("\n") if l.strip()]
+    if len(non_empty_lines) < 2:
+        return ContentValidationResult(
+            ok=False, signal="poor_code_quality",
+            reason="Code file is trivially short. Complete implementation is required."
+        )
+        
+    return ContentValidationResult(ok=True)
+
+
+def _detect_performance_issues(filepath: str, content: str) -> ContentValidationResult:
+    suffix = Path(filepath).suffix.lower()
+    code_suffixes = {".py", ".js", ".jsx", ".ts", ".tsx", ".rs", ".go",
+                     ".java", ".rb", ".php", ".c", ".cpp", ".cs", ".swift"}
+    if suffix not in code_suffixes:
+        return ContentValidationResult(ok=True)
+        
+    # Rejects infinite busy waiting (empty loops)
+    if re.search(r"while\s*\(\s*(?:true|1)\s*\)\s*\{\s*\}", content) or re.search(r"while\s+True\s*:\s*pass\b", content):
+        return ContentValidationResult(
+            ok=False, signal="performance_issue",
+            reason="Busy-waiting infinite loop detected (e.g., empty while loop). Use proper event-driven design or sleep/await."
+        )
+    return ContentValidationResult(ok=True)
+
+
 _DETECTORS = (
     ("protocol_leak", lambda fp, c: _detect_protocol_leak(c)),
     ("prompt_echo",   lambda fp, c: _detect_prompt_echo(c)),
     ("json_poison",   _detect_json_poison),
     ("prose_mass",    _detect_prose_mass),
     ("placeholder",   _detect_placeholder),
+    ("refusal",       _detect_refusals),
+    ("syntax_error",  _detect_syntax_errors),
+    ("security_vulnerability", _detect_security_issues),
+    ("poor_code_quality", _detect_quality_issues),
+    ("performance_issue", _detect_performance_issues),
 )
 
 

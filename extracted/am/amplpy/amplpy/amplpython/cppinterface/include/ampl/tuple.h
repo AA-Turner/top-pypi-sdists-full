@@ -38,7 +38,9 @@ class Tuple {
   /**
    * Copy constructor. If ``OWNING`` copy the resources
    */
-  Tuple(const Tuple& other) { AMPL_TupleCopy(&impl_, other.impl_); }
+  Tuple(const Tuple& other) {
+    AMPL_TupleCopy(&impl_, other.impl_);
+  }
 
   /**
    * Destructor
@@ -128,7 +130,6 @@ class Tuple {
 
     AMPL_VARIANT *v;
     AMPL_TupleGetVariant(impl_, index, &v);
-    //retainVariant(v);
     return Variant(v);
   }
 

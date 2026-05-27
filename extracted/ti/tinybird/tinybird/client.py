@@ -972,16 +972,28 @@ class TinyB:
         kafka_sasl_mechanism="PLAIN",
         kafka_security_protocol="SASL_SSL",
         kafka_ssl_ca_pem=None,
+        kafka_sasl_oauthbearer_method=None,
+        kafka_sasl_oauthbearer_aws_region=None,
+        kafka_sasl_oauthbearer_aws_role_arn=None,
+        kafka_sasl_oauthbearer_aws_external_id=None,
     ):
+        is_oauthbearer = kafka_sasl_mechanism == "OAUTHBEARER"
         params = {
             "service": "kafka",
             "kafka_security_protocol": kafka_security_protocol,
             "kafka_sasl_mechanism": kafka_sasl_mechanism,
             "kafka_bootstrap_servers": kafka_bootstrap_servers,
-            "kafka_sasl_plain_username": kafka_key,
-            "kafka_sasl_plain_password": kafka_secret,
             "name": kafka_connection_name,
         }
+        if is_oauthbearer:
+            params["kafka_sasl_oauthbearer_method"] = kafka_sasl_oauthbearer_method
+            params["kafka_sasl_oauthbearer_aws_region"] = kafka_sasl_oauthbearer_aws_region
+            params["kafka_sasl_oauthbearer_aws_role_arn"] = kafka_sasl_oauthbearer_aws_role_arn
+            if kafka_sasl_oauthbearer_aws_external_id:
+                params["kafka_sasl_oauthbearer_aws_external_id"] = kafka_sasl_oauthbearer_aws_external_id
+        else:
+            params["kafka_sasl_plain_username"] = kafka_key
+            params["kafka_sasl_plain_password"] = kafka_secret
 
         if kafka_schema_registry_url:
             params["kafka_schema_registry_url"] = kafka_schema_registry_url

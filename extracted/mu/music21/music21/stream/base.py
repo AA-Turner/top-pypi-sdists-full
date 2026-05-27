@@ -253,7 +253,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
             def __init__(self, givenElements, craziness, **keywords):
                 ...
 
-    * New in v7: smart appending
+    * New in v7: smart appending.
     * New in v8: givenElementsBehavior keyword configures the smart appending.
     '''
     # this static attributes offer a performance boost over other
@@ -546,7 +546,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> subslice[1].offset
         3.0
 
-
         If a class is given, then a :class:`~music21.stream.iterator.RecursiveIterator`
         of elements matching the requested class is returned, similar
         to `Stream().recurse().getElementsByClass()`.
@@ -600,7 +599,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
 
         >>> list(s[layout.StaffLayout])
         []
-
 
         If the key is a string, it is treated as a `querySelector` as defined in
         :meth:`~music21.stream.iterator.getElementsByQuerySelector`, namely that bare strings
@@ -1172,7 +1170,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> m1.elements
         ()
 
-
         Only the time signature at offset 0 is found:
 
         >>> m2 = stream.Measure(number=2)
@@ -1446,7 +1443,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> s.hasElementOfClass('Measure')
         False
 
-        To be deprecated in v10 -- to be removed in v11, use:
+        To be deprecated in v11 -- to be removed in v12, use:
 
         >>> bool(s.getElementsByClass(meter.TimeSignature))
         True
@@ -1713,7 +1710,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         {4.0} <music21.stream.Measure 2 offset=4.0>
         <BLANKLINE>
 
-
         Can also remove elements stored at end:
 
         >>> streamWithBarline = stream.Stream(note.Note())
@@ -1726,7 +1722,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         False
 
         * Changed in v5.3: firstMatchOnly removed -- impossible to have element
-          in stream twice.  recurse and shiftOffsets changed to keywordOnly arguments
+          in stream twice.  recurse and shiftOffsets changed to keywordOnly arguments.
         '''
         # experimental
         if not self._mutable:  # pragma: no cover
@@ -2105,10 +2101,10 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         music21.exceptions21.StreamException: Cannot set the offset for element
             <music21.note.Note D>, not in Stream <music21.stream.Stream Stream1>.
 
-        * Changed in v5.5: also sets .activeSite for the element
-        * Changed in v6.7: also runs coreElementsChanged()
+        * Changed in v5.5: also sets .activeSite for the element.
+        * Changed in v6.7: also runs coreElementsChanged().
         * Changed in v7: addElement is removed;
-          see :meth:`~music21.stream.core.StreamCoreMixin.coreSetElementOffset`
+          see :meth:`~music21.stream.core.StreamCoreMixin.coreSetElementOffset`.
         '''
         self.coreSetElementOffset(element,
                                   offset,
@@ -3010,7 +3006,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
           searches in derivation chain.
         * Changed in v5.3: `firstMatchOnly` removed -- impossible to have element
           in stream twice.  `recurse` and `shiftOffsets` changed to keywordOnly arguments
-        * Changed in v6: recurse works
+        * Changed in v6: recurse works.
         * Changed in v7: raises `StreamException` if replacement is already in the stream.
         '''
         def replaceDerived(startSite=self):
@@ -3431,7 +3427,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         in Jupyter notebook/JupyterLab/Google Colab.  The
         keyword `returnInNotebook` if True returns a plot no matter what.
 
-        Changed in v9: Changed default for return in notebook, and added
+        * Changed in v9: Changed default for return in notebook, and added
           `returnInNotebook` keyword based on changes to recent Jupyter and
           similar releases.
         '''
@@ -3570,7 +3566,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> s.recurse().notes[3].groups
         ['scaleNote']
 
-        * New in v6.7.1: recurse
+        * New in v6.7.1: recurse.
         '''
         sIterator = self.iter() if not recurse else self.recurse()
         if classFilter is not None:
@@ -3634,7 +3630,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> foundStream = found.stream()
         >>> isinstance(foundStream, stream.Score)
         True
-
 
         Notice that we do not find elements that are in
         sub-streams of the main Stream.  We'll add 15 more rests
@@ -3804,11 +3799,9 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         There are several attributes that govern how this range is
         determined:
 
-
         If `mustFinishInSpan` is True then an event that begins
         between offsetStart and offsetEnd but which ends after offsetEnd
         will not be included.  The default is False.
-
 
         For instance, a half note at offset 2.0 will be found in
         getElementsByOffset(1.5, 2.5) or getElementsByOffset(1.5, 2.5,
@@ -3849,7 +3842,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
 
             .. image:: images/getElementsByOffset.*
                 :width: 600
-
 
         >>> st1 = stream.Stream()
         >>> n0 = note.Note('C')
@@ -3893,7 +3885,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> [el.step for el in out7]
         ['C', 'D']
 
-
         Note, that elements that end at the start offset are included if mustBeginInSpan is False
 
         >>> out8 = st1.getElementsByOffset(2, 4, mustBeginInSpan=False)
@@ -3910,7 +3901,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         1
         >>> [el.step for el in out9]
         ['D']
-
 
         Note how zeroLengthSearches implicitly set includeElementsThatEndAtStart=False.
         These two are the same:
@@ -3939,8 +3929,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         1
         >>> out4[0] is n2
         True
-
-
 
         Testing multiple zero-length elements with mustBeginInSpan:
 
@@ -3971,7 +3959,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> len(c)
         10
 
-
         Same test as above, but with floats
 
         >>> out1 = st1.getElementsByOffset(2.0)
@@ -3998,7 +3985,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         1
         >>> out3b[0].step
         'C'
-
 
         >>> out4 = st1.getElementsByOffset(1.0, 2.0)
         >>> len(out4)
@@ -4086,7 +4072,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> b = stream1.getElementAtOrBefore(0.1)
         >>> b.offset, b.id
         (0.0, 'z')
-
 
         You can give a list of acceptable classes to return, and non-matching
         elements will be ignored
@@ -4284,7 +4269,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> t7 is None
         True
 
-
         If the element is not in the stream, it will raise a StreamException:
 
         >>> st1.getElementAfterElement(note.Note('C#'))
@@ -4422,7 +4406,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         numberStart,
         numberEnd,
         *,
-        collect=('Clef', 'TimeSignature', 'Instrument', 'KeySignature'),
+        collect=('Clef', 'TimeSignature', 'Instrument', 'KeySignature', 'MetronomeMark'),
         gatherSpanners=GatherSpanners.ALL,
         indicesNotNumbers=False
     ) -> Stream[Measure]:
@@ -4509,6 +4493,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         ...     print(thing)
         P1: Soprano: Instrument 1
         <music21.clef.TrebleClef>
+        <music21.tempo.MetronomeMark Quarter=96 (playback only)>
         f# minor
         <music21.meter.TimeSignature 4/4>
         <music21.stream.Measure 7 offset=0.0>
@@ -4523,6 +4508,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         ...     print(thing)
         P1: Soprano: Instrument 1
         <music21.clef.TrebleClef>
+        <music21.tempo.MetronomeMark Quarter=96 (playback only)>
         D- major
         ...
 
@@ -4652,7 +4638,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
     def measure(self,
                 measureNumber,
                 *,
-                collect=('Clef', 'TimeSignature', 'Instrument', 'KeySignature'),
+                collect=('Clef', 'TimeSignature', 'Instrument', 'KeySignature', 'MetronomeMark'),
                 indicesNotNumbers=False) -> Measure|None:
         '''
         Given a measure number, return a single
@@ -4745,7 +4731,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         {13.0} <music21.stream.Measure 4 offset=13.0>
         ...
 
-
         Really make empty with `fillWithRests=False`
 
         >>> alto = b.parts[1]
@@ -4764,7 +4749,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         {9.0} <music21.stream.Measure 3 offset=9.0>
             {0.0} <music21.layout.SystemLayout>
         ...
-
 
         `removeClasses` can be a list or set of classes to remove.  By default it is
         ['GeneralNote', 'Dynamic', 'Expression']
@@ -4850,7 +4834,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
                 {3.0} <music21.bar.Barline type=final>
         {0.0} <music21.layout.StaffGroup ...>
 
-
         If `retainVoices` is False (default True) then Voice streams are treated
         differently from all other Streams and are removed.  All elements in the
         voice are removed even if they do not match the `classList`:
@@ -4884,8 +4867,8 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         on bwv66.6)
 
         * Changed in v7: all arguments are keyword only.
-        * New in v9.9: added exemptFromRemove
-        * Note: in v10: removeClasses cannot be boolean -- use removeAll instead
+        * New in v9.9: added exemptFromRemove.
+        * Note: in v10: removeClasses cannot be boolean -- use removeAll instead.
         '''
         out = self.cloneEmpty(derivationMethod='template')
         if removeClasses is None:
@@ -5009,7 +4992,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         .. image:: images/streamMeasureOffsetMapBWV324.*
             :width: 572
 
-
         >>> chorale = corpus.parse('bach/bwv324.xml')
         >>> alto = chorale.parts['#alto']
         >>> altoMeasures = alto.measureOffsetMap()
@@ -5056,7 +5038,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         <music21.stream.Measure 3 offset=8.0> Tenor
         <music21.stream.Measure 3 offset=8.0> Bass
 
-        Changed in v9: classFilterList must be a list or tuple of strings or Music21Objects
+        * Changed in v9: classFilterList must be a list or tuple of strings or Music21Objects
 
         OMIT_FROM_DOCS
 
@@ -5458,9 +5440,9 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> sp.derivation.origin is p
         True
 
-        * Changed in v2.0.10: inPlace is False
-        * Changed in v5: returns None if inPlace=True
-        * Changed in v9: no transposition instead of exception if atSoundingPitch is 'unknown'
+        * Changed in v2.0.10: inPlace is False.
+        * Changed in v5: returns None if inPlace=True.
+        * Changed in v9: no transposition instead of exception if atSoundingPitch is 'unknown'.
         '''
         from music21 import spanner
 
@@ -5536,9 +5518,9 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> scWritten.recurse().notes[0].nameWithOctave
         'A4'
 
-        * Changed in v3: `inPlace` defaults to `False`
-        * Changed in v5 returns `None` if `inPlace=True`
-        * Changed in v9: no transposition instead of exception if atSoundingPitch is 'unknown'
+        * Changed in v3: `inPlace` defaults to `False`.
+        * Changed in v5 returns `None` if `inPlace=True`.
+        * Changed in v9: no transposition instead of exception if atSoundingPitch is 'unknown'.
         '''
         from music21 import spanner
 
@@ -5687,7 +5669,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
 
         >>> m3.getTimeSignatures(searchContext=False)[0]
         <music21.meter.TimeSignature 4/4>
-
 
         * Changed in v8: time signatures within recursed streams are found by default.
           Added recurse. Removed option for recurse=False and still getting the
@@ -6197,7 +6178,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         Helper method for makeChords and Chordify
         run on .flatten().notesAndRests
 
-
         >>> s = stream.Score()
         >>> p1 = stream.Part()
         >>> p1.insert(4, note.Note('C#'))
@@ -6538,7 +6518,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         (google "lambda functions in Python" for more information on
         what these powerful tools are).
 
-
         >>> stream1 = stream.Stream()
         >>> for x in range(30, 81):
         ...     n = note.Note()
@@ -6605,12 +6584,10 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         True
         >>> om[2].voiceIndex
 
-
         Needed for makeMeasures and a few other places.
 
         The Stream source of elements is self by default,
         unless a `srcObj` is provided.  (this will be removed in v.8)
-
 
         >>> s = stream.Stream()
         >>> s.repeatAppend(note.Note(), 8)
@@ -6808,7 +6785,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         this returns a modified deep copy.
 
         * Changed in v6: does not return anything if inPlace is True.
-        * Changed in v7: default inPlace is False
+        * Changed in v7: default inPlace is False.
         * Changed in v8: altered unisons/octaves in Chords now supply clarifying naturals.
 
         All arguments are keyword only.
@@ -7159,13 +7136,14 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         elements = list(returnObj.getElementsByClass(objClass))
 
         for element, nextElement in zip(elements, elements[1:]):
-            span = returnObj.elementOffset(nextElement) - returnObj.elementOffset(element)
+            span = opFrac(returnObj.elementOffset(nextElement) - returnObj.elementOffset(element))
             element.duration.quarterLength = span
 
         # handle last element
         if elements:
-            elements[-1].duration.quarterLength = (qLenTotal
-                                                   - returnObj.elementOffset(elements[-1]))
+            elements[-1].duration.quarterLength = opFrac(
+                qLenTotal - returnObj.elementOffset(elements[-1])
+            )
         if not inPlace:
             return returnObj
 
@@ -7660,7 +7638,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
 
         If `force` is True, a sort will be attempted regardless of any other parameters.
 
-
         >>> n1 = note.Note('A')
         >>> n2 = note.Note('B')
         >>> s = stream.Stream()
@@ -7716,7 +7693,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         {1.0} <music21.note.Note D>
         {0.0} <music21.note.Note C>
 
-
         But a sorted version of the Stream puts the C first:
 
         >>> s.sorted().show('text')
@@ -7728,7 +7704,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> s.show('text')
         {1.0} <music21.note.Note D>
         {0.0} <music21.note.Note C>
-
 
         OMIT_FROM_DOCS
 
@@ -8001,7 +7976,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
             requests them to be. The way to tell a modern IDE that a process may
             have consequences is to make it a `.method()` not a `.property`.
 
-        Changed in v.10 - Derivation method names changed to flatten and flatten_retain_containers
+        * Changed in v.10: Derivation method names changed to flatten and flatten_retain_containers
         '''
         # environLocal.printDebug(['flatten(): self', self,
         #  'self.activeSite', self.activeSite])
@@ -8484,15 +8459,11 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> stream1.lowestOffset
         3.0
 
-
         If the Stream is empty, then the lowest offset is 0.0:
-
 
         >>> stream2 = stream.Stream()
         >>> stream2.lowestOffset
         0.0
-
-
 
         >>> p = stream.Stream()
         >>> p.repeatInsert(note.Note('D5'), [0, 1, 2, 3, 4])
@@ -8707,7 +8678,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
 
         Note that if other TempoIndication objects are defined,
         they will be converted to MetronomeMarks and returned here
-
 
         >>> s = stream.Stream()
         >>> s.repeatAppend(note.Note(), 8)
@@ -8970,7 +8940,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         method can be called on the relevant part.
 
         This algorithm should work even for weird time signatures such as 2+3+2/8.
-
 
         >>> bach = corpus.parse('bach/bwv1.6')
         >>> bach.parts[0].measure(2).getContextByClass(meter.TimeSignature)
@@ -9292,19 +9261,14 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         set to True, modifies the durations of each
         element within the stream.
 
-
         A number of 0.5 will halve the durations and relative
         offset positions; a number of 2 will double the
         durations and relative offset positions.
-
-
 
         Note that the default for inPlace is the opposite
         of what it is for augmentOrDiminish on a Duration.
         This is done purposely to reflect the most common
         usage.
-
-
 
         >>> s = stream.Stream()
         >>> n = note.Note()
@@ -9957,7 +9921,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> s.hasPartLikeStreams()
         False
 
-
         A stream with a single generic Stream substream at the beginning has part-like Streams:
 
         >>> s = stream.Score()
@@ -9966,7 +9929,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> s.append(m1)
         >>> s.hasPartLikeStreams()
         True
-
 
         Adding another though makes it not part-like.
 
@@ -10012,7 +9974,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         '''
         Return true if this Stream only employs twelve-tone equal-tempered pitch values.
 
-
         >>> s = stream.Stream()
         >>> s.append(note.Note('G#4'))
         >>> s.isTwelveTone()
@@ -10032,7 +9993,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         Return True if, given the context of this Stream or Stream subclass,
         contains what appears to be well-formed notation. This often means
         the formation of Measures, or a Score that contains Part with Measures.
-
 
         >>> s = corpus.parse('bwv66.6')
         >>> s.isWellFormedNotation()
@@ -10094,7 +10054,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         :class:`~music21.chord.Chord`,
         :class:`~music21.note.Rest`) but also their subclasses, such as
         `Harmony` objects (`ChordSymbols`, `FiguredBass`), etc.
-
 
         >>> s1 = stream.Stream()
         >>> k1 = key.KeySignature(0)  # key of C
@@ -10215,7 +10174,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         <music21.pitch.Pitch B4>
         >>> [str(p) for p in partOnePitches[0:10]]
         ['B4', 'D5', 'B4', 'B4', 'B4', 'B4', 'C5', 'B4', 'A4', 'A4']
-
 
         Note that the pitches returned above are
         objects, not text:
@@ -10352,14 +10310,12 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
 
         * Changed in v7:
 
-          * now finds notes in Voices without requiring `getOverlaps=True`
+          - now finds notes in Voices without requiring `getOverlaps=True`
             and iterates over Parts rather than flattening.
-
-          * If `noNone=False`, inserts `None`
+          - If `noNone=False`, inserts `None`
             when backing up to scan a subsequent voice or part.
 
         * Changed in v8: all parameters are keyword only.
-
 
         OMIT_FROM_DOCS
 
@@ -10572,7 +10528,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         be considered an overlap. The includeCoincidentEnds parameter determines
         this behaviour, where ending and starting 3.0 being a type of overlap
         is set by the includeEndBoundary being True.
-
 
         >>> sc = stream.Stream()
         >>> sc._durSpanOverlap((0, 5), (4, 12), False)
@@ -10900,7 +10855,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         There are simultaneous attacks at offset 0.0 (the beginning) and at offset 3.0,
         but not at 1.0 or 2.0:
 
-
         >>> st1 = stream.Stream()
         >>> st2 = stream.Stream()
         >>> st1.append([note.Note(type='quarter'),
@@ -11107,7 +11061,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> fc.setOffsetBySite(s2, 20.6)
         >>> s1.playingWhenAttacked(fc)
         <music21.note.Note G#>
-
 
         Optionally, specify the site to get the offset from:
 
@@ -11692,12 +11645,10 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         By default, this method automatically
         recurses through measures, but not other container streams.
 
-
         >>> s = converter.parse('tinynotation: 4/4 a4 b c d   e f g a', makeNotation=False)
         >>> someLyrics = ['this', 'is', 'a', 'list', 'of', 'eight', 'lyric', 'words']
         >>> for n, lyric in zip(s.notes, someLyrics):
         ...     n.lyric = lyric
-
 
         >>> s.lyrics()
         {1: [<music21.note.Lyric number=1 syllabic=single text='this'>, ...,
@@ -11822,7 +11773,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         replace elements defined in the Variant with those in the calling Stream.
         Elements replaced will be gathered into a new Variant
         given the group 'default'. If a variant is activated with
-        .replacementDuration different from its length, the appropriate elements
+        .replacementQuarterLength different from its length, the appropriate elements
         in the stream will have their offsets shifted, and measure numbering
         will be fixed. If matchBySpan is True, variants with lengthType
         'replacement' will replace all the elements in the
@@ -11843,7 +11794,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         >>> v2stream1 = converter.parse('tinynotation: 4/4 ' + v2Str1, makeNotation=False)
         >>> v2stream2 = converter.parse('tinynotation: 4/4 ' + v2Str2, makeNotation=False)
 
-
         >>> v1 = variant.Variant()
         >>> v1measure = stream.Measure()
         >>> v1.insert(0.0, v1measure)
@@ -11851,7 +11801,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         ...    v1measure.insert(e.offset, e)
 
         >>> v2 = variant.Variant()
-        >>> v2.replacementDuration = 4.0
+        >>> v2.replacementQuarterLength = 4.0
         >>> v2measure1 = stream.Measure()
         >>> v2measure2 = stream.Measure()
         >>> v2.insert(0.0, v2measure1)
@@ -11862,7 +11812,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         ...    v2measure2.insert(e.offset, e)
 
         >>> v3 = variant.Variant()
-        >>> v3.replacementDuration = 4.0
+        >>> v3.replacementQuarterLength = 4.0
         >>> v1.groups = ['docVariants']
         >>> v2.groups = ['docVariants']
         >>> v3.groups = ['docVariants']
@@ -12078,8 +12028,8 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         insertionRegionsForExpansion = []  # For saving the insertion regions
         # go through all elongation variants to find the insertion regions.
         for v in elongationVariants:
-            lengthDifference = v.replacementDuration - v.containedHighestTime
-            insertionStart = v.getOffsetBySite(returnObj) + v.replacementDuration
+            lengthDifference = v.replacementQuarterLength - v.containedHighestTime
+            insertionStart = v.getOffsetBySite(returnObj) + v.replacementQuarterLength
             # Saves the information for each gap to be expanded
             insertionRegionsForExpansion.append((insertionStart, -1 * lengthDifference, [v]))
 
@@ -12126,7 +12076,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         ...        m.append(n)
         ...    v.append(m)
         >>> v.groups = ['paris']
-        >>> v.replacementDuration = 8.0
+        >>> v.replacementQuarterLength = 8.0
 
         >>> s = stream.Stream()
         >>> streamDataM1 = [('a', 'quarter'), ('b', 'quarter'), ('a', 'quarter'), ('g', 'quarter')]
@@ -12286,7 +12236,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         ...        m.append(n)
         ...    v.append(m)
         >>> v.groups = ['paris']
-        >>> v.replacementDuration = 12.0
+        >>> v.replacementQuarterLength = 12.0
 
         >>> s = stream.Stream()
         >>> streamDataM1 = [('a', 'quarter'), ('b', 'quarter'), ('a', 'quarter'), ('g', 'quarter')]
@@ -12303,7 +12253,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         ...        m.append(n)
         ...    s.append(m)
         >>> s.insert(4.0, v)
-
 
         >>> deletedRegion, deletedMeasures, insertedMeasuresTuple = s._insertDeletionVariant(v)
         >>> deletedRegion
@@ -12336,11 +12285,11 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
 
         deletedMeasures = deque()  # For keeping track of what measure numbers are deleted
         # length of the deleted region
-        lengthDifference = v.replacementDuration - v.containedHighestTime
+        lengthDifference = v.replacementQuarterLength - v.containedHighestTime
 
         removed = variant.Variant()  # what group should this have?
         removed.groups = ['default']  # for now, default
-        removed.replacementDuration = v.containedHighestTime
+        removed.replacementQuarterLength = v.containedHighestTime
 
         vStart = self.elementOffset(v)
         deletionStart = vStart + v.containedHighestTime
@@ -12396,7 +12345,6 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         expanded regions before this function,
         or it will not work properly.
 
-
         >>> v = variant.Variant()
         >>> variantDataM1 = [('b', 'eighth'), ('c', 'eighth'), ('a', 'quarter'),
         ...                  ('a', 'quarter'),('b', 'quarter')]
@@ -12411,7 +12359,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         ...        m.append(n)
         ...    v.append(m)
         >>> v.groups = ['paris']
-        >>> v.replacementDuration = 4.0
+        >>> v.replacementQuarterLength = 4.0
 
         >>> s = stream.Stream()
         >>> streamDataM1 = [('a', 'quarter'), ('b', 'quarter'), ('a', 'quarter'), ('g', 'quarter')]
@@ -12474,7 +12422,7 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         deletedMeasures = deque()
         removed = variant.Variant()  # what group should this have?
         removed.groups = ['default']  # for now, default
-        removed.replacementDuration = v.containedHighestTime
+        removed.replacementQuarterLength = v.containedHighestTime
         vStart = self.elementOffset(v)
 
         # First deal with the elements in the overlapping section (limit by class)
@@ -12854,8 +12802,8 @@ class Stream(core.StreamCore, t.Generic[M21ObjType]):
         ...    v2measure.insert(e.offset, e)
 
         >>> v3 = variant.Variant()
-        >>> v2.replacementDuration = 4.0
-        >>> v3.replacementDuration = 4.0
+        >>> v2.replacementQuarterLength = 4.0
+        >>> v3.replacementQuarterLength = 4.0
         >>> v1.groups = ['variant1']
         >>> v2.groups = ['variant2']
         >>> v3.groups = ['variant3']
@@ -13295,7 +13243,6 @@ class Measure(Stream):
         >>> m.paddingLeft
         4.0
 
-
         Empty space at the beginning of the measure will not be taken in account:
 
         >>> m = stream.Measure()
@@ -13323,7 +13270,6 @@ class Measure(Stream):
         >>> m.show('text')
         {0.0} <music21.meter.TimeSignature 3/4>
         {0.0} <music21.note.Note C>
-
 
         Only initial rests count for useInitialRests:
 
@@ -13396,7 +13342,6 @@ class Measure(Stream):
         `barDuration` still gives a duration of 3.0, or a dotted quarter note,
         while `.duration` gives a whole note tied to a quarter.
 
-
         >>> m = stream.Measure()
         >>> m.timeSignature = meter.TimeSignature('3/4')
         >>> m.barDuration
@@ -13448,9 +13393,7 @@ class Measure(Stream):
 
         Note: this does not yet accommodate triplets.
 
-
         We create a simple stream that should be in 3/4
-
 
         >>> s = converter.parse('C4 D4 E8 F8', format='tinyNotation', makeNotation=False)
         >>> m = stream.Measure()
@@ -13881,7 +13824,7 @@ class Score(Stream):
     def measures(self,
                  numberStart,
                  numberEnd,
-                 collect=('Clef', 'TimeSignature', 'Instrument', 'KeySignature'),
+                 collect=('Clef', 'TimeSignature', 'Instrument', 'KeySignature', 'MetronomeMark'),
                  gatherSpanners=GatherSpanners.ALL,
                  indicesNotNumbers=False):
         # noinspection PyShadowingNames
@@ -13929,7 +13872,13 @@ class Score(Stream):
     # this is Score.measure
     def measure(self,
                 measureNumber,
-                collect=(clef.Clef, meter.TimeSignature, instrument.Instrument, key.KeySignature),
+                collect=(
+                    clef.Clef,
+                    meter.TimeSignature,
+                    instrument.Instrument,
+                    key.KeySignature,
+                    tempo.MetronomeMark,
+                ),
                 gatherSpanners=GatherSpanners.ALL,
                 indicesNotNumbers=False):
         '''
@@ -14197,7 +14146,6 @@ class Score(Stream):
         The `permitOneVoicePerPart` parameter, if True, will encode a
         single voice inside a single Part, rather than leaving it as
         a single Part alone, with no internal voices.
-
 
         >>> s = corpus.parse('bwv66.6')
         >>> len(s.flatten().notes)

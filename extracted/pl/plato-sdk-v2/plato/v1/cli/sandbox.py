@@ -12,7 +12,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote, quote_plus
 
@@ -460,7 +460,7 @@ def sandbox_start(
             "job_id": job_id,
             "public_url": display_url,  # Full URL with _plato_router_target
             "mode": mode,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             **state_extras,
         }
         # Add SSH private key path if available

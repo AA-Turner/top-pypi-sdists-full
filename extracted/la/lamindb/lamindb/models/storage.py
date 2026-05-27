@@ -32,8 +32,6 @@ from .run import TracksRun, TracksUpdates
 from .sqlrecord import Space, SQLRecord
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lamindb_setup.types import StorageType
     from upath import UPath
 
@@ -46,12 +44,63 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     A storage location is either a directory (local or a folder in the cloud) or
     an entire S3/GCP bucket.
 
-    A storage location is written to by at most one LaminDB instance: the location’s *writing instance*.
-    Some locations are not managed with LaminDB and, hence, do not have a writing instance.
+    Args:
+        root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
+        description: `str | None = None` An optional description.
+        space: `Space | None = None` A space to restrict access permissions to the storage location.
+        host: `str | None = None` For local storage locations, a globally unique identifier for the physical machine/server hosting the storage.
+            This distinguishes storage locations that may have the same local path but exist on different servers, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`.
+
+    See Also:
+        :attr:`lamindb.core.Settings.storage`
+            Current default storage location of your compute session for writing artifacts.
+        :attr:`~lamindb.setup.core.StorageSettings`
+            Storage settings.
+        :doc:`faq/keep-artifacts-local`
+            Avoid storing artifacts in the cloud, but keep them on local infrastructure.
+
+    Examples
+    --------
+
+    When you create a LaminDB instance, you configure its default storage location via `--storage`::
+
+        lamin init --storage ./mydatadir  # or "s3://my-bucket/myfolder", "gs://my-bucket/myfolder", ...
+
+    View the current default storage location for writing artifacts::
+
+        import lamindb as ln
+
+        ln.settings.storage
+
+    Create a new cloud storage location::
+
+        ln.Storage(root="s3://our-bucket/our-folder").save()
+
+    Create a new local storage location::
+
+        ln.Storage(root="/dir/our-shared-dir", host="our-server-123").save()
+
+    Globally switch to another storage location::
+
+        ln.settings.storage = "/dir/our-shared-dir"  # or "s3://our-bucket/our-folder", "gs://our-bucket/our-folder", ...
+
+    Or if you're operating in `keep-artifacts-local` mode (:doc:`faq/keep-artifacts-local`)::
+
+        ln.settings.local_storage = "/dir/our-other-shared-dir"
+
+    View all storage locations used in your LaminDB instance::
+
+        ln.Storage.to_dataframe()
+
+    Notes
+    -----
+
+    A storage location is written to by at most one LaminDB instance: the location’s *managing instance*.
+    Some locations are not managed with LaminDB and, hence, do not have a managing instance.
 
     .. dropdown:: Writable vs. read-only storage locations
 
-        The `instance_uid` field of `Storage` defines its *writing instance*.
+        The `instance_uid` field of `Storage` defines its *managing instance*.
         Only if a storage location's `instance_uid` matches your current instance's `uid` (`ln.settings.instance_uid`),
         you can write to it.
         All other storage locations are read-only in your current instance.
@@ -61,7 +110,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
 
-        Some storage locations are not written to by any LaminDB instance, hence, their `instance_uid` is `None`.
+        Some storage locations are not managed by any LaminDB instance, hence, their `instance_uid` is `None`.
 
     .. dropdown:: Managing access to storage locations across instances
 
@@ -86,74 +135,25 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         If you don't want to store data in the cloud, you can use local storage locations: :doc:`faq/keep-artifacts-local`.
 
-    Args:
-        root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
-        description: `str | None = None` An optional description.
-        space: `Space | None = None` A space to restrict access permissions to the storage location.
-        host: `str | None = None` For local storage locations, a globally unique identifier for the physical machine/server hosting the storage.
-            This distinguishes storage locations that may have the same local path but exist on different servers, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`.
+    .. dropdown:: What is the `.lamindb/` directory inside a storage location?
 
-    See Also:
-        :attr:`lamindb.core.Settings.storage`
-            Current default storage location of your compute session for writing artifacts.
-        :attr:`~lamindb.setup.core.StorageSettings`
-            Storage settings.
-        :doc:`faq/keep-artifacts-local`
-            Avoid storing artifacts in the cloud, but keep them on local infrastructure.
+        It stores all artifacts that are ingested through `lamindb`, indexed by the artifact `uid`.
+        This means you don't have to worry about renaming or moving files, as this all happens on the database level.
 
-    Examples:
+        Existing artifacts are typically stored in hierarchical structures with semantic folder names.
+        Instead of copying such artifacts into `.lamindb/` upon calls of `Artifact("legacy_path").save()`,
+        LaminDB registers them with the semantic `key` representing the relative path within the storage location.
+        These artifacts are marked with `artifact._key_is_virtual = False` and treated correspondingly.
 
-        When you create a LaminDB instance, you configure its default storage location via `--storage`::
+        There is only a single `.lamindb/` directory per storage location.
 
-            lamin init --storage ./mydatadir  # or "s3://my-bucket/myfolder", "gs://my-bucket/myfolder", ...
+    .. dropdown:: What should I do if I want to bulk migrate all artifacts to another storage?
 
-        View the current default storage location for writing artifacts::
+        Currently, you can only achieve this manually and you should be careful with it.
 
-            import lamindb as ln
-
-            ln.settings.storage
-
-        Create a new cloud storage location::
-
-            ln.Storage(root="s3://our-bucket/our-folder").save()
-
-        Create a new local storage location::
-
-            ln.Storage(root="/dir/our-shared-dir", host="our-server-123").save()
-
-        Globally switch to another storage location::
-
-            ln.settings.storage = "/dir/our-shared-dir"  # or "s3://our-bucket/our-folder", "gs://our-bucket/our-folder", ...
-
-        Or if you're operating in `keep-artifacts-local` mode (:doc:`faq/keep-artifacts-local`)::
-
-            ln.settings.local_storage = "/dir/our-other-shared-dir"
-
-        View all storage locations used in your LaminDB instance::
-
-            ln.Storage.to_dataframe()
-
-    Notes:
-
-        .. dropdown:: What is the `.lamindb/` directory inside a storage location?
-
-            It stores all artifacts that are ingested through `lamindb`, indexed by the artifact `uid`.
-            This means you don't have to worry about renaming or moving files, as this all happens on the database level.
-
-            Existing artifacts are typically stored in hierarchical structures with semantic folder names.
-            Instead of copying such artifacts into `.lamindb/` upon calls of `Artifact("legacy_path").save()`,
-            LaminDB registers them with the semantic `key` representing the relative path within the storage location.
-            These artifacts are marked with `artifact._key_is_virtual = False` and treated correspondingly.
-
-            There is only a single `.lamindb/` directory per storage location.
-
-        .. dropdown:: What should I do if I want to bulk migrate all artifacts to another storage?
-
-            Currently, you can only achieve this manually and you should be careful with it.
-
-            1. Copy or move artifacts into the desired new storage location
-            2. Adapt the corresponding record in the {class}`~lamindb.Storage` registry by setting the `root` field to the new location
-            3. If your LaminDB storage location is connected to the hub, you also need to update the storage record on the hub
+        1. Copy or move artifacts into the desired new storage location
+        2. Adapt the corresponding record in the {class}`~lamindb.Storage` registry by setting the `root` field to the new location
+        3. If your LaminDB storage location is connected to the hub, you also need to update the storage record on the hub
 
     """
 
@@ -325,7 +325,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         return self.region
 
     @property
-    def path(self) -> Path | UPath:
+    def path(self) -> UPath:
         """Path.
 
         Uses the `.root` field and converts it into a `Path` or `UPath`.

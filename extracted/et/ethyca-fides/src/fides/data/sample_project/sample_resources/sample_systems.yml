@@ -1,0 +1,97 @@
+system:
+  - fides_key: cookie_house
+    name: Cookie House
+    description: Cookie House eCommerce Application
+    system_type: Application
+    administrating_department: Engineering
+    privacy_declarations:
+      - data_categories:
+          - user.contact
+          - user.device.cookie_id
+        data_use: functional.service.improve
+        data_subjects:
+          - customer
+
+  - fides_key: cookie_house_loyalty_database
+    name: Cookie House Loyalty Program
+    description: Secondary database for Cookie House's loyalty program.
+    system_type: Database
+    administrating_department: Engineering
+    egress:
+      - fides_key: cookie_house
+        type: system
+    privacy_declarations:
+      - data_categories:
+          - user
+        data_use: essential.service
+        data_subjects:
+          - customer
+        dataset_references:
+          - postgres_example_test_extended_dataset
+
+  - fides_key: cookie_house_postgresql_database
+    name: Cookie House PostgreSQL Database
+    description: Primary database for Cookie House orders.
+    system_type: Database
+    administrating_department: Engineering
+    egress:
+      - fides_key: cookie_house
+        type: system
+    privacy_declarations:
+      - data_categories:
+          - user.contact
+          - user.financial
+        data_use: essential.service
+        data_subjects:
+          - customer
+        dataset_references:
+          - postgres_example_test_dataset
+
+  - fides_key: cookie_house_customer_database
+    name: Cookie House Customer Database
+    description: Additional database to store detailed data about users.
+    system_type: Database
+    administrating_department: Engineering
+    egress:
+      - fides_key: cookie_house
+        type: system
+    privacy_declarations:
+      - data_categories:
+          - user.contact
+        data_use: marketing.advertising.first_party.targeted
+        data_subjects:
+          - customer
+        dataset_references:
+          - mongo_test
+
+  - fides_key: cookie_house_marketing_system
+    name: Cookie House Marketing System
+    description: Marketing application for audience analysis, targeted ads, etc.
+    system_type: Application
+    administrating_department: Marketing
+    egress:
+      - fides_key: cookie_house_customer_database
+        type: system
+    privacy_declarations:
+      - data_categories:
+          - user.device.cookie_id
+        data_use: marketing.advertising.first_party.targeted
+        data_subjects:
+          - customer
+
+  - fides_key: cookie_house_custom_request_fields_database
+    name: Cookie House Custom Request Fields Database
+    description: Secondary database for Cookie House custom request fields.
+    system_type: Database
+    administrating_department: Engineering
+    egress:
+      - fides_key: cookie_house
+        type: system
+    privacy_declarations:
+      - data_categories:
+          - system
+        data_use: essential.service
+        data_subjects:
+          - customer
+        dataset_references:
+          - postgres_example_custom_request_field_dataset

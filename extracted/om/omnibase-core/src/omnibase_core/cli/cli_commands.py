@@ -48,14 +48,11 @@ def get_version() -> str:
         return version("omnibase_core")
     except (ImportError, PackageNotFoundError):
         # Fallback to __init__.py version
-        try:
+        try:  # fallback-ok: version getter must never crash
             from omnibase_core import __version__
 
             return __version__
-        except (
-            ImportError,
-            AttributeError,
-        ):  # fallback-ok: version getter must never crash
+        except (ImportError, AttributeError):
             return "unknown"
 
 
@@ -664,12 +661,9 @@ from omnibase_core.cli.cli_registry import registry
 
 cli.add_command(registry)
 
-# Register node command (local RuntimeLocal execution, name-based resolution).
-# Replaces the former `onex run <contract_path>` (OMN-7068) with `onex node <name>`.
-# See docs/plans/2026-04-16-prove-core-runtime-standalone.md § Task 3 (OMN-8938).
-from omnibase_core.cli.cli_node import run_node_by_name
-
-cli.add_command(run_node_by_name)
+# Local runtime commands (`onex node` and `onex run`) are contributed by
+# omnibase_infra through the onex.cli entry-point group. Core owns only the
+# extension loading surface to avoid depending on concrete runtime code.
 
 # Register doctor command from separate module
 from omnibase_core.cli.cli_doctor import doctor

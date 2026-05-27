@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
 use polars::prelude::{CloudScheme, LazyFrame, PlHashMap, PlSmallStr, Schema};
-use polars_core::runtime::ASYNC;
 use polars_io::catalog::unity::client::{CatalogClient, CatalogClientBuilder};
 use polars_io::catalog::unity::models::{
     CatalogInfo, ColumnInfo, DataSourceFormat, NamespaceInfo, TableInfo, TableType,
 };
 use polars_io::catalog::unity::schema::parse_type_json_str;
+use polars_io::pl_async;
 use pyo3::exceptions::PyValueError;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyAnyMethods, PyDict, PyList, PyNone, PyTuple};
@@ -59,7 +59,9 @@ impl PyCatalogClient {
     }
 
     pub fn list_catalogs(&self, py: Python) -> PyResult<Py<PyAny>> {
-        let v = py.enter_polars(|| ASYNC.block_in_place_on(self.client().list_catalogs()))?;
+        let v = py.enter_polars(|| {
+            pl_async::get_runtime().block_in_place_on(self.client().list_catalogs())
+        })?;
 
         let mut opt_err = None;
 
@@ -84,7 +86,7 @@ impl PyCatalogClient {
     #[pyo3(signature = (catalog_name))]
     pub fn list_namespaces(&self, py: Python<'_>, catalog_name: &str) -> PyResult<Py<PyAny>> {
         let v = py.enter_polars(|| {
-            ASYNC.block_in_place_on(self.client().list_namespaces(catalog_name))
+            pl_async::get_runtime().block_in_place_on(self.client().list_namespaces(catalog_name))
         })?;
 
         let mut opt_err = None;
@@ -116,7 +118,8 @@ impl PyCatalogClient {
         namespace: &str,
     ) -> PyResult<Py<PyAny>> {
         let v = py.enter_polars(|| {
-            ASYNC.block_in_place_on(self.client().list_tables(catalog_name, namespace))
+            pl_async::get_runtime()
+                .block_in_place_on(self.client().list_tables(catalog_name, namespace))
         })?;
 
         let mut opt_err = None;
@@ -151,7 +154,7 @@ impl PyCatalogClient {
     ) -> PyResult<Py<PyAny>> {
         let table_info = py
             .enter_polars(|| {
-                ASYNC.block_in_place_on(self.client().get_table_info(
+                pl_async::get_runtime().block_in_place_on(self.client().get_table_info(
                     table_name,
                     catalog_name,
                     namespace,
@@ -171,7 +174,8 @@ impl PyCatalogClient {
     ) -> PyResult<Py<PyAny>> {
         let table_credentials = py
             .enter_polars(|| {
-                ASYNC.block_in_place_on(self.client().get_table_credentials(table_id, write))
+                pl_async::get_runtime()
+                    .block_in_place_on(self.client().get_table_credentials(table_id, write))
             })
             .map_err(to_py_err)?;
 
@@ -239,7 +243,7 @@ impl PyCatalogClient {
         credential_provider: Option<Py<PyAny>>,
     ) -> PyResult<PyLazyFrame> {
         let table_info = py.enter_polars(|| {
-            ASYNC.block_in_place_on(self.client().get_table_info(
+            pl_async::get_runtime().block_in_place_on(self.client().get_table_info(
                 catalog_name,
                 namespace,
                 table_name,
@@ -272,7 +276,7 @@ impl PyCatalogClient {
     ) -> PyResult<Py<PyAny>> {
         let catalog_info = py
             .detach(|| {
-                ASYNC.block_in_place_on(self.client().create_catalog(
+                pl_async::get_runtime().block_in_place_on(self.client().create_catalog(
                     catalog_name,
                     comment,
                     storage_root,
@@ -285,8 +289,11 @@ impl PyCatalogClient {
 
     #[pyo3(signature = (catalog_name, force))]
     pub fn delete_catalog(&self, py: Python<'_>, catalog_name: &str, force: bool) -> PyResult<()> {
-        py.detach(|| ASYNC.block_in_place_on(self.client().delete_catalog(catalog_name, force)))
-            .map_err(to_py_err)
+        py.detach(|| {
+            pl_async::get_runtime()
+                .block_in_place_on(self.client().delete_catalog(catalog_name, force))
+        })
+        .map_err(to_py_err)
     }
 
     #[pyo3(signature = (catalog_name, namespace, comment, storage_root))]
@@ -300,7 +307,7 @@ impl PyCatalogClient {
     ) -> PyResult<Py<PyAny>> {
         let namespace_info = py
             .detach(|| {
-                ASYNC.block_in_place_on(self.client().create_namespace(
+                pl_async::get_runtime().block_in_place_on(self.client().create_namespace(
                     catalog_name,
                     namespace,
                     comment,
@@ -321,10 +328,11 @@ impl PyCatalogClient {
         force: bool,
     ) -> PyResult<()> {
         py.detach(|| {
-            ASYNC.block_in_place_on(
-                self.client()
-                    .delete_namespace(catalog_name, namespace, force),
-            )
+            pl_async::get_runtime().block_in_place_on(self.client().delete_namespace(
+                catalog_name,
+                namespace,
+                force,
+            ))
         })
         .map_err(to_py_err)
     }
@@ -347,7 +355,7 @@ impl PyCatalogClient {
         properties: Vec<(String, String)>,
     ) -> PyResult<Py<PyAny>> {
         let table_info = py.detach(|| {
-            ASYNC
+            pl_async::get_runtime()
                 .block_in_place_on(
                     self.client().create_table(
                         catalog_name,
@@ -381,10 +389,11 @@ impl PyCatalogClient {
         table_name: &str,
     ) -> PyResult<()> {
         py.detach(|| {
-            ASYNC.block_in_place_on(
-                self.client()
-                    .delete_table(catalog_name, namespace, table_name),
-            )
+            pl_async::get_runtime().block_in_place_on(self.client().delete_table(
+                catalog_name,
+                namespace,
+                table_name,
+            ))
         })
         .map_err(to_py_err)
     }

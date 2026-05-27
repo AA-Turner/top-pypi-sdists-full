@@ -1,5 +1,7 @@
 import datetime
 from datetime import timedelta
+import time
+
 import agilicus
 from prettytable import PrettyTable
 from operator import attrgetter
@@ -16,6 +18,7 @@ from urllib.parse import urlparse
 
 from . import context
 from . import output
+from .output.json import convert_to_json
 from . import regions
 from .input_helpers import get_org_from_input_or_ctx
 from .input_helpers import strip_none
@@ -1512,6 +1515,7 @@ def configure_stats_publishing(
     forwarder_detailed_duration_s,
     audit_summary_duration_s,
     audit_detailed_duration_s,
+    debug_summary_duration_s=None,
 ):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
@@ -1522,6 +1526,7 @@ def configure_stats_publishing(
     share = agilicus_api.StatsPublishingLevelConfig()
     forwarder = agilicus_api.StatsPublishingLevelConfig()
     audit = agilicus_api.StatsPublishingLevelConfig()
+    debug = agilicus_api.StatsPublishingLevelConfig()
 
     if net_summary_duration_s:
         net.summary_duration_seconds = net_summary_duration_s
@@ -1544,12 +1549,16 @@ def configure_stats_publishing(
         audit.summary_duration_seconds = audit_summary_duration_s
     if audit_detailed_duration_s:
         audit.detailed_duration_seconds = audit_detailed_duration_s
+    if debug_summary_duration_s:
+        debug.summary_duration_seconds = debug_summary_duration_s
+
     cfg = agilicus_api.StatsPublishingConfig(
         upstream_network_publishing=net,
         upstream_http_publishing=http,
         upstream_share_publishing=share,
         forwarder_publishing=forwarder,
         audit_publishing=audit,
+        debug_publishing=debug,
         publish_period_seconds=publish_period_s,
     )
     req = agilicus_api.ConfigureConnectorStatsPublishingRequest(
@@ -1659,3 +1668,131 @@ def delete_service(ctx, connector_id, service, **kwargs):
     return apiclient.connectors_api.delete_service(
         connector_id, connector_service=service, **kwargs
     )
+
+
+def show_agent_connector_logs(
+    ctx,
+    connector_id,
+    collected_since,
+    watch,
+    watch_period_seconds,
+    org_id=None,
+    **kwargs,
+):
+    org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
+
+    next_configure = time.perf_counter()
+    publish_duration = watch_period_seconds * 10
+    per_instances = {}
+
+    while True:
+        if time.perf_counter() > next_configure:
+            # Ask for debug logs to be published. We ask for it slightly more frequently
+            # than we watch (0.8x) to ensure we don't miss any cycles if there is jitter
+            configure_stats_publishing(
+                ctx,
+                org_id=org_id,
+                connector_id=[connector_id],
+                publish_period_s=int(watch_period_seconds * 0.8) or 1,
+                net_summary_duration_s=0,
+                http_summary_duration_s=0,
+                net_detailed_duration_s=0,
+                http_detailed_duration_s=0,
+                share_summary_duration_s=0,
+                share_detailed_duration_s=0,
+                forwarder_summary_duration_s=0,
+                forwarder_detailed_duration_s=0,
+                audit_summary_duration_s=0,
+                audit_detailed_duration_s=0,
+                debug_summary_duration_s=publish_duration,
+            )
+            next_configure = time.perf_counter() + publish_duration * 0.5
+
+        try:
+            stats = get_agent_connector_dynamic_stats(
+                ctx, connector_id, org_id, collected_since, **kwargs
+            )
+        except agilicus_api.ApiException as exc:
+            if exc.status != 404:
+                raise
+            time.sleep(watch_period_seconds)
+            continue
+
+        for log in _get_logs(stats):
+            instance_id = log["instance_id"]
+            per_instance = per_instances.get(instance_id)
+            if per_instance is None:
+                per_instance = PerInstanceLogs(ctx, instance_id)
+                per_instances[instance_id] = per_instance
+
+            per_instance.process_logs(log["logs"])
+
+        if not watch:
+            break
+
+        time.sleep(watch_period_seconds)
+
+
+class PerInstanceLogs:
+    def __init__(self, ctx, instance_id):
+        self.last_max_sequence = -1
+        self.last_min_sequence = -1
+        self.ctx = ctx
+        self.instance_id = instance_id
+
+    def process_logs(self, logs):
+        # We track the range of sequence numbers in the current response.
+        # Sequence numbers are expected to be monotonically increasing in a single
+        # response unless a rollover occurred *within* the returned set.
+        current_min = self.last_min_sequence
+        current_max = self.last_max_sequence
+        for log in logs:
+            if current_min == -1:
+                current_min = log.log_sequence
+
+            # If we've never seen a log, or if this log's sequence is greater than
+            # anything we've seen before, or if the sequence number has decreased
+            # from the previous log in THIS response (indicating rollover), we show it.
+            if self.last_max_sequence == -1 or log.log_sequence > self.last_max_sequence:
+                self._dump_log_message(log)
+            elif log.log_sequence < current_min:
+                # Rollover occurred since the last log we processed in this batch,
+                # or between batches.
+                self._dump_log_message(log)
+                self.last_max_sequence = -1
+                current_min = log.log_sequence
+
+            current_max = log.log_sequence
+
+        self.last_max_sequence = current_max
+        self.last_min_sequence = current_min
+
+    def _dump_log_message(self, log):
+        if context.output_json(self.ctx):
+            print(
+                convert_to_json(
+                    self.ctx, {"instance_id": self.instance_id} | log.to_dict(), indent=0
+                )
+            )
+        else:
+            print(f"{log.time} {self.instance_id} {log.level:5} {log.message}")
+
+
+def _get_logs(stats):
+    logs = []
+    debug_breakdown = stats.debug_breakdown
+    if not debug_breakdown:
+        return logs
+    for breakdown in debug_breakdown:
+        if not breakdown.common_stats or not breakdown.common_stats.summary:
+            continue
+        if not breakdown.common_stats.summary.logs:
+            continue
+
+        logs.append(
+            {
+                "instance_id": breakdown.instance_id,
+                "logs": breakdown.common_stats.summary.logs,
+            }
+        )
+    return logs

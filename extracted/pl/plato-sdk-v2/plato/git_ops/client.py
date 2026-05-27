@@ -30,7 +30,7 @@ class RemoteGitClient:
             await proc.stdin.drain()
             try:
                 line = await asyncio.wait_for(proc.stdout.readline(), timeout=timeout)
-            except asyncio.TimeoutError as exc:
+            except TimeoutError as exc:
                 await self.close()
                 raise RuntimeError(
                     f"Timed out waiting for git operation {request.operation} on {self._hostname}"
@@ -55,7 +55,7 @@ class RemoteGitClient:
             proc.terminate()
             try:
                 await asyncio.wait_for(proc.wait(), timeout=5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 proc.kill()
                 await proc.wait()
         _close_subprocess(proc)

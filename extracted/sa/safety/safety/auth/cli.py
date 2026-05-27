@@ -1,7 +1,9 @@
 # type: ignore
 import logging
+import os
+import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 from safety.auth.models import Auth
 from safety.auth.utils import initialize, is_email_verified
@@ -27,7 +29,6 @@ from rich.padding import Padding
 from typer import Typer
 
 from safety.auth.main import (
-    clean_session,
     get_auth_info,
     get_authorization_data,
     get_token,
@@ -37,11 +38,16 @@ from safety.events.utils import emit_auth_started, emit_auth_completed
 from safety.util import initialize_event_bus
 from safety.scan.constants import (
     CLI_AUTH_COMMAND_HELP,
+    CLI_AUTH_ENROLL_HELP,
     CLI_AUTH_HEADLESS_HELP,
     CLI_AUTH_LOGIN_HELP,
     CLI_AUTH_LOGOUT_HELP,
     CLI_AUTH_STATUS_HELP,
 )
+from safety.config.auth import AuthConfig, MachineCredentialConfig
+from safety.utils.tokens import get_token_claims
+from safety.errors import EnrollmentError
+from safety.utils.auth_session import discard_token
 
 from ..cli_util import SafetyCLISubGroup, get_command_for, pass_safety_cli_obj
 from safety.error_handlers import handle_cmd_exception
@@ -58,10 +64,67 @@ LOG = logging.getLogger(__name__)
 auth_app = Typer(rich_markup_mode="rich", name="auth")
 
 
+def _extract_org_uuid_from_jwt(ctx: "typer.Context") -> str:
+    """Extract the org legacy UUID from the current JWT access token.
+
+    Pure read — does not persist anything.  Returns ``""`` on failure.
+    """
+    auth_config = AuthConfig.from_storage()
+    if not auth_config:
+        return ""
+    try:
+        claims = get_token_claims(
+            auth_config.access_token,
+            "access_token",
+            ctx.obj.auth.jwks,
+            silent_if_expired=True,
+        )
+        if claims:
+            org_uuid = claims.get("https://api.safetycli.com/org_uuid", "")
+            return str(org_uuid) if org_uuid else ""
+    except Exception:
+        LOG.warning("Failed to extract org UUID from access token", exc_info=True)
+    return ""
+
+
+def _check_cross_org_enrollment(login_org_uuid: str, ctx: "typer.Context") -> bool:
+    """Check that *login_org_uuid* matches the enrolled org (if any).
+
+    Returns True if login should proceed, False if cross-org mismatch
+    detected (tokens are discarded in that case).
+    """
+    machine_cred = MachineCredentialConfig.from_storage()
+    if not (login_org_uuid and machine_cred and machine_cred.org_legacy_uuid):
+        return True
+
+    if machine_cred.org_legacy_uuid != login_org_uuid:
+        discard_token(ctx.obj.auth.platform.http_client)
+        console.print()
+        console.print(
+            "[red]This device is enrolled with machine authentication to a different "
+            "organization than the one you are attempting to log in to. "
+            "Please log in with a user in the same organization.[/red]"
+        )
+        return False
+
+    return True
+
+
+def _save_org_uuid(org_uuid: str) -> None:
+    """Persist *org_uuid* to AuthConfig on disk."""
+    if not org_uuid:
+        return
+    auth_config = AuthConfig.from_storage()
+    if auth_config:
+        auth_config.org_legacy_uuid = org_uuid
+        auth_config.save()
+
+
 CMD_LOGIN_NAME = "login"
 CMD_REGISTER_NAME = "register"
 CMD_STATUS_NAME = "status"
 CMD_LOGOUT_NAME = "logout"
+CMD_ENROLL_NAME = "enroll"
 DEFAULT_CMD = CMD_LOGIN_NAME
 
 
@@ -96,7 +159,7 @@ def fail_if_authenticated(ctx: typer.Context, with_msg: str) -> None:
         ctx (typer.Context): The Typer context object.
         with_msg (str): The message to display if authenticated.
     """
-    info = get_auth_info(ctx)
+    info = get_auth_info(ctx.obj.auth)
 
     if info:
         console.print()
@@ -190,9 +253,8 @@ def login(
     if headless:
         brief_msg = "Running in headless mode. Please copy and open the following URL in a browser"
 
-    # Get authorization data and generate the authorization URL
     uri, initial_state = get_authorization_data(
-        client=ctx.obj.auth.client,
+        http_client=ctx.obj.auth.platform.http_client,
         code_verifier=ctx.obj.auth.code_verifier,
         organization=ctx.obj.auth.org,
         headless=headless,
@@ -219,6 +281,19 @@ def login(
                 console.print()
 
             initialize(ctx, refresh=True)
+
+            login_org_uuid = _extract_org_uuid_from_jwt(ctx)
+            if not _check_cross_org_enrollment(login_org_uuid, ctx):
+                is_success = False
+                emit_auth_completed(
+                    ctx.obj.event_bus,
+                    ctx,
+                    success=False,
+                    error_message="Cross-org enrollment mismatch",
+                )
+                return
+            _save_org_uuid(login_org_uuid)
+
             initialize_event_bus(ctx=ctx)
             render_successful_login(ctx.obj.auth, organization=organization)
             is_success = True
@@ -277,8 +352,7 @@ def logout(ctx: typer.Context) -> None:
     msg = MSG_NON_AUTHENTICATED
 
     if id_token:
-        # Clean the session if an ID token is found
-        if clean_session(ctx.obj.auth.client):
+        if discard_token(ctx.obj.auth.platform.http_client):
             msg = MSG_LOGOUT_DONE
         else:
             msg = MSG_LOGOUT_FAILED
@@ -317,7 +391,25 @@ def status(
     safety_version = get_version()
     console.print(f"[{current_time}]: Safety {safety_version}")
 
-    info = get_auth_info(ctx)
+    # Machine token auth: display status and return early
+    if ctx.obj.auth.platform.has_machine_token:
+        machine_id = ctx.obj.auth.platform.machine_id
+        if not machine_id:
+            console.print(
+                "[red]Machine token authentication is misconfigured: no machine ID found.\n"
+                "Try re-enrolling with [bold]`safety auth enroll --force`[/bold][/red]"
+            )
+            sys.exit(1)
+        console.print(
+            f"[green]Authenticated via machine token (machine:{machine_id})[/green]"
+        )
+        initialize(ctx, refresh=True)
+        return
+
+    # Load enrollment state from storage
+    machine_cred = MachineCredentialConfig.from_storage()
+
+    info = get_auth_info(ctx.obj.auth)
 
     initialize(ctx, refresh=True)
 
@@ -336,7 +428,7 @@ def status(
         )
         console.print()
         uri, initial_state = get_authorization_data(
-            client=ctx.obj.auth.client,
+            http_client=ctx.obj.auth.platform.http_client,
             code_verifier=ctx.obj.auth.code_verifier,
             organization=ctx.obj.auth.org,
             ensure_auth=ensure_auth,
@@ -353,6 +445,11 @@ def status(
             )
             sys.exit(1)
 
+        login_org_uuid = _extract_org_uuid_from_jwt(ctx)
+        if not _check_cross_org_enrollment(login_org_uuid, ctx):
+            sys.exit(1)
+        _save_org_uuid(login_org_uuid)
+
         organization = None
         if ctx.obj.auth.org and ctx.obj.auth.org.name:
             organization = ctx.obj.auth.org.name
@@ -361,7 +458,20 @@ def status(
         console.print()
 
     else:
-        console.print(MSG_NON_AUTHENTICATED)
+        if not machine_cred:
+            console.print(MSG_NON_AUTHENTICATED)
+
+    # Show enrollment status if enrolled
+    if machine_cred:
+        console.print(f"  Enrolled system: {machine_cred.machine_id}")
+        if machine_cred.enrolled_at:
+            console.print(f"  Enrolled at: {machine_cred.enrolled_at}")
+        if machine_cred.org_id:
+            console.print(f"  Organization ID: {machine_cred.org_id}")
+        if machine_cred.org_slug:
+            console.print(f"  Organization Slug: {machine_cred.org_slug}")
+        if machine_cred.org_legacy_uuid:
+            console.print(f"  Organization UUID: {machine_cred.org_legacy_uuid}")
 
 
 @auth_app.command(name=CMD_REGISTER_NAME)
@@ -379,9 +489,8 @@ def register(ctx: typer.Context) -> None:
     # Check if the user is already authenticated
     fail_if_authenticated(ctx, with_msg=MSG_FAIL_REGISTER_AUTHED)
 
-    # Get authorization data and generate the registration URL
     uri, initial_state = get_authorization_data(
-        client=ctx.obj.auth.client,
+        http_client=ctx.obj.auth.platform.http_client,
         code_verifier=ctx.obj.auth.code_verifier,
         sign_up=True,
     )
@@ -400,3 +509,129 @@ def register(ctx: typer.Context) -> None:
         console.print()
     else:
         console.print("[red]Unable to register in this time, try again.[/red]")
+
+
+@auth_app.command(name=CMD_ENROLL_NAME, help=CLI_AUTH_ENROLL_HELP)
+@handle_cmd_exception
+@notify
+def enroll(
+    ctx: typer.Context,
+    enrollment_key: Annotated[
+        Optional[str],
+        typer.Argument(
+            envvar="SAFETY_ENROLLMENT_KEY",
+            help="Enrollment key provided by your MDM administrator.",
+        ),
+    ] = None,
+    machine_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--machine-id",
+            envvar="SAFETY_MACHINE_ID",
+            help="Override machine identity. If not set, auto-detected. Note: separate from hostname, which is also transmitted to the server.",
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Force re-enrollment even if already enrolled.",
+        ),
+    ] = False,
+) -> None:
+    """Enroll this machine with the Safety Platform for MDM-managed scanning."""
+    from safety.auth.constants import ENROLLMENT_KEY_PATTERN
+    from safety.auth.enrollment import call_enrollment_endpoint
+    from safety.auth.machine_id import resolve_machine_id
+
+    LOG.info("enroll started")
+
+    # 1. Check if already enrolled
+    existing = MachineCredentialConfig.from_storage()
+    if existing and not force:
+        LOG.info("machine already enrolled, skipping (use --force to re-enroll)")
+        console.print()
+        console.print("[green]This machine is already enrolled.[/green]")
+        console.print(f"  Machine ID: {existing.machine_id}")
+        console.print(f"  Enrolled at: {existing.enrolled_at}")
+        console.print()
+        console.print("Use [bold]--force[/bold] to re-enroll.")
+        return
+
+    # 2. Resolve enrollment key
+    if not enrollment_key:
+        raise EnrollmentError("Enrollment key is required")
+
+    # 3. Validate enrollment key format
+    if not re.match(ENROLLMENT_KEY_PATTERN, enrollment_key):
+        raise EnrollmentError("Invalid enrollment key format")
+
+    # 4. Resolve machine ID — determine source for logging
+    if machine_id is not None:
+        machine_id_source = "flag (--machine-id)"
+    elif os.environ.get("SAFETY_MACHINE_ID"):
+        machine_id_source = "env (SAFETY_MACHINE_ID)"
+    else:
+        machine_id_source = "platform detection"
+
+    LOG.info(
+        "enrollment attempt: machine_id_source=%s, force=%s",
+        machine_id_source,
+        force,
+    )
+
+    resolved_machine_id = resolve_machine_id(override=machine_id, skip_enrolled=True)
+
+    # Cross-org guard rail: if user is logged in, pass org identity for server-side validation
+    auth_config = AuthConfig.from_storage()
+    org_legacy_uuid_for_request = ""
+    if auth_config and auth_config.org_legacy_uuid:
+        org_legacy_uuid_for_request = auth_config.org_legacy_uuid
+
+    # 5. Call enrollment HTTP helper (reuses the platform client created
+    #    during CLI startup — TLS/proxy already probed)
+    response = call_enrollment_endpoint(
+        platform_client=ctx.obj.auth.platform,
+        enrollment_key=enrollment_key,
+        machine_id=resolved_machine_id,
+        force=force,
+        org_legacy_uuid=org_legacy_uuid_for_request,
+    )
+
+    # 6. Save credentials
+    response_token = response.get("machine_token")
+    if not response_token:
+        LOG.info("enrollment failed: server response missing machine token")
+        raise EnrollmentError("Server response missing machine token")
+    enrolled_at = datetime.now(timezone.utc).isoformat()
+
+    MachineCredentialConfig(
+        machine_id=resolved_machine_id,
+        machine_token=response_token,
+        enrolled_at=enrolled_at,
+        org_id=str(response.get("org_id") or ""),
+        org_legacy_uuid=str(response.get("org_legacy_uuid") or ""),
+        org_slug=str(response.get("org_slug") or ""),
+    ).save()
+
+    LOG.info("enrollment successful: machine_id=%s", resolved_machine_id)
+
+    # 7. Print success
+    org_id = str(response.get("org_id") or "")
+    org_legacy_uuid = str(response.get("org_legacy_uuid") or "")
+    org_slug = str(response.get("org_slug") or "")
+    console.print()
+    console.print("[bold][green]Enrollment successful![/green][/bold]")
+    console.print(f"  Machine ID:      {resolved_machine_id}")
+    console.print(f"  Machine Token:   {response_token}")
+    console.print(f"  Enrolled at:     {enrolled_at}")
+    if org_id:
+        console.print(f"  Organization ID: {org_id}")
+    if org_slug:
+        console.print(f"  Organization Slug: {org_slug}")
+    if org_legacy_uuid:
+        console.print(f"  Organization UUID: {org_legacy_uuid}")
+    console.print()
+    console.print(
+        "[green]You don't need to save these, they are automatically stored.[/green]"
+    )

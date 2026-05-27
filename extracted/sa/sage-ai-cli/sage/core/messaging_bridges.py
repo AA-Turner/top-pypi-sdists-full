@@ -66,7 +66,7 @@ class TelegramBridge:
         allowed_chat_ids: frozenset[str],
     ):
         # ``send_message(chat_id, text)`` — caller provides the actual
-        # network call. Lets us swap a real client for a mock in tests.
+        # network call. Lets us swap a real client for a dummy/fake in tests.
         self._agent = agent
         self._send = send_message
         self._allowed = {str(x) for x in allowed_chat_ids}

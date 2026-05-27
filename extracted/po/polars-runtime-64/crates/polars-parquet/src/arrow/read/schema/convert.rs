@@ -272,27 +272,11 @@ fn to_struct(fields: &[ParquetType], options: &SchemaInferenceOptions) -> Option
     }
 }
 
-/// Converts a parquet `MAP` / `MAP_KEY_VALUE` group to an arrow
-/// [`ArrowDataType::Map`].
-///
-/// The parquet `MAP` group has a single repeated `key_value` child with `key`
-/// and `value` fields. We build the arrow `Map`'s inner `Field` from those
-/// as `Struct([key, value])`.
+/// Converts a parquet group type to an arrow [`ArrowDataType::Struct`].
+/// Returns [`None`] if all its fields are empty
 fn to_map(fields: &[ParquetType], options: &SchemaInferenceOptions) -> Option<ArrowDataType> {
-    let Some(ParquetType::GroupType {
-        field_info,
-        fields: kv_fields,
-        ..
-    }) = fields.first()
-    else {
-        return None;
-    };
-    let entry = Field::new(
-        field_info.name.clone(),
-        to_struct(kv_fields, options)?,
-        false,
-    );
-    Some(ArrowDataType::Map(Box::new(entry), false))
+    let inner = to_field(&fields[0], options)?;
+    Some(ArrowDataType::Map(Box::new(inner), false))
 }
 
 /// Entry point for converting parquet group type.

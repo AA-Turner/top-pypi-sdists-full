@@ -30,6 +30,9 @@ class _EntityParseContext:
     archetype_kind: ir.ArchetypeKind | None = None
     # Soft delete and bulk config (v0.34.0)
     soft_delete: bool = False
+    # Native document signing primitive (v0.79.7, #1283 phase 3)
+    signable: bool = False
+    signing_validator: str | None = None
     # Subtype-of polymorphism (v0.71.180, #1217 Phase 3e.i)
     subtype_of: str | None = None
     # Temporal / effective-dated spec (v0.71.161 / #1223 Phase 3a.i)
@@ -143,6 +146,10 @@ class EntityParserMixin:
             elif self.match(TokenType.SOFT_DELETE):
                 self.advance()
                 ctx.soft_delete = True
+            elif self.match(TokenType.SIGNABLE):
+                ctx.signable = self._parse_entity_signable()
+            elif self.match(TokenType.SIGNING_VALIDATOR):
+                ctx.signing_validator = self._parse_entity_signing_validator()
             elif self.match(TokenType.TEMPORAL):
                 ctx.temporal = self._parse_entity_temporal()
             elif self.match(TokenType.SUBTYPE_OF):
@@ -241,6 +248,44 @@ class EntityParserMixin:
         self.expect(TokenType.COLON)
         archetype_value = self.expect_identifier_or_keyword().value
         return self._map_archetype_kind(archetype_value)
+
+    def _parse_entity_signable(self) -> bool:
+        """Parse ``signable: true|false`` declaration (#1283 phase 3).
+
+        Sets the entity flag that triggers the linker's auto-injection
+        of the 11 signing fields and the audit default.
+        """
+        self.advance()
+        self.expect(TokenType.COLON)
+        if self.match(TokenType.TRUE):
+            self.advance()
+            return True
+        if self.match(TokenType.FALSE):
+            self.advance()
+            return False
+        tok = self.current_token()
+        raise make_parse_error(
+            f"signable: expects 'true' or 'false', got {tok.value!r}",
+            self.file,
+            tok.line,
+            tok.column,
+        )
+
+    def _parse_entity_signing_validator(self) -> str:
+        """Parse ``signing_validator: dotted.path.to.callable`` (#1283).
+
+        Dotted-path string identifying a pre-sign hook that can raise
+        ``SigningError(...)`` to block the signature. Resolved lazily at
+        request time so the framework does not import project code at
+        parse time.
+        """
+        self.advance()
+        self.expect(TokenType.COLON)
+        parts: list[str] = [self.expect_identifier_or_keyword().value]
+        while self.match(TokenType.DOT):
+            self.advance()
+            parts.append(self.expect_identifier_or_keyword().value)
+        return ".".join(parts)
 
     def _parse_entity_examples(self) -> list[ir.ExampleRecord]:
         """Parse ``examples:`` indented block."""
@@ -922,6 +967,8 @@ class EntityParserMixin:
             access=access,
             audit=ctx.audit_config,
             soft_delete=ctx.soft_delete,
+            signable=ctx.signable,
+            signing_validator=ctx.signing_validator,
             subtype_of=ctx.subtype_of,
             temporal=ctx.temporal,
             bulk=ctx.bulk_config,
@@ -1084,6 +1131,34 @@ class EntityParserMixin:
             )
 
         self.expect(TokenType.COLON)
+
+        # #1281: `false` short-form. `permit: update: false` explicitly
+        # forbids the operation for all callers (append-only entities)
+        # rather than relying on the soft-deny `role(nobody)` workaround.
+        # Only valid in `permit:` blocks — `forbid: <op>: false` would
+        # be ambiguous (does it mean "permit everyone"?). The IR carries
+        # `deny_all=True`; the runtime's existing default-deny then
+        # excludes the op, and the validator/audit matrix can
+        # distinguish intentional prohibition from accidental omission.
+        if self.match(TokenType.FALSE):
+            bool_token = self.current_token()
+            self.advance()
+            if effect != ir.PolicyEffect.PERMIT:
+                raise make_parse_error(
+                    f"`false` short-form is only valid in `permit:` blocks, "
+                    f"not `{effect.value}:`. Use a role/condition expression "
+                    f"instead.",
+                    self.file,
+                    bool_token.line,
+                    bool_token.column,
+                )
+            return ir.PermissionRule(
+                operation=operation,
+                require_auth=True,
+                condition=None,
+                effect=effect,
+                deny_all=True,
+            )
 
         # Check for simple "authenticated" (no condition)
         if self.match(TokenType.AUTHENTICATED):

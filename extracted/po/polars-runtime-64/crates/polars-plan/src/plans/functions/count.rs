@@ -1,4 +1,3 @@
-use polars_core::runtime::ASYNC;
 use polars_io::cloud::CloudOptions;
 
 use super::*;
@@ -38,11 +37,14 @@ fn count_all_rows_csv(
         if sources.as_paths().is_some() {
             let sources_clone = sources.clone();
             feature_gated!("cloud", {
-                ASYNC.block_in_place_on(polars_io::file_cache::init_entries_from_uri_list(
-                    (0..sources_clone.len())
-                        .map(move |i| sources_clone.as_paths().unwrap().get(i).unwrap().clone()),
-                    cloud_options,
-                ))?;
+                polars_io::pl_async::get_runtime().block_in_place_on(
+                    polars_io::file_cache::init_entries_from_uri_list(
+                        (0..sources_clone.len()).map(move |i| {
+                            sources_clone.as_paths().unwrap().get(i).unwrap().clone()
+                        }),
+                        cloud_options,
+                    ),
+                )?;
             })
         }
     }

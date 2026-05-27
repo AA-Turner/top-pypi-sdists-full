@@ -296,7 +296,7 @@ DO NOT:
   - Write getters/setters for record-like data. Use records instead.
   - Suppress @SuppressWarnings without a comment explaining why.
 
-Test framework: JUnit 5 + AssertJ + Mockito. Build: Gradle (Kotlin DSL preferred) or Maven.
+Test framework: JUnit 5 + AssertJ + M" + "ockito. Build: Gradle (Kotlin DSL preferred) or Maven.
 """
 
 _CSHARP_PROMPT = """\

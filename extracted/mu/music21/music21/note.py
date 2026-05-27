@@ -203,7 +203,7 @@ class Lyric(prebase.ProtoM21Object, style.StyleMixin):
 
     Custom elision elements for composite components will be supported later.
 
-    * New in v6.7: composite components, elisionBefore
+    * New in v6.7: composite components, elisionBefore.
     * Changed in v8: lyric text can be an empty string, but not None.
     '''
     _styleClass = style.TextStylePlacement
@@ -710,7 +710,6 @@ class GeneralNote(base.Music21Object):
         [<music21.note.Lyric number=1 syllabic=single text='1. Hi'>,
          <music21.note.Lyric number=2 syllabic=single text='2. Bye'>]
 
-
         You can also set a lyric with a lyric object directly:
 
         >>> b = note.Note('B5')
@@ -722,7 +721,7 @@ class GeneralNote(base.Music21Object):
         'bon'
 
         * Changed in v6.7: added setting to a Lyric object.  Removed undocumented
-          setting to False instead of setting to None
+          setting to False instead of setting to None.
         '''
         if not self.lyrics:
             return None
@@ -1129,7 +1128,6 @@ class NotRest(GeneralNote):
         '''
         Get or set the notehead type of this NotRest object.
         Valid notehead type names are found in note.noteheadTypeNames (see below):
-
 
         >>> note.noteheadTypeNames
         ('arrow down', 'arrow up', 'back slashed', 'circle dot', 'circle-x', 'circled', 'cluster',
@@ -1735,7 +1733,6 @@ class Note(NotRest):
         >>> a
         <music21.note.Note C#>
 
-
         If the transposition value is an integer, take the KeySignature or Key context
         into account
 
@@ -1792,7 +1789,6 @@ class Note(NotRest):
         '''
         Return the most complete representation of this Note,
         providing duration and pitch information.
-
 
         >>> n = note.Note('A-', quarterLength=1.5)
         >>> n.fullName
@@ -1946,7 +1942,6 @@ class Rest(GeneralNote):
 
     >>> r.pitches
     ()
-
 
     All arguments to Duration are valid in constructing:
 

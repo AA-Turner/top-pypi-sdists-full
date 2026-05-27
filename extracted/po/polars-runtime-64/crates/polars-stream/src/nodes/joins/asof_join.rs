@@ -2,9 +2,6 @@ use std::cmp::Ordering;
 use std::collections::VecDeque;
 
 use AsofStrategy::*;
-use polars_async::executor::{JoinHandle, TaskPriority, TaskScope};
-use polars_async::primitives::distributor_channel as dc;
-use polars_async::primitives::wait_group::WaitGroup;
 use polars_core::prelude::row_encode::_get_rows_encoded_ca;
 use polars_core::prelude::*;
 use polars_core::utils::{Container, accumulate_dataframes_vertical_unchecked};
@@ -18,6 +15,9 @@ use polars_utils::scratch_vec::ScratchVec;
 use polars_utils::sort::reorder_cmp;
 
 use crate::DEFAULT_DISTRIBUTOR_BUFFER_SIZE;
+use crate::async_executor::{JoinHandle, TaskPriority, TaskScope};
+use crate::async_primitives::distributor_channel as dc;
+use crate::async_primitives::wait_group::WaitGroup;
 use crate::execute::StreamingExecutionState;
 use crate::graph::PortState;
 use crate::morsel::{Morsel, MorselSeq, SourceToken};
@@ -31,6 +31,7 @@ const ROW_ENCODED_COL_NAME: PlSmallStr = PlSmallStr::from_static("__PL_ASOF_JOIN
 pub struct AsOfJoinSideParams {
     pub on: PlSmallStr,
     pub tmp_key_col: Option<PlSmallStr>,
+    pub by: Vec<PlSmallStr>,
 }
 
 impl AsOfJoinSideParams {
@@ -51,23 +52,9 @@ struct AsOfJoinParams {
 impl AsOfJoinParams {
     fn as_of_options(&self) -> &AsOfOptions {
         let JoinType::AsOf(ref options) = self.args.how else {
-            unreachable!();
+            unreachable!("incorrect join type");
         };
         options
-    }
-
-    fn left_by(&self) -> &[PlSmallStr] {
-        self.as_of_options()
-            .left_by
-            .as_ref()
-            .map_or(&[], |x| &x[..])
-    }
-
-    fn right_by(&self) -> &[PlSmallStr] {
-        self.as_of_options()
-            .right_by
-            .as_ref()
-            .map_or(&[], |x| &x[..])
     }
 }
 
@@ -86,10 +73,9 @@ pub struct AsOfJoinNode {
     /// We may need to stash a morsel on the left side whenever we do not
     /// have enough data on the right side, but the right side is empty.
     /// In these cases, we stash that morsel here.
-    left_buffer: VecDeque<DataFrame>,
+    left_buffer: VecDeque<(DataFrame, MorselSeq)>,
     /// Buffer of the live range of right AsOf join rows.
     right_buffer: DataFrameSearchBuffer,
-    output_seq: MorselSeq,
 }
 
 impl AsOfJoinNode {
@@ -101,21 +87,20 @@ impl AsOfJoinNode {
         right_on: PlSmallStr,
         tmp_left_key_col: Option<PlSmallStr>,
         tmp_right_key_col: Option<PlSmallStr>,
+        left_by: Option<Vec<PlSmallStr>>,
+        right_by: Option<Vec<PlSmallStr>>,
         by_descending: Option<Vec<bool>>,
         by_nulls_last: Option<Vec<bool>>,
         args: JoinArgs,
     ) -> Self {
-        let JoinType::AsOf(ref options) = args.how else {
-            unreachable!();
-        };
         assert!({
-            let by_len = || options.left_by.as_ref().unwrap().len();
-            let by_all_none = options.left_by.is_none()
-                && options.right_by.is_none()
+            let by_len = || left_by.as_ref().unwrap().len();
+            let by_all_none = left_by.is_none()
+                && right_by.is_none()
                 && by_descending.is_none()
                 && by_nulls_last.is_none();
             by_all_none
-                || (options.right_by.as_ref().unwrap().len() == by_len()
+                || (right_by.as_ref().unwrap().len() == by_len()
                     && by_descending.as_ref().unwrap().len() == by_len()
                     && by_nulls_last.as_ref().unwrap().len() == by_len())
         });
@@ -128,10 +113,12 @@ impl AsOfJoinNode {
         let left = AsOfJoinSideParams {
             on: left_on,
             tmp_key_col: tmp_left_key_col,
+            by: left_by.unwrap_or_default(),
         };
         let right = AsOfJoinSideParams {
             on: right_on,
             tmp_key_col: tmp_right_key_col,
+            by: right_by.unwrap_or_default(),
         };
 
         let params = AsOfJoinParams {
@@ -146,7 +133,6 @@ impl AsOfJoinNode {
             state: AsOfJoinState::default(),
             left_buffer: Default::default(),
             right_buffer: DataFrameSearchBuffer::empty_with_schema(right_input_schema),
-            output_seq: Default::default(),
         }
     }
 }
@@ -240,7 +226,6 @@ impl ComputeNode for AsOfJoinNode {
                     dc::distributor_channel(send.len(), *DEFAULT_DISTRIBUTOR_BUFFER_SIZE);
                 let left_buffer = &mut self.left_buffer;
                 let right_buffer = &mut self.right_buffer;
-                let output_seq = &mut self.output_seq;
                 join_handles.push(scope.spawn_task(TaskPriority::High, async move {
                     distribute_work_task(
                         recv_left,
@@ -248,7 +233,6 @@ impl ComputeNode for AsOfJoinNode {
                         distributor,
                         left_buffer,
                         right_buffer,
-                        output_seq,
                         params,
                     )
                     .await
@@ -271,9 +255,8 @@ async fn distribute_work_task(
     mut recv_left: Option<PortReceiver>,
     mut recv_right: Option<PortReceiver>,
     mut distributor: dc::Sender<(DataFrame, DataFrameSearchBuffer, MorselSeq, SourceToken)>,
-    left_buffer: &mut VecDeque<DataFrame>,
+    left_buffer: &mut VecDeque<(DataFrame, MorselSeq)>,
     right_buffer: &mut DataFrameSearchBuffer,
-    output_seq: &mut MorselSeq,
     params: &AsOfJoinParams,
 ) -> PolarsResult<()> {
     let source_token = SourceToken::new();
@@ -281,23 +264,29 @@ async fn distribute_work_task(
 
     loop {
         if source_token.stop_requested() {
-            stop_and_buffer_pipe_contents(recv_left.as_mut(), &mut |df| left_buffer.push_back(df))
-                .await;
-            stop_and_buffer_pipe_contents(recv_right.as_mut(), &mut |df| right_buffer.push_df(df))
-                .await;
+            stop_and_buffer_pipe_contents(recv_left.as_mut(), &mut |df, seq| {
+                left_buffer.push_back((df, seq))
+            })
+            .await;
+            stop_and_buffer_pipe_contents(recv_right.as_mut(), &mut |df, _| {
+                right_buffer.push_df(df)
+            })
+            .await;
             return Ok(());
         }
 
-        let (left_df, st) = if let Some(df) = left_buffer.pop_front() {
-            (df, source_token.clone())
+        let (left_df, seq, st) = if let Some((df, seq)) = left_buffer.pop_front() {
+            (df, seq, source_token.clone())
         } else if let Some(ref mut recv) = recv_left
             && let Ok(m) = recv.recv().await
         {
-            let (df, _, st, _) = m.into_inner();
-            (df, st)
+            let (df, seq, st, _) = m.into_inner();
+            (df, seq, st)
         } else {
-            stop_and_buffer_pipe_contents(recv_right.as_mut(), &mut |df| right_buffer.push_df(df))
-                .await;
+            stop_and_buffer_pipe_contents(recv_right.as_mut(), &mut |df, _| {
+                right_buffer.push_df(df)
+            })
+            .await;
             return Ok(());
         };
 
@@ -309,9 +298,9 @@ async fn distribute_work_task(
             } else {
                 // The right pipe is empty at this stage, we will need to wait for
                 // a new stage and try again.
-                left_buffer.push_front(left_df);
-                stop_and_buffer_pipe_contents(recv_left.as_mut(), &mut |df| {
-                    left_buffer.push_back(df)
+                left_buffer.push_back((left_df, seq));
+                stop_and_buffer_pipe_contents(recv_left.as_mut(), &mut |df, seq| {
+                    left_buffer.push_back((df, seq))
                 })
                 .await;
                 return Ok(());
@@ -319,14 +308,10 @@ async fn distribute_work_task(
         }
 
         prune_right_side(&left_df, right_buffer, params, 0)?;
-        if distributor
-            .send((left_df.clone(), right_buffer.clone(), *output_seq, st))
+        distributor
+            .send((left_df.clone(), right_buffer.clone(), seq, st))
             .await
-            .is_err()
-        {
-            return Ok(());
-        }
-        *output_seq = output_seq.successor();
+            .unwrap();
         prune_right_side(
             &left_df,
             right_buffer,
@@ -353,7 +338,7 @@ fn need_more_right_side(
 
     let mut start = 0;
     let mut end = right.height();
-    let by_iter = Iterator::zip(params.left_by().iter(), params.right_by().iter());
+    let by_iter = Iterator::zip(params.left.by.iter(), params.right.by.iter());
     let reorder_iter = Iterator::zip(params.by_descending.iter(), params.by_nulls_last.iter());
     for ((left_by, right_by), (descending, nulls_last)) in Iterator::zip(by_iter, reorder_iter) {
         let left_by_col = left.column(left_by)?.as_materialized_series();
@@ -417,7 +402,7 @@ fn prune_right_side(
 
     let mut start = 0;
     let mut end = right.height();
-    let by_iter = Iterator::zip(params.left_by().iter(), params.right_by().iter());
+    let by_iter = Iterator::zip(params.left.by.iter(), params.right.by.iter());
     let reorder_iter = Iterator::zip(params.by_descending.iter(), params.by_nulls_last.iter());
     for ((left_by, right_by), (descending, nulls_last)) in Iterator::zip(by_iter, reorder_iter) {
         let left_by_col = left.column(left_by)?.as_materialized_series();
@@ -579,7 +564,7 @@ fn drop_columns(
     }
 
     // Only return one set of group columns in the result.
-    for col in params.right_by() {
+    for col in &params.right.by {
         right_df.drop_in_place(col)?;
     }
 
@@ -637,7 +622,7 @@ fn compute_asof_join(
         .clone()
         .to_physical_repr();
 
-    if params.left_by().is_empty() {
+    if params.left.by.is_empty() {
         return join_asof_ungrouped(
             left_df,
             right_df,
@@ -648,8 +633,8 @@ fn compute_asof_join(
         );
     }
 
-    let left_groups = ByGroups::find_groups(&left_df, params.left_by(), left_lengths, params)?;
-    let right_groups = ByGroups::find_groups(&right_df, params.right_by(), right_lengths, params)?;
+    let left_groups = ByGroups::find_groups(&left_df, &params.left.by, left_lengths, params)?;
+    let right_groups = ByGroups::find_groups(&right_df, &params.right.by, right_lengths, params)?;
     let cmp_at = |left_idx, right_idx| unsafe {
         ByGroups::cmp_at(&left_groups, left_idx, &right_groups, right_idx, params)
     };

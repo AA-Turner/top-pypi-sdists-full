@@ -7,12 +7,14 @@ from . import (
     get_snapshot_lineage,
     get_snapshots_status,
     pause_resume_dispatchers,
+    pause_resume_node,
     prefetch_snapshot,
 )
 
 __all__ = [
     "prefetch_snapshot",
     "pause_resume_dispatchers",
+    "pause_resume_node",
     "get_snapshots_status",
     "get_snapshot_lineage",
     "get_nodes_status",

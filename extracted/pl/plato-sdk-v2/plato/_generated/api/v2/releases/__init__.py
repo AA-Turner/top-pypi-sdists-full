@@ -7,7 +7,7 @@ from . import (
     handle_get_existing_public_ids,
     handle_import,
     list_releases,
-    prep_release_assigned_testcases,
+    pause,
     prep_release_from_work_order,
     update,
 )
@@ -18,7 +18,7 @@ __all__ = [
     "get",
     "update",
     "deploy",
-    "prep_release_assigned_testcases",
+    "pause",
     "prep_release_from_work_order",
     "handle_import",
     "handle_get_existing_public_ids",

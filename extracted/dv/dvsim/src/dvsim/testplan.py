@@ -4,26 +4,49 @@
 
 """Testpoint and Testplan classes for maintaining the testplan."""
 
-import os
 import re
 import sys
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 
 import hjson
 from tabulate import tabulate
 
 
 class Result:
-    """The results for a single test."""
+    """The results for a job."""
 
-    def __init__(self, name, passing=0, total=0, job_runtime=None, simulated_time=None) -> None:
+    def __init__(
+        self,
+        name: str,
+        *,
+        passing: int = 0,
+        total: int = 0,
+        job_runtime_s: float | None = None,
+        simulated_time_us: float | None = None,
+    ) -> None:
+        """Construct a Result with the given parameters.
+
+        Args:
+          name: The name of the test.
+
+          passing: The number of runs that passed (possibly different seeds).
+
+          total: The number of runs that happened (will be at least as large as
+          passing).
+
+          job_runtime_s: If not None, the number of seconds taken by the job.
+
+          simulated_time_us: If not None, the simulated time in microseconds.
+
+        """
         self.name = name
         self.passing = passing
         self.total = total
-        self.job_runtime = job_runtime
-        self.simulated_time = simulated_time
+        self.job_runtime = job_runtime_s
+        self.simulated_time = simulated_time_us
         self.mapped = False
 
 
@@ -42,7 +65,7 @@ class Element:
     def __init__(self, raw_dict) -> None:
         """Initialize the testplan element.
 
-        raw_dict is the dictionary parsed from the HJSon file.
+        raw_dict is the dictionary parsed from the Hjson file.
         """
         # 'tags' is an optional field in addition to the mandatory self.fields.
         self.tags = []
@@ -67,11 +90,6 @@ class Element:
         # Verify things are in order.
         self._validate()
 
-    def __str__(self) -> str:
-        # Reindent the multiline desc with 4 spaces.
-        desc = "\n".join(["    " + line.lstrip() for line in self.desc.split("\n")])
-        return f"  {self.kind.capitalize()}: {self.name}\n  Description:\n{desc}\n"
-
     def _validate(self) -> None:
         """Runs some basic consistency checks."""
         if not self.name:
@@ -83,18 +101,19 @@ class Element:
             msg = f"'tags' key in {self} is not a list."
             raise ValueError(msg)
 
-    def has_tags(self, tags: set) -> bool:
-        """Checks if the provided tags match the tags originally set.
+    def has_tags(self, tags: set[str]) -> bool:
+        """Return true if the element matches the provided tags.
 
-        tags is a list of tags that are we are filtering this testpoints with.
-        Tags may be preceded with `-` to exclude the testpoints that contain
-        that tag.
+        The element should match every item in the set of tags. If one of these
+        items is preceded with "-", the meaning is negated (so the element
+        should not match the tag name).
 
-        Vacuously returns true if tags is an empty list.
+        If tags is empty, this will vacuously return true.
+
+        Args:
+          tags: The set of named tags against which to match.
+
         """
-        if not tags:
-            return True
-
         for tag in tags:
             if tag.startswith("-"):
                 if tag[1:] in self.tags:
@@ -155,9 +174,6 @@ class Testpoint(Element):
         if self.tests == ["N/A"]:
             self.not_mapped = True
 
-    def __str__(self) -> str:
-        return super().__str__() + (f"  Stage: {self.stage}\n  Tests: {self.tests}\n")
-
     def _validate(self) -> None:
         super()._validate()
         if self.stage not in Testpoint.stages:
@@ -173,35 +189,93 @@ class Testpoint(Element):
             msg = f"'tests' key in {self} is not a list."
             raise ValueError(msg)
 
-    def do_substitutions(self, substitutions) -> None:
+    @staticmethod
+    def _expand_str(pattern: str, new_vals: Sequence[str], txt: str) -> list[str]:
+        """Return a list of copies of txt with each expansion of pattern.
+
+        Note that if txt has multiple copies of the pattern then they are
+        replaced "diagonally". If pattern is "x", new_vals is ["0", "1"] and
+        txt is "x x" then the result is ["0 0", "1 1"].
+
+        Args:
+          pattern: A string for which we should search.
+
+          new_vals: A list of values to use as replacements.
+
+          txt: The string in which to replace the given pattern.
+
+        """
+        return [txt.replace(pattern, v) for v in new_vals]
+
+    @staticmethod
+    def _expand_str_list(pattern: str, new_vals: Sequence[str], txt_list: list[str]) -> list[str]:
+        """Return a each expansion of pattern across elements of txt_list.
+
+        This works by calling _expand_str to expand pattern for each element of
+        txt_list, collecting the list of results.
+
+        Args:
+          pattern: A string for which we should search.
+
+          new_vals: A list of values to use as replacements.
+
+          txt_list: List of strings to expand
+
+        """
+        ret: list[str] = []
+        for txt in txt_list:
+            ret.extend(Testpoint._expand_str(pattern, new_vals, txt))
+        return ret
+
+    def do_substitutions(
+        self, substitutions: dict[str, Any], reserved_names: Sequence[str]
+    ) -> None:
         """Substitute {wildcards} in tests.
 
-        If tests have {wildcards}, they are substituted with the 'correct'
-        values using the key=value pairs provided by the substitutions arg.
-        Wildcards with no substitution arg are replaced by an empty string.
+        If tests have wildcards, they are substituted using key=value pairs
+        from the substitutions argument.
 
-        substitutions is a dictionary of wildcard-replacement pairs.
+        If a value in the substitutions argument is a list, the substitution
+        will make multiple testpoints from a templated value. For example, if
+        substitutions is {'a': ['x', 'y']} and self.tests is ['test-{a}'] then
+        self.tests will become ['test-x', 'test-y'].
+
+        A wildcard use with no match in substitutions will be replaced by an
+        empty string (in a single item). For example, if substitutions is {}
+        and self.tests is ['test-{a}'] then self.tests will become ['test-'].
+
         """
         resolved_tests = []
         for test in self.tests:
-            match = re.findall(r"{([A-Za-z0-9\_]+)}", test)
-            if not match:
-                resolved_tests.append(test)
-                continue
+            # Iterate over all the wildcards found in the test name, creating a
+            # map from wildcard string ("{my_wildcard}") to a list of strings.
+            wildcard_expansions: dict[str, list[str]] = {}
+            for key in re.findall(r"{([A-Za-z0-9\_]+)}", test):
+                if key in reserved_names:
+                    msg = f"Wildcard using reserved name, {key}."
+                    raise ValueError(msg)
 
-            # 'match' is a list of wildcards used in the test. Get their
-            # corresponding values.
-            subst = {item: substitutions.get(item, "") for item in match}
+                raw_value = substitutions.get(key, [""])
+                if isinstance(raw_value, list):
+                    value = raw_value
+                elif isinstance(raw_value, str):
+                    value = [raw_value]
+                else:
+                    msg = f"Unknown type to replace wildcard {key}. Value was {raw_value}."
+                    raise TypeError(msg)
 
-            resolved = [test]
-            for item, value in subst.items():
-                values = value if isinstance(value, list) else [value]
-                resolved = [t.replace(f"{{{item}}}", v) for t in resolved for v in values]
-            resolved_tests.extend(resolved)
+                wildcard_expansions[f"{{{key}}}"] = value
+
+            # Iterate over the expansions, applying each in turn.
+            expanded = [test]
+            for pattern, values in wildcard_expansions.items():
+                expanded = Testpoint._expand_str_list(pattern, values, expanded)
+
+            resolved_tests.extend(expanded)
 
         self.tests = resolved_tests
 
-    def map_test_results(self, test_results) -> None:
+    def map_test_results(self, test_results: list[Result]) -> None:
         """Map test results to tests against this testpoint.
 
         Given a list of test results find the ones that match the tests listed
@@ -221,7 +295,6 @@ class Testpoint(Element):
             return
 
         for tr in test_results:
-            assert isinstance(tr, Result)
             if tr.name in self.tests:
                 tr.mapped = True
                 self.test_results.append(tr)
@@ -240,52 +313,27 @@ class Testplan:
     The list of Testpoints and Covergroups make up the testplan.
     """
 
-    rsvd_keywords = ["import_testplans", "testpoints", "covergroups"]
-    element_cls = {"testpoint": Testpoint, "covergroup": Covergroup}
+    @staticmethod
+    def _parse_hjson(filename: Path) -> dict[str, Any]:
+        """Parse an Hjson file at the given path and return it as a dict."""
+        return hjson.loads(Path(filename).read_text(encoding="utf-8"))
 
     @staticmethod
-    def _parse_hjson(filename):
-        """Parses an input file with HJson and returns a dict."""
-        try:
-            return hjson.load(Path(filename).open())
-        except OSError:
-            pass
-        except hjson.scanner.HjsonDecodeError:
-            pass
-        sys.exit(1)
+    def _check_duplicates(kind: str, elements: Sequence[Element]) -> None:
+        """Check that there aren't multiple elements in the list that share a name.
 
-    @staticmethod
-    def _create_testplan_elements(kind: str, raw_dicts_list: list, tags: set) -> list[Element]:
-        """Create testplan elements from the list of raw dicts.
+        Args:
+          kind: A string describing the type of object (for use in error messages)
 
-        kind is either 'testpoint' or 'covergroup'.
-        raw_dicts_list is a list of dictionaries extracted from the HJson file.
+          elements: The list of elements to check for duplicates
+
         """
-        items = []
-        item_names = set()
-
-        try:
-            elem_cls = Testplan.element_cls[kind]
-        except KeyError:
-            err_msg = f"No known class for kind={kind}"
-            raise RuntimeError(err_msg) from None
-
-        for dict_entry in raw_dicts_list:
-            try:
-                item = elem_cls(dict_entry)
-            except (KeyError, ValueError) as e:
-                err_msg = f"Failed to create {kind} from dictionary."
-                raise RuntimeError(err_msg) from e
-
-            if item.name in item_names:
-                err_msg = f"Duplicate items with name {item.name}."
-                raise ValueError(err_msg)
-
-            # Filter out the item by tags if provided.
-            if item.has_tags(tags):
-                items.append(item)
-                item_names.add(item.name)
-        return items
+        known_names: set[str] = set()
+        for elem in elements:
+            if elem.name in known_names:
+                msg = f"Duplicate {kind} items with name {elem.name}"
+                raise ValueError(msg)
+            known_names.add(elem.name)
 
     @staticmethod
     def _get_percentage(value, total) -> str:
@@ -295,63 +343,40 @@ class Testplan:
         perc = value / total * 100 * 1.0
         return f"{round(perc, 2):.2f} %"
 
-    @staticmethod
-    def get_dv_style_css() -> str:
-        """Returns text with HTML CSS style for a table."""
-        return (
-            "<style>\n"
-            "table.dv {\n"
-            "    border: 1px solid black;\n"
-            "    border-collapse: collapse;\n"
-            "    width: 100%;\n"
-            "    text-align: left;\n"
-            "    vertical-align: middle;\n"
-            "    display: table;\n"
-            "    font-size: smaller;\n"
-            "}\n"
-            "table.dv th, td {\n"
-            "    border: 1px solid black;\n"
-            "}\n"
-            "</style>\n"
-        )
-
-    def __str__(self) -> str:
-        lines = [f"Name: {self.name}\n"]
-        lines += ["Testpoints:"]
-        lines += [f"{t}" for t in self.testpoints]
-        lines += ["Covergroups:"]
-        lines += [f"{c}" for c in self.covergroups]
-        return "\n".join(lines)
-
-    def __init__(self, filename, repo_top=None, name=None) -> None:
+    def __init__(self, tagged_filename: str, repo_top: Path, name: str) -> None:
         """Initialize the testplan.
 
-        filename is the HJson file that captures the testplan. It may be
-        suffixed with tags separated with a colon delimiter to filter the
-        testpoints. For example: path/too/foo_testplan.hjson:bar:baz
-        repo_top is an optional argument indicating the path to top level repo
-        / project directory. It is used with filename arg.
-        name is an optional argument indicating the name of the testplan / DUT.
-        It overrides the name set in the testplan HJson.
+        Args:
+          tagged_filename: Describes the Hjson file that captures the testplan.
+                           This is a string, rather than a Path object, because
+                           it may be suffixed with tags separated with a colon
+                           delimiter to filter the testpoints.
+
+                           For example: "path/to/foo_testplan.hjson:bar:baz"
+
+          repo_top:        The path to the top level repo / project directory.
+                           This is combined with the filename argument.
+
+          name:            The name of the testplan / DUT. It overrides any
+                           name set in the testplan Hjson.
+
         """
         self.name = None
-        self.testpoints = []
-        self.covergroups = []
+        self.testpoints: list[Testpoint] = []
+        self.covergroups: list[Covergroup] = []
         self.test_results_mapped = False
 
         # Split the filename into filename and tags, if provided.
-        split = str(filename).split(":")
+        split = tagged_filename.split(":")
         filename = Path(split[0])
         tags = set(split[1:])
 
         if filename.exists():
-            self._parse_testplan(filename, tags, repo_top)
-
-        if name:
-            self.name = name
-
-        if not self.name:
-            sys.exit(1)
+            try:
+                self._parse_testplan(filename, tags, repo_top)
+            except Exception as e:
+                msg = f"Error when parsing testplan at {filename}."
+                raise RuntimeError(msg) from e
 
         # Represents current progress towards each stage. Stage = N.A.
         # is used to indicate the unmapped tests.
@@ -414,19 +439,15 @@ class Testplan:
 
         return result
 
-    def _parse_testplan(self, filename: Path, tags: set, repo_top=None) -> None:
+    def _parse_testplan(self, filename: Path, tags: set[str], repo_top: Path) -> None:
         """Parse testplan Hjson file and create the testplan elements.
 
         It creates the list of testpoints and covergroups extracted from the
         file.
 
-        filename is the path to the testplan file written in HJson format.
+        filename is the path to the testplan file written in Hjson format.
         repo_top is an optional argument indicating the path to repo top.
         """
-        if repo_top is None:
-            # Assume dvsim's original location: $REPO_TOP/util/dvsim.
-            repo_top = Path(__file__).parent.parent.parent.resolve()
-
         obj = Testplan._parse_hjson(filename)
 
         parsed = set()
@@ -442,7 +463,7 @@ class Testplan:
             if testplan in parsed:
                 sys.exit(1)
             parsed.add(testplan)
-            data = self._parse_hjson(os.path.join(repo_top, testplan))
+            data = self._parse_hjson(repo_top / testplan)
             imported_testplans.extend(
                 self._get_imported_testplan_paths(
                     testplan,
@@ -454,20 +475,23 @@ class Testplan:
 
         self.name = obj.get("name")
 
-        testpoints = obj.get("testpoints", [])
-        self.testpoints = self._create_testplan_elements("testpoint", testpoints, tags)
+        all_tps = [Testpoint(t) for t in obj.get("testpoints", [])]
+        all_cgs = [Covergroup(cg) for cg in obj.get("covergroups", [])]
 
-        covergroups = obj.get("covergroups", [])
-        self.covergroups = self._create_testplan_elements("covergroup", covergroups, set())
+        if not (all_tps or all_cgs):
+            raise ValueError("Merged testplan doesn't contain any testpoints or covergroups")
 
-        if not testpoints and not covergroups:
-            sys.exit(1)
+        Testplan._check_duplicates("testpoint", all_tps)
+        Testplan._check_duplicates("covergroup", all_cgs)
 
-        # Any variable in the testplan that is not a recognized HJson field can
-        # be used as a substitution variable.
-        substitutions = {k: v for k, v in obj.items() if k not in self.rsvd_keywords}
+        # Wildcards in testpoints can mostly point to any value from the
+        # object. The following names are *not* allowed (because they wouldn't
+        # really make much sense).
+        reserved_names = ("import_testplans", "testpoints", "covergroups")
+
+        # Apply wildcards in each testpoint
         for tp in self.testpoints:
-            tp.do_substitutions(substitutions)
+            tp.do_substitutions(obj, reserved_names)
 
         self._sort()
 
@@ -484,11 +508,11 @@ class Testplan:
             if tp.stage in tp.stages[1:]:
                 regressions[tp.stage].update({t for t in tp.tests if t})
 
-        # Build regressions dict into a hjson like data structure
+        # Build regressions dict into a Hjson-like data structure
         return [{"name": ms, "tests": list(regressions[ms])} for ms in regressions]
 
     def write_testplan_doc(self, output: TextIO) -> None:
-        """Write testplan documentation in markdown from the hjson testplan."""
+        """Write testplan documentation in markdown from the Hjson testplan."""
         stages = {}
         for tp in self.testpoints:
             stages.setdefault(tp.stage, []).append(tp)
@@ -737,22 +761,22 @@ class Testplan:
         result["Pass Rate"] = self._get_percentage(tr.passing, tr.total)
         return result
 
-    def get_sim_results(self, sim_results_file, fmt="md"):
+    def get_sim_results(self, sim_results_file: str, fmt="md"):
         """Returns the mapped sim result tables in HTML formatted text.
 
-        The data extracted from the sim_results table HJson file is mapped into
+        The data extracted from the sim_results table Hjson file is mapped into
         a test results, test progress, covergroup progress and coverage tables.
 
         fmt is either 'md' (markdown) or 'html'.
         """
         assert fmt in ["md", "html"]
-        sim_results = Testplan._parse_hjson(sim_results_file)
+        sim_results = Testplan._parse_hjson(Path(sim_results_file))
         test_results_ = sim_results.get("test_results", None)
 
         test_results = []
         for item in test_results_:
             try:
-                tr = Result(item["name"], item["passing"], item["total"])
+                tr = Result(item["name"], passing=item["passing"], total=item["total"])
                 test_results.append(tr)
             except KeyError:
                 sys.exit(1)

@@ -1,4 +1,4 @@
-use std::io::{self, Cursor, Write};
+use std::convert::Infallible;
 
 use anyhow::{anyhow, Result};
 use cbor4ii::core::{
@@ -10,28 +10,59 @@ use cid::{multibase, Cid};
 use pyo3::pybacked::PyBackedStr;
 use pyo3::{ffi, prelude::*, types::*, BoundObject, Python};
 
-struct BufWriter<W: io::Write>(io::BufWriter<W>);
+// Private CPython symbols; not provided by pyo3-ffi and CPython-only.
+#[cfg(CPython)]
+extern "C" {
+    fn _PyDict_NewPresized(minused: ffi::Py_ssize_t) -> *mut ffi::PyObject;
+    fn _PyDict_SetItem_KnownHash(
+        op: *mut ffi::PyObject,
+        key: *mut ffi::PyObject,
+        value: *mut ffi::PyObject,
+        hash: ffi::Py_hash_t,
+    ) -> std::os::raw::c_int;
+}
 
-impl<W: Write> BufWriter<W> {
-    pub fn new(inner: W) -> Self {
-        BufWriter(io::BufWriter::new(inner))
+// Empty CPython dicts already have 8 slots, so presizing below that buys
+// nothing and lets us stay on the public `PyDict_New` path.
+#[inline]
+unsafe fn new_presized_dict(len: usize) -> *mut ffi::PyObject {
+    #[cfg(CPython)]
+    {
+        if len > 8 {
+            _PyDict_NewPresized(len as ffi::Py_ssize_t)
+        } else {
+            ffi::PyDict_New()
+        }
     }
-
-    pub fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()
-    }
-
-    pub fn get_ref(&self) -> &W {
-        self.0.get_ref()
+    #[cfg(not(CPython))]
+    {
+        let _ = len;
+        ffi::PyDict_New()
     }
 }
 
-impl<W: Write> enc::Write for BufWriter<W> {
-    type Error = io::Error;
+// `enc::Write` over a raw `Vec<u8>`: no syscalls behind it, so a `BufWriter`
+// wrapper would just add a memcpy per push for no benefit.
+struct VecWriter(Vec<u8>);
+
+impl VecWriter {
+    #[inline]
+    fn new() -> Self {
+        VecWriter(Vec::new())
+    }
+
+    #[inline]
+    fn as_slice(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl enc::Write for VecWriter {
+    type Error = Infallible;
 
     #[inline]
     fn push(&mut self, input: &[u8]) -> Result<(), Self::Error> {
-        self.0.write_all(input)?;
+        self.0.extend_from_slice(input);
         Ok(())
     }
 }
@@ -108,40 +139,187 @@ fn map_key_cmp(a: &[u8], b: &[u8]) -> std::cmp::Ordering {
     }
 }
 
-fn sort_map_keys(keys: &Bound<PyList>, len: usize) -> Result<Vec<(PyBackedStr, usize)>> {
-    // Returns key and index.
-    let mut keys_str = Vec::with_capacity(len);
-    for i in 0..len {
-        let item = unsafe { keys.get_item_unchecked(i) };
-        let key = match item.cast::<PyString>() {
-            Ok(k) => k.to_owned(),
+// One dict walk collects (key, value) pairs together; sorting by-index and
+// re-fetching values through `map.values()` would materialize two extra
+// PyLists and walk the dict three times.
+fn collect_and_sort_map_entries<'py>(
+    map: &Bound<'py, PyDict>,
+) -> Result<Vec<(PyBackedStr, Bound<'py, PyAny>)>> {
+    let len = map.len();
+    let mut entries: Vec<(PyBackedStr, Bound<'py, PyAny>)> = Vec::with_capacity(len);
+
+    for (key, value) in map.iter() {
+        let key_str = match key.cast_into::<PyString>() {
+            Ok(k) => k,
             Err(_) => return Err(anyhow!("Map keys must be strings")),
         };
-        let backed_str = match PyBackedStr::try_from(key) {
-            Ok(bs) => bs,
-            Err(_) => return Err(anyhow!("Failed to convert PyString to PyBackedStr")),
-        };
-        keys_str.push((backed_str, i));
+        let backed = PyBackedStr::try_from(key_str)
+            .map_err(|_| anyhow!("Failed to convert PyString to PyBackedStr"))?;
+        entries.push((backed, value));
     }
 
-    if keys_str.len() < 2 {
-        return Ok(keys_str);
+    if entries.len() >= 2 {
+        entries.sort_by(|a, b| {
+            // sort_unstable_by performs bad in past benchmarks; revisit if data shape changes.
+            let (s1, _) = a;
+            let (s2, _) = b;
+            if s1.len() != s2.len() {
+                s1.len().cmp(&s2.len())
+            } else {
+                s1.as_bytes().cmp(s2.as_bytes())
+            }
+        });
     }
 
-    keys_str.sort_by(|a, b| {
-        // sort_unstable_by performs bad
-        let (s1, _) = a;
-        let (s2, _) = b;
+    Ok(entries)
+}
 
-        // sorted length-first by the byte representation of the string keys
-        if s1.len() != s2.len() {
-            s1.len().cmp(&s2.len())
-        } else {
-            s1.cmp(s2)
+// `PyUnicode_DecodeUTF8` runs a state machine even on pure-ASCII input. Skip
+// it by allocating a compact-ASCII `PyUnicode` and memcpying into its inline
+// buffer; non-ASCII falls through to the standard decoder.
+#[cfg(CPython)]
+#[inline]
+fn pystring_from_bytes_fast<'py>(py: Python<'py>, bytes: &[u8]) -> PyResult<Bound<'py, PyString>> {
+    if !bytes.is_ascii() {
+        return PyString::from_bytes(py, bytes);
+    }
+
+    unsafe {
+        let obj = ffi::PyUnicode_New(bytes.len() as ffi::Py_ssize_t, 127);
+        if obj.is_null() {
+            return Err(PyErr::fetch(py));
         }
-    });
 
-    Ok(keys_str)
+        let data = obj.cast::<ffi::PyASCIIObject>().offset(1).cast::<u8>();
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), data, bytes.len());
+        *data.add(bytes.len()) = 0;
+
+        Ok(Bound::from_owned_ptr(py, obj).cast_into_unchecked::<PyString>())
+    }
+}
+
+#[cfg(not(CPython))]
+#[inline]
+fn pystring_from_bytes_fast<'py>(py: Python<'py>, bytes: &[u8]) -> PyResult<Bound<'py, PyString>> {
+    PyString::from_bytes(py, bytes)
+}
+
+// Direct-mapped intern cache for short map keys. atproto-shape payloads
+// reuse a small vocabulary (`$type`, `did`, `cid`, `uri`, `text`, ...) per
+// record; caching the constructed `PyUnicode` + its `Py_hash_t` skips both
+// the rebuild and the rehash inside `PyDict_SetItem`
+#[cfg(all(CPython, not(Py_GIL_DISABLED)))]
+mod key_cache {
+    use super::pystring_from_bytes_fast;
+    use pyo3::{ffi, prelude::*};
+
+    const CAP: usize = 2048;
+    const MAX_KEY_LEN: usize = 64;
+
+    struct Entry {
+        len: u16,
+        bytes: [u8; MAX_KEY_LEN],
+        obj: *mut ffi::PyObject,
+        hash: ffi::Py_hash_t,
+    }
+
+    impl Entry {
+        const fn empty() -> Self {
+            Self {
+                len: 0,
+                bytes: [0; MAX_KEY_LEN],
+                obj: std::ptr::null_mut(),
+                hash: 0,
+            }
+        }
+    }
+
+    static mut SLOTS: [Entry; CAP] = [const { Entry::empty() }; CAP];
+
+    #[inline]
+    fn fx_hash(bytes: &[u8]) -> usize {
+        const K: u64 = 0x517c_c1b7_2722_0a95;
+        let mut h: u64 = 0;
+        for &b in bytes {
+            h = (h.rotate_left(5) ^ b as u64).wrapping_mul(K);
+        }
+        h as usize
+    }
+
+    /// Returns `(strong-ref PyUnicode*, Py_hash_t)`. Caller owns one ref.
+    /// Caller must hold the GIL (we are always called from a `Python<'_>`).
+    #[inline]
+    pub(super) unsafe fn intern_key(
+        py: Python<'_>,
+        bytes: &[u8],
+    ) -> PyResult<(*mut ffi::PyObject, ffi::Py_hash_t)> {
+        if bytes.len() > MAX_KEY_LEN {
+            return build(py, bytes);
+        }
+
+        let slot_idx = fx_hash(bytes) & (CAP - 1);
+        // `&raw mut` is the supported path to a `static mut`; the explicit
+        // re-borrow keeps the field accesses readable. Clippy's `deref_addrof`
+        // suggestion would re-introduce `static_mut_refs`.
+        #[allow(clippy::deref_addrof)]
+        let slot = &mut *(&raw mut SLOTS[slot_idx]);
+
+        if slot.len as usize == bytes.len()
+            && !slot.obj.is_null()
+            && slot.bytes[..bytes.len()] == *bytes
+        {
+            ffi::Py_INCREF(slot.obj);
+            return Ok((slot.obj, slot.hash));
+        }
+
+        let (obj, hash) = build(py, bytes)?;
+        // Evict the previous occupant before claiming the slot.
+        if !slot.obj.is_null() {
+            ffi::Py_DECREF(slot.obj);
+        }
+        // One ref for the cache, one for the caller.
+        ffi::Py_INCREF(obj);
+        slot.obj = obj;
+        slot.hash = hash;
+        slot.len = bytes.len() as u16;
+        slot.bytes[..bytes.len()].copy_from_slice(bytes);
+        Ok((obj, hash))
+    }
+
+    #[inline]
+    unsafe fn build(
+        py: Python<'_>,
+        bytes: &[u8],
+    ) -> PyResult<(*mut ffi::PyObject, ffi::Py_hash_t)> {
+        let s = pystring_from_bytes_fast(py, bytes)?;
+        let ptr = s.as_ptr();
+        let hash = ffi::PyObject_Hash(ptr);
+        if hash == -1 {
+            return Err(PyErr::fetch(py));
+        }
+        Ok((s.into_ptr(), hash))
+    }
+}
+
+// Non-CPython / free-threaded fallback: no cache, just build the string and compute its hash inline
+#[cfg(not(all(CPython, not(Py_GIL_DISABLED))))]
+mod key_cache {
+    use super::pystring_from_bytes_fast;
+    use pyo3::{ffi, prelude::*};
+
+    #[inline]
+    pub(super) unsafe fn intern_key(
+        py: Python<'_>,
+        bytes: &[u8],
+    ) -> PyResult<(*mut ffi::PyObject, ffi::Py_hash_t)> {
+        let s = pystring_from_bytes_fast(py, bytes)?;
+        let ptr = s.as_ptr();
+        let hash = ffi::PyObject_Hash(ptr);
+        if hash == -1 {
+            return Err(PyErr::fetch(py));
+        }
+        Ok((s.into_ptr(), hash))
+    }
 }
 
 fn get_bytes_from_py_any<'py>(obj: &'py Bound<'py, PyAny>) -> PyResult<&'py [u8]> {
@@ -198,8 +376,9 @@ where
             .into_pyobject(py)?
             .into(),
         major::STRING => {
-            // The UTF-8 validation is done when it's converted into a Python string
-            PyString::from_bytes(
+            // ASCII fast path inside the helper; non-ASCII falls through to
+            // `PyUnicode_DecodeUTF8`, which is where the spec validation lives.
+            pystring_from_bytes_fast(
                 py,
                 <types::UncheckedStr<&[u8]>>::decode(r)
                     .map_err(|_| anyhow!("Cannot decode as bytes"))?
@@ -229,7 +408,14 @@ where
         }
         major::MAP => {
             let len = types::Map::len(r)?.ok_or_else(|| anyhow!("Map must contain length"))?;
-            let dict = PyDict::new(py);
+            // Length is known up front; presize to avoid rehashes as we fill.
+            let dict = unsafe {
+                let ptr = new_presized_dict(len);
+                if ptr.is_null() {
+                    return Err(anyhow!(PyErr::fetch(py)));
+                }
+                Bound::from_owned_ptr(py, ptr).cast_into_unchecked::<PyDict>()
+            };
 
             let mut prev_key: Option<&[u8]> = None;
             for _ in 0..len {
@@ -246,11 +432,32 @@ where
                     }
                 }
 
-                let key_py = PyString::from_bytes(py, key)?;
                 prev_key = Some(key);
 
+                let (key_ptr, key_hash) = unsafe { key_cache::intern_key(py, key)? };
+                let key_bound: Bound<'_, PyAny> = unsafe { Bound::from_owned_ptr(py, key_ptr) };
+
                 let value_py = decode_dag_cbor_to_pyobject(py, r, depth + 1)?;
-                dict.set_item(key_py, value_py)?;
+
+                #[cfg(CPython)]
+                unsafe {
+                    let value_ptr = value_py.into_ptr();
+                    let rc = _PyDict_SetItem_KnownHash(
+                        dict.as_ptr(),
+                        key_bound.as_ptr(),
+                        value_ptr,
+                        key_hash,
+                    );
+                    ffi::Py_DECREF(value_ptr);
+                    if rc != 0 {
+                        return Err(anyhow!(PyErr::fetch(py)));
+                    }
+                }
+                #[cfg(not(CPython))]
+                {
+                    let _ = key_hash;
+                    dict.set_item(&key_bound, value_py)?;
+                }
             }
 
             dict.into_pyobject(py)?.into()
@@ -315,6 +522,20 @@ where
     })
 }
 
+// `Cid::try_from` parses two varints + a multihash on every call; this O(1)
+// shape check rejects payloads that can't be a CID without paying for it.
+// CIDv1 starts with `0x01`; CIDv0 is exactly 34 bytes starting `0x12 0x20`.
+#[inline]
+fn looks_like_cid(bytes: &[u8]) -> bool {
+    if bytes.len() < 4 {
+        return false;
+    }
+    if bytes[0] == 0x01 {
+        return true;
+    }
+    bytes.len() == 34 && bytes[0] == 0x12 && bytes[1] == 0x20
+}
+
 fn encode_dag_cbor_from_pyobject<'py, W: enc::Write>(
     _py: Python<'py>,
     obj: &Bound<'py, PyAny>,
@@ -323,101 +544,170 @@ fn encode_dag_cbor_from_pyobject<'py, W: enc::Write>(
 where
     W::Error: Send + Sync,
 {
-    /* Order is important for performance!
+    // Exact-type pointer compare per branch avoids the MRO walk that
+    // `is_instance_of` / `cast` perform. Order tuned for typical ATProto
+    // record shapes; subclasses fall through to the slow path below.
+    let tp = unsafe { ffi::Py_TYPE(obj.as_ptr()) };
+    unsafe {
+        if tp == &raw mut ffi::PyUnicode_Type {
+            let s = obj.cast_unchecked::<PyString>();
+            s.to_str()?.encode(w)?;
+            return Ok(());
+        }
+        if tp == &raw mut ffi::PyDict_Type {
+            let map = obj.cast_unchecked::<PyDict>();
+            let entries = collect_and_sort_map_entries(map)?;
+            types::Map::bounded(entries.len(), w)?;
+            for (key, value) in &entries {
+                (&**key).encode(w)?;
+                encode_dag_cbor_from_pyobject(_py, value, w)?;
+            }
+            return Ok(());
+        }
+        if tp == &raw mut ffi::PyList_Type {
+            let l = obj.cast_unchecked::<PyList>();
+            let len = l.len();
+            types::Array::bounded(len, w)?;
+            for i in 0..len {
+                let item = l.get_item_unchecked(i);
+                encode_dag_cbor_from_pyobject(_py, &item, w)?;
+            }
+            return Ok(());
+        }
+        if tp == &raw mut ffi::PyLong_Type {
+            return encode_int(obj, w);
+        }
+        if tp == &raw mut ffi::PyBytes_Type {
+            let b = obj.cast_unchecked::<PyBytes>();
+            let bytes = b.as_bytes();
+            if looks_like_cid(bytes) && Cid::try_from(bytes).is_ok() {
+                // by providing custom encoding we avoid extra allocation
+                types::Tag(42, PrefixedCidBytes(bytes)).encode(w)?;
+            } else {
+                types::Bytes(bytes).encode(w)?;
+            }
+            return Ok(());
+        }
+        if tp == &raw mut ffi::PyBool_Type {
+            (obj.as_ptr() == ffi::Py_True()).encode(w)?;
+            return Ok(());
+        }
+        if obj.as_ptr() == ffi::Py_None() {
+            types::Null.encode(w)?;
+            return Ok(());
+        }
+        if tp == &raw mut ffi::PyFloat_Type {
+            let f = obj.cast_unchecked::<PyFloat>();
+            let v = f.value();
+            if !v.is_finite() {
+                return Err(anyhow!("Number out of range"));
+            }
+            v.encode(w)?;
+            return Ok(());
+        }
+    }
 
-    Fast checks go first:
-    - None
-    - bool
-    - int
-    - list
-    - dict
-    - str
-    Then slow checks:
-    - bytes
-    - float
-     */
-
-    if obj.is_none() {
-        types::Null.encode(w)?;
-
-        Ok(())
-    } else if obj.is_instance_of::<PyBool>() {
-        obj.is_truthy()?.encode(w)?;
-
+    // Slow path: subclasses of supported types (rare in DAG-CBOR usage).
+    if obj.is_instance_of::<PyBool>() {
+        (obj.as_ptr() == unsafe { ffi::Py_True() }).encode(w)?;
         Ok(())
     } else if obj.is_instance_of::<PyInt>() {
-        let i: i128 = obj.extract()?;
-
-        if i.is_negative() {
-            if -(i + 1) > u64::MAX as i128 {
-                return Err(anyhow!("Number out of range"));
-            }
-
-            types::Negative(-(i + 1) as u64).encode(w)?;
-        } else {
-            if i > u64::MAX as i128 {
-                return Err(anyhow!("Number out of range"));
-            }
-
-            (i as u64).encode(w)?;
-        }
-
-        Ok(())
+        encode_int(obj, w)
     } else if let Ok(l) = obj.cast::<PyList>() {
         let len = l.len();
-
         types::Array::bounded(len, w)?;
-
         for i in 0..len {
             let item = unsafe { l.get_item_unchecked(i) };
             encode_dag_cbor_from_pyobject(_py, &item, w)?;
         }
-
         Ok(())
     } else if let Ok(map) = obj.cast::<PyDict>() {
-        let len = map.len();
-        let keys = sort_map_keys(&map.keys(), len)?;
-        let values = map.values();
-
-        types::Map::bounded(len, w)?;
-
-        for (key, i) in keys {
-            key.get(..)
-                .ok_or_else(|| anyhow!("Invalid string range while encoding map key"))?
-                .encode(w)?;
-            let value = unsafe { values.get_item_unchecked(i) };
-            encode_dag_cbor_from_pyobject(_py, &value, w)?;
+        let entries = collect_and_sort_map_entries(map)?;
+        types::Map::bounded(entries.len(), w)?;
+        for (key, value) in &entries {
+            (&**key).encode(w)?;
+            encode_dag_cbor_from_pyobject(_py, value, w)?;
         }
-
+        Ok(())
+    } else if let Ok(s) = obj.cast::<PyString>() {
+        s.to_str()?.encode(w)?;
+        Ok(())
+    } else if let Ok(b) = obj.cast::<PyBytes>() {
+        let bytes = b.as_bytes();
+        if looks_like_cid(bytes) && Cid::try_from(bytes).is_ok() {
+            types::Tag(42, PrefixedCidBytes(bytes)).encode(w)?;
+        } else {
+            types::Bytes(bytes).encode(w)?;
+        }
         Ok(())
     } else if let Ok(f) = obj.cast::<PyFloat>() {
         let v = f.value();
         if !v.is_finite() {
             return Err(anyhow!("Number out of range"));
         }
-
         v.encode(w)?;
-
-        Ok(())
-    } else if let Ok(b) = obj.cast::<PyBytes>() {
-        // FIXME (MarshalX): it's not efficient to try to parse it as CID
-        let bytes = b.as_bytes();
-        let cid = Cid::try_from(bytes);
-        if cid.is_ok() {
-            // by providing custom encoding we avoid extra allocation
-            types::Tag(42, PrefixedCidBytes(bytes)).encode(w)?;
-        } else {
-            types::Bytes(bytes).encode(w)?;
-        }
-
-        Ok(())
-    } else if let Ok(s) = obj.cast::<PyString>() {
-        s.to_str()?.encode(w)?;
-
         Ok(())
     } else {
         Err(anyhow!("Unknown tag"))
     }
+}
+
+// CPython 3.12+ PyLongObject layout: `PyObject_HEAD; uintptr_t lv_tag; digit ob_digit[]`.
+// `lv_tag` packs the sign in the low 3 bits (0=positive, 1=zero, 2=negative) and the
+// digit count in the upper bits. Default builds use 30-bit digits (uint32_t).
+#[cfg(all(CPython, Py_3_12))]
+#[inline]
+unsafe fn pylong_to_dag_int_fast(obj: *mut ffi::PyObject) -> Option<(u64, bool)> {
+    const NON_SIZE_BITS: u32 = 3;
+    const SIGN_MASK: usize = 3;
+    const SIGN_NEGATIVE: usize = 2;
+    const PYLONG_DIGIT_BITS: u32 = 30;
+
+    let lv_tag_ptr = (obj as *const u8).add(std::mem::size_of::<ffi::PyObject>()) as *const usize;
+    let lv_tag = *lv_tag_ptr;
+    let ndigits = lv_tag >> NON_SIZE_BITS;
+    let neg = (lv_tag & SIGN_MASK) == SIGN_NEGATIVE;
+
+    let ob_digit = lv_tag_ptr.add(1) as *const u32;
+    let abs_val: u64 = match ndigits {
+        0 => return Some((0, false)),
+        1 => *ob_digit as u64,
+        2 => (*ob_digit as u64) | ((*ob_digit.add(1) as u64) << PYLONG_DIGIT_BITS),
+        _ => return None,
+    };
+    Some((abs_val, neg))
+}
+
+#[inline]
+fn encode_int<W: enc::Write>(obj: &Bound<'_, PyAny>, w: &mut W) -> Result<()>
+where
+    W::Error: Send + Sync,
+{
+    #[cfg(all(CPython, Py_3_12))]
+    {
+        if let Some((abs_val, neg)) = unsafe { pylong_to_dag_int_fast(obj.as_ptr()) } {
+            if neg {
+                types::Negative(abs_val - 1).encode(w)?;
+            } else {
+                abs_val.encode(w)?;
+            }
+            return Ok(());
+        }
+    }
+
+    let i: i128 = obj.extract()?;
+    if i.is_negative() {
+        if -(i + 1) > u64::MAX as i128 {
+            return Err(anyhow!("Number out of range"));
+        }
+        types::Negative(-(i + 1) as u64).encode(w)?;
+    } else {
+        if i > u64::MAX as i128 {
+            return Err(anyhow!("Number out of range"));
+        }
+        (i as u64).encode(w)?;
+    }
+    Ok(())
 }
 
 #[pyfunction]
@@ -529,9 +819,10 @@ pub fn decode_car<'py>(py: Python<'py>, data: &[u8]) -> PyResult<(Py<PyAny>, Bou
         }
 
         let cid_bytes_before = buf.buf;
-        let mut cursor = Cursor::new(cid_bytes_before);
-
-        let cid_result = Cid::read_bytes(&mut cursor);
+        // `&[u8]` is itself an `io::Read`, so we hand it to `Cid::read_bytes`
+        // directly and recover the consumed length from the slice shrink.
+        let mut slice: &[u8] = cid_bytes_before;
+        let cid_result = Cid::read_bytes(&mut slice);
         let Ok(cid) = cid_result else {
             return Err(get_err(
                 "Failed to read CID of block",
@@ -546,7 +837,7 @@ pub fn decode_car<'py>(py: Python<'py>, data: &[u8]) -> PyResult<(Py<PyAny>, Bou
             ));
         }
 
-        let consumed = cursor.position() as usize;
+        let consumed = cid_bytes_before.len() - slice.len();
         buf.advance(consumed);
         let cid_raw = &cid_bytes_before[..consumed];
 
@@ -602,14 +893,11 @@ pub fn encode_dag_cbor<'py>(
     py: Python<'py>,
     data: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyBytes>> {
-    let mut buf = &mut BufWriter::new(Vec::new());
+    let mut buf = VecWriter::new();
     if let Err(e) = encode_dag_cbor_from_pyobject(py, data, &mut buf) {
         return Err(get_err("Failed to encode DAG-CBOR", e.to_string()));
     }
-    if let Err(e) = buf.flush() {
-        return Err(get_err("Failed to flush buffer", e.to_string()));
-    }
-    Ok(PyBytes::new(py, buf.get_ref()))
+    Ok(PyBytes::new(py, buf.as_slice()))
 }
 
 fn get_cid_from_py_any(data: &Bound<PyAny>) -> PyResult<Cid> {

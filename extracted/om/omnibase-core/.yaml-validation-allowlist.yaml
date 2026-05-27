@@ -245,14 +245,6 @@ allowed_files:
     added: "2026-03-10"
     review: "2026-06-13"
 
-  - file: "src/omnibase_core/runtime/runtime_local.py"
-    reason: >-
-      Loads workflow contract YAML before extracting terminal_event and node list for runtime orchestration.
-      The raw dict is immediately used to configure the local runtime — no fixed Pydantic model exists
-      for workflow contracts yet. (OMN-7068)
-    added: "2026-03-30"
-    review: "2026-06-13"
-
   - file: "scripts/mixin_dependency_graph.py"
     reason: >-
       Standalone dependency graph utility - uses yaml.safe_load() to load a mixin capability mapping YAML
@@ -285,7 +277,7 @@ allowed_files:
     added: "2026-04-15"
     review: "2026-06-13"
 
-  - file: "src/omnibase_core/validation/receipt_gate.py"
+  - file: "src/omnibase_core/validation/validator_receipt_gate.py"
     reason: >-
       Receipt-gate CI check loads two YAML artifacts it did not author: ticket contracts (downstream-provided,
       varying schema across repos) and ModelDodReceipt artifacts. For receipts it does the load-then-validate
@@ -344,6 +336,14 @@ allowed_files:
       followed by isinstance checks and field validation.
     added: "2026-05-12"
     review: "2026-06-13"
+
+  - file: "src/omnibase_core/validation/aislop_rule_loader.py"
+    reason: >-
+      Aislop rule loader — uses yaml.safe_load() as the first step in a two-step pipeline: yaml.safe_load()
+      → ModelAislopRuleSet.model_validate() and yaml.safe_load() → ModelAislopConfig.model_validate().
+      The raw dict is never used without Pydantic validation. Pattern matches util_safe_yaml_loader.py.
+    added: "2026-05-17"
+    review: "2026-12-13"
 
 # Specific filenames that are allowed (matched by basename)
 # Allows the same utility to be used across different module paths (e.g., copied utilities)

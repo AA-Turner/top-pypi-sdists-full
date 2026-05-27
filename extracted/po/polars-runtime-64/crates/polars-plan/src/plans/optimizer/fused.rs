@@ -23,23 +23,30 @@ fn get_expr(input: &[Node], op: FusedOperator, expr_arena: &Arena<AExpr>) -> AEx
 }
 
 fn check_eligible(
-    nodes: &[Node],
+    left: &Node,
+    right: &Node,
     expr_arena: &Arena<AExpr>,
     schema: &Schema,
 ) -> PolarsResult<bool> {
-    // Exclude scalars for now as these will not benefit from fused operations downstream #9857
+    let field_left = expr_arena
+        .get(*left)
+        .to_field(&ToFieldContext::new(expr_arena, schema))?;
+    let type_right = expr_arena
+        .get(*right)
+        .to_dtype(&ToFieldContext::new(expr_arena, schema))?;
+    let type_left = &field_left.dtype;
+    // Exclude literals for now as these will not benefit from fused operations downstream #9857
     // This optimization would also interfere with the `col -> lit` type-coercion rules
     // And it might also interfere with constant folding which is a more suitable optimizations here
-    for node in nodes {
-        let field = expr_arena
-            .get(*node)
-            .to_field(&ToFieldContext::new(expr_arena, schema))?;
-        if !field.dtype.is_primitive_numeric() || is_scalar_ae(*node, expr_arena) {
-            return Ok(false);
-        }
+    if type_left.is_primitive_numeric()
+        && type_right.is_primitive_numeric()
+        && !has_aexpr_literal(*left, expr_arena)
+        && !has_aexpr_literal(*right, expr_arena)
+    {
+        Ok(true)
+    } else {
+        Ok(false)
     }
-
-    Ok(true)
 }
 
 impl OptimizationRule for FusedArithmetic {
@@ -62,39 +69,80 @@ impl OptimizationRule for FusedArithmetic {
         match expr {
             BinaryExpr {
                 left,
-                op: outer_op @ (Operator::Plus | Operator::Minus),
+                op: Operator::Plus,
                 right,
             } => {
-                let (a, b, other, mul_is_left) = if let BinaryExpr {
-                    left: a,
-                    op: Operator::Multiply,
-                    right: b,
-                } = expr_arena.get(*left)
-                {
-                    (*a, *b, *right, true)
-                } else if let BinaryExpr {
-                    left: a,
-                    op: Operator::Multiply,
-                    right: b,
-                } = expr_arena.get(*right)
-                {
-                    (*a, *b, *left, false)
-                } else {
-                    return Ok(None);
-                };
-
-                if !check_eligible(&[a, b], expr_arena, schema)? {
-                    return Ok(None);
+                // FUSED MULTIPLY ADD
+                // For fma the plus is always the out as the multiply takes prevalence
+                match expr_arena.get(*left) {
+                    // Argument order is a + b * c
+                    // so we must swap operands
+                    //
+                    // input
+                    // (a * b) + c
+                    // swapped as
+                    // c + (a * b)
+                    BinaryExpr {
+                        left: a,
+                        op: Operator::Multiply,
+                        right: b,
+                    } => Ok(check_eligible(left, right, expr_arena, schema)?.then(|| {
+                        let input = &[*right, *a, *b];
+                        get_expr(input, FusedOperator::MultiplyAdd, expr_arena)
+                    })),
+                    _ => match expr_arena.get(*right) {
+                        // input
+                        // (a + (b * c)
+                        // kept as input
+                        BinaryExpr {
+                            left: a,
+                            op: Operator::Multiply,
+                            right: b,
+                        } => Ok(check_eligible(left, right, expr_arena, schema)?.then(|| {
+                            let input = &[*left, *a, *b];
+                            get_expr(input, FusedOperator::MultiplyAdd, expr_arena)
+                        })),
+                        _ => Ok(None),
+                    },
                 }
+            },
 
-                let (input, fused_op) = match (outer_op, mul_is_left) {
-                    (Operator::Plus, _) => ([a, b, other], FusedOperator::MultiplyAdd),
-                    (Operator::Minus, true) => ([a, b, other], FusedOperator::MultiplySub),
-                    (Operator::Minus, false) => ([other, a, b], FusedOperator::SubMultiply),
-                    _ => unreachable!(),
-                };
-
-                Ok(Some(get_expr(&input, fused_op, expr_arena)))
+            BinaryExpr {
+                left,
+                op: Operator::Minus,
+                right,
+            } => {
+                // FUSED SUB MULTIPLY
+                match expr_arena.get(*right) {
+                    // input
+                    // (a - (b * c)
+                    // kept as input
+                    BinaryExpr {
+                        left: a,
+                        op: Operator::Multiply,
+                        right: b,
+                    } => Ok(check_eligible(left, right, expr_arena, schema)?.then(|| {
+                        let input = &[*left, *a, *b];
+                        get_expr(input, FusedOperator::SubMultiply, expr_arena)
+                    })),
+                    _ => {
+                        // FUSED MULTIPLY SUB
+                        match expr_arena.get(*left) {
+                            // input
+                            // (a * b) - c
+                            // kept as input
+                            BinaryExpr {
+                                left: a,
+                                op: Operator::Multiply,
+                                right: b,
+                            } => Ok(check_eligible(left, right, expr_arena, schema)?.then(|| {
+                                let input = &[*a, *b, *right];
+                                get_expr(input, FusedOperator::MultiplySub, expr_arena)
+                            })),
+                            _ => Ok(None),
+                        }
+                    },
+                }
             },
             _ => Ok(None),
         }

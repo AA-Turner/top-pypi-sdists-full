@@ -334,6 +334,71 @@ class OpenSpielEnvTest(absltest.TestCase):
             ],
         )
 
+    def test_havannah_agent_playthrough(self):
+        env = make(
+            "open_spiel_havannah",
+            configuration={
+                "includeLegalActions": True,
+                "openSpielGameParameters": {"board_size": 4},
+            },
+            debug=True,
+        )
+        env.run(["random", "random"])
+        playthrough = env.toJSON()
+        self.assertEqual(playthrough["name"], "open_spiel_havannah")
+        self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
+        rewards = playthrough["rewards"]
+        self.assertIn(sorted(rewards), ([-1.0, 1.0], [0.0, 0.0]))
+
+    def test_havannah_manual_playthrough(self):
+        env = make(
+            "open_spiel_havannah",
+            configuration={"openSpielGameParameters": {"board_size": 4}},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        # P0 fills the top edge a1..d1 to form a bridge between corners a1 and d1.
+        # Action encoding: x + y * diameter (diameter = 2*board_size - 1 = 7).
+        # P1 plays harmless cells in row 2 (a2, b2, c2 = actions 7, 8, 9).
+        moves = [(0, 0), (1, 7), (0, 1), (1, 8), (0, 2), (1, 9), (0, 3)]
+        for player, action in moves:
+            if player == 0:
+                env.step([{"submission": action}, {"submission": -1}])
+            else:
+                env.step([{"submission": -1}, {"submission": action}])
+        self.assertTrue(env.done)
+        self.assertEqual(env.toJSON()["rewards"], [1, -1])
+        final_obs = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertTrue(final_obs["is_terminal"])
+        self.assertEqual(final_obs["winner"], "x")
+        self.assertEqual(final_obs["board_size"], 4)
+        self.assertEqual(final_obs["last_move"], "d1")
+        # Top row (y=0) has 4 cells, all filled by x.
+        self.assertEqual(final_obs["board"][0], ["x", "x", "x", "x"])
+        # Row y=1 has 5 cells; first three are o, rest empty.
+        self.assertEqual(final_obs["board"][1][:3], ["o", "o", "o"])
+
+    def test_havannah_invalid_action(self):
+        env = make(
+            "open_spiel_havannah",
+            configuration={"openSpielGameParameters": {"board_size": 4}},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        # Action 6 falls inside a cut-off corner; it is not a legal cell.
+        env.step([{"submission": 6}, {"submission": -1}])
+        self.assertTrue(env.done)
+        playthrough = env.toJSON()
+        self.assertEqual(
+            playthrough["rewards"],
+            [
+                open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+                -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+            ],
+        )
+
     def test_clobber_agent_playthrough(self):
         env = make(
             "open_spiel_clobber",
@@ -401,7 +466,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
         final_obs = json.loads(playthrough["steps"][-1][0]["observation"]["observationString"])
         self.assertTrue(final_obs["is_terminal"])
-        self.assertIn(final_obs["winner"], ("o", "+"))
+        self.assertIn(final_obs["winner"], ("o", "+", "draw"))
 
     def test_checkers_manual_playthrough(self):
         env = make("open_spiel_checkers", debug=True)
@@ -478,6 +543,52 @@ class OpenSpielEnvTest(absltest.TestCase):
 
     def test_lines_of_action_invalid_action(self):
         env = make("open_spiel_lines_of_action", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
+        self.assertTrue(env.done)
+        playthrough = env.toJSON()
+        self.assertEqual(
+            playthrough["rewards"],
+            [
+                open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+                -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+            ],
+        )
+
+    def test_mancala_agent_playthrough(self):
+        env = make(
+            "open_spiel_mancala",
+            configuration={"includeLegalActions": True},
+            debug=True,
+        )
+        env.run(["random", "random"])
+        playthrough = env.toJSON()
+        self.assertEqual(playthrough["name"], "open_spiel_mancala")
+        self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
+        final_obs = json.loads(
+            playthrough["steps"][-1][0]["observation"]["observationString"]
+        )
+        self.assertTrue(final_obs["is_terminal"])
+        self.assertIn(final_obs["winner"], (0, 1, "draw"))
+        self.assertEqual(len(final_obs["board"]), 14)
+        self.assertEqual(final_obs["scores"], [final_obs["stores"]["0"], final_obs["stores"]["1"]])
+
+    def test_mancala_initial_state(self):
+        env = make("open_spiel_mancala", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        obs = json.loads(env.state[0]["observation"]["observationString"])
+        # Mancala starts with 4 stones in each of the 12 pits, stores empty.
+        self.assertEqual(obs["board"], [0, 4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4])
+        self.assertEqual(obs["current_player"], 0)
+        self.assertEqual(obs["scores"], [0, 0])
+        self.assertFalse(obs["is_terminal"])
+        self.assertIsNone(obs["winner"])
+        self.assertIsNone(obs["last_action"])
+
+    def test_mancala_invalid_action(self):
+        env = make("open_spiel_mancala", debug=True)
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
         env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
@@ -579,6 +690,156 @@ class OpenSpielEnvTest(absltest.TestCase):
 
     def test_amazons_invalid_action(self):
         env = make("open_spiel_amazons", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
+        self.assertTrue(env.done)
+        json_data = env.toJSON()
+        self.assertEqual(json_data["rewards"][0], open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
+        self.assertEqual(json_data["rewards"][1], -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
+
+    def test_backgammon_agent_playthrough(self):
+        env = make(
+            "open_spiel_backgammon",
+            configuration={"includeLegalActions": True},
+            debug=True,
+        )
+        env.run(["random", "random"])
+        playthrough = env.toJSON()
+        self.assertEqual(playthrough["name"], "open_spiel_backgammon")
+        self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
+        final_obs = json.loads(playthrough["steps"][-1][0]["observation"]["observationString"])
+        self.assertTrue(final_obs["is_terminal"])
+        self.assertIn(final_obs["winner"], ("x", "o", "draw"))
+
+    def test_backgammon_observation_is_json(self):
+        env = make(
+            "open_spiel_backgammon",
+            configuration={"seed": 42, "includeLegalActions": True},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        obs = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertFalse(obs["is_terminal"])
+        self.assertIsNone(obs["winner"])
+        self.assertIn(obs["current_player"], ("x", "o"))
+        # Seed 42: O plays first with dice [3, 6].
+        self.assertEqual(obs["current_player"], "o")
+        self.assertEqual(obs["dice"], [{"value": 3, "used": False}, {"value": 6, "used": False}])
+        # Standard backgammon starting position (OpenSpiel coords).
+        self.assertEqual(len(obs["board"]), 24)
+        self.assertEqual(obs["board"][0], {"player": "x", "count": 2})
+        self.assertEqual(obs["board"][5], {"player": "o", "count": 5})
+        self.assertEqual(obs["board"][7], {"player": "o", "count": 3})
+        self.assertEqual(obs["board"][11], {"player": "x", "count": 5})
+        self.assertEqual(obs["board"][12], {"player": "o", "count": 5})
+        self.assertEqual(obs["board"][16], {"player": "x", "count": 3})
+        self.assertEqual(obs["board"][18], {"player": "x", "count": 5})
+        self.assertEqual(obs["board"][23], {"player": "o", "count": 2})
+        self.assertEqual(obs["bar"], {"x": 0, "o": 0})
+        self.assertEqual(obs["off"], {"x": 0, "o": 0})
+        # 15 checkers per player on the board.
+        x_count = sum(p["count"] for p in obs["board"] if p and p["player"] == "x")
+        o_count = sum(p["count"] for p in obs["board"] if p and p["player"] == "o")
+        self.assertEqual(x_count, 15)
+        self.assertEqual(o_count, 15)
+
+    def test_backgammon_invalid_action(self):
+        # Seed 7 makes player X (0) move first so the invalid submission
+        # from player 0 below is the one actually evaluated.
+        env = make("open_spiel_backgammon", configuration={"seed": 7}, debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        env.step([{"submission": 9999}, {"submission": -1}])  # Invalid action.
+        self.assertTrue(env.done)
+        playthrough = env.toJSON()
+        self.assertEqual(
+            playthrough["rewards"],
+            [
+                open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+                -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+            ],
+        )
+
+    def test_dots_and_boxes_agent_playthrough(self):
+        env = make("open_spiel_dots_and_boxes", debug=True)
+        env.run(["random", "random"])
+        json_data = env.toJSON()
+        self.assertEqual(json_data["name"], "open_spiel_dots_and_boxes")
+        self.assertTrue(all(status == "DONE" for status in json_data["statuses"]))
+
+    def test_dots_and_boxes_manual_playthrough(self):
+        # Walks a 2x2 board to a state where P1 closes both top-row boxes back
+        # to back. Confirms the proxy honors the "extra turn" rule (P1 keeps
+        # the move after closing a box), the boxes/scores grids match what we
+        # would expect by hand, and the game eventually terminates with a
+        # winner and all four boxes claimed.
+        env = make(
+            "open_spiel_dots_and_boxes",
+            {
+                "includeLegalActions": True,
+                "openSpielGameParameters": {"num_rows": 2, "num_cols": 2},
+            },
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+
+        def submit(player: int, action: int) -> None:
+            actions = [{"submission": -1}, {"submission": -1}]
+            actions[player] = {"submission": action}
+            env.step(actions)
+
+        # Action layout for num_rows=num_cols=2: horizontal lines 0..5
+        # (h(r,c) = r*2 + c) and vertical lines 6..11 (v(r,c) = 6 + r*3 + c).
+        submit(0, 0)  # P1: h(0,0) — top of box (0,0)
+        submit(1, 1)  # P2: h(0,1) — top of box (0,1)
+        submit(0, 6)  # P1: v(0,0) — left of box (0,0)
+        submit(1, 8)  # P2: v(0,2) — right of box (0,1)
+        submit(0, 7)  # P1: v(0,1) — shared edge between (0,0) and (0,1)
+        submit(1, 4)  # P2: h(2,0) — bottom row, no box closes
+        submit(0, 2)  # P1: h(1,0) closes box (0,0) → score [1,0], P1 keeps turn
+        submit(0, 3)  # P1: h(1,1) closes box (0,1) → score [2,0], P1 keeps turn
+
+        obs0 = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertEqual(obs0["scores"], [2, 0])
+        self.assertEqual(obs0["boxes"][0], [1, 1])
+        self.assertEqual(obs0["current_player"], "1")
+        self.assertFalse(obs0["is_terminal"])
+        self.assertEqual(obs0["last_action"], {"orientation": "h", "row": 1, "col": 1, "player": "1"})
+
+        # Drain the remaining lines with random legal play. The exact score
+        # split depends on the RNG, but the game must finish with all four
+        # boxes claimed.
+        rng = random.Random(0)
+        while not env.done:
+            current = env.state[0]["observation"]["currentPlayer"]
+            legal = env.state[current]["observation"]["legalActions"]
+            if not legal:
+                break
+            submit(current, rng.choice(legal))
+        obs_final = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertTrue(obs_final["is_terminal"])
+        self.assertIn(obs_final["winner"], ("1", "2", "draw"))
+        self.assertEqual(sum(obs_final["scores"]), 4)
+
+    def test_dots_and_boxes_terminal_state(self):
+        # Drive a fresh dots_and_boxes game to termination using only legal
+        # random moves and verify the proxy reports a coherent final state.
+        rng = random.Random(0)
+        game = pyspiel.load_game("dots_and_boxes_proxy")
+        state = game.new_initial_state()
+        while not state.is_terminal():
+            state.apply_action(rng.choice(state.legal_actions()))
+        obs = json.loads(state.observation_string(0))
+        self.assertTrue(obs["is_terminal"])
+        self.assertEqual(obs["current_player"], "")
+        self.assertIn(obs["winner"], ("1", "2", "draw"))
+        self.assertEqual(sum(obs["scores"]), obs["num_rows"] * obs["num_cols"])
+
+    def test_dots_and_boxes_invalid_action(self):
+        env = make("open_spiel_dots_and_boxes", debug=True)
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
         env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
@@ -1179,6 +1440,83 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(json_out["rewards"][0], open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
         self.assertEqual(json_out["rewards"][1], -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
 
+    def test_snake_agent_playthrough(self):
+        env = make(
+            "open_spiel_snake",
+            configuration={"includeLegalActions": True},
+            debug=True,
+        )
+        env.run(["random", "random"])
+        json_out = env.toJSON()
+        self.assertEqual(json_out["name"], "open_spiel_snake")
+        self.assertTrue(all(status == "DONE" for status in json_out["statuses"]))
+
+    def test_snake_observation_is_json(self):
+        env = make(
+            "open_spiel_snake",
+            configuration={"includeLegalActions": True},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        obs = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertEqual(obs["num_rows"], 10)
+        self.assertEqual(obs["num_columns"], 10)
+        self.assertEqual(obs["num_players"], 2)
+        self.assertEqual(len(obs["board"]), 10)
+        self.assertTrue(all(len(row) == 10 for row in obs["board"]))
+        self.assertEqual(obs["snakes"][0]["body"], [[1, 1]])
+        self.assertEqual(obs["snakes"][1]["body"], [[8, 8]])
+        self.assertTrue(obs["snakes"][0]["alive"])
+        self.assertTrue(obs["snakes"][1]["alive"])
+        self.assertEqual(obs["scores"], [0.0, 0.0])
+        self.assertEqual(obs["current_player"], 0)
+        self.assertFalse(obs["is_terminal"])
+        self.assertIsNone(obs["winner"])
+        self.assertEqual(obs["turn"], 0)
+        # Food is placed on an empty square.
+        self.assertIsNotNone(obs["food"])
+        fr, fc = obs["food"]
+        self.assertEqual(obs["board"][fr][fc], "*")
+
+    def test_snake_manual_playthrough(self):
+        # Sequential implementation of simultaneous play: each player submits
+        # in turn, then the buffered moves are applied together. Drive both
+        # snakes off the board on the first round so both die and the game
+        # terminates immediately.
+        env = make("open_spiel_snake", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        # P0 at (1,1): UP -> (0,1)? still on board. Send LEFT (2) twice to die.
+        # First round: both submit a move; resolution moves snakes and may kill.
+        # P0 LEFT from (1,1) -> (1,0) (alive). P1 RIGHT from (8,8) -> (8,9) (alive).
+        # Second round: P0 LEFT from (1,0) -> (1,-1) (wall, dies).
+        # P1 RIGHT from (8,9) -> (8,10) (wall, dies).
+        env.step([{"submission": 2}, {"submission": -1}])  # P0 LEFT
+        env.step([{"submission": -1}, {"submission": 3}])  # P1 RIGHT
+        env.step([{"submission": 2}, {"submission": -1}])  # P0 LEFT (off board)
+        env.step([{"submission": -1}, {"submission": 3}])  # P1 RIGHT (off board)
+        self.assertTrue(env.done)
+        obs = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertTrue(obs["is_terminal"])
+        self.assertFalse(obs["snakes"][0]["alive"])
+        self.assertFalse(obs["snakes"][1]["alive"])
+
+    def test_snake_invalid_action(self):
+        env = make("open_spiel_snake", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        env.step([{"submission": 999}, {"submission": -1}])  # Invalid action.
+        self.assertTrue(env.done)
+        json_out = env.toJSON()
+        self.assertEqual(
+            json_out["rewards"],
+            [
+                open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+                -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+            ],
+        )
+
     def test_simultaneous_agent_error(self):
         open_spiel_env._register_game_envs(["goofspiel(num_cards=4,points_order=descending,returns_type=total_points)"])
         env = make("open_spiel_goofspiel", debug=True)
@@ -1194,6 +1532,61 @@ class OpenSpielEnvTest(absltest.TestCase):
         json = env.toJSON()
         self.assertEqual(json["rewards"], [None, None])
         self.assertEqual(json["statuses"], ["ERROR", "ERROR"])
+
+    def test_ultimate_tic_tac_toe_agent_playthrough(self):
+        env = make(
+            "open_spiel_ultimate_tic_tac_toe",
+            configuration={"includeLegalActions": True},
+            debug=True,
+        )
+        env.run(["random", "random"])
+        playthrough = env.toJSON()
+        self.assertEqual(playthrough["name"], "open_spiel_ultimate_tic_tac_toe")
+        self.assertTrue(all(status == "DONE" for status in playthrough["statuses"]))
+
+    def test_ultimate_tic_tac_toe_manual_playthrough(self):
+        env = make("open_spiel_ultimate_tic_tac_toe", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step
+
+        # Sequential game: only the current player submits
+        # Step 1: Player 0 selects sub-grid 6
+        env.step([{"submission": 6}, {"submission": -1}])
+        obs_p0 = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertEqual(obs_p0["active_subgrid"], 6)
+        self.assertEqual(obs_p0["phase"], "choose_cell")
+        self.assertEqual(obs_p0["current_player"], "x")
+
+        # Step 2: Player 0 selects cell 1 of sub-grid 6
+        env.step([{"submission": 1}, {"submission": -1}])
+        obs_p1 = json.loads(env.state[1]["observation"]["observationString"])
+        self.assertEqual(obs_p1["active_subgrid"], 1)
+        self.assertEqual(obs_p1["phase"], "choose_cell")
+        self.assertEqual(obs_p1["current_player"], "o")
+        self.assertEqual(obs_p1["board"][6][1], "x")
+
+        # Step 3: Player 1 selects cell 2 of sub-grid 1
+        env.step([{"submission": -1}, {"submission": 2}])
+        obs_p0 = json.loads(env.state[0]["observation"]["observationString"])
+        self.assertEqual(obs_p0["active_subgrid"], 2)
+        self.assertEqual(obs_p0["phase"], "choose_cell")
+        self.assertEqual(obs_p0["current_player"], "x")
+        self.assertEqual(obs_p0["board"][1][2], "o")
+
+    def test_ultimate_tic_tac_toe_invalid_action(self):
+        env = make("open_spiel_ultimate_tic_tac_toe", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step
+        env.step([{"submission": 999}, {"submission": -1}])  # Invalid action
+        self.assertTrue(env.done)
+        playthrough = env.toJSON()
+        self.assertEqual(
+            playthrough["rewards"],
+            [
+                open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+                -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
+            ],
+        )
 
 
 if __name__ == "__main__":

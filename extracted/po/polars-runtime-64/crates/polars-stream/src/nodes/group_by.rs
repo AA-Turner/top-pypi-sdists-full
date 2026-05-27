@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use polars_async::executor;
+use polars_core::POOL;
 use polars_core::prelude::{IntoColumn, PlHashSet, PlRandomState};
-use polars_core::runtime::{ASYNC, RAYON};
 use polars_core::schema::Schema;
 use polars_core::utils::accumulate_dataframes_vertical_unchecked;
 use polars_expr::groups::Grouper;
@@ -21,6 +20,7 @@ use rayon::prelude::*;
 use tokio::sync::mpsc::{Receiver, channel};
 
 use super::compute_node_prelude::*;
+use crate::async_executor;
 use crate::expression::StreamExpr;
 use crate::morsel::get_ideal_morsel_size;
 use crate::nodes::in_memory_source::InMemorySourceNode;
@@ -251,7 +251,7 @@ impl GroupBySinkState {
 
     fn combine_locals(&mut self) -> PolarsResult<Vec<GroupByPartition>> {
         // Finalize pre-aggregations.
-        RAYON.install(|| {
+        POOL.install(|| {
             self.locals
                 .as_mut_slice()
                 .into_par_iter()
@@ -306,7 +306,7 @@ impl GroupBySinkState {
         let grouped_reductions_template = &self.grouped_reductions;
         let grouped_reduction_cols = &self.grouped_reduction_cols;
 
-        executor::task_scope(|s| {
+        async_executor::task_scope(|s| {
             // Wrap in outer Arc to move to each thread, performing the
             // expensive clone on that thread.
             let arc_morsels_per_local = Arc::new(morsels_per_local);
@@ -475,7 +475,7 @@ impl GroupBySinkState {
             drop(arc_pre_aggs_per_local);
             drop(drop_q_send);
 
-            ASYNC.block_on(async move {
+            polars_io::pl_async::get_runtime().block_on(async move {
                 for handle in join_handles {
                     handle.await?;
                 }
@@ -485,7 +485,7 @@ impl GroupBySinkState {
         })?;
 
         // Drop remaining local state in parallel.
-        RAYON.install(|| {
+        POOL.install(|| {
             core::mem::take(&mut self.locals)
                 .into_par_iter()
                 .with_max_len(1)
@@ -624,7 +624,7 @@ impl ComputeNode for GroupByNode {
                     unreachable!()
                 };
                 let partitions = sink.combine_locals()?;
-                let dfs = RAYON.install(|| {
+                let dfs = POOL.install(|| {
                     partitions
                         .into_par_iter()
                         .map(|p| p.into_df(&self.key_schema, &self.output_schema))

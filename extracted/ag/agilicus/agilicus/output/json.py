@@ -22,8 +22,14 @@ def json_output_default(o):
 
 
 def convert_to_json(ctx, entry, indent=2):
+    kwargs = {}
+    if indent:
+        kwargs["indent"] = indent
     return json.dumps(
-        jsonify(ctx, entry), sort_keys=True, indent=indent, default=json_output_default
+        jsonify(ctx, entry),
+        sort_keys=True,
+        default=json_output_default,
+        **kwargs,
     )
 
 

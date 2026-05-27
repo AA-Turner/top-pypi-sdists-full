@@ -53,7 +53,7 @@ from .models import (
 )
 from .scanner_device import BluetoothScannerDevice
 from .usage import install_multiple_bleak_catcher, uninstall_multiple_bleak_catcher
-from .util import async_reset_adapter
+from .util import async_reset_adapter, coalesce_concurrent_future
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -302,20 +302,11 @@ class BluetoothManager:
         self._disappeared_callbacks.add(callback)
         return partial(self._disappeared_callbacks.discard, callback)
 
+    @coalesce_concurrent_future("_adapter_refresh_future")
     async def _async_refresh_adapters(self) -> None:
         """Refresh the adapters."""
-        if self._adapter_refresh_future:
-            await self._adapter_refresh_future
-            return
-        if TYPE_CHECKING:
-            assert self._loop is not None
-        self._adapter_refresh_future = self._loop.create_future()
-        try:
-            await self._bluetooth_adapters.refresh()
-            self._adapters = self._bluetooth_adapters.adapters
-        finally:
-            self._adapter_refresh_future.set_result(None)
-            self._adapter_refresh_future = None
+        await self._bluetooth_adapters.refresh()
+        self._adapters = self._bluetooth_adapters.adapters
 
     def get_cached_bluetooth_adapters(self) -> dict[str, AdapterDetails] | None:
         """Get cached bluetooth adapters synchronously."""
@@ -426,21 +417,6 @@ class BluetoothManager:
             if (device_adv := scanner.get_discovered_device_advertisement_data(address))
         ]
 
-    def _async_all_discovered_addresses(self, connectable: bool) -> Iterable[str]:
-        """
-        Return all of discovered addresses.
-
-        Include addresses from all the scanners including duplicates.
-        """
-        yield from itertools.chain.from_iterable(
-            scanner.discovered_addresses for scanner in self._connectable_scanners
-        )
-        if not connectable:
-            yield from itertools.chain.from_iterable(
-                scanner.discovered_addresses
-                for scanner in self._non_connectable_scanners
-            )
-
     def async_discovered_devices(self, connectable: bool) -> list[BLEDevice]:
         """Return all of combined best path to discovered from all the scanners."""
         histories = self._connectable_history if connectable else self._all_history
@@ -467,6 +443,17 @@ class BluetoothManager:
         tracker = self._advertisement_tracker
         intervals = tracker.intervals
 
+        # Materialize each scanner's discovered_addresses exactly once per
+        # cycle. For local HaScanner this property rebuilds bleak's
+        # discovered-devices dict on every access, so the prior two-pass
+        # iteration paid that cost twice for the connectable scanners.
+        connectable_addrs: set[str] = set()
+        for scanner in self._connectable_scanners:
+            connectable_addrs.update(scanner.discovered_addresses)
+        all_addrs = connectable_addrs.copy()
+        for scanner in self._non_connectable_scanners:
+            all_addrs.update(scanner.discovered_addresses)
+
         for connectable in (True, False):
             if connectable:
                 unavailable_callbacks = self._connectable_unavailable_callbacks
@@ -474,7 +461,7 @@ class BluetoothManager:
                 unavailable_callbacks = self._unavailable_callbacks
             history = connectable_history if connectable else all_history
             disappeared = set(history).difference(
-                self._async_all_discovered_addresses(connectable)
+                connectable_addrs if connectable else all_addrs
             )
             for address in disappeared:
                 if not connectable:
@@ -1013,12 +1000,15 @@ class BluetoothManager:
         connection_slots: int | None,
     ) -> None:
         """Unregister a scanner."""
+        if scanner not in scanners:
+            _LOGGER.debug("Scanner %s already unregistered; skipping", scanner.name)
+            return
         _LOGGER.debug("Unregistering scanner %s", scanner.name)
         self._advertisement_tracker.async_remove_source(scanner.source)
-        scanners.remove(scanner)
+        scanners.discard(scanner)
         scanner._clear_connection_history()
-        del self._sources[scanner.source]
-        del self._adapter_sources[scanner.adapter]
+        self._sources.pop(scanner.source, None)
+        self._adapter_sources.pop(scanner.adapter, None)
         self._allocations.pop(scanner.source, None)
         if connection_slots:
             self.slot_manager.remove_adapter(scanner.adapter)
@@ -1109,7 +1099,7 @@ class BluetoothManager:
             scan_duration = DEFAULT_ACTIVE_SCAN_DURATION
         # Reject non-finite values explicitly: NaN compared to anything
         # returns False, so a NaN would slip past the lower-bound
-        # checks below and end up in _needs and call_later as a NaN
+        # checks below and end up in _due_at and call_later as a NaN
         # due-time / duration, busy-looping the worker.
         if not math.isfinite(scan_interval) or scan_interval < MIN_ACTIVE_SCAN_INTERVAL:
             msg = (

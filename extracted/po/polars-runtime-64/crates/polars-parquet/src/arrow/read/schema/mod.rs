@@ -7,8 +7,7 @@ mod metadata;
 pub(crate) use convert::*;
 pub use convert::{parquet_to_arrow_schema, parquet_to_arrow_schema_with_options};
 pub use metadata::{read_custom_key_value_metadata, read_schema_from_metadata};
-use polars_error::{PolarsResult, polars_ensure};
-use polars_utils::aliases::{InitHashMaps, PlHashSet};
+use polars_error::PolarsResult;
 
 use self::metadata::parse_key_value_metadata;
 pub use crate::parquet::metadata::{FileMetadata, KeyValue, SchemaDescriptor};
@@ -40,9 +39,8 @@ impl Default for SchemaInferenceOptions {
 /// Parquet types declared in the file's Parquet schema to Arrow's equivalent.
 ///
 /// # Error
-/// - Errors if the key `"ARROW:schema"` exists but is not correctly encoded.
-/// - Errors if the parquet schema contains duplicate top-level column names, since
-///   the resulting [`ArrowSchema`] cannot represent them.
+/// This function errors iff the key `"ARROW:schema"` exists but is not correctly encoded,
+/// indicating that the file's arrow metadata was incorrectly written.
 pub fn infer_schema(file_metadata: &FileMetadata) -> PolarsResult<ArrowSchema> {
     infer_schema_with_options(file_metadata, &None)
 }
@@ -52,14 +50,10 @@ pub fn infer_schema_with_options(
     file_metadata: &FileMetadata,
     options: &Option<SchemaInferenceOptions>,
 ) -> PolarsResult<ArrowSchema> {
-    let fields = file_metadata.schema().fields();
-    let mut seen = PlHashSet::with_capacity(fields.len());
-    for f in fields {
-        polars_ensure!(seen.insert(f.name()), duplicate = f.name());
-    }
-
     let mut metadata = parse_key_value_metadata(file_metadata.key_value_metadata());
 
     let schema = read_schema_from_metadata(&mut metadata)?;
-    Ok(schema.unwrap_or_else(|| parquet_to_arrow_schema_with_options(fields, options)))
+    Ok(schema.unwrap_or_else(|| {
+        parquet_to_arrow_schema_with_options(file_metadata.schema().fields(), options)
+    }))
 }

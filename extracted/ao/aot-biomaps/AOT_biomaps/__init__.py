@@ -70,17 +70,15 @@ from .AOT_Recon.AOT_Optimizers.MAPEM import *
 from .AOT_Recon.AOT_Optimizers.MLEM import *
 from .AOT_Recon.AOT_Optimizers.PDHG import *
 # SPARSE S-MATRIX
-from .AOT_Recon.AOT_SparseSMatrix.SparseSMatrix_CSR import *
-from .AOT_Recon.AOT_SparseSMatrix.SparseSMatrix_SELL import *
-# POTENTIAL FUNCTIONS
-from .AOT_Recon.AOT_PotentialFunctions.Huber import *
-from .AOT_Recon.AOT_PotentialFunctions.Quadratic import *
-from .AOT_Recon.AOT_PotentialFunctions.RelativeDifferences import *
+from .AOT_Recon.AOT_SMatrix.SMatrix_CSR import *
+from .AOT_Recon.AOT_SMatrix.SMatrix_SELL import *
+from .AOT_Recon.AOT_SMatrix.SMatrix_DENSE import *
+from .AOT_Recon.AOT_SMatrix._mainSMatrix import *
 # CONFIG AND SETTINGS
 from .Config import config
 from .Settings import *
 
-__version__ = '2.9.550'
+__version__ = '2.9.557'
 __process__ = config.get_process()
 
 # Reference to the config object
@@ -144,6 +142,13 @@ def initialize(process=None, gpu_id=None):
     __config__._update()
     
     return __process__
+
+
+
+
+
+
+
 
 
 

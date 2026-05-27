@@ -35,14 +35,14 @@ impl<K: DictionaryKey, M: MutableArray> From<MutableDictionaryArray<K, M>> for D
 
 impl<K: DictionaryKey, M: MutableArray + Default> MutableDictionaryArray<K, M> {
     /// Creates an empty [`MutableDictionaryArray`].
-    pub fn new(ordered: bool) -> Self {
-        Self::try_empty(M::default(), ordered).unwrap()
+    pub fn new() -> Self {
+        Self::try_empty(M::default()).unwrap()
     }
 
     /// Creates an empty [`MutableDictionaryArray`] with the given value dtype.
-    pub fn empty_with_value_dtype(value_dtype: ArrowDataType, ordered: bool) -> Self {
+    pub fn empty_with_value_dtype(value_dtype: ArrowDataType) -> Self {
         let keys = MutablePrimitiveArray::<K>::new();
-        let dtype = ArrowDataType::Dictionary(K::KEY_TYPE, Box::new(value_dtype), ordered);
+        let dtype = ArrowDataType::Dictionary(K::KEY_TYPE, Box::new(value_dtype), false);
         Self {
             dtype,
             map: ValueMap::<K, M>::try_empty(M::default()).unwrap(),
@@ -53,7 +53,7 @@ impl<K: DictionaryKey, M: MutableArray + Default> MutableDictionaryArray<K, M> {
 
 impl<K: DictionaryKey, M: MutableArray + Default> Default for MutableDictionaryArray<K, M> {
     fn default() -> Self {
-        Self::new(false)
+        Self::new()
     }
 }
 
@@ -61,11 +61,8 @@ impl<K: DictionaryKey, M: MutableArray> MutableDictionaryArray<K, M> {
     /// Creates an empty [`MutableDictionaryArray`] from a given empty values array.
     /// # Errors
     /// Errors if the array is non-empty.
-    pub fn try_empty(values: M, ordered: bool) -> PolarsResult<Self> {
-        Ok(Self::from_value_map(
-            ValueMap::<K, M>::try_empty(values)?,
-            ordered,
-        ))
+    pub fn try_empty(values: M) -> PolarsResult<Self> {
+        Ok(Self::from_value_map(ValueMap::<K, M>::try_empty(values)?))
     }
 
     /// Creates an empty [`MutableDictionaryArray`] preloaded with a given dictionary of values.
@@ -73,21 +70,18 @@ impl<K: DictionaryKey, M: MutableArray> MutableDictionaryArray<K, M> {
     /// the values.
     /// # Errors
     /// Errors if there's more values than the maximum value of `K` or if values are not unique.
-    pub fn from_values(values: M, ordered: bool) -> PolarsResult<Self>
+    pub fn from_values(values: M) -> PolarsResult<Self>
     where
         M: Indexable,
         M::Type: Eq + Hash,
     {
-        Ok(Self::from_value_map(
-            ValueMap::<K, M>::from_values(values)?,
-            ordered,
-        ))
+        Ok(Self::from_value_map(ValueMap::<K, M>::from_values(values)?))
     }
 
-    fn from_value_map(value_map: ValueMap<K, M>, ordered: bool) -> Self {
+    fn from_value_map(value_map: ValueMap<K, M>) -> Self {
         let keys = MutablePrimitiveArray::<K>::new();
         let dtype =
-            ArrowDataType::Dictionary(K::KEY_TYPE, Box::new(value_map.dtype().clone()), ordered);
+            ArrowDataType::Dictionary(K::KEY_TYPE, Box::new(value_map.dtype().clone()), false);
         Self {
             dtype,
             map: value_map,
@@ -99,16 +93,16 @@ impl<K: DictionaryKey, M: MutableArray> MutableDictionaryArray<K, M> {
     /// mutable dictionary array, but with no data. This may come useful when serializing the
     /// array into multiple chunks, where there's a requirement that the dictionary is the same.
     /// No copying is performed, the value map is moved over to the new array.
-    pub fn into_empty(self, ordered: bool) -> Self {
-        Self::from_value_map(self.map, ordered)
+    pub fn into_empty(self) -> Self {
+        Self::from_value_map(self.map)
     }
 
     /// Same as `into_empty` but clones the inner value map instead of taking full ownership.
-    pub fn to_empty(&self, ordered: bool) -> Self
+    pub fn to_empty(&self) -> Self
     where
         M: Clone,
     {
-        Self::from_value_map(self.map.clone(), ordered)
+        Self::from_value_map(self.map.clone())
     }
 
     /// pushes a null value

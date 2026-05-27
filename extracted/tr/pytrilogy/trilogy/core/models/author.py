@@ -1105,6 +1105,7 @@ class Concept(Addressable, DataTyped, ConceptArgs, Mergeable, Namespaced):
             SubselectItem,
             MultiSelectLineage,
             Comparison,
+            "FunctionCallWrapper",
         ]
     ] = None
     namespace: str = dc_field(default=DEFAULT_NAMESPACE)
@@ -1122,17 +1123,33 @@ class Concept(Addressable, DataTyped, ConceptArgs, Mergeable, Namespaced):
             self.datatype = DataType(self.datatype)
         if self.purpose == Purpose.AUTO:
             raise ValueError("Cannot set purpose to AUTO")
-        # parse grain
+        # parse grain. FunctionCallWrapper is a syntactic marker — look
+        # through it for grain/pseudonym derivation, which depend on the
+        # inlined body's shape.
+        effective_lineage = (
+            self.lineage.content
+            if isinstance(self.lineage, FunctionCallWrapper)
+            else self.lineage
+        )
         if not self.grain and self.purpose == Purpose.KEY:
             self.grain = Grain(components={f"{self.namespace}.{self.name}"})
         elif not self.grain and self.purpose == Purpose.PROPERTY:
             self.grain = Grain(components=self.keys or set())
         elif (
-            self.lineage
-            and isinstance(self.lineage, AggregateWrapper)
-            and self.lineage.by
+            effective_lineage
+            and isinstance(effective_lineage, AggregateWrapper)
+            and effective_lineage.by
         ):
-            self.grain = Grain(components={c.address for c in self.lineage.by})
+            # `by` may carry arbitrary expressions; flatten expression entries
+            # to their dependent concept addresses for grain purposes (matches
+            # the window over-list handling).
+            grain_addrs: set[str] = set()
+            for c in effective_lineage.by:
+                if isinstance(c, (Concept, ConceptRef)):
+                    grain_addrs.add(c.address)
+                else:
+                    grain_addrs.update(a.address for a in get_concept_arguments(c))
+            self.grain = Grain(components=grain_addrs)
         elif not self.grain:
             self.grain = Grain(components=set())
         elif isinstance(self.grain, Grain):
@@ -1142,11 +1159,11 @@ class Concept(Addressable, DataTyped, ConceptArgs, Mergeable, Namespaced):
         else:
             raise SyntaxError(f"Invalid grain {self.grain} for concept {self.name}")
         if (
-            isinstance(self.lineage, Function)
-            and self.lineage.operator == FunctionType.ALIAS
+            isinstance(effective_lineage, Function)
+            and effective_lineage.operator == FunctionType.ALIAS
         ):
             self.pseudonyms.update(
-                arg.address for arg in self.lineage.concept_arguments
+                arg.address for arg in effective_lineage.concept_arguments
             )
 
     def duplicate(self) -> Concept:
@@ -1302,7 +1319,28 @@ class Concept(Addressable, DataTyped, ConceptArgs, Mergeable, Namespaced):
         Grain,
         set[str] | None,
     ]:
-        new_lineage = self.lineage
+        # The wrapper is a syntactic marker; semantic shape comes from its
+        # inlined body. The build phase will strip the wrapper via
+        # `_build_function_call_wrapper`, so we can unwrap here too.
+        new_lineage = cast(
+            Optional[
+                Union[
+                    Function,
+                    WindowItem,
+                    FilterItem,
+                    AggregateWrapper,
+                    RowsetItem,
+                    SubselectItem,
+                    MultiSelectLineage,
+                    Comparison,
+                ]
+            ],
+            (
+                self.lineage.content
+                if isinstance(self.lineage, FunctionCallWrapper)
+                else self.lineage
+            ),
+        )
         final_grain = grain if not self.grain.components else self.grain
         keys = self.keys
         if not new_lineage:
@@ -1409,6 +1447,7 @@ class Concept(Addressable, DataTyped, ConceptArgs, Mergeable, Namespaced):
                     SubselectItem,
                     MultiSelectLineage,
                     Comparison,
+                    "FunctionCallWrapper",
                 ],
                 output: List[ConceptRef],
             ):
@@ -1429,7 +1468,7 @@ class Concept(Addressable, DataTyped, ConceptArgs, Mergeable, Namespaced):
 
     @property
     def concept_arguments(self) -> List[ConceptRef]:
-        return self.lineage.concept_arguments if self.lineage else []
+        return list(self.lineage.concept_arguments) if self.lineage else []
 
     @classmethod
     def calculate_derivation(self, lineage, purpose: Purpose) -> Derivation:
@@ -1444,6 +1483,10 @@ class Concept(Addressable, DataTyped, ConceptArgs, Mergeable, Namespaced):
             BuildWindowItem,
         )
 
+        # FunctionCallWrapper is a syntactic marker for `@fn(...)` — derivation
+        # is determined by the inlined body, not the wrapper itself.
+        if isinstance(lineage, FunctionCallWrapper):
+            lineage = lineage.content
         if lineage and isinstance(lineage, (BuildWindowItem, WindowItem)):
             return Derivation.WINDOW
         elif lineage and isinstance(lineage, (BuildFilterItem, FilterItem)):
@@ -2377,6 +2420,33 @@ def _concept_to_ref(item: ConceptRef | Concept) -> ConceptRef:
     return item
 
 
+def _by_item_normalize(item):
+    """``by`` accepts arbitrary expressions; coerce only Concepts to refs and
+    pass everything else through unchanged. The build phase materializes
+    non-concept entries into virtual concepts via ``instantiate_concept``."""
+    if isinstance(item, Concept):
+        return item.reference
+    return item
+
+
+def _by_item_with_namespace(item, namespace: str):
+    if isinstance(item, Namespaced):
+        return item.with_namespace(namespace)
+    return item
+
+
+def _by_item_with_merge(item, source: Concept, target: Concept, modifiers):
+    if isinstance(item, Mergeable):
+        return item.with_merge(source, target, modifiers)
+    return item
+
+
+def _by_item_with_reference_replacement(item, replacements):
+    if isinstance(item, Mergeable):
+        return item.with_reference_replacement(replacements)
+    return item
+
+
 def _grain_concept_refs(grain: "Grain", environment: Environment) -> list[ConceptRef]:
     return [environment.concepts[c].reference for c in grain.component_order]
 
@@ -2384,13 +2454,13 @@ def _grain_concept_refs(grain: "Grain", environment: Environment) -> list[Concep
 @dataclass
 class AggregateGrouping:
     mode: AggregateGroupingMode = AggregateGroupingMode.STANDARD
-    by: List[ConceptRef | Concept] = dc_field(default_factory=list)
-    grouping_sets: List[List[ConceptRef | Concept]] = dc_field(default_factory=list)
+    by: List[Any] = dc_field(default_factory=list)
+    grouping_sets: List[List[Any]] = dc_field(default_factory=list)
 
     def __post_init__(self):
-        self.by = [_concept_to_ref(item) for item in self.by]
+        self.by = [_by_item_normalize(item) for item in self.by]
         self.grouping_sets = [
-            [_concept_to_ref(item) for item in grouping_set]
+            [_by_item_normalize(item) for item in grouping_set]
             for grouping_set in self.grouping_sets
         ]
 
@@ -2398,14 +2468,14 @@ class AggregateGrouping:
 @dataclass
 class AggregateWrapper(Mergeable, DataTyped, ConceptArgs, Namespaced):
     function: Function
-    by: List[ConceptRef | Concept] = dc_field(default_factory=list)
+    by: List[Any] = dc_field(default_factory=list)
     grouping: AggregateGroupingMode = AggregateGroupingMode.STANDARD
-    grouping_sets: List[List[ConceptRef | Concept]] = dc_field(default_factory=list)
+    grouping_sets: List[List[Any]] = dc_field(default_factory=list)
 
     def __post_init__(self):
-        self.by = [_concept_to_ref(item) for item in self.by]
+        self.by = [_by_item_normalize(item) for item in self.by]
         self.grouping_sets = [
-            [_concept_to_ref(item) for item in grouping_set]
+            [_by_item_normalize(item) for item in grouping_set]
             for grouping_set in self.grouping_sets
         ]
 
@@ -2422,7 +2492,10 @@ class AggregateWrapper(Mergeable, DataTyped, ConceptArgs, Namespaced):
 
     @property
     def concept_arguments(self) -> List[ConceptRef]:
-        return self.function.concept_arguments + [x.reference for x in self.by]
+        out: List[ConceptRef] = list(self.function.concept_arguments)
+        for x in self.by:
+            out.extend(get_concept_arguments(x))
+        return out
 
     @property
     def output_datatype(self):
@@ -2435,14 +2508,13 @@ class AggregateWrapper(Mergeable, DataTyped, ConceptArgs, Namespaced):
     def with_merge(self, source: Concept, target: Concept, modifiers: List[Modifier]):
         return AggregateWrapper(
             function=self.function.with_merge(source, target, modifiers=modifiers),
-            by=(
-                [c.with_merge(source, target, modifiers) for c in self.by]
-                if self.by
-                else []
-            ),
+            by=[_by_item_with_merge(c, source, target, modifiers) for c in self.by],
             grouping=self.grouping,
             grouping_sets=[
-                [c.with_merge(source, target, modifiers) for c in grouping_set]
+                [
+                    _by_item_with_merge(c, source, target, modifiers)
+                    for c in grouping_set
+                ]
                 for grouping_set in self.grouping_sets
             ],
         )
@@ -2450,14 +2522,13 @@ class AggregateWrapper(Mergeable, DataTyped, ConceptArgs, Namespaced):
     def with_reference_replacement(self, replacements: ReferenceReplacements):
         return AggregateWrapper(
             function=self.function.with_reference_replacement(replacements),
-            by=(
-                [c.with_reference_replacement(replacements) for c in self.by]
-                if self.by
-                else []
-            ),
+            by=[_by_item_with_reference_replacement(c, replacements) for c in self.by],
             grouping=self.grouping,
             grouping_sets=[
-                [c.with_reference_replacement(replacements) for c in grouping_set]
+                [
+                    _by_item_with_reference_replacement(c, replacements)
+                    for c in grouping_set
+                ]
                 for grouping_set in self.grouping_sets
             ],
         )
@@ -2465,10 +2536,10 @@ class AggregateWrapper(Mergeable, DataTyped, ConceptArgs, Namespaced):
     def with_namespace(self, namespace: str) -> "AggregateWrapper":
         return AggregateWrapper(
             function=self.function.with_namespace(namespace),
-            by=[c.with_namespace(namespace) for c in self.by] if self.by else [],
+            by=[_by_item_with_namespace(c, namespace) for c in self.by],
             grouping=self.grouping,
             grouping_sets=[
-                [c.with_namespace(namespace) for c in grouping_set]
+                [_by_item_with_namespace(c, namespace) for c in grouping_set]
                 for grouping_set in self.grouping_sets
             ],
         )

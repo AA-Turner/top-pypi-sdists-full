@@ -554,10 +554,8 @@ class XMLParserBase:
         Given an mxPrint object, set object data for
         the print section of a layout.PageLayout object
 
-
         >>> from xml.etree.ElementTree import fromstring as El
         >>> MP = musicxml.xmlToM21.MeasureParser()
-
 
         >>> mxPrint = El('<print new-page="yes" page-number="5">'
         ...    + '    <page-layout><page-height>4000</page-height>'
@@ -2170,7 +2168,6 @@ class PartParser(XMLParserBase):
         >>> pp2.lastTimeSignature
         <music21.meter.TimeSignature 4/4>
 
-
         For obscure reasons relating to how Finale gives suffixes
         to unnumbered measures, if a measure has the same number
         as the lastMeasureNumber, the lastNumberSuffix is not updated:
@@ -2607,7 +2604,8 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
 
     def insertCoreAndRef(self, offset, mxObjectOrNumber, m21Object):
         '''
-        runs addToStaffReference and then insertCore.
+        runs addToStaffReference and then insertCore (which will do opFracs, so no need to do
+        so before here)
 
         >>> from xml.etree.ElementTree import fromstring as EL
         >>> mxNote = EL('<note><staff>1</staff></note>')
@@ -2665,13 +2663,13 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
 
         >>> MP = musicxml.xmlToM21.MeasureParser()
         >>> MP.divisions = 100
-        >>> MP.offsetMeasureNote = 1.9979
+        >>> MP.offsetMeasureNote = 1.875
 
         >>> from xml.etree.ElementTree import fromstring as EL
         >>> mxBackup = EL('<backup><duration>100</duration></backup>')
         >>> MP.xmlBackup(mxBackup)
         >>> MP.offsetMeasureNote
-        0.9979
+        0.875
 
         >>> MP.xmlBackup(mxBackup)
         >>> MP.offsetMeasureNote
@@ -2679,8 +2677,8 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
         '''
         mxDuration = mxObj.find('duration')
         if durationText := strippedText(mxDuration):
-            change = opFrac(float(durationText) / self.divisions)
-            self.offsetMeasureNote -= change
+            self.offsetMeasureNote = opFrac(self.offsetMeasureNote
+                                            - float(durationText) / self.divisions)
             # check for negative offsets produced by
             # musicxml durations with float rounding issues
             # https://github.com/cuthbertLab/music21/issues/971
@@ -2710,7 +2708,7 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
                 self.lastForwardTagCreatedByFinale = r
 
             # Allow overfilled measures for now -- TODO(someday): warn?
-            self.offsetMeasureNote += change
+            self.offsetMeasureNote = opFrac(self.offsetMeasureNote + change)
 
     def xmlPrint(self, mxPrint: ET.Element):
         '''
@@ -2869,7 +2867,7 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
             self.nLast = c  # update
 
         # only increment Chords after completion
-        self.offsetMeasureNote += offsetIncrement
+        self.offsetMeasureNote = opFrac(self.offsetMeasureNote + offsetIncrement)
         self.lastForwardTagCreatedByFinale = None
 
     def xmlToChord(self, mxNoteList: list[ET.Element]) -> chord.ChordBase:
@@ -2992,7 +2990,6 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
         <music21.duration.Duration 0.75>
         >>> n.articulations
         [<music21.articulations.Pizzicato>]
-
 
         >>> beams = EL('<beam>begin</beam>')
         >>> mxNote.append(beams)
@@ -3335,7 +3332,6 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
         'half-flat'
         >>> b.alter
         -0.5
-
 
         >>> a = EL('<accidental bracket="yes">sharp</accidental>')
         >>> b = MP.xmlToAccidental(a)
@@ -3901,7 +3897,6 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
 
         >>> f.fingerNumber
         5
-
 
         >>> mxTech = EL('<fingering alternate="yes">4-3</fingering>')
         >>> f = MP.xmlTechnicalToArticulation(mxTech)
@@ -4908,7 +4903,6 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
         >>> l2
         <music21.note.Lyric number=0 identifier='part2verse1' syllabic=single text='word'>
 
-
         Multiple texts can be created and result in composite lyrics
 
         >>> mxBianco = ET.fromstring('<lyric>'
@@ -5720,7 +5714,7 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
         self.setPosition(mxMetronome, mm)
         return mm
 
-    def xmlToOffset(self, mxObj):
+    def xmlToOffset(self, mxObj: ET.Element) -> float:
         '''
         Finds an <offset> inside the mxObj and returns it as
         a music21 offset (in quarterLengths)
@@ -5732,17 +5726,16 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
         >>> MP.xmlToOffset(off)
         2.5
 
-        Returns a float, not fraction.
+        Returns a float, not fraction, since the inserts will later convert to a Fraction
+        if need be.
 
         >>> MP.divisions = 30
         >>> off = EL(r'<direction><offset>10</offset></direction>')
         >>> MP.xmlToOffset(off)
         0.33333...
-
         '''
-
         try:
-            offset = float(mxObj.find('offset').text.strip())
+            offset = float(mxObj.find('offset').text.strip())  # type: ignore
         except (ValueError, AttributeError):
             return 0.0
         return offset / self.divisions
@@ -5828,7 +5821,6 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
         ...                   + '<chromatic>-9</chromatic></transpose>')
         >>> MP.xmlTransposeToInterval(t)
         <music21.interval.Interval M-6>
-
 
         Not mentioned in MusicXML XSD but supported in (Finale; MuseScore): octave-change
         refers to both diatonic and chromatic, so we will deal:
@@ -5945,7 +5937,6 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
         >>> mxSenza = ET.fromstring('<time><senza-misura>0</senza-misura></time>')
         >>> MP.xmlToTimeSignature(mxSenza)
         <music21.meter.SenzaMisuraTimeSignature 0>
-
 
         Small Duration Time Signatures
 
@@ -6109,13 +6100,11 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
         >>> MP.xmlToKeySignature(mxKey)
         <music21.key.KeySignature of 4 flats>
 
-
         >>> mxKey = ET.fromstring('<key><fifths>-4</fifths><mode>minor</mode></key>')
 
         >>> MP = musicxml.xmlToM21.MeasureParser()
         >>> MP.xmlToKeySignature(mxKey)
         <music21.key.Key of f minor>
-
 
         Invalid modes get ignored and returned as KeySignatures
 
@@ -6210,7 +6199,6 @@ class MeasureParser(SoundTagMixin, XMLParserBase):
 
         >>> MP.xmlToKeySignature(mxKey)
         <music21.key.KeySignature of pitches: [E-]>
-
 
         Works with key-accidental also:
 

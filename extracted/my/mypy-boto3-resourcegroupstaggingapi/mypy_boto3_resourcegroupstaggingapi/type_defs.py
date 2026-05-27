@@ -64,6 +64,7 @@ __all__ = (
 class ComplianceDetailsTypeDef(TypedDict):
     NoncompliantKeys: NotRequired[list[str]]
     KeysWithNoncompliantValues: NotRequired[list[str]]
+    MissingTagKeys: NotRequired[list[str]]
     ComplianceStatus: NotRequired[bool]
 
 

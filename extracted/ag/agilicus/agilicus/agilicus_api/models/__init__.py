@@ -209,6 +209,10 @@ from agilicus_api.model.connector import Connector
 from agilicus_api.model.connector_base_info import ConnectorBaseInfo
 from agilicus_api.model.connector_base_info_map import ConnectorBaseInfoMap
 from agilicus_api.model.connector_cloud_routing import ConnectorCloudRouting
+from agilicus_api.model.connector_debug_common_stats import ConnectorDebugCommonStats
+from agilicus_api.model.connector_debug_log import ConnectorDebugLog
+from agilicus_api.model.connector_debug_stats_publish import ConnectorDebugStatsPublish
+from agilicus_api.model.connector_debug_summary_stats import ConnectorDebugSummaryStats
 from agilicus_api.model.connector_diagnostic_stats import ConnectorDiagnosticStats
 from agilicus_api.model.connector_forwarder_stats_publish import ConnectorForwarderStatsPublish
 from agilicus_api.model.connector_instance import ConnectorInstance
@@ -682,6 +686,7 @@ from agilicus_api.model.page_at_key import PageAtKey
 from agilicus_api.model.page_info import PageInfo
 from agilicus_api.model.page_on import PageOn
 from agilicus_api.model.per_instance_audit_destination_stats import PerInstanceAuditDestinationStats
+from agilicus_api.model.per_instance_debug_stats import PerInstanceDebugStats
 from agilicus_api.model.per_instance_forwarder_stats import PerInstanceForwarderStats
 from agilicus_api.model.per_instance_upstream_stats import PerInstanceUpstreamStats
 from agilicus_api.model.per_tunnel_stats import PerTunnelStats

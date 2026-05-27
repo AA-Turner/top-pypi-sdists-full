@@ -35,7 +35,7 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> list[RepositoryResponse]:
-    """Get repositories for the current user's organization (auto-provisions if needed)"""
+    """Get repositories for the current user's organization."""
 
     request_args = _build_request_args(
         authorization=authorization,
@@ -52,7 +52,7 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> list[RepositoryResponse]:
-    """Get repositories for the current user's organization (auto-provisions if needed)"""
+    """Get repositories for the current user's organization."""
 
     request_args = _build_request_args(
         authorization=authorization,

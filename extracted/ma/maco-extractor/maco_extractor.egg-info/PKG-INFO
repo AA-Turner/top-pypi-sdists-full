@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: maco-extractor
-Version: 1.2.26
+Version: 1.3.0
 Summary: This package contains the essentials for creating Maco extractors and using them at runtime.
 Author: sl-govau
 Maintainer: cccs-rs

@@ -261,7 +261,7 @@ class GatewayTunnel:
             remaining = max(0.0, deadline - loop.time())
             try:
                 await asyncio.wait_for(server.wait_closed(), timeout=remaining)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("Timed out waiting for gateway server socket to close")
             self._server = None
 

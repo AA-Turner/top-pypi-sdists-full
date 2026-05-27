@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 from urllib.parse import quote
 
 import httpx
@@ -77,6 +77,7 @@ logger = logging.getLogger(__name__)
 SSH_CACHE_DIR = Path.home() / ".cache" / "plato" / "ssh"
 DEFAULT_BASE_URL = "https://plato.so"
 DEFAULT_TIMEOUT = 600.0
+VALID_PROVIDERS = {"firecracker", "qemu"}
 
 
 def _get_plato_dir(working_dir: Path | None = None) -> Path:
@@ -687,6 +688,7 @@ class SandboxClient:
         # common
         connect_network: bool = True,
         timeout: int = 1800,
+        provider: str | None = None,
     ) -> SandboxState:
         """Start a sandbox environment.
 
@@ -704,12 +706,22 @@ class SandboxClient:
             app_port: App port.
             messaging_port: Messaging port.
             connect_network: Whether to connect WireGuard network.
+            provider: VM provider for blank/config resource VMs. Use "qemu" for Windows VMs.
 
         Returns:
             SandboxState with sandbox info.
         """
 
         assert self.api_key is not None
+        provider_literal: Literal["firecracker", "qemu"] | None = None
+        if provider is not None:
+            if provider not in VALID_PROVIDERS:
+                raise ValueError(
+                    f"Invalid provider '{provider}'. Expected one of: {', '.join(sorted(VALID_PROVIDERS))}"
+                )
+            if mode not in {"blank", "config"}:
+                raise ValueError("--provider is only supported for blank and config sandbox modes")
+            provider_literal = cast(Literal["firecracker", "qemu"], provider)
 
         # Build environment config using Env factory
         env_config: EnvFromSimulator | EnvFromArtifact | EnvFromResource
@@ -733,7 +745,7 @@ class SandboxClient:
             sim_config = SimConfigCompute(
                 cpus=cpus, memory=memory, disk=disk, app_port=app_port, plato_messaging_port=messaging_port
             )
-            env_config = Env.resource(sim_name, sim_config)
+            env_config = Env.resource(sim_name, sim_config, provider=provider_literal)
         elif mode == "config":
             self.console.print("[cyan]Mode:[/cyan] config (plato-config.yml)")
             # read plato-config.yml
@@ -761,7 +773,7 @@ class SandboxClient:
                 app_port=config_app_port,
                 plato_messaging_port=config_messaging_port,
             )
-            env_config = Env.resource(simulator_name, sim_config)
+            env_config = Env.resource(simulator_name, sim_config, provider=provider_literal)
         else:
             raise ValueError(f"Invalid mode '{mode}' or missing required parameter")
 
@@ -899,23 +911,26 @@ class SandboxClient:
         # right User — root for firecracker/Linux, plato for QEMU/Windows.
         # Falls back to root when the field is missing (older API rollouts),
         # which keeps the legacy firecracker path working.
+        # If the caller passed --provider explicitly, use that; otherwise look
+        # it up from job info (covers artifact/simulator modes where the
+        # provider is determined by the backend).
         self.console.print("[yellow]Setting up SSH...[/yellow]")
         step_start = time.time()
         ssh_config_path = None
-        provider: str | None = None
         try:
-            try:
-                job_info = jobs_get_job_info.sync(
-                    client=self._http,
-                    job_id=job_id,
-                    x_api_key=self.api_key,
-                )
-                provider = getattr(job_info, "provider", None) or (
-                    job_info.model_dump().get("provider") if hasattr(job_info, "model_dump") else None
-                )
-            except Exception as e:
-                # Non-fatal: provider lookup failure → fall through with root user.
-                self.console.print(f"[dim]Provider lookup failed (defaulting to firecracker): {e}[/dim]")
+            if provider is None:
+                try:
+                    job_info = jobs_get_job_info.sync(
+                        client=self._http,
+                        job_id=job_id,
+                        x_api_key=self.api_key,
+                    )
+                    provider = getattr(job_info, "provider", None) or (
+                        job_info.model_dump().get("provider") if hasattr(job_info, "model_dump") else None
+                    )
+                except Exception as e:
+                    # Non-fatal: provider lookup failure → fall through with root user.
+                    self.console.print(f"[dim]Provider lookup failed (defaulting to firecracker): {e}[/dim]")
 
             install_user = _ssh_user_for_provider(provider)
             public_key, private_key_path = _generate_ssh_key_pair(session_id[:8], Path(self.working_dir))
@@ -977,6 +992,7 @@ class SandboxClient:
             heartbeat_pid=heartbeat_pid,
             simulator_name=simulator_name,
             dataset=dataset,
+            provider=provider,
             network_connected=network_connected,
         )
         if mode == "artifact":
@@ -1156,6 +1172,10 @@ class SandboxClient:
             checkpoint_request.internal_app_port = dataset_compute.app_port
             checkpoint_request.messaging_port = dataset_compute.plato_messaging_port
             # we dont set target
+
+            # Override service name if specified in plato-config.yml
+            if plato_config_model.service:
+                checkpoint_request.override_service = plato_config_model.service
 
             # Read flows from the path specified in plato-config metadata
             # API expects YAML string, not parsed dict

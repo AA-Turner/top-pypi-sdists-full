@@ -38,14 +38,12 @@ def _test_email_with_dkim(include_headers):
 
     to = "b@b.com"
 
-    recipients, msg_bytes = yag.send(
+    recipients, msg_string = yag.send(
         to=to,
         subject="hello from tests",
         contents="important message",
         preview_only=True
     )
-
-    msg_string = msg_bytes.decode("utf8")
 
     assert recipients == [to]
     assert "Subject: hello from tests" in msg_string
@@ -56,13 +54,13 @@ def _test_email_with_dkim(include_headers):
                    "q=dns/txt; s=selector; t="
     assert dkim_string1 in msg_string
 
-    l = logging.getLogger()
-    l.setLevel(level=logging.DEBUG)
+    logger = logging.getLogger()
+    logger.setLevel(level=logging.DEBUG)
     logging.basicConfig(level=logging.DEBUG)
 
     assert dkim.verify(
         message=msg_string.encode("utf8"),
-        logger=l,
+        logger=logger,
         dnsfunc=get_txt_from_test_file
     )
 
@@ -79,6 +77,9 @@ def test_email_with_dkim():
 def test_dkim_without_including_headers():
     msg_string = _test_email_with_dkim(include_headers=None)
 
-    dkim_string_headers = "h=content-type : mime-version :\n date : subject : from : to : message-id : from;\n"
+    dkim_string_headers = (
+        "h=content-type : mime-version :\n "
+        "date : subject : from : to : message-id : from;\n"
+    )
     assert dkim_string_headers in msg_string
 

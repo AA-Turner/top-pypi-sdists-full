@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnibase_core
-Version: 0.41.0
+Version: 0.42.0
 Summary: ONEX Core Framework - Base classes and essential implementations
 Project-URL: Homepage, https://github.com/OmniNode-ai/omnibase_core
 Project-URL: Repository, https://github.com/OmniNode-ai/omnibase_core
@@ -34,16 +34,18 @@ Requires-Dist: redis<8.0.0,>=5.0.0; extra == 'cache'
 Provides-Extra: cli
 Requires-Dist: psutil>=7.2.1; extra == 'cli'
 Provides-Extra: compat
-Requires-Dist: omnibase-compat<1.0.0,>=0.3.1; extra == 'compat'
+Requires-Dist: omnibase-compat<1.0.0,>=0.4.1; extra == 'compat'
 Provides-Extra: full
+Requires-Dist: aiokafka<1.0.0,>=0.12.0; extra == 'full'
 Requires-Dist: confluent-kafka<3.0.0,>=2.12.0; extra == 'full'
-Requires-Dist: omnibase-compat<1.0.0,>=0.3.1; extra == 'full'
+Requires-Dist: omnibase-compat<1.0.0,>=0.4.1; extra == 'full'
 Requires-Dist: omnibase-spi>=0.20.2; extra == 'full'
 Requires-Dist: prometheus-client<1.0.0,>=0.21.0; extra == 'full'
 Requires-Dist: psutil>=7.2.1; extra == 'full'
 Requires-Dist: redis<8.0.0,>=5.0.0; extra == 'full'
 Requires-Dist: sqlglot<31.0.0,>=26.0.0; extra == 'full'
 Provides-Extra: kafka
+Requires-Dist: aiokafka<1.0.0,>=0.12.0; extra == 'kafka'
 Requires-Dist: confluent-kafka<3.0.0,>=2.12.0; extra == 'kafka'
 Provides-Extra: metrics
 Requires-Dist: prometheus-client<1.0.0,>=0.21.0; extra == 'metrics'

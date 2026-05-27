@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openai-agents
-Version: 0.17.3
+Version: 0.17.4
 Summary: OpenAI Agents SDK
 Project-URL: Homepage, https://openai.github.io/openai-agents-python/
 Project-URL: Repository, https://github.com/openai/openai-agents-python
@@ -21,7 +21,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: griffelib<3,>=2
 Requires-Dist: mcp<2,>=1.19.0; python_version >= '3.10'
-Requires-Dist: openai<3,>=2.26.0
+Requires-Dist: openai<3,>=2.36.0
 Requires-Dist: pydantic<3,>=2.12.2
 Requires-Dist: requests<3,>=2.0
 Requires-Dist: types-requests<3,>=2.0

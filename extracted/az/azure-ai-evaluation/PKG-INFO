@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-evaluation
-Version: 1.16.8
+Version: 1.16.9
 Summary: Microsoft Azure Evaluation Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -416,6 +416,12 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 
 # Release History
+
+## 1.16.9 (2026-05-21)
+
+### Bugs Fixed
+
+- Fixed `format_llm_response` raising `UnboundLocalError` when `inputs` was not provided by ensuring `sample_input` is always initialized.
 
 ## 1.16.8 (2026-05-19)
 

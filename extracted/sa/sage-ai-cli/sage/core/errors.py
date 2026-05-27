@@ -572,7 +572,11 @@ class ErrorRenderer:
     """
 
     def __init__(self, console: Console | None = None):
-        self.console = console or Console(stderr=True)
+        if console is None:
+            from sage.core.renderer import err_console
+            self.console = err_console
+        else:
+            self.console = console
 
     def render(self, error: SageError) -> None:
         """Render an error with full guidance."""
@@ -841,7 +845,9 @@ def confirm_destructive_operation(
 
     P0-14: Add confirmation prompts for destructive operations
     """
-    console = console or Console()
+    if console is None:
+        from sage.core.renderer import console as _default_console
+        console = _default_console
 
     console.print(f"\n[yellow bold]Warning:[/yellow bold] {operation}")
     console.print(f"[dim]{details}[/dim]\n")

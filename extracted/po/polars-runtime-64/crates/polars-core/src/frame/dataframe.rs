@@ -29,9 +29,10 @@ use crate::schema::{Schema, SchemaRef};
 /// assert_eq!(df.shape(), (0, 0));
 /// ```
 ///
-/// ## Constructing from a `Vec<Column>`
+/// ## Wrapping a `Vec<Series>`
 ///
-/// A `DataFrame` is backed by a `Vec<Column>` where the `Column`s have the same length.
+/// A `DataFrame` is built upon a `Vec<Series>` where the `Series` have the same length.
+///
 /// ```rust
 /// # use polars_core::prelude::*;
 /// let s1 = Column::new("Fruit".into(), ["Apple", "Apple", "Pear"]);

@@ -63,50 +63,6 @@ See Also:
     - docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md: Architecture overview
 """
 
-from importlib import import_module
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from omnibase_compat.contracts.delegation.model_delegation_dashboard_connection import (
-        ModelDelegationDashboardConnection,
-    )
-    from omnibase_compat.contracts.delegation.model_delegation_datastore import (
-        ModelDelegationDatastore,
-    )
-    from omnibase_compat.contracts.delegation.model_delegation_event_bus_endpoint import (
-        ModelDelegationEventBusEndpoint,
-    )
-    from omnibase_compat.contracts.delegation.model_delegation_llm_backend import (
-        ModelDelegationLlmBackend,
-    )
-    from omnibase_compat.contracts.delegation.model_delegation_pricing_manifest_ref import (
-        ModelDelegationPricingManifestRef,
-    )
-    from omnibase_compat.contracts.delegation.model_delegation_projection_api import (
-        ModelDelegationProjectionApi,
-    )
-    from omnibase_compat.contracts.delegation.model_delegation_runtime_profile import (
-        ModelDelegationRuntimeProfile,
-    )
-    from omnibase_compat.contracts.delegation.model_delegation_secret_ref import (
-        ModelDelegationSecretRef,
-    )
-    from omnibase_compat.contracts.delegation.model_delegation_security import (
-        ModelDelegationSecurity,
-    )
-
-_DELEGATION_COMPAT_EXPORTS = {
-    "ModelDelegationDashboardConnection": "omnibase_compat.contracts.delegation.model_delegation_dashboard_connection",
-    "ModelDelegationDatastore": "omnibase_compat.contracts.delegation.model_delegation_datastore",
-    "ModelDelegationEventBusEndpoint": "omnibase_compat.contracts.delegation.model_delegation_event_bus_endpoint",
-    "ModelDelegationLlmBackend": "omnibase_compat.contracts.delegation.model_delegation_llm_backend",
-    "ModelDelegationPricingManifestRef": "omnibase_compat.contracts.delegation.model_delegation_pricing_manifest_ref",
-    "ModelDelegationProjectionApi": "omnibase_compat.contracts.delegation.model_delegation_projection_api",
-    "ModelDelegationRuntimeProfile": "omnibase_compat.contracts.delegation.model_delegation_runtime_profile",
-    "ModelDelegationSecretRef": "omnibase_compat.contracts.delegation.model_delegation_secret_ref",  # pragma: allowlist secret
-    "ModelDelegationSecurity": "omnibase_compat.contracts.delegation.model_delegation_security",
-}
-
 from omnibase_core.mixins.mixin_node_type_validator import MixinNodeTypeValidator
 from omnibase_core.models.discovery.model_event_descriptor import ModelEventDescriptor
 from omnibase_core.models.runtime.model_descriptor_circuit_breaker import (
@@ -121,6 +77,12 @@ from omnibase_core.models.runtime.model_handler_behavior import (
 from omnibase_core.models.security.model_condition_value import ModelConditionValue
 
 from . import subcontracts
+from .evidence import (
+    EnumStableProofKind,
+    ModelContractEvidenceProof,
+    ModelContractEvidenceSpec,
+    ModelEvidenceProvenance,
+)
 from .model_action_config_parameter import (
     ModelActionConfigParameter,
     ParameterType,
@@ -146,6 +108,7 @@ from .model_conflict_resolution_config import ModelConflictResolutionConfig
 from .model_consumed_event_entry import ModelConsumedEventEntry
 from .model_contract_base import ModelContractBase
 from .model_contract_compute import ModelContractCompute
+from .model_contract_config import ModelContractConfig
 from .model_contract_effect import ModelContractEffect
 from .model_contract_fingerprint import ModelContractFingerprint
 from .model_contract_meta import (
@@ -175,6 +138,15 @@ from .model_db_param import ModelDbParam
 from .model_db_repository_contract import ModelDbRepositoryContract
 from .model_db_return import ModelDbReturn
 from .model_db_safety_policy import ModelDbSafetyPolicy
+from .model_delegation_dashboard_connection import ModelDelegationDashboardConnection
+from .model_delegation_datastore import ModelDelegationDatastore
+from .model_delegation_event_bus_endpoint import ModelDelegationEventBusEndpoint
+from .model_delegation_llm_backend import ModelDelegationLlmBackend
+from .model_delegation_pricing_manifest_ref import ModelDelegationPricingManifestRef
+from .model_delegation_projection_api import ModelDelegationProjectionApi
+from .model_delegation_runtime_profile import ModelDelegationRuntimeProfile
+from .model_delegation_secret_ref import ModelDelegationSecretRef
+from .model_delegation_security import ModelDelegationSecurity
 from .model_dependency import ModelDependency
 from .model_dependency_spec import (
     DependencyType,
@@ -200,10 +172,12 @@ from .model_http_response_contract import ModelHttpResponseContract
 from .model_input_validation_config import ModelInputValidationConfig
 from .model_io_operation_config import ModelIOOperationConfig
 from .model_lifecycle_config import ModelLifecycleConfig
+from .model_llm_endpoint_config import ModelLlmEndpointConfig
 from .model_memory_management_config import ModelMemoryManagementConfig
 from .model_node_extensions import ModelNodeExtensions
 from .model_node_ref import ModelNodeRef
 from .model_omnimemory_contract import ModelOmniMemoryContract
+from .model_operational_config import ModelOperationalConfig
 from .model_output_transformation_config import ModelOutputTransformationConfig
 from .model_parallel_config import ModelParallelConfig
 from .model_performance_requirements import ModelPerformanceRequirements
@@ -222,6 +196,7 @@ from .model_retry_policy_contract import ModelRetryPolicyContract
 from .model_runtime_event_bus_config import ModelRuntimeEventBusConfig
 from .model_runtime_handler_config import ModelRuntimeHandlerConfig
 from .model_runtime_host_contract import ModelRuntimeHostContract
+from .model_storage_config import ModelStorageConfig
 from .model_streaming_config import ModelStreamingConfig
 from .model_transaction_config import ModelTransactionConfig
 from .model_trigger_mappings import ModelTriggerMappings
@@ -238,46 +213,30 @@ from .subcontracts import (
     ModelHandlerRoutingSubcontract,
 )
 
-
-def __getattr__(name: str) -> Any:
-    """Resolve optional delegation model re-exports on first access."""
-    module_name = _DELEGATION_COMPAT_EXPORTS.get(name)
-    if module_name is None:
-        raise AttributeError(  # error-ok: module __getattr__ protocol requires AttributeError
-            f"module {__name__!r} has no attribute {name!r}"
-        )
-
-    try:
-        module = import_module(module_name)
-    except ImportError as exc:
-        message = (
-            f"{name} requires the optional omnibase_compat package. "
-            "Install omnibase-core[compat] or omnibase-compat to use delegation "
-            "runtime profile contracts."
-        )
-        raise ImportError(message) from exc  # error-ok: optional import contract
-
-    value = getattr(module, name)
-    globals()[name] = value
-    return value
-
-
 __all__ = [
     # Mixins
     "MixinNodeTypeValidator",
     # Foundation models
     "ModelConsumedEventEntry",
     "ModelContractBase",
+    "ModelContractConfig",
+    "ModelLlmEndpointConfig",
+    "ModelOperationalConfig",
+    "ModelStorageConfig",
     "ModelContractFingerprint",
     "ModelContractMeta",
+    "ModelContractEvidenceProof",
+    "ModelContractEvidenceSpec",
     "ModelContractNodeMetadata",
     "ModelContractNormalizationConfig",
     "ModelContractVersion",
+    "ModelEvidenceProvenance",
     "ModelCorpusClassification",
     "ModelDependency",
     "ModelDependencySpec",
     "DependencyType",
     "SelectionStrategy",
+    "EnumStableProofKind",
     "ModelDriftDetails",
     "ModelDriftResult",
     "ModelNodeExtensions",
