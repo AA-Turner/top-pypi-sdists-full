@@ -117,11 +117,11 @@ def date_test(x: str) -> bool:
 
 
 def datetime64_test(x: str) -> bool:
-    return any([p.match(x) for p in datetime64_patterns])
+    return any(p.match(x) for p in datetime64_patterns)
 
 
 def datetime_test(x: str) -> bool:
-    return any([p.match(x) for p in datetime_patterns])
+    return any(p.match(x) for p in datetime_patterns)
 
 
 def int_8_test(x: str) -> bool:

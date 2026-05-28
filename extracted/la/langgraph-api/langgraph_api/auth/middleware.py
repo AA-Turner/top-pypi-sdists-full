@@ -52,7 +52,7 @@ class ConditionalAuthenticationMiddleware(AuthenticationMiddleware):
                 await self.app(scope, receive, send)
                 return
 
-        if scope["path"].startswith("/ui") and scope["method"] == "GET":
+        if scope["path"].startswith("/ui") and scope.get("method") == "GET":
             # disable auth for UI asset requests
             await self.app(scope, receive, send)
             return

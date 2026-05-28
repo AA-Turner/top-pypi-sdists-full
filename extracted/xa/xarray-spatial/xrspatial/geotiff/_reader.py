@@ -1,878 +1,124 @@
-"""TIFF/COG reader: tile/strip assembly, windowed reads, HTTP range requests."""
+"""TIFF/COG reader: tile/strip assembly, windowed reads, HTTP range requests.
+
+This module is private to :mod:`xrspatial.geotiff`. The supported public
+read entry points are :func:`xrspatial.geotiff.open_geotiff`,
+:func:`xrspatial.geotiff.read_geotiff_gpu`,
+:func:`xrspatial.geotiff.read_geotiff_dask`, and
+:func:`xrspatial.geotiff.read_vrt`. Direct callers of the helpers
+defined here bypass the DataArray-level work that the public wrappers
+perform (ambiguous-metadata fail-closed, nodata-to-NaN promotion,
+``masked_nodata`` attr, ``transform`` / ``crs`` attrs population) and
+have to replicate those steps by hand. See issue #2138.
+
+For source modules inside :mod:`xrspatial.geotiff`, the canonical
+internal name for the array-level reader is :func:`_read_to_array`.
+The non-underscored :func:`read_to_array` is kept as an alias for
+internal call sites that pre-date the rename.
+"""
 from __future__ import annotations
 
-import math
-import mmap
-import os as _os_module
-import threading
-import urllib.request
-from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
-
 import numpy as np
-
-from ._compression import (
-    COMPRESSION_NONE,
-    decompress,
-    fp_predictor_decode,
-    predictor_decode,
-    unpack_bits,
-)
-from ._dtypes import SUB_BYTE_BPS, tiff_dtype_to_numpy
-from ._geotags import GeoInfo, GeoTransform, extract_geo_info
-from ._header import IFD, TIFFHeader, parse_all_ifds, parse_header, validate_tile_layout
-
-# ---------------------------------------------------------------------------
-# Allocation guard: reject TIFF dimensions that would exhaust memory
-# ---------------------------------------------------------------------------
-
-#: Default maximum total pixel count (width * height * samples).
-#: ~1 billion pixels, which is ~4 GB for float32 single-band.
-#: Override per-call via the ``max_pixels`` keyword argument.
-MAX_PIXELS_DEFAULT = 1_000_000_000
-
-
-def _check_dimensions(width, height, samples, max_pixels):
-    """Raise ValueError if the requested allocation exceeds *max_pixels*."""
-    total = width * height * samples
-    if total > max_pixels:
-        raise ValueError(
-            f"TIFF image dimensions ({width} x {height} x {samples} = "
-            f"{total:,} pixels) exceed the safety limit of "
-            f"{max_pixels:,} pixels.  Pass a larger max_pixels value to "
-            f"read_to_array() if this file is legitimate."
-        )
-
-
-# ---------------------------------------------------------------------------
-# Data source abstraction
-# ---------------------------------------------------------------------------
-
-#: Soft cap on the number of mmap entries the reader keeps open at once.
-#: When the cache size exceeds this, the least-recently-used *idle* entry
-#: (refcount 0) is closed. In-use entries are never evicted. Override via
-#: the ``XRSPATIAL_GEOTIFF_MMAP_CACHE_SIZE`` environment variable.
-_DEFAULT_MMAP_CACHE_SIZE = 32
-
-
-def _mmap_cache_size_from_env() -> int:
-    """Read the cache size cap from the environment, falling back to the default."""
-    raw = _os_module.environ.get('XRSPATIAL_GEOTIFF_MMAP_CACHE_SIZE')
-    if raw is None:
-        return _DEFAULT_MMAP_CACHE_SIZE
-    try:
-        val = int(raw)
-    except (TypeError, ValueError):
-        return _DEFAULT_MMAP_CACHE_SIZE
-    return max(1, val)
-
-
-class _MmapCache:
-    """Thread-safe, reference-counted, bounded LRU mmap cache.
-
-    Multiple threads reading the same file share a single read-only mmap.
-    The cache keeps idle (refcount 0) mmaps around so repeated opens of the
-    same file avoid the cost of re-mapping. When the number of entries
-    exceeds the cap (default 32, or ``XRSPATIAL_GEOTIFF_MMAP_CACHE_SIZE``),
-    the least-recently-used *idle* entry is evicted. Entries with active
-    references are never evicted.
-
-    mmap slicing on a read-only mapping is thread-safe (no seek involved).
-    """
-
-    def __init__(self, max_size: int | None = None):
-        self._lock = threading.Lock()
-        # path -> [fh, mm, size, refcount] (list so we can mutate in place)
-        # OrderedDict gives LRU semantics via move_to_end on access.
-        self._entries: OrderedDict[str, list] = OrderedDict()
-        self._max_size = (max_size if max_size is not None
-                          else _mmap_cache_size_from_env())
-
-    def acquire(self, path: str):
-        """Get or create a read-only mmap for *path*. Returns (mm, size)."""
-        real = _os_module.path.realpath(path)
-        with self._lock:
-            entry = self._entries.get(real)
-            if entry is not None:
-                entry[3] += 1
-                self._entries.move_to_end(real)
-                return entry[1], entry[2]
-
-            fh = open(real, 'rb')
-            fh.seek(0, 2)
-            size = fh.tell()
-            fh.seek(0)
-            if size > 0:
-                mm = mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ)
-            else:
-                mm = None
-            self._entries[real] = [fh, mm, size, 1]
-            self._evict_locked()
-            return mm, size
-
-    def release(self, path: str):
-        """Decrement the reference count.
-
-        When the count hits zero the entry stays cached (keyed by realpath)
-        until LRU eviction or :meth:`clear` is called.
-        """
-        real = _os_module.path.realpath(path)
-        with self._lock:
-            entry = self._entries.get(real)
-            if entry is None:
-                return
-            entry[3] -= 1
-            if entry[3] <= 0:
-                # Idle but still cached; mark LRU position.
-                self._entries.move_to_end(real)
-                self._evict_locked()
-
-    def _evict_locked(self):
-        """Drop oldest *idle* entries until the cache is at or below the cap."""
-        if len(self._entries) <= self._max_size:
-            return
-        # Walk from the front (oldest); only close idle (refcount 0) entries.
-        # An in-use entry can still happen to be at the front if the same
-        # file was acquired long ago and held; skip it.
-        to_drop = []
-        for key, entry in list(self._entries.items()):
-            if len(self._entries) - len(to_drop) <= self._max_size:
-                break
-            if entry[3] <= 0:
-                to_drop.append(key)
-        for key in to_drop:
-            entry = self._entries.pop(key)
-            _, mm, _, _ = entry
-            if mm is not None:
-                mm.close()
-            entry[0].close()
-
-    def clear(self):
-        """Close and drop all idle entries (used by tests)."""
-        with self._lock:
-            for key in [k for k, v in self._entries.items() if v[3] <= 0]:
-                entry = self._entries.pop(key)
-                _, mm, _, _ = entry
-                if mm is not None:
-                    mm.close()
-                entry[0].close()
-
-
-# Module-level cache shared across all reads
-_mmap_cache = _MmapCache()
-
-
-class _FileSource:
-    """Local file data source using a shared, thread-safe mmap cache."""
-
-    def __init__(self, path: str):
-        self._path = path
-        self._mm, self._size = _mmap_cache.acquire(path)
-
-    def read_range(self, start: int, length: int) -> bytes:
-        if self._mm is not None:
-            return self._mm[start:start + length]
-        return b''
-
-    def read_all(self):
-        """Return mmap object (supports slicing, struct.unpack_from, len)."""
-        if self._mm is not None:
-            return self._mm
-        return b''
-
-    @property
-    def size(self) -> int:
-        return self._size
-
-    def close(self):
-        _mmap_cache.release(self._path)
-
-
-def _get_http_pool():
-    """Return a module-level urllib3 PoolManager, or None if unavailable."""
-    global _http_pool
-    if _http_pool is not None:
-        return _http_pool
-    try:
-        import urllib3
-        _http_pool = urllib3.PoolManager(
-            num_pools=10,
-            maxsize=10,
-            retries=urllib3.Retry(total=2, backoff_factor=0.1),
-        )
-        return _http_pool
-    except ImportError:
-        return None
-
-
-_http_pool = None
-
-
-class _HTTPSource:
-    """HTTP data source using range requests with connection reuse.
-
-    Uses urllib3.PoolManager when available (reuses TCP connections and
-    TLS sessions across range requests to the same host). Falls back to
-    stdlib urllib.request if urllib3 is not installed.
-    """
-
-    def __init__(self, url: str):
-        self._url = url
-        self._size = None
-        self._pool = _get_http_pool()
-
-    def read_range(self, start: int, length: int) -> bytes:
-        end = start + length - 1
-        if self._pool is not None:
-            resp = self._pool.request(
-                'GET', self._url,
-                headers={'Range': f'bytes={start}-{end}'},
-            )
-            return resp.data
-        # Fallback: stdlib
-        req = urllib.request.Request(
-            self._url,
-            headers={'Range': f'bytes={start}-{end}'},
-        )
-        with urllib.request.urlopen(req) as resp:
-            return resp.read()
-
-    def read_ranges(
-        self,
-        ranges: list[tuple[int, int]],
-        max_workers: int = 8,
-    ) -> list[bytes]:
-        """Fetch multiple ranges concurrently using a thread pool.
-
-        Each ``(start, length)`` pair is fetched with its own range request,
-        but requests run in parallel so total wall time is bounded by the
-        slowest worker rather than ``len(ranges) * RTT``.
-
-        Returns the bytes for each range in input order.
-        """
-        if not ranges:
-            return []
-        if len(ranges) == 1:
-            start, length = ranges[0]
-            return [self.read_range(start, length)]
-
-        workers = min(max_workers, len(ranges))
-        results: list[bytes | None] = [None] * len(ranges)
-
-        with ThreadPoolExecutor(max_workers=workers) as ex:
-            future_to_idx = {
-                ex.submit(self.read_range, start, length): i
-                for i, (start, length) in enumerate(ranges)
-            }
-            for fut in future_to_idx:
-                idx = future_to_idx[fut]
-                results[idx] = fut.result()
-
-        return results  # type: ignore[return-value]
-
-    def read_all(self) -> bytes:
-        if self._pool is not None:
-            resp = self._pool.request('GET', self._url)
-            return resp.data
-        with urllib.request.urlopen(self._url) as resp:
-            return resp.read()
-
-    @property
-    def size(self) -> int | None:
-        return self._size
-
-    def close(self):
-        pass
-
-
-_CLOUD_SCHEMES = ('s3://', 'gs://', 'az://', 'abfs://')
-
-
-def _is_fsspec_uri(path: str) -> bool:
-    """Check if a path is a fsspec-compatible URI (not http/https/local)."""
-    if path.startswith(('http://', 'https://')):
-        return False
-    return '://' in path
-
-
-class _CloudSource:
-    """Cloud storage data source using fsspec.
-
-    Supports S3, GCS, Azure Blob Storage, and any other fsspec backend.
-    Requires the appropriate library (s3fs, gcsfs, adlfs) to be installed.
-    """
-
-    def __init__(self, url: str, **storage_options):
-        try:
-            import fsspec
-        except ImportError:
-            raise ImportError(
-                "fsspec is required to read from cloud storage. "
-                "Install it with: pip install fsspec")
-        self._url = url
-        self._fs, self._path = fsspec.core.url_to_fs(url, **storage_options)
-        self._size = self._fs.size(self._path)
-
-    def read_range(self, start: int, length: int) -> bytes:
-        with self._fs.open(self._path, 'rb') as f:
-            f.seek(start)
-            return f.read(length)
-
-    def read_all(self) -> bytes:
-        with self._fs.open(self._path, 'rb') as f:
-            return f.read()
-
-    @property
-    def size(self) -> int:
-        return self._size
-
-    def close(self):
-        pass
-
-
-def _open_source(source: str):
-    """Open a data source (local file, URL, or cloud path)."""
-    if source.startswith(('http://', 'https://')):
-        return _HTTPSource(source)
-    if _is_fsspec_uri(source):
-        return _CloudSource(source)
-    return _FileSource(source)
-
-
-def _apply_predictor(chunk: np.ndarray, pred: int, width: int,
-                     height: int, bytes_per_sample: int,
-                     samples: int = 1) -> np.ndarray:
-    """Apply the appropriate predictor decode to decompressed data.
-
-    ``width``, ``height``, ``bytes_per_sample``, and ``samples`` describe
-    the raw pixel layout before predictor inversion: ``width * samples``
-    samples per row, each ``bytes_per_sample`` bytes wide.
-
-    Predictor=2 (horizontal differencing) works byte-wise on a stride of
-    ``bytes_per_sample * samples``.
-
-    Predictor=3 (floating-point) byte-swizzles each row into
-    ``bytes_per_sample`` interleaved lanes of length ``width * samples``,
-    per TIFF Technical Note 3.  Passing ``bytes_per_sample * samples`` as
-    the lane count (the pre-fix behaviour) swizzles over the wrong lane
-    count and scrambles multi-band pixel values.
-    """
-    if pred == 2:
-        return predictor_decode(chunk, width, height,
-                                bytes_per_sample * samples)
-    elif pred == 3:
-        return fp_predictor_decode(chunk, width * samples, height,
-                                   bytes_per_sample)
-    return chunk
-
-
-def _packed_byte_count(pixel_count: int, bps: int) -> int:
-    """Compute the number of packed bytes for sub-byte bit depths."""
-    return (pixel_count * bps + 7) // 8
-
-
-def _decode_strip_or_tile(data_slice, compression, width, height, samples,
-                          bps, bytes_per_sample, is_sub_byte, dtype, pred,
-                          byte_order='<'):
-    """Decompress, apply predictor, unpack sub-byte, and reshape a strip/tile.
-
-    Parameters
-    ----------
-    byte_order : str
-        '<' for little-endian, '>' for big-endian.  When the file byte
-        order differs from the system's native order, pixel data is
-        byte-swapped after decompression.
-
-    Returns an array shaped (height, width) or (height, width, samples).
-    """
-    pixel_count = width * height * samples
-    if is_sub_byte:
-        expected = _packed_byte_count(pixel_count, bps)
-    else:
-        expected = pixel_count * bytes_per_sample
-
-    chunk = decompress(data_slice, compression, expected,
-                       width=width, height=height, samples=samples)
-
-    # Validate the decompressed byte count.  A truncated deflate stream or a
-    # buggy compressor can produce fewer or more bytes than expected.  Without
-    # this check the downstream reshape raises an opaque "cannot reshape array
-    # of size N into shape (h, w)" that hides which tile/strip broke.  Edge
-    # tiles in a valid TIFF still decompress to the full tile_height x
-    # tile_width (the caller slices the top-left region), so this only fires
-    # on genuine corruption.
-    if chunk.size != expected:
-        raise ValueError(
-            f"Decompressed tile/strip size mismatch: expected {expected} "
-            f"bytes for a {width} x {height} x {samples} block "
-            f"(bps={bps}, compression={compression}), got {chunk.size}. "
-            f"The TIFF data is likely truncated or corrupt."
-        )
-
-    if pred in (2, 3) and not is_sub_byte:
-        if not chunk.flags.writeable:
-            chunk = chunk.copy()
-        chunk = _apply_predictor(chunk, pred, width, height,
-                                 bytes_per_sample, samples=samples)
-
-    if is_sub_byte:
-        pixels = unpack_bits(chunk, bps, pixel_count)
-    else:
-        # Use the file's byte order for the view, then convert to native
-        file_dtype = dtype.newbyteorder(byte_order)
-        pixels = chunk.view(file_dtype)
-        if file_dtype.byteorder not in ('=', '|', _NATIVE_ORDER):
-            pixels = pixels.astype(dtype)
-
-    if samples > 1:
-        return pixels.reshape(height, width, samples)
-    return pixels.reshape(height, width)
-
-
-import sys as _sys
-_NATIVE_ORDER = '<' if _sys.byteorder == 'little' else '>'
-
-
-# ---------------------------------------------------------------------------
-# Strip reader
-# ---------------------------------------------------------------------------
-
-def _read_strips(data: bytes, ifd: IFD, header: TIFFHeader,
-                 dtype: np.dtype, window=None,
-                 max_pixels: int = MAX_PIXELS_DEFAULT) -> np.ndarray:
-    """Read a strip-organized TIFF image.
-
-    Parameters
-    ----------
-    data : bytes
-        Full file data.
-    ifd : IFD
-        Parsed IFD for this image.
-    header : TIFFHeader
-        File header.
-    dtype : np.dtype
-        Output pixel dtype.
-    window : tuple or None
-        (row_start, col_start, row_stop, col_stop) or None for full image.
-    max_pixels : int
-        Maximum allowed pixel count (width * height * samples).
-
-    Returns
-    -------
-    np.ndarray with shape (height, width) or windowed subset.
-    """
-    width = ifd.width
-    height = ifd.height
-    samples = ifd.samples_per_pixel
-    compression = ifd.compression
-    rps = ifd.rows_per_strip
-    offsets = ifd.strip_offsets
-    byte_counts = ifd.strip_byte_counts
-    pred = ifd.predictor
-    bps = ifd.bits_per_sample
-    if isinstance(bps, tuple):
-        bps = bps[0]
-    bytes_per_sample = bps // 8
-    is_sub_byte = bps in SUB_BYTE_BPS
-
-    if offsets is None or byte_counts is None:
-        raise ValueError("Missing strip offsets or byte counts")
-
-    planar = ifd.planar_config  # 1=chunky (interleaved), 2=planar (separate)
-
-    # Determine output region
-    if window is not None:
-        r0, c0, r1, c1 = window
-        r0 = max(0, r0)
-        c0 = max(0, c0)
-        r1 = min(height, r1)
-        c1 = min(width, c1)
-    else:
-        r0, c0, r1, c1 = 0, 0, height, width
-
-    out_h = r1 - r0
-    out_w = c1 - c0
-
-    _check_dimensions(out_w, out_h, samples, max_pixels)
-
-    if samples > 1:
-        result = np.empty((out_h, out_w, samples), dtype=dtype)
-    else:
-        result = np.empty((out_h, out_w), dtype=dtype)
-
-    if planar == 2 and samples > 1:
-        strips_per_band = math.ceil(height / rps)
-        first_strip = r0 // rps
-        last_strip = min((r1 - 1) // rps, strips_per_band - 1)
-
-        for band_idx in range(samples):
-            band_offset = band_idx * strips_per_band
-            for strip_idx in range(first_strip, last_strip + 1):
-                global_idx = band_offset + strip_idx
-                if global_idx >= len(offsets):
-                    continue
-                strip_row = strip_idx * rps
-                strip_rows = min(rps, height - strip_row)
-                if strip_rows <= 0:
-                    continue
-
-                strip_data = data[offsets[global_idx]:offsets[global_idx] + byte_counts[global_idx]]
-                strip_pixels = _decode_strip_or_tile(
-                    strip_data, compression, width, strip_rows, 1,
-                    bps, bytes_per_sample, is_sub_byte, dtype, pred,
-                    byte_order=header.byte_order)
-
-                src_r0 = max(r0 - strip_row, 0)
-                src_r1 = min(r1 - strip_row, strip_rows)
-                dst_r0 = max(strip_row - r0, 0)
-                dst_r1 = dst_r0 + (src_r1 - src_r0)
-                if dst_r1 > dst_r0:
-                    result[dst_r0:dst_r1, :, band_idx] = strip_pixels[src_r0:src_r1, c0:c1]
-    else:
-        first_strip = r0 // rps
-        last_strip = min((r1 - 1) // rps, len(offsets) - 1)
-
-        for strip_idx in range(first_strip, last_strip + 1):
-            strip_row = strip_idx * rps
-            strip_rows = min(rps, height - strip_row)
-            if strip_rows <= 0:
-                continue
-
-            strip_data = data[offsets[strip_idx]:offsets[strip_idx] + byte_counts[strip_idx]]
-            strip_pixels = _decode_strip_or_tile(
-                strip_data, compression, width, strip_rows, samples,
-                bps, bytes_per_sample, is_sub_byte, dtype, pred,
-                byte_order=header.byte_order)
-
-            src_r0 = max(r0 - strip_row, 0)
-            src_r1 = min(r1 - strip_row, strip_rows)
-            dst_r0 = max(strip_row - r0, 0)
-            dst_r1 = dst_r0 + (src_r1 - src_r0)
-            if dst_r1 > dst_r0:
-                result[dst_r0:dst_r1] = strip_pixels[src_r0:src_r1, c0:c1]
-
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Tile reader
-# ---------------------------------------------------------------------------
-
-def _read_tiles(data: bytes, ifd: IFD, header: TIFFHeader,
-                dtype: np.dtype, window=None,
-                max_pixels: int = MAX_PIXELS_DEFAULT) -> np.ndarray:
-    """Read a tile-organized TIFF image.
-
-    Parameters
-    ----------
-    data : bytes
-        Full file data.
-    ifd : IFD
-        Parsed IFD for this image.
-    header : TIFFHeader
-        File header.
-    dtype : np.dtype
-        Output pixel dtype.
-    window : tuple or None
-        (row_start, col_start, row_stop, col_stop) or None for full image.
-    max_pixels : int
-        Maximum allowed pixel count (width * height * samples).
-
-    Returns
-    -------
-    np.ndarray with shape (height, width) or windowed subset.
-    """
-    width = ifd.width
-    height = ifd.height
-    tw = ifd.tile_width
-    th = ifd.tile_height
-    samples = ifd.samples_per_pixel
-    compression = ifd.compression
-    pred = ifd.predictor
-    bps = ifd.bits_per_sample
-    if isinstance(bps, tuple):
-        bps = bps[0]
-    bytes_per_sample = bps // 8
-    is_sub_byte = bps in SUB_BYTE_BPS
-
-    offsets = ifd.tile_offsets
-    byte_counts = ifd.tile_byte_counts
-    if offsets is None or byte_counts is None:
-        raise ValueError("Missing tile offsets or byte counts")
-
-    if tw <= 0 or th <= 0:
-        raise ValueError(
-            f"Invalid tile dimensions: TileWidth={tw}, TileLength={th}")
-
-    # Reject crafted tile dims that would force huge per-tile allocations.
-    # A single tile's decoded bytes must also fit under the pixel budget.
-    _check_dimensions(tw, th, samples, max_pixels)
-
-    planar = ifd.planar_config
-    tiles_across = math.ceil(width / tw)
-    tiles_down = math.ceil(height / th)
-
-    if window is not None:
-        r0, c0, r1, c1 = window
-        r0 = max(0, r0)
-        c0 = max(0, c0)
-        r1 = min(height, r1)
-        c1 = min(width, c1)
-    else:
-        r0, c0, r1, c1 = 0, 0, height, width
-
-    out_h = r1 - r0
-    out_w = c1 - c0
-
-    _check_dimensions(out_w, out_h, samples, max_pixels)
-
-    # Reject malformed TIFFs whose declared tile grid exceeds the number of
-    # supplied TileOffsets entries. Silent skipping in the CPU loop below
-    # would mask the problem, and the GPU path reads OOB. See issue #1219.
-    validate_tile_layout(ifd)
-
-    _alloc = np.zeros if window is not None else np.empty
-    if samples > 1:
-        result = _alloc((out_h, out_w, samples), dtype=dtype)
-    else:
-        result = _alloc((out_h, out_w), dtype=dtype)
-
-    tile_row_start = r0 // th
-    tile_row_end = min(math.ceil(r1 / th), tiles_down)
-    tile_col_start = c0 // tw
-    tile_col_end = min(math.ceil(c1 / tw), tiles_across)
-
-    band_count = samples if (planar == 2 and samples > 1) else 1
-    tiles_per_band = tiles_across * tiles_down
-
-    # Build list of tiles to decode
-    tile_jobs = []
-    for band_idx in range(band_count):
-        band_tile_offset = band_idx * tiles_per_band if band_count > 1 else 0
-        tile_samples = 1 if band_count > 1 else samples
-
-        for tr in range(tile_row_start, tile_row_end):
-            for tc in range(tile_col_start, tile_col_end):
-                tile_idx = band_tile_offset + tr * tiles_across + tc
-                if tile_idx >= len(offsets):
-                    continue
-                tile_jobs.append((band_idx, tr, tc, tile_idx, tile_samples))
-
-    # Decode tiles in parallel when the work per tile is large enough to
-    # outweigh the thread-pool overhead. Uncompressed multi-tile reads also
-    # benefit because numpy frombuffer + slice copies aren't free at large
-    # tile sizes. Threshold (~64K decoded pixels per tile) was picked to
-    # avoid pool overhead on small 64x64 / 128x128 tile reads.
-    n_tiles = len(tile_jobs)
-    tile_pixels = tw * th
-    use_parallel = (n_tiles > 1 and tile_pixels > 64 * 1024)
-
-    def _decode_one(job):
-        band_idx, tr, tc, tile_idx, tile_samples = job
-        tile_data = data[offsets[tile_idx]:offsets[tile_idx] + byte_counts[tile_idx]]
-        return _decode_strip_or_tile(
-            tile_data, compression, tw, th, tile_samples,
-            bps, bytes_per_sample, is_sub_byte, dtype, pred,
-            byte_order=header.byte_order)
-
-    if use_parallel:
-        from concurrent.futures import ThreadPoolExecutor
-        import os as _os
-        n_workers = min(n_tiles, _os.cpu_count() or 4)
-        with ThreadPoolExecutor(max_workers=n_workers) as pool:
-            decoded = list(pool.map(_decode_one, tile_jobs))
-    else:
-        decoded = [_decode_one(job) for job in tile_jobs]
-
-    # Place decoded tiles into the output array
-    for (band_idx, tr, tc, tile_idx, tile_samples), tile_pixels in zip(tile_jobs, decoded):
-        tile_r0 = tr * th
-        tile_c0 = tc * tw
-
-        src_r0 = max(r0 - tile_r0, 0)
-        src_c0 = max(c0 - tile_c0, 0)
-        src_r1 = min(r1 - tile_r0, th)
-        src_c1 = min(c1 - tile_c0, tw)
-
-        dst_r0 = max(tile_r0 - r0, 0)
-        dst_c0 = max(tile_c0 - c0, 0)
-
-        actual_tile_h = min(th, height - tile_r0)
-        actual_tile_w = min(tw, width - tile_c0)
-        src_r1 = min(src_r1, actual_tile_h)
-        src_c1 = min(src_c1, actual_tile_w)
-        dst_r1 = dst_r0 + (src_r1 - src_r0)
-        dst_c1 = dst_c0 + (src_c1 - src_c0)
-
-        if dst_r1 > dst_r0 and dst_c1 > dst_c0:
-            src_slice = tile_pixels[src_r0:src_r1, src_c0:src_c1]
-            if band_count > 1:
-                result[dst_r0:dst_r1, dst_c0:dst_c1, band_idx] = src_slice
-            else:
-                result[dst_r0:dst_r1, dst_c0:dst_c1] = src_slice
-
-    return result
-
-
-# ---------------------------------------------------------------------------
-# COG HTTP reader
-# ---------------------------------------------------------------------------
-
-def _read_cog_http(url: str, overview_level: int | None = None,
-                   band: int | None = None,
-                   max_pixels: int = MAX_PIXELS_DEFAULT,
-                   ) -> tuple[np.ndarray, GeoInfo]:
-    """Read a COG via HTTP range requests.
-
-    Tile fetches run concurrently through a small thread pool so that the
-    total wall time is bounded by the slowest tile request rather than
-    ``num_tiles * RTT``. The pool size can be overridden with the
-    ``XRSPATIAL_COG_HTTP_WORKERS`` environment variable (default 8).
-
-    Parameters
-    ----------
-    url : str
-        HTTP(S) URL to the COG file.
-    overview_level : int or None
-        Which overview to read (0 = full res, 1 = first overview, etc.).
-    band : int
-        Band index (0-based, for multi-band files).
-    max_pixels : int
-        Maximum allowed pixel count (width * height * samples).
-
-    Returns
-    -------
-    (array, geo_info) tuple
-    """
-    source = _HTTPSource(url)
-
-    # Initial fetch: get header + IFDs (COGs put metadata first)
-    header_bytes = source.read_range(0, 16384)
-
-    header = parse_header(header_bytes)
-    ifds = parse_all_ifds(header_bytes, header)
-
-    # If we didn't get all IFDs, try a larger fetch
-    if len(ifds) == 0:
-        header_bytes = source.read_range(0, 65536)
-        ifds = parse_all_ifds(header_bytes, header)
-
-    if len(ifds) == 0:
-        raise ValueError("No IFDs found in COG")
-
-    # Select IFD based on overview level
-    ifd_idx = 0
-    if overview_level is not None:
-        ifd_idx = min(overview_level, len(ifds) - 1)
-    ifd = ifds[ifd_idx]
-
-    bps = ifd.bits_per_sample
-    if isinstance(bps, tuple):
-        bps = bps[0]
-    dtype = tiff_dtype_to_numpy(bps, ifd.sample_format)
-    geo_info = extract_geo_info(ifd, header_bytes, header.byte_order)
-
-    # COGs are tiled -- fetch individual tiles
-    if not ifd.is_tiled:
-        # Fallback: fetch entire file
-        all_data = source.read_all()
-        arr = _read_strips(all_data, ifd, header, dtype)
-        source.close()
-        return arr, geo_info
-
-    width = ifd.width
-    height = ifd.height
-    tw = ifd.tile_width
-    th = ifd.tile_height
-    samples = ifd.samples_per_pixel
-    compression = ifd.compression
-    pred = ifd.predictor
-    bytes_per_sample = bps // 8
-    is_sub_byte = bps in SUB_BYTE_BPS
-
-    offsets = ifd.tile_offsets
-    byte_counts = ifd.tile_byte_counts
-
-    if tw <= 0 or th <= 0:
-        raise ValueError(
-            f"Invalid tile dimensions: TileWidth={tw}, TileLength={th}")
-
-    tiles_across = math.ceil(width / tw)
-    tiles_down = math.ceil(height / th)
-
-    _check_dimensions(width, height, samples, max_pixels)
-    # A single tile's decoded bytes must also fit under the pixel budget.
-    _check_dimensions(tw, th, samples, max_pixels)
-
-    # Reject malformed TIFFs whose declared tile grid exceeds the supplied
-    # TileOffsets length. See issue #1219.
-    validate_tile_layout(ifd)
-
-    if samples > 1:
-        result = np.empty((height, width, samples), dtype=dtype)
-    else:
-        result = np.empty((height, width), dtype=dtype)
-
-    # Pass 1: collect every tile's range and where it lands in the output.
-    # Empty tiles (byte_count == 0) and any tile_idx beyond the offsets
-    # array are skipped here so the fetch list stays exactly aligned with
-    # the placements list.
-    fetch_ranges: list[tuple[int, int]] = []
-    placements: list[tuple[int, int]] = []  # (tr, tc) per fetched tile
-    for tr in range(tiles_down):
-        for tc in range(tiles_across):
-            tile_idx = tr * tiles_across + tc
-            if tile_idx >= len(offsets):
-                continue
-            off = offsets[tile_idx]
-            bc = byte_counts[tile_idx]
-            if bc == 0:
-                continue
-            fetch_ranges.append((off, bc))
-            placements.append((tr, tc))
-
-    # Pass 2: fetch all tile bytes in parallel. Worker pool size is tunable
-    # via XRSPATIAL_COG_HTTP_WORKERS so users on very slow links can dial
-    # it up without code changes.
-    try:
-        workers = max(1, int(_os_module.environ.get('XRSPATIAL_COG_HTTP_WORKERS', '8')))
-    except ValueError:
-        workers = 8
-    tile_bytes_list = source.read_ranges(fetch_ranges, max_workers=workers)
-
-    # Pass 3: decode each tile and place it.
-    for (tr, tc), tile_data in zip(placements, tile_bytes_list):
-        tile_pixels = _decode_strip_or_tile(
-            tile_data, compression, tw, th, samples,
-            bps, bytes_per_sample, is_sub_byte, dtype, pred,
-            byte_order=header.byte_order)
-
-        y0 = tr * th
-        x0 = tc * tw
-        y1 = min(y0 + th, height)
-        x1 = min(x0 + tw, width)
-        actual_h = y1 - y0
-        actual_w = x1 - x0
-        result[y0:y1, x0:x1] = tile_pixels[:actual_h, :actual_w]
-
-    source.close()
-    return result, geo_info
-
+# ``urllib3`` is kept as a top-level import here even though the HTTP
+# source moved to ``_sources`` in #2228. ``test_http_no_stdlib_fallback_2050``
+# asserts the reader module carries a module-level urllib3 reference so a
+# build that silently drops the dependency cannot ship. The HTTP code path
+# itself uses the ``_sources`` import; this binding is purely the
+# "urllib3 is a hard install dep" guard.
+import urllib3  # noqa: F401
+
+# COG-over-HTTP transport (bounded header prefetch, range-based tile/strip
+# fetch + decode) lives in ``_cog_http``. It is imported back here so that:
+#   * existing call sites inside this module (``_read_cog_http``,
+#     ``_parse_cog_http_meta``) keep their bare names, and
+#   * the historical public import surface
+#     (``from xrspatial.geotiff._reader import _read_cog_http`` and
+#     friends, used by the dask backend, the test suite, and external
+#     code that patches ``_reader._HTTPSource`` / ``_reader._parse_cog_http_meta``)
+#     stays intact without churn.
+# ``_cog_http._read_cog_http`` resolves ``_HTTPSource`` and
+# ``_parse_cog_http_meta`` through this module (via ``from . import _reader``
+# at call time) so monkeypatches against ``_reader._HTTPSource`` /
+# ``_reader._parse_cog_http_meta`` continue to take effect after the move.
+# Source: PR-J of the GeoTIFF refactor epic, issue #2258.
+from ._cog_http import (INITIAL_HTTP_HEADER_BYTES, MAX_HTTP_HEADER_BYTES,  # noqa: F401
+                        _fetch_decode_cog_http_strips, _fetch_decode_cog_http_tiles,
+                        _parse_cog_http_meta, _read_cog_http)
+# Strip/tile decode orchestration lives in ``_decode``. It is imported
+# back here so that:
+#   * existing call sites inside this module (``_read_strips``,
+#     ``_read_tiles``, ``_decode_strip_or_tile``, the photometric and
+#     orientation helpers) keep their bare names, and
+#   * the historical public import surface
+#     (``from xrspatial.geotiff._reader import _read_strips`` and
+#     friends, used by VRT / GPU / dask backends, the writer, and the
+#     test suite) is preserved without churn.
+# Source: PR-G of the GeoTIFF refactor epic, issue #2246.
+from ._decode import (_NATIVE_ORDER, _PARALLEL_DECODE_PIXEL_THRESHOLD,  # noqa: F401
+                      _apply_orientation, _apply_orientation_with_geo,
+                      _apply_photometric_miniswhite, _apply_predictor, _decode_strip_or_tile,
+                      _int_nodata_in_range, _miniswhite_inverted_nodata, _packed_byte_count,
+                      _read_strips, _read_tiles, _resolve_masked_fill)
+from ._dtypes import resolve_bits_per_sample, tiff_dtype_to_numpy
+from ._geotags import GeoInfo, extract_geo_info_with_overview_inheritance
+from ._header import parse_all_ifds, parse_header, select_overview_ifd
+# Layout / validation helpers live in ``_layout``. They are imported back
+# here so that:
+#   * existing call sites inside this module keep their bare names, and
+#   * the historical public import surface
+#     (``from xrspatial.geotiff._reader import PixelSafetyLimitError``,
+#     ``MAX_PIXELS_DEFAULT``, ``_check_dimensions`` and friends -- used
+#     by sidecar / VRT / GPU / dask backends and by the test suite) is
+#     preserved without churn.
+# Source: PR-H of the GeoTIFF refactor epic, issue #2247.
+from ._layout import (_FULL_IMAGE_BUDGET_HEADER_SLACK, MAX_PIXELS_DEFAULT,  # noqa: F401
+                      PixelSafetyLimitError, _check_dimensions, _check_source_dimensions,
+                      _compute_full_image_byte_budget, _has_sparse, _ifd_required_extent,
+                      _sparse_fill_value)
+# The data-source layer (local mmap, HTTP with SSRF defences and DNS-rebind
+# pinning, fsspec cloud, BytesIO) lives in ``_sources``. It is imported back
+# here so that:
+#   * existing call sites inside this module (``_open_source``, ``_HTTPSource``,
+#     ``_FileSource`` etc.) keep their bare names, and
+#   * the historical public import surface
+#     (``from xrspatial.geotiff._reader import _HTTPSource`` and friends,
+#     used by sidecar / VRT / GPU / dask backends and by the test suite) is
+#     preserved without churn.
+# Source: PR-E of the GeoTIFF refactor epic, issue #2228.
+from ._sources import (_CLOUD_SCHEMES, _DEFAULT_MMAP_CACHE_SIZE,  # noqa: F401
+                       _HTTP_ALLOWED_SCHEMES, _HTTP_CONNECT_TIMEOUT_DEFAULT, _HTTP_MAX_REDIRECTS,
+                       _HTTP_READ_TIMEOUT_DEFAULT, _MAX_CLOUD_BYTES_SENTINEL,
+                       COALESCE_GAP_THRESHOLD_DEFAULT, MAX_CLOUD_BYTES_DEFAULT,
+                       MAX_COALESCED_RANGE_BYTES_DEFAULT, MAX_TILE_BYTES_DEFAULT,
+                       CloudSizeLimitError, UnsafeURLError, _build_pinned_connection_classes,
+                       _BytesIOSource, _CloudSource, _coerce_path, _FileSource, _get_http_pool,
+                       _get_pinned_conn_classes, _http_allow_private_hosts, _http_connect_timeout,
+                       _http_read_timeout, _http_timeout_from_env, _HTTPSource, _ip_is_private,
+                       _is_file_like, _is_fsspec_uri, _is_http_source, _is_http_url,
+                       _make_pinned_pool, _max_coalesced_range_bytes_from_env,
+                       _max_tile_bytes_from_env, _mmap_cache, _mmap_cache_size_from_env, _MmapCache,
+                       _open_source, _resolve_max_cloud_bytes, _validate_http_url, coalesce_ranges,
+                       split_coalesced_bytes)
 
 # ---------------------------------------------------------------------------
 # Main read function
 # ---------------------------------------------------------------------------
 
-def read_to_array(source: str, *, window=None, overview_level: int | None = None,
-                  band: int | None = None,
-                  max_pixels: int = MAX_PIXELS_DEFAULT,
-                  ) -> tuple[np.ndarray, GeoInfo]:
-    """Read a GeoTIFF/COG to a numpy array.
+
+def _read_to_array(source, *, window=None, overview_level: int | None = None,
+                   band: int | None = None,
+                   max_pixels: int = MAX_PIXELS_DEFAULT,
+                   max_cloud_bytes=_MAX_CLOUD_BYTES_SENTINEL,
+                   allow_rotated: bool = False,
+                   allow_invalid_nodata: bool = False,
+                   allow_experimental_codecs: bool = False,
+                   allow_internal_only_jpeg: bool = False,
+                   ) -> tuple[np.ndarray, GeoInfo]:
+    """Read a GeoTIFF/COG to a numpy array (module-private).
 
     Parameters
     ----------
-    source : str
-        File path or URL.
+    source : str or binary file-like
+        File path, URL, or a file-like object with ``read``/``seek``.
     window : tuple or None
         (row_start, col_start, row_stop, col_stop).
     overview_level : int or None
@@ -883,59 +129,301 @@ def read_to_array(source: str, *, window=None, overview_level: int | None = None
         Maximum allowed total pixel count (width * height * samples).
         Prevents memory exhaustion from crafted TIFF headers.
         Default is 1 billion (~4 GB for float32 single-band).
+    max_cloud_bytes : int or None, optional
+        Byte ceiling for eager reads from fsspec sources (``s3://``,
+        ``gs://``, ``az://``, ``abfs://``, ``memory://``, ...). The
+        compressed object size is checked against this budget before any
+        bytes are downloaded. Default is :data:`MAX_CLOUD_BYTES_DEFAULT`
+        (256 MiB), overridable via the
+        ``XRSPATIAL_GEOTIFF_MAX_CLOUD_BYTES`` env var. Pass ``None`` to
+        skip the check entirely (pre-#1928 behaviour). The HTTP path
+        already reads only what it needs via range requests and is not
+        subject to this limit. See issue #1928.
 
     Returns
     -------
     (np.ndarray, GeoInfo) tuple
     """
-    if source.startswith(('http://', 'https://')):
-        return _read_cog_http(source, overview_level=overview_level, band=band,
-                              max_pixels=max_pixels)
+    source = _coerce_path(source)
+    if _is_http_source(source):
+        return _read_cog_http(
+            source, overview_level=overview_level, band=band,
+            max_pixels=max_pixels, window=window,
+            allow_rotated=allow_rotated,
+            allow_invalid_nodata=allow_invalid_nodata,
+            allow_experimental_codecs=allow_experimental_codecs,
+            allow_internal_only_jpeg=allow_internal_only_jpeg)
 
-    # Local file or cloud storage: read all bytes then parse
-    if _is_fsspec_uri(source):
+    # Local file, cloud storage, or file-like buffer: read all bytes then parse
+    # Resolve the cloud byte budget once so both the base-file ``_CloudSource``
+    # size guard and the sidecar download below see the same effective cap.
+    # ``_resolve_max_cloud_bytes`` honours the kwarg, the env var, and the
+    # default in that order; the result is ``None`` only when the caller
+    # explicitly passed ``max_cloud_bytes=None``.
+    cloud_budget = _resolve_max_cloud_bytes(max_cloud_bytes)
+    if _is_file_like(source):
+        src = _BytesIOSource(source)
+    elif _is_fsspec_uri(source):
         src = _CloudSource(source)
+        # Check the compressed object size before any bytes are
+        # downloaded. ``_CloudSource.__init__`` already fetched the size
+        # via ``fsspec.size()``, so this is free. See issue #1928.
+        if cloud_budget is not None:
+            size = src.size
+            if size is None:
+                src.close()
+                raise CloudSizeLimitError(
+                    f"Cloud source {source!r} reports unknown size; "
+                    f"refusing to download to avoid an unbounded read. "
+                    f"Pass max_cloud_bytes=None to disable the size "
+                    f"check for this source. Raising the byte limit "
+                    f"does not help when the source size is unknown.")
+            if size > cloud_budget:
+                src.close()
+                raise CloudSizeLimitError(
+                    f"Cloud source {source!r} is {size:,} bytes, which "
+                    f"exceeds max_cloud_bytes={cloud_budget:,}. Eager "
+                    f"reads pull the full object before any TIFF header "
+                    f"parse; raise max_cloud_bytes (or set "
+                    f"XRSPATIAL_GEOTIFF_MAX_CLOUD_BYTES) if the file is "
+                    f"legitimate, pass max_cloud_bytes=None to disable "
+                    f"the check, or use chunks=... for a windowed dask "
+                    f"read.")
     else:
         src = _FileSource(source)
-    data = src.read_all()
 
+    sidecar = None
+    # Wrap source lifetime in the try/finally immediately after
+    # construction so ``src.close()`` runs even when ``read_all()``
+    # raises (e.g. a fsspec network failure mid-download, a transient
+    # S3 error, or a local I/O error). ``_CloudSource.close()`` is a
+    # no-op today, but the structural guard prevents a future
+    # resource-holding source from leaking state on the failure path.
+    # Mirrors the close-on-error contract that ``_read_cog_http``
+    # already enforces (issue #1816). See issue #2322.
     try:
+        data = src.read_all()
         header = parse_header(data)
         ifds = parse_all_ifds(data, header)
 
         if len(ifds) == 0:
             raise ValueError("No IFDs found in TIFF file")
 
-        # Select IFD
-        ifd_idx = 0
-        if overview_level is not None:
-            ifd_idx = min(overview_level, len(ifds) - 1)
-        ifd = ifds[ifd_idx]
+        # External `.tif.ovr` sidecar (issue #2112). GDAL/rasterio write
+        # overview pyramids to a sibling file when the source is not a
+        # COG; the sidecar's IFDs are the continuation of the base
+        # file's pyramid. Discovery fires for local files, HTTP, and
+        # fsspec sources; file-like buffers skip the lookup.
+        # ``max_cloud_bytes`` propagates to ``load_sidecar`` so the
+        # sidecar fetch inherits the same byte budget the base file
+        # enforces (#2121). The sidecar must be loaded before IFD
+        # selection so ``overview_level`` indexes into a unified
+        # pyramid list.
+        #
+        # Sidecar load failures must not break a base read. The release
+        # contract classifies ``reader.local_file`` as stable and
+        # ``reader.sidecar_ovr`` as advanced (see
+        # ``docs/source/reference/geotiff_release_contract.md``); a
+        # stale, truncated, or malformed ``.ovr`` written by an external
+        # tool should not be able to take the stable surface down.
+        # ``CloudSizeLimitError`` is the one exception: that signals a
+        # caller-set byte budget breach which the caller asked to hear
+        # about. Everything else (bad TIFF header, I/O error, fsspec
+        # failure) falls back to base-only behaviour with a warning so
+        # the user can still investigate. Mirrors the contract that
+        # ``discover_remote_sidecar`` already uses on the dask metadata
+        # path. Issue #2416.
+        from ._sidecar import (attach_sidecar_origin, find_sidecar, handle_sidecar_parse_failure,
+                               load_sidecar)
+        sidecar_origin: dict[int, tuple] = {}
+        sidecar_path = find_sidecar(source)
+        if sidecar_path is not None:
+            try:
+                sidecar = load_sidecar(sidecar_path,
+                                       max_cloud_bytes=cloud_budget)
+            except CloudSizeLimitError:
+                raise
+            except Exception as exc:
+                # Shared policy across eager CPU, eager GPU, and the
+                # metadata-only path: an explicit request for a level
+                # the base file alone cannot serve surfaces the
+                # underlying parse error (release contract row
+                # ``reader.sidecar_ovr``); otherwise we warn and fall
+                # back. The gate uses ``base_ifd_count`` rather than a
+                # bare ``>= 1`` because a base TIFF with internal
+                # overview IFDs can satisfy ``level=1`` without the
+                # sidecar, and forcing a raise in that case would deny
+                # a valid read. Issue #2484.
+                handle_sidecar_parse_failure(
+                    exc, sidecar_path, overview_level,
+                    base_ifd_count=len(ifds),
+                )
+                sidecar = None
+            if sidecar is not None:
+                sidecar_origin = attach_sidecar_origin(
+                    sidecar.ifds, sidecar.data, sidecar.header)
+                ifds = ifds + sidecar.ifds
 
-        bps = ifd.bits_per_sample
-        if isinstance(bps, tuple):
-            bps = bps[0]
+        # Select IFD, skipping any mask IFDs
+        ifd = select_overview_ifd(ifds, overview_level)
+
+        # Reject experimental and internal-only codecs on the read side
+        # unless the caller opted in. Mirrors the writer-side gate so the
+        # two surfaces stay consistent. Fires before any tile/strip work
+        # so the caller learns the missing flag from the rejection, not
+        # from a deeper decode-time failure. See PR 4 of epic #2340.
+        from ._attrs import _validate_read_codec_optin
+        _validate_read_codec_optin(
+            ifd.compression,
+            allow_experimental_codecs=allow_experimental_codecs,
+            allow_internal_only_jpeg=allow_internal_only_jpeg,
+            entry_point="open_geotiff",
+        )
+
+        # If the selected IFD came from the sidecar, swap the data /
+        # header used for strip / tile reads below so byte offsets
+        # resolve against the right buffer.
+        ifd_data, ifd_header = sidecar_origin.get(id(ifd), (data, header))
+
+        bps = resolve_bits_per_sample(ifd.bits_per_sample)
         dtype = tiff_dtype_to_numpy(bps, ifd.sample_format)
-        geo_info = extract_geo_info(ifd, data, header.byte_order)
+        # Inherit georef from level 0 when an overview IFD lacks its own
+        # geokeys (issue #1640). For overview_level=0 (or None) this is a
+        # no-op: the helper short-circuits when the IFD is not a
+        # NewSubfileType=overview entry. Sidecar IFDs typically lack
+        # geokeys (the GDAL convention), so the inheritance pulls from
+        # the base file's level-0 IFD (kept first in the merged list).
+        # A sidecar that does declare its own georef payload is a corner
+        # case: ``georef_origin`` maps the sidecar IFDs to
+        # ``(data, byte_order)`` from the sidecar so the helper resolves
+        # those tags against the right buffer. Sidecar IFDs without
+        # geokeys still inherit from the base file via the existing
+        # overview-inheritance path. See issues #1640 and #2315.
+        georef_origin = (
+            {iid: (od, oh.byte_order)
+             for iid, (od, oh) in sidecar_origin.items()}
+            if sidecar_origin else None
+        )
+        geo_info = extract_geo_info_with_overview_inheritance(
+            ifd, ifds, data, header.byte_order,
+            allow_rotated=allow_rotated,
+            allow_invalid_nodata=allow_invalid_nodata,
+            sidecar_origin=georef_origin)
+
+        # Orientation tag (274): values 2-8 mean the stored pixel order
+        # differs from display order. We need to remap the array post
+        # decode. A windowed read against a non-default orientation has
+        # ambiguous semantics (does the window refer to file pixels or
+        # display pixels?) so we reject that combo rather than guess.
+        # ``read_geotiff_dask`` chunks the file by issuing windowed reads,
+        # so this check also rejects ``chunks=`` for non-default
+        # orientation; the error mentions both so the failure is easy to
+        # diagnose if it surfaces under dask.
+        orientation = ifd.orientation
+        if orientation != 1 and window is not None:
+            raise ValueError(
+                f"Orientation tag (274) is {orientation}; windowed reads "
+                f"(window=...) and dask-chunked reads (chunks=...) are not "
+                f"supported for non-default orientation. Read the full "
+                f"array first, then slice."
+            )
+
+        # Validate ``window`` against the selected IFD's extent. Without
+        # this, ``_read_tiles`` / ``_read_strips`` silently clamp an
+        # out-of-bounds window and return a smaller array, which then
+        # mismatches caller-built coord arrays in ``open_geotiff`` and
+        # surfaces as an opaque ``CoordinateValidationError``. Raising
+        # here matches the dask path's pre-flight validator (see
+        # ``read_geotiff_dask`` in ``__init__.py``) so all backends
+        # agree on the contract. Reuses the IFD already parsed above,
+        # so callers pay no extra metadata-parse cost (file-like
+        # sources are read once instead of twice). See issue #1634.
+        if window is not None:
+            w_r0, w_c0, w_r1, w_c1 = window
+            if (w_r0 < 0 or w_c0 < 0
+                    or w_r1 > ifd.height or w_c1 > ifd.width
+                    or w_r0 >= w_r1 or w_c0 >= w_c1):
+                raise ValueError(
+                    f"window={window} is outside the source extent "
+                    f"({ifd.height}x{ifd.width}) or has non-positive size.")
+
+        # Validate ``band`` against the selected IFD's sample count.
+        # Without this, ``band=-1`` silently selects the last channel
+        # via numpy negative indexing and ``band>=samples_per_pixel``
+        # leaks a raw numpy ``IndexError`` with the internal slice
+        # shape. Mirrors the dask path's pre-flight validator (see
+        # ``read_geotiff_dask`` in ``__init__.py``), the GPU path, and
+        # the HTTP path (``_read_cog_http`` above, as of issue #1695)
+        # so all backends agree on the contract: 0-based non-negative
+        # index only. See issue #1673.
+        ifd_samples = ifd.samples_per_pixel
+        if band is not None:
+            # Reject ``bool`` and ``np.bool_`` before the range check.
+            # ``isinstance(True, int)`` is True in Python and
+            # ``True < ifd_samples`` evaluates as ``1``, so without this
+            # guard ``band=True`` silently reads band 1 and ``band=False``
+            # reads band 0. ``np.bool_`` is not a subclass of ``bool`` so it
+            # needs its own check to match the VRT path's existing
+            # rejection. See #1786.
+            if isinstance(band, (bool, np.bool_)):
+                raise ValueError(
+                    f"band must be a non-negative int, got {band!r}")
+            # Reject non-integer numeric types and anything else that
+            # would slip past the bool guard. ``band=0.0`` passes
+            # ``0 <= 0.0 < n_bands`` and silently selects band 0 on a
+            # single-band file or raises a raw numpy ``IndexError`` from
+            # deep in the read path on multi-band files. The VRT paths
+            # already enforce this; mirror them here. See #1910.
+            if not isinstance(band, (int, np.integer)):
+                raise TypeError(
+                    f"band must be a non-negative int, got {band!r}")
+            if ifd_samples <= 1:
+                if band != 0:
+                    raise IndexError(
+                        f"band={band} requested on a single-band file.")
+            elif not 0 <= band < ifd_samples:
+                raise IndexError(
+                    f"band={band} out of range for {ifd_samples}-band file.")
 
         if ifd.is_tiled:
-            arr = _read_tiles(data, ifd, header, dtype, window,
+            arr = _read_tiles(ifd_data, ifd, ifd_header, dtype, window,
                               max_pixels=max_pixels)
         else:
-            arr = _read_strips(data, ifd, header, dtype, window,
+            arr = _read_strips(ifd_data, ifd, ifd_header, dtype, window,
                                max_pixels=max_pixels)
 
-        # For multi-band with band selection, extract single band
+        # Extract the requested band before reorienting so we work on a
+        # smaller 2D array rather than reorienting a full multi-band cube
+        # only to slice it afterwards.
         if arr.ndim == 3 and ifd.samples_per_pixel > 1 and band is not None:
             arr = arr[:, :, band]
 
-        # MinIsWhite (photometric=0): invert single-band grayscale values
+        if orientation != 1:
+            arr, geo_info = _apply_orientation_with_geo(
+                arr, geo_info, orientation)
+
         if ifd.photometric == 0 and ifd.samples_per_pixel == 1:
-            if arr.dtype.kind == 'u':
-                arr = np.iinfo(arr.dtype).max - arr
-            elif arr.dtype.kind == 'f':
-                arr = -arr
+            # The MinIsWhite inversion rewrites the original sentinel
+            # value, so any downstream nodata-to-NaN mask must compare
+            # against the inverted sentinel instead.  Stash the inverted
+            # sentinel on geo_info as a private attribute so callers can
+            # apply the mask post-inversion while keeping the original
+            # sentinel on ``geo_info.nodata`` for the attrs round-trip
+            # (issue #1809).
+            inverted_nodata = _miniswhite_inverted_nodata(
+                geo_info.nodata, ifd, arr.dtype)
+            arr = _apply_photometric_miniswhite(arr, ifd)
+            geo_info._mask_nodata = inverted_nodata
     finally:
         src.close()
+        from ._sidecar import close_sidecar
+        close_sidecar(sidecar)
 
     return arr, geo_info
+
+
+# Backward-compatible alias for internal call sites that pre-date the
+# rename to :func:`_read_to_array`. New code inside
+# ``xrspatial.geotiff`` should import :func:`_read_to_array` directly.
+# See issue #2138.
+read_to_array = _read_to_array

@@ -1,14 +1,16 @@
 Metadata-Version: 2.4
 Name: sprig-config
-Version: 1.4.8
+Version: 1.4.9
 Summary: Spring-like deep merge configuration loader for Python
 License: MIT
 License-File: LICENSE
 Author: Derik G. Wilson
 Author-email: derikwilson6@gmail.com
-Requires-Python: >=3.13,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: PyYAML (>=6.0.2)

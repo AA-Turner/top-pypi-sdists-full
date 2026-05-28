@@ -1,0 +1,155 @@
+Metadata-Version: 2.4
+Name: followthemoney
+Version: 4.8.3
+Summary: A data model for anti corruption data modeling and analysis.
+Project-URL: Documentation, https://followthemoney.tech/
+Project-URL: Repository, https://github.com/opensanctions/followthemoney.git
+Project-URL: Issues, https://github.com/opensanctions/followthemoney/issues
+Author-email: OpenSanctions <info@opensanctions.org>, DARC <hi@dataresearchcenter.org>
+License: MIT License
+        
+        Copyright (c) 2017-2024 Journalism Development Network, Inc.
+        Copyright (c) 2025 OpenSanctions Datenbanken GmbH
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
+Requires-Dist: babel<3.0.0,>=2.14.0
+Requires-Dist: banal<1.2.0,>=1.0.0
+Requires-Dist: click<9.0.0,>=8.0
+Requires-Dist: networkx<3.5,>=2.5
+Requires-Dist: normality<4.0.0,>=3.1.0
+Requires-Dist: openpyxl<4.0.0,>=3.0.5
+Requires-Dist: orjson<4.0,>=3.10.0
+Requires-Dist: phonenumbers<10.0.0,>=8.12.22
+Requires-Dist: prefixdate<1.0.0,>=0.5.0
+Requires-Dist: pydantic<3.0.0,>=2.11.0
+Requires-Dist: pytz>=2021.1
+Requires-Dist: pyyaml<7.0.0,>=5.0.0
+Requires-Dist: rdflib<7.7.0,>=6.2.0
+Requires-Dist: requests<3.0.0,>=2.21.0
+Requires-Dist: rigour<3.0.0,>=2.0.0
+Requires-Dist: sqlalchemy[mypy]<3.0.0,>=2.0.0
+Provides-Extra: dev
+Requires-Dist: build; extra == 'dev'
+Requires-Dist: bump2version; extra == 'dev'
+Requires-Dist: coverage>=4.1; extra == 'dev'
+Requires-Dist: flake8>=2.6.0; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: pip>=10.0.0; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: recommonmark>=0.4.0; extra == 'dev'
+Requires-Dist: responses>=0.9.0; extra == 'dev'
+Requires-Dist: transifex-client; extra == 'dev'
+Requires-Dist: twine; extra == 'dev'
+Requires-Dist: types-openpyxl; extra == 'dev'
+Requires-Dist: types-pyyaml; extra == 'dev'
+Requires-Dist: types-requests; extra == 'dev'
+Requires-Dist: types-setuptools; extra == 'dev'
+Requires-Dist: wheel>=0.29.0; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: mkdocs-gen-files; extra == 'docs'
+Requires-Dist: mkdocs-macros-plugin; extra == 'docs'
+Requires-Dist: mkdocs-material>=9.0.0; extra == 'docs'
+Requires-Dist: mkdocs>=1.4.0; extra == 'docs'
+Requires-Dist: mkdocstrings[python]; extra == 'docs'
+Description-Content-Type: text/markdown
+
+# Follow the Money
+
+[![ftm-build](https://github.com/opensanctions/followthemoney/actions/workflows/build.yml/badge.svg)](https://github.com/opensanctions/followthemoney/actions/workflows/build.yml)
+
+This repository contains a pragmatic data model for the entities most commonly used in investigative reporting and financial crime investigations: people, companies, assets, payments, ownership relations, court cases, etc.
+
+The purpose of this is not to model reality in an ideal data model, but rather to have a working data structure for researchers. Complex legal considerations are simplified to allow for efficient data processing.
+
+`followthemoney` also contains code used to validate and normalize many of the elements of data, and to map tabular data into the model.
+
+## Documentation
+
+For a general introduction to `followthemoney`, check the high-level introduction:
+
+* https://followthemoney.tech
+
+Part of this package is a command-line tool that can be used to process and
+transform data in various ways. You can find a tutorial here:
+
+* https://followthemoney.tech/docs/cli/
+
+Besides the introductions, there is also a full reference documentation for the
+library and the contained ontology: 
+
+* https://followthemoney.tech/explorer/schemata/
+
+There's also a number of viewers for the RDF schema definitions generated from FollowTheMoney, eg:
+
+* [LODE documentation](http://150.146.207.114/lode/extract?url=https%3A%2F%2Ffollowthemoney.tech%2Fns%2Fftm.xml&owlapi=true&imported=true&lang=en)
+* [WebVOWL](https://service.tib.eu/webvowl/#iri=https://followthemoney.tech/ns/ftm.xml)
+* RDF/OWL specification in [XML](https://followthemoney.tech/ns/ftm.xml).
+
+## Installation
+
+You can install `followthemomey` via PyPI like this:
+
+```bash
+pip install followthemoney
+```
+
+The most tricky dependency of `followthemoney` is `pyicu`, which helps us to perform certain text operations. Please [review their documentation](https://gitlab.pyicu.org/main/pyicu#installing-pyicu) if you run into any issues with ICU.
+
+## Development environment
+
+For local development with a virtualenv:
+
+```bash
+python3 -mvenv .env
+source .env/bin/activate
+pip install -e ".[dev]"
+```
+
+Now you can run the tests with
+
+```bash
+make test
+```
+
+## Releasing
+
+We release a lot of version of `followthemoney` because even small changes to the code base require a pypi release to begin being used in downstream applications. To this end, here's the steps for making a release:
+
+```bash
+git pull --rebase
+make build
+make test
+git add . && git commit -m "Updating translation files"
+bumpversion patch
+git push --atomic origin main $(git describe --tags --abbrev=0)
+```
+
+This will create a new patch release and upload a distribution of it. If the changes are more significant, you can run `bumpversion` with the `minor` or `major` arguments.
+
+When the schema is updated, please update the docs, ideally including the diagrams. For the RDF namespace and JavaScript version of the model, run `make generate`.

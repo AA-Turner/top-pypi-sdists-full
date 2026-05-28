@@ -1949,6 +1949,27 @@ class Threads(Authenticated):
             stream_modes: list[ThreadStreamMode],
             ctx: Auth.types.BaseAuthContext | None = None,
         ) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
+            async for (
+                event,
+                payload,
+                stream_id,
+                _run_id,
+            ) in Threads.Stream.join_event_streaming(
+                thread_id,
+                last_event_id=last_event_id,
+                stream_modes=stream_modes,
+                ctx=ctx,
+            ):
+                yield event, payload, stream_id
+
+        @staticmethod
+        async def join_event_streaming(
+            thread_id: UUID,
+            *,
+            last_event_id: str | None = None,
+            stream_modes: list[ThreadStreamMode],
+            ctx: Auth.types.BaseAuthContext | None = None,
+        ) -> AsyncIterator[tuple[bytes, bytes, bytes | None, str | None]]:
             """Stream the thread output."""
             await Threads.Stream.check_thread_stream_auth(thread_id, ctx)
 
@@ -1986,11 +2007,14 @@ class Threads(Authenticated):
 
                     # Restore messages if resuming from a specific event
                     if last_event_id is not None:
-                        # Collect all events from all message stores for this thread
+                        # ``message_stores`` is keyed by ``UUID`` (see
+                        # :meth:`StreamManager.put`). Callers can hand us
+                        # ``thread_id`` as either ``str`` or ``UUID``, so
+                        # normalize before the lookup — otherwise replay
+                        # always misses and yields nothing.
+                        store_key = _ensure_uuid(thread_id)
                         all_events = []
-                        for run_id in stream_manager.message_stores.get(
-                            str(thread_id), []
-                        ):
+                        for run_id in stream_manager.message_stores.get(store_key, []):
                             for message in stream_manager.restore_messages(
                                 run_id, thread_id, last_event_id
                             ):
@@ -2020,9 +2044,20 @@ class Threads(Authenticated):
                                     event_bytes,
                                     message_bytes,
                                     message.id,
+                                    str(run_id),
                                 )
 
-                    # Listen for live messages from all queues
+                    # Listen for live messages from all queues.
+                    #
+                    # Hot loop is non-blocking: a burst of N events drains in
+                    # one outer-loop iteration via ``get_nowait``, instead of
+                    # the previous "one event per queue per 200ms timeout"
+                    # pattern that throttled fast-publishing runs (the empty
+                    # thread-stream queue alone forced every iteration to
+                    # wait the full timeout). When everything is idle we fall
+                    # back to a short ``asyncio.sleep`` so new runs joining
+                    # the thread get picked up by the next ``subscribe``
+                    # without burning CPU.
                     while True:
                         # Refresh queues to pick up any new runs that joined this thread
                         new_queue_tuples = await Threads.Stream.subscribe(
@@ -2032,40 +2067,69 @@ class Threads(Authenticated):
                         for run_id, queue in new_queue_tuples:
                             created_queues.append((run_id, queue))
 
+                        drained_any = False
                         for run_id, queue in created_queues:
-                            try:
-                                message = await asyncio.wait_for(
-                                    queue.get(), timeout=0.2
-                                )
-                                decoded = decode_stream_message(
-                                    message.data, channel=message.topic
-                                )
+                            while True:
+                                try:
+                                    message = queue.get_nowait()
+                                except asyncio.QueueEmpty:
+                                    break
+                                try:
+                                    decoded = decode_stream_message(
+                                        message.data, channel=message.topic
+                                    )
+                                except (ValueError, KeyError):
+                                    continue
                                 event = decoded.event_bytes
                                 event_name = event.decode("utf-8")
                                 payload = decoded.message_bytes
 
                                 if event == b"control" and payload == b"done":
+                                    # Don't shadow the queue-iteration
+                                    # ``run_id`` with the topic-extracted
+                                    # string — non-control events later in
+                                    # this drain pass would yield the
+                                    # rebound value. Wire output is
+                                    # identical (``str(UUID)`` matches the
+                                    # topic suffix), but the rebinding is
+                                    # fragile if the topic format moves.
                                     topic = message.topic.decode()
-                                    run_id = topic.split("run:")[1].split(":")[0]
+                                    done_run_id = topic.split("run:")[1].split(":")[0]
                                     meta_event = b"metadata"
                                     meta_payload = orjson.dumps(
-                                        {"status": "run_done", "run_id": run_id}
+                                        {"status": "run_done", "run_id": done_run_id}
                                     )
                                     if not should_filter_event(
                                         "metadata", meta_payload
                                     ):
-                                        yield (meta_event, meta_payload, message.id)
+                                        yield (
+                                            meta_event,
+                                            meta_payload,
+                                            message.id,
+                                            done_run_id,
+                                        )
+                                        drained_any = True
                                 else:
                                     if not should_filter_event(event_name, payload):
-                                        yield (event, payload, message.id)
+                                        yield (
+                                            event,
+                                            payload,
+                                            message.id,
+                                            str(run_id),
+                                        )
+                                        drained_any = True
 
-                            except TimeoutError:
-                                continue
-                            except (ValueError, KeyError):
-                                continue
-
-                        # Yield execution to other tasks to prevent event loop starvation
-                        await asyncio.sleep(0)
+                        if drained_any:
+                            # Yield once so other tasks (worker, send) can
+                            # advance, then loop immediately to drain any
+                            # follow-up burst.
+                            await asyncio.sleep(0)
+                        else:
+                            # All queues empty — short poll interval keeps
+                            # ``subscribe`` rechecking for newly-spawned
+                            # runs and lets the worker emit without a
+                            # >5-events-per-second delivery cap.
+                            await asyncio.sleep(0.02)
 
             except WrappedHTTPException as e:
                 raise e.http_exception from None
@@ -2913,12 +2977,18 @@ class Runs(Authenticated):
                 run_id
             ):
                 for control_queue in control_queues:
-                    try:
-                        while True:
-                            control_msg = control_queue.get()
-                            await queue.put(control_msg)
-                    except asyncio.QueueEmpty:
-                        pass
+                    # NOTE: must use ``get_nowait``. ``asyncio.Queue.get`` is a
+                    # coroutine — calling it without ``await`` returns a
+                    # coroutine object and never raises ``QueueEmpty``, which
+                    # turns this drain into an infinite loop that blocks the
+                    # event loop (the coroutine objects get pushed straight
+                    # into ``queue`` via ``put_nowait`` with no yield point).
+                    while True:
+                        try:
+                            control_msg = control_queue.get_nowait()
+                        except asyncio.QueueEmpty:
+                            break
+                        await queue.put(control_msg)
             return queue
 
         @staticmethod
@@ -3502,16 +3572,18 @@ class Crons(Authenticated):
         ctx: Auth.types.BaseAuthContext | None = None,
         sort_by: str | None = None,
         sort_order: Literal["asc", "desc"] | None = None,
+        metadata: dict | None = None,
     ) -> tuple[AsyncIterator[Cron], int | None]:
         filters = await Crons.handle_event(
             ctx,
             "search",
-            Auth.types.CronsSearch(
-                assistant_id=assistant_id,
-                thread_id=thread_id,
-                limit=limit,
-                offset=offset,
-            ),
+            {
+                "assistant_id": assistant_id,
+                "thread_id": thread_id,
+                "limit": limit,
+                "offset": offset,
+                "metadata": metadata or {},
+            },
         )
 
         if thread_id:
@@ -3535,6 +3607,7 @@ class Crons(Authenticated):
             if (assistant_id is None or str(c["assistant_id"]) == str(assistant_id))
             and (thread_id is None or str(c.get("thread_id")) == str(thread_id))
             and (enabled is None or c.get("enabled") == enabled)
+            and (not metadata or is_jsonb_contained(c.get("metadata", {}), metadata))
             and (not filters or _check_filter_match(c.get("metadata", {}), filters))
         ]
 
@@ -3616,17 +3689,19 @@ class Crons(Authenticated):
         assistant_id: UUID | None = None,
         thread_id: UUID | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
+        metadata: dict | None = None,
     ) -> int:
         """Get count of crons."""
         filters = await Crons.handle_event(
             ctx,
             "search",
-            Auth.types.CronsSearch(
-                assistant_id=assistant_id,
-                thread_id=thread_id,
-                limit=0,
-                offset=0,
-            ),
+            {
+                "assistant_id": assistant_id,
+                "thread_id": thread_id,
+                "limit": 0,
+                "offset": 0,
+                "metadata": metadata or {},
+            },
         )
 
         if thread_id:
@@ -3648,6 +3723,8 @@ class Crons(Authenticated):
             if assistant_id is not None and str(c["assistant_id"]) != str(assistant_id):
                 continue
             if thread_id is not None and str(c.get("thread_id")) != str(thread_id):
+                continue
+            if metadata and not is_jsonb_contained(c.get("metadata", {}), metadata):
                 continue
             if filters and not _check_filter_match(c.get("metadata", {}), filters):
                 continue

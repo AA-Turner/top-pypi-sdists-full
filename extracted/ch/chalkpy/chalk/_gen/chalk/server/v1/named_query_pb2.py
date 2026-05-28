@@ -15,10 +15,11 @@ _sym_db = _symbol_database.Default()
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as chalk_dot_graph_dot_v1_dot_graph__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n!chalk/server/v1/named_query.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1a\x63halk/graph/v1/graph.proto"@\n\x19GetAllNamedQueriesRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId"l\n\x1aGetNamedQueryByNameRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12(\n\rquery_version\x18\x02 \x01(\tH\x00R\x0cqueryVersion\x88\x01\x01\x42\x10\n\x0e_query_version"^\n\x1bGetNamedQueryByNameResponse\x12?\n\rnamed_queries\x18\x01 \x03(\x0b\x32\x1a.chalk.graph.v1.NamedQueryR\x0cnamedQueries"]\n\x1aGetAllNamedQueriesResponse\x12?\n\rnamed_queries\x18\x01 \x03(\x0b\x32\x1a.chalk.graph.v1.NamedQueryR\x0cnamedQueries"+\n)GetAllNamedQueriesActiveDeploymentRequest"m\n*GetAllNamedQueriesActiveDeploymentResponse\x12?\n\rnamed_queries\x18\x01 \x03(\x0b\x32\x1a.chalk.graph.v1.NamedQueryR\x0cnamedQueries2\xac\x03\n\x11NamedQueryService\x12u\n\x12GetAllNamedQueries\x12*.chalk.server.v1.GetAllNamedQueriesRequest\x1a+.chalk.server.v1.GetAllNamedQueriesResponse"\x06\x90\x02\x01\x80}\x0b\x12\xa5\x01\n"GetAllNamedQueriesActiveDeployment\x12:.chalk.server.v1.GetAllNamedQueriesActiveDeploymentRequest\x1a;.chalk.server.v1.GetAllNamedQueriesActiveDeploymentResponse"\x06\x90\x02\x01\x80}\x0b\x12x\n\x13GetNamedQueryByName\x12+.chalk.server.v1.GetNamedQueryByNameRequest\x1a,.chalk.server.v1.GetNamedQueryByNameResponse"\x06\x90\x02\x01\x80}\x0b\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0fNamedQueryProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n!chalk/server/v1/named_query.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1a\x63halk/graph/v1/graph.proto\x1a\x1fgoogle/protobuf/timestamp.proto"@\n\x19GetAllNamedQueriesRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId"l\n\x1aGetNamedQueryByNameRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12(\n\rquery_version\x18\x02 \x01(\tH\x00R\x0cqueryVersion\x88\x01\x01\x42\x10\n\x0e_query_version"^\n\x1bGetNamedQueryByNameResponse\x12?\n\rnamed_queries\x18\x01 \x03(\x0b\x32\x1a.chalk.graph.v1.NamedQueryR\x0cnamedQueries"]\n\x1aGetAllNamedQueriesResponse\x12?\n\rnamed_queries\x18\x01 \x03(\x0b\x32\x1a.chalk.graph.v1.NamedQueryR\x0cnamedQueries"+\n)GetAllNamedQueriesActiveDeploymentRequest"m\n*GetAllNamedQueriesActiveDeploymentResponse\x12?\n\rnamed_queries\x18\x01 \x03(\x0b\x32\x1a.chalk.graph.v1.NamedQueryR\x0cnamedQueries"\xdd\x03\n\x11NamedQuerySummary\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12&\n\x0fis_code_defined\x18\x02 \x01(\x08R\risCodeDefined\x12#\n\rversion_count\x18\x03 \x01(\x05R\x0cversionCount\x12(\n\x10meta_query_count\x18\x04 \x01(\x05R\x0emetaQueryCount\x12\x1f\n\x0binput_count\x18\x05 \x01(\x05R\ninputCount\x12!\n\x0coutput_count\x18\x06 \x01(\x05R\x0boutputCount\x12\x12\n\x04tags\x18\x07 \x03(\tR\x04tags\x12\x19\n\x05owner\x18\x08 \x01(\tH\x00R\x05owner\x88\x01\x01\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12I\n\x10last_executed_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x0elastExecutedAt\x88\x01\x01\x12%\n\x0elatest_version\x18\x0b \x01(\tR\rlatestVersionB\x08\n\x06_ownerB\x13\n\x11_last_executed_at"z\n\x1eNamedQueriesExecutedZoneCursor\x12\x44\n\x10last_executed_at\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0elastExecutedAt\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name"6\n NamedQueriesUnexecutedZoneCursor\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"\xce\x01\n\x1cListAllNamedQueriesPageToken\x12M\n\x08\x65xecuted\x18\x01 \x01(\x0b\x32/.chalk.server.v1.NamedQueriesExecutedZoneCursorH\x00R\x08\x65xecuted\x12S\n\nunexecuted\x18\x02 \x01(\x0b\x32\x31.chalk.server.v1.NamedQueriesUnexecutedZoneCursorH\x00R\nunexecutedB\n\n\x08position"\x7f\n\x1aListAllNamedQueriesRequest\x12 \n\tpage_size\x18\x01 \x01(\x05H\x00R\x08pageSize\x88\x01\x01\x12"\n\npage_token\x18\x02 \x01(\tH\x01R\tpageToken\x88\x01\x01\x42\x0c\n\n_page_sizeB\r\n\x0b_page_token"\xc8\x01\n\x1bListAllNamedQueriesResponse\x12G\n\rnamed_queries\x18\x01 \x03(\x0b\x32".chalk.server.v1.NamedQuerySummaryR\x0cnamedQueries\x12+\n\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x12\x1f\n\x0btotal_count\x18\x03 \x01(\x05R\ntotalCountB\x12\n\x10_next_page_token"\x9e\x05\n\x18NamedQueryVersionSummary\x12#\n\rquery_version\x18\x01 \x01(\tR\x0cqueryVersion\x12&\n\x0fis_code_defined\x18\x02 \x01(\x08R\risCodeDefined\x12(\n\x10meta_query_count\x18\x03 \x01(\x05R\x0emetaQueryCount\x12I\n\x10last_executed_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x0elastExecutedAt\x88\x01\x01\x12K\n\x11\x66irst_executed_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x0f\x66irstExecutedAt\x88\x01\x01\x12\x46\n\x0e\x66irst_deployed\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\rfirstDeployed\x88\x01\x01\x12\x44\n\rlast_deployed\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x03R\x0clastDeployed\x88\x01\x01\x12\x33\n\x13\x66irst_deployment_id\x18\x08 \x01(\tH\x04R\x11\x66irstDeploymentId\x88\x01\x01\x12\x31\n\x12last_deployment_id\x18\t \x01(\tH\x05R\x10lastDeploymentId\x88\x01\x01\x42\x13\n\x11_last_executed_atB\x14\n\x12_first_executed_atB\x11\n\x0f_first_deployedB\x10\n\x0e_last_deployedB\x16\n\x14_first_deployment_idB\x15\n\x13_last_deployment_id"3\n\x1dListNamedQueryVersionsRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"g\n\x1eListNamedQueryVersionsResponse\x12\x45\n\x08versions\x18\x01 \x03(\x0b\x32).chalk.server.v1.NamedQueryVersionSummaryR\x08versions2\xaa\x05\n\x11NamedQueryService\x12u\n\x12GetAllNamedQueries\x12*.chalk.server.v1.GetAllNamedQueriesRequest\x1a+.chalk.server.v1.GetAllNamedQueriesResponse"\x06\x90\x02\x01\x80}\x0b\x12\xa5\x01\n"GetAllNamedQueriesActiveDeployment\x12:.chalk.server.v1.GetAllNamedQueriesActiveDeploymentRequest\x1a;.chalk.server.v1.GetAllNamedQueriesActiveDeploymentResponse"\x06\x90\x02\x01\x80}\x0b\x12x\n\x13GetNamedQueryByName\x12+.chalk.server.v1.GetNamedQueryByNameRequest\x1a,.chalk.server.v1.GetNamedQueryByNameResponse"\x06\x90\x02\x01\x80}\x0b\x12x\n\x13ListAllNamedQueries\x12+.chalk.server.v1.ListAllNamedQueriesRequest\x1a,.chalk.server.v1.ListAllNamedQueriesResponse"\x06\x90\x02\x01\x80}\x0b\x12\x81\x01\n\x16ListNamedQueryVersions\x12..chalk.server.v1.ListNamedQueryVersionsRequest\x1a/.chalk.server.v1.ListNamedQueryVersionsResponse"\x06\x90\x02\x01\x80}\x0b\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0fNamedQueryProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -37,18 +38,42 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\220\002\001\200}\013"
     _globals["_NAMEDQUERYSERVICE"].methods_by_name["GetNamedQueryByName"]._options = None
     _globals["_NAMEDQUERYSERVICE"].methods_by_name["GetNamedQueryByName"]._serialized_options = b"\220\002\001\200}\013"
-    _globals["_GETALLNAMEDQUERIESREQUEST"]._serialized_start = 115
-    _globals["_GETALLNAMEDQUERIESREQUEST"]._serialized_end = 179
-    _globals["_GETNAMEDQUERYBYNAMEREQUEST"]._serialized_start = 181
-    _globals["_GETNAMEDQUERYBYNAMEREQUEST"]._serialized_end = 289
-    _globals["_GETNAMEDQUERYBYNAMERESPONSE"]._serialized_start = 291
-    _globals["_GETNAMEDQUERYBYNAMERESPONSE"]._serialized_end = 385
-    _globals["_GETALLNAMEDQUERIESRESPONSE"]._serialized_start = 387
-    _globals["_GETALLNAMEDQUERIESRESPONSE"]._serialized_end = 480
-    _globals["_GETALLNAMEDQUERIESACTIVEDEPLOYMENTREQUEST"]._serialized_start = 482
-    _globals["_GETALLNAMEDQUERIESACTIVEDEPLOYMENTREQUEST"]._serialized_end = 525
-    _globals["_GETALLNAMEDQUERIESACTIVEDEPLOYMENTRESPONSE"]._serialized_start = 527
-    _globals["_GETALLNAMEDQUERIESACTIVEDEPLOYMENTRESPONSE"]._serialized_end = 636
-    _globals["_NAMEDQUERYSERVICE"]._serialized_start = 639
-    _globals["_NAMEDQUERYSERVICE"]._serialized_end = 1067
+    _globals["_NAMEDQUERYSERVICE"].methods_by_name["ListAllNamedQueries"]._options = None
+    _globals["_NAMEDQUERYSERVICE"].methods_by_name["ListAllNamedQueries"]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_NAMEDQUERYSERVICE"].methods_by_name["ListNamedQueryVersions"]._options = None
+    _globals["_NAMEDQUERYSERVICE"].methods_by_name[
+        "ListNamedQueryVersions"
+    ]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_GETALLNAMEDQUERIESREQUEST"]._serialized_start = 148
+    _globals["_GETALLNAMEDQUERIESREQUEST"]._serialized_end = 212
+    _globals["_GETNAMEDQUERYBYNAMEREQUEST"]._serialized_start = 214
+    _globals["_GETNAMEDQUERYBYNAMEREQUEST"]._serialized_end = 322
+    _globals["_GETNAMEDQUERYBYNAMERESPONSE"]._serialized_start = 324
+    _globals["_GETNAMEDQUERYBYNAMERESPONSE"]._serialized_end = 418
+    _globals["_GETALLNAMEDQUERIESRESPONSE"]._serialized_start = 420
+    _globals["_GETALLNAMEDQUERIESRESPONSE"]._serialized_end = 513
+    _globals["_GETALLNAMEDQUERIESACTIVEDEPLOYMENTREQUEST"]._serialized_start = 515
+    _globals["_GETALLNAMEDQUERIESACTIVEDEPLOYMENTREQUEST"]._serialized_end = 558
+    _globals["_GETALLNAMEDQUERIESACTIVEDEPLOYMENTRESPONSE"]._serialized_start = 560
+    _globals["_GETALLNAMEDQUERIESACTIVEDEPLOYMENTRESPONSE"]._serialized_end = 669
+    _globals["_NAMEDQUERYSUMMARY"]._serialized_start = 672
+    _globals["_NAMEDQUERYSUMMARY"]._serialized_end = 1149
+    _globals["_NAMEDQUERIESEXECUTEDZONECURSOR"]._serialized_start = 1151
+    _globals["_NAMEDQUERIESEXECUTEDZONECURSOR"]._serialized_end = 1273
+    _globals["_NAMEDQUERIESUNEXECUTEDZONECURSOR"]._serialized_start = 1275
+    _globals["_NAMEDQUERIESUNEXECUTEDZONECURSOR"]._serialized_end = 1329
+    _globals["_LISTALLNAMEDQUERIESPAGETOKEN"]._serialized_start = 1332
+    _globals["_LISTALLNAMEDQUERIESPAGETOKEN"]._serialized_end = 1538
+    _globals["_LISTALLNAMEDQUERIESREQUEST"]._serialized_start = 1540
+    _globals["_LISTALLNAMEDQUERIESREQUEST"]._serialized_end = 1667
+    _globals["_LISTALLNAMEDQUERIESRESPONSE"]._serialized_start = 1670
+    _globals["_LISTALLNAMEDQUERIESRESPONSE"]._serialized_end = 1870
+    _globals["_NAMEDQUERYVERSIONSUMMARY"]._serialized_start = 1873
+    _globals["_NAMEDQUERYVERSIONSUMMARY"]._serialized_end = 2543
+    _globals["_LISTNAMEDQUERYVERSIONSREQUEST"]._serialized_start = 2545
+    _globals["_LISTNAMEDQUERYVERSIONSREQUEST"]._serialized_end = 2596
+    _globals["_LISTNAMEDQUERYVERSIONSRESPONSE"]._serialized_start = 2598
+    _globals["_LISTNAMEDQUERYVERSIONSRESPONSE"]._serialized_end = 2701
+    _globals["_NAMEDQUERYSERVICE"]._serialized_start = 2704
+    _globals["_NAMEDQUERYSERVICE"]._serialized_end = 3386
 # @@protoc_insertion_point(module_scope)

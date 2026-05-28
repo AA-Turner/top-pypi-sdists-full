@@ -340,10 +340,14 @@ class TinyB:
             for c in connectors
         ]
 
-    async def get_datasource(self, ds_name: str, used_by: bool = False) -> Dict[str, Any]:
+    async def get_datasource(
+        self, ds_name: str, used_by: bool = False, include_workspace_names: bool = False
+    ) -> Dict[str, Any]:
         params = {
             "attrs": "used_by" if used_by else "",
         }
+        if include_workspace_names:
+            params["include_workspace_names"] = "true"
         return await self._req(f"/v0/datasources/{ds_name}?{urlencode(params)}")
 
     async def alter_datasource(
@@ -489,12 +493,32 @@ class TinyB:
 
         return await self._req(f"/v0/dependencies?{urlencode(params)}", timeout=60)
 
-    async def datasource_share(self, datasource_id: str, current_workspace_id: str, destination_workspace_id: str):
-        params = {"origin_workspace_id": current_workspace_id, "destination_workspace_id": destination_workspace_id}
+    async def datasource_share(
+        self,
+        datasource_id: str,
+        current_workspace_id: str,
+        destination_workspace_id: Optional[str] = None,
+        destination_workspace_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        params = {"origin_workspace_id": current_workspace_id}
+        if destination_workspace_id:
+            params["destination_workspace_id"] = destination_workspace_id
+        if destination_workspace_name:
+            params["destination_workspace_name"] = destination_workspace_name
         return await self._req(f"/v0/datasources/{datasource_id}/share", method="POST", data=params)
 
-    async def datasource_unshare(self, datasource_id: str, current_workspace_id: str, destination_workspace_id: str):
-        params = {"origin_workspace_id": current_workspace_id, "destination_workspace_id": destination_workspace_id}
+    async def datasource_unshare(
+        self,
+        datasource_id: str,
+        current_workspace_id: str,
+        destination_workspace_id: Optional[str] = None,
+        destination_workspace_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        params = {"origin_workspace_id": current_workspace_id}
+        if destination_workspace_id:
+            params["destination_workspace_id"] = destination_workspace_id
+        if destination_workspace_name:
+            params["destination_workspace_name"] = destination_workspace_name
         return await self._req(f"/v0/datasources/{datasource_id}/share", method="DELETE", data=params)
 
     async def datasource_sync(self, datasource_id: str):
@@ -972,16 +996,28 @@ class TinyB:
         kafka_sasl_mechanism="PLAIN",
         kafka_security_protocol="SASL_SSL",
         kafka_ssl_ca_pem=None,
+        kafka_sasl_oauthbearer_method=None,
+        kafka_sasl_oauthbearer_aws_region=None,
+        kafka_sasl_oauthbearer_aws_role_arn=None,
+        kafka_sasl_oauthbearer_aws_external_id=None,
     ):
+        is_oauthbearer = kafka_sasl_mechanism == "OAUTHBEARER"
         params = {
             "service": "kafka",
             "kafka_security_protocol": kafka_security_protocol,
             "kafka_sasl_mechanism": kafka_sasl_mechanism,
             "kafka_bootstrap_servers": kafka_bootstrap_servers,
-            "kafka_sasl_plain_username": kafka_key,
-            "kafka_sasl_plain_password": kafka_secret,
             "name": kafka_connection_name,
         }
+        if is_oauthbearer:
+            params["kafka_sasl_oauthbearer_method"] = kafka_sasl_oauthbearer_method
+            params["kafka_sasl_oauthbearer_aws_region"] = kafka_sasl_oauthbearer_aws_region
+            params["kafka_sasl_oauthbearer_aws_role_arn"] = kafka_sasl_oauthbearer_aws_role_arn
+            if kafka_sasl_oauthbearer_aws_external_id:
+                params["kafka_sasl_oauthbearer_aws_external_id"] = kafka_sasl_oauthbearer_aws_external_id
+        else:
+            params["kafka_sasl_plain_username"] = kafka_key
+            params["kafka_sasl_plain_password"] = kafka_secret
 
         if kafka_schema_registry_url:
             params["kafka_schema_registry_url"] = kafka_schema_registry_url

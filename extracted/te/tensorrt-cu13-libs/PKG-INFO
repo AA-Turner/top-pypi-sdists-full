@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tensorrt_cu13_libs
-Version: 10.16.1.11
+Version: 11.0.0.114
 Summary: TensorRT Libraries
 Author: NVIDIA Corporation
 License: Proprietary

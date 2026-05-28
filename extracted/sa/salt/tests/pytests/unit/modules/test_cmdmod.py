@@ -169,6 +169,112 @@ def test_run_runas_with_windows():
                         cmdmod._run("foo", "bar", runas="baz")
 
 
+def test_run_windows_preserves_cmd_string_quoting():
+    """
+    On Windows, shlex_split must NOT be called on the command string so that
+    Windows-style argument quoting (e.g. MYPROPERTY="C:\\path with space") is
+    preserved when the string is handed directly to CreateProcess.
+    Regression test for issue #68950.
+    """
+    mock_proc = MockTimedProc(stdout=b"", stderr=b"")
+    with patch("salt.utils.platform.is_windows", MagicMock(return_value=True)), patch(
+        "salt.utils.path.which",
+        MagicMock(return_value="C:\\Windows\\system32\\cmd.exe"),
+    ), patch(
+        "salt.utils.timed_subprocess.TimedProc", MagicMock(return_value=mock_proc)
+    ), patch(
+        "salt.utils.args.shlex_split"
+    ) as mock_shlex:
+        try:
+            cmdmod._run(
+                '"msiexec" /I "C:\\pkg.msi" MYPROPERTY="C:\\some file.txt"',
+                cwd="C:\\",
+                shell="C:\\Windows\\system32\\cmd.exe",
+                python_shell=False,
+            )
+        except Exception:  # pylint: disable=broad-except
+            pass
+        mock_shlex.assert_not_called()
+
+
+@pytest.mark.skip_unless_on_windows
+def test_run_windows_cmd_runas_passes_compound_to_cmd():
+    """
+    runas + cmd.exe must use prepend_cmd so the user string is one cmd /c
+    argument; otherwise shlex splits on & and the child never sees a compound
+    line (regression: cd ... & dir under runas).
+    """
+    win_runas_mock = MagicMock(
+        return_value={"pid": 1, "retcode": 0, "stdout": "ok", "stderr": ""}
+    )
+    cmd_str = r"cd /d C:\salt_test_dir & echo marker_compound_runas"
+    with patch("salt.modules.cmdmod._is_valid_shell", MagicMock(return_value=True)):
+        with patch("salt.utils.platform.is_windows", MagicMock(return_value=True)):
+            with patch("salt.modules.cmdmod.HAS_WIN_RUNAS", True):
+                with patch("salt.modules.cmdmod.win_runas", win_runas_mock):
+                    with patch(
+                        "salt.utils.path.which",
+                        return_value="C:\\Windows\\System32\\cmd.exe",
+                    ):
+                        with patch(
+                            "salt.utils.win_chcp.get_codepage_id",
+                            MagicMock(return_value=65001),
+                        ):
+                            cmdmod._run(
+                                cmd_str,
+                                cwd=tempfile.gettempdir(),
+                                runas="someuser",
+                                password="secret",
+                                shell="cmd",
+                                python_shell=False,
+                            )
+    passed = win_runas_mock.call_args[0][0]
+    # Full prepended line must reach win_runas as one string; shlex_split is
+    # skipped so paths with spaces are not broken and so & stays in the /c payload.
+    assert isinstance(passed, str)
+    assert "/c" in passed
+    assert "&" in passed
+    assert "marker_compound_runas" in passed
+
+
+@pytest.mark.skip_unless_on_windows
+def test_run_windows_cmd_runas_skips_shlex_split():
+    """
+    After ``prepend_cmd``, the full ``cmd.exe /c ...`` line must not be passed
+    through ``shlex_split`` or paths with spaces and ``&`` in the /c payload break.
+    """
+    shlex_split = MagicMock(
+        side_effect=AssertionError("shlex_split must not run for runas prepended line")
+    )
+    win_runas_mock = MagicMock(
+        return_value={"pid": 1, "retcode": 0, "stdout": "ok", "stderr": ""}
+    )
+    cmd_str = r"cd /d C:\salt_test_dir & echo skip_shlex_check"
+    with patch("salt.modules.cmdmod._is_valid_shell", MagicMock(return_value=True)):
+        with patch("salt.utils.platform.is_windows", MagicMock(return_value=True)):
+            with patch("salt.modules.cmdmod.HAS_WIN_RUNAS", True):
+                with patch("salt.modules.cmdmod.win_runas", win_runas_mock):
+                    with patch(
+                        "salt.utils.path.which",
+                        return_value="C:\\Windows\\System32\\cmd.exe",
+                    ):
+                        with patch(
+                            "salt.utils.win_chcp.get_codepage_id",
+                            MagicMock(return_value=65001),
+                        ):
+                            with patch("salt.utils.args.shlex_split", shlex_split):
+                                cmdmod._run(
+                                    cmd_str,
+                                    cwd=tempfile.gettempdir(),
+                                    runas="someuser",
+                                    password="secret",
+                                    shell="cmd",
+                                    python_shell=False,
+                                )
+    shlex_split.assert_not_called()
+    assert "skip_shlex_check" in win_runas_mock.call_args[0][0]
+
+
 def test_run_with_tuple():
     """
     Tests return when cmd is a tuple
@@ -178,7 +284,11 @@ def test_run_with_tuple():
         with patch("salt.utils.platform.is_windows", MagicMock(return_value=False)):
             with patch("os.path.isfile", mock_true):
                 with patch("os.access", mock_true):
-                    cmdmod._run(("echo", "foo"), python_shell=True, cwd="/")
+                    # Python 3.13's ntpath.isabs rejects ``/`` (and ``\``) on
+                    # Windows; patch around it so this test exercises the
+                    # tuple-cmd path regardless of host platform.
+                    with patch("os.path.isabs", mock_true):
+                        cmdmod._run(("echo", "foo"), python_shell=True, cwd="/")
 
 
 def test_run_user_not_available():
@@ -256,13 +366,17 @@ def test_run_no_vt_os_error():
         with patch("salt.utils.platform.is_windows", MagicMock(return_value=False)):
             with patch("os.path.isfile", MagicMock(return_value=True)):
                 with patch("os.access", MagicMock(return_value=True)):
-                    with patch(
-                        "salt.utils.timed_subprocess.TimedProc",
-                        MagicMock(side_effect=OSError(expected_error)),
-                    ):
-                        with pytest.raises(CommandExecutionError) as error:
-                            cmdmod.run("foo", cwd="/")
-                        assert error.value.args[0].endswith(expected_error)
+                    # Python 3.13's ntpath.isabs rejects ``/`` on Windows; patch
+                    # so the cwd validation does not preempt the OSError path
+                    # we are exercising.
+                    with patch("os.path.isabs", MagicMock(return_value=True)):
+                        with patch(
+                            "salt.utils.timed_subprocess.TimedProc",
+                            MagicMock(side_effect=OSError(expected_error)),
+                        ):
+                            with pytest.raises(CommandExecutionError) as error:
+                                cmdmod.run("foo", cwd="/")
+                            assert error.value.args[0].endswith(expected_error)
 
 
 def test_run_no_vt_io_error():
@@ -274,13 +388,17 @@ def test_run_no_vt_io_error():
         with patch("salt.utils.platform.is_windows", MagicMock(return_value=False)):
             with patch("os.path.isfile", MagicMock(return_value=True)):
                 with patch("os.access", MagicMock(return_value=True)):
-                    with patch(
-                        "salt.utils.timed_subprocess.TimedProc",
-                        MagicMock(side_effect=IOError(expected_error)),
-                    ):
-                        with pytest.raises(CommandExecutionError) as error:
-                            cmdmod.run("foo", cwd="/")
-                        assert error.value.args[0].endswith(expected_error)
+                    # Python 3.13's ntpath.isabs rejects ``/`` on Windows; patch
+                    # so the cwd validation does not preempt the IOError path
+                    # we are exercising.
+                    with patch("os.path.isabs", MagicMock(return_value=True)):
+                        with patch(
+                            "salt.utils.timed_subprocess.TimedProc",
+                            MagicMock(side_effect=IOError(expected_error)),
+                        ):
+                            with pytest.raises(CommandExecutionError) as error:
+                                cmdmod.run("foo", cwd="/")
+                            assert error.value.args[0].endswith(expected_error)
 
 
 @pytest.mark.skip(reason="Test breaks unittests runs")

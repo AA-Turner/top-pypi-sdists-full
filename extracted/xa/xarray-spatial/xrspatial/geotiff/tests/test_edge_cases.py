@@ -9,25 +9,18 @@ import pytest
 import xarray as xr
 
 from xrspatial.geotiff import open_geotiff, to_geotiff
-from xrspatial.geotiff._compression import (
-    COMPRESSION_DEFLATE,
-    COMPRESSION_LZW,
-    COMPRESSION_NONE,
-    compress,
-    decompress,
-    deflate_decompress,
-    lzw_compress,
-    lzw_decompress,
-)
+from xrspatial.geotiff._compression import (COMPRESSION_DEFLATE, COMPRESSION_LZW, COMPRESSION_NONE,
+                                            compress, decompress, deflate_decompress, lzw_compress,
+                                            lzw_decompress)
 from xrspatial.geotiff._dtypes import numpy_to_tiff_dtype, tiff_dtype_to_numpy
-from xrspatial.geotiff._header import parse_all_ifds, parse_header
+from xrspatial.geotiff._header import parse_header
 from xrspatial.geotiff._reader import read_to_array
 from xrspatial.geotiff._writer import write
-
 
 # -----------------------------------------------------------------------
 # Writer: invalid inputs
 # -----------------------------------------------------------------------
+
 
 class TestWriteInvalidInputs:
     """Writer should reject or gracefully handle bad inputs."""
@@ -256,7 +249,7 @@ class TestReadCorruptFiles:
 
     def test_empty_file(self, tmp_path):
         path = str(tmp_path / 'empty.tif')
-        with open(path, 'wb') as f:
+        with open(path, 'wb'):
             pass  # 0 bytes
         with pytest.raises((ValueError, Exception)):
             read_to_array(path)
@@ -399,10 +392,16 @@ class TestDtypeEdgeCases:
         with pytest.raises(ValueError, match="Unsupported numpy dtype"):
             numpy_to_tiff_dtype(np.dtype('complex128'))
 
-    def test_float16_not_supported(self):
-        """float16 has no TIFF equivalent."""
-        with pytest.raises(ValueError, match="Unsupported BitsPerSample"):
-            tiff_dtype_to_numpy(16, 3)  # 16-bit float
+    def test_float16_auto_promoted_to_float32(self):
+        """float16 on disk (bps=16 + SampleFormat=3) is exposed as float32.
+
+        The writer auto-promotes float16 inputs to float32 before
+        encoding, and the reader matches that contract: a file with
+        bps=16 + SampleFormat=3 (an externally produced half-precision
+        TIFF) returns float32 to the user. See issue #1941 for the
+        original read-side asymmetry.
+        """
+        assert tiff_dtype_to_numpy(16, 3) == np.float32
 
 
 # -----------------------------------------------------------------------
@@ -512,8 +511,11 @@ class TestPublicAPIEdgeCases:
 
     def test_pixel_is_point_round_trip(self, tmp_path):
         """PixelIsPoint raster_type preserves origin correctly."""
-        y = np.array([41.0, 40.999722, 40.999444, 40.999167])
-        x = np.array([-75.0, -74.999722, -74.999444, -74.999167])
+        # Use truly uniform coords; hand-typed fractional decimals had
+        # ~3.6e-3 relative deviation between steps and silently produced
+        # a wrong transform before issue #1720 enforced regularity.
+        y = np.linspace(41.0, 40.999167, 4)
+        x = np.linspace(-75.0, -74.999167, 4)
         da = xr.DataArray(
             np.arange(16, dtype=np.float32).reshape(4, 4),
             dims=['y', 'x'], coords={'y': y, 'x': x},

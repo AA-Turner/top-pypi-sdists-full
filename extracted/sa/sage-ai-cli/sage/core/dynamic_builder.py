@@ -477,6 +477,19 @@ def _likely_files_for_step(
     return candidates[:6]  # cap context size
 
 
+def _clean_ansi(obj):
+    if isinstance(obj, str):
+        text = re.sub(r'\x1b\[[0-9;]*[mGKHFABCDEJst]', '', obj)
+        text = re.sub(r'\x1b\].*?\x07', '', text)
+        text = re.sub(r'\x1b[()][AB012]?', '', text)
+        return text.replace('\x1b', '')
+    if isinstance(obj, dict):
+        return {k: _clean_ansi(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean_ansi(x) for x in obj]
+    return obj
+
+
 # ──────────────────────── public builder ───────────────────────────────
 
 
@@ -527,11 +540,6 @@ def build_project_dynamic(
     for slot in layout.files:
         if slot.path in _DEP_FILES:
             continue  # dep_resolver writes these
-        if slot.template is not None:
-            target = out_dir / slot.path
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(slot.template, encoding="utf-8")
-            continue
         feature_slots.append(slot)
 
     # ── 3. Deps ──
@@ -696,7 +704,7 @@ def build_project_dynamic(
 
     # Persist the report for the user
     (sage_dir / "BUILD_REPORT.json").write_text(
-        json.dumps(report.as_dict(), indent=2), encoding="utf-8"
+        json.dumps(_clean_ansi(report.as_dict()), indent=2), encoding="utf-8"
     )
 
     return report

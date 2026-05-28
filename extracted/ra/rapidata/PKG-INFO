@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rapidata
-Version: 3.11.6
+Version: 3.11.7
 Summary: Rapidata package containing the Rapidata Python Client to interact with the Rapidata Web API in an easy way.
 Author-email: Rapidata AG <info@rapidata.ai>
 License-Expression: Apache-2.0

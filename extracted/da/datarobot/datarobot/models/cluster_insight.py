@@ -113,10 +113,13 @@ class ClusterInsight(APIObject):
         Name of a feature from the dataset.
     feature_type: str
         Type of feature.
-    insights : List[ClusterInsight]
+    insights : List[dict]
         List provides information regarding the importance of a specific feature in relation
         to each cluster. Results help understand how the model is grouping data and what each
-        cluster represents.
+        cluster represents. Examples include keys such as `insight_name`. For example, you
+        could get `categoryLevelFrequencyPercent` for a categorical feature, `importantNgrams`
+        for a text feature, and a set of {'avg', 'missingRowsPercent', 'min',
+        'firstQuartile', 'median', 'thirdQuartile', 'max'} for a numeric feature.
     feature_impact: float
         Impact of a feature ranging from 0 to 1.
     """
@@ -168,7 +171,7 @@ class ClusterInsight(APIObject):
         project_id: str
             ID of the project to begin creation of cluster insights for.
         model_id: str
-                        ID of the project model to begin creation of cluster insights for.
+            ID of the project model to begin creation of cluster insights for.
         max_wait: int
             Maximum number of seconds to wait canceling the request.
 

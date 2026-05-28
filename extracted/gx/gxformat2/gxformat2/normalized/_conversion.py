@@ -37,6 +37,7 @@ from ..options import (
     default_url_resolver,
     MAX_EXPANSION_DEPTH,
 )
+from ..schema._input_parameter import input_parameter_class
 from ..schema.gxformat2 import (
     BaseInputParameter,
     CreatorOrganization,
@@ -44,7 +45,6 @@ from ..schema.gxformat2 import (
     FrameComment,
     FreehandComment,
     GalaxyWorkflow,
-    input_parameter_class,
     MarkdownComment,
     Report,
 )
@@ -109,9 +109,16 @@ def _validate_native_output(result: NormalizedNativeWorkflow) -> None:
 
 
 class ExpandedWorkflowStep(NormalizedWorkflowStep):
-    """Format2 step with run fully resolved."""
+    """Format2 step with run fully resolved.
 
-    run: ExpandedFormat2 | None = Field(default=None, description="Always resolved or absent.")
+    Inline tool stubs (``GalaxyUserToolStub``) pass through expansion unchanged
+    -- they're already self-contained and have no references to resolve.
+    """
+
+    run: ExpandedFormat2 | GalaxyUserToolStub | None = Field(
+        default=None,
+        description="Resolved subworkflow, inline tool stub, or absent.",
+    )
 
 
 class ExpandedFormat2(NormalizedFormat2):
@@ -582,7 +589,7 @@ def _build_tool_format2_step(
         return _build_user_tool_format2_step(step, label_map, options.compact)
 
     in_list = _build_format2_step_inputs(step, label_map)
-    out_list = _build_format2_step_outputs(step)
+    out_list, remaining_pjas = _build_format2_step_outputs(step)
 
     # Handle tool state
     state: dict[str, Any] | None = None
@@ -619,6 +626,7 @@ def _build_tool_format2_step(
         tool_state=tool_state,
         in_=in_list,
         out=out_list,
+        post_job_actions=remaining_pjas,
         position=_convert_position(step.position) if not options.compact else None,
         when=step.when,
         uuid=step.uuid,
@@ -632,7 +640,7 @@ def _build_user_tool_format2_step(
     compact: bool,
 ) -> NormalizedWorkflowStep:
     in_list = _build_format2_step_inputs(step, label_map)
-    out_list = _build_format2_step_outputs(step)
+    out_list, remaining_pjas = _build_format2_step_outputs(step)
     raw_label = step.label or label_map.get(str(step.id))
     step_id = raw_label or str(step.id)
 
@@ -643,6 +651,7 @@ def _build_user_tool_format2_step(
         run=GalaxyUserToolStub.model_validate(step.tool_representation) if step.tool_representation else None,
         in_=in_list,
         out=out_list,
+        post_job_actions=remaining_pjas,
         position=_convert_position(step.position) if not compact else None,
     )
 
@@ -653,7 +662,7 @@ def _build_subworkflow_format2_step(
     options: ConversionOptions,
 ) -> NormalizedWorkflowStep:
     in_list = _build_format2_step_inputs(step, label_map)
-    out_list = _build_format2_step_outputs(step)
+    out_list, remaining_pjas = _build_format2_step_outputs(step)
 
     run: NormalizedFormat2 | str | None = None
     content_source = step.content_source
@@ -675,6 +684,7 @@ def _build_subworkflow_format2_step(
         run=run,
         in_=in_list,
         out=out_list,
+        post_job_actions=remaining_pjas,
         position=_convert_position(step.position) if not options.compact else None,
         when=step.when,
         uuid=step.uuid,
@@ -708,7 +718,7 @@ def _build_pick_value_format2_step(
     options: ConversionOptions,
 ) -> NormalizedWorkflowStep:
     in_list = _build_format2_step_inputs(step, label_map)
-    out_list = _build_format2_step_outputs(step)
+    out_list, remaining_pjas = _build_format2_step_outputs(step)
 
     state: dict[str, Any] | None = None
     tool_state = step.tool_state
@@ -727,6 +737,7 @@ def _build_pick_value_format2_step(
         state=state,
         in_=in_list,
         out=out_list,
+        post_job_actions=remaining_pjas,
         position=_convert_position(step.position) if not compact else None,
     )
 
@@ -776,50 +787,61 @@ def _build_format2_step_inputs(
     return in_list
 
 
-def _build_format2_step_outputs(step: NormalizedNativeStep) -> list[WorkflowStepOutput]:
-    """Convert native post_job_actions to Format2 step outputs."""
+def _build_format2_step_outputs(
+    step: NormalizedNativeStep,
+) -> tuple[list[WorkflowStepOutput], dict[str, NativePostJobAction] | None]:
+    """Convert native post_job_actions to Format2 step outputs.
+
+    Returns ``(out_list, remaining_pjas)``: PJAs with a known ``out:``
+    shorthand are folded into output entries; everything else (including
+    actions like ``ValidateOutputsAction`` that have no output_name) is
+    returned as-is for the caller to surface on the Format2 step's
+    ``post_job_actions:`` field.
+    """
     if not step.post_job_actions:
-        return []
+        return [], None
 
     outputs_by_name: dict[str, dict[str, Any]] = {}
-    remaining_pjas: dict[str, Any] = {}
+    remaining_pjas: dict[str, NativePostJobAction] = {}
 
     for pja_key, pja in step.post_job_actions.items():
         action_type = pja.action_type
         output_name = pja.output_name
         action_args = pja.action_arguments or {}
 
-        if output_name not in outputs_by_name:
-            outputs_by_name[output_name] = {}
-        output_dict = outputs_by_name[output_name]
-
         handled = True
-        if action_type == "RenameDatasetAction":
-            output_dict["rename"] = action_args["newname"]
-        elif action_type == "HideDatasetAction":
-            output_dict["hide"] = True
-        elif action_type == "DeleteIntermediatesAction":
-            output_dict["delete_intermediate_datasets"] = True
-        elif action_type == "ChangeDatatypeAction":
-            output_dict["change_datatype"] = action_args["newtype"]
-        elif action_type == "TagDatasetAction":
-            output_dict["add_tags"] = action_args["tags"].split(",")
-        elif action_type == "RemoveTagDatasetAction":
-            output_dict["remove_tags"] = action_args["tags"].split(",")
-        elif action_type == "ColumnSetAction":
-            if action_args:
-                output_dict["set_columns"] = action_args
+        if output_name is not None:
+            output_dict = outputs_by_name.setdefault(output_name, {})
+            if action_type == "RenameDatasetAction":
+                output_dict["rename"] = action_args["newname"]
+            elif action_type == "HideDatasetAction":
+                output_dict["hide"] = True
+            elif action_type == "DeleteIntermediatesAction":
+                output_dict["delete_intermediate_datasets"] = True
+            elif action_type == "ChangeDatatypeAction":
+                output_dict["change_datatype"] = action_args["newtype"]
+            elif action_type == "TagDatasetAction":
+                output_dict["add_tags"] = action_args["tags"].split(",")
+            elif action_type == "RemoveTagDatasetAction":
+                output_dict["remove_tags"] = action_args["tags"].split(",")
+            elif action_type == "ColumnSetAction":
+                if action_args:
+                    output_dict["set_columns"] = action_args
+            else:
+                handled = False
+                if not output_dict:
+                    del outputs_by_name[output_name]
         else:
             handled = False
 
         if not handled:
-            remaining_pjas[pja_key] = pja.model_dump(by_alias=True, exclude_none=True)
+            remaining_pjas[pja_key] = pja
 
     result: list[WorkflowStepOutput] = []
     for name, props in outputs_by_name.items():
         result.append(WorkflowStepOutput(id=name, **props))
 
-    return result
+    return result, (remaining_pjas or None)
 
 
 def _to_source(output_name: str, label_map: dict[str, str], step_id: int) -> str:
@@ -1179,11 +1201,19 @@ def _build_input_step(
     if inp.default is not None:
         tool_state["default"] = inp.default
 
-    # Copy extra fields from input (restrictions, suggestions, etc.)
-    if inp.model_extra:
-        for key in ("restrictions", "suggestions", "restrictOnConnections", "fields", "column_definitions"):
-            if key in inp.model_extra:
-                tool_state[key] = inp.model_extra[key]
+    # Copy text-parameter / sample-sheet / record fields from the typed model.
+    for key in ("restrictions", "suggestions", "restrictOnConnections", "column_definitions", "fields"):
+        value = getattr(inp, key, None)
+        if value is None:
+            continue
+        if isinstance(value, list):
+            tool_state[key] = [
+                v.model_dump(by_alias=True, exclude_none=True) if hasattr(v, "model_dump") else v for v in value
+            ]
+        elif hasattr(value, "model_dump"):
+            tool_state[key] = value.model_dump(by_alias=True, exclude_none=True)
+        else:
+            tool_state[key] = value
 
     position = _default_position(inp.position, order_index)
 
@@ -1299,7 +1329,7 @@ def _build_tool_step(
     input_connections = _build_input_connections(connect, ctx, is_subworkflow=False)
 
     # Build post job actions
-    post_job_actions = _build_post_job_actions(step.out)
+    post_job_actions = _build_post_job_actions(step.out, step.post_job_actions)
 
     position = _default_position(step.position, order_index)
 
@@ -1320,6 +1350,7 @@ def _build_tool_step(
         when=step.when,
         uuid=step.uuid,
         errors=step.errors,
+        in_=_extract_step_in_defaults(step.in_),
     )
 
 
@@ -1352,7 +1383,7 @@ def _build_subworkflow_step(
     input_connections = _build_input_connections(
         connect, ctx, is_subworkflow=is_subworkflow, subworkflow_ctx=subworkflow_child_ctx
     )
-    post_job_actions = _build_post_job_actions(step.out)
+    post_job_actions = _build_post_job_actions(step.out, step.post_job_actions)
     position = _default_position(step.position, order_index)
 
     return NormalizedNativeStep(
@@ -1368,6 +1399,7 @@ def _build_subworkflow_step(
         position=position,
         when=step.when,
         uuid=step.uuid,
+        in_=_extract_step_in_defaults(step.in_),
     )
 
 
@@ -1411,7 +1443,7 @@ def _build_pick_value_step(
     if num_inputs > 0:
         tool_state["num_inputs"] = max(2, num_inputs)
 
-    post_job_actions = _build_post_job_actions(step.out)
+    post_job_actions = _build_post_job_actions(step.out, step.post_job_actions)
     position = _default_position(step.position, order_index)
 
     return NormalizedNativeStep(
@@ -1449,6 +1481,27 @@ def _extract_connections(step: NormalizedWorkflowStep) -> dict[str, list]:
     return connect
 
 
+def _extract_step_in_defaults(step_in_: list[WorkflowStepInput]) -> dict[str, Any] | None:
+    """Collect ``in: {param: {default: ...}}`` entries for native ``step["in"]``.
+
+    Galaxy reads ``step_dict["in"][name]["default"]`` to seed
+    ``WorkflowStepInput.default_value`` (see
+    ``galaxy.managers.workflows`` ``__module_from_dict``). Format2 surfaces
+    these as ``WorkflowStepInput.default`` on the normalized step; keep them
+    on the native side so tool-state defaults and File-class defaults are
+    not lost.
+    """
+    in_defaults: dict[str, Any] = {}
+    for step_input in step_in_:
+        input_id = step_input.id
+        if input_id is None:
+            continue
+        if step_input.default is None:
+            continue
+        in_defaults[input_id] = {"default": step_input.default}
+    return in_defaults or None
+
+
 def _build_input_connections(
     connect: dict[str, list],
     ctx: _ConversionContext,
@@ -1482,6 +1535,7 @@ def _build_input_connections(
 
 def _build_post_job_actions(
     outputs: list[WorkflowStepOutput],
+    explicit: dict[str, NativePostJobAction] | None = None,
 ) -> dict[str, NativePostJobAction]:
     post_job_actions: dict[str, NativePostJobAction] = {}
     for output in outputs:
@@ -1500,6 +1554,10 @@ def _build_post_job_actions(
                     output_name=output_name,
                     action_arguments=action_dict["arguments"](action_value),
                 )
+    if explicit:
+        # Explicit step.post_job_actions wins over out:-shorthand-derived entries
+        # for keys that collide; otherwise merged.
+        post_job_actions.update(explicit)
     return post_job_actions
 
 
@@ -1694,8 +1752,10 @@ def expanded_native(
 def _expand_format2(wf: NormalizedFormat2, ctx: _ExpansionContext) -> ExpandedFormat2:
     expanded_steps: list[ExpandedWorkflowStep] = []
     for step in wf.steps:
-        expanded_run: ExpandedFormat2 | None = None
-        if isinstance(step.run, NormalizedFormat2):
+        expanded_run: ExpandedFormat2 | GalaxyUserToolStub | None = None
+        if isinstance(step.run, GalaxyUserToolStub):
+            expanded_run = step.run
+        elif isinstance(step.run, NormalizedFormat2):
             expanded_run = _expand_format2(step.run, ctx)
         elif isinstance(step.run, str):
             resolved = _resolve_run_reference(step.run, ctx)

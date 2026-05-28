@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_elementalinference.literals import FeedDeletedWaiterName
+    from types_boto3_elementalinference.literals import DictionaryLanguageType
 
-    data: FeedDeletedWaiterName = "feed_deleted"
+    data: DictionaryLanguageType = "deu"
     ```
 """
 
@@ -23,24 +23,36 @@ else:
 
 
 __all__ = (
+    "DictionaryLanguageType",
+    "DictionaryStatusType",
     "ElementalInferenceServiceName",
     "FeedDeletedWaiterName",
     "FeedStatusType",
+    "ListDictionariesPaginatorName",
     "ListFeedsPaginatorName",
     "OutputStatusType",
     "PaginatorName",
+    "ProfanityFilterModeType",
     "ResourceServiceName",
     "ServiceName",
+    "TranscriptionLanguageType",
     "WaiterName",
 )
 
 
+DictionaryLanguageType = Literal["deu", "eng", "fra", "ita", "por", "spa"]
+DictionaryStatusType = Literal["AVAILABLE", "CREATING", "DELETED", "DELETING", "REFERENCED"]
 FeedDeletedWaiterName = Literal["feed_deleted"]
 FeedStatusType = Literal[
     "ACTIVE", "ARCHIVED", "AVAILABLE", "CREATING", "DELETED", "DELETING", "UPDATING"
 ]
+ListDictionariesPaginatorName = Literal["list_dictionaries"]
 ListFeedsPaginatorName = Literal["list_feeds"]
 OutputStatusType = Literal["DISABLED", "ENABLED"]
+ProfanityFilterModeType = Literal["CENSOR", "DISABLED", "DROP"]
+TranscriptionLanguageType = Literal[
+    "deu", "eng", "eng-au", "eng-gb", "eng-us", "fra", "ita", "por", "spa"
+]
 ElementalInferenceServiceName = Literal["elementalinference"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -470,5 +482,5 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_feeds"]
+PaginatorName = Literal["list_dictionaries", "list_feeds"]
 WaiterName = Literal["feed_deleted"]

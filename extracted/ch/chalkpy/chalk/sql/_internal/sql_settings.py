@@ -16,3 +16,4 @@ class SQLResolverSettings:
     fields_root_fqn: Mapping[str, str]  # column name -> root fqn of output feature
     params_to_root_fqn: Mapping[str, str]  # escaped param name -> root fqn of input feature
     field_types: Mapping[str, str] = field(default_factory=dict)  # column name -> SQL type string (e.g., "uuid")
+    use_native_sql: bool | None = None  # Native SQL override where possible. None defers to environment/planner opts.

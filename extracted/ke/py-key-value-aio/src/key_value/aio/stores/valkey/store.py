@@ -8,12 +8,21 @@ from key_value.aio._utils.managed_entry import ManagedEntry
 from key_value.aio.stores.base import BaseContextManagerStore, BaseStore
 
 try:
-    from glide.glide_client import BaseClient, GlideClient, GlideClusterClient
-    from glide_shared.commands.core_options import ExpirySet, ExpiryType
-    from glide_shared.config import GlideClientConfiguration, GlideClusterClientConfiguration, NodeAddress, ServerCredentials
+    from glide import (
+        ExpirySet,
+        ExpiryType,
+        GlideClient,
+        GlideClientConfiguration,
+        GlideClusterClient,
+        GlideClusterClientConfiguration,
+        NodeAddress,
+        ServerCredentials,
+    )
 except ImportError as e:
     msg = "ValkeyStore requires py-key-value-aio[valkey]"
     raise ImportError(msg) from e
+
+ValkeyClient = GlideClient | GlideClusterClient
 
 
 DEFAULT_PAGE_SIZE = 10000
@@ -38,17 +47,28 @@ def _create_valkey_client_config(
     return GlideClientConfiguration(addresses=addresses, database_id=db, credentials=credentials)
 
 
-async def _create_valkey_client(config: GlideClientConfiguration | GlideClusterClientConfiguration) -> GlideClient:
+@overload
+async def _create_valkey_client(config: GlideClientConfiguration) -> GlideClient: ...
+
+
+@overload
+async def _create_valkey_client(config: GlideClusterClientConfiguration) -> GlideClusterClient: ...
+
+
+async def _create_valkey_client(config: GlideClientConfiguration | GlideClusterClientConfiguration) -> ValkeyClient:
     """Create a Valkey client from configuration."""
+    if isinstance(config, GlideClusterClientConfiguration):
+        return await GlideClusterClient.create(config=config)
+
     return await GlideClient.create(config=config)
 
 
-async def _valkey_mget(client: BaseClient, keys: list[str]) -> list[bytes | None]:
+async def _valkey_mget(client: ValkeyClient, keys: list[str]) -> list[bytes | None]:
     """Get multiple values from Valkey."""
     return await client.mget(keys=keys)  # pyright: ignore[reportArgumentType]
 
 
-async def _valkey_delete(client: BaseClient, keys: list[str]) -> int:
+async def _valkey_delete(client: ValkeyClient, keys: list[str]) -> int:
     """Delete one or more keys from Valkey."""
     return await client.delete(keys=keys)  # pyright: ignore[reportArgumentType]
 
@@ -59,7 +79,7 @@ class ValkeyStore(BaseContextManagerStore, BaseStore):
     Supports both standalone (GlideClient) and cluster (GlideClusterClient) deployments.
     """
 
-    _connected_client: BaseClient | None
+    _connected_client: ValkeyClient | None
     _client_config: GlideClientConfiguration | GlideClusterClientConfiguration | None
 
     @overload
@@ -67,6 +87,14 @@ class ValkeyStore(BaseContextManagerStore, BaseStore):
 
     @overload
     def __init__(self, *, client: GlideClusterClient, default_collection: str | None = None) -> None: ...
+
+    @overload
+    def __init__(
+        self,
+        *,
+        config: GlideClientConfiguration | GlideClusterClientConfiguration,
+        default_collection: str | None = None,
+    ) -> None: ...
 
     @overload
     def __init__(
@@ -83,7 +111,8 @@ class ValkeyStore(BaseContextManagerStore, BaseStore):
     def __init__(
         self,
         *,
-        client: BaseClient | None = None,
+        client: ValkeyClient | None = None,
+        config: GlideClientConfiguration | GlideClusterClientConfiguration | None = None,
         default_collection: str | None = None,
         host: str = "localhost",
         port: int = 6379,
@@ -97,6 +126,9 @@ class ValkeyStore(BaseContextManagerStore, BaseStore):
             client: An existing Valkey client to use (GlideClient or GlideClusterClient).
                 If provided, the store will not manage the client's lifecycle (will not
                 close it). The caller is responsible for managing the client's lifecycle.
+            config: A GLIDE client configuration to connect lazily on first use.
+                Pass ``GlideClientConfiguration`` for standalone Valkey or
+                ``GlideClusterClientConfiguration`` for cluster-mode Valkey.
             default_collection: The default collection to use if no collection is provided.
             host: Valkey host. Defaults to localhost.
             port: Valkey port. Defaults to 6379.
@@ -105,13 +137,21 @@ class ValkeyStore(BaseContextManagerStore, BaseStore):
             password: Valkey password. Defaults to None.
 
         Note:
-            When using a cluster client, the host/port/db parameters are ignored.
-            You must provide a pre-configured GlideClusterClient instance.
+            When using ``config`` or an existing ``client``, the host/port/db/
+            username/password parameters are ignored.
         """
         client_provided = client is not None
 
+        if client is not None and config is not None:
+            msg = "client and config are mutually exclusive"
+            raise ValueError(msg)
+
         if client is not None:
             self._connected_client = client
+            self._client_config = None
+        elif config is not None:
+            self._client_config = config
+            self._connected_client = None
         else:
             self._client_config = _create_valkey_client_config(host=host, port=port, db=db, username=username, password=password)
             self._connected_client = None
@@ -137,7 +177,7 @@ class ValkeyStore(BaseContextManagerStore, BaseStore):
             self._exit_stack.push_async_callback(self._client.close)
 
     @property
-    def _client(self) -> BaseClient:
+    def _client(self) -> ValkeyClient:
         if self._connected_client is None:
             # This should never happen, makes the type checker happy though
             msg = "Client is not connected"

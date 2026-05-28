@@ -22,7 +22,7 @@ VALID_REMOTE = "VALID_REMOTE"
 
 class InvalidFunction(ValueError):
     def __init__(self, msg: str = "", table_function_name: str = ""):
-        if any([fn for fn in COPY_ENABLED_TABLE_FUNCTIONS if fn in msg]):
+        if any(fn for fn in COPY_ENABLED_TABLE_FUNCTIONS if fn in msg):
             msg = msg.replace("is restricted", "is restricted to Copy Pipes")
 
         if table_function_name:

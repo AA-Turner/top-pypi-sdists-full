@@ -148,7 +148,7 @@ auth_require = [
     "eval-type-backport; python_version < '3.10'",  # For compatibility with Python 3.10+ typing
 ]
 
-authlib_require = ["authlib>=1.6.0,<1.7.0"] + auth_require
+authlib_require = ["authlib>=1.6.0"] + auth_require
 auth_lint_require = authlib_require + ["respx"]
 auth_test_require = auth_lint_require
 
@@ -160,6 +160,10 @@ core_require = [
 
 files_require = [
     "fsspec>=2025.5.0",
+]
+
+otel_require = [
+    "opentelemetry-sdk>=1.33.0,<2.0.0",
 ]
 
 lint_require = (
@@ -267,5 +271,6 @@ common_setup_kwargs = dict(
         "auth-authlib": authlib_require,
         "core": core_require,
         "fs": files_require,
+        "otel": otel_require,
     },
 )

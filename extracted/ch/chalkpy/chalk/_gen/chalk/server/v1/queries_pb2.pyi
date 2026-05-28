@@ -338,6 +338,7 @@ class MetaQueryRun(_message.Message):
         "duration",
         "trace_id",
         "resource_group",
+        "query_name_version",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     META_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
@@ -353,6 +354,7 @@ class MetaQueryRun(_message.Message):
     DURATION_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
     id: str
     meta_query_id: str
     external_id: str
@@ -367,6 +369,7 @@ class MetaQueryRun(_message.Message):
     duration: float
     trace_id: str
     resource_group: str
+    query_name_version: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -383,6 +386,7 @@ class MetaQueryRun(_message.Message):
         duration: _Optional[float] = ...,
         trace_id: _Optional[str] = ...,
         resource_group: _Optional[str] = ...,
+        query_name_version: _Optional[str] = ...,
     ) -> None: ...
 
 class MetaQueryRunWithMeta(_message.Message):
@@ -419,6 +423,7 @@ class ListMetaQueryRunsRequest(_message.Message):
         "has_trace",
         "trace_id",
         "resource_group",
+        "query_version",
     )
     INCLUDE_LATENCY_FIELD_NUMBER: _ClassVar[int]
     MIN_LATENCY_MS_FIELD_NUMBER: _ClassVar[int]
@@ -437,6 +442,7 @@ class ListMetaQueryRunsRequest(_message.Message):
     HAS_TRACE_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    QUERY_VERSION_FIELD_NUMBER: _ClassVar[int]
     include_latency: bool
     min_latency_ms: float
     query_plan_id: str
@@ -454,6 +460,7 @@ class ListMetaQueryRunsRequest(_message.Message):
     has_trace: bool
     trace_id: str
     resource_group: str
+    query_version: str
     def __init__(
         self,
         include_latency: bool = ...,
@@ -473,6 +480,7 @@ class ListMetaQueryRunsRequest(_message.Message):
         has_trace: bool = ...,
         trace_id: _Optional[str] = ...,
         resource_group: _Optional[str] = ...,
+        query_version: _Optional[str] = ...,
     ) -> None: ...
 
 class ListMetaQueryRunsResponse(_message.Message):
@@ -681,18 +689,21 @@ class ListMetaQueriesForFeatureResponse(_message.Message):
     def __init__(self, meta_queries: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...
 
 class ListMetaQueryVersionsRequest(_message.Message):
-    __slots__ = ("meta_query_name", "cursor", "limit")
+    __slots__ = ("meta_query_name", "cursor", "limit", "query_version")
     META_QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_VERSION_FIELD_NUMBER: _ClassVar[int]
     meta_query_name: str
     cursor: _timestamp_pb2.Timestamp
     limit: int
+    query_version: str
     def __init__(
         self,
         meta_query_name: _Optional[str] = ...,
         cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         limit: _Optional[int] = ...,
+        query_version: _Optional[str] = ...,
     ) -> None: ...
 
 class ListMetaQueryVersionsResponse(_message.Message):

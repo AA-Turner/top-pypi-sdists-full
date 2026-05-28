@@ -35,15 +35,14 @@ def verify_sms_capability(domain, prompt, tmp_path):
         # Run the actual CLI subprocess task loop
         output = bridge._run_sage_task(prompt, mode="agent")
         
+        from sage.tests.rubric_checker import check_grading_rubric, is_ignored
         generated_files = [
             f for f in Path(tmp_path).glob("**/*")
             if f.is_file()
-            and not str(f).startswith((".", "venv"))
-            and "__pycache__" not in str(f)
+            and not is_ignored(f, Path(tmp_path))
             and not f.name.endswith(".pyc")
         ]
         
-        from sage.tests.rubric_checker import check_grading_rubric
         check_grading_rubric(output, generated_files)
 
     finally:

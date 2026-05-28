@@ -5,6 +5,7 @@ HTML renderer
 from __future__ import annotations
 
 import html
+import re
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
 
@@ -12,6 +13,7 @@ from .renderer import Renderer
 
 if TYPE_CHECKING:
     from . import block, inline
+HARMFUL_PROTOCOLS = re.compile(r"^\s*(javascript|vbscript|data):", re.IGNORECASE)
 
 
 class HTMLRenderer(Renderer):
@@ -19,7 +21,7 @@ class HTMLRenderer(Renderer):
 
     def render_paragraph(self, element: block.Paragraph) -> str:
         children = self.render_children(element)
-        if element._tight:  # type: ignore
+        if element._tight:
             return children
         else:
             return f"<p>{children}</p>\n"
@@ -36,7 +38,7 @@ class HTMLRenderer(Renderer):
         )
 
     def render_list_item(self, element: block.ListItem) -> str:
-        if len(element.children) == 1 and getattr(element.children[0], "_tight", False):  # type: ignore
+        if len(element.children) == 1 and getattr(element.children[0], "_tight", False):
             sep = ""
         else:
             sep = "\n"
@@ -52,7 +54,8 @@ class HTMLRenderer(Renderer):
             else ""
         )
         return "<pre><code{}>{}</code></pre>\n".format(
-            lang, html.escape(element.children[0].children)  # type: ignore
+            lang,
+            html.escape(element.children[0].children),  # type: ignore
         )
 
     def render_code_block(self, element: block.CodeBlock) -> str:
@@ -135,4 +138,7 @@ class HTMLRenderer(Renderer):
         """
         Escape urls to prevent code injection craziness. (Hopefully.)
         """
-        return html.escape(quote(html.unescape(raw), safe="/#:()*?=%@+,&"))
+        escaped = html.escape(quote(html.unescape(raw), safe="/#:()*?=%@+,&"))
+        if HARMFUL_PROTOCOLS.match(escaped):
+            return "#harmful-link"
+        return escaped

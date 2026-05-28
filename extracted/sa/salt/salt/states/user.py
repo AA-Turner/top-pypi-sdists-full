@@ -221,6 +221,10 @@ def _changes(
         ):
             change["password_lock"] = password_lock
     elif "shadow.info" in __salt__ and salt.utils.platform.is_windows():
+        if password and not empty_password and enforce_password:
+            if "shadow.verify_password" in __salt__:
+                if not __salt__["shadow.verify_password"](name, password):
+                    change["passwd"] = password
         if (
             expire
             and expire != -1
@@ -417,18 +421,17 @@ def present(
             Not supported on Windows.
 
     password
-        A password hash to set for the user. This field is only supported on
-        Linux, FreeBSD, NetBSD, OpenBSD, and Solaris. If the ``empty_password``
-        argument is set to ``True`` then ``password`` is ignored.
-        For Windows this is the plain text password.
-        For Linux, the hash can be generated with ``mkpasswd -m sha-256``.
+        A password hash to set for the user. Updating a password on an existing
+        account is only supported on Linux, FreeBSD, NetBSD, OpenBSD, and Solaris.
+        If the ``empty_password`` argument is set to ``True`` then ``password``
+        is ignored. For Windows this is the plain text password. For Linux, the
+        hash can be generated with ``mkpasswd -m sha-256``.
 
     .. versionchanged:: 0.16.0
        BSD support added.
 
     hash_password
         Set to True to hash the clear text password. Default is ``False``.
-
 
     enforce_password
         Set to False to keep the password from being changed if it has already
@@ -710,6 +713,7 @@ def present(
 
         # Make changes
 
+        _passwd_changed = "passwd" in changes and not empty_password
         if "passwd" in changes:
             del changes["passwd"]
             if not empty_password:
@@ -827,6 +831,8 @@ def present(
                         ret["changes"][key] = "XXX-REDACTED-XXX"
                     else:
                         ret["changes"][key] = spost[key]
+        if salt.utils.platform.is_windows() and _passwd_changed:
+            ret["changes"]["passwd"] = "XXX-REDACTED-XXX"
         if __grains__["kernel"] in ("OpenBSD", "FreeBSD") and lcpost != lcpre:
             ret["changes"]["loginclass"] = lcpost
         if ret["changes"]:

@@ -2739,12 +2739,7 @@ def build_project(
         target = out_dir / spec.path
         target.parent.mkdir(parents=True, exist_ok=True)
 
-        if spec.template is not None:
-            target.write_text(spec.template, encoding="utf-8")
-            report["files"].append({"path": spec.path, "source": "template", "score": 10.0})
-            report["template_count"] += 1
-            log(f"  ✓ {spec.path} (template)")
-            continue
+
 
         prompt = build_file_prompt(brief, spec, tree, stack, versions)
         content = strip_code_fences(generate(prompt))

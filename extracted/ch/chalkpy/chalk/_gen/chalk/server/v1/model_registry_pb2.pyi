@@ -448,10 +448,16 @@ class GetModelArtifactUploadUrlsResponse(_message.Message):
     ) -> None: ...
 
 class DownloadModelArtifactRequest(_message.Message):
-    __slots__ = ("model_version_key",)
+    __slots__ = ("model_version_key", "model_artifact_id")
     MODEL_VERSION_KEY_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
     model_version_key: ModelVersionKey
-    def __init__(self, model_version_key: _Optional[_Union[ModelVersionKey, _Mapping]] = ...) -> None: ...
+    model_artifact_id: str
+    def __init__(
+        self,
+        model_version_key: _Optional[_Union[ModelVersionKey, _Mapping]] = ...,
+        model_artifact_id: _Optional[str] = ...,
+    ) -> None: ...
 
 class DownloadModelArtifactResponse(_message.Message):
     __slots__ = ("uri", "model_artifact", "model_urls", "additional_file_urls")
@@ -642,3 +648,15 @@ class ListModelArtifactsResponse(_message.Message):
         model_artifacts: _Optional[_Iterable[_Union[ModelArtifact, _Mapping]]] = ...,
         next_cursor: _Optional[str] = ...,
     ) -> None: ...
+
+class GetModelArtifactRequest(_message.Message):
+    __slots__ = ("model_artifact_id",)
+    MODEL_ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
+    model_artifact_id: str
+    def __init__(self, model_artifact_id: _Optional[str] = ...) -> None: ...
+
+class GetModelArtifactResponse(_message.Message):
+    __slots__ = ("model_artifact",)
+    MODEL_ARTIFACT_FIELD_NUMBER: _ClassVar[int]
+    model_artifact: ModelArtifact
+    def __init__(self, model_artifact: _Optional[_Union[ModelArtifact, _Mapping]] = ...) -> None: ...

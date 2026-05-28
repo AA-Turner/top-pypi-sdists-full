@@ -6275,6 +6275,17 @@ def _build_session_protected_files(cwd: Path) -> set[str]:
     return protected
 
 
+def _clean_manifest_line(line: str) -> str:
+    """Clean a manifest line by stripping markdown list prefixes and wrapping quotes/backticks."""
+    line = line.strip()
+    # Strip leading markdown list markers: e.g. "- ", "* ", "1. ", "10. ", etc.
+    import re
+    cleaned = re.sub(r'^([-*+]\s+|\d+\.\s+)', '', line)
+    # Strip any backticks or quotes
+    cleaned = cleaned.strip("`'\" ")
+    return cleaned
+
+
 def _extract_and_write_files(
     output: str,
     cwd: Path,
@@ -6441,7 +6452,8 @@ def _extract_and_write_files(
                 continue
 
             fp = _normalize_workspace_relative_path(raw_fp, cwd)
-            content = m.group(2)
+            from sage.core.tools import strip_markdown_fences
+            content = strip_markdown_fences(m.group(2))
             if fp in seen:
                 continue
             seen.add(fp)
@@ -7620,6 +7632,14 @@ def _route_to_principal_pipeline(
     if not looks_like_build_request(user_input):
         return None
 
+    def _print_log(msg: str) -> None:
+        if not renderer.is_clean():
+            renderer.console.print(msg)
+
+    def _build_progress(msg: str) -> None:
+        if not renderer.is_clean():
+            renderer.console.print(f"[dim]{msg}[/dim]")
+
     # ── Always save the user input to a text file alongside the build ──
     # Goes into a hidden .sage/ subdir so the project root stays clean —
     # sage scaffolds INTO the user's repo without cluttering it with
@@ -7642,7 +7662,7 @@ def _route_to_principal_pipeline(
     # the build pipeline's volume of LLM calls.
     effective_model, swap_reason = _pick_build_model(model_id)
     if swap_reason:
-        renderer.info(f"[yellow]{swap_reason}[/yellow]")
+        _print_log(f"[yellow]{swap_reason}[/yellow]")
 
     # Extend ollama timeout floor for build mode — per-file LLM calls on a
     # large local model can run 5+ min. Don't lower an existing higher value.
@@ -7665,13 +7685,13 @@ def _route_to_principal_pipeline(
     def _run_build(task: str, out_dir: Path) -> dict:
         """Dispatch to the principal-grade builder or legacy fallback."""
         if legacy_plans:
-            return build_project(task, out_dir, _generate, progress=renderer.info)
+            return build_project(task, out_dir, _generate, progress=_build_progress)
         # Default: principal builder (bootstrap + architecture + multi-file
         # features + review pass + verify loop). Replaces the older
         # build_project_dynamic which is retained for its test surface.
         try:
             report = build_project_principal(
-                task, out_dir, _generate, progress=renderer.info,
+                task, out_dir, _generate, progress=_build_progress,
                 enable_review=not no_review,
             )
         except BuildIncomplete as exc:
@@ -7708,13 +7728,13 @@ def _route_to_principal_pipeline(
         }
 
     if len(sub_tasks) == 1:
-        renderer.info(
+        _print_log(
             f"[bold]Build mode[/bold] → {base_out_dir} "
             f"({'legacy plans' if legacy_plans else 'dynamic'})"
         )
         report = _run_build(sub_tasks[0][1], base_out_dir)
         if legacy_plans:
-            renderer.info(
+            _print_log(
                 f"[green]Generated {len(report['files'])} files "
                 f"({report['template_count']} from templates, "
                 f"{report['llm_count']} from LLM, "
@@ -7722,17 +7742,17 @@ def _route_to_principal_pipeline(
                 f"{report.get('lint_fixes', 0)} lint fixes)[/green]"
             )
         else:
-            renderer.info(
+            _print_log(
                 f"[green]Generated {report['file_count']} files across "
                 f"{report['feature_count']} features. "
                 f"install_ok={report['install_ok']} tests_ok={report['tests_ok']}"
                 f"{' STUCK=' + ','.join(report['stuck_features']) if report['stuck_features'] else ''}"
                 "[/green]"
             )
-        renderer.info(f"Project at: [cyan]{report['out_dir']}[/cyan]")
+        _print_log(f"Project at: [cyan]{report['out_dir']}[/cyan]")
         return report
 
-    renderer.info(
+    _print_log(
         f"[bold]Build mode[/bold] → {len(sub_tasks)} sub-projects under {base_out_dir}"
     )
     base_out_dir.mkdir(parents=True, exist_ok=True)
@@ -7749,7 +7769,7 @@ def _route_to_principal_pipeline(
     }
     for idx, (label, sub_task) in enumerate(sub_tasks, start=1):
         sub_dir = base_out_dir / f"{idx:02d}-{label}"
-        renderer.info(f"\n[bold cyan]── Project {idx}/{len(sub_tasks)}: {label}[/bold cyan]")
+        _print_log(f"\n[bold cyan]── Project {idx}/{len(sub_tasks)}: {label}[/bold cyan]")
         try:
             report = _run_build(sub_task, sub_dir)
         except Exception as exc:
@@ -7772,11 +7792,11 @@ def _route_to_principal_pipeline(
         for key in ("template_count", "llm_count", "integrity_fixes",
                     "lint_fixes", "review_failures"):
             combined[key] += report.get(key, 0)
-        renderer.info(
+        _print_log(
             f"[green]  ✓ {label}: {file_count} files at {report['out_dir']}[/green]"
         )
 
-    renderer.info(
+    _print_log(
         f"\n[bold green]All {len(sub_tasks)} projects generated under {base_out_dir}[/bold green]"
     )
     return combined
@@ -12928,7 +12948,7 @@ class SAGEAgent:
                 mstart = phase_response.find("FILE_MANIFEST:")
                 if mstart != -1:
                     for ml in phase_response[mstart + 14:].strip().splitlines():
-                        ml = ml.strip()
+                        ml = _clean_manifest_line(ml)
                         if ml and "." in ml and not ml.startswith("#"):
                             self._greenfield_manifest.append(ml)
 
@@ -13272,6 +13292,39 @@ class SAGEAgent:
 
         self.last_prompt = task_prompt
 
+        # Check if this is a build request and route to principal pipeline
+        from sage.core.principal_engineer import looks_like_build_request
+        if looks_like_build_request(task_prompt):
+            self.renderer.info("🚀 Routing build request to the principal pipeline...")
+            if save_history:
+                _add_to_prompt_history(self.cwd, task_prompt)
+            report = _route_to_principal_pipeline(
+                user_input=task_prompt,
+                base_out_dir=self.cwd,
+                router=self.router,
+                model_id=self.model_id,
+                temp=self.temp,
+                tokens=self.tokens,
+                model_locked=self.model_locked,
+                system_prompt=self.engine.system_prompt if self.engine else None,
+            )
+            if report:
+                from pathlib import Path
+                written = []
+                out_path = Path(report.get("out_dir", self.cwd))
+                if out_path.exists():
+                    for p in out_path.rglob("*"):
+                        if p.is_file():
+                            parts = p.relative_to(out_path).parts
+                            if not any(
+                                x in parts for x in (".sage", ".git", "node_modules", "__pycache__", ".pytest_cache", "venv", ".venv")
+                            ):
+                                written.append(str(p.relative_to(out_path)))
+                install_ok = report.get("install_ok", True)
+                tests_ok = report.get("tests_ok", True)
+                task_ok = (install_ok is not False) and (tests_ok is not False)
+                return written, task_ok
+
         # 1.5 Activate bottom dock EARLY (before planning) to show progress
         task_todos = _build_cli_task_todos(
             classification.read_only,
@@ -13457,37 +13510,38 @@ class SAGEAgent:
             "monorepo", "all features", "complete platform",
         ]
         _task_lower_exec = task_prompt.lower()
+        # Use the manifest saved by _execute_multistep (before engine trimming).
+        # Fallback: search engine messages if the agent attr is somehow empty.
+        _manifest_exec: list[str] = list(self._greenfield_manifest)
+        if not _manifest_exec:
+            for _msg in self.engine._messages:
+                _body = _msg.get("content", "") if isinstance(_msg, dict) else str(_msg)
+                _mstart = _body.find("FILE_MANIFEST:")
+                if _mstart != -1:
+                    for _ml in _body[_mstart + 14:].strip().splitlines():
+                        _ml = _clean_manifest_line(_ml)
+                        if _ml and "." in _ml and not _ml.startswith("#"):
+                            _manifest_exec.append(_ml)
+                    if _manifest_exec:
+                        break
+
         _is_gf_exec = (
             sum(1 for s in _gf_kws_exec if s in _task_lower_exec) >= 1
             or len(task_prompt) > 600
             or getattr(self, "_is_greenfield_task", False)
+            or bool(_manifest_exec)
         )
 
         if _is_gf_exec and written and not classification.read_only and not is_info:
             all_written = list(written)
 
-            # Use the manifest saved by _execute_multistep (before engine trimming).
-            # Fallback: search engine messages if the agent attr is somehow empty.
-            _manifest_exec: list[str] = list(self._greenfield_manifest)
-            if not _manifest_exec:
-                for _msg in self.engine._messages:
-                    _body = _msg.get("content", "") if isinstance(_msg, dict) else str(_msg)
-                    _mstart = _body.find("FILE_MANIFEST:")
-                    if _mstart != -1:
-                        for _ml in _body[_mstart + 14:].strip().splitlines():
-                            _ml = _ml.strip()
-                            if _ml and "." in _ml and not _ml.startswith("#"):
-                                _manifest_exec.append(_ml)
-                        if _manifest_exec:
-                            break
-
             _MAX_EXEC_BATCHES = int(os.environ.get("SAGE_BATCH_LIMIT", "250"))
             _empty_rounds = 0  # consecutive batches with no new files
             for _batch_num in range(1, _MAX_EXEC_BATCHES + 1):
-                # Trim context between batches
-                if len(self.engine._messages) > 8:
+                # Trim context between batches to prevent token overflow while preserving API memory
+                if len(self.engine._messages) > 24:
                     self.engine._messages[:] = (
-                        self.engine._messages[:1] + self.engine._messages[-4:]
+                        self.engine._messages[:1] + self.engine._messages[-16:]
                     )
 
                 _written_set = set(all_written)
@@ -13834,7 +13888,17 @@ def run(
     import os
 
     import sys
-    if no_color or os.environ.get("NO_COLOR") or not sys.stdout.isatty():
+    _stdout_encoding = getattr(sys.stdout, "encoding", None) or ""
+    _encoding_is_modern = _stdout_encoding.lower().replace("-", "") in ("utf8", "utf-8", "utf16", "utf32", "cp65001")
+    if (
+        no_color
+        or os.environ.get("NO_COLOR")
+        or os.environ.get("SAGE_NO_COLOR")
+        or os.environ.get("SAGE_ASCII")
+        or os.environ.get("TERM") in (None, "", "dumb")
+        or not sys.stdout.isatty()
+        or not _encoding_is_modern
+    ):
         renderer.set_no_color(True)
     if prompt or quiet or not sys.stdout.isatty():
         renderer.set_suppress_spinners(True)
@@ -16084,8 +16148,16 @@ def main(
     ] = None,
 ) -> None:
     """Sage — local-first AI coding assistant."""
-    import os
-    if os.environ.get("NO_COLOR") or os.environ.get("TERM") == "dumb":
+    _stdout_encoding = getattr(sys.stdout, "encoding", None) or ""
+    _encoding_is_modern = _stdout_encoding.lower().replace("-", "") in ("utf8", "utf-8", "utf16", "utf32", "cp65001")
+    if (
+        os.environ.get("NO_COLOR")
+        or os.environ.get("SAGE_NO_COLOR")
+        or os.environ.get("SAGE_ASCII")
+        or os.environ.get("TERM") in (None, "", "dumb")
+        or not sys.stdout.isatty()
+        or not _encoding_is_modern
+    ):
         renderer.set_no_color(True)
     # ── Auth gate ──────────────────────────────────────────────────────────
     # Exempt: login/logout/whoami always allowed.
@@ -16633,7 +16705,7 @@ def sms_start(
                 # P0 Security: ensure the running bridge belongs to the CURRENT user.
                 # If the user logged out and into another account, we must restart.
                 try:
-                    from utils.jwt_utils import get_uid_from_token
+                    from sage.core.cli_auth import get_uid_from_token
                     current_uid = get_uid_from_token(token)
                     # We can't easily query the background process's token, but we
                     # can assume if we're here and things feel 'mixed up', a restart is safest.

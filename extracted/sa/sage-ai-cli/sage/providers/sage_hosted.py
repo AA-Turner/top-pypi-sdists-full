@@ -259,31 +259,68 @@ class SageHostedProvider(ProviderBase):
 
         raw_messages = [{"role": m.role, "content": m.content} for m in messages]
 
-        # Large payloads (>12KB total) cause Cloud Run to buffer the full response
+        # Large payloads (>150KB total) cause Cloud Run to buffer the full response
         # before forwarding, resulting in "peer closed connection" errors with a
         # non-zero Content-Length. Truncate oversized messages to stay under the
         # backend's comfortable processing window.
-        _MAX_PAYLOAD_CHARS = 12_000
+        _MAX_PAYLOAD_CHARS = 150_000
         total_chars = sum(len(m["content"]) for m in raw_messages)
         if total_chars > _MAX_PAYLOAD_CHARS:
             # Keep system prompt + last user message in full; truncate older turns
-            trimmed: list[dict] = []
+            system_msg = None
+            if raw_messages and raw_messages[0]["role"] == "system":
+                system_msg = raw_messages[0]
+            
+            last_msg = raw_messages[-1] if raw_messages else None
+            trimmed_msg_list = []
             budget = _MAX_PAYLOAD_CHARS
-            for msg in reversed(raw_messages):
-                content = msg["content"]
-                if len(content) <= budget:
-                    trimmed.insert(0, msg)
-                    budget -= len(content)
-                elif budget > 200:
-                    # Keep a truncated version of oversized messages
-                    trimmed.insert(0, {
-                        "role": msg["role"],
-                        "content": content[:budget - 100] + "\n...[truncated for length]",
+            
+            if system_msg:
+                sys_len = len(system_msg["content"])
+                if sys_len < budget:
+                    trimmed_msg_list.append(system_msg)
+                    budget -= sys_len
+                else:
+                    trimmed_msg_list.append({
+                        "role": "system",
+                        "content": system_msg["content"][:budget - 100] + "\n...[truncated]"
                     })
                     budget = 0
-                if budget <= 0:
-                    break
-            raw_messages = trimmed
+            
+            if last_msg and last_msg is not system_msg:
+                last_len = len(last_msg["content"])
+                if last_len <= budget:
+                    budget -= last_len
+                else:
+                    truncated_content = last_msg["content"][-budget + 100:] if budget > 100 else ""
+                    last_msg = {
+                        "role": last_msg["role"],
+                        "content": "...[truncated]\n" + truncated_content
+                    }
+                    budget = 0
+            
+            intermediates = []
+            if budget > 0:
+                start_idx = 1 if system_msg else 0
+                end_idx = len(raw_messages) - 1 if last_msg and last_msg is not system_msg else len(raw_messages)
+                for msg in reversed(raw_messages[start_idx:end_idx]):
+                    msg_len = len(msg["content"])
+                    if msg_len <= budget:
+                        intermediates.insert(0, msg)
+                        budget -= msg_len
+                    else:
+                        intermediates.insert(0, {
+                            "role": msg["role"],
+                            "content": msg["content"][:budget - 100] + "\n...[truncated]"
+                        })
+                        budget = 0
+                        break
+            
+            trimmed_msg_list.extend(intermediates)
+            if last_msg and last_msg is not system_msg:
+                trimmed_msg_list.append(last_msg)
+            
+            raw_messages = trimmed_msg_list
 
         payload = {
             "model_id": full_id,
@@ -391,8 +428,8 @@ class SageHostedProvider(ProviderBase):
                 auth = self._auth_or_raise()
 
             try:
-                # Generous timeout: connect=60s for cold pods, read=300s for large responses
-                _gen_timeout = httpx.Timeout(connect=60.0, read=300.0, write=120.0, pool=10.0)
+                # Generous timeout: connect=120s for cold pods, read=300s for large responses
+                _gen_timeout = httpx.Timeout(connect=120.0, read=300.0, write=120.0, pool=10.0)
                 with httpx.Client(timeout=_gen_timeout) as client:
                     response = client.post(
                         f"{self._api_base}/chat",
@@ -481,8 +518,8 @@ class SageHostedProvider(ProviderBase):
         # start generating on a large prompt), retry up to 3 times with
         # exponential backoff (5s, 10s, 20s).
         # Large write timeout handles big request payloads; read=None allows
-        # long generation; connect=60s covers cold-start GPU pod boot.
-        _stream_timeout = httpx.Timeout(connect=60.0, read=300.0, write=120.0, pool=10.0)
+        # long generation; connect=120s covers cold-start GPU pod boot.
+        _stream_timeout = httpx.Timeout(connect=120.0, read=None, write=120.0, pool=10.0)
         # FAIL FAST on stream errors too — 5 retries × max 20s = ~75s
         _MAX_STREAM_RETRIES = 5
         _last_exc: Exception | None = None

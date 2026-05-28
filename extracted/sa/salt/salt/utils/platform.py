@@ -2,7 +2,9 @@
 Functions for identifying which platform a machine is
 """
 
+import builtins
 import contextlib
+import functools
 import multiprocessing
 import os
 import platform
@@ -11,7 +13,40 @@ import sys
 
 import distro
 
-from salt.utils.decorators import memoize as real_memoize
+# This is a work around for salt-ssh support
+if not hasattr(builtins, "__salt_system_encoding__"):
+    setattr(builtins, "__salt_system_encoding__", sys.getdefaultencoding())
+
+
+# Use a local wraps-based memoize rather than importing from salt.utils.decorators.
+# This module is synced to the remote's extmods/utils/platform.py, and in
+# Python 3.14+ (forkserver default start method) it can be accidentally
+# imported as the stdlib ``platform`` module when extmods/utils/ sits at
+# sys.path[0].  Importing from salt.utils.decorators in that context
+# creates a circular import:
+#   salt.utils.decorators → salt.utils.versions → salt.version
+#   → import platform (ourselves!) → salt.utils.decorators  (cycle)
+# functools is part of the stdlib and has no such dependency.
+#
+# We cannot use functools.cache/lru_cache directly as the decorator because
+# those produce functools._lru_cache_wrapper objects which fail
+# inspect.isfunction(), causing the Salt loader to skip them when loading
+# salt.utils.platform as a utils module (salt/loader/lazy.py line ~1109).
+def real_memoize(func):
+    """Cache the result of a zero-or-more-argument function (stdlib-only, loader-safe)."""
+    cache = {}
+    _sentinel = object()
+
+    @functools.wraps(func)
+    def _wrapper(*args, **kwargs):
+        key = (args, tuple(sorted(kwargs.items())))
+        result = cache.get(key, _sentinel)
+        if result is _sentinel:
+            result = func(*args, **kwargs)
+            cache[key] = result
+        return result
+
+    return _wrapper
 
 
 def linux_distribution(full_distribution_name=True):
@@ -220,7 +255,7 @@ def is_photonos():
     (osname, osrelease, oscodename) = (
         x.strip('"').strip("'") for x in linux_distribution()
     )
-    return osname == "VMware Photon OS"
+    return osname in ("VMware Photon OS", "Photon OS")
 
 
 @real_memoize

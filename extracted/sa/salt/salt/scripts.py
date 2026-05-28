@@ -5,6 +5,7 @@ This module contains the function calls to execute command line scripts
 import contextlib
 import functools
 import logging
+import multiprocessing
 import os
 import signal
 import subprocess
@@ -18,6 +19,22 @@ import salt.defaults.exitcodes
 from salt.exceptions import SaltClientError, SaltReqTimeoutError, SaltSystemExit
 
 log = logging.getLogger(__name__)
+
+
+# PEP 741: Python 3.14 changed the multiprocessing default start method on
+# Linux from "fork" to "forkserver".  Salt's daemons spawn many short-lived
+# subprocesses (MWorker, RequestServer, EventReturn, PoolRouting, …); under
+# "forkserver" each spawn re-pickles its target and re-imports Salt in a
+# helper process, which both makes startup ~5× slower than 3.13 *and* leaks
+# worker processes that hold ports across daemon restarts.  Pin the start
+# method to "fork" for Linux Salt on 3.14+ so production and test behave
+# the same as on 3.13.  ``force=True`` overrides any prior choice (pytest,
+# for example, may have queried the default before this import ran, which
+# would otherwise cause the pin to be skipped).  Operators who specifically
+# want the PEP-741 safety property can call ``set_start_method`` again with
+# their preferred value after Salt is imported.
+if sys.version_info >= (3, 14) and sys.platform.startswith("linux"):
+    multiprocessing.set_start_method("fork", force=True)
 
 
 def _handle_signals(client, signum, sigframe):
@@ -70,10 +87,40 @@ def _install_signal_handlers(client):
         signal.signal(signal.SIGTERM, functools.partial(_handle_signals, client))
 
 
+def _pin_multiprocessing_fork():
+    """
+    Python 3.14 changed the Linux default ``multiprocessing`` start method
+    from ``fork`` to ``forkserver``. Forkserver pickles the target callable
+    across to a fresh interpreter, which breaks every salt daemon that
+    relies on dynamically loaded modules (e.g. proxy minions register
+    their callables under namespaces like
+    ``dummy_proxy_one.salt.loaded.int.metaproxy.deltaproxy`` that the
+    fresh child cannot import). It also makes the master spawn its
+    ``multiprocessing.resource_tracker`` before ``check_user()`` drops
+    privileges, leaving a root-owned child under the salt user's pid.
+
+    Pin every salt daemon entry point to ``fork`` to restore Py3.13 Linux
+    semantics. Strictly Linux-only: macOS and Windows have always defaulted
+    to spawn-based start methods and salt is written for that on those
+    platforms (Darwin's libdispatch makes fork after thread init unsafe and
+    silently corrupts worker processes -- the symptom is minions accepting
+    jobs but never responding because their fork-spawned workers die
+    invisibly). Idempotent on re-entry.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+    import multiprocessing
+
+    if multiprocessing.get_start_method(allow_none=True) is None:
+        multiprocessing.set_start_method("fork")
+
+
 def salt_master():
     """
     Start the salt master.
     """
+    _pin_multiprocessing_fork()
+
     import salt.cli.daemons
 
     # Fix for setuptools generated scripts, so that it will
@@ -160,6 +207,8 @@ def salt_minion():
     Start the salt minion in a subprocess.
     Auto restart minion on error.
     """
+    _pin_multiprocessing_fork()
+
     import signal
 
     import salt.utils.debug
@@ -329,6 +378,8 @@ def salt_proxy():
     """
     Start a proxy minion.
     """
+    _pin_multiprocessing_fork()
+
     import multiprocessing
 
     import salt.cli.daemons
@@ -388,6 +439,8 @@ def salt_syndic():
     """
     Start the salt syndic.
     """
+    _pin_multiprocessing_fork()
+
     import salt.utils.process
 
     salt.utils.process.notify_systemd()
@@ -433,6 +486,8 @@ def salt_call():
     Directly call a salt command in the modules, does not require a running
     salt minion to run.
     """
+    _pin_multiprocessing_fork()
+
     import salt.cli.call
 
     if "" in sys.path:
@@ -505,6 +560,8 @@ def salt_api():
     """
     The main function for salt-api
     """
+    _pin_multiprocessing_fork()
+
     import salt.utils.process
 
     salt.utils.process.notify_systemd()
@@ -611,10 +668,14 @@ def _get_onedir_env_path():
     return None
 
 
-def salt_pip():
+def salt_pip(config_dir=None):
     """
     Proxy to current python's pip
     """
+    import salt.config
+    import salt.utils.user
+    import salt.utils.verify
+
     relenv_path = _get_onedir_env_path()
     if relenv_path is None:
         print(
@@ -626,6 +687,26 @@ def salt_pip():
         sys.exit(salt.defaults.exitcodes.EX_GENERIC)
     else:
         extras = str(relenv_path / "extras-{}.{}".format(*sys.version_info))
+
+    # Use provided config_dir, or SALT_CONFIG_DIR env var, or SALT_MINION_CONFIG env var, or fall back to default location
+    if config_dir:
+        config_file = os.path.join(config_dir, "minion")
+    elif os.environ.get("SALT_CONFIG_DIR"):
+        salt_config_dir = os.environ.get("SALT_CONFIG_DIR")
+        config_file = os.path.join(salt_config_dir, "minion")
+    elif os.environ.get("SALT_MINION_CONFIG"):
+        config_file = os.environ.get("SALT_MINION_CONFIG")
+    else:
+        config_file = salt.config.DEFAULT_MINION_OPTS["conf_file"]
+    opts = salt.config.minion_config(config_file)
+
+    user = opts.get("user")
+    current_user = salt.utils.user.get_user()
+
+    # Switch to the configured user if it's not root
+    if user and user != "root" and user != current_user:
+        salt.utils.verify.check_user(user)
+
     env = _pip_environment(os.environ.copy(), extras)
     args = _pip_args(sys.argv[1:], extras)
     command = [

@@ -1,3 +1,6 @@
+from . import (  # noqa: F401 — must run before other imports
+    _deprecations as _deprecations,
+)
 from ._queue import BeakerEntryReceiver, BeakerEntrySender
 from .client import Beaker
 from .types import (

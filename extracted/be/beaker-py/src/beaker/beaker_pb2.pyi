@@ -50,6 +50,7 @@ class GpuType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GPU_TYPE_NVIDIA_L40: _ClassVar[GpuType]
     GPU_TYPE_NVIDIA_L40S: _ClassVar[GpuType]
     GPU_TYPE_NVIDIA_B200: _ClassVar[GpuType]
+    GPU_TYPE_NVIDIA_H200: _ClassVar[GpuType]
 
 class CloudClusterStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -118,6 +119,7 @@ class CancelationCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CANCELATION_CODE_SIBLING_TASK_PREEMPTION: _ClassVar[CancelationCode]
     CANCELATION_CODE_HEALTHCHECK_FAILED: _ClassVar[CancelationCode]
     CANCELATION_CODE_SIBLING_TASK_RETRY: _ClassVar[CancelationCode]
+    CANCELATION_CODE_NODE_UNHEALTHY: _ClassVar[CancelationCode]
 
 class JobPlacementConstraintType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -171,7 +173,7 @@ class GPUUsageReportGroupBy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GPU_USAGE_REPORT_GROUP_BY_WORKSPACE: _ClassVar[GPUUsageReportGroupBy]
     GPU_USAGE_REPORT_GROUP_BY_USER: _ClassVar[GPUUsageReportGroupBy]
     GPU_USAGE_REPORT_GROUP_BY_PRIORITY: _ClassVar[GPUUsageReportGroupBy]
-    GPU_USAGE_REPORT_GROUP_BY_PREEMPTIBLE: _ClassVar[GPUUsageReportGroupBy]
+    GPU_USAGE_REPORT_GROUP_BY_ALLOCATED: _ClassVar[GPUUsageReportGroupBy]
     GPU_USAGE_REPORT_GROUP_BY_WORKSPACE_GROUP: _ClassVar[GPUUsageReportGroupBy]
 
 class DatasetStorageReportGroupBy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -207,6 +209,7 @@ GPU_TYPE_NVIDIA_V100: GpuType
 GPU_TYPE_NVIDIA_L40: GpuType
 GPU_TYPE_NVIDIA_L40S: GpuType
 GPU_TYPE_NVIDIA_B200: GpuType
+GPU_TYPE_NVIDIA_H200: GpuType
 CLOUD_CLUSTER_STATUS_UNSPECIFIED: CloudClusterStatus
 CLOUD_CLUSTER_STATUS_PENDING: CloudClusterStatus
 CLOUD_CLUSTER_STATUS_ACTIVE: CloudClusterStatus
@@ -254,6 +257,7 @@ CANCELATION_CODE_SIBLING_TASK_FAILED: CancelationCode
 CANCELATION_CODE_SIBLING_TASK_PREEMPTION: CancelationCode
 CANCELATION_CODE_HEALTHCHECK_FAILED: CancelationCode
 CANCELATION_CODE_SIBLING_TASK_RETRY: CancelationCode
+CANCELATION_CODE_NODE_UNHEALTHY: CancelationCode
 JOB_PLACEMENT_CONSTRAINT_TYPE_UNSPECIFIED: JobPlacementConstraintType
 JOB_PLACEMENT_CONSTRAINT_TYPE_CLUSTER: JobPlacementConstraintType
 JOB_PLACEMENT_CONSTRAINT_TYPE_HOSTNAME: JobPlacementConstraintType
@@ -286,7 +290,7 @@ GPU_USAGE_REPORT_GROUP_BY_CLUSTER: GPUUsageReportGroupBy
 GPU_USAGE_REPORT_GROUP_BY_WORKSPACE: GPUUsageReportGroupBy
 GPU_USAGE_REPORT_GROUP_BY_USER: GPUUsageReportGroupBy
 GPU_USAGE_REPORT_GROUP_BY_PRIORITY: GPUUsageReportGroupBy
-GPU_USAGE_REPORT_GROUP_BY_PREEMPTIBLE: GPUUsageReportGroupBy
+GPU_USAGE_REPORT_GROUP_BY_ALLOCATED: GPUUsageReportGroupBy
 GPU_USAGE_REPORT_GROUP_BY_WORKSPACE_GROUP: GPUUsageReportGroupBy
 DATASET_STORAGE_REPORT_GROUP_BY_UNSPECIFIED: DatasetStorageReportGroupBy
 DATASET_STORAGE_REPORT_GROUP_BY_BUDGET: DatasetStorageReportGroupBy
@@ -335,18 +339,25 @@ class UserDetails(_message.Message):
     def __init__(self, email: _Optional[str] = ..., role: _Optional[_Union[AuthRole, str]] = ...) -> None: ...
 
 class Organization(_message.Message):
-    __slots__ = ("id", "created", "name", "display_name", "description")
+    __slots__ = ("id", "created", "name", "display_name", "description", "metadata")
+    class Metadata(_message.Message):
+        __slots__ = ("doc_base_url",)
+        DOC_BASE_URL_FIELD_NUMBER: _ClassVar[int]
+        doc_base_url: str
+        def __init__(self, doc_base_url: _Optional[str] = ...) -> None: ...
     ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
     id: str
     created: _timestamp_pb2.Timestamp
     name: str
     display_name: str
     description: str
-    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+    metadata: Organization.Metadata
+    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., metadata: _Optional[_Union[Organization.Metadata, _Mapping]] = ...) -> None: ...
 
 class Workspace(_message.Message):
     __slots__ = ("id", "created", "name", "description", "owner_org", "owner_user", "author_org", "author_user", "modified", "archived", "size", "maximum_workload_priority", "budget_id", "slot_limit_preemptible", "slot_limit_non_preemptible", "assigned_slots_preemptible", "assigned_slots_non_preemptible", "queued_slots_preemptible", "queued_slots_non_preemptible", "workspace_group")
@@ -480,7 +491,7 @@ class CloudClusterDetails(_message.Message):
     def __init__(self, status: _Optional[_Union[CloudClusterStatus, str]] = ..., validated: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status_message: _Optional[str] = ..., capacity: _Optional[int] = ..., node_cost: _Optional[float] = ..., preemptible_nodes: bool = ..., compute_source: _Optional[str] = ..., node_request: _Optional[_Union[NodeRequest, _Mapping]] = ...) -> None: ...
 
 class Cluster(_message.Message):
-    __slots__ = ("id", "created", "name", "organization_id", "on_premise_details", "cloud_details", "node_shape", "max_session_timeout", "user_restrictions", "allow_preemptible_restriction_exceptions", "organization_name", "require_preemptible_tasks", "cluster_occupancy", "node_count", "scheduling_policy", "max_task_timeout", "cluster_job_queue_size", "aliases", "tags", "budget_restrictions")
+    __slots__ = ("id", "created", "name", "organization_id", "on_premise_details", "cloud_details", "node_shape", "max_session_timeout", "user_restrictions", "allow_preemptible_restriction_exceptions", "organization_name", "cluster_occupancy", "node_count", "scheduling_policy", "max_task_timeout", "cluster_job_queue_size", "aliases", "tags", "budget_restrictions", "expected_node_count")
     ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -492,7 +503,6 @@ class Cluster(_message.Message):
     USER_RESTRICTIONS_FIELD_NUMBER: _ClassVar[int]
     ALLOW_PREEMPTIBLE_RESTRICTION_EXCEPTIONS_FIELD_NUMBER: _ClassVar[int]
     ORGANIZATION_NAME_FIELD_NUMBER: _ClassVar[int]
-    REQUIRE_PREEMPTIBLE_TASKS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_OCCUPANCY_FIELD_NUMBER: _ClassVar[int]
     NODE_COUNT_FIELD_NUMBER: _ClassVar[int]
     SCHEDULING_POLICY_FIELD_NUMBER: _ClassVar[int]
@@ -501,6 +511,7 @@ class Cluster(_message.Message):
     ALIASES_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     BUDGET_RESTRICTIONS_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_NODE_COUNT_FIELD_NUMBER: _ClassVar[int]
     id: str
     created: _timestamp_pb2.Timestamp
     name: str
@@ -512,7 +523,6 @@ class Cluster(_message.Message):
     user_restrictions: _containers.RepeatedScalarFieldContainer[str]
     allow_preemptible_restriction_exceptions: bool
     organization_name: str
-    require_preemptible_tasks: bool
     cluster_occupancy: ClusterOccupancy
     node_count: int
     scheduling_policy: ClusterSchedulingPolicy
@@ -521,7 +531,8 @@ class Cluster(_message.Message):
     aliases: _containers.RepeatedScalarFieldContainer[str]
     tags: _containers.RepeatedScalarFieldContainer[str]
     budget_restrictions: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., organization_id: _Optional[str] = ..., on_premise_details: _Optional[_Union[OnPremiseClusterDetails, _Mapping]] = ..., cloud_details: _Optional[_Union[CloudClusterDetails, _Mapping]] = ..., node_shape: _Optional[_Union[NodeShape, _Mapping]] = ..., max_session_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., user_restrictions: _Optional[_Iterable[str]] = ..., allow_preemptible_restriction_exceptions: bool = ..., organization_name: _Optional[str] = ..., require_preemptible_tasks: bool = ..., cluster_occupancy: _Optional[_Union[ClusterOccupancy, _Mapping]] = ..., node_count: _Optional[int] = ..., scheduling_policy: _Optional[_Union[ClusterSchedulingPolicy, str]] = ..., max_task_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., cluster_job_queue_size: _Optional[int] = ..., aliases: _Optional[_Iterable[str]] = ..., tags: _Optional[_Iterable[str]] = ..., budget_restrictions: _Optional[_Iterable[str]] = ...) -> None: ...
+    expected_node_count: int
+    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., organization_id: _Optional[str] = ..., on_premise_details: _Optional[_Union[OnPremiseClusterDetails, _Mapping]] = ..., cloud_details: _Optional[_Union[CloudClusterDetails, _Mapping]] = ..., node_shape: _Optional[_Union[NodeShape, _Mapping]] = ..., max_session_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., user_restrictions: _Optional[_Iterable[str]] = ..., allow_preemptible_restriction_exceptions: bool = ..., organization_name: _Optional[str] = ..., cluster_occupancy: _Optional[_Union[ClusterOccupancy, _Mapping]] = ..., node_count: _Optional[int] = ..., scheduling_policy: _Optional[_Union[ClusterSchedulingPolicy, str]] = ..., max_task_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., cluster_job_queue_size: _Optional[int] = ..., aliases: _Optional[_Iterable[str]] = ..., tags: _Optional[_Iterable[str]] = ..., budget_restrictions: _Optional[_Iterable[str]] = ..., expected_node_count: _Optional[int] = ...) -> None: ...
 
 class SlotCounts(_message.Message):
     __slots__ = ("total", "available", "occupied", "assigned", "cordoned")
@@ -548,22 +559,24 @@ class ClusterOccupancy(_message.Message):
     def __init__(self, running_jobs_count: _Optional[int] = ..., slot_counts: _Optional[_Union[SlotCounts, _Mapping]] = ..., node_occupancies: _Optional[_Iterable[_Union[NodeOccupancy, _Mapping]]] = ...) -> None: ...
 
 class SlotGroups(_message.Message):
-    __slots__ = ("budget_reference", "workspace_reference", "user_reference", "job_priority", "workload_count", "job_count", "preemptible")
+    __slots__ = ("budget_reference", "workspace_reference", "user_reference", "job_priority", "workload_count", "job_count", "allocated", "workspace_group_reference")
     BUDGET_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     USER_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     JOB_PRIORITY_FIELD_NUMBER: _ClassVar[int]
     WORKLOAD_COUNT_FIELD_NUMBER: _ClassVar[int]
     JOB_COUNT_FIELD_NUMBER: _ClassVar[int]
-    PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
+    ALLOCATED_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     budget_reference: str
     workspace_reference: str
     user_reference: str
     job_priority: JobPriority
     workload_count: int
     job_count: int
-    preemptible: bool
-    def __init__(self, budget_reference: _Optional[str] = ..., workspace_reference: _Optional[str] = ..., user_reference: _Optional[str] = ..., job_priority: _Optional[_Union[JobPriority, str]] = ..., workload_count: _Optional[int] = ..., job_count: _Optional[int] = ..., preemptible: bool = ...) -> None: ...
+    allocated: bool
+    workspace_group_reference: str
+    def __init__(self, budget_reference: _Optional[str] = ..., workspace_reference: _Optional[str] = ..., user_reference: _Optional[str] = ..., job_priority: _Optional[_Union[JobPriority, str]] = ..., workload_count: _Optional[int] = ..., job_count: _Optional[int] = ..., allocated: bool = ..., workspace_group_reference: _Optional[str] = ...) -> None: ...
 
 class ClusterSlotUsage(_message.Message):
     __slots__ = ("assigned", "available", "cordoned", "slot_seconds")
@@ -1376,22 +1389,24 @@ class SchedulerRun(_message.Message):
     def __init__(self, input: _Optional[_Union[SchedulerInput, _Mapping]] = ..., output: _Optional[_Union[SchedulerOutput, _Mapping]] = ...) -> None: ...
 
 class Budget(_message.Message):
-    __slots__ = ("id", "organization_id", "name", "organization_name", "deprecated", "full_name", "managers")
+    __slots__ = ("id", "organization_id", "name", "organization_name", "full_name", "managers", "created", "deprecated")
     ID_FIELD_NUMBER: _ClassVar[int]
     ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ORGANIZATION_NAME_FIELD_NUMBER: _ClassVar[int]
-    DEPRECATED_FIELD_NUMBER: _ClassVar[int]
     FULL_NAME_FIELD_NUMBER: _ClassVar[int]
     MANAGERS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_FIELD_NUMBER: _ClassVar[int]
+    DEPRECATED_FIELD_NUMBER: _ClassVar[int]
     id: str
     organization_id: str
     name: str
     organization_name: str
-    deprecated: bool
     full_name: str
     managers: _containers.RepeatedCompositeFieldContainer[Reference]
-    def __init__(self, id: _Optional[str] = ..., organization_id: _Optional[str] = ..., name: _Optional[str] = ..., organization_name: _Optional[str] = ..., deprecated: bool = ..., full_name: _Optional[str] = ..., managers: _Optional[_Iterable[_Union[Reference, _Mapping]]] = ...) -> None: ...
+    created: _timestamp_pb2.Timestamp
+    deprecated: _timestamp_pb2.Timestamp
+    def __init__(self, id: _Optional[str] = ..., organization_id: _Optional[str] = ..., name: _Optional[str] = ..., organization_name: _Optional[str] = ..., full_name: _Optional[str] = ..., managers: _Optional[_Iterable[_Union[Reference, _Mapping]]] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., deprecated: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class WorkspaceGroup(_message.Message):
     __slots__ = ("id", "created", "modified", "name", "full_name", "organization", "author", "budget", "managers")
@@ -1454,6 +1469,18 @@ class Allocation(_message.Message):
     runtime_quota_percent: float
     slot_limit: int
     def __init__(self, id: _Optional[str] = ..., cluster: _Optional[_Union[Reference, _Mapping]] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., deleted: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., budget: _Optional[_Union[Reference, _Mapping]] = ..., workspace_group: _Optional[_Union[Reference, _Mapping]] = ..., workspace: _Optional[_Union[Reference, _Mapping]] = ..., runtime_quota_percent: _Optional[float] = ..., slot_limit: _Optional[int] = ...) -> None: ...
+
+class EffectiveAllocation(_message.Message):
+    __slots__ = ("allocation", "effective_runtime_quota_percent", "effective_slot_limit", "effective_runtime_gpu_hours_per_day")
+    ALLOCATION_FIELD_NUMBER: _ClassVar[int]
+    EFFECTIVE_RUNTIME_QUOTA_PERCENT_FIELD_NUMBER: _ClassVar[int]
+    EFFECTIVE_SLOT_LIMIT_FIELD_NUMBER: _ClassVar[int]
+    EFFECTIVE_RUNTIME_GPU_HOURS_PER_DAY_FIELD_NUMBER: _ClassVar[int]
+    allocation: Allocation
+    effective_runtime_quota_percent: float
+    effective_slot_limit: int
+    effective_runtime_gpu_hours_per_day: float
+    def __init__(self, allocation: _Optional[_Union[Allocation, _Mapping]] = ..., effective_runtime_quota_percent: _Optional[float] = ..., effective_slot_limit: _Optional[int] = ..., effective_runtime_gpu_hours_per_day: _Optional[float] = ...) -> None: ...
 
 class Queue(_message.Message):
     __slots__ = ("id", "name", "created", "workspace_id", "author_id", "input_schema", "output_schema", "batch_size", "max_claimed_entries", "wait_timeout", "full_name")
@@ -1747,6 +1774,20 @@ class ListOrganizationsResponse(_message.Message):
     organizations: _containers.RepeatedCompositeFieldContainer[Organization]
     def __init__(self, next_page_token: _Optional[str] = ..., organizations: _Optional[_Iterable[_Union[Organization, _Mapping]]] = ...) -> None: ...
 
+class UpdateOrganizationMetadataRequest(_message.Message):
+    __slots__ = ("organization_id", "metadata")
+    ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    organization_id: str
+    metadata: Organization.Metadata
+    def __init__(self, organization_id: _Optional[str] = ..., metadata: _Optional[_Union[Organization.Metadata, _Mapping]] = ...) -> None: ...
+
+class UpdateOrganizationMetadataResponse(_message.Message):
+    __slots__ = ("organization",)
+    ORGANIZATION_FIELD_NUMBER: _ClassVar[int]
+    organization: Organization
+    def __init__(self, organization: _Optional[_Union[Organization, _Mapping]] = ...) -> None: ...
+
 class GetWorkspaceRequest(_message.Message):
     __slots__ = ("workspace_id",)
     WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1978,12 +2019,14 @@ class ListClustersResponse(_message.Message):
     def __init__(self, next_page_token: _Optional[str] = ..., clusters: _Optional[_Iterable[_Union[Cluster, _Mapping]]] = ...) -> None: ...
 
 class CreateClusterRequest(_message.Message):
-    __slots__ = ("organization_id", "name")
+    __slots__ = ("organization_id", "name", "node_shape")
     ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    NODE_SHAPE_FIELD_NUMBER: _ClassVar[int]
     organization_id: str
     name: str
-    def __init__(self, organization_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+    node_shape: NodeShape
+    def __init__(self, organization_id: _Optional[str] = ..., name: _Optional[str] = ..., node_shape: _Optional[_Union[NodeShape, _Mapping]] = ...) -> None: ...
 
 class CreateClusterResponse(_message.Message):
     __slots__ = ("cluster",)
@@ -1992,7 +2035,7 @@ class CreateClusterResponse(_message.Message):
     def __init__(self, cluster: _Optional[_Union[Cluster, _Mapping]] = ...) -> None: ...
 
 class UpdateClusterRequest(_message.Message):
-    __slots__ = ("cluster_id", "max_session_timeout", "no_max_session_timeout", "max_task_timeout", "no_max_task_timeout", "allow_preemptible_restriction_exception", "require_preemptible_tasks", "restricted_user_ids", "clear_restricted_user_ids", "scheduling_policy")
+    __slots__ = ("cluster_id", "max_session_timeout", "no_max_session_timeout", "max_task_timeout", "no_max_task_timeout", "allow_preemptible_restriction_exception", "restricted_user_ids", "clear_restricted_user_ids", "scheduling_policy")
     class RestrictedUserIDs(_message.Message):
         __slots__ = ("restricted_user_ids",)
         RESTRICTED_USER_IDS_FIELD_NUMBER: _ClassVar[int]
@@ -2004,7 +2047,6 @@ class UpdateClusterRequest(_message.Message):
     MAX_TASK_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
     NO_MAX_TASK_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
     ALLOW_PREEMPTIBLE_RESTRICTION_EXCEPTION_FIELD_NUMBER: _ClassVar[int]
-    REQUIRE_PREEMPTIBLE_TASKS_FIELD_NUMBER: _ClassVar[int]
     RESTRICTED_USER_IDS_FIELD_NUMBER: _ClassVar[int]
     CLEAR_RESTRICTED_USER_IDS_FIELD_NUMBER: _ClassVar[int]
     SCHEDULING_POLICY_FIELD_NUMBER: _ClassVar[int]
@@ -2014,11 +2056,10 @@ class UpdateClusterRequest(_message.Message):
     max_task_timeout: _duration_pb2.Duration
     no_max_task_timeout: _empty_pb2.Empty
     allow_preemptible_restriction_exception: bool
-    require_preemptible_tasks: bool
     restricted_user_ids: UpdateClusterRequest.RestrictedUserIDs
     clear_restricted_user_ids: _empty_pb2.Empty
     scheduling_policy: ClusterSchedulingPolicy
-    def __init__(self, cluster_id: _Optional[str] = ..., max_session_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., no_max_session_timeout: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., max_task_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., no_max_task_timeout: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., allow_preemptible_restriction_exception: bool = ..., require_preemptible_tasks: bool = ..., restricted_user_ids: _Optional[_Union[UpdateClusterRequest.RestrictedUserIDs, _Mapping]] = ..., clear_restricted_user_ids: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., scheduling_policy: _Optional[_Union[ClusterSchedulingPolicy, str]] = ...) -> None: ...
+    def __init__(self, cluster_id: _Optional[str] = ..., max_session_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., no_max_session_timeout: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., max_task_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., no_max_task_timeout: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., allow_preemptible_restriction_exception: bool = ..., restricted_user_ids: _Optional[_Union[UpdateClusterRequest.RestrictedUserIDs, _Mapping]] = ..., clear_restricted_user_ids: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., scheduling_policy: _Optional[_Union[ClusterSchedulingPolicy, str]] = ...) -> None: ...
 
 class UpdateClusterResponse(_message.Message):
     __slots__ = ("cluster",)
@@ -2103,6 +2144,20 @@ class UpdateClusterNameRequest(_message.Message):
     def __init__(self, cluster_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class UpdateClusterNameResponse(_message.Message):
+    __slots__ = ("cluster",)
+    CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    cluster: Cluster
+    def __init__(self, cluster: _Optional[_Union[Cluster, _Mapping]] = ...) -> None: ...
+
+class UpdateClusterNodeShapeRequest(_message.Message):
+    __slots__ = ("cluster_id", "node_shape")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    NODE_SHAPE_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    node_shape: NodeShape
+    def __init__(self, cluster_id: _Optional[str] = ..., node_shape: _Optional[_Union[NodeShape, _Mapping]] = ...) -> None: ...
+
+class UpdateClusterNodeShapeResponse(_message.Message):
     __slots__ = ("cluster",)
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
     cluster: Cluster
@@ -2583,7 +2638,7 @@ class GetJobResponse(_message.Message):
 class ListJobsRequest(_message.Message):
     __slots__ = ("next_page_token", "options")
     class Opts(_message.Message):
-        __slots__ = ("sort_clause", "page_size", "organization_id", "task_id", "environment_id", "finalized", "eligible_for_cluster_id", "scheduled_on_node_id", "scheduled_on_cluster_id", "scheduled", "retry_ancestors_of_non_scheduled_non_finalized_jobs", "canceled", "exited", "running_at")
+        __slots__ = ("sort_clause", "page_size", "organization_id", "task_id", "environment_id", "finalized", "eligible_for_cluster_id", "scheduled_on_node_id", "scheduled_on_cluster_id", "scheduled", "retry_ancestors_of_non_scheduled_non_finalized_jobs", "canceled", "exited", "running_at", "status_changed_before", "status_changed_at_or_after")
         class SortClause(_message.Message):
             __slots__ = ("sort_order", "created", "cluster_job_queue")
             SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
@@ -2607,6 +2662,8 @@ class ListJobsRequest(_message.Message):
         CANCELED_FIELD_NUMBER: _ClassVar[int]
         EXITED_FIELD_NUMBER: _ClassVar[int]
         RUNNING_AT_FIELD_NUMBER: _ClassVar[int]
+        STATUS_CHANGED_BEFORE_FIELD_NUMBER: _ClassVar[int]
+        STATUS_CHANGED_AT_OR_AFTER_FIELD_NUMBER: _ClassVar[int]
         sort_clause: ListJobsRequest.Opts.SortClause
         page_size: int
         organization_id: str
@@ -2621,7 +2678,9 @@ class ListJobsRequest(_message.Message):
         canceled: bool
         exited: bool
         running_at: _timestamp_pb2.Timestamp
-        def __init__(self, sort_clause: _Optional[_Union[ListJobsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., task_id: _Optional[str] = ..., environment_id: _Optional[str] = ..., finalized: bool = ..., eligible_for_cluster_id: _Optional[str] = ..., scheduled_on_node_id: _Optional[str] = ..., scheduled_on_cluster_id: _Optional[str] = ..., scheduled: bool = ..., retry_ancestors_of_non_scheduled_non_finalized_jobs: bool = ..., canceled: bool = ..., exited: bool = ..., running_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+        status_changed_before: _timestamp_pb2.Timestamp
+        status_changed_at_or_after: _timestamp_pb2.Timestamp
+        def __init__(self, sort_clause: _Optional[_Union[ListJobsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., task_id: _Optional[str] = ..., environment_id: _Optional[str] = ..., finalized: bool = ..., eligible_for_cluster_id: _Optional[str] = ..., scheduled_on_node_id: _Optional[str] = ..., scheduled_on_cluster_id: _Optional[str] = ..., scheduled: bool = ..., retry_ancestors_of_non_scheduled_non_finalized_jobs: bool = ..., canceled: bool = ..., exited: bool = ..., running_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status_changed_before: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status_changed_at_or_after: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
     NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     next_page_token: str
@@ -2787,6 +2846,38 @@ class ListSummarizedJobEventsResponse(_message.Message):
     next_page_token: str
     summarized_job_events: _containers.RepeatedCompositeFieldContainer[SummarizedJobEvent]
     def __init__(self, next_page_token: _Optional[str] = ..., summarized_job_events: _Optional[_Iterable[_Union[SummarizedJobEvent, _Mapping]]] = ...) -> None: ...
+
+class ListJobEventsRequest(_message.Message):
+    __slots__ = ("next_page_token", "options")
+    class Opts(_message.Message):
+        __slots__ = ("sort_clause", "page_size", "job_id")
+        class SortClause(_message.Message):
+            __slots__ = ("sort_order", "created")
+            SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
+            CREATED_FIELD_NUMBER: _ClassVar[int]
+            sort_order: SortOrder
+            created: _empty_pb2.Empty
+            def __init__(self, sort_order: _Optional[_Union[SortOrder, str]] = ..., created: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...) -> None: ...
+        SORT_CLAUSE_FIELD_NUMBER: _ClassVar[int]
+        PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        JOB_ID_FIELD_NUMBER: _ClassVar[int]
+        sort_clause: ListJobEventsRequest.Opts.SortClause
+        page_size: int
+        job_id: str
+        def __init__(self, sort_clause: _Optional[_Union[ListJobEventsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., job_id: _Optional[str] = ...) -> None: ...
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    options: ListJobEventsRequest.Opts
+    def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[ListJobEventsRequest.Opts, _Mapping]] = ...) -> None: ...
+
+class ListJobEventsResponse(_message.Message):
+    __slots__ = ("next_page_token", "job_events")
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    JOB_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    job_events: _containers.RepeatedCompositeFieldContainer[JobEvent]
+    def __init__(self, next_page_token: _Optional[str] = ..., job_events: _Optional[_Iterable[_Union[JobEvent, _Mapping]]] = ...) -> None: ...
 
 class GetExperimentYamlSpecRequest(_message.Message):
     __slots__ = ("experiment_id",)
@@ -3753,7 +3844,7 @@ class ListAllocationHistoryResponse(_message.Message):
     next_page_token: str
     def __init__(self, changesets: _Optional[_Iterable[_Union[AllocationChangeset, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
 
-class GetChildAllocationsRequest(_message.Message):
+class GetEffectiveChildAllocationsRequest(_message.Message):
     __slots__ = ("cluster_id", "org_id", "budget_id", "workspace_group_id")
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     ORG_ID_FIELD_NUMBER: _ClassVar[int]
@@ -3765,7 +3856,7 @@ class GetChildAllocationsRequest(_message.Message):
     workspace_group_id: str
     def __init__(self, cluster_id: _Optional[str] = ..., org_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ...) -> None: ...
 
-class GetChildAllocationsResponse(_message.Message):
+class GetEffectiveChildAllocationsResponse(_message.Message):
     __slots__ = ("allocations", "current_changeset_id", "cluster", "org", "budget", "workspace_group")
     ALLOCATIONS_FIELD_NUMBER: _ClassVar[int]
     CURRENT_CHANGESET_ID_FIELD_NUMBER: _ClassVar[int]
@@ -3773,27 +3864,74 @@ class GetChildAllocationsResponse(_message.Message):
     ORG_FIELD_NUMBER: _ClassVar[int]
     BUDGET_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_GROUP_FIELD_NUMBER: _ClassVar[int]
-    allocations: _containers.RepeatedCompositeFieldContainer[Allocation]
+    allocations: _containers.RepeatedCompositeFieldContainer[EffectiveAllocation]
     current_changeset_id: str
     cluster: Reference
     org: Reference
     budget: Reference
     workspace_group: Reference
-    def __init__(self, allocations: _Optional[_Iterable[_Union[Allocation, _Mapping]]] = ..., current_changeset_id: _Optional[str] = ..., cluster: _Optional[_Union[Reference, _Mapping]] = ..., org: _Optional[_Union[Reference, _Mapping]] = ..., budget: _Optional[_Union[Reference, _Mapping]] = ..., workspace_group: _Optional[_Union[Reference, _Mapping]] = ...) -> None: ...
+    def __init__(self, allocations: _Optional[_Iterable[_Union[EffectiveAllocation, _Mapping]]] = ..., current_changeset_id: _Optional[str] = ..., cluster: _Optional[_Union[Reference, _Mapping]] = ..., org: _Optional[_Union[Reference, _Mapping]] = ..., budget: _Optional[_Union[Reference, _Mapping]] = ..., workspace_group: _Optional[_Union[Reference, _Mapping]] = ...) -> None: ...
+
+class GetEffectiveEntityAllocationRequest(_message.Message):
+    __slots__ = ("cluster_id", "budget_id", "workspace_group_id", "workspace_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    budget_id: str
+    workspace_group_id: str
+    workspace_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ..., workspace_id: _Optional[str] = ...) -> None: ...
+
+class GetEffectiveEntityAllocationResponse(_message.Message):
+    __slots__ = ("allocation",)
+    ALLOCATION_FIELD_NUMBER: _ClassVar[int]
+    allocation: EffectiveAllocation
+    def __init__(self, allocation: _Optional[_Union[EffectiveAllocation, _Mapping]] = ...) -> None: ...
+
+class ListEffectiveAllocationsRequest(_message.Message):
+    __slots__ = ("next_page_token", "options")
+    class Opts(_message.Message):
+        __slots__ = ("org_id", "budget_id", "workspace_group_id", "workspace_id", "page_size")
+        ORG_ID_FIELD_NUMBER: _ClassVar[int]
+        BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+        WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+        WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+        PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        org_id: str
+        budget_id: str
+        workspace_group_id: str
+        workspace_id: str
+        page_size: int
+        def __init__(self, org_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ..., workspace_id: _Optional[str] = ..., page_size: _Optional[int] = ...) -> None: ...
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    options: ListEffectiveAllocationsRequest.Opts
+    def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[ListEffectiveAllocationsRequest.Opts, _Mapping]] = ...) -> None: ...
+
+class ListEffectiveAllocationsResponse(_message.Message):
+    __slots__ = ("effective_allocations", "next_page_token")
+    EFFECTIVE_ALLOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    effective_allocations: _containers.RepeatedCompositeFieldContainer[EffectiveAllocation]
+    next_page_token: str
+    def __init__(self, effective_allocations: _Optional[_Iterable[_Union[EffectiveAllocation, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
 
 class GetGPUUsageReportRequest(_message.Message):
     __slots__ = ("next_page_token", "options")
     class QueryOptions(_message.Message):
         __slots__ = ("interval", "group_by", "filters", "page_size")
         class Filters(_message.Message):
-            __slots__ = ("organization_ids", "budget_ids", "cluster_ids", "workspace_ids", "user_ids", "priorities", "preemptible", "workspace_group_ids")
+            __slots__ = ("organization_ids", "budget_ids", "cluster_ids", "workspace_ids", "user_ids", "priorities", "allocated", "workspace_group_ids")
             ORGANIZATION_IDS_FIELD_NUMBER: _ClassVar[int]
             BUDGET_IDS_FIELD_NUMBER: _ClassVar[int]
             CLUSTER_IDS_FIELD_NUMBER: _ClassVar[int]
             WORKSPACE_IDS_FIELD_NUMBER: _ClassVar[int]
             USER_IDS_FIELD_NUMBER: _ClassVar[int]
             PRIORITIES_FIELD_NUMBER: _ClassVar[int]
-            PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
+            ALLOCATED_FIELD_NUMBER: _ClassVar[int]
             WORKSPACE_GROUP_IDS_FIELD_NUMBER: _ClassVar[int]
             organization_ids: _containers.RepeatedScalarFieldContainer[str]
             budget_ids: _containers.RepeatedScalarFieldContainer[str]
@@ -3801,9 +3939,9 @@ class GetGPUUsageReportRequest(_message.Message):
             workspace_ids: _containers.RepeatedScalarFieldContainer[str]
             user_ids: _containers.RepeatedScalarFieldContainer[str]
             priorities: _containers.RepeatedScalarFieldContainer[JobPriority]
-            preemptible: bool
+            allocated: bool
             workspace_group_ids: _containers.RepeatedScalarFieldContainer[str]
-            def __init__(self, organization_ids: _Optional[_Iterable[str]] = ..., budget_ids: _Optional[_Iterable[str]] = ..., cluster_ids: _Optional[_Iterable[str]] = ..., workspace_ids: _Optional[_Iterable[str]] = ..., user_ids: _Optional[_Iterable[str]] = ..., priorities: _Optional[_Iterable[_Union[JobPriority, str]]] = ..., preemptible: bool = ..., workspace_group_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+            def __init__(self, organization_ids: _Optional[_Iterable[str]] = ..., budget_ids: _Optional[_Iterable[str]] = ..., cluster_ids: _Optional[_Iterable[str]] = ..., workspace_ids: _Optional[_Iterable[str]] = ..., user_ids: _Optional[_Iterable[str]] = ..., priorities: _Optional[_Iterable[_Union[JobPriority, str]]] = ..., allocated: bool = ..., workspace_group_ids: _Optional[_Iterable[str]] = ...) -> None: ...
         INTERVAL_FIELD_NUMBER: _ClassVar[int]
         GROUP_BY_FIELD_NUMBER: _ClassVar[int]
         FILTERS_FIELD_NUMBER: _ClassVar[int]
@@ -3820,7 +3958,7 @@ class GetGPUUsageReportRequest(_message.Message):
     def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[GetGPUUsageReportRequest.QueryOptions, _Mapping]] = ...) -> None: ...
 
 class GPUUsageReportEntry(_message.Message):
-    __slots__ = ("budget_id", "budget_name", "cluster_id", "cluster_name", "workspace_id", "workspace_name", "user_id", "user_name", "priority", "preemptible", "gpu_hours", "workspace_group_id", "workspace_group_name")
+    __slots__ = ("budget_id", "budget_name", "cluster_id", "cluster_name", "workspace_id", "workspace_name", "user_id", "user_name", "priority", "allocated", "gpu_hours", "workspace_group_id", "workspace_group_name")
     BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
     BUDGET_NAME_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -3830,7 +3968,7 @@ class GPUUsageReportEntry(_message.Message):
     USER_ID_FIELD_NUMBER: _ClassVar[int]
     USER_NAME_FIELD_NUMBER: _ClassVar[int]
     PRIORITY_FIELD_NUMBER: _ClassVar[int]
-    PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
+    ALLOCATED_FIELD_NUMBER: _ClassVar[int]
     GPU_HOURS_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -3843,11 +3981,11 @@ class GPUUsageReportEntry(_message.Message):
     user_id: str
     user_name: str
     priority: JobPriority
-    preemptible: bool
+    allocated: bool
     gpu_hours: float
     workspace_group_id: str
     workspace_group_name: str
-    def __init__(self, budget_id: _Optional[str] = ..., budget_name: _Optional[str] = ..., cluster_id: _Optional[str] = ..., cluster_name: _Optional[str] = ..., workspace_id: _Optional[str] = ..., workspace_name: _Optional[str] = ..., user_id: _Optional[str] = ..., user_name: _Optional[str] = ..., priority: _Optional[_Union[JobPriority, str]] = ..., preemptible: bool = ..., gpu_hours: _Optional[float] = ..., workspace_group_id: _Optional[str] = ..., workspace_group_name: _Optional[str] = ...) -> None: ...
+    def __init__(self, budget_id: _Optional[str] = ..., budget_name: _Optional[str] = ..., cluster_id: _Optional[str] = ..., cluster_name: _Optional[str] = ..., workspace_id: _Optional[str] = ..., workspace_name: _Optional[str] = ..., user_id: _Optional[str] = ..., user_name: _Optional[str] = ..., priority: _Optional[_Union[JobPriority, str]] = ..., allocated: bool = ..., gpu_hours: _Optional[float] = ..., workspace_group_id: _Optional[str] = ..., workspace_group_name: _Optional[str] = ...) -> None: ...
 
 class GetGPUUsageReportResponse(_message.Message):
     __slots__ = ("entries", "next_page_token")

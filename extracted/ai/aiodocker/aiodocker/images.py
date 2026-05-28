@@ -3,16 +3,12 @@ from __future__ import annotations
 import io
 import json
 import warnings
+from collections.abc import AsyncIterator, Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
-    Dict,
     List,
     Literal,
-    Mapping,
-    Optional,
-    Union,
     overload,
 )
 
@@ -27,18 +23,50 @@ if TYPE_CHECKING:
     from .docker import Docker
 
 
+def _has_embedded_tag_or_digest(image_ref: str) -> bool:
+    last_segment = image_ref.rsplit("/", 1)[-1]
+    return ":" in last_segment or "@" in last_segment
+
+
 class DockerImages:
     def __init__(self, docker: Docker) -> None:
         self.docker = docker
 
-    async def list(self, **params) -> List[Any]:
+    async def list(
+        self,
+        *,
+        filters: Mapping[str, Any] | str | None = None,
+        **params,
+    ) -> List[Any]:
         """
         List of images
+
+        Args:
+            filters: Filter expressions for the listing. Accepts a mapping
+                like ``{"dangling": ["true"]}``, ``{"label": ["foo=bar"]}``,
+                or ``{"reference": ["busybox"]}``. A pre-encoded JSON string
+                is also accepted for backwards compatibility, but is
+                deprecated and will be removed in 1.0.
+            **params: Additional query parameters forwarded to
+                ``GET /images/json`` (e.g. ``all``, ``digests``,
+                ``shared_size``).
         """
+        if filters is not None:
+            if isinstance(filters, str):
+                warnings.warn(
+                    "Passing `filters` as a pre-encoded JSON string is "
+                    "deprecated and will be removed in 1.0. Pass a mapping "
+                    "such as {'dangling': ['true']} instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                params["filters"] = filters
+            else:
+                params["filters"] = clean_filters(filters)
         response = await self.docker._query_json("images/json", "GET", params=params)
         return response
 
-    async def inspect(self, name: str) -> Dict[str, Any]:
+    async def inspect(self, name: str) -> dict[str, Any]:
         """
         Return low-level information about an image
 
@@ -48,7 +76,7 @@ class DockerImages:
         response = await self.docker._query_json(f"images/{name}/json")
         return response
 
-    async def get(self, name: str) -> Dict[str, Any]:
+    async def get(self, name: str) -> dict[str, Any]:
         warnings.warn(
             """images.get is deprecated and will be removed in the next release,
             please use images.inspect instead.""",
@@ -57,7 +85,7 @@ class DockerImages:
         )
         return await self.inspect(name)
 
-    async def history(self, name: str) -> Dict[str, Any]:
+    async def history(self, name: str) -> dict[str, Any]:
         response = await self.docker._query_json(f"images/{name}/history")
         return response
 
@@ -66,35 +94,35 @@ class DockerImages:
         self,
         from_image: str,
         *,
-        auth: Optional[Union[JSONObject, str, bytes]] = None,
-        tag: Optional[str] = None,
-        repo: Optional[str] = None,
-        platform: Optional[str] = None,
+        auth: JSONObject | str | bytes | None = None,
+        tag: str | None = None,
+        repo: str | None = None,
+        platform: str | None = None,
         stream: Literal[False] = False,
         timeout: float | Sentinel | None = SENTINEL,
-    ) -> List[Dict[str, Any]]: ...
+    ) -> List[dict[str, Any]]: ...
 
     @overload
     def pull(
         self,
         from_image: str,
         *,
-        auth: Optional[Union[JSONObject, str, bytes]] = None,
-        tag: Optional[str] = None,
-        repo: Optional[str] = None,
-        platform: Optional[str] = None,
+        auth: JSONObject | str | bytes | None = None,
+        tag: str | None = None,
+        repo: str | None = None,
+        platform: str | None = None,
         stream: Literal[True],
         timeout: float | Sentinel | None = SENTINEL,
-    ) -> AsyncIterator[Dict[str, Any]]: ...
+    ) -> AsyncIterator[dict[str, Any]]: ...
 
     def pull(
         self,
         from_image: str,
         *,
-        auth: Optional[Union[JSONObject, str, bytes]] = None,
-        tag: Optional[str] = None,
-        repo: Optional[str] = None,
-        platform: Optional[str] = None,
+        auth: JSONObject | str | bytes | None = None,
+        tag: str | None = None,
+        repo: str | None = None,
+        platform: str | None = None,
         stream: bool = False,
         timeout: float | Sentinel | None = SENTINEL,
     ) -> Any:
@@ -102,18 +130,30 @@ class DockerImages:
         Similar to `docker pull`, pull an image locally
 
         Args:
-            fromImage: name of the image to pull
+            fromImage: name of the image to pull, optionally including a tag
+                       (``name:tag``) or digest (``name@sha256:...``)
             repo: repository name given to an image when it is imported
-            tag: if empty when pulling an image all tags
-                 for the given image to be pulled
+            tag: tag to pull. When omitted and ``from_image`` does not embed
+                 a tag (``name:tag``) or digest (``name@sha256:...``),
+                 defaults to ``"latest"`` to match the behavior of the
+                 ``docker pull`` CLI. Pass an empty string explicitly to
+                 request the Docker Engine's "pull all tags" behavior. To
+                 pull by digest, embed it in ``from_image``.
             platform: platform in the format `os[/arch[/variant]]`
             auth: special {'auth': base64} pull private repo
+
+        Raises:
+            DockerStreamError: If the Docker Engine reports an error in
+                the progress stream (e.g. the registry rejected the pull
+                with ``403 Forbidden``). Subclass of ``DockerError``.
         """
         image = from_image  # TODO: clean up
         params = {"fromImage": image}
         headers = {}
         if repo:
             params["repo"] = repo
+        if tag is None and not _has_embedded_tag_or_digest(image):
+            tag = "latest"
         if tag:
             params["tag"] = tag
         if platform:
@@ -159,32 +199,40 @@ class DockerImages:
         self,
         name: str,
         *,
-        auth: Optional[Union[JSONObject, str, bytes]] = None,
-        tag: Optional[str] = None,
+        auth: JSONObject | str | bytes | None = None,
+        tag: str | None = None,
         stream: Literal[False] = False,
         timeout: float | Sentinel | None = SENTINEL,
-    ) -> List[Dict[str, Any]]: ...
+    ) -> List[dict[str, Any]]: ...
 
     @overload
     def push(
         self,
         name: str,
         *,
-        auth: Optional[Union[JSONObject, str, bytes]] = None,
-        tag: Optional[str] = None,
+        auth: JSONObject | str | bytes | None = None,
+        tag: str | None = None,
         stream: Literal[True],
         timeout: float | Sentinel | None = SENTINEL,
-    ) -> AsyncIterator[Dict[str, Any]]: ...
+    ) -> AsyncIterator[dict[str, Any]]: ...
 
     def push(
         self,
         name: str,
         *,
-        auth: Optional[Union[JSONObject, str, bytes]] = None,
-        tag: Optional[str] = None,
+        auth: JSONObject | str | bytes | None = None,
+        tag: str | None = None,
         stream: bool = False,
         timeout: float | Sentinel | None = SENTINEL,
     ) -> Any:
+        """
+        Similar to ``docker push``, push an image to a registry.
+
+        Raises:
+            DockerStreamError: If the Docker Engine reports an error in
+                the progress stream (e.g. the registry rejected the push
+                with ``403 Forbidden``). Subclass of ``DockerError``.
+        """
         params = {}
         headers = {
             # Anonymous push requires a dummy auth header.
@@ -212,7 +260,7 @@ class DockerImages:
         )
         return self._handle_response(cm, stream)
 
-    async def tag(self, name: str, repo: str, *, tag: Optional[str] = None) -> bool:
+    async def tag(self, name: str, repo: str, *, tag: str | None = None) -> bool:
         """
         Tag the given image so that it becomes part of a repository.
 
@@ -259,8 +307,8 @@ class DockerImages:
     async def prune(
         self,
         *,
-        filters: Optional[Mapping[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        filters: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Delete unused images
 
@@ -285,12 +333,12 @@ class DockerImages:
     async def prune_builds(
         self,
         *,
-        reserved_space: Optional[int] = None,
-        max_used_space: Optional[int] = None,
-        min_free_space: Optional[int] = None,
-        all_builds: Optional[bool] = None,
-        filters: Optional[Mapping[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        reserved_space: int | None = None,
+        max_used_space: int | None = None,
+        min_free_space: int | None = None,
+        all_builds: bool | None = None,
+        filters: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Delete builder cache
 
@@ -314,7 +362,7 @@ class DockerImages:
         Returns:
             Dictionary containing information about deleted caches and space reclaimed
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if reserved_space is not None:
             params["reserved-space"] = reserved_space
         if max_used_space is not None:
@@ -340,63 +388,63 @@ class DockerImages:
     async def build(
         self,
         *,
-        remote: Optional[str] = None,
-        fileobj: Optional[SupportsRead[bytes]] = None,
-        path_dockerfile: Optional[str] = None,
-        tag: Optional[str] = None,
+        remote: str | None = None,
+        fileobj: SupportsRead[bytes] | None = None,
+        path_dockerfile: str | None = None,
+        tag: str | None = None,
         quiet: bool = False,
         nocache: bool = False,
-        buildargs: Optional[Mapping[str, str]] = None,
+        buildargs: Mapping[str, str] | None = None,
         pull: bool = False,
         rm: bool = True,
         forcerm: bool = False,
-        labels: Optional[Mapping[str, str]] = None,
-        platform: Optional[str] = None,
+        labels: Mapping[str, str] | None = None,
+        platform: str | None = None,
         stream: Literal[False] = False,
-        encoding: Optional[str] = None,
+        encoding: str | None = None,
         timeout: float | aiohttp.ClientTimeout | Sentinel | None = SENTINEL,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         pass
 
     @overload
     def build(
         self,
         *,
-        remote: Optional[str] = None,
-        fileobj: Optional[SupportsRead[bytes]] = None,
-        path_dockerfile: Optional[str] = None,
-        tag: Optional[str] = None,
+        remote: str | None = None,
+        fileobj: SupportsRead[bytes] | None = None,
+        path_dockerfile: str | None = None,
+        tag: str | None = None,
         quiet: bool = False,
         nocache: bool = False,
-        buildargs: Optional[Mapping[str, str]] = None,
+        buildargs: Mapping[str, str] | None = None,
         pull: bool = False,
         rm: bool = True,
         forcerm: bool = False,
-        labels: Optional[Mapping[str, str]] = None,
-        platform: Optional[str] = None,
+        labels: Mapping[str, str] | None = None,
+        platform: str | None = None,
         stream: Literal[True],
-        encoding: Optional[str] = None,
+        encoding: str | None = None,
         timeout: float | aiohttp.ClientTimeout | Sentinel | None = SENTINEL,
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         pass
 
     def build(
         self,
         *,
-        remote: Optional[str] = None,
-        fileobj: Optional[SupportsRead[bytes]] = None,
-        path_dockerfile: Optional[str] = None,
-        tag: Optional[str] = None,
+        remote: str | None = None,
+        fileobj: SupportsRead[bytes] | None = None,
+        path_dockerfile: str | None = None,
+        tag: str | None = None,
         quiet: bool = False,
         nocache: bool = False,
-        buildargs: Optional[Mapping[str, str]] = None,
+        buildargs: Mapping[str, str] | None = None,
         pull: bool = False,
         rm: bool = True,
         forcerm: bool = False,
-        labels: Optional[Mapping[str, str]] = None,
-        platform: Optional[str] = None,
+        labels: Mapping[str, str] | None = None,
+        platform: str | None = None,
         stream: bool = False,
-        encoding: Optional[str] = None,
+        encoding: str | None = None,
         timeout: float | aiohttp.ClientTimeout | Sentinel | None = SENTINEL,
     ) -> Any:
         """
@@ -417,6 +465,11 @@ class DockerImages:
             platform: platform in the format `os[/arch[/variant]]`
             fileobj: a tar archive compressed or not
             timeout: timeout for the build operation (infinite by default)
+
+        Raises:
+            DockerStreamError: If the Docker Engine reports an error in
+                the build progress stream (e.g. a failing build step).
+                Subclass of ``DockerError``.
         """
         headers = {}
 
@@ -508,6 +561,10 @@ class DockerImages:
 
         Returns:
             Tarball of the image
+
+        Raises:
+            DockerStreamError: If the Docker Engine reports an error in
+                the import progress stream. Subclass of ``DockerError``.
         """
         headers = {"Content-Type": "application/x-tar"}
 

@@ -8,7 +8,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='mailosaur',
-    version='8.1.0',
+    version='8.1.1',
     description='The Mailosaur Python library lets you integrate email and SMS testing into your continuous integration process.',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -27,7 +27,7 @@ setup(
     ],
     python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*',
     tests_require=[
-        'pytest >= 8.1.0'
+        'pytest >= 8.1.1'
     ],
     project_urls={
         'Bug Tracker': 'https://github.com/mailosaur/mailosaur-python/issues',

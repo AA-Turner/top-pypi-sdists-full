@@ -110,8 +110,8 @@ class ShapPreview(BaseInsight):
 
         Returns
         -------
-        List[Any]
-            List of newly or already computed insights.
+        Self
+            Entity of the newly or already computed insights.
         """
         query_params = {**kwargs}
         if prediction_filter_row_count is not None:

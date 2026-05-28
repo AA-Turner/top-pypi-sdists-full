@@ -34,8 +34,10 @@ class BaseStory(object):
         self.option_selector = option_selector or self.case.option_selector
         self.widget_selector = widget_selector or self.case.widget_selector
 
-        self.field_container_selector = ('fieldset.aligned .field-%s' %
-                                         self.field_name)
+        default_container = 'fieldset.aligned .field-%s' % self.field_name
+        self.field_container_selector = getattr(
+            case, 'field_container_selector', default_container
+        )
         self.field_selector = '#id_%s' % self.field_name
         self.field_clear_selector = '%s %s' % (
             self.field_container_selector,
@@ -70,15 +72,20 @@ class BaseStory(object):
 
     def get_label(self):
         """Return autocomplete widget label."""
-        label = self.case.browser.find_by_css(
+        labels = self.case.browser.find_by_css(
             self.get_field_label_selector()
         )
 
+        if not labels:
+            return ''
+
         self.clean_label_from_remove_buton()
-        return self.clean_label(label.text)
+        return self.clean_label(labels.text)
 
     def clean_label(self, label):
         """Given an option text, return the actual label."""
+        if hasattr(self.case, 'clean_label'):
+            return self.case.clean_label(label)
         return label.replace('%20', ' ')
 
     @tenacity.retry(stop=tenacity.stop_after_delay(3))
@@ -110,7 +117,7 @@ class BaseStory(object):
         self.assert_label(label)
         self.assert_value(value)
 
-    @tenacity.retry(stop=tenacity.stop_after_delay(3))
+    @tenacity.retry(stop=tenacity.stop_after_delay(10))
     def assert_suggestion_labels_are(self, expected):
         """Retrying assert that suggestions match expected labels."""
         assert sorted(expected) == sorted(self.get_suggestions_labels())
@@ -163,10 +170,12 @@ class BaseStory(object):
 
     def toggle_autocomplete(self):
         """Open the autocomplete dropdown."""
-        self.case.click('%s %s' % (
-            self.field_container_selector,
-            self.widget_selector,
-        ))
+        selector = '%s %s' % (self.field_container_selector, self.widget_selector)
+        toggle_fn = getattr(self.case, 'toggle_autocomplete_widget', None)
+        if toggle_fn:
+            toggle_fn(selector)
+        else:
+            self.case.click(selector)
 
     def refresh_autocomplete(self):
         """Re-open the autocomplete box."""
@@ -180,11 +189,11 @@ class BaseStory(object):
             return self.case.browser.find_by_css(self.option_selector)
 
         def is_searching(options):
+            if not options:
+                return False
             try:
                 return 'Searching' in options[0].text
             except StaleElementReferenceException:
-                return True
-            except IndexError:
                 return True
 
         options = get_options()
@@ -241,6 +250,14 @@ class InlineSelectOption(SelectOption):
             self.field_name
         )
 
+        # Scope input_selector to the inline container when the widget
+        # embeds its text input inside the field (e.g. alight), rather than
+        # in a global dropdown (e.g. select2 whose .select2-search__field
+        # lives outside the field container).
+        if getattr(case, 'input_in_field_container', False):
+            self.input_selector = '%s %s' % (
+                self.field_container_selector, self.input_selector)
+
         # Ensure the inline is displayed else click to add it
         add = self.case.browser.links.find_by_partial_text('Add another').first
 
@@ -264,6 +281,10 @@ class InlineSelectOption(SelectOption):
                 continue
 
             num += 1
+            # Wait for any newly-connected web components (e.g. alight) to
+            # finish their connectedCallback before the next interaction.
+            if hasattr(self.case, 'wait_script'):
+                self.case.wait_script()
 
 
 class RenameOption(SelectOption):
@@ -300,17 +321,40 @@ class AddAnotherOption(BaseStory):
 
 
 class CreateOption(SelectOption):
-    """Create an option on the fly."""
+    """Shared preamble for create-option stories: open and type."""
 
-    def create_option(self, name):
-        """
-        Select the only option after typing name and submit.
-
-        name should be unique.
-        """
+    def _open_and_type(self, name):
         self.toggle_autocomplete()
         self.case.enter_text(self.input_selector, name)
 
+
+class AlightCreateOption(CreateOption):
+    """Create an option on the fly — alight backend."""
+
+    def create_option(self, name):
+        create_sel = self.case.get_create_option_selector(name)
+        self._open_and_type(name)
+        self.case.browser.is_element_present_by_css(create_sel)
+        initial_count = self.case.browser.evaluate_script(
+            'document.querySelectorAll("%s option").length' % self.field_selector
+        )
+        self.case.js_click(create_sel)
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            count = self.case.browser.evaluate_script(
+                'document.querySelectorAll("%s option").length'
+                % self.field_selector
+            )
+            if count > initial_count:
+                break
+            time.sleep(0.1)
+
+
+class Select2CreateOption(CreateOption):
+    """Create an option on the fly — select2 backend."""
+
+    def create_option(self, name):
+        self._open_and_type(name)
         self.case.browser.is_element_present_by_text(name)
         self.case.click(self.option_selector)
         self.case.browser.is_element_not_present_by_css(
@@ -398,6 +442,14 @@ class CreateOptionMultiple(MultipleMixin, CreateOption):
     """Multiple version of CreateOptions."""
 
 
+class AlightCreateOptionMultiple(MultipleMixin, AlightCreateOption):
+    """Multiple-select variant of AlightCreateOption."""
+
+
+class Select2CreateOptionMultiple(MultipleMixin, Select2CreateOption):
+    """Multiple-select variant of Select2CreateOption."""
+
+
 class SelectOptionMultiple(MultipleMixin, SelectOption):
     """Multiple version of CreateOptions."""
 
@@ -415,7 +467,10 @@ class InlineSelectOptionMultiple(MultipleMixin, InlineSelectOption):
             **kwargs
         )
 
-        self.input_selector = '%s %s' % (
-            self.field_container_selector,
-            self.input_selector,
-        )
+        # InlineSelectOption already scoped input_selector when
+        # input_in_field_container is True; avoid scoping it a second time.
+        if not getattr(case, 'input_in_field_container', False):
+            self.input_selector = '%s %s' % (
+                self.field_container_selector,
+                self.input_selector,
+            )

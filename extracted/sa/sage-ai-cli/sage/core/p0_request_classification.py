@@ -326,6 +326,22 @@ class ClassifiedRequestV2:
     def requested_quantity(self) -> int | None:
         """Get requested quantity from result (alias)."""
         return self.quantity_result.quantity if self.quantity_result else None
+def clean_request_for_classification(request: str) -> str:
+    """Ignore pasted logs, previous execution traces, and markdown blocks in request classification."""
+    # 1. Strip markdown code blocks
+    request_clean = re.sub(r"```.*?```", "", request, flags=re.DOTALL)
+    
+    # 2. Strip lines that look like terminal outputs or SAGE logs
+    lines = []
+    for line in request_clean.splitlines():
+        # Skip SAGE system lines, log markers, and copy-pasted UI boxes
+        if any(marker in line for marker in ["Request type:", "sage>", "you>", "✓ Project scanned", "Planning", "Fixing", "Synthesizing", "◎ Planning", "◌ Sending"]):
+            continue
+        if line.strip().startswith(("│", "├", "└", "┌", "╭", "╰", "──")):
+            continue
+        lines.append(line)
+        
+    return "\n".join(lines).strip()
 
 
 class RequestClassifierV2:
@@ -426,30 +442,35 @@ class RequestClassifierV2:
         Items 21-35: Classify request with comprehensive analysis.
         """
         reasons = []
+        cleaned_request = clean_request_for_classification(request)
+        if not cleaned_request.strip():
+            cleaned_request = request
 
         # Extract mentioned files
         files_mentioned = []
         file_pattern = re.compile(r"\b([\w\-/]+\.(?:py|js|ts|tsx|jsx|html|css|json|md|txt|yaml|yml|sh|bash|sql|c|cpp|h|hpp|rs|go|java|kt|rb|php))\b")
         files_mentioned = list(set(file_pattern.findall(request)))
 
-        # Item 1-20: Parse quantity
+        # Item 1-20: Parse quantity (use original request to not miss quantities in pasted configs/manifests)
         quantity_result = self.quantity_parser.parse(request)
         if quantity_result.quantity:
             reasons.append(
                 f"Detected quantity: {quantity_result.quantity} ({quantity_result.detection_method})"
             )
 
-        # Check for negation (forces read-only)
-        has_negation = any(p.search(request) for p in self._negation_re)
+        # Check for negation on cleaned request
+        has_negation = any(p.search(cleaned_request) for p in self._negation_re)
         if has_negation:
             reasons.append("Explicit negation detected: forcing read-only")
 
-        # Explicit implementation override check
-        request_lower = request.lower()
+        # Explicit implementation override check on cleaned request
+        request_lower = cleaned_request.lower()
         is_explicit_impl = (
             re.search(r"\b(build|implement|create|write|develop|make|generate|setup|set\s+up|code|add|fix|refactor)\s+(?:this|it|them|the|an?|our)\b", request_lower) is not None
             or re.search(r"\b(build|implement|create|develop|write|make|generate|setup|set\s+up|code|add|fix|refactor)\s+(?:\w+\s+)*(?:platform|app|application|website|site|dashboard|database|system|project|repo|repository|engine|script|config|manifest|game|file|files|code|program|tool|utility|backend|frontend|service|api|endpoint|test|tests)\b", request_lower) is not None
             or re.search(r"\bin\s+it'?s\s+entiret(y|ies)\b", request_lower) is not None
+            or re.search(r"\b(make|build|create|implement)\s+(?:the\s+)?actual\s+\w+", request_lower) is not None
+            or request_lower.strip().startswith(("make ", "fix ", "implement ", "add ", "create ", "build ", "write ", "update ", "modify "))
         )
 
         if is_explicit_impl and not has_negation:
@@ -467,13 +488,13 @@ class RequestClassifierV2:
                 requires_tdd=True
             )
 
-        # Calculate type scores
-        list_score = sum(1 for p in self._list_re if p.search(request))
-        analysis_score = sum(1 for p in self._analysis_re if p.search(request))
-        impl_score = sum(1 for p in self._impl_re if p.search(request))
+        # Calculate type scores on cleaned request
+        list_score = sum(1 for p in self._list_re if p.search(cleaned_request))
+        analysis_score = sum(1 for p in self._analysis_re if p.search(cleaned_request))
+        impl_score = sum(1 for p in self._impl_re if p.search(cleaned_request))
 
-        # Check fix-all first (hybrid)
-        if any(p.search(request) for p in self._fix_all_re) and not has_negation:
+        # Check fix-all first (hybrid) on cleaned request
+        if any(p.search(cleaned_request) for p in self._fix_all_re) and not has_negation:
             reasons.append("Fix-all pattern detected")
             return ClassifiedRequestV2(
                 original_request=request,
@@ -486,10 +507,10 @@ class RequestClassifierV2:
                 files_mentioned=files_mentioned
             )
 
-        # Check for hybrid patterns
-        has_fix_verb = re.search(r"\b(fix|implement|apply|update|change|refactor|patch|resolve|modify)\b", request, re.IGNORECASE) is not None
-        has_do_verb = re.search(r"\bdo\b(?!\s+not)", request, re.IGNORECASE) is not None
-        has_analysis_verb = re.search(r"\b(analyze|identify|find|check|review|audit|examine)\b", request, re.IGNORECASE) is not None
+        # Check for hybrid patterns on cleaned request
+        has_fix_verb = re.search(r"\b(fix|implement|apply|update|change|refactor|patch|resolve|modify)\b", cleaned_request, re.IGNORECASE) is not None
+        has_do_verb = re.search(r"\bdo\b(?!\s+not)", cleaned_request, re.IGNORECASE) is not None
+        has_analysis_verb = re.search(r"\b(analyze|identify|find|check|review|audit|examine)\b", cleaned_request, re.IGNORECASE) is not None
 
         if (has_fix_verb or has_do_verb) and has_analysis_verb and not has_negation:
             reasons.append("Hybrid request detected (analysis + implementation)")
@@ -509,7 +530,7 @@ class RequestClassifierV2:
         has_quantity_list_indicators = (
             quantity_result.quantity
             and quantity_result.quantity >= 10
-            and re.search(r"\b(list|things?|items?|improvements?|issues?)\b", request, re.IGNORECASE) is not None
+            and re.search(r"\b(list|things?|items?|improvements?|issues?)\b", cleaned_request, re.IGNORECASE) is not None
         )
 
         if list_score > 0 or has_quantity_list_indicators:
@@ -555,7 +576,7 @@ class RequestClassifierV2:
             )
 
         # Check explanation/informational
-        if any(p.search(request) for p in self._explanation_re):
+        if any(p.search(cleaned_request) for p in self._explanation_re):
             reasons.append("Explanation/Informational pattern detected")
             return ClassifiedRequestV2(
                 original_request=request,
@@ -568,7 +589,7 @@ class RequestClassifierV2:
             )
 
         # Check question
-        if re.search(r"\?|^(what|how|why|who|where|when|which|is|are|can|do|does)\b", request, re.IGNORECASE):
+        if re.search(r"\?|^(what|how|why|who|where|when|which|is|are|can|do|does)\b", cleaned_request, re.IGNORECASE):
             reasons.append("Question pattern detected")
             return ClassifiedRequestV2(
                 original_request=request,

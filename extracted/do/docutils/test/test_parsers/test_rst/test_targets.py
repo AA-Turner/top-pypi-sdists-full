@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_targets.py 10177 2025-06-21 22:10:15Z milde $
+# $Id: test_targets.py 10312 2026-04-17 17:54:14Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -25,15 +25,19 @@ from docutils.utils import new_document
 class ParserTestCase(unittest.TestCase):
 
     maxDiff = None
+    mysettings = get_default_settings(Parser)
+    mysettings.legacy_ids = False  # will become default in 2.0
+    mysettings.warning_stream = ''
 
     def test_parser(self):
         parser = Parser()
-        settings = get_default_settings(Parser)
-        settings.warning_stream = ''
-        for name, cases in totest.items():
+        for name, (settings_overrides, cases) in totest.items():
+            settings = self.mysettings.copy()
+            for k, v in settings_overrides.items():
+                setattr(settings, k, v)
             for casenum, (case_input, case_expected) in enumerate(cases):
                 with self.subTest(id=f'totest[{name!r}][{casenum}]'):
-                    document = new_document('test data', settings.copy())
+                    document = new_document('test data', settings)
                     parser.parse(case_input, document)
                     output = document.pformat()
                     self.assertEqual(case_expected, output)
@@ -41,7 +45,7 @@ class ParserTestCase(unittest.TestCase):
 
 totest = {}
 
-totest['targets'] = [
+totest['targets'] = ({}, [
 ["""\
 .. _target:
 
@@ -238,7 +242,7 @@ See the example_
         See the \n\
         <reference name="example" refuri="example.rst">
             example
-        <target ids="example" names="example" refuri="example.rst">
+        <target names="example" refuri="example.rst">
     <paragraph>
         See the \n\
         <reference name="example" refname="example">
@@ -265,7 +269,7 @@ do not conflict. The reference name can be used in a link_.
             targets
          (same refname):
     <target ids="link" names="link" refname="targets">
-    <system_message backrefs="link-1" level="1" line="5" source="test data" type="INFO">
+    <system_message level="1" line="5" source="test data" type="INFO">
         <paragraph>
             Duplicate name "link" for external target "targets".
     <target dupnames="link" ids="link-1" refname="targets">
@@ -292,15 +296,15 @@ Paragraph.
 <document source="test data">
     <paragraph>
         Duplicate implicit targets.
-    <section dupnames="title" ids="title">
+    <section dupnames="title" ids="title-1">
         <title>
             Title
         <paragraph>
             Paragraph.
-    <section dupnames="title" ids="title-1">
+    <section dupnames="title" ids="title-2">
         <title>
             Title
-        <system_message backrefs="title-1" level="1" line="9" source="test data" type="INFO">
+        <system_message backrefs="title-2" level="1" line="9" source="test data" type="INFO">
             <paragraph>
                 Duplicate implicit target name: "title".
         <paragraph>
@@ -320,13 +324,13 @@ Paragraph.
 <document source="test data">
     <paragraph>
         Duplicate implicit/explicit targets.
-    <section dupnames="title" ids="title">
+    <section dupnames="title">
         <title>
             Title
-        <system_message backrefs="title-1" level="1" line="6" source="test data" type="INFO">
+        <system_message level="1" line="6" source="test data" type="INFO">
             <paragraph>
                 Target name overrides implicit target name "title".
-        <target ids="title-1" names="title">
+        <target ids="title" names="title">
         <paragraph>
             Paragraph.
 """],
@@ -343,11 +347,11 @@ Title
 <document source="test data">
     <paragraph>
         Duplicate implicit/directive targets.
-    <section dupnames="title" ids="title">
+    <section dupnames="title">
         <title>
             Title
-        <note ids="title-1" names="title">
-            <system_message backrefs="title-1" level="1" line="7" source="test data" type="INFO">
+        <note ids="title" names="title">
+            <system_message backrefs="title" level="1" line="7" source="test data" type="INFO">
                 <paragraph>
                     Target name overrides implicit target name "title".
             <paragraph>
@@ -375,13 +379,13 @@ Third.
     <target dupnames="title" ids="title">
     <paragraph>
         First.
-    <system_message backrefs="title-1" level="2" line="7" source="test data" type="WARNING">
+    <system_message level="2" line="7" source="test data" type="WARNING">
         <paragraph>
             Duplicate explicit target name: "title".
     <target dupnames="title" ids="title-1">
     <paragraph>
         Second.
-    <system_message backrefs="title-2" level="2" line="11" source="test data" type="WARNING">
+    <system_message level="2" line="11" source="test data" type="WARNING">
         <paragraph>
             Duplicate explicit target name: "title".
     <target dupnames="title" ids="title-2">
@@ -445,6 +449,259 @@ Explicit internal target.
 <document source="test data">
     <paragraph>
         Duplicate targets:
+    <section dupnames="target">
+        <title>
+            Target
+        <paragraph>
+            Implicit section header target.
+        <citation dupnames="target" ids="target">
+            <label>
+                TARGET
+            <system_message backrefs="target" level="1" line="8" source="test data" type="INFO">
+                <paragraph>
+                    Target name overrides implicit target name "target".
+            <paragraph>
+                Citation target.
+        <footnote auto="1" dupnames="target" ids="target-1">
+            <system_message backrefs="target-1" level="2" line="10" source="test data" type="WARNING">
+                <paragraph>
+                    Duplicate explicit target name: "target".
+            <paragraph>
+                Autonumber-labeled footnote target.
+        <system_message level="2" line="12" source="test data" type="WARNING">
+            <paragraph>
+                Duplicate explicit target name: "target".
+        <target dupnames="target" ids="target-2">
+        <paragraph>
+            Explicit internal target.
+        <system_message level="2" line="16" source="test data" type="WARNING">
+            <paragraph>
+                Duplicate explicit target name: "target".
+        <target dupnames="target" ids="target-3" refuri="Explicit_external_target">
+        <line_block>
+            <line>
+                Do not insert <system_message> element for duplicate
+            <line>
+                <target dupnames="target" ids="target-4">
+                    target
+                , if this results in an invalid doctree.
+        <rubric dupnames="target" ids="target-5">
+            directive with target
+        <field_list>
+            <field>
+                <field_name>
+                    field list
+                <field_body>
+                    <paragraph>
+                        with
+            <field>
+                <field_name>
+                    <target dupnames="target" ids="target-6">
+                        target
+                <field_body>
+                    <paragraph>
+                        in a field name
+"""],
+["""\
+.. _unescaped colon at end:: no good
+
+.. _:: no good either
+
+.. _escaped colon\\:: OK
+
+.. _`unescaped colon, quoted:`: OK
+""",
+"""\
+<document source="test data">
+    <comment xml:space="preserve">
+        _unescaped colon at end:: no good
+    <system_message level="2" line="1" source="test data" type="WARNING">
+        <paragraph>
+            malformed hyperlink target.
+    <comment xml:space="preserve">
+        _:: no good either
+    <system_message level="2" line="3" source="test data" type="WARNING">
+        <paragraph>
+            malformed hyperlink target.
+    <target ids="escaped-colon" names="escaped\\ colon:" refuri="OK">
+    <target ids="unescaped-colon-quoted" names="unescaped\\ colon,\\ quoted:" refuri="OK">
+"""],
+])
+
+
+# Backwards compatibiltiy IDs (default up to Docutils 2.0):
+totest['legacy-ids'] = ({'legacy_ids': True}, [
+["""\
+Duplicate external targets (embedded/explicit, same URIs):
+
+See the `example <example.rst>`_
+
+See the example_
+
+.. _example: example.rst
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate external targets (embedded/explicit, same URIs):
+    <paragraph>
+        See the \n\
+        <reference name="example" refuri="example.rst">
+            example
+        <target ids="example" names="example" refuri="example.rst">
+    <paragraph>
+        See the \n\
+        <reference name="example" refname="example">
+            example
+    <system_message level="1" line="7" source="test data" type="INFO">
+        <paragraph>
+            Duplicate name "example" for external target "example.rst".
+    <target dupnames="example" ids="example-1" refuri="example.rst">
+"""],
+["""\
+Duplicate implicit targets.
+
+Title
+=====
+
+Paragraph.
+
+Title
+=====
+
+Paragraph.
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate implicit targets.
+    <section dupnames="title" ids="title">
+        <title>
+            Title
+        <paragraph>
+            Paragraph.
+    <section dupnames="title" ids="title-1">
+        <title>
+            Title
+        <system_message backrefs="title-1" level="1" line="9" source="test data" type="INFO">
+            <paragraph>
+                Duplicate implicit target name: "title".
+        <paragraph>
+            Paragraph.
+"""],
+["""\
+Duplicate implicit/explicit targets.
+
+Title
+=====
+
+.. _title:
+
+Paragraph.
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate implicit/explicit targets.
+    <section dupnames="title" ids="title">
+        <title>
+            Title
+        <system_message level="1" line="6" source="test data" type="INFO">
+            <paragraph>
+                Target name overrides implicit target name "title".
+        <target ids="title-1" names="title">
+        <paragraph>
+            Paragraph.
+"""],
+["""\
+Duplicate implicit/directive targets.
+
+Title
+=====
+
+.. note:: remember remember
+   :name: title
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate implicit/directive targets.
+    <section dupnames="title" ids="title">
+        <title>
+            Title
+        <note ids="title-1" names="title">
+            <system_message backrefs="title-1" level="1" line="7" source="test data" type="INFO">
+                <paragraph>
+                    Target name overrides implicit target name "title".
+            <paragraph>
+                remember remember
+"""],
+["""\
+Duplicate explicit targets.
+
+.. _title:
+
+First.
+
+.. _title:
+
+Second.
+
+.. _title:
+
+Third.
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate explicit targets.
+    <target dupnames="title" ids="title">
+    <paragraph>
+        First.
+    <system_message level="2" line="7" source="test data" type="WARNING">
+        <paragraph>
+            Duplicate explicit target name: "title".
+    <target dupnames="title" ids="title-1">
+    <paragraph>
+        Second.
+    <system_message level="2" line="11" source="test data" type="WARNING">
+        <paragraph>
+            Duplicate explicit target name: "title".
+    <target dupnames="title" ids="title-2">
+    <paragraph>
+        Third.
+"""],
+["""\
+Duplicate targets:
+
+Target
+======
+
+Implicit section header target.
+
+.. [TARGET] Citation target.
+
+.. [#target] Autonumber-labeled footnote target.
+
+.. _target:
+
+Explicit internal target.
+
+.. _target: Explicit_external_target
+
+| Do not insert <system_message> element for duplicate
+| _`target`, if this results in an invalid doctree.
+
+.. rubric:: directive with target
+   :name: Target
+
+:field list: with
+:_`target`: in a field name
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate targets:
     <section dupnames="target" ids="target">
         <title>
             Target
@@ -464,7 +721,7 @@ Explicit internal target.
                     Duplicate explicit target name: "target".
             <paragraph>
                 Autonumber-labeled footnote target.
-        <system_message backrefs="target-3" level="2" line="12" source="test data" type="WARNING">
+        <system_message level="2" line="12" source="test data" type="WARNING">
             <paragraph>
                 Duplicate explicit target name: "target".
         <target dupnames="target" ids="target-3">
@@ -498,33 +755,10 @@ Explicit internal target.
                     <paragraph>
                         in a field name
 """],
-["""\
-.. _unescaped colon at end:: no good
+])
 
-.. _:: no good either
 
-.. _escaped colon\\:: OK
-
-.. _`unescaped colon, quoted:`: OK
-""",
-"""\
-<document source="test data">
-    <comment xml:space="preserve">
-        _unescaped colon at end:: no good
-    <system_message level="2" line="1" source="test data" type="WARNING">
-        <paragraph>
-            malformed hyperlink target.
-    <comment xml:space="preserve">
-        _:: no good either
-    <system_message level="2" line="3" source="test data" type="WARNING">
-        <paragraph>
-            malformed hyperlink target.
-    <target ids="escaped-colon" names="escaped\\ colon:" refuri="OK">
-    <target ids="unescaped-colon-quoted" names="unescaped\\ colon,\\ quoted:" refuri="OK">
-"""],
-]
-
-totest['anonymous_targets'] = [
+totest['anonymous_targets'] = ({}, [
 ["""\
 Anonymous external hyperlink target:
 
@@ -632,8 +866,346 @@ no blank line
     <comment xml:space="preserve">
         _
 """],
-]
+])
 
+
+# keep stable IDs with legacy auto-ID setting (still default in Sphinx)
+totest['legacy auto-id prefix'] = ({'auto_id_prefix': 'id',
+                                    'legacy_ids': True}, [
+["""\
+Duplicate external targets (different URIs):
+
+.. _target: first
+
+.. _target: second
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate external targets (different URIs):
+    <target dupnames="target" ids="target" refuri="first">
+    <system_message level="2" line="5" source="test data" type="WARNING">
+        <paragraph>
+            Duplicate explicit target name: "target".
+    <target dupnames="target" ids="id1" refuri="second">
+"""],
+["""\
+Duplicate external targets (same URIs):
+
+.. _target: first
+
+.. _target: first
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate external targets (same URIs):
+    <target ids="target" names="target" refuri="first">
+    <system_message level="1" line="5" source="test data" type="INFO">
+        <paragraph>
+            Duplicate name "target" for external target "first".
+    <target dupnames="target" ids="id1" refuri="first">
+"""],
+["""\
+Duplicate external targets (embedded/explicit, same URIs):
+
+See the `example <example.rst>`_
+
+See the example_
+
+.. _example: example.rst
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate external targets (embedded/explicit, same URIs):
+    <paragraph>
+        See the \n\
+        <reference name="example" refuri="example.rst">
+            example
+        <target ids="example" names="example" refuri="example.rst">
+    <paragraph>
+        See the \n\
+        <reference name="example" refname="example">
+            example
+    <system_message level="1" line="7" source="test data" type="INFO">
+        <paragraph>
+            Duplicate name "example" for external target "example.rst".
+    <target dupnames="example" ids="id1" refuri="example.rst">
+"""],
+["""\
+Duplicate indirect _`targets` (same refname):
+
+.. _link: targets_
+
+.. _link: targets_
+
+do not conflict. The reference name can be used in a link_.
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate indirect \n\
+        <target ids="targets" names="targets">
+            targets
+         (same refname):
+    <target ids="link" names="link" refname="targets">
+    <system_message level="1" line="5" source="test data" type="INFO">
+        <paragraph>
+            Duplicate name "link" for external target "targets".
+    <target dupnames="link" ids="id1" refname="targets">
+    <paragraph>
+        do not conflict. The reference name can be used in a \n\
+        <reference name="link" refname="link">
+            link
+        .
+"""],
+["""\
+Duplicate implicit targets.
+
+Title
+=====
+
+Paragraph.
+
+Title
+=====
+
+Paragraph.
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate implicit targets.
+    <section dupnames="title" ids="title">
+        <title>
+            Title
+        <paragraph>
+            Paragraph.
+    <section dupnames="title" ids="id1">
+        <title>
+            Title
+        <system_message backrefs="id1" level="1" line="9" source="test data" type="INFO">
+            <paragraph>
+                Duplicate implicit target name: "title".
+        <paragraph>
+            Paragraph.
+"""],
+["""\
+Duplicate implicit/explicit targets.
+
+Title
+=====
+
+.. _title:
+
+Paragraph.
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate implicit/explicit targets.
+    <section dupnames="title" ids="title">
+        <title>
+            Title
+        <system_message level="1" line="6" source="test data" type="INFO">
+            <paragraph>
+                Target name overrides implicit target name "title".
+        <target ids="id1" names="title">
+        <paragraph>
+            Paragraph.
+"""],
+["""\
+Duplicate implicit/directive targets.
+
+Title
+=====
+
+.. note:: remember remember
+   :name: title
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate implicit/directive targets.
+    <section dupnames="title" ids="title">
+        <title>
+            Title
+        <note ids="id1" names="title">
+            <system_message backrefs="id1" level="1" line="7" source="test data" type="INFO">
+                <paragraph>
+                    Target name overrides implicit target name "title".
+            <paragraph>
+                remember remember
+"""],
+["""\
+Duplicate explicit targets.
+
+.. _title:
+
+First.
+
+.. _title:
+
+Second.
+
+.. _title:
+
+Third.
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate explicit targets.
+    <target dupnames="title" ids="title">
+    <paragraph>
+        First.
+    <system_message level="2" line="7" source="test data" type="WARNING">
+        <paragraph>
+            Duplicate explicit target name: "title".
+    <target dupnames="title" ids="id1">
+    <paragraph>
+        Second.
+    <system_message level="2" line="11" source="test data" type="WARNING">
+        <paragraph>
+            Duplicate explicit target name: "title".
+    <target dupnames="title" ids="id2">
+    <paragraph>
+        Third.
+"""],
+["""\
+Duplicate explicit/directive targets.
+
+.. _title:
+
+First.
+
+.. rubric:: this is a title too
+   :name: title
+
+The system message is left dangling
+(to be handled by the "universal.Messages" transform).
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate explicit/directive targets.
+    <target dupnames="title" ids="title">
+    <paragraph>
+        First.
+    <rubric dupnames="title" ids="id1">
+        this is a title too
+    <paragraph>
+        The system message is left dangling
+        (to be handled by the "universal.Messages" transform).
+"""],
+["""\
+Duplicate targets:
+
+Target
+======
+
+Implicit section header target.
+
+.. [TARGET] Citation target.
+
+.. [#target] Autonumber-labeled footnote target.
+
+.. _target:
+
+Explicit internal target.
+
+.. _target: Explicit_external_target
+
+| Do not insert <system_message> element for duplicate
+| _`target`, if this results in an invalid doctree.
+
+.. rubric:: directive with target
+   :name: Target
+
+:field list: with
+:_`target`: in a field name
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Duplicate targets:
+    <section dupnames="target" ids="target">
+        <title>
+            Target
+        <paragraph>
+            Implicit section header target.
+        <citation dupnames="target" ids="id1">
+            <label>
+                TARGET
+            <system_message backrefs="id1" level="1" line="8" source="test data" type="INFO">
+                <paragraph>
+                    Target name overrides implicit target name "target".
+            <paragraph>
+                Citation target.
+        <footnote auto="1" dupnames="target" ids="id2">
+            <system_message backrefs="id2" level="2" line="10" source="test data" type="WARNING">
+                <paragraph>
+                    Duplicate explicit target name: "target".
+            <paragraph>
+                Autonumber-labeled footnote target.
+        <system_message level="2" line="12" source="test data" type="WARNING">
+            <paragraph>
+                Duplicate explicit target name: "target".
+        <target dupnames="target" ids="id3">
+        <paragraph>
+            Explicit internal target.
+        <system_message level="2" line="16" source="test data" type="WARNING">
+            <paragraph>
+                Duplicate explicit target name: "target".
+        <target dupnames="target" ids="id4" refuri="Explicit_external_target">
+        <line_block>
+            <line>
+                Do not insert <system_message> element for duplicate
+            <line>
+                <target dupnames="target" ids="id5">
+                    target
+                , if this results in an invalid doctree.
+        <rubric dupnames="target" ids="id6">
+            directive with target
+        <field_list>
+            <field>
+                <field_name>
+                    field list
+                <field_body>
+                    <paragraph>
+                        with
+            <field>
+                <field_name>
+                    <target dupnames="target" ids="id7">
+                        target
+                <field_body>
+                    <paragraph>
+                        in a field name
+"""],
+["""\
+Anonymous external hyperlink target:
+
+__ http://w3c.org/
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Anonymous external hyperlink target:
+    <target anonymous="1" ids="id1" refuri="http://w3c.org/">
+"""],
+["""\
+Anonymous indirect hyperlink target:
+
+.. __: reference_
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        Anonymous indirect hyperlink target:
+    <target anonymous="1" ids="id1" refname="reference">
+"""],
+])
 
 if __name__ == '__main__':
     unittest.main()

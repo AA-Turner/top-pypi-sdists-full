@@ -158,8 +158,9 @@ class BaseInsight(APIObject, BrowserMixin, DatarobotUIMixin):
         if all(attrib in data for attrib in ["count", "next", "previous"]):
             # If true, the data response is a paginated response from a compute command and the data
             # entity should be unwrapped. There should only be one response.
+            if not data["data"]:
+                raise ValueError("Expected insight data but received an empty response")
             data = data["data"][0]
-
         return super().from_server_data(data=data, keep_attrs=keep_attrs)
 
     @classmethod

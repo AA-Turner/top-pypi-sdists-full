@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown_to_mrkdwn
-Version: 0.3.2
+Version: 0.3.3
 Summary: A library to convert Markdown to Slack's mrkdwn format
 Home-page: https://github.com/fla9ua/markdown_to_mrkdwn
 Download-URL: https://github.com/fla9ua/markdown_to_mrkdwn

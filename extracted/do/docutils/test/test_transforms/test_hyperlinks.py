@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_hyperlinks.py 10254 2025-11-02 17:50:57Z milde $
+# $Id: test_hyperlinks.py 10305 2026-03-27 21:45:52Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -21,7 +21,7 @@ from docutils.frontend import get_default_settings
 from docutils.parsers.rst import Parser
 from docutils.transforms.references import PropagateTargets, \
      AnonymousHyperlinks, IndirectHyperlinks, ExternalTargets, \
-     InternalTargets, DanglingReferences
+     InternalTargets, DanglingReferences, SectionIDs
 from docutils.transforms.universal import TestMessages
 from docutils.utils import new_document
 
@@ -29,19 +29,25 @@ from docutils.utils import new_document
 class TransformTestCase(unittest.TestCase):
     maxDiff = None
 
+    transforms = (PropagateTargets, AnonymousHyperlinks, IndirectHyperlinks,
+                  ExternalTargets, InternalTargets, DanglingReferences,
+                  SectionIDs, TestMessages)
+
     def test_transforms(self):
         parser = Parser()
-        settings = get_default_settings(Parser)
-        settings.warning_stream = ''
-        for name, (transforms, cases) in totest.items():
+        default_settings = get_default_settings(Parser)
+        default_settings.warning_stream = ''
+        for name, (settings_overrides, cases) in totest.items():
+            settings = default_settings.copy()
+            for k, v in settings_overrides.items():
+                setattr(settings, k, v)
             for casenum, (case_input, case_expected) in enumerate(cases):
                 with self.subTest(id=f'totest[{name!r}][{casenum}]'):
-                    document = new_document('test data', settings.copy())
+                    document = new_document('test data', settings)
                     parser.parse(case_input, document)
                     # Don't do a ``populate_from_components()`` because that
                     # would enable the Transformer's default transforms.
-                    document.transformer.add_transforms(transforms)
-                    document.transformer.add_transform(TestMessages)
+                    document.transformer.add_transforms(self.transforms)
                     document.transformer.apply_transforms()
                     output = document.pformat()
                     self.assertEqual(case_expected, output)
@@ -52,9 +58,7 @@ totest = {}
 # Exhaustive listing of hyperlink variations: every combination of
 # target/reference, direct/indirect, internal/external, and named/anonymous,
 # plus embedded URIs.
-totest['exhaustive_hyperlinks'] = ((PropagateTargets, AnonymousHyperlinks,
-                                    IndirectHyperlinks, ExternalTargets,
-                                    InternalTargets, DanglingReferences), [
+totest['exhaustive_hyperlinks'] = ({}, [
 ["""\
 direct_ external
 
@@ -288,7 +292,7 @@ __ ztarget_
     <target dupnames="ztarget" refid="ztarget">
     <paragraph ids="ztarget">
         First
-    <system_message backrefs="ztarget-1" level="2" line="5" source="test data" type="WARNING">
+    <system_message level="2" line="5" source="test data" type="WARNING">
         <paragraph>
             Duplicate explicit target name: "ztarget".
     <target dupnames="ztarget" refid="ztarget-1">
@@ -575,9 +579,7 @@ See `Element \\<a>`_, `Element <b\\>`_, and `Element <c>\\ `_.
 """],
 ])
 
-totest['hyperlinks'] = ((PropagateTargets, AnonymousHyperlinks,
-                         IndirectHyperlinks, ExternalTargets,
-                         InternalTargets, DanglingReferences), [
+totest['hyperlinks legacy'] = ({'legacy_ids': True}, [
 ["""\
 .. _internal hyperlink:
 
@@ -1037,6 +1039,102 @@ Duplicate manual footnote labels, with reference ([1]_):
     <system_message backrefs="footnote-reference-1" ids="system-message-1" level="3" line="1" source="test data" type="ERROR">
         <paragraph>
             Duplicate target name, cannot be used as a unique reference: "1".
+"""],
+["""\
+An explicit target _`foo` overrides a homonymous implicit target.
+
+foo
+---
+
+The reference foo_ points to the explicit target.
+""",
+"""\
+<document source="test data">
+    <paragraph>
+        An explicit target \n\
+        <target ids="foo" names="foo">
+            foo
+         overrides a homonymous implicit target.
+    <section dupnames="foo" ids="foo-1">
+        <title>
+            foo
+        <system_message backrefs="foo-1" level="1" line="4" source="test data" type="INFO">
+            <paragraph>
+                Duplicate implicit target name: "foo".
+        <paragraph>
+            The reference \n\
+            <reference name="foo" refid="foo">
+                foo
+             points to the explicit target.
+"""],
+["""\
+foo
+---
+
+If an implicit target precedes a homonymous explicit target _`foo`,
+the explicit target takes over the reference name but not the identifier.
+
+The reference foo_ points to the explicit target. However, referencing from
+an external document requires the non-obvious fragment identifier "#foo-1".
+""",
+"""\
+<document source="test data">
+    <section dupnames="foo" ids="foo">
+        <title>
+            foo
+        <system_message backrefs="foo-1" level="1" line="5" source="test data" type="INFO">
+            <paragraph>
+                Target name overrides implicit target name "foo".
+        <paragraph>
+            If an implicit target precedes a homonymous explicit target \n\
+            <target ids="foo-1" names="foo">
+                foo
+            ,
+            the explicit target takes over the reference name but not the identifier.
+        <paragraph>
+            The reference \n\
+            <reference name="foo" refid="foo-1">
+                foo
+             points to the explicit target. However, referencing from
+            an external document requires the non-obvious fragment identifier "#foo-1".
+"""],
+])
+
+totest['hyperlinks'] = ({'legacy_ids': False},
+                        # all but the last sample compile as before
+                        totest['hyperlinks legacy'][1][:-1] + [
+["""\
+foo
+---
+
+With legacy_ids = False, an explicit target _`foo` takes over the
+reference name and identifier of a homonymous implicit target.
+
+The reference foo_ points to the explicit target.
+Referencing from an external document can be done
+using the matching fragment identifier "#foo".
+""",
+"""\
+<document source="test data">
+    <section dupnames="foo" ids="foo-1">
+        <title>
+            foo
+        <system_message backrefs="foo" level="1" line="5" source="test data" type="INFO">
+            <paragraph>
+                Target name overrides implicit target name "foo".
+        <paragraph>
+            With legacy_ids = False, an explicit target \n\
+            <target ids="foo" names="foo">
+                foo
+             takes over the
+            reference name and identifier of a homonymous implicit target.
+        <paragraph>
+            The reference \n\
+            <reference name="foo" refid="foo">
+                foo
+             points to the explicit target.
+            Referencing from an external document can be done
+            using the matching fragment identifier "#foo".
 """],
 ])
 

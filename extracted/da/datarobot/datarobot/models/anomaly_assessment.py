@@ -221,7 +221,7 @@ class AnomalyAssessmentRecord(BaseAPIObject):
         params: PARAMS_TYPE = {"limit": limit, "offset": offset}
         if model_id:
             params["modelId"] = model_id
-        if backtest:
+        if backtest is not None:
             params["backtest"] = backtest
         if source:
             params["source"] = source

@@ -56,6 +56,20 @@ GRAPHS: dict[str, GraphValue] = {}
 NAMESPACE_GRAPH = UUID("6ba7b821-9dad-11d1-80b4-00c04fd430c8")
 SYSTEM_ASSISTANT_IDS: set[str] = set()
 
+# Map of graph_id → zero-arg factory returning a fresh list of custom
+# ``StreamTransformer`` instances, populated from a module-level
+# ``stream_transformers`` symbol on the graph's source module. Used by
+# the Protocol v2 streaming path in ``stream.py`` to wire user-supplied
+# projections (``StreamChannel`` / ``EventLog``) into ``StreamingHandler``
+# so events from the user's transformers surface on ``custom:<name>``
+# subscriptions on the wire.
+#
+# We require a factory (rather than accepting raw transformer instances)
+# because transformers are stateful — sharing one instance across
+# concurrent runs would cause state bleed. The factory is invoked once
+# per run and the returned list is handed straight to ``StreamMux``.
+GRAPH_STREAM_TRANSFORMERS: dict[str, Callable[[], list[Any]]] = {}
+
 
 async def register_graph(
     graph_id: str,
@@ -829,7 +843,44 @@ def _graph_from_spec(spec: GraphSpec) -> GraphValue:
                     f"Could not find a Graph in module at path: {spec.path}"
                 )
 
+    _register_stream_transformers_from_module(spec.id, module)
     return graph
+
+
+def _register_stream_transformers_from_module(graph_id: str, module: Any) -> None:
+    """Populate ``GRAPH_STREAM_TRANSFORMERS`` from an optional module export.
+
+    Graph authors opt in by defining a ``stream_transformers`` symbol
+    at module scope. The symbol must be a zero-arg callable that returns
+    a fresh list of either:
+
+    * ``langgraph.stream.StreamTransformer`` **factories** — callables of
+      the shape ``(scope: tuple[str, ...]) -> StreamTransformer``
+      (``StreamTransformer`` subclasses are themselves valid factories).
+      This is the preferred form and mirrors the JS
+      ``streamTransformers: [createMyTransformer]`` convention.
+    * ``StreamTransformer`` **instances** — back-compat form. Each bare
+      instance is auto-wrapped by :func:`coerce_stream_transformer_factory`
+      into a factory that returns the same instance for every mux scope,
+      so a single ``custom:<name>`` channel is shared across the whole
+      run (rather than fragmenting into a fresh channel per subgraph).
+
+    Anything else is ignored (with a warning on local dev) so bad
+    wiring doesn't break the graph.
+    """
+    factory = getattr(module, "stream_transformers", None)
+    if factory is None:
+        return
+    if not callable(factory):
+        logger.warning(
+            "Module exports ``stream_transformers`` but it is not a callable — "
+            "ignoring. Define it as ``def stream_transformers(): return [...]`` "
+            "returning a fresh list of StreamTransformer instances per call.",
+            graph_id=graph_id,
+            kind=type(factory).__name__,
+        )
+        return
+    GRAPH_STREAM_TRANSFORMERS[graph_id] = factory
 
 
 @functools.lru_cache(maxsize=1)

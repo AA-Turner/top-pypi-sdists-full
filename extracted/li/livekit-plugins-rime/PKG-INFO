@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-rime
-Version: 1.5.13
+Version: 1.5.14
 Summary: LiveKit Agents Plugin for Rime
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
-Requires-Dist: livekit-agents[codecs]>=1.5.13
+Requires-Dist: livekit-agents[codecs]>=1.5.14
 Description-Content-Type: text/markdown
 
 # Rime plugin for LiveKit Agents

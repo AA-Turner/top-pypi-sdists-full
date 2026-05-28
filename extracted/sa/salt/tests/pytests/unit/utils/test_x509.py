@@ -4,9 +4,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 import salt.exceptions
-import salt.utils.x509 as x509
 from tests.support.mock import ANY, Mock, patch
 
+x509 = pytest.importorskip("salt.utils.x509")
 cryptography = pytest.importorskip(
     "cryptography", reason="Needs cryptography library", minversion="37.0"
 )
@@ -1224,7 +1224,7 @@ class TestCreateExtension:
         (
             ("DNS", "می\u200cخواهم\u200c.iran"),
             salt.exceptions.CommandExecutionError,
-            r"Joiner U\+200C not allowed at position 9 in '.*'",
+            r".*U\+200C.*position 9.*",
         ),
         (
             ("DNS", ".*.wildcard-dot.test"),

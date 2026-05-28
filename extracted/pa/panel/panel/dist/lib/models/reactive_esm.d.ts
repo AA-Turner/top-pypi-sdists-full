@@ -23,7 +23,6 @@ export declare class ReactiveESMView extends HTMLBoxView {
     accessed_children: string[];
     compiled_module: any;
     model_proxy: any;
-    _changing: boolean;
     _child_callbacks: Map<string, ((new_views: UIElementView[]) => void)[]>;
     _child_rendered: Map<UIElementView, boolean>;
     _event_handlers: ((data: unknown) => void)[];

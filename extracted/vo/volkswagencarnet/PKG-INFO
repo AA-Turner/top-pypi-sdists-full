@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: volkswagencarnet
-Version: 5.4.5
+Version: 5.4.7
 Summary: Communicate with Volkswagen Connect
 Home-page: https://github.com/robinostlund/volkswagencarnet
 Author: Robin Ostlund
@@ -22,8 +22,6 @@ Dynamic: license-file
 # Volkswagen Carnet
 
 [![buy me a coffee](https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png)](https://www.buymeacoffee.com/robinostlund)
-
-[![buy me a coffee](https://raw.githubusercontent.com/robinostlund/homeassistant-volkswagencarnet/master/resources/stickpin_kofi.jpeg)](https://ko-fi.com/stickpin)
 
 ![Release](https://img.shields.io/github/workflow/status/robinostlund/volkswagencarnet/Release)
 ![PyPi](https://img.shields.io/pypi/v/volkswagencarnet)

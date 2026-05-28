@@ -3,7 +3,8 @@
 # Auto Generated do not edit
 from datetime import date, datetime
 from enum import Enum
-from typing import Annotated, Any, Literal
+from httpx import Response
+from typing import Annotated, Any, Literal, overload
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -14,65 +15,175 @@ from esi.openapi_clients import EsiOperation
 
 class GetCharactersAccessListsDetailOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersAccessListsDetail:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersAccessListsDetail:
+        """Get the details of an Access List."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersAccessListsDetail, Response]:
+        """Get the details of an Access List."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersAccessListsDetail | tuple[CharactersAccessListsDetail, Response]:
         """Get the details of an Access List."""
         ...
 
 class GetCharactersAccessListsListingOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersAccessListsListing:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersAccessListsListing:
+        """Lists all Access Lists the character is Manager or Admin of."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersAccessListsListing, Response]:
+        """Lists all Access Lists the character is Manager or Admin of."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersAccessListsListing | tuple[CharactersAccessListsListing, Response]:
         """Lists all Access Lists the character is Manager or Admin of."""
         ...
 
 class GetCharactersMercenaryTacticalOperationsDetailOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersMercenaryTacticalOperationsDetail:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersMercenaryTacticalOperationsDetail:
+        """Get the details of a Mercenary Tactical Operation."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersMercenaryTacticalOperationsDetail, Response]:
+        """Get the details of a Mercenary Tactical Operation."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersMercenaryTacticalOperationsDetail | tuple[CharactersMercenaryTacticalOperationsDetail, Response]:
         """Get the details of a Mercenary Tactical Operation."""
         ...
 
 class GetCharactersMercenaryTacticalOperationsListingOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersMercenaryTacticalOperationsListing:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersMercenaryTacticalOperationsListing:
+        """Listing of all Mercenary Tactical Operations for the character."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersMercenaryTacticalOperationsListing, Response]:
+        """Listing of all Mercenary Tactical Operations for the character."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersMercenaryTacticalOperationsListing | tuple[CharactersMercenaryTacticalOperationsListing, Response]:
         """Listing of all Mercenary Tactical Operations for the character."""
         ...
 
 class GetSkyhooksRaidableOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> SkyhooksRaidable:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> SkyhooksRaidable:
+        """Listing of all Skyhooks that currently or will shortly be raidable."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[SkyhooksRaidable, Response]:
+        """Listing of all Skyhooks that currently or will shortly be raidable."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> SkyhooksRaidable | tuple[SkyhooksRaidable, Response]:
         """Listing of all Skyhooks that currently or will shortly be raidable."""
         ...
 
 class GetAlliancesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> AlliancesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesGet:
+        """List all active player alliances"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[AlliancesGet, Response]:
+        """List all active player alliances"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesGet | tuple[AlliancesGet, Response]:
         """List all active player alliances"""
         ...
 
 class GetAlliancesAllianceIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> AllianceDetail:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AllianceDetail:
+        """Public information about an alliance"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[AllianceDetail, Response]:
+        """Public information about an alliance"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AllianceDetail | tuple[AllianceDetail, Response]:
         """Public information about an alliance"""
         ...
 
 class GetAlliancesAllianceIdCorporationsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> AlliancesAllianceIdCorporationsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesAllianceIdCorporationsGet:
+        """List all current member corporations of an alliance"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[AlliancesAllianceIdCorporationsGet, Response]:
+        """List all current member corporations of an alliance"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesAllianceIdCorporationsGet | tuple[AlliancesAllianceIdCorporationsGet, Response]:
         """List all current member corporations of an alliance"""
         ...
 
 class GetAlliancesAllianceIdIconsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> AlliancesAllianceIdIconsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesAllianceIdIconsGet:
+        """Get the icon urls for a alliance  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[AlliancesAllianceIdIconsGet, Response]:
+        """Get the icon urls for a alliance  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesAllianceIdIconsGet | tuple[AlliancesAllianceIdIconsGet, Response]:
         """Get the icon urls for a alliance  This route expires daily at 11:05"""
         ...
 
 class GetCharactersCharacterIdAssetsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdAssetsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdAssetsGet:
         """Return a list of the characters assets"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CharactersCharacterIdAssetsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdAssetsGet, Response]:
+        """Return a list of the characters assets"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdAssetsGet | tuple[CharactersCharacterIdAssetsGet, Response]:
+        """Return a list of the characters assets"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdAssetsGetItem]:
+        """Return a list of the characters assets"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CharactersCharacterIdAssetsGetItem], Response]:
+        """Return a list of the characters assets"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdAssetsGetItem] | tuple[list[CharactersCharacterIdAssetsGetItem], Response]:
         """Return a list of the characters assets"""
         ...
 
@@ -83,11 +194,31 @@ class GetCharactersCharacterIdAssetsOperation(EsiOperation):
 
 class GetCorporationsCorporationIdAssetsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdAssetsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdAssetsGet:
         """Return a list of the corporation assets"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdAssetsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdAssetsGet, Response]:
+        """Return a list of the corporation assets"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdAssetsGet | tuple[CorporationsCorporationIdAssetsGet, Response]:
+        """Return a list of the corporation assets"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdAssetsGetItem]:
+        """Return a list of the corporation assets"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdAssetsGetItem], Response]:
+        """Return a list of the corporation assets"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdAssetsGetItem] | tuple[list[CorporationsCorporationIdAssetsGetItem], Response]:
         """Return a list of the corporation assets"""
         ...
 
@@ -98,71 +229,191 @@ class GetCorporationsCorporationIdAssetsOperation(EsiOperation):
 
 class PostCharactersCharacterIdAssetsLocationsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Return locations for a set of item ids, which you can get from character assets endpoint. Coordinates for items in hangars or stations are set to (0,0,0)"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Return locations for a set of item ids, which you can get from character assets endpoint. Coordinates for items in hangars or stations are set to (0,0,0)"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Return locations for a set of item ids, which you can get from character assets endpoint. Coordinates for items in hangars or stations are set to (0,0,0)"""
         ...
 
 class PostCharactersCharacterIdAssetsNamesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Return names for a set of item ids, which you can get from character assets endpoint. Typically used for items that can customize names, like containers or ships."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Return names for a set of item ids, which you can get from character assets endpoint. Typically used for items that can customize names, like containers or ships."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Return names for a set of item ids, which you can get from character assets endpoint. Typically used for items that can customize names, like containers or ships."""
         ...
 
 class PostCorporationsCorporationIdAssetsLocationsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Return locations for a set of item ids, which you can get from corporation assets endpoint. Coordinates for items in hangars or stations are set to (0,0,0)"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Return locations for a set of item ids, which you can get from corporation assets endpoint. Coordinates for items in hangars or stations are set to (0,0,0)"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Return locations for a set of item ids, which you can get from corporation assets endpoint. Coordinates for items in hangars or stations are set to (0,0,0)"""
         ...
 
 class PostCorporationsCorporationIdAssetsNamesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Return names for a set of item ids, which you can get from corporation assets endpoint. Only valid for items that can customize names, like containers or ships"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Return names for a set of item ids, which you can get from corporation assets endpoint. Only valid for items that can customize names, like containers or ships"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Return names for a set of item ids, which you can get from corporation assets endpoint. Only valid for items that can customize names, like containers or ships"""
         ...
 
 class GetCharactersCharacterIdCalendarOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdCalendarGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdCalendarGet:
+        """Get 50 event summaries from the calendar. If no from_event ID is given, the resource will return the next 50 chronological event summaries from now. If a from_event ID is specified, it will return the next 50 chronological event summaries from after that event"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdCalendarGet, Response]:
+        """Get 50 event summaries from the calendar. If no from_event ID is given, the resource will return the next 50 chronological event summaries from now. If a from_event ID is specified, it will return the next 50 chronological event summaries from after that event"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdCalendarGet | tuple[CharactersCharacterIdCalendarGet, Response]:
         """Get 50 event summaries from the calendar. If no from_event ID is given, the resource will return the next 50 chronological event summaries from now. If a from_event ID is specified, it will return the next 50 chronological event summaries from after that event"""
         ...
 
 class GetCharactersCharacterIdCalendarEventIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdCalendarEventIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdCalendarEventIdGet:
+        """Get all the information for a specific event"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdCalendarEventIdGet, Response]:
+        """Get all the information for a specific event"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdCalendarEventIdGet | tuple[CharactersCharacterIdCalendarEventIdGet, Response]:
         """Get all the information for a specific event"""
         ...
 
 class GetCharactersCharacterIdCalendarEventIdAttendeesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdCalendarEventIdAttendeesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdCalendarEventIdAttendeesGet:
+        """Get all invited attendees for a given event"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdCalendarEventIdAttendeesGet, Response]:
+        """Get all invited attendees for a given event"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdCalendarEventIdAttendeesGet | tuple[CharactersCharacterIdCalendarEventIdAttendeesGet, Response]:
         """Get all invited attendees for a given event"""
         ...
 
 class PutCharactersCharacterIdCalendarEventIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Set your response status to an event"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Set your response status to an event"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Set your response status to an event"""
         ...
 
 class GetCharactersCharacterIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersDetail:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersDetail:
+        """Public information about a character"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersDetail, Response]:
+        """Public information about a character"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersDetail | tuple[CharactersDetail, Response]:
         """Public information about a character"""
         ...
 
 class GetCharactersCharacterIdAgentsResearchOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdAgentsResearchGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdAgentsResearchGet:
+        """Return a list of agents research information for a character. The formula for finding the current research points with an agent is: currentPoints = remainderPoints + pointsPerDay * days(currentTime - researchStartDate)"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdAgentsResearchGet, Response]:
+        """Return a list of agents research information for a character. The formula for finding the current research points with an agent is: currentPoints = remainderPoints + pointsPerDay * days(currentTime - researchStartDate)"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdAgentsResearchGet | tuple[CharactersCharacterIdAgentsResearchGet, Response]:
         """Return a list of agents research information for a character. The formula for finding the current research points with an agent is: currentPoints = remainderPoints + pointsPerDay * days(currentTime - researchStartDate)"""
         ...
 
 class GetCharactersCharacterIdBlueprintsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdBlueprintsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdBlueprintsGet:
         """Return a list of blueprints the character owns"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CharactersCharacterIdBlueprintsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdBlueprintsGet, Response]:
+        """Return a list of blueprints the character owns"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdBlueprintsGet | tuple[CharactersCharacterIdBlueprintsGet, Response]:
+        """Return a list of blueprints the character owns"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdBlueprintsGetItem]:
+        """Return a list of blueprints the character owns"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CharactersCharacterIdBlueprintsGetItem], Response]:
+        """Return a list of blueprints the character owns"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdBlueprintsGetItem] | tuple[list[CharactersCharacterIdBlueprintsGetItem], Response]:
         """Return a list of blueprints the character owns"""
         ...
 
@@ -173,95 +424,255 @@ class GetCharactersCharacterIdBlueprintsOperation(EsiOperation):
 
 class GetCharactersCharacterIdCorporationhistoryOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdCorporationhistoryGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdCorporationhistoryGet:
+        """Get a list of all the corporations a character has been a member of"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdCorporationhistoryGet, Response]:
+        """Get a list of all the corporations a character has been a member of"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdCorporationhistoryGet | tuple[CharactersCharacterIdCorporationhistoryGet, Response]:
         """Get a list of all the corporations a character has been a member of"""
         ...
 
 class GetCharactersCharacterIdFatigueOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdFatigueGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdFatigueGet:
+        """Return a character's jump activation and fatigue information"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdFatigueGet, Response]:
+        """Return a character's jump activation and fatigue information"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdFatigueGet | tuple[CharactersCharacterIdFatigueGet, Response]:
         """Return a character's jump activation and fatigue information"""
         ...
 
 class GetCharactersCharacterIdMedalsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdMedalsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMedalsGet:
+        """Return a list of medals the character has"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdMedalsGet, Response]:
+        """Return a list of medals the character has"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMedalsGet | tuple[CharactersCharacterIdMedalsGet, Response]:
         """Return a list of medals the character has"""
         ...
 
 class GetCharactersCharacterIdNotificationsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdNotificationsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdNotificationsGet:
+        """Return character notifications"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdNotificationsGet, Response]:
+        """Return character notifications"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdNotificationsGet | tuple[CharactersCharacterIdNotificationsGet, Response]:
         """Return character notifications"""
         ...
 
 class GetCharactersCharacterIdNotificationsContactsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdNotificationsContactsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdNotificationsContactsGet:
+        """Return notifications about having been added to someone's contact list"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdNotificationsContactsGet, Response]:
+        """Return notifications about having been added to someone's contact list"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdNotificationsContactsGet | tuple[CharactersCharacterIdNotificationsContactsGet, Response]:
         """Return notifications about having been added to someone's contact list"""
         ...
 
 class GetCharactersCharacterIdPortraitOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdPortraitGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdPortraitGet:
+        """Get portrait urls for a character  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdPortraitGet, Response]:
+        """Get portrait urls for a character  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdPortraitGet | tuple[CharactersCharacterIdPortraitGet, Response]:
         """Get portrait urls for a character  This route expires daily at 11:05"""
         ...
 
 class GetCharactersCharacterIdRolesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdRolesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdRolesGet:
+        """Returns a character's corporation roles"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdRolesGet, Response]:
+        """Returns a character's corporation roles"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdRolesGet | tuple[CharactersCharacterIdRolesGet, Response]:
         """Returns a character's corporation roles"""
         ...
 
 class GetCharactersCharacterIdStandingsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdStandingsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdStandingsGet:
+        """Return character standings from agents, NPC corporations, and factions"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdStandingsGet, Response]:
+        """Return character standings from agents, NPC corporations, and factions"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdStandingsGet | tuple[CharactersCharacterIdStandingsGet, Response]:
         """Return character standings from agents, NPC corporations, and factions"""
         ...
 
 class GetCharactersCharacterIdTitlesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdTitlesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdTitlesGet:
+        """Returns a character's titles"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdTitlesGet, Response]:
+        """Returns a character's titles"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdTitlesGet | tuple[CharactersCharacterIdTitlesGet, Response]:
         """Returns a character's titles"""
         ...
 
 class PostCharactersAffiliationOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Bulk lookup of character IDs to corporation, alliance and faction"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Bulk lookup of character IDs to corporation, alliance and faction"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Bulk lookup of character IDs to corporation, alliance and faction"""
         ...
 
 class PostCharactersCharacterIdCspaOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdCspaPost:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdCspaPost:
+        """Takes a source character ID in the url and a set of target character ID's in the body, returns a CSPA charge cost"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdCspaPost, Response]:
+        """Takes a source character ID in the url and a set of target character ID's in the body, returns a CSPA charge cost"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdCspaPost | tuple[CharactersCharacterIdCspaPost, Response]:
         """Takes a source character ID in the url and a set of target character ID's in the body, returns a CSPA charge cost"""
         ...
 
 class GetCharactersCharacterIdClonesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdClonesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdClonesGet:
+        """A list of the character's clones"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdClonesGet, Response]:
+        """A list of the character's clones"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdClonesGet | tuple[CharactersCharacterIdClonesGet, Response]:
         """A list of the character's clones"""
         ...
 
 class GetCharactersCharacterIdImplantsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdImplantsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdImplantsGet:
+        """Return implants on the active clone of a character"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdImplantsGet, Response]:
+        """Return implants on the active clone of a character"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdImplantsGet | tuple[CharactersCharacterIdImplantsGet, Response]:
         """Return implants on the active clone of a character"""
         ...
 
 class DeleteCharactersCharacterIdContactsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Bulk delete contacts"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Bulk delete contacts"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Bulk delete contacts"""
         ...
 
 class GetAlliancesAllianceIdContactsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> AlliancesAllianceIdContactsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesAllianceIdContactsGet:
         """Return contacts of an alliance"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[AlliancesAllianceIdContactsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[AlliancesAllianceIdContactsGet, Response]:
+        """Return contacts of an alliance"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesAllianceIdContactsGet | tuple[AlliancesAllianceIdContactsGet, Response]:
+        """Return contacts of an alliance"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[AlliancesAllianceIdContactsGetItem]:
+        """Return contacts of an alliance"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[AlliancesAllianceIdContactsGetItem], Response]:
+        """Return contacts of an alliance"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[AlliancesAllianceIdContactsGetItem] | tuple[list[AlliancesAllianceIdContactsGetItem], Response]:
         """Return contacts of an alliance"""
         ...
 
@@ -272,17 +683,47 @@ class GetAlliancesAllianceIdContactsOperation(EsiOperation):
 
 class GetAlliancesAllianceIdContactsLabelsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> AlliancesAllianceIdContactsLabelsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesAllianceIdContactsLabelsGet:
+        """Return custom labels for an alliance's contacts"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[AlliancesAllianceIdContactsLabelsGet, Response]:
+        """Return custom labels for an alliance's contacts"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> AlliancesAllianceIdContactsLabelsGet | tuple[AlliancesAllianceIdContactsLabelsGet, Response]:
         """Return custom labels for an alliance's contacts"""
         ...
 
 class GetCharactersCharacterIdContactsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdContactsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContactsGet:
         """Return contacts of a character"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CharactersCharacterIdContactsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdContactsGet, Response]:
+        """Return contacts of a character"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContactsGet | tuple[CharactersCharacterIdContactsGet, Response]:
+        """Return contacts of a character"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdContactsGetItem]:
+        """Return contacts of a character"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CharactersCharacterIdContactsGetItem], Response]:
+        """Return contacts of a character"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdContactsGetItem] | tuple[list[CharactersCharacterIdContactsGetItem], Response]:
         """Return contacts of a character"""
         ...
 
@@ -293,17 +734,47 @@ class GetCharactersCharacterIdContactsOperation(EsiOperation):
 
 class GetCharactersCharacterIdContactsLabelsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdContactsLabelsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContactsLabelsGet:
+        """Return custom labels for a character's contacts"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdContactsLabelsGet, Response]:
+        """Return custom labels for a character's contacts"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContactsLabelsGet | tuple[CharactersCharacterIdContactsLabelsGet, Response]:
         """Return custom labels for a character's contacts"""
         ...
 
 class GetCorporationsCorporationIdContactsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdContactsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContactsGet:
         """Return contacts of a corporation"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdContactsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdContactsGet, Response]:
+        """Return contacts of a corporation"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContactsGet | tuple[CorporationsCorporationIdContactsGet, Response]:
+        """Return contacts of a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdContactsGetItem]:
+        """Return contacts of a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdContactsGetItem], Response]:
+        """Return contacts of a corporation"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdContactsGetItem] | tuple[list[CorporationsCorporationIdContactsGetItem], Response]:
         """Return contacts of a corporation"""
         ...
 
@@ -314,29 +785,79 @@ class GetCorporationsCorporationIdContactsOperation(EsiOperation):
 
 class GetCorporationsCorporationIdContactsLabelsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdContactsLabelsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContactsLabelsGet:
+        """Return custom labels for a corporation's contacts"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdContactsLabelsGet, Response]:
+        """Return custom labels for a corporation's contacts"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContactsLabelsGet | tuple[CorporationsCorporationIdContactsLabelsGet, Response]:
         """Return custom labels for a corporation's contacts"""
         ...
 
 class PostCharactersCharacterIdContactsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdContactsPost:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContactsPost:
+        """Bulk add contacts with same settings"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdContactsPost, Response]:
+        """Bulk add contacts with same settings"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContactsPost | tuple[CharactersCharacterIdContactsPost, Response]:
         """Bulk add contacts with same settings"""
         ...
 
 class PutCharactersCharacterIdContactsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Bulk edit contacts with same settings"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Bulk edit contacts with same settings"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Bulk edit contacts with same settings"""
         ...
 
 class GetCharactersCharacterIdContractsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdContractsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContractsGet:
         """Returns contracts available to a character, only if the character is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CharactersCharacterIdContractsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdContractsGet, Response]:
+        """Returns contracts available to a character, only if the character is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContractsGet | tuple[CharactersCharacterIdContractsGet, Response]:
+        """Returns contracts available to a character, only if the character is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdContractsGetItem]:
+        """Returns contracts available to a character, only if the character is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CharactersCharacterIdContractsGetItem], Response]:
+        """Returns contracts available to a character, only if the character is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdContractsGetItem] | tuple[list[CharactersCharacterIdContractsGetItem], Response]:
         """Returns contracts available to a character, only if the character is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
         ...
 
@@ -347,23 +868,63 @@ class GetCharactersCharacterIdContractsOperation(EsiOperation):
 
 class GetCharactersCharacterIdContractsContractIdBidsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdContractsContractIdBidsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContractsContractIdBidsGet:
+        """Lists bids on a particular auction contract"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdContractsContractIdBidsGet, Response]:
+        """Lists bids on a particular auction contract"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContractsContractIdBidsGet | tuple[CharactersCharacterIdContractsContractIdBidsGet, Response]:
         """Lists bids on a particular auction contract"""
         ...
 
 class GetCharactersCharacterIdContractsContractIdItemsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdContractsContractIdItemsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContractsContractIdItemsGet:
+        """Lists items of a particular contract"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdContractsContractIdItemsGet, Response]:
+        """Lists items of a particular contract"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdContractsContractIdItemsGet | tuple[CharactersCharacterIdContractsContractIdItemsGet, Response]:
         """Lists items of a particular contract"""
         ...
 
 class GetContractsPublicBidsContractIdOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> ContractsPublicBidsContractIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ContractsPublicBidsContractIdGet:
         """Lists bids on a public auction contract"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[ContractsPublicBidsContractIdGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[ContractsPublicBidsContractIdGet, Response]:
+        """Lists bids on a public auction contract"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ContractsPublicBidsContractIdGet | tuple[ContractsPublicBidsContractIdGet, Response]:
+        """Lists bids on a public auction contract"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ContractsPublicBidsContractIdGetItem]:
+        """Lists bids on a public auction contract"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[ContractsPublicBidsContractIdGetItem], Response]:
+        """Lists bids on a public auction contract"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ContractsPublicBidsContractIdGetItem] | tuple[list[ContractsPublicBidsContractIdGetItem], Response]:
         """Lists bids on a public auction contract"""
         ...
 
@@ -374,11 +935,31 @@ class GetContractsPublicBidsContractIdOperation(EsiOperation):
 
 class GetContractsPublicItemsContractIdOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> ContractsPublicItemsContractIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ContractsPublicItemsContractIdGet:
         """Lists items of a public contract"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[ContractsPublicItemsContractIdGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[ContractsPublicItemsContractIdGet, Response]:
+        """Lists items of a public contract"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ContractsPublicItemsContractIdGet | tuple[ContractsPublicItemsContractIdGet, Response]:
+        """Lists items of a public contract"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ContractsPublicItemsContractIdGetItem]:
+        """Lists items of a public contract"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[ContractsPublicItemsContractIdGetItem], Response]:
+        """Lists items of a public contract"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ContractsPublicItemsContractIdGetItem] | tuple[list[ContractsPublicItemsContractIdGetItem], Response]:
         """Lists items of a public contract"""
         ...
 
@@ -389,11 +970,31 @@ class GetContractsPublicItemsContractIdOperation(EsiOperation):
 
 class GetContractsPublicRegionIdOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> ContractsPublicRegionIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ContractsPublicRegionIdGet:
         """Returns a paginated list of all public contracts in the given region"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[ContractsPublicRegionIdGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[ContractsPublicRegionIdGet, Response]:
+        """Returns a paginated list of all public contracts in the given region"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ContractsPublicRegionIdGet | tuple[ContractsPublicRegionIdGet, Response]:
+        """Returns a paginated list of all public contracts in the given region"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ContractsPublicRegionIdGetItem]:
+        """Returns a paginated list of all public contracts in the given region"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[ContractsPublicRegionIdGetItem], Response]:
+        """Returns a paginated list of all public contracts in the given region"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ContractsPublicRegionIdGetItem] | tuple[list[ContractsPublicRegionIdGetItem], Response]:
         """Returns a paginated list of all public contracts in the given region"""
         ...
 
@@ -404,11 +1005,31 @@ class GetContractsPublicRegionIdOperation(EsiOperation):
 
 class GetCorporationsCorporationIdContractsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdContractsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContractsGet:
         """Returns contracts available to a corporation, only if the corporation is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdContractsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdContractsGet, Response]:
+        """Returns contracts available to a corporation, only if the corporation is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContractsGet | tuple[CorporationsCorporationIdContractsGet, Response]:
+        """Returns contracts available to a corporation, only if the corporation is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdContractsGetItem]:
+        """Returns contracts available to a corporation, only if the corporation is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdContractsGetItem], Response]:
+        """Returns contracts available to a corporation, only if the corporation is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdContractsGetItem] | tuple[list[CorporationsCorporationIdContractsGetItem], Response]:
         """Returns contracts available to a corporation, only if the corporation is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
         ...
 
@@ -419,11 +1040,31 @@ class GetCorporationsCorporationIdContractsOperation(EsiOperation):
 
 class GetCorporationsCorporationIdContractsContractIdBidsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdContractsContractIdBidsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContractsContractIdBidsGet:
         """Lists bids on a particular auction contract"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdContractsContractIdBidsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdContractsContractIdBidsGet, Response]:
+        """Lists bids on a particular auction contract"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContractsContractIdBidsGet | tuple[CorporationsCorporationIdContractsContractIdBidsGet, Response]:
+        """Lists bids on a particular auction contract"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdContractsContractIdBidsGetItem]:
+        """Lists bids on a particular auction contract"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdContractsContractIdBidsGetItem], Response]:
+        """Lists bids on a particular auction contract"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdContractsContractIdBidsGetItem] | tuple[list[CorporationsCorporationIdContractsContractIdBidsGetItem], Response]:
         """Lists bids on a particular auction contract"""
         ...
 
@@ -434,29 +1075,79 @@ class GetCorporationsCorporationIdContractsContractIdBidsOperation(EsiOperation)
 
 class GetCorporationsCorporationIdContractsContractIdItemsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdContractsContractIdItemsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContractsContractIdItemsGet:
+        """Lists items of a particular contract"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdContractsContractIdItemsGet, Response]:
+        """Lists items of a particular contract"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContractsContractIdItemsGet | tuple[CorporationsCorporationIdContractsContractIdItemsGet, Response]:
         """Lists items of a particular contract"""
         ...
 
 class GetCorporationsCorporationIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsDetail:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsDetail:
+        """Public information about a corporation"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsDetail, Response]:
+        """Public information about a corporation"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsDetail | tuple[CorporationsDetail, Response]:
         """Public information about a corporation"""
         ...
 
 class GetCorporationsCorporationIdAlliancehistoryOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdAlliancehistoryGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdAlliancehistoryGet:
+        """Get a list of all the alliances a corporation has been a member of"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdAlliancehistoryGet, Response]:
+        """Get a list of all the alliances a corporation has been a member of"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdAlliancehistoryGet | tuple[CorporationsCorporationIdAlliancehistoryGet, Response]:
         """Get a list of all the alliances a corporation has been a member of"""
         ...
 
 class GetCorporationsCorporationIdBlueprintsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdBlueprintsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdBlueprintsGet:
         """Returns a list of blueprints the corporation owns"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdBlueprintsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdBlueprintsGet, Response]:
+        """Returns a list of blueprints the corporation owns"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdBlueprintsGet | tuple[CorporationsCorporationIdBlueprintsGet, Response]:
+        """Returns a list of blueprints the corporation owns"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdBlueprintsGetItem]:
+        """Returns a list of blueprints the corporation owns"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdBlueprintsGetItem], Response]:
+        """Returns a list of blueprints the corporation owns"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdBlueprintsGetItem] | tuple[list[CorporationsCorporationIdBlueprintsGetItem], Response]:
         """Returns a list of blueprints the corporation owns"""
         ...
 
@@ -467,11 +1158,31 @@ class GetCorporationsCorporationIdBlueprintsOperation(EsiOperation):
 
 class GetCorporationsCorporationIdContainersLogsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdContainersLogsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContainersLogsGet:
         """Returns logs recorded in the past seven days from all audit log secure containers (ALSC) owned by a given corporation"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdContainersLogsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdContainersLogsGet, Response]:
+        """Returns logs recorded in the past seven days from all audit log secure containers (ALSC) owned by a given corporation"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdContainersLogsGet | tuple[CorporationsCorporationIdContainersLogsGet, Response]:
+        """Returns logs recorded in the past seven days from all audit log secure containers (ALSC) owned by a given corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdContainersLogsGetItem]:
+        """Returns logs recorded in the past seven days from all audit log secure containers (ALSC) owned by a given corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdContainersLogsGetItem], Response]:
+        """Returns logs recorded in the past seven days from all audit log secure containers (ALSC) owned by a given corporation"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdContainersLogsGetItem] | tuple[list[CorporationsCorporationIdContainersLogsGetItem], Response]:
         """Returns logs recorded in the past seven days from all audit log secure containers (ALSC) owned by a given corporation"""
         ...
 
@@ -482,29 +1193,79 @@ class GetCorporationsCorporationIdContainersLogsOperation(EsiOperation):
 
 class GetCorporationsCorporationIdDivisionsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdDivisionsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdDivisionsGet:
+        """Return corporation hangar and wallet division names, only show if a division is not using the default name"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdDivisionsGet, Response]:
+        """Return corporation hangar and wallet division names, only show if a division is not using the default name"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdDivisionsGet | tuple[CorporationsCorporationIdDivisionsGet, Response]:
         """Return corporation hangar and wallet division names, only show if a division is not using the default name"""
         ...
 
 class GetCorporationsCorporationIdFacilitiesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdFacilitiesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdFacilitiesGet:
+        """Return a corporation's facilities"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdFacilitiesGet, Response]:
+        """Return a corporation's facilities"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdFacilitiesGet | tuple[CorporationsCorporationIdFacilitiesGet, Response]:
         """Return a corporation's facilities"""
         ...
 
 class GetCorporationsCorporationIdIconsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdIconsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdIconsGet:
+        """Get the icon urls for a corporation"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdIconsGet, Response]:
+        """Get the icon urls for a corporation"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdIconsGet | tuple[CorporationsCorporationIdIconsGet, Response]:
         """Get the icon urls for a corporation"""
         ...
 
 class GetCorporationsCorporationIdMedalsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdMedalsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMedalsGet:
         """Returns a corporation's medals"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdMedalsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdMedalsGet, Response]:
+        """Returns a corporation's medals"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMedalsGet | tuple[CorporationsCorporationIdMedalsGet, Response]:
+        """Returns a corporation's medals"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdMedalsGetItem]:
+        """Returns a corporation's medals"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdMedalsGetItem], Response]:
+        """Returns a corporation's medals"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdMedalsGetItem] | tuple[list[CorporationsCorporationIdMedalsGetItem], Response]:
         """Returns a corporation's medals"""
         ...
 
@@ -515,11 +1276,31 @@ class GetCorporationsCorporationIdMedalsOperation(EsiOperation):
 
 class GetCorporationsCorporationIdMedalsIssuedOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdMedalsIssuedGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMedalsIssuedGet:
         """Returns medals issued by a corporation"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdMedalsIssuedGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdMedalsIssuedGet, Response]:
+        """Returns medals issued by a corporation"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMedalsIssuedGet | tuple[CorporationsCorporationIdMedalsIssuedGet, Response]:
+        """Returns medals issued by a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdMedalsIssuedGetItem]:
+        """Returns medals issued by a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdMedalsIssuedGetItem], Response]:
+        """Returns medals issued by a corporation"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdMedalsIssuedGetItem] | tuple[list[CorporationsCorporationIdMedalsIssuedGetItem], Response]:
         """Returns medals issued by a corporation"""
         ...
 
@@ -530,41 +1311,111 @@ class GetCorporationsCorporationIdMedalsIssuedOperation(EsiOperation):
 
 class GetCorporationsCorporationIdMembersOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdMembersGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMembersGet:
+        """Return the current member list of a corporation, the token's character need to be a member of the corporation."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdMembersGet, Response]:
+        """Return the current member list of a corporation, the token's character need to be a member of the corporation."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMembersGet | tuple[CorporationsCorporationIdMembersGet, Response]:
         """Return the current member list of a corporation, the token's character need to be a member of the corporation."""
         ...
 
 class GetCorporationsCorporationIdMembersLimitOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdMembersLimitGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMembersLimitGet:
+        """Return a corporation's member limit, not including CEO himself"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdMembersLimitGet, Response]:
+        """Return a corporation's member limit, not including CEO himself"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMembersLimitGet | tuple[CorporationsCorporationIdMembersLimitGet, Response]:
         """Return a corporation's member limit, not including CEO himself"""
         ...
 
 class GetCorporationsCorporationIdMembersTitlesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdMembersTitlesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMembersTitlesGet:
+        """Returns a corporation's members' titles"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdMembersTitlesGet, Response]:
+        """Returns a corporation's members' titles"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMembersTitlesGet | tuple[CorporationsCorporationIdMembersTitlesGet, Response]:
         """Returns a corporation's members' titles"""
         ...
 
 class GetCorporationsCorporationIdMembertrackingOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdMembertrackingGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMembertrackingGet:
+        """Returns additional information about a corporation's members which helps tracking their activities"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdMembertrackingGet, Response]:
+        """Returns additional information about a corporation's members which helps tracking their activities"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdMembertrackingGet | tuple[CorporationsCorporationIdMembertrackingGet, Response]:
         """Returns additional information about a corporation's members which helps tracking their activities"""
         ...
 
 class GetCorporationsCorporationIdRolesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdRolesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdRolesGet:
+        """Return the roles of all members if the character has the personnel manager role or any grantable role."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdRolesGet, Response]:
+        """Return the roles of all members if the character has the personnel manager role or any grantable role."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdRolesGet | tuple[CorporationsCorporationIdRolesGet, Response]:
         """Return the roles of all members if the character has the personnel manager role or any grantable role."""
         ...
 
 class GetCorporationsCorporationIdRolesHistoryOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdRolesHistoryGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdRolesHistoryGet:
         """Return how roles have changed for a coporation's members, up to a month"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdRolesHistoryGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdRolesHistoryGet, Response]:
+        """Return how roles have changed for a coporation's members, up to a month"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdRolesHistoryGet | tuple[CorporationsCorporationIdRolesHistoryGet, Response]:
+        """Return how roles have changed for a coporation's members, up to a month"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdRolesHistoryGetItem]:
+        """Return how roles have changed for a coporation's members, up to a month"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdRolesHistoryGetItem], Response]:
+        """Return how roles have changed for a coporation's members, up to a month"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdRolesHistoryGetItem] | tuple[list[CorporationsCorporationIdRolesHistoryGetItem], Response]:
         """Return how roles have changed for a coporation's members, up to a month"""
         ...
 
@@ -575,11 +1426,31 @@ class GetCorporationsCorporationIdRolesHistoryOperation(EsiOperation):
 
 class GetCorporationsCorporationIdShareholdersOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdShareholdersGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdShareholdersGet:
         """Return the current shareholders of a corporation."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdShareholdersGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdShareholdersGet, Response]:
+        """Return the current shareholders of a corporation."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdShareholdersGet | tuple[CorporationsCorporationIdShareholdersGet, Response]:
+        """Return the current shareholders of a corporation."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdShareholdersGetItem]:
+        """Return the current shareholders of a corporation."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdShareholdersGetItem], Response]:
+        """Return the current shareholders of a corporation."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdShareholdersGetItem] | tuple[list[CorporationsCorporationIdShareholdersGetItem], Response]:
         """Return the current shareholders of a corporation."""
         ...
 
@@ -590,11 +1461,31 @@ class GetCorporationsCorporationIdShareholdersOperation(EsiOperation):
 
 class GetCorporationsCorporationIdStandingsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdStandingsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdStandingsGet:
         """Return corporation standings from agents, NPC corporations, and factions"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdStandingsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdStandingsGet, Response]:
+        """Return corporation standings from agents, NPC corporations, and factions"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdStandingsGet | tuple[CorporationsCorporationIdStandingsGet, Response]:
+        """Return corporation standings from agents, NPC corporations, and factions"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdStandingsGetItem]:
+        """Return corporation standings from agents, NPC corporations, and factions"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdStandingsGetItem], Response]:
+        """Return corporation standings from agents, NPC corporations, and factions"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdStandingsGetItem] | tuple[list[CorporationsCorporationIdStandingsGetItem], Response]:
         """Return corporation standings from agents, NPC corporations, and factions"""
         ...
 
@@ -605,11 +1496,31 @@ class GetCorporationsCorporationIdStandingsOperation(EsiOperation):
 
 class GetCorporationsCorporationIdStarbasesOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdStarbasesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdStarbasesGet:
         """Returns list of corporation starbases (POSes)"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdStarbasesGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdStarbasesGet, Response]:
+        """Returns list of corporation starbases (POSes)"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdStarbasesGet | tuple[CorporationsCorporationIdStarbasesGet, Response]:
+        """Returns list of corporation starbases (POSes)"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdStarbasesGetItem]:
+        """Returns list of corporation starbases (POSes)"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdStarbasesGetItem], Response]:
+        """Returns list of corporation starbases (POSes)"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdStarbasesGetItem] | tuple[list[CorporationsCorporationIdStarbasesGetItem], Response]:
         """Returns list of corporation starbases (POSes)"""
         ...
 
@@ -620,17 +1531,47 @@ class GetCorporationsCorporationIdStarbasesOperation(EsiOperation):
 
 class GetCorporationsCorporationIdStarbasesStarbaseIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdStarbasesStarbaseIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdStarbasesStarbaseIdGet:
+        """Returns various settings and fuels of a starbase (POS)"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdStarbasesStarbaseIdGet, Response]:
+        """Returns various settings and fuels of a starbase (POS)"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdStarbasesStarbaseIdGet | tuple[CorporationsCorporationIdStarbasesStarbaseIdGet, Response]:
         """Returns various settings and fuels of a starbase (POS)"""
         ...
 
 class GetCorporationsCorporationIdStructuresOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdStructuresGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdStructuresGet:
         """Get a list of corporation structures. This route's version includes the changes to structures detailed in this blog: https://www.eveonline.com/article/upwell-2.0-structures-changes-coming-on-february-13th"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdStructuresGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdStructuresGet, Response]:
+        """Get a list of corporation structures. This route's version includes the changes to structures detailed in this blog: https://www.eveonline.com/article/upwell-2.0-structures-changes-coming-on-february-13th"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdStructuresGet | tuple[CorporationsCorporationIdStructuresGet, Response]:
+        """Get a list of corporation structures. This route's version includes the changes to structures detailed in this blog: https://www.eveonline.com/article/upwell-2.0-structures-changes-coming-on-february-13th"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdStructuresGetItem]:
+        """Get a list of corporation structures. This route's version includes the changes to structures detailed in this blog: https://www.eveonline.com/article/upwell-2.0-structures-changes-coming-on-february-13th"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdStructuresGetItem], Response]:
+        """Get a list of corporation structures. This route's version includes the changes to structures detailed in this blog: https://www.eveonline.com/article/upwell-2.0-structures-changes-coming-on-february-13th"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdStructuresGetItem] | tuple[list[CorporationsCorporationIdStructuresGetItem], Response]:
         """Get a list of corporation structures. This route's version includes the changes to structures detailed in this blog: https://www.eveonline.com/article/upwell-2.0-structures-changes-coming-on-february-13th"""
         ...
 
@@ -641,29 +1582,79 @@ class GetCorporationsCorporationIdStructuresOperation(EsiOperation):
 
 class GetCorporationsCorporationIdTitlesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdTitlesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdTitlesGet:
+        """Returns a corporation's titles"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdTitlesGet, Response]:
+        """Returns a corporation's titles"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdTitlesGet | tuple[CorporationsCorporationIdTitlesGet, Response]:
         """Returns a corporation's titles"""
         ...
 
 class GetCorporationsNpccorpsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsNpccorpsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsNpccorpsGet:
+        """Get a list of npc corporations  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsNpccorpsGet, Response]:
+        """Get a list of npc corporations  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsNpccorpsGet | tuple[CorporationsNpccorpsGet, Response]:
         """Get a list of npc corporations  This route expires daily at 11:05"""
         ...
 
 class GetCorporationsProjectsContributionOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsProjectsContribution:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsProjectsContribution:
+        """Show your contribution to a corporation project."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsProjectsContribution, Response]:
+        """Show your contribution to a corporation project."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsProjectsContribution | tuple[CorporationsProjectsContribution, Response]:
         """Show your contribution to a corporation project."""
         ...
 
 class GetCorporationsProjectsContributorsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsProjectsContributors:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsProjectsContributors:
         """Listing of all contributors to a corporation project."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsProjectsContributors]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsProjectsContributors, Response]:
+        """Listing of all contributors to a corporation project."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsProjectsContributors | tuple[CorporationsProjectsContributors, Response]:
+        """Listing of all contributors to a corporation project."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsProjectsContributors]:
+        """Listing of all contributors to a corporation project."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsProjectsContributors], Response]:
+        """Listing of all contributors to a corporation project."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsProjectsContributors] | tuple[list[CorporationsProjectsContributors], Response]:
         """Listing of all contributors to a corporation project."""
         ...
 
@@ -674,17 +1665,47 @@ class GetCorporationsProjectsContributorsOperation(EsiOperation):
 
 class GetCorporationsProjectsDetailOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsProjectsDetail:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsProjectsDetail:
+        """Get the details of a corporation project."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsProjectsDetail, Response]:
+        """Get the details of a corporation project."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsProjectsDetail | tuple[CorporationsProjectsDetail, Response]:
         """Get the details of a corporation project."""
         ...
 
 class GetCorporationsProjectsListingOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsProjectsListing:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsProjectsListing:
         """Listing of all (active) corporation projects."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsProjectsListing]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsProjectsListing, Response]:
+        """Listing of all (active) corporation projects."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsProjectsListing | tuple[CorporationsProjectsListing, Response]:
+        """Listing of all (active) corporation projects."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsProjectsListing]:
+        """Listing of all (active) corporation projects."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsProjectsListing], Response]:
+        """Listing of all (active) corporation projects."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsProjectsListing] | tuple[list[CorporationsProjectsListing], Response]:
         """Listing of all (active) corporation projects."""
         ...
 
@@ -695,203 +1716,543 @@ class GetCorporationsProjectsListingOperation(EsiOperation):
 
 class GetDogmaAttributesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> DogmaAttributesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> DogmaAttributesGet:
+        """Get a list of dogma attribute ids  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[DogmaAttributesGet, Response]:
+        """Get a list of dogma attribute ids  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> DogmaAttributesGet | tuple[DogmaAttributesGet, Response]:
         """Get a list of dogma attribute ids  This route expires daily at 11:05"""
         ...
 
 class GetDogmaAttributesAttributeIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> DogmaAttributesAttributeIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> DogmaAttributesAttributeIdGet:
+        """Get information on a dogma attribute  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[DogmaAttributesAttributeIdGet, Response]:
+        """Get information on a dogma attribute  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> DogmaAttributesAttributeIdGet | tuple[DogmaAttributesAttributeIdGet, Response]:
         """Get information on a dogma attribute  This route expires daily at 11:05"""
         ...
 
 class GetDogmaDynamicItemsTypeIdItemIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> DogmaDynamicItemsTypeIdItemIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> DogmaDynamicItemsTypeIdItemIdGet:
+        """Returns info about a dynamic item resulting from mutation with a mutaplasmid.  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[DogmaDynamicItemsTypeIdItemIdGet, Response]:
+        """Returns info about a dynamic item resulting from mutation with a mutaplasmid.  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> DogmaDynamicItemsTypeIdItemIdGet | tuple[DogmaDynamicItemsTypeIdItemIdGet, Response]:
         """Returns info about a dynamic item resulting from mutation with a mutaplasmid.  This route expires daily at 11:05"""
         ...
 
 class GetDogmaEffectsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> DogmaEffectsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> DogmaEffectsGet:
+        """Get a list of dogma effect ids  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[DogmaEffectsGet, Response]:
+        """Get a list of dogma effect ids  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> DogmaEffectsGet | tuple[DogmaEffectsGet, Response]:
         """Get a list of dogma effect ids  This route expires daily at 11:05"""
         ...
 
 class GetDogmaEffectsEffectIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> DogmaEffectsEffectIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> DogmaEffectsEffectIdGet:
+        """Get information on a dogma effect  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[DogmaEffectsEffectIdGet, Response]:
+        """Get information on a dogma effect  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> DogmaEffectsEffectIdGet | tuple[DogmaEffectsEffectIdGet, Response]:
         """Get information on a dogma effect  This route expires daily at 11:05"""
         ...
 
 class GetCharactersCharacterIdFwStatsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdFwStatsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdFwStatsGet:
+        """Statistical overview of a character involved in faction warfare  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdFwStatsGet, Response]:
+        """Statistical overview of a character involved in faction warfare  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdFwStatsGet | tuple[CharactersCharacterIdFwStatsGet, Response]:
         """Statistical overview of a character involved in faction warfare  This route expires daily at 11:05"""
         ...
 
 class GetCorporationsCorporationIdFwStatsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdFwStatsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdFwStatsGet:
+        """Statistics about a corporation involved in faction warfare  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdFwStatsGet, Response]:
+        """Statistics about a corporation involved in faction warfare  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdFwStatsGet | tuple[CorporationsCorporationIdFwStatsGet, Response]:
         """Statistics about a corporation involved in faction warfare  This route expires daily at 11:05"""
         ...
 
 class GetFwLeaderboardsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FwLeaderboardsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwLeaderboardsGet:
+        """Top 4 leaderboard of factions for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FwLeaderboardsGet, Response]:
+        """Top 4 leaderboard of factions for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwLeaderboardsGet | tuple[FwLeaderboardsGet, Response]:
         """Top 4 leaderboard of factions for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
         ...
 
 class GetFwLeaderboardsCharactersOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FwLeaderboardsCharactersGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwLeaderboardsCharactersGet:
+        """Top 100 leaderboard of pilots for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FwLeaderboardsCharactersGet, Response]:
+        """Top 100 leaderboard of pilots for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwLeaderboardsCharactersGet | tuple[FwLeaderboardsCharactersGet, Response]:
         """Top 100 leaderboard of pilots for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
         ...
 
 class GetFwLeaderboardsCorporationsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FwLeaderboardsCorporationsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwLeaderboardsCorporationsGet:
+        """Top 10 leaderboard of corporations for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FwLeaderboardsCorporationsGet, Response]:
+        """Top 10 leaderboard of corporations for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwLeaderboardsCorporationsGet | tuple[FwLeaderboardsCorporationsGet, Response]:
         """Top 10 leaderboard of corporations for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
         ...
 
 class GetFwStatsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FwStatsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwStatsGet:
+        """Statistical overviews of factions involved in faction warfare  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FwStatsGet, Response]:
+        """Statistical overviews of factions involved in faction warfare  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwStatsGet | tuple[FwStatsGet, Response]:
         """Statistical overviews of factions involved in faction warfare  This route expires daily at 11:05"""
         ...
 
 class GetFwSystemsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FwSystemsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwSystemsGet:
+        """An overview of the current ownership of faction warfare solar systems"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FwSystemsGet, Response]:
+        """An overview of the current ownership of faction warfare solar systems"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwSystemsGet | tuple[FwSystemsGet, Response]:
         """An overview of the current ownership of faction warfare solar systems"""
         ...
 
 class GetFwWarsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FwWarsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwWarsGet:
+        """Data about which NPC factions are at war  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FwWarsGet, Response]:
+        """Data about which NPC factions are at war  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FwWarsGet | tuple[FwWarsGet, Response]:
         """Data about which NPC factions are at war  This route expires daily at 11:05"""
         ...
 
 class DeleteCharactersCharacterIdFittingsFittingIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Delete a fitting from a character"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Delete a fitting from a character"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Delete a fitting from a character"""
         ...
 
 class GetCharactersCharacterIdFittingsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdFittingsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdFittingsGet:
+        """Return fittings of a character"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdFittingsGet, Response]:
+        """Return fittings of a character"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdFittingsGet | tuple[CharactersCharacterIdFittingsGet, Response]:
         """Return fittings of a character"""
         ...
 
 class PostCharactersCharacterIdFittingsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdFittingsPost:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdFittingsPost:
+        """Save a new fitting for a character"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdFittingsPost, Response]:
+        """Save a new fitting for a character"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdFittingsPost | tuple[CharactersCharacterIdFittingsPost, Response]:
         """Save a new fitting for a character"""
         ...
 
 class DeleteFleetsFleetIdMembersMemberIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Kick a fleet member"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Kick a fleet member"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Kick a fleet member"""
         ...
 
 class DeleteFleetsFleetIdSquadsSquadIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Delete a fleet squad, only empty squads can be deleted"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Delete a fleet squad, only empty squads can be deleted"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Delete a fleet squad, only empty squads can be deleted"""
         ...
 
 class DeleteFleetsFleetIdWingsWingIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Delete a fleet wing, only empty wings can be deleted. The wing may contain squads, but the squads must be empty"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Delete a fleet wing, only empty wings can be deleted. The wing may contain squads, but the squads must be empty"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Delete a fleet wing, only empty wings can be deleted. The wing may contain squads, but the squads must be empty"""
         ...
 
 class GetCharactersCharacterIdFleetOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdFleetGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdFleetGet:
+        """Return the fleet ID the character is in, if any."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdFleetGet, Response]:
+        """Return the fleet ID the character is in, if any."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdFleetGet | tuple[CharactersCharacterIdFleetGet, Response]:
         """Return the fleet ID the character is in, if any."""
         ...
 
 class GetFleetsFleetIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FleetsFleetIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FleetsFleetIdGet:
+        """Return details about a fleet"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FleetsFleetIdGet, Response]:
+        """Return details about a fleet"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FleetsFleetIdGet | tuple[FleetsFleetIdGet, Response]:
         """Return details about a fleet"""
         ...
 
 class GetFleetsFleetIdMembersOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FleetsFleetIdMembersGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FleetsFleetIdMembersGet:
+        """Return information about fleet members"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FleetsFleetIdMembersGet, Response]:
+        """Return information about fleet members"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FleetsFleetIdMembersGet | tuple[FleetsFleetIdMembersGet, Response]:
         """Return information about fleet members"""
         ...
 
 class GetFleetsFleetIdWingsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FleetsFleetIdWingsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FleetsFleetIdWingsGet:
+        """Return information about wings in a fleet"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FleetsFleetIdWingsGet, Response]:
+        """Return information about wings in a fleet"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FleetsFleetIdWingsGet | tuple[FleetsFleetIdWingsGet, Response]:
         """Return information about wings in a fleet"""
         ...
 
 class PostFleetsFleetIdMembersOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Invite a character into the fleet. If a character has a CSPA charge set it is not possible to invite them to the fleet using ESI"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Invite a character into the fleet. If a character has a CSPA charge set it is not possible to invite them to the fleet using ESI"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Invite a character into the fleet. If a character has a CSPA charge set it is not possible to invite them to the fleet using ESI"""
         ...
 
 class PostFleetsFleetIdWingsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FleetsFleetIdWingsPost:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FleetsFleetIdWingsPost:
+        """Create a new wing in a fleet"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FleetsFleetIdWingsPost, Response]:
+        """Create a new wing in a fleet"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FleetsFleetIdWingsPost | tuple[FleetsFleetIdWingsPost, Response]:
         """Create a new wing in a fleet"""
         ...
 
 class PostFleetsFleetIdWingsWingIdSquadsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FleetsFleetIdWingsWingIdSquadsPost:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FleetsFleetIdWingsWingIdSquadsPost:
+        """Create a new squad in a fleet"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FleetsFleetIdWingsWingIdSquadsPost, Response]:
+        """Create a new squad in a fleet"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FleetsFleetIdWingsWingIdSquadsPost | tuple[FleetsFleetIdWingsWingIdSquadsPost, Response]:
         """Create a new squad in a fleet"""
         ...
 
 class PutFleetsFleetIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Update settings about a fleet"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Update settings about a fleet"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Update settings about a fleet"""
         ...
 
 class PutFleetsFleetIdMembersMemberIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Move a fleet member around"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Move a fleet member around"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Move a fleet member around"""
         ...
 
 class PutFleetsFleetIdSquadsSquadIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Rename a fleet squad"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Rename a fleet squad"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Rename a fleet squad"""
         ...
 
 class PutFleetsFleetIdWingsWingIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Rename a fleet wing"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Rename a fleet wing"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Rename a fleet wing"""
         ...
 
 class GetCharactersFreelanceJobsListingOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersFreelanceJobsListing:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersFreelanceJobsListing:
+        """Listing of all freelance jobs you are actively participating in."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersFreelanceJobsListing, Response]:
+        """Listing of all freelance jobs you are actively participating in."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersFreelanceJobsListing | tuple[CharactersFreelanceJobsListing, Response]:
         """Listing of all freelance jobs you are actively participating in."""
         ...
 
 class GetCharactersFreelanceJobsParticipationOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersFreelanceJobsParticipation:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersFreelanceJobsParticipation:
+        """Show your participation in a freelance job."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersFreelanceJobsParticipation, Response]:
+        """Show your participation in a freelance job."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersFreelanceJobsParticipation | tuple[CharactersFreelanceJobsParticipation, Response]:
         """Show your participation in a freelance job."""
         ...
 
 class GetCorporationsFreelanceJobsListingOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsFreelanceJobsListing:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsFreelanceJobsListing:
         """Listing of all freelance jobs for your corporation."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsFreelanceJobsListing]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsFreelanceJobsListing, Response]:
+        """Listing of all freelance jobs for your corporation."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsFreelanceJobsListing | tuple[CorporationsFreelanceJobsListing, Response]:
+        """Listing of all freelance jobs for your corporation."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsFreelanceJobsListing]:
+        """Listing of all freelance jobs for your corporation."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsFreelanceJobsListing], Response]:
+        """Listing of all freelance jobs for your corporation."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsFreelanceJobsListing] | tuple[list[CorporationsFreelanceJobsListing], Response]:
         """Listing of all freelance jobs for your corporation."""
         ...
 
@@ -902,11 +2263,31 @@ class GetCorporationsFreelanceJobsListingOperation(EsiOperation):
 
 class GetCorporationsFreelanceJobsParticipantsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsFreelanceJobsParticipants:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsFreelanceJobsParticipants:
         """Listing of all participants of a freelance job."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsFreelanceJobsParticipants]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsFreelanceJobsParticipants, Response]:
+        """Listing of all participants of a freelance job."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsFreelanceJobsParticipants | tuple[CorporationsFreelanceJobsParticipants, Response]:
+        """Listing of all participants of a freelance job."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsFreelanceJobsParticipants]:
+        """Listing of all participants of a freelance job."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsFreelanceJobsParticipants], Response]:
+        """Listing of all participants of a freelance job."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsFreelanceJobsParticipants] | tuple[list[CorporationsFreelanceJobsParticipants], Response]:
         """Listing of all participants of a freelance job."""
         ...
 
@@ -917,17 +2298,47 @@ class GetCorporationsFreelanceJobsParticipantsOperation(EsiOperation):
 
 class GetFreelanceJobsDetailOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FreelanceJobsDetail:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FreelanceJobsDetail:
+        """Get the details of a freelance job.  Jobs without an ACL (public jobs) does not require authentication.  Jobs with an ACL requires authentication, and requires that the character is: - An active participant of the job, or - A freelance job manager for the corporation that owns the job."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FreelanceJobsDetail, Response]:
+        """Get the details of a freelance job.  Jobs without an ACL (public jobs) does not require authentication.  Jobs with an ACL requires authentication, and requires that the character is: - An active participant of the job, or - A freelance job manager for the corporation that owns the job."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FreelanceJobsDetail | tuple[FreelanceJobsDetail, Response]:
         """Get the details of a freelance job.  Jobs without an ACL (public jobs) does not require authentication.  Jobs with an ACL requires authentication, and requires that the character is: - An active participant of the job, or - A freelance job manager for the corporation that owns the job."""
         ...
 
 class GetFreelanceJobsListingOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> FreelanceJobsListing:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FreelanceJobsListing:
         """Listing of all public freelance jobs."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[FreelanceJobsListing]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[FreelanceJobsListing, Response]:
+        """Listing of all public freelance jobs."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> FreelanceJobsListing | tuple[FreelanceJobsListing, Response]:
+        """Listing of all public freelance jobs."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[FreelanceJobsListing]:
+        """Listing of all public freelance jobs."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[FreelanceJobsListing], Response]:
+        """Listing of all public freelance jobs."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[FreelanceJobsListing] | tuple[list[FreelanceJobsListing], Response]:
         """Listing of all public freelance jobs."""
         ...
 
@@ -938,23 +2349,63 @@ class GetFreelanceJobsListingOperation(EsiOperation):
 
 class GetIncursionsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> IncursionsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> IncursionsGet:
+        """Return a list of current incursions"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[IncursionsGet, Response]:
+        """Return a list of current incursions"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> IncursionsGet | tuple[IncursionsGet, Response]:
         """Return a list of current incursions"""
         ...
 
 class GetCharactersCharacterIdIndustryJobsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdIndustryJobsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdIndustryJobsGet:
+        """List industry jobs placed by a character"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdIndustryJobsGet, Response]:
+        """List industry jobs placed by a character"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdIndustryJobsGet | tuple[CharactersCharacterIdIndustryJobsGet, Response]:
         """List industry jobs placed by a character"""
         ...
 
 class GetCharactersCharacterIdMiningOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdMiningGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMiningGet:
         """Paginated record of all mining done by a character for the past 30 days"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CharactersCharacterIdMiningGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdMiningGet, Response]:
+        """Paginated record of all mining done by a character for the past 30 days"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMiningGet | tuple[CharactersCharacterIdMiningGet, Response]:
+        """Paginated record of all mining done by a character for the past 30 days"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdMiningGetItem]:
+        """Paginated record of all mining done by a character for the past 30 days"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CharactersCharacterIdMiningGetItem], Response]:
+        """Paginated record of all mining done by a character for the past 30 days"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdMiningGetItem] | tuple[list[CharactersCharacterIdMiningGetItem], Response]:
         """Paginated record of all mining done by a character for the past 30 days"""
         ...
 
@@ -965,11 +2416,31 @@ class GetCharactersCharacterIdMiningOperation(EsiOperation):
 
 class GetCorporationCorporationIdMiningExtractionsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationCorporationIdMiningExtractionsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationCorporationIdMiningExtractionsGet:
         """Extraction timers for all moon chunks being extracted by refineries belonging to a corporation."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationCorporationIdMiningExtractionsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationCorporationIdMiningExtractionsGet, Response]:
+        """Extraction timers for all moon chunks being extracted by refineries belonging to a corporation."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationCorporationIdMiningExtractionsGet | tuple[CorporationCorporationIdMiningExtractionsGet, Response]:
+        """Extraction timers for all moon chunks being extracted by refineries belonging to a corporation."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationCorporationIdMiningExtractionsGetItem]:
+        """Extraction timers for all moon chunks being extracted by refineries belonging to a corporation."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationCorporationIdMiningExtractionsGetItem], Response]:
+        """Extraction timers for all moon chunks being extracted by refineries belonging to a corporation."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationCorporationIdMiningExtractionsGetItem] | tuple[list[CorporationCorporationIdMiningExtractionsGetItem], Response]:
         """Extraction timers for all moon chunks being extracted by refineries belonging to a corporation."""
         ...
 
@@ -980,11 +2451,31 @@ class GetCorporationCorporationIdMiningExtractionsOperation(EsiOperation):
 
 class GetCorporationCorporationIdMiningObserversOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationCorporationIdMiningObserversGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationCorporationIdMiningObserversGet:
         """Paginated list of all entities capable of observing and recording mining for a corporation"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationCorporationIdMiningObserversGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationCorporationIdMiningObserversGet, Response]:
+        """Paginated list of all entities capable of observing and recording mining for a corporation"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationCorporationIdMiningObserversGet | tuple[CorporationCorporationIdMiningObserversGet, Response]:
+        """Paginated list of all entities capable of observing and recording mining for a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationCorporationIdMiningObserversGetItem]:
+        """Paginated list of all entities capable of observing and recording mining for a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationCorporationIdMiningObserversGetItem], Response]:
+        """Paginated list of all entities capable of observing and recording mining for a corporation"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationCorporationIdMiningObserversGetItem] | tuple[list[CorporationCorporationIdMiningObserversGetItem], Response]:
         """Paginated list of all entities capable of observing and recording mining for a corporation"""
         ...
 
@@ -995,11 +2486,31 @@ class GetCorporationCorporationIdMiningObserversOperation(EsiOperation):
 
 class GetCorporationCorporationIdMiningObserversObserverIdOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationCorporationIdMiningObserversObserverIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationCorporationIdMiningObserversObserverIdGet:
         """Paginated record of all mining seen by an observer"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationCorporationIdMiningObserversObserverIdGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationCorporationIdMiningObserversObserverIdGet, Response]:
+        """Paginated record of all mining seen by an observer"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationCorporationIdMiningObserversObserverIdGet | tuple[CorporationCorporationIdMiningObserversObserverIdGet, Response]:
+        """Paginated record of all mining seen by an observer"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationCorporationIdMiningObserversObserverIdGetItem]:
+        """Paginated record of all mining seen by an observer"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationCorporationIdMiningObserversObserverIdGetItem], Response]:
+        """Paginated record of all mining seen by an observer"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationCorporationIdMiningObserversObserverIdGetItem] | tuple[list[CorporationCorporationIdMiningObserversObserverIdGetItem], Response]:
         """Paginated record of all mining seen by an observer"""
         ...
 
@@ -1010,11 +2521,31 @@ class GetCorporationCorporationIdMiningObserversObserverIdOperation(EsiOperation
 
 class GetCorporationsCorporationIdIndustryJobsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdIndustryJobsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdIndustryJobsGet:
         """List industry jobs run by a corporation"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdIndustryJobsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdIndustryJobsGet, Response]:
+        """List industry jobs run by a corporation"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdIndustryJobsGet | tuple[CorporationsCorporationIdIndustryJobsGet, Response]:
+        """List industry jobs run by a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdIndustryJobsGetItem]:
+        """List industry jobs run by a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdIndustryJobsGetItem], Response]:
+        """List industry jobs run by a corporation"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdIndustryJobsGetItem] | tuple[list[CorporationsCorporationIdIndustryJobsGetItem], Response]:
         """List industry jobs run by a corporation"""
         ...
 
@@ -1025,29 +2556,79 @@ class GetCorporationsCorporationIdIndustryJobsOperation(EsiOperation):
 
 class GetIndustryFacilitiesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> IndustryFacilitiesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> IndustryFacilitiesGet:
+        """Return a list of industry facilities"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[IndustryFacilitiesGet, Response]:
+        """Return a list of industry facilities"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> IndustryFacilitiesGet | tuple[IndustryFacilitiesGet, Response]:
         """Return a list of industry facilities"""
         ...
 
 class GetIndustrySystemsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> IndustrySystemsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> IndustrySystemsGet:
+        """Return cost indices for solar systems"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[IndustrySystemsGet, Response]:
+        """Return cost indices for solar systems"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> IndustrySystemsGet | tuple[IndustrySystemsGet, Response]:
         """Return cost indices for solar systems"""
         ...
 
 class GetInsurancePricesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> InsurancePricesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> InsurancePricesGet:
+        """Return available insurance levels for all ship types"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[InsurancePricesGet, Response]:
+        """Return available insurance levels for all ship types"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> InsurancePricesGet | tuple[InsurancePricesGet, Response]:
         """Return available insurance levels for all ship types"""
         ...
 
 class GetCharactersCharacterIdKillmailsRecentOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdKillmailsRecentGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdKillmailsRecentGet:
         """Return a list of a character's kills and losses going back 90 days"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CharactersCharacterIdKillmailsRecentGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdKillmailsRecentGet, Response]:
+        """Return a list of a character's kills and losses going back 90 days"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdKillmailsRecentGet | tuple[CharactersCharacterIdKillmailsRecentGet, Response]:
+        """Return a list of a character's kills and losses going back 90 days"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdKillmailsRecentGetItem]:
+        """Return a list of a character's kills and losses going back 90 days"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CharactersCharacterIdKillmailsRecentGetItem], Response]:
+        """Return a list of a character's kills and losses going back 90 days"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdKillmailsRecentGetItem] | tuple[list[CharactersCharacterIdKillmailsRecentGetItem], Response]:
         """Return a list of a character's kills and losses going back 90 days"""
         ...
 
@@ -1058,11 +2639,31 @@ class GetCharactersCharacterIdKillmailsRecentOperation(EsiOperation):
 
 class GetCorporationsCorporationIdKillmailsRecentOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdKillmailsRecentGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdKillmailsRecentGet:
         """Get a list of a corporation's kills and losses going back 90 days"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdKillmailsRecentGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdKillmailsRecentGet, Response]:
+        """Get a list of a corporation's kills and losses going back 90 days"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdKillmailsRecentGet | tuple[CorporationsCorporationIdKillmailsRecentGet, Response]:
+        """Get a list of a corporation's kills and losses going back 90 days"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdKillmailsRecentGetItem]:
+        """Get a list of a corporation's kills and losses going back 90 days"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdKillmailsRecentGetItem], Response]:
+        """Get a list of a corporation's kills and losses going back 90 days"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdKillmailsRecentGetItem] | tuple[list[CorporationsCorporationIdKillmailsRecentGetItem], Response]:
         """Get a list of a corporation's kills and losses going back 90 days"""
         ...
 
@@ -1073,107 +2674,287 @@ class GetCorporationsCorporationIdKillmailsRecentOperation(EsiOperation):
 
 class GetKillmailsKillmailIdKillmailHashOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> KillmailsKillmailIdKillmailHashGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> KillmailsKillmailIdKillmailHashGet:
+        """Return a single killmail from its ID and hash"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[KillmailsKillmailIdKillmailHashGet, Response]:
+        """Return a single killmail from its ID and hash"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> KillmailsKillmailIdKillmailHashGet | tuple[KillmailsKillmailIdKillmailHashGet, Response]:
         """Return a single killmail from its ID and hash"""
         ...
 
 class GetCharactersCharacterIdLocationOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdLocationGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdLocationGet:
+        """Information about the characters current location. Returns the current solar system id, and also the current station or structure ID if applicable"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdLocationGet, Response]:
+        """Information about the characters current location. Returns the current solar system id, and also the current station or structure ID if applicable"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdLocationGet | tuple[CharactersCharacterIdLocationGet, Response]:
         """Information about the characters current location. Returns the current solar system id, and also the current station or structure ID if applicable"""
         ...
 
 class GetCharactersCharacterIdOnlineOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdOnlineGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdOnlineGet:
+        """Checks if the character is currently online"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdOnlineGet, Response]:
+        """Checks if the character is currently online"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdOnlineGet | tuple[CharactersCharacterIdOnlineGet, Response]:
         """Checks if the character is currently online"""
         ...
 
 class GetCharactersCharacterIdShipOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdShipGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdShipGet:
+        """Get the current ship type, name and id"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdShipGet, Response]:
+        """Get the current ship type, name and id"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdShipGet | tuple[CharactersCharacterIdShipGet, Response]:
         """Get the current ship type, name and id"""
         ...
 
 class GetCharactersCharacterIdLoyaltyPointsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdLoyaltyPointsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdLoyaltyPointsGet:
+        """Return a list of loyalty points for all corporations the character has worked for"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdLoyaltyPointsGet, Response]:
+        """Return a list of loyalty points for all corporations the character has worked for"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdLoyaltyPointsGet | tuple[CharactersCharacterIdLoyaltyPointsGet, Response]:
         """Return a list of loyalty points for all corporations the character has worked for"""
         ...
 
 class GetLoyaltyStoresCorporationIdOffersOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> LoyaltyStoresCorporationIdOffersGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> LoyaltyStoresCorporationIdOffersGet:
+        """Return a list of offers from a specific corporation's loyalty store  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[LoyaltyStoresCorporationIdOffersGet, Response]:
+        """Return a list of offers from a specific corporation's loyalty store  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> LoyaltyStoresCorporationIdOffersGet | tuple[LoyaltyStoresCorporationIdOffersGet, Response]:
         """Return a list of offers from a specific corporation's loyalty store  This route expires daily at 11:05"""
         ...
 
 class DeleteCharactersCharacterIdMailLabelsLabelIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Delete a mail label"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Delete a mail label"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Delete a mail label"""
         ...
 
 class DeleteCharactersCharacterIdMailMailIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Delete a mail"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Delete a mail"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Delete a mail"""
         ...
 
 class GetCharactersCharacterIdMailOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdMailGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailGet:
+        """Return the 50 most recent mail headers belonging to the character that match the query criteria. Queries can be filtered by label, and last_mail_id can be used to paginate backwards"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdMailGet, Response]:
+        """Return the 50 most recent mail headers belonging to the character that match the query criteria. Queries can be filtered by label, and last_mail_id can be used to paginate backwards"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailGet | tuple[CharactersCharacterIdMailGet, Response]:
         """Return the 50 most recent mail headers belonging to the character that match the query criteria. Queries can be filtered by label, and last_mail_id can be used to paginate backwards"""
         ...
 
 class GetCharactersCharacterIdMailLabelsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdMailLabelsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailLabelsGet:
+        """Return a list of the users mail labels, unread counts for each label and a total unread count."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdMailLabelsGet, Response]:
+        """Return a list of the users mail labels, unread counts for each label and a total unread count."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailLabelsGet | tuple[CharactersCharacterIdMailLabelsGet, Response]:
         """Return a list of the users mail labels, unread counts for each label and a total unread count."""
         ...
 
 class GetCharactersCharacterIdMailListsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdMailListsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailListsGet:
+        """Return all mailing lists that the character is subscribed to"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdMailListsGet, Response]:
+        """Return all mailing lists that the character is subscribed to"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailListsGet | tuple[CharactersCharacterIdMailListsGet, Response]:
         """Return all mailing lists that the character is subscribed to"""
         ...
 
 class GetCharactersCharacterIdMailMailIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdMailMailIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailMailIdGet:
+        """Return the contents of an EVE mail"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdMailMailIdGet, Response]:
+        """Return the contents of an EVE mail"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailMailIdGet | tuple[CharactersCharacterIdMailMailIdGet, Response]:
         """Return the contents of an EVE mail"""
         ...
 
 class PostCharactersCharacterIdMailOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdMailPost:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailPost:
+        """Create and send a new mail"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdMailPost, Response]:
+        """Create and send a new mail"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailPost | tuple[CharactersCharacterIdMailPost, Response]:
         """Create and send a new mail"""
         ...
 
 class PostCharactersCharacterIdMailLabelsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdMailLabelsPost:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailLabelsPost:
+        """Create a mail label"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdMailLabelsPost, Response]:
+        """Create a mail label"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdMailLabelsPost | tuple[CharactersCharacterIdMailLabelsPost, Response]:
         """Create a mail label"""
         ...
 
 class PutCharactersCharacterIdMailMailIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> None:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None:
+        """Update metadata about a mail"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[None, Response]:
+        """Update metadata about a mail"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> None | tuple[None, Response]:
         """Update metadata about a mail"""
         ...
 
 class GetCharactersCharacterIdOrdersOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdOrdersGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdOrdersGet:
+        """List open market orders placed by a character"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdOrdersGet, Response]:
+        """List open market orders placed by a character"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdOrdersGet | tuple[CharactersCharacterIdOrdersGet, Response]:
         """List open market orders placed by a character"""
         ...
 
 class GetCharactersCharacterIdOrdersHistoryOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdOrdersHistoryGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdOrdersHistoryGet:
         """List cancelled and expired market orders placed by a character up to 90 days in the past."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CharactersCharacterIdOrdersHistoryGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdOrdersHistoryGet, Response]:
+        """List cancelled and expired market orders placed by a character up to 90 days in the past."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdOrdersHistoryGet | tuple[CharactersCharacterIdOrdersHistoryGet, Response]:
+        """List cancelled and expired market orders placed by a character up to 90 days in the past."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdOrdersHistoryGetItem]:
+        """List cancelled and expired market orders placed by a character up to 90 days in the past."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CharactersCharacterIdOrdersHistoryGetItem], Response]:
+        """List cancelled and expired market orders placed by a character up to 90 days in the past."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdOrdersHistoryGetItem] | tuple[list[CharactersCharacterIdOrdersHistoryGetItem], Response]:
         """List cancelled and expired market orders placed by a character up to 90 days in the past."""
         ...
 
@@ -1184,11 +2965,31 @@ class GetCharactersCharacterIdOrdersHistoryOperation(EsiOperation):
 
 class GetCorporationsCorporationIdOrdersOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdOrdersGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdOrdersGet:
         """List open market orders placed on behalf of a corporation"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdOrdersGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdOrdersGet, Response]:
+        """List open market orders placed on behalf of a corporation"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdOrdersGet | tuple[CorporationsCorporationIdOrdersGet, Response]:
+        """List open market orders placed on behalf of a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdOrdersGetItem]:
+        """List open market orders placed on behalf of a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdOrdersGetItem], Response]:
+        """List open market orders placed on behalf of a corporation"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdOrdersGetItem] | tuple[list[CorporationsCorporationIdOrdersGetItem], Response]:
         """List open market orders placed on behalf of a corporation"""
         ...
 
@@ -1199,11 +3000,31 @@ class GetCorporationsCorporationIdOrdersOperation(EsiOperation):
 
 class GetCorporationsCorporationIdOrdersHistoryOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdOrdersHistoryGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdOrdersHistoryGet:
         """List cancelled and expired market orders placed on behalf of a corporation up to 90 days in the past."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdOrdersHistoryGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdOrdersHistoryGet, Response]:
+        """List cancelled and expired market orders placed on behalf of a corporation up to 90 days in the past."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdOrdersHistoryGet | tuple[CorporationsCorporationIdOrdersHistoryGet, Response]:
+        """List cancelled and expired market orders placed on behalf of a corporation up to 90 days in the past."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdOrdersHistoryGetItem]:
+        """List cancelled and expired market orders placed on behalf of a corporation up to 90 days in the past."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdOrdersHistoryGetItem], Response]:
+        """List cancelled and expired market orders placed on behalf of a corporation up to 90 days in the past."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdOrdersHistoryGetItem] | tuple[list[CorporationsCorporationIdOrdersHistoryGetItem], Response]:
         """List cancelled and expired market orders placed on behalf of a corporation up to 90 days in the past."""
         ...
 
@@ -1214,35 +3035,95 @@ class GetCorporationsCorporationIdOrdersHistoryOperation(EsiOperation):
 
 class GetMarketsGroupsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> MarketsGroupsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsGroupsGet:
+        """Get a list of item groups  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[MarketsGroupsGet, Response]:
+        """Get a list of item groups  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsGroupsGet | tuple[MarketsGroupsGet, Response]:
         """Get a list of item groups  This route expires daily at 11:05"""
         ...
 
 class GetMarketsGroupsMarketGroupIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> MarketsGroupsMarketGroupIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsGroupsMarketGroupIdGet:
+        """Get information on an item group  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[MarketsGroupsMarketGroupIdGet, Response]:
+        """Get information on an item group  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsGroupsMarketGroupIdGet | tuple[MarketsGroupsMarketGroupIdGet, Response]:
         """Get information on an item group  This route expires daily at 11:05"""
         ...
 
 class GetMarketsPricesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> MarketsPricesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsPricesGet:
+        """Return a list of prices"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[MarketsPricesGet, Response]:
+        """Return a list of prices"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsPricesGet | tuple[MarketsPricesGet, Response]:
         """Return a list of prices"""
         ...
 
 class GetMarketsRegionIdHistoryOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> MarketsRegionIdHistoryGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsRegionIdHistoryGet:
+        """Return a list of historical market statistics for the specified type in a region  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[MarketsRegionIdHistoryGet, Response]:
+        """Return a list of historical market statistics for the specified type in a region  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsRegionIdHistoryGet | tuple[MarketsRegionIdHistoryGet, Response]:
         """Return a list of historical market statistics for the specified type in a region  This route expires daily at 11:05"""
         ...
 
 class GetMarketsRegionIdOrdersOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> MarketsRegionIdOrdersGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsRegionIdOrdersGet:
         """Return a list of orders in a region"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[MarketsRegionIdOrdersGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[MarketsRegionIdOrdersGet, Response]:
+        """Return a list of orders in a region"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsRegionIdOrdersGet | tuple[MarketsRegionIdOrdersGet, Response]:
+        """Return a list of orders in a region"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[MarketsRegionIdOrdersGetItem]:
+        """Return a list of orders in a region"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[MarketsRegionIdOrdersGetItem], Response]:
+        """Return a list of orders in a region"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[MarketsRegionIdOrdersGetItem] | tuple[list[MarketsRegionIdOrdersGetItem], Response]:
         """Return a list of orders in a region"""
         ...
 
@@ -1253,11 +3134,31 @@ class GetMarketsRegionIdOrdersOperation(EsiOperation):
 
 class GetMarketsRegionIdTypesOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> MarketsRegionIdTypesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsRegionIdTypesGet:
         """Return a list of type IDs that have active orders in the region, for efficient market indexing."""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[int]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[MarketsRegionIdTypesGet, Response]:
+        """Return a list of type IDs that have active orders in the region, for efficient market indexing."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsRegionIdTypesGet | tuple[MarketsRegionIdTypesGet, Response]:
+        """Return a list of type IDs that have active orders in the region, for efficient market indexing."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[int]:
+        """Return a list of type IDs that have active orders in the region, for efficient market indexing."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[int], Response]:
+        """Return a list of type IDs that have active orders in the region, for efficient market indexing."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[int] | tuple[list[int], Response]:
         """Return a list of type IDs that have active orders in the region, for efficient market indexing."""
         ...
 
@@ -1268,11 +3169,31 @@ class GetMarketsRegionIdTypesOperation(EsiOperation):
 
 class GetMarketsStructuresStructureIdOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> MarketsStructuresStructureIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsStructuresStructureIdGet:
         """Return all orders in a structure"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[MarketsStructuresStructureIdGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[MarketsStructuresStructureIdGet, Response]:
+        """Return all orders in a structure"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MarketsStructuresStructureIdGet | tuple[MarketsStructuresStructureIdGet, Response]:
+        """Return all orders in a structure"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[MarketsStructuresStructureIdGetItem]:
+        """Return all orders in a structure"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[MarketsStructuresStructureIdGetItem], Response]:
+        """Return all orders in a structure"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[MarketsStructuresStructureIdGetItem] | tuple[list[MarketsStructuresStructureIdGetItem], Response]:
         """Return all orders in a structure"""
         ...
 
@@ -1283,41 +3204,111 @@ class GetMarketsStructuresStructureIdOperation(EsiOperation):
 
 class GetMetaChangelogOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> MetaChangelog:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MetaChangelog:
+        """Get the changelog of this API."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[MetaChangelog, Response]:
+        """Get the changelog of this API."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MetaChangelog | tuple[MetaChangelog, Response]:
         """Get the changelog of this API."""
         ...
 
 class GetMetaCompatibilityDatesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> MetaCompatibilityDates:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MetaCompatibilityDates:
+        """Get a list of compatibility dates."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[MetaCompatibilityDates, Response]:
+        """Get a list of compatibility dates."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MetaCompatibilityDates | tuple[MetaCompatibilityDates, Response]:
         """Get a list of compatibility dates."""
         ...
 
 class GetMetaStatusOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> MetaStatus:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MetaStatus:
+        """Get the health status of each API route."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[MetaStatus, Response]:
+        """Get the health status of each API route."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> MetaStatus | tuple[MetaStatus, Response]:
         """Get the health status of each API route."""
         ...
 
 class GetCharactersCharacterIdPlanetsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdPlanetsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdPlanetsGet:
+        """Returns a list of all planetary colonies owned by a character."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdPlanetsGet, Response]:
+        """Returns a list of all planetary colonies owned by a character."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdPlanetsGet | tuple[CharactersCharacterIdPlanetsGet, Response]:
         """Returns a list of all planetary colonies owned by a character."""
         ...
 
 class GetCharactersCharacterIdPlanetsPlanetIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdPlanetsPlanetIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdPlanetsPlanetIdGet:
+        """Returns full details on the layout of a single planetary colony, including links, pins and routes. Note: Planetary information is only recalculated when the colony is viewed through the client. Information will not update until this criteria is met."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdPlanetsPlanetIdGet, Response]:
+        """Returns full details on the layout of a single planetary colony, including links, pins and routes. Note: Planetary information is only recalculated when the colony is viewed through the client. Information will not update until this criteria is met."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdPlanetsPlanetIdGet | tuple[CharactersCharacterIdPlanetsPlanetIdGet, Response]:
         """Returns full details on the layout of a single planetary colony, including links, pins and routes. Note: Planetary information is only recalculated when the colony is viewed through the client. Information will not update until this criteria is met."""
         ...
 
 class GetCorporationsCorporationIdCustomsOfficesOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdCustomsOfficesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdCustomsOfficesGet:
         """List customs offices owned by a corporation"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdCustomsOfficesGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdCustomsOfficesGet, Response]:
+        """List customs offices owned by a corporation"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdCustomsOfficesGet | tuple[CorporationsCorporationIdCustomsOfficesGet, Response]:
+        """List customs offices owned by a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdCustomsOfficesGetItem]:
+        """List customs offices owned by a corporation"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdCustomsOfficesGetItem], Response]:
+        """List customs offices owned by a corporation"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdCustomsOfficesGetItem] | tuple[list[CorporationsCorporationIdCustomsOfficesGetItem], Response]:
         """List customs offices owned by a corporation"""
         ...
 
@@ -1328,161 +3319,431 @@ class GetCorporationsCorporationIdCustomsOfficesOperation(EsiOperation):
 
 class GetUniverseSchematicsSchematicIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseSchematicsSchematicIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseSchematicsSchematicIdGet:
+        """Get information on a planetary factory schematic"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseSchematicsSchematicIdGet, Response]:
+        """Get information on a planetary factory schematic"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseSchematicsSchematicIdGet | tuple[UniverseSchematicsSchematicIdGet, Response]:
         """Get information on a planetary factory schematic"""
         ...
 
 class PostRouteOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Calculate the systems between the given origin and destination."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Calculate the systems between the given origin and destination."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Calculate the systems between the given origin and destination."""
         ...
 
 class GetCharactersCharacterIdSearchOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdSearchGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdSearchGet:
+        """Search for entities that match a given sub-string."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdSearchGet, Response]:
+        """Search for entities that match a given sub-string."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdSearchGet | tuple[CharactersCharacterIdSearchGet, Response]:
         """Search for entities that match a given sub-string."""
         ...
 
 class GetCharactersCharacterIdAttributesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdAttributesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdAttributesGet:
+        """Return attributes of a character"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdAttributesGet, Response]:
+        """Return attributes of a character"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdAttributesGet | tuple[CharactersCharacterIdAttributesGet, Response]:
         """Return attributes of a character"""
         ...
 
 class GetCharactersCharacterIdSkillqueueOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CharactersSkillqueueSkill]:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersSkillqueueSkill]:
+        """List the configured skill queue for the given character.  Entries that have their finish time in the past are completed, but aren't updated in the "/skills" route yet. This will happen the next time the character logs in."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CharactersSkillqueueSkill], Response]:
+        """List the configured skill queue for the given character.  Entries that have their finish time in the past are completed, but aren't updated in the "/skills" route yet. This will happen the next time the character logs in."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersSkillqueueSkill] | tuple[list[CharactersSkillqueueSkill], Response]:
         """List the configured skill queue for the given character.  Entries that have their finish time in the past are completed, but aren't updated in the "/skills" route yet. This will happen the next time the character logs in."""
         ...
 
 class GetCharactersCharacterIdSkillsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersSkills:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersSkills:
+        """List all trained skills for the given character.  Skills returned by this route can be out-of-date if the character hasn't logged in since one or more skills completed training. Use the /skillqueue route to check for skills that completed training. Entries that are in the past need to be applied on top of this list to get an accurate view of the character's current skills."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersSkills, Response]:
+        """List all trained skills for the given character.  Skills returned by this route can be out-of-date if the character hasn't logged in since one or more skills completed training. Use the /skillqueue route to check for skills that completed training. Entries that are in the past need to be applied on top of this list to get an accurate view of the character's current skills."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersSkills | tuple[CharactersSkills, Response]:
         """List all trained skills for the given character.  Skills returned by this route can be out-of-date if the character hasn't logged in since one or more skills completed training. Use the /skillqueue route to check for skills that completed training. Entries that are in the past need to be applied on top of this list to get an accurate view of the character's current skills."""
         ...
 
 class GetSovereigntyCampaignsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> SovereigntyCampaignsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> SovereigntyCampaignsGet:
+        """Shows sovereignty data for campaigns."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[SovereigntyCampaignsGet, Response]:
+        """Shows sovereignty data for campaigns."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> SovereigntyCampaignsGet | tuple[SovereigntyCampaignsGet, Response]:
         """Shows sovereignty data for campaigns."""
         ...
 
 class GetSovereigntySystemsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> SovereigntySystems:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> SovereigntySystems:
+        """Listing of sovereignty details for all K-space systems in New Eden."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[SovereigntySystems, Response]:
+        """Listing of sovereignty details for all K-space systems in New Eden."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> SovereigntySystems | tuple[SovereigntySystems, Response]:
         """Listing of sovereignty details for all K-space systems in New Eden."""
         ...
 
 class GetStatusOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> StatusGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> StatusGet:
+        """EVE Server status"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[StatusGet, Response]:
+        """EVE Server status"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> StatusGet | tuple[StatusGet, Response]:
         """EVE Server status"""
         ...
 
 class GetCharactersStructuresMercenaryDensDetailOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersStructuresMercenaryDensDetail:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersStructuresMercenaryDensDetail:
+        """Get the details of a Mercenary Den."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersStructuresMercenaryDensDetail, Response]:
+        """Get the details of a Mercenary Den."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersStructuresMercenaryDensDetail | tuple[CharactersStructuresMercenaryDensDetail, Response]:
         """Get the details of a Mercenary Den."""
         ...
 
 class GetCharactersStructuresMercenaryDensListingOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersStructuresMercenaryDensListing:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersStructuresMercenaryDensListing:
+        """Listing of all Mercenary Dens."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersStructuresMercenaryDensListing, Response]:
+        """Listing of all Mercenary Dens."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersStructuresMercenaryDensListing | tuple[CharactersStructuresMercenaryDensListing, Response]:
         """Listing of all Mercenary Dens."""
         ...
 
 class GetCorporationsStructuresSkyhooksDetailOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsStructuresSkyhooksDetail:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsStructuresSkyhooksDetail:
+        """Get the details of a Skyhook."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsStructuresSkyhooksDetail, Response]:
+        """Get the details of a Skyhook."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsStructuresSkyhooksDetail | tuple[CorporationsStructuresSkyhooksDetail, Response]:
         """Get the details of a Skyhook."""
         ...
 
 class GetCorporationsStructuresSkyhooksListingOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsStructuresSkyhooksListing:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsStructuresSkyhooksListing:
+        """Listing of all Skyhooks."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsStructuresSkyhooksListing, Response]:
+        """Listing of all Skyhooks."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsStructuresSkyhooksListing | tuple[CorporationsStructuresSkyhooksListing, Response]:
         """Listing of all Skyhooks."""
         ...
 
 class GetCorporationsStructuresSovereigntyHubsDetailOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsStructuresSovereigntyHubsDetail:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsStructuresSovereigntyHubsDetail:
+        """Get the details of a Sovereignty Hub."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsStructuresSovereigntyHubsDetail, Response]:
+        """Get the details of a Sovereignty Hub."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsStructuresSovereigntyHubsDetail | tuple[CorporationsStructuresSovereigntyHubsDetail, Response]:
         """Get the details of a Sovereignty Hub."""
         ...
 
 class GetCorporationsStructuresSovereigntyHubsListingOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsStructuresSovereigntyHubsListing:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsStructuresSovereigntyHubsListing:
+        """Listing of all Sovereignty Hubs."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsStructuresSovereigntyHubsListing, Response]:
+        """Listing of all Sovereignty Hubs."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsStructuresSovereigntyHubsListing | tuple[CorporationsStructuresSovereigntyHubsListing, Response]:
         """Listing of all Sovereignty Hubs."""
         ...
 
 class GetUniverseAncestriesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseAncestriesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseAncestriesGet:
+        """Get all character ancestries  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseAncestriesGet, Response]:
+        """Get all character ancestries  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseAncestriesGet | tuple[UniverseAncestriesGet, Response]:
         """Get all character ancestries  This route expires daily at 11:05"""
         ...
 
 class GetUniverseAsteroidBeltsAsteroidBeltIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseAsteroidBeltsAsteroidBeltIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseAsteroidBeltsAsteroidBeltIdGet:
+        """Get information on an asteroid belt  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseAsteroidBeltsAsteroidBeltIdGet, Response]:
+        """Get information on an asteroid belt  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseAsteroidBeltsAsteroidBeltIdGet | tuple[UniverseAsteroidBeltsAsteroidBeltIdGet, Response]:
         """Get information on an asteroid belt  This route expires daily at 11:05"""
         ...
 
 class GetUniverseBloodlinesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseBloodlinesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseBloodlinesGet:
+        """Get a list of bloodlines  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseBloodlinesGet, Response]:
+        """Get a list of bloodlines  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseBloodlinesGet | tuple[UniverseBloodlinesGet, Response]:
         """Get a list of bloodlines  This route expires daily at 11:05"""
         ...
 
 class GetUniverseCategoriesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseCategoriesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseCategoriesGet:
+        """Get a list of item categories  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseCategoriesGet, Response]:
+        """Get a list of item categories  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseCategoriesGet | tuple[UniverseCategoriesGet, Response]:
         """Get a list of item categories  This route expires daily at 11:05"""
         ...
 
 class GetUniverseCategoriesCategoryIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseCategoriesCategoryIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseCategoriesCategoryIdGet:
+        """Get information of an item category  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseCategoriesCategoryIdGet, Response]:
+        """Get information of an item category  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseCategoriesCategoryIdGet | tuple[UniverseCategoriesCategoryIdGet, Response]:
         """Get information of an item category  This route expires daily at 11:05"""
         ...
 
 class GetUniverseConstellationsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseConstellationsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseConstellationsGet:
+        """Get a list of constellations  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseConstellationsGet, Response]:
+        """Get a list of constellations  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseConstellationsGet | tuple[UniverseConstellationsGet, Response]:
         """Get a list of constellations  This route expires daily at 11:05"""
         ...
 
 class GetUniverseConstellationsConstellationIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseConstellationsConstellationIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseConstellationsConstellationIdGet:
+        """Get information on a constellation  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseConstellationsConstellationIdGet, Response]:
+        """Get information on a constellation  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseConstellationsConstellationIdGet | tuple[UniverseConstellationsConstellationIdGet, Response]:
         """Get information on a constellation  This route expires daily at 11:05"""
         ...
 
 class GetUniverseFactionsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseFactionsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseFactionsGet:
+        """Get a list of factions  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseFactionsGet, Response]:
+        """Get a list of factions  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseFactionsGet | tuple[UniverseFactionsGet, Response]:
         """Get a list of factions  This route expires daily at 11:05"""
         ...
 
 class GetUniverseGraphicsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseGraphicsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseGraphicsGet:
+        """Get a list of graphics  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseGraphicsGet, Response]:
+        """Get a list of graphics  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseGraphicsGet | tuple[UniverseGraphicsGet, Response]:
         """Get a list of graphics  This route expires daily at 11:05"""
         ...
 
 class GetUniverseGraphicsGraphicIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseGraphicsGraphicIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseGraphicsGraphicIdGet:
+        """Get information on a graphic  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseGraphicsGraphicIdGet, Response]:
+        """Get information on a graphic  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseGraphicsGraphicIdGet | tuple[UniverseGraphicsGraphicIdGet, Response]:
         """Get information on a graphic  This route expires daily at 11:05"""
         ...
 
 class GetUniverseGroupsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseGroupsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseGroupsGet:
         """Get a list of item groups  This route expires daily at 11:05"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[int]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseGroupsGet, Response]:
+        """Get a list of item groups  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseGroupsGet | tuple[UniverseGroupsGet, Response]:
+        """Get a list of item groups  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[int]:
+        """Get a list of item groups  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[int], Response]:
+        """Get a list of item groups  This route expires daily at 11:05"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[int] | tuple[list[int], Response]:
         """Get a list of item groups  This route expires daily at 11:05"""
         ...
 
@@ -1493,101 +3754,271 @@ class GetUniverseGroupsOperation(EsiOperation):
 
 class GetUniverseGroupsGroupIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseGroupsGroupIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseGroupsGroupIdGet:
+        """Get information on an item group  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseGroupsGroupIdGet, Response]:
+        """Get information on an item group  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseGroupsGroupIdGet | tuple[UniverseGroupsGroupIdGet, Response]:
         """Get information on an item group  This route expires daily at 11:05"""
         ...
 
 class GetUniverseMoonsMoonIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseMoonsMoonIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseMoonsMoonIdGet:
+        """Get information on a moon  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseMoonsMoonIdGet, Response]:
+        """Get information on a moon  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseMoonsMoonIdGet | tuple[UniverseMoonsMoonIdGet, Response]:
         """Get information on a moon  This route expires daily at 11:05"""
         ...
 
 class GetUniversePlanetsPlanetIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniversePlanetsPlanetIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniversePlanetsPlanetIdGet:
+        """Get information on a planet  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniversePlanetsPlanetIdGet, Response]:
+        """Get information on a planet  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniversePlanetsPlanetIdGet | tuple[UniversePlanetsPlanetIdGet, Response]:
         """Get information on a planet  This route expires daily at 11:05"""
         ...
 
 class GetUniverseRacesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseRacesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseRacesGet:
+        """Get a list of character races  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseRacesGet, Response]:
+        """Get a list of character races  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseRacesGet | tuple[UniverseRacesGet, Response]:
         """Get a list of character races  This route expires daily at 11:05"""
         ...
 
 class GetUniverseRegionsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseRegionsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseRegionsGet:
+        """Get a list of regions  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseRegionsGet, Response]:
+        """Get a list of regions  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseRegionsGet | tuple[UniverseRegionsGet, Response]:
         """Get a list of regions  This route expires daily at 11:05"""
         ...
 
 class GetUniverseRegionsRegionIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseRegionsRegionIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseRegionsRegionIdGet:
+        """Get information on a region  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseRegionsRegionIdGet, Response]:
+        """Get information on a region  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseRegionsRegionIdGet | tuple[UniverseRegionsRegionIdGet, Response]:
         """Get information on a region  This route expires daily at 11:05"""
         ...
 
 class GetUniverseStargatesStargateIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseStargatesStargateIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseStargatesStargateIdGet:
+        """Get information on a stargate  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseStargatesStargateIdGet, Response]:
+        """Get information on a stargate  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseStargatesStargateIdGet | tuple[UniverseStargatesStargateIdGet, Response]:
         """Get information on a stargate  This route expires daily at 11:05"""
         ...
 
 class GetUniverseStarsStarIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseStarsStarIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseStarsStarIdGet:
+        """Get information on a star  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseStarsStarIdGet, Response]:
+        """Get information on a star  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseStarsStarIdGet | tuple[UniverseStarsStarIdGet, Response]:
         """Get information on a star  This route expires daily at 11:05"""
         ...
 
 class GetUniverseStationsStationIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseStationsStationIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseStationsStationIdGet:
+        """Get information on a station  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseStationsStationIdGet, Response]:
+        """Get information on a station  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseStationsStationIdGet | tuple[UniverseStationsStationIdGet, Response]:
         """Get information on a station  This route expires daily at 11:05"""
         ...
 
 class GetUniverseStructuresOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseStructuresGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseStructuresGet:
+        """List all public structures"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseStructuresGet, Response]:
+        """List all public structures"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseStructuresGet | tuple[UniverseStructuresGet, Response]:
         """List all public structures"""
         ...
 
 class GetUniverseStructuresStructureIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseStructuresStructureIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseStructuresStructureIdGet:
+        """Returns information on requested structure if you are on the ACL. Otherwise, returns "Forbidden" for all inputs."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseStructuresStructureIdGet, Response]:
+        """Returns information on requested structure if you are on the ACL. Otherwise, returns "Forbidden" for all inputs."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseStructuresStructureIdGet | tuple[UniverseStructuresStructureIdGet, Response]:
         """Returns information on requested structure if you are on the ACL. Otherwise, returns "Forbidden" for all inputs."""
         ...
 
 class GetUniverseSystemJumpsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseSystemJumpsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseSystemJumpsGet:
+        """Get the number of jumps in solar systems within the last hour ending at the timestamp of the Last-Modified header, excluding wormhole space. Only systems with jumps will be listed"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseSystemJumpsGet, Response]:
+        """Get the number of jumps in solar systems within the last hour ending at the timestamp of the Last-Modified header, excluding wormhole space. Only systems with jumps will be listed"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseSystemJumpsGet | tuple[UniverseSystemJumpsGet, Response]:
         """Get the number of jumps in solar systems within the last hour ending at the timestamp of the Last-Modified header, excluding wormhole space. Only systems with jumps will be listed"""
         ...
 
 class GetUniverseSystemKillsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseSystemKillsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseSystemKillsGet:
+        """Get the number of ship, pod and NPC kills per solar system within the last hour ending at the timestamp of the Last-Modified header, excluding wormhole space. Only systems with kills will be listed"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseSystemKillsGet, Response]:
+        """Get the number of ship, pod and NPC kills per solar system within the last hour ending at the timestamp of the Last-Modified header, excluding wormhole space. Only systems with kills will be listed"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseSystemKillsGet | tuple[UniverseSystemKillsGet, Response]:
         """Get the number of ship, pod and NPC kills per solar system within the last hour ending at the timestamp of the Last-Modified header, excluding wormhole space. Only systems with kills will be listed"""
         ...
 
 class GetUniverseSystemsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseSystemsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseSystemsGet:
+        """Get a list of solar systems  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseSystemsGet, Response]:
+        """Get a list of solar systems  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseSystemsGet | tuple[UniverseSystemsGet, Response]:
         """Get a list of solar systems  This route expires daily at 11:05"""
         ...
 
 class GetUniverseSystemsSystemIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseSystemsSystemIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseSystemsSystemIdGet:
+        """Get information on a solar system.  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseSystemsSystemIdGet, Response]:
+        """Get information on a solar system.  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseSystemsSystemIdGet | tuple[UniverseSystemsSystemIdGet, Response]:
         """Get information on a solar system.  This route expires daily at 11:05"""
         ...
 
 class GetUniverseTypesOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseTypesGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseTypesGet:
         """Get a list of type ids  This route expires daily at 11:05"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[int]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseTypesGet, Response]:
+        """Get a list of type ids  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseTypesGet | tuple[UniverseTypesGet, Response]:
+        """Get a list of type ids  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[int]:
+        """Get a list of type ids  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[int], Response]:
+        """Get a list of type ids  This route expires daily at 11:05"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[int] | tuple[list[int], Response]:
         """Get a list of type ids  This route expires daily at 11:05"""
         ...
 
@@ -1598,65 +4029,175 @@ class GetUniverseTypesOperation(EsiOperation):
 
 class GetUniverseTypesTypeIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> UniverseTypesTypeIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseTypesTypeIdGet:
+        """Get information on a type  This route expires daily at 11:05"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[UniverseTypesTypeIdGet, Response]:
+        """Get information on a type  This route expires daily at 11:05"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> UniverseTypesTypeIdGet | tuple[UniverseTypesTypeIdGet, Response]:
         """Get information on a type  This route expires daily at 11:05"""
         ...
 
 class PostUniverseIdsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Resolve a set of names to IDs in the following categories: agents, alliances, characters, constellations, corporations factions, inventory_types, regions, stations, and systems. Only exact matches will be returned. All names searched for are cached for 12 hours"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Resolve a set of names to IDs in the following categories: agents, alliances, characters, constellations, corporations factions, inventory_types, regions, stations, and systems. Only exact matches will be returned. All names searched for are cached for 12 hours"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Resolve a set of names to IDs in the following categories: agents, alliances, characters, constellations, corporations factions, inventory_types, regions, stations, and systems. Only exact matches will be returned. All names searched for are cached for 12 hours"""
         ...
 
 class PostUniverseNamesOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Resolve a set of IDs to names and categories. Supported ID's for resolving are: Characters, Corporations, Alliances, Stations, Solar Systems, Constellations, Regions, Types, Factions"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Resolve a set of IDs to names and categories. Supported ID's for resolving are: Characters, Corporations, Alliances, Stations, Solar Systems, Constellations, Regions, Types, Factions"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Resolve a set of IDs to names and categories. Supported ID's for resolving are: Characters, Corporations, Alliances, Stations, Solar Systems, Constellations, Regions, Types, Factions"""
         ...
 
 class PostUiAutopilotWaypointOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Set a solar system as autopilot waypoint"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Set a solar system as autopilot waypoint"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Set a solar system as autopilot waypoint"""
         ...
 
 class PostUiOpenwindowContractOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Open the contract window inside the client"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Open the contract window inside the client"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Open the contract window inside the client"""
         ...
 
 class PostUiOpenwindowInformationOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Open the information window for a character, corporation or alliance inside the client"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Open the information window for a character, corporation or alliance inside the client"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Open the information window for a character, corporation or alliance inside the client"""
         ...
 
 class PostUiOpenwindowMarketdetailsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Open the market details window for a specific typeID inside the client"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Open the market details window for a specific typeID inside the client"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Open the market details window for a specific typeID inside the client"""
         ...
 
 class PostUiOpenwindowNewmailOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> Any:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any:
+        """Open the New Mail window, according to settings from the request if applicable"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Any, Response]:
+        """Open the New Mail window, according to settings from the request if applicable"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Any | tuple[Any, Response]:
         """Open the New Mail window, according to settings from the request if applicable"""
         ...
 
 class GetCharactersCharacterIdWalletOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdWalletGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdWalletGet:
+        """Returns a character's wallet balance"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdWalletGet, Response]:
+        """Returns a character's wallet balance"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdWalletGet | tuple[CharactersCharacterIdWalletGet, Response]:
         """Returns a character's wallet balance"""
         ...
 
 class GetCharactersCharacterIdWalletJournalOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdWalletJournalGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdWalletJournalGet:
         """Retrieve the given character's wallet journal going 30 days back"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CharactersCharacterIdWalletJournalGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdWalletJournalGet, Response]:
+        """Retrieve the given character's wallet journal going 30 days back"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdWalletJournalGet | tuple[CharactersCharacterIdWalletJournalGet, Response]:
+        """Retrieve the given character's wallet journal going 30 days back"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdWalletJournalGetItem]:
+        """Retrieve the given character's wallet journal going 30 days back"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CharactersCharacterIdWalletJournalGetItem], Response]:
+        """Retrieve the given character's wallet journal going 30 days back"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersCharacterIdWalletJournalGetItem] | tuple[list[CharactersCharacterIdWalletJournalGetItem], Response]:
         """Retrieve the given character's wallet journal going 30 days back"""
         ...
 
@@ -1667,23 +4208,63 @@ class GetCharactersCharacterIdWalletJournalOperation(EsiOperation):
 
 class GetCharactersCharacterIdWalletTransactionsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CharactersCharacterIdWalletTransactionsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdWalletTransactionsGet:
+        """Get wallet transactions of a character"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCharacterIdWalletTransactionsGet, Response]:
+        """Get wallet transactions of a character"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCharacterIdWalletTransactionsGet | tuple[CharactersCharacterIdWalletTransactionsGet, Response]:
         """Get wallet transactions of a character"""
         ...
 
 class GetCorporationsCorporationIdWalletsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdWalletsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdWalletsGet:
+        """Get a corporation's wallets"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdWalletsGet, Response]:
+        """Get a corporation's wallets"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdWalletsGet | tuple[CorporationsCorporationIdWalletsGet, Response]:
         """Get a corporation's wallets"""
         ...
 
 class GetCorporationsCorporationIdWalletsDivisionJournalOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdWalletsDivisionJournalGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdWalletsDivisionJournalGet:
         """Retrieve the given corporation's wallet journal for the given division going 30 days back"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[CorporationsCorporationIdWalletsDivisionJournalGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdWalletsDivisionJournalGet, Response]:
+        """Retrieve the given corporation's wallet journal for the given division going 30 days back"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdWalletsDivisionJournalGet | tuple[CorporationsCorporationIdWalletsDivisionJournalGet, Response]:
+        """Retrieve the given corporation's wallet journal for the given division going 30 days back"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdWalletsDivisionJournalGetItem]:
+        """Retrieve the given corporation's wallet journal for the given division going 30 days back"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CorporationsCorporationIdWalletsDivisionJournalGetItem], Response]:
+        """Retrieve the given corporation's wallet journal for the given division going 30 days back"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CorporationsCorporationIdWalletsDivisionJournalGetItem] | tuple[list[CorporationsCorporationIdWalletsDivisionJournalGetItem], Response]:
         """Retrieve the given corporation's wallet journal for the given division going 30 days back"""
         ...
 
@@ -1694,29 +4275,79 @@ class GetCorporationsCorporationIdWalletsDivisionJournalOperation(EsiOperation):
 
 class GetCorporationsCorporationIdWalletsDivisionTransactionsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> CorporationsCorporationIdWalletsDivisionTransactionsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdWalletsDivisionTransactionsGet:
+        """Get wallet transactions of a corporation"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CorporationsCorporationIdWalletsDivisionTransactionsGet, Response]:
+        """Get wallet transactions of a corporation"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CorporationsCorporationIdWalletsDivisionTransactionsGet | tuple[CorporationsCorporationIdWalletsDivisionTransactionsGet, Response]:
         """Get wallet transactions of a corporation"""
         ...
 
 class GetWarsOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> WarsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> WarsGet:
+        """Return a list of wars"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[WarsGet, Response]:
+        """Return a list of wars"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> WarsGet | tuple[WarsGet, Response]:
         """Return a list of wars"""
         ...
 
 class GetWarsWarIdOperation(EsiOperation):
     """EsiOperation, use result()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> WarsWarIdGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> WarsWarIdGet:
+        """Return details about a war"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[WarsWarIdGet, Response]:
+        """Return details about a war"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> WarsWarIdGet | tuple[WarsWarIdGet, Response]:
         """Return details about a war"""
         ...
 
 class GetWarsWarIdKillmailsOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> WarsWarIdKillmailsGet:
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> WarsWarIdKillmailsGet:
         """Return a list of kills related to a war"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> list[WarsWarIdKillmailsGetItem]:
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[WarsWarIdKillmailsGet, Response]:
+        """Return a list of kills related to a war"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> WarsWarIdKillmailsGet | tuple[WarsWarIdKillmailsGet, Response]:
+        """Return a list of kills related to a war"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[WarsWarIdKillmailsGetItem]:
+        """Return a list of kills related to a war"""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[WarsWarIdKillmailsGetItem], Response]:
+        """Return a list of kills related to a war"""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[WarsWarIdKillmailsGetItem] | tuple[list[WarsWarIdKillmailsGetItem], Response]:
         """Return a list of kills related to a war"""
         ...
 

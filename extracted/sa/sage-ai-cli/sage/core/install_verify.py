@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Literal
 
 
-ProjectKind = Literal["python", "node", "go", "rust", "java", "kotlin", "ruby"]
+ProjectKind = Literal["python", "node", "go", "rust", "java", "kotlin", "ruby", "swift", "dart", "cpp", "csharp"]
 
 
 @dataclass
@@ -307,11 +307,142 @@ def _verify_rust(project: DiscoveredProject) -> list[StepResult]:
     return steps
 
 
+def _verify_java(project: DiscoveredProject) -> list[StepResult]:
+    steps: list[StepResult] = []
+    root = project.root
+    
+    if (root / "pom.xml").exists():
+        if shutil.which("mvn"):
+            steps.append(run_step("mvn compile", ["mvn", "compile"], cwd=root))
+            steps.append(run_step("mvn test", ["mvn", "test"], cwd=root))
+        else:
+            steps.append(StepResult("mvn compile", False, "mvn command not found in path", 0.0, 127))
+    elif any(f.startswith("build.gradle") for f in os.listdir(root)):
+        gradlew = root / "gradlew"
+        cmd_prefix = [str(gradlew)] if gradlew.exists() else ["gradle"]
+        if gradlew.exists() and not os.access(gradlew, os.X_OK):
+            try:
+                os.chmod(gradlew, 0o755)
+            except Exception:
+                pass
+        steps.append(run_step("gradle build", cmd_prefix + ["build", "-x", "test"], cwd=root))
+        steps.append(run_step("gradle test", cmd_prefix + ["test"], cwd=root))
+    else:
+        steps.append(StepResult("java build", False, "No pom.xml or build.gradle found", 0.0, 1))
+        
+    return steps
+
+
+def _verify_kotlin(project: DiscoveredProject) -> list[StepResult]:
+    return _verify_java(project)
+
+
+def _verify_ruby(project: DiscoveredProject) -> list[StepResult]:
+    steps: list[StepResult] = []
+    root = project.root
+    
+    if shutil.which("bundle"):
+        steps.append(run_step("bundle install", ["bundle", "install"], cwd=root, timeout=600))
+        if (root / "Rakefile").exists():
+            steps.append(run_step("rake test", ["bundle", "exec", "rake", "test"], cwd=root))
+        elif (root / "spec").is_dir():
+            steps.append(run_step("rspec", ["bundle", "exec", "rspec"], cwd=root))
+        else:
+            steps.append(run_step("ruby test", ["ruby", "-Ilib:test", "test/test_*.rb"], cwd=root))
+    else:
+        steps.append(StepResult("bundle install", False, "bundle command not found in path", 0.0, 127))
+        
+    return steps
+
+
+def _verify_swift(project: DiscoveredProject) -> list[StepResult]:
+    steps: list[StepResult] = []
+    root = project.root
+    
+    if shutil.which("swift"):
+        steps.append(run_step("swift build", ["swift", "build"], cwd=root, timeout=600))
+        steps.append(run_step("swift test", ["swift", "test"], cwd=root))
+    else:
+        steps.append(StepResult("swift build", False, "swift command not found in path", 0.0, 127))
+        
+    return steps
+
+
+def _verify_dart(project: DiscoveredProject) -> list[StepResult]:
+    steps: list[StepResult] = []
+    root = project.root
+    
+    is_flutter = False
+    try:
+        pubspec = root / "pubspec.yaml"
+        if pubspec.exists():
+            content = pubspec.read_text(encoding="utf-8", errors="replace")
+            if "sdk: flutter" in content or "flutter:" in content:
+                is_flutter = True
+    except Exception:
+        pass
+        
+    tool = "flutter" if is_flutter else "dart"
+    
+    if shutil.which(tool):
+        steps.append(run_step(f"{tool} pub get", [tool, "pub", "get"], cwd=root, timeout=600))
+        steps.append(run_step(f"{tool} test", [tool, "test"], cwd=root))
+    else:
+        steps.append(StepResult(f"{tool} pub get", False, f"{tool} command not found in path", 0.0, 127))
+        
+    return steps
+
+
+def _verify_cpp(project: DiscoveredProject) -> list[StepResult]:
+    steps: list[StepResult] = []
+    root = project.root
+    
+    if (root / "CMakeLists.txt").exists():
+        build_dir = root / "build"
+        build_dir.mkdir(exist_ok=True)
+        if shutil.which("cmake"):
+            steps.append(run_step("cmake configure", ["cmake", ".."], cwd=build_dir))
+            steps.append(run_step("cmake build", ["cmake", "--build", "."], cwd=build_dir))
+            steps.append(run_step("ctest", ["ctest"], cwd=build_dir))
+        else:
+            steps.append(StepResult("cmake configure", False, "cmake command not found in path", 0.0, 127))
+    elif (root / "Makefile").exists() or (root / "makefile").exists():
+        if shutil.which("make"):
+            steps.append(run_step("make", ["make"], cwd=root))
+            steps.append(run_step("make test", ["make", "test"], cwd=root))
+        else:
+            steps.append(StepResult("make", False, "make command not found in path", 0.0, 127))
+    else:
+        steps.append(StepResult("cpp build", False, "No CMakeLists.txt or Makefile found", 0.0, 1))
+        
+    return steps
+
+
+def _verify_csharp(project: DiscoveredProject) -> list[StepResult]:
+    steps: list[StepResult] = []
+    root = project.root
+    
+    if shutil.which("dotnet"):
+        steps.append(run_step("dotnet build", ["dotnet", "build"], cwd=root, timeout=600))
+        steps.append(run_step("dotnet test", ["dotnet", "test"], cwd=root))
+    else:
+        steps.append(StepResult("dotnet build", False, "dotnet command not found in path", 0.0, 127))
+        
+    return steps
+
+
 _VERIFIERS = {
     "python": _verify_python,
     "node": _verify_node,
     "go": _verify_go,
     "rust": _verify_rust,
+    "java": _verify_java,
+    "kotlin": _verify_kotlin,
+    "ruby": _verify_ruby,
+    "swift": _verify_swift,
+    "dart": _verify_dart,
+    "cpp": _verify_cpp,
+    "csharp": _verify_csharp,
 }
 
 

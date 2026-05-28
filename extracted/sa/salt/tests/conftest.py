@@ -28,6 +28,80 @@ if os.environ.get("ONEDIR_TESTRUN", "0") == "0":
     sys.path.insert(0, str(CODE_DIR))
 
 
+def _pin_multiprocessing_fork_for_tests() -> None:
+    """
+    Python 3.14 changed the Linux default ``multiprocessing`` start method
+    from ``fork`` to ``forkserver``. Forkserver spawns a fresh interpreter
+    and pickles the target callable across; that breaks tests that pass
+    ``TestCase`` staticmethods or other non-importable callables to
+    ``multiprocessing.Process`` (the child fails with ``ModuleNotFoundError:
+    No module named 'tests'`` because pytest's dynamic ``tests/`` import
+    path is not propagated to the fresh interpreter when running under
+    ``ONEDIR_TESTRUN``). Pin the test session to ``fork`` so we keep
+    Py3.13 semantics for the test suite while production daemons get the
+    same pinning via ``salt/scripts.py``.
+
+    Linux-only on purpose: macOS and Windows have always defaulted to spawn
+    and salt-on-darwin/win is written for that. Forcing fork on Darwin
+    silently corrupts workers via libdispatch's "fork after thread init"
+    rule (symptom: minions accept jobs but never respond).
+    """
+    if not sys.platform.startswith("linux"):
+        return
+    try:
+        import multiprocessing as _mp
+    except ImportError:
+        return
+    if _mp.get_start_method(allow_none=True) is None:
+        try:
+            _mp.set_start_method("fork")
+        except (RuntimeError, ValueError):
+            pass
+
+
+_pin_multiprocessing_fork_for_tests()
+
+
+def _patch_psutil_pidfd_open_einval() -> None:
+    """
+    psutil 7.x calls ``os.pidfd_open(pid, 0)`` to wait for a process.
+    On some Linux kernels (e.g. systemd-managed daemons whose pid was
+    already reaped, or arm64 6.x boxes) ``pidfd_open`` returns ``EINVAL``
+    instead of ``ESRCH`` for a non-existent pid. psutil's
+    ``wait_pid_pidfd_open`` only falls back to the legacy ``waitpid`` path
+    for ``ESRCH``/``EMFILE``/``ENFILE``/``ENODEV`` -- ``EINVAL`` propagates
+    out of fixture teardown and shows up as ``ERROR at teardown of <test>``
+    even when the test itself was skipped or passed. Treat ``EINVAL`` the
+    same as ``ESRCH``.
+    """
+    try:
+        import errno as _errno
+
+        from psutil import _psposix
+    except ImportError:
+        return
+    # psutil <5.10 doesn't expose wait_pid_pidfd_open; nothing to patch.
+    if not hasattr(_psposix, "wait_pid_pidfd_open"):
+        return
+    if getattr(_psposix.wait_pid_pidfd_open, "_salt_einval_wrap", False):
+        return
+    original = _psposix.wait_pid_pidfd_open
+
+    def wrapper(pid, timeout=None):
+        try:
+            return original(pid, timeout)
+        except OSError as exc:
+            if exc.errno == _errno.EINVAL:
+                return _psposix.wait_pid_posix(pid, timeout)
+            raise
+
+    wrapper._salt_einval_wrap = True
+    _psposix.wait_pid_pidfd_open = wrapper
+
+
+_patch_psutil_pidfd_open_einval()
+
+
 def _remove_redundant_salt_utils_vault_py() -> None:
     """
     Onedir artifacts may contain both ``salt/utils/vault.py`` (legacy) and the
@@ -70,6 +144,7 @@ from tests.support.helpers import (
 from tests.support.pytest.helpers import *  # pylint: disable=unused-wildcard-import,wildcard-import
 from tests.support.runtests import RUNTIME_VARS
 from tests.support.sminion import check_required_sminion_attributes, create_sminion
+from tests.support.sshd_runtime import ensure_sshd_privilege_separation_directories
 
 os.environ["REPO_ROOT_DIR"] = str(CODE_DIR)
 
@@ -416,7 +491,7 @@ def set_max_open_files_limits(min_soft=3072, min_hard=4096):
         except Exception as err:  # pylint: disable=broad-except
             log.error(
                 "Failed to raise the max open files settings -> %s. Please issue the"
-                " following command on your console: 'ulimit -u %s'",
+                " following command on your console: `ulimit -n %s`",
                 err,
                 soft,
             )
@@ -843,10 +918,18 @@ def salt_factories_config():
     """
     Return a dictionary with the keyworkd arguments for FactoriesManager
     """
-    if os.environ.get("JENKINS_URL") or os.environ.get("CI"):
+    if (
+        os.environ.get("JENKINS_URL")
+        or os.environ.get("CI")
+        or os.environ.get("ONEDIR_TESTRUN") == "1"
+    ):
         start_timeout = 120
     else:
         start_timeout = 60
+
+    # Windows minion/master startup and event wiring are slower than Linux (often >120s to minion start).
+    if salt.utils.platform.is_windows():
+        start_timeout = max(start_timeout, 240)
 
     if os.environ.get("ONEDIR_TESTRUN", "0") == "1":
         code_dir = None
@@ -1436,6 +1519,11 @@ def sshd_config_dir(salt_factories):
 
 @pytest.fixture(scope="module")
 def sshd_server(salt_factories, sshd_config_dir, salt_master, grains):
+    if not shutil.which("sshd"):
+        pytest.skip(
+            "The 'sshd' binary was not found on PATH; install an OpenSSH server "
+            "package (for example openssh-server) to run SSH integration tests."
+        )
     sshd_config_dict = {
         "Protocol": "2",
         # Turn strict modes off so that we can operate in /tmp
@@ -1474,6 +1562,8 @@ def sshd_server(salt_factories, sshd_config_dir, salt_master, grains):
         "/usr/lib/ssh/sftp-server",
         # Photon OS 5
         "/usr/libexec/sftp-server",
+        # openSUSE Tumbleweed and SL Micro 6.0
+        "/usr/libexec/ssh/sftp-server",
     ]
     sftp_server_path = None
     for path in sftp_server_paths:
@@ -1487,6 +1577,7 @@ def sshd_server(salt_factories, sshd_config_dir, salt_master, grains):
         sshd_config_dict=sshd_config_dict,
         config_dir=sshd_config_dir,
     )
+    ensure_sshd_privilege_separation_directories(factory.config_dir / "sshd_config")
     with factory.started():
         yield factory
 

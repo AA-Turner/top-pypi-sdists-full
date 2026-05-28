@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rosettasciio
-Version: 0.13.0
+Version: 0.14.0
 Summary: Reading and writing scientific file formats
 License-Expression: GPL-3.0-or-later
 Project-URL: Homepage, https://hyperspy.org/rosettasciio
@@ -53,6 +53,8 @@ Requires-Dist: numba>=0.56; extra == "speed"
 Provides-Extra: tiff
 Requires-Dist: tifffile!=2026.2.24,>=2022.7.28; extra == "tiff"
 Requires-Dist: imagecodecs; extra == "tiff"
+Provides-Extra: tofwerk
+Requires-Dist: h5py>=3.7; extra == "tofwerk"
 Provides-Extra: usid
 Requires-Dist: pyUSID>=0.0.11; extra == "usid"
 Provides-Extra: zspy

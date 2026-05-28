@@ -23,7 +23,13 @@ from typing import (
     TypeVar,
 )
 
-from _crosshair_tracers import CTracer, TraceSwap, supported_opcodes  # type: ignore
+from _crosshair_tracers import (  # type: ignore
+    CTracer,
+    TraceSwap,
+    call_stack_info,
+    normalize_call_target,
+    supported_opcodes,
+)
 
 CROSSHAIR_EXTRA_ASSERTS = os.environ.get("CROSSHAIR_EXTRA_ASSERTS", "0") == "1"
 
@@ -61,115 +67,17 @@ class RawNullPointer:
 
 
 NULL_POINTER = RawNullPointer()
-CallStackInfo = (
-    Tuple[  # Information about the interpreter stack just before calling a function
-        int,  # stack index of the callable
-        Callable,  # the callable object itself
-        Optional[int],  # index of kwargs dict (if used in this call)
+_CALL_OPCODES = frozenset(
+    [
+        BUILD_TUPLE_UNPACK_WITH_CALL,
+        CALL,
+        CALL_KW,
+        CALL_FUNCTION,
+        CALL_FUNCTION_KW,
+        CALL_FUNCTION_EX,
+        CALL_METHOD,
     ]
 )
-
-
-def handle_build_tuple_unpack_with_call(frame) -> CallStackInfo:
-    idx = -(
-        frame.f_code.co_code[frame.f_lasti + 1] + 1
-    )  # TODO: account for EXTENDED_ARG, here and elsewhere
-    try:
-        return (idx, frame_stack_read(frame, idx), None)
-    except ValueError:
-        return (idx, NULL_POINTER)  # type: ignore
-
-
-def handle_call_3_11(frame) -> CallStackInfo:
-    idx = -(frame.f_code.co_code[frame.f_lasti + 1] + 1)
-    try:
-        ret = (idx - 1, frame_stack_read(frame, idx - 1), None)
-    except ValueError:
-        ret = (idx, frame_stack_read(frame, idx), None)
-    return ret
-
-
-def handle_call_3_13(frame) -> CallStackInfo:
-    idx = -(frame.f_code.co_code[frame.f_lasti + 1] + 2)
-    return (idx, frame_stack_read(frame, idx), None)
-
-
-def handle_call_function(frame) -> CallStackInfo:
-    idx = -(frame.f_code.co_code[frame.f_lasti + 1] + 1)
-    try:
-        return (idx, frame_stack_read(frame, idx), None)
-    except ValueError:
-        return (idx, NULL_POINTER)  # type: ignore
-
-
-def handle_call_function_kw(frame) -> CallStackInfo:
-    idx = -(frame.f_code.co_code[frame.f_lasti + 1] + 2)
-    try:
-        return (idx, frame_stack_read(frame, idx), None)
-    except ValueError:
-        return (idx, NULL_POINTER)  # type: ignore
-
-
-def handle_call_kw(frame) -> CallStackInfo:
-    idx = -(frame.f_code.co_code[frame.f_lasti + 1] + 3)
-    return (idx, frame_stack_read(frame, idx), None)
-
-
-def handle_call_function_ex_3_6(frame) -> CallStackInfo:
-    has_kwargs = frame.f_code.co_code[frame.f_lasti + 1] & 1
-    idx = -(has_kwargs + 2)
-    kwargs_idx = -1 if has_kwargs else None
-    try:
-        return (idx, frame_stack_read(frame, idx), kwargs_idx)
-    except ValueError:
-        return (idx, NULL_POINTER, kwargs_idx)  # type: ignore
-
-
-def handle_call_function_ex_3_13(frame) -> CallStackInfo:
-    has_kwargs = frame.f_code.co_code[frame.f_lasti + 1] & 1
-    idx = -(has_kwargs + 3)
-    kwargs_idx = -1 if has_kwargs else None
-    try:
-        return (idx, frame_stack_read(frame, idx), kwargs_idx)
-    except ValueError:
-        return (idx, NULL_POINTER, kwargs_idx)  # type: ignore
-
-
-def handle_call_function_ex_3_14(frame) -> CallStackInfo:
-    callable_idx, kwargs_idx = -4, -1
-    try:
-        return (callable_idx, frame_stack_read(frame, callable_idx), kwargs_idx)
-    except ValueError:
-        return (callable_idx, NULL_POINTER, kwargs_idx)  # type: ignore
-
-
-def handle_call_method(frame) -> CallStackInfo:
-    idx = -(frame.f_code.co_code[frame.f_lasti + 1] + 2)
-    try:
-        return (idx, frame_stack_read(frame, idx), None)
-    except ValueError:
-        # not a sucessful method lookup; no call happens here
-        idx += 1
-        return (idx, frame_stack_read(frame, idx), None)
-
-
-_CALL_HANDLERS: Dict[int, Callable[[object], CallStackInfo]] = {
-    BUILD_TUPLE_UNPACK_WITH_CALL: handle_build_tuple_unpack_with_call,
-    CALL: handle_call_3_13 if sys.version_info >= (3, 13) else handle_call_3_11,
-    CALL_KW: handle_call_kw,
-    CALL_FUNCTION: handle_call_function,
-    CALL_FUNCTION_KW: handle_call_function_kw,
-    CALL_FUNCTION_EX: (
-        handle_call_function_ex_3_14
-        if sys.version_info >= (3, 14)
-        else (
-            handle_call_function_ex_3_13
-            if sys.version_info >= (3, 13)
-            else handle_call_function_ex_3_6
-        )
-    ),
-    CALL_METHOD: handle_call_method,
-}
 
 
 class Untracable:
@@ -192,7 +100,7 @@ def check_opcode_support(opcodes: FrozenSet[int]):
         )
 
 
-check_opcode_support(frozenset(_CALL_HANDLERS.keys()))
+check_opcode_support(_CALL_OPCODES)
 
 
 wrapper_descriptor_type = type(int.__bool__)
@@ -220,7 +128,7 @@ _SELFLESS_CALLABLE_TYPES = (
 
 class TracingModule:
     # override these!:
-    opcodes_wanted = frozenset(_CALL_HANDLERS.keys())
+    opcodes_wanted = _CALL_OPCODES
 
     def __call__(self, frame, codeobj, opcodenum):
         return self.trace_op(frame, codeobj, opcodenum)
@@ -228,37 +136,17 @@ class TracingModule:
     def trace_op(self, frame, codeobj, opcodenum):
         if is_tracing():
             raise TraceException
-        call_handler = _CALL_HANDLERS.get(opcodenum)
-        if not call_handler:
+        info = call_stack_info(frame, opcodenum)
+        if info is None:
             return None
-        (fn_idx, target, kwargs_idx) = call_handler(frame)
-        binding_target = None
-
-        __self = None
-        if not isinstance(target, _SELFLESS_CALLABLE_TYPES):
-            try:
-                __self = object.__getattribute__(target, "__self__")
-            except AttributeError:
-                pass
-        if (__self is None) and (not isinstance(target, _NORMAL_CALLABLE_TYPES)):
-            try:
-                target = object.__getattribute__(target, "__call__")
-                __self = object.__getattribute__(target, "__self__")
-            except AttributeError:
-                pass
-        if __self is not None:
-            try:
-                __func = object.__getattribute__(target, "__func__")
-            except AttributeError:
-                # The implementation is likely in C.
-                # Attempt to get a function via the type:
-                typelevel_target = getattr(type(__self), target.__name__, None)
-                if typelevel_target is not None:
-                    binding_target = __self
-                    target = typelevel_target
-            else:
-                binding_target = __self
-                target = __func
+        (fn_idx, target, kwargs_idx) = info
+        if target is None:
+            target = NULL_POINTER
+        target, binding_target = normalize_call_target(
+            target,
+            _SELFLESS_CALLABLE_TYPES,
+            _NORMAL_CALLABLE_TYPES,
+        )
 
         if kwargs_idx is not None:
             try:

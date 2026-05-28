@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: securesystemslib
-Version: 1.3.1
+Version: 1.4.0
 Summary: A library that provides cryptographic and general-purpose routines for Secure Systems Lab projects at NYU
 Project-URL: Homepage, https://github.com/secure-systems-lab/securesystemslib
 Project-URL: Source, https://github.com/secure-systems-lab/securesystemslib
@@ -17,15 +17,15 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development
-Requires-Python: ~=3.8
+Requires-Python: ~=3.10
 Provides-Extra: awskms
 Requires-Dist: boto3; extra == 'awskms'
 Requires-Dist: botocore; extra == 'awskms'
@@ -46,7 +46,7 @@ Requires-Dist: pykcs11; extra == 'hsm'
 Provides-Extra: pyspx
 Requires-Dist: pyspx>=0.5.0; extra == 'pyspx'
 Provides-Extra: sigstore
-Requires-Dist: sigstore~=3.0; extra == 'sigstore'
+Requires-Dist: sigstore<5,>=4; extra == 'sigstore'
 Provides-Extra: vault
 Requires-Dist: cryptography>=40.0.0; extra == 'vault'
 Requires-Dist: hvac; extra == 'vault'

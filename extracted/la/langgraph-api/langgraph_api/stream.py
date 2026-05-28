@@ -53,6 +53,7 @@ from langgraph_api.metrics_datadog import (
 )
 from langgraph_api.schema import Run, StreamMode
 from langgraph_api.serde import json_dumpb
+from langgraph_api.stream_v2 import astream_state_v2, is_v2_messages_chunk
 from langgraph_api.utils.config import run_in_executor
 
 if TYPE_CHECKING:
@@ -201,9 +202,33 @@ async def astream_state(
     stream_mode: list[StreamMode] = kwargs.pop("stream_mode")
     feedback_keys = kwargs.pop("feedback_keys", None)
     stream_modes_set: set[StreamMode] = set(stream_mode) - {"events"}
+    # This code path runs for every run, legacy and v2. The per-run
+    # opt-in is the ``__event_streaming_v2`` configurable marker,
+    # set only by the v2 endpoints (see ``event_streaming/service.py``). Once
+    # set, the wire shape of ``messages`` events is incompatible with
+    # v1 — v2 emits a single content-block-shaped ``event_dict`` under
+    # mode ``messages``, while v1 emits ``messages/metadata`` plus
+    # ``messages/partial``/``messages/complete`` with ``BaseMessage``
+    # payloads — so the protocol contract is fixed for the lifetime
+    # of the run. ``FF_V2_EVENT_STREAMING`` gates v2 *route
+    # registration* in ``api/__init__.py``; we deliberately do not
+    # re-check it here, because downgrading a queued run mid-flight
+    # would break the v2 consumer that is already parsing v2-shaped
+    # events from the same stream.
+    event_streaming_v2_run = bool(configurable.get("__event_streaming_v2"))
+    is_remote_pregel = isinstance(graph, BaseRemotePregel)
+    if is_remote_pregel:
+        # ``"tools"`` / ``"lifecycle"`` are public StreamMode literals
+        # (``schema.py``) but the remote pregel runtime does not
+        # implement them. Strip silently so a user request like
+        # ``stream_mode=["tools", "lifecycle"]`` against a remote graph
+        # does not get forwarded as an unsupported mode list.
+        # ``capabilities.py`` documents this behavior — keep them in sync.
+        stream_modes_set.discard("tools")
+        stream_modes_set.discard("lifecycle")
     if "debug" not in stream_modes_set:
         stream_modes_set.add("debug")
-    if "messages-tuple" in stream_modes_set and not isinstance(graph, BaseRemotePregel):
+    if "messages-tuple" in stream_modes_set and not is_remote_pregel:
         stream_modes_set.remove("messages-tuple")
         stream_modes_set.add("messages")
     if "updates" not in stream_modes_set and UPDATES_NEEDED_FOR_INTERRUPTS:
@@ -220,7 +245,6 @@ async def astream_state(
     config["metadata"]["langgraph_host"] = HOST
     config["metadata"]["langgraph_api_url"] = USER_API_URL
     # attach node counter
-    is_remote_pregel = isinstance(graph, BaseRemotePregel)
     if not is_remote_pregel:
         configurable["__pregel_node_finished"] = incr_nodes
 
@@ -230,7 +254,10 @@ async def astream_state(
     # set up state
     checkpoint: CheckpointPayload | None = None
     messages: dict[str, BaseMessageChunk] = {}
-    use_astream_events = "events" in stream_mode or isinstance(graph, BaseRemotePregel)
+    use_astream_events = "events" in stream_mode or is_remote_pregel
+    use_stream_events_v3 = (
+        event_streaming_v2_run and not use_astream_events and not is_remote_pregel
+    )
     # yield metadata chunk
     yield "metadata", {"run_id": run_id, "attempt": attempt}
 
@@ -307,12 +334,21 @@ async def astream_state(
                         elif chunk["type"] == "task_result":
                             on_task_result(chunk["payload"])
                     if mode == "messages":
-                        if "messages-tuple" in stream_mode:
+                        if event_streaming_v2_run and is_v2_messages_chunk(chunk):
+                            event_dict, _meta = chunk
+                            if subgraphs and ns:
+                                yield f"messages|{'|'.join(ns)}", event_dict
+                            else:
+                                yield "messages", event_dict
+                        elif (
+                            not event_streaming_v2_run
+                            and "messages-tuple" in stream_mode
+                        ):
                             if subgraphs and ns:
                                 yield f"messages|{'|'.join(ns)}", chunk
                             else:
                                 yield "messages", chunk
-                        else:
+                        elif not event_streaming_v2_run:
                             msg_, meta = cast(
                                 "tuple[BaseMessage | dict, dict[str, Any]]", chunk
                             )
@@ -352,7 +388,14 @@ async def astream_state(
                                     )
                                 ],
                             )
-                    elif mode in stream_mode:
+                    elif mode in stream_mode or (
+                        event_streaming_v2_run and mode in stream_modes_set
+                    ):
+                        # Forward natively-emitted ``tools`` / ``lifecycle``
+                        # events for protocol v2 runs even when the client
+                        # didn't explicitly request them — the session
+                        # uses them for namespace registration and
+                        # agent.getTree ordering.
                         if subgraphs and ns:
                             yield f"{mode}|{'|'.join(ns)}", chunk
                         else:
@@ -366,12 +409,26 @@ async def astream_state(
                     ):
                         # If the interrupt doesn't have any actions (e.g. interrupt before or after a node is specified), we don't return the interrupt at all today.
                         if subgraphs and ns:
-                            yield "values|{'|'.join(ns)}", chunk
+                            yield f"values|{'|'.join(ns)}", chunk
                         else:
                             yield "values", chunk
                     # --- end shared logic with astream ---
                 elif "events" in stream_mode:
                     yield "events", event
+    elif use_stream_events_v3:
+        async for ev in astream_state_v2(
+            graph=graph,
+            input=input,
+            config=config,
+            configurable=configurable,
+            kwargs=kwargs,
+            context=context,
+            stack=stack,
+            done=done,
+            on_checkpoint=on_checkpoint,
+            on_task_result=on_task_result,
+        ):
+            yield ev
     else:
         output_keys = kwargs.pop("output_keys", graph.output_channels)
         if USE_RUNTIME_CONTEXT_API:
@@ -407,12 +464,18 @@ async def astream_state(
                     elif chunk["type"] == "task_result":
                         on_task_result(chunk["payload"])
                 if mode == "messages":
-                    if "messages-tuple" in stream_mode:
+                    if event_streaming_v2_run and is_v2_messages_chunk(chunk):
+                        event_dict, _meta = chunk
+                        if subgraphs and ns:
+                            yield f"messages|{'|'.join(ns)}", event_dict
+                        else:
+                            yield "messages", event_dict
+                    elif not event_streaming_v2_run and "messages-tuple" in stream_mode:
                         if subgraphs and ns:
                             yield f"messages|{'|'.join(ns)}", chunk
                         else:
                             yield "messages", chunk
-                    else:
+                    elif not event_streaming_v2_run:
                         msg_, meta = cast(
                             "tuple[BaseMessage | dict, dict[str, Any]]", chunk
                         )
@@ -452,7 +515,12 @@ async def astream_state(
                                 )
                             ],
                         )
-                elif mode in stream_mode:
+                elif mode in stream_mode or (
+                    event_streaming_v2_run and mode in stream_modes_set
+                ):
+                    # Forward natively-emitted ``tools`` / ``lifecycle``
+                    # events for protocol v2 runs even when the client
+                    # didn't explicitly request them.
                     if subgraphs and ns:
                         yield f"{mode}|{'|'.join(ns)}", chunk
                     else:
@@ -470,6 +538,7 @@ async def astream_state(
                     else:
                         yield "values", chunk
                 # --- end shared logic with astream_events ---
+
     if is_remote_pregel:
         # increment the remote runs
         try:

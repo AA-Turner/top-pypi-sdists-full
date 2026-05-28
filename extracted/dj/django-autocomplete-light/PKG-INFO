@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-autocomplete-light
-Version: 4.0.0
+Version: 4.0.1
 Summary: Fresh autocompletes for Django
 Author-email: James Pic <jamespic@gmail.com>
 License: MIT
@@ -50,7 +50,7 @@ Features
 - Django (multiple) choice support,
 - Django (multiple) model choice support,
 - Django generic foreign key support (through django-querysetsequence),
-- Multiple widget support: select2.js, easy to add more.
+- Multiple widget support: native web component (``dal_alight``), select2.js (``dal_select2``).
 - Creating choices that don't exist in the autocomplete,
 - Offering choices that depend on other fields in the form, in an elegant and
   innovative way,

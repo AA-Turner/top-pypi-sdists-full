@@ -11,6 +11,7 @@
 #include <libaio.h>
 
 #include <iostream>
+#include <cstdio>
 #include <cstdlib>
 #include <unordered_map>
 #include <vector>
@@ -25,6 +26,8 @@
 #include <instant_tensor/dl_binding/cuda_binding.hpp>
 #include <instant_tensor/dl_binding/cufile_binding.hpp>
 #include <instant_tensor/dl_binding/nccl_binding.hpp>
+
+namespace instanttensor {
 
 using namespace instanttensor::cuda_binding;
 using namespace instanttensor::cufile_binding;
@@ -98,24 +101,6 @@ inline std::optional<string> get_env(const string& name) {
     }
 }
 
-namespace instanttensor {
-
-inline bool _determine_use_cufile(){
-    bool ret = get_env("INSTANTTENSOR_USE_CUFILE").value_or("0") == "1";
-    if (ret) {
-        if (!cufile_binding::init()) {
-            fprintf(stderr, "cuFile not found, fallback to aio.\n");
-            ret = false;
-        }
-    }
-    return ret;
-}
-
-inline bool _env_use_cufile(){
-    static bool ret = _determine_use_cufile();
-    return ret;
-}
-
 inline bool _env_use_internal_memory_register(){
     static bool ret = get_env("INSTANTTENSOR_USE_INTERNAL_MEMORY_REGISTER").value_or("0") == "1";
     return ret;
@@ -129,6 +114,21 @@ inline bool _env_cache_buffer(){
 inline bool _env_debug() {
     static bool ret = get_env("INSTANTTENSOR_DEBUG").value_or("0") == "1";
     return ret;
+}
+
+template <typename... Args>
+inline void debug_log(const char* fmt, Args... args) {
+    if (!_env_debug()) {
+        return;
+    }
+    fprintf(stderr, "[InstantTensor][DEBUG] ");
+    if constexpr (sizeof...(args) == 0) {
+        fputs(fmt, stderr);
+    } else {
+        fprintf(stderr, fmt, args...);
+    }
+    fprintf(stderr, "\n");
+    fflush(stderr);
 }
 
 } // namespace instanttensor

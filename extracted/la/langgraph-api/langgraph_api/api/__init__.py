@@ -15,6 +15,7 @@ from starlette.routing import BaseRoute, Route
 from langgraph_api import timing
 from langgraph_api.api.a2a import a2a_routes
 from langgraph_api.api.assistants import assistants_routes
+from langgraph_api.api.event_streaming import event_streaming_routes
 from langgraph_api.api.mcp import mcp_routes
 from langgraph_api.api.meta import meta_info, meta_metrics
 from langgraph_api.api.openapi import get_openapi_spec
@@ -30,7 +31,10 @@ from langgraph_api.config import (
     LANGGRAPH_ENCRYPTION,
     MIGRATIONS_PATH,
 )
-from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
+from langgraph_api.feature_flags import (
+    FF_V2_EVENT_STREAMING,
+    IS_POSTGRES_OR_GRPC_BACKEND,
+)
 from langgraph_api.graph import js_bg_tasks
 from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.js.base import is_js_path
@@ -131,6 +135,20 @@ if HTTP_CONFIG:
         protected_routes.extend(mcp_routes)
     if not HTTP_CONFIG.get("disable_a2a"):
         protected_routes.extend(a2a_routes)
+    # ``disable_runs`` also gates event streaming because the v2 transport
+    # exposes run-creating commands (``run.start`` / ``run.cancel`` /
+    # ``run.attach`` over the WS, plus the ``/runs/{run_id}/protocol``
+    # attach route). If an operator hardens a deployment with
+    # ``disable_runs=true``, leaving event streaming open would be a
+    # backdoor that lets clients create runs anyway. ``disable_event_streaming``
+    # is the narrow knob (turn off just v2); ``disable_runs`` is the broad
+    # knob (no run-related functionality at all).
+    if (
+        FF_V2_EVENT_STREAMING
+        and not HTTP_CONFIG.get("disable_runs")
+        and not HTTP_CONFIG.get("disable_event_streaming")
+    ):
+        protected_routes.extend(event_streaming_routes)
 else:
     protected_routes.extend(assistants_routes)
     protected_routes.extend(runs_routes)
@@ -141,6 +159,8 @@ else:
     protected_routes.extend(ui_routes)
     protected_routes.extend(mcp_routes)
     protected_routes.extend(a2a_routes)
+    if FF_V2_EVENT_STREAMING:
+        protected_routes.extend(event_streaming_routes)
 
 
 def _metadata_fn(app_import: str) -> dict[str, str]:

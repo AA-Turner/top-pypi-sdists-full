@@ -159,7 +159,8 @@ class FlashAttentionForwardSm100:
         assert self.split_P_arrive % 32 == 0
         assert self.split_P_arrive < self.n_block_size
         self.arch = BaseDSL._get_dsl().get_arch_enum()
-        assert self.arch >= Arch.sm_100 and self.arch <= Arch.sm_110f, "Only SM 10.x and 11.x are supported"
+        assert self.arch.is_family_of(Arch.sm_100f) or self.arch.is_family_of(Arch.sm_110f), \
+            "Only SM 10.x and 11.x are supported"
 
         self.cta_group_size = 2 if self.use_2cta_instrs else 1
         # cta_tiler M includes only 1 CTA, the scheduler will take into account the cluster shape
@@ -185,12 +186,17 @@ class FlashAttentionForwardSm100:
         )
         self.score_mod = score_mod
         self.mask_mod = mask_mod
-        self.vec_size: cutlass.Constexpr = getattr(
+        self.score_vec_size: cutlass.Constexpr = getattr(
             score_mod, "__vec_size__", 1 if cutlass.const_expr(has_aux_tensors) else 2
         )
+        self.mask_vec_size: cutlass.Constexpr = getattr(mask_mod, "__vec_size__", 1)
         # Does S1 need to wait for S0 to finish
         # self.s0_s1_barrier = self.head_dim_padded in [64, 96] and (not self.is_causal and not self.is_local)
-        is_sm103 = self.arch >= Arch.sm_103 and self.arch <= Arch.sm_103f
+        # NOTE: is_family_of also matches any future sm_10x with x > 3 — intentional.
+        # The flag gates ex2 emulation; sm_103 (B300) has fast hardware ex2 and later
+        # Blackwell variants are assumed to inherit this, so forward-inclusion is correct
+        # despite the literal `is_sm103` name.
+        is_sm103 = self.arch.is_family_of(Arch.sm_103f)
         self.is_sm103 = is_sm103
         # enable_ex2_emu is derived: True if tuning config has freq > 0, else fallback to default logic
         _default_enable_ex2_emu = (self.head_dim_padded <= 128 or (self.head_dim_padded == 192 and self.use_2cta_instrs and not self.is_causal and not self.is_local)) and not is_sm103
@@ -772,6 +778,18 @@ class FlashAttentionForwardSm100:
             min_blocks_per_mp=1,
         )
 
+    def _generate_attention_mask_cls(self, window_size_left, window_size_right):
+        return partial(
+            AttentionMask,
+            self.m_block_size,
+            self.n_block_size,
+            window_size_left=window_size_left,
+            window_size_right=window_size_right,
+            qhead_per_kvhead_packgqa=(
+                self.qhead_per_kvhead if const_expr(self.pack_gqa) else 1
+            ),
+        )
+
     #  GPU device kernel
     @cute.kernel
     def kernel(
@@ -1060,13 +1078,8 @@ class FlashAttentionForwardSm100:
                 blocksparse_tensors.cu_block_idx_offsets if blocksparse_tensors is not None else None
             ),
         )
-        AttentionMaskCls = partial(
-            AttentionMask,
-            self.m_block_size,
-            self.n_block_size,
-            window_size_left=window_size_left,
-            window_size_right=window_size_right,
-            qhead_per_kvhead_packgqa=self.qhead_per_kvhead if const_expr(self.pack_gqa) else 1,
+        AttentionMaskCls = self._generate_attention_mask_cls(
+            window_size_left, window_size_right
         )
         # Cluster wait before tensor memory alloc
         pipeline_init_wait(cluster_shape_mn=cta_layout_vmnk)
@@ -1948,6 +1961,7 @@ class FlashAttentionForwardSm100:
                 batch_idx=batch_idx,
                 head_idx=head_idx,
                 aux_tensors=aux_tensors,
+                vec_size=self.mask_vec_size,
             )
 
             # Recompute fastdiv_mods if necessary
@@ -3120,7 +3134,7 @@ class FlashAttentionForwardSm100:
             batch_idx,
             head_idx,
             softmax.softmax_scale,
-            self.vec_size,
+            self.score_vec_size,
             self.qk_acc_dtype,
             aux_tensors,
             fastdiv_mods,

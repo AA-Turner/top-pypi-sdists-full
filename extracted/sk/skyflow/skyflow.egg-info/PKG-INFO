@@ -1,25 +1,25 @@
 Metadata-Version: 2.4
 Name: skyflow
-Version: 2.1.0
+Version: 2.1.1
 Summary: Skyflow SDK for the Python programming language
 Home-page: https://github.com/skyflowapi/skyflow-python/
 Author: Skyflow
 Author-email: service-ops@skyflow.com
 License: LICENSE
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: python_dateutil>=2.5.3
 Requires-Dist: setuptools>=75.3.3
-Requires-Dist: urllib3<=2.6.3,>=1.25.3
+Requires-Dist: urllib3<3,>=1.25.3
 Requires-Dist: pydantic>=2
 Requires-Dist: typing-extensions>=4.7.1
 Requires-Dist: DateTime~=5.5
-Requires-Dist: PyJWT~=2.9.0
+Requires-Dist: PyJWT<3,>=2.12
 Requires-Dist: requests~=2.32.3
 Requires-Dist: coverage
 Requires-Dist: cryptography
-Requires-Dist: python-dotenv~=1.0.1
+Requires-Dist: python-dotenv<2,>=1.0
 Requires-Dist: httpx
 Provides-Extra: dev
 Requires-Dist: codespell; extra == "dev"

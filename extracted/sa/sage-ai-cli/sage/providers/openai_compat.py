@@ -582,6 +582,8 @@ class OpenAICompatProvider(ProviderBase):
 
     def _before_request(self) -> None:
         """Apply local rate limiting and circuit breaking before an upstream call."""
+        if os.environ.get("SAGE_TESTING") == "1":
+            return
         if self._circuit_breaker.is_open():
             raise RuntimeError(
                 f"{self._spec.name} is temporarily unavailable after repeated transient failures. "

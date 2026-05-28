@@ -8,8 +8,8 @@ class ListS3IngestionsRequest(DaraModel):
     def __init__(
         self,
         logstore: str = None,
-        offset: str = None,
-        size: str = None,
+        offset: int = None,
+        size: int = None,
     ):
         self.logstore = logstore
         self.offset = offset

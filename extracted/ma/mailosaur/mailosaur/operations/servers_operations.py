@@ -6,7 +6,9 @@ from ..models import Server
 from ..models import MailosaurException
 
 class ServersOperations(object):
-    """ServersOperations operations.
+    """Operations for creating and managing your Mailosaur inboxes (servers) - they
+    group your tests together, each with its own domain and
+    SMTP/POP3/IMAP credentials. Accessed via ``client.servers``.
     """
 
     def __init__(self, session, base_url, handle_http_error):
@@ -15,20 +17,25 @@ class ServersOperations(object):
         self.handle_http_error = handle_http_error
 
     def generate_email_address(self, server):
+        """Generates a random email address by appending a random string in front of
+        the domain name of the inbox (server).
+
+        :param server: The identifier of the inbox (server).
+        :type server: str
+        :return: A random email address ending in the domain of the inbox (server).
+        :rtype: str
+        """
         host = os.getenv('MAILOSAUR_SMTP_HOST', 'mailosaur.net')
         randomString = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
         return "%s@%s.%s" % (randomString, server, host)
 
     def list(self):
-        """List all servers.
+        """Returns a list of your inboxes (servers).
 
-        Returns a list of your virtual SMTP servers. Servers are returned
-        sorted in alphabetical order.
+        Inboxes (servers) are returned sorted in alphabetical order.
 
-        :return: ServerListResult
+        :return: A result containing your inboxes (servers).
         :rtype: ~mailosaur.models.ServerListResult
-        :raises:
-         :class:`MailosaurException<mailosaur.models.MailosaurException>`
         """
         url = "%sapi/servers" % (self.base_url)
         response = self.session.get(url)
@@ -42,16 +49,12 @@ class ServersOperations(object):
         return ServerListResult(data)
 
     def create(self, server_create_options):
-        """Create a server.
+        """Creates a new inbox (server).
 
-        Creates a new virtual SMTP server and returns it.
-
-        :param server_create_options:
+        :param server_create_options: Options used to create a new Mailosaur inbox (server).
         :type server_create_options: ~mailosaur.models.ServerCreateOptions
-        :return: Server
+        :return: The newly-created inbox (server).
         :rtype: ~mailosaur.models.Server
-        :raises:
-         :class:`MailosaurException<mailosaur.models.MailosaurException>`
         """
         url = "%sapi/servers" % (self.base_url)
         response = self.session.post(url, json=server_create_options.to_json())
@@ -65,17 +68,12 @@ class ServersOperations(object):
         return Server(data)
 
     def get(self, id):
-        """Retrieve a server.
+        """Retrieves the detail for a single inbox (server).
 
-        Retrieves the detail for a single server. Simply supply the unique
-        identifier for the required server.
-
-        :param id: The identifier of the server to be retrieved.
-        :type id: str        
-        :return: Server
+        :param id: The unique identifier of the inbox (server).
+        :type id: str
+        :return: The inbox (server).
         :rtype: ~mailosaur.models.Server
-        :raises:
-         :class:`MailosaurException<mailosaur.models.MailosaurException>`
         """
         url = "%sapi/servers/%s" % (self.base_url, id)
         response = self.session.get(url)
@@ -89,17 +87,14 @@ class ServersOperations(object):
         return Server(data)
 
     def get_password(self, id):
-        """Retrieve server password.
+        """Retrieves the password for an inbox (server).
 
-        Retrieves the password for use with SMTP and POP3 for a single server. 
-        Simply supply the unique identifier for the required server.
+        This password can be used for SMTP, POP3, and IMAP connectivity.
 
-        :param id: The identifier of the server.
+        :param id: The unique identifier of the inbox (server).
         :type id: str
-        :return: str
+        :return: The password for the inbox (server).
         :rtype: str
-        :raises:
-         :class:`MailosaurException<mailosaur.models.MailosaurException>`
         """
         url = "%sapi/servers/%s/password" % (self.base_url, id)
         response = self.session.get(url)
@@ -114,19 +109,14 @@ class ServersOperations(object):
 
     def update(
             self, id, server):
-        """Update a server.
+        """Updates the attributes of an inbox (server).
 
-        Updats a single server and returns it.
-
-        :param id: The identifier of the server to be updated.
+        :param id: The unique identifier of the inbox (server).
         :type id: str
-        :param server:
+        :param server: The updated inbox (server).
         :type server: ~mailosaur.models.Server
-        :param dict custom_headers: headers that will be added to the request
-        :return: Server
+        :return: The updated inbox (server).
         :rtype: ~mailosaur.models.Server
-        :raises:
-         :class:`MailosaurException<mailosaur.models.MailosaurException>`
         """
         url = "%sapi/servers/%s" % (self.base_url, id)
         response = self.session.put(url, json=server.to_json())
@@ -141,17 +131,15 @@ class ServersOperations(object):
 
     def delete(
             self, id):
-        """Delete a server.
+        """Permanently delete an inbox (server).
 
-        Permanently deletes a server. This operation cannot be undone. Also
-        deletes all messages and associated attachments within the server.
+        This will also delete all messages, associated attachments, etc. within
+        the inbox (server). This operation cannot be undone.
 
-        :param id: The identifier of the server to be deleted.
-        :type id: str        
+        :param id: The unique identifier of the inbox (server).
+        :type id: str
         :return: None
         :rtype: None
-        :raises:
-         :class:`MailosaurException<mailosaur.models.MailosaurException>`
         """
         url = "%sapi/servers/%s" % (self.base_url, id)
         response = self.session.delete(url)

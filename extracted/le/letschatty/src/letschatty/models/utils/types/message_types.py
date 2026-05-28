@@ -35,7 +35,7 @@ class MessageType(StrEnum):
 
     @staticmethod
     def uncontrolled_messages():
-        return [MessageType.INTERACTIVE, MessageType.REACTION]
+        return [MessageType.INTERACTIVE]
 
     @staticmethod
     def controlled_messages():

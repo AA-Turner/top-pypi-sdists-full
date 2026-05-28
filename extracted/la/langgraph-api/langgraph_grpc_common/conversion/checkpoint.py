@@ -74,7 +74,10 @@ def checkpoint_to_proto(checkpoint: Checkpoint) -> engine_common_pb2.Checkpoint:
         checkpoint_proto.versions_seen[node].channel_versions.update(
             {k: str(v) for k, v in versions_dict.items()}
         )
-    checkpoint_proto.updated_channels.extend(checkpoint["updated_channels"])
+    # Checkpoint.updated_channels is `list[str] | None` and NotRequired in some
+    # langgraph versions. update_state(values=..., as_node=None) on a thread
+    # with no prior checkpoint produces None, which would crash extend().
+    checkpoint_proto.updated_channels.extend(checkpoint.get("updated_channels") or ())
     for k, v in checkpoint["channel_values"].items():
         if isinstance(v, Send):
             checkpoint_proto.channel_values[k].CopyFrom(

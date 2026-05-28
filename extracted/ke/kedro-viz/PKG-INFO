@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro-viz
-Version: 12.3.0
+Version: 12.4.0
 Summary: Kedro-Viz helps visualise Kedro data and analytics pipelines
 Project-URL: Homepage, https://kedro.org
 Project-URL: Source, https://github.com/kedro-org/kedro-viz

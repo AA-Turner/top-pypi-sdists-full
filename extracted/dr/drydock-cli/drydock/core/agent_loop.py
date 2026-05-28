@@ -223,6 +223,10 @@ class AgentLoop:
         # Circuit breaker: track tool call signatures to prevent exact repeats
         # Key: hash(tool_name + args), Value: (count, last_result_snippet)
         self._tool_call_history: dict[str, tuple[int, str]] = {}
+        # File mtime at time of last cached read, per signature. Used by
+        # _circuit_breaker_check to invalidate cached read_file results
+        # when the file has changed under us (model edited then re-reads).
+        self._tool_call_file_mtime: dict[str, float] = {}
         self._consecutive_circuit_breaker_fires: int = 0
         self._empty_responses: int = 0
         self._successful_test_runs: int = 0
@@ -2055,6 +2059,14 @@ class AgentLoop:
         fire at 3 but the model ignores them):
           search_replace, write_file, bash: after 8 identical calls
           read_file, grep, glob, ls: after 5 identical calls
+
+        File-mutation reset (2026-05-27): for `read_file`, if the file's
+        mtime has advanced since the last cached call, drop the count to
+        0 so the read goes through fresh. Without this, a model that
+        edits a file then re-reads it gets the stale pre-edit content
+        and goes in circles. Observed in /data3/slides session where
+        planner/llm.py was re-read 12× across edits and the breaker
+        kept returning the original (pre-edit) content.
         """
         args_str = json.dumps(tool_call.args_dict, sort_keys=True, default=str)
         sig = hashlib.sha256(
@@ -2063,6 +2075,32 @@ class AgentLoop:
         count, last_result = self._tool_call_history.get(sig, (0, ""))
         tool_name = tool_call.tool_name
         is_readonly = tool_name in ("grep", "read_file", "glob", "ls")
+
+        # File-mutation reset for read_file. If the target file's mtime
+        # is newer than when we cached this signature, treat the call as
+        # fresh — the cached content is now stale.
+        if tool_name == "read_file" and count > 0:
+            try:
+                from pathlib import Path as _Path
+                path_arg = (
+                    tool_call.args_dict.get("path")
+                    or tool_call.args_dict.get("file_path")
+                    or tool_call.args_dict.get("filename")
+                )
+                if path_arg:
+                    p = _Path(path_arg)
+                    if not p.is_absolute():
+                        p = _Path(self.cwd) / p
+                    cur_mtime = p.stat().st_mtime if p.is_file() else 0.0
+                    cached_mtime = self._tool_call_file_mtime.get(sig, 0.0)
+                    if cur_mtime > cached_mtime + 0.001:  # 1ms tolerance
+                        # File changed — reset count so the read happens.
+                        self._tool_call_history.pop(sig, None)
+                        self._tool_call_file_mtime[sig] = cur_mtime
+                        return None
+            except (OSError, AttributeError):
+                pass  # best-effort — fall through to normal threshold check
+
         threshold = 5 if is_readonly else 8
         if count < threshold:
             return None
@@ -2154,6 +2192,24 @@ class AgentLoop:
         is_readonly = tool_name in ("grep", "read_file", "glob", "ls")
         store_limit = 2000 if is_readonly else 500
         self._tool_call_history[sig] = (count + 1, result_text[:store_limit])
+        # Stamp the file's current mtime so a future re-read can detect
+        # mutation and bypass the circuit breaker. See _circuit_breaker_check.
+        if tool_name == "read_file":
+            try:
+                from pathlib import Path as _Path
+                path_arg = (
+                    tool_call.args_dict.get("path")
+                    or tool_call.args_dict.get("file_path")
+                    or tool_call.args_dict.get("filename")
+                )
+                if path_arg:
+                    p = _Path(path_arg)
+                    if not p.is_absolute():
+                        p = _Path(self.cwd) / p
+                    if p.is_file():
+                        self._tool_call_file_mtime[sig] = p.stat().st_mtime
+            except (OSError, AttributeError):
+                pass
 
     async def _process_one_tool_call(
         self, tool_call: ResolvedToolCall
@@ -3859,6 +3915,19 @@ class AgentLoop:
                         "removed '%s' from available_tools for 1 turn "
                         "(%d → %d tools). Model must diversify.",
                         hot_tool_name, hot_path[:50], hot_tool_name, before, after,
+                    )
+                    # Inject a note so the model understands WHY the tool
+                    # is gone — without context it silently retries on the
+                    # next turn as soon as the tool reappears.
+                    path_hint = hot_path[:80] if hot_path else "?"
+                    self._inject_system_note(
+                        f"LOOP DETECTED: `{hot_tool_name}` was called with "
+                        f"identical arguments 3+ times in a row "
+                        f"(path/cmd: {path_hint!r}). "
+                        f"`{hot_tool_name}` is temporarily unavailable this turn. "
+                        f"Do NOT retry the same call. Instead: summarize what you "
+                        f"were trying to accomplish and take a different approach, "
+                        f"or end your turn with a text summary so the user can guide next steps."
                     )
             else:
                 # No specific tool+path hot-combo — fall back to text-only.

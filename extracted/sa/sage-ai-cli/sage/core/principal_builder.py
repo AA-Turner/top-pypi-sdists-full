@@ -358,6 +358,20 @@ def _restore_snapshot(snapshot_path: Path, out_dir: Path, log: "ProgressFn") -> 
         return False
 
 
+def _clean_ansi(obj):
+    import re
+    if isinstance(obj, str):
+        text = re.sub(r'\x1b\[[0-9;]*[mGKHFABCDEJst]', '', obj)
+        text = re.sub(r'\x1b\].*?\x07', '', text)
+        text = re.sub(r'\x1b[()][AB012]?', '', text)
+        return text.replace('\x1b', '')
+    if isinstance(obj, dict):
+        return {k: _clean_ansi(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean_ansi(x) for x in obj]
+    return obj
+
+
 def build_project_principal(
     task: str,
     out_dir: Path,
@@ -521,8 +535,7 @@ def _build_project_principal_inner(
     # we'll replace those with feature_files below.
     layout_slots = [s for s in layout.files if s.feature is None]
 
-    # Write deterministic-template files first (gitignore, ci, README,
-    # env.example, docker-compose, etc.)
+    # Do NOT write template files directly anymore, treat them as pending slots so they are dynamically generated.
     _DEP_FILES = {
         "backend/requirements.txt",
         "backend/pyproject.toml",
@@ -532,13 +545,8 @@ def _build_project_principal_inner(
     for slot in layout_slots:
         if slot.path in _DEP_FILES:
             continue
-        if slot.template is not None:
-            target = out_dir / slot.path
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(slot.template, encoding="utf-8")
-            continue
         pending_slots.append(slot)
-    log(f"      wrote {len(layout_slots) - len(pending_slots) - len(_DEP_FILES)} root template files")
+    log(f"      routed {len(layout_slots) - len(_DEP_FILES)} root files for generation")
 
     # ── 3. Resolve deps ──
     log("[3/8] resolving dependencies...")
@@ -605,11 +613,6 @@ def _build_project_principal_inner(
     _skipped_existing = 0
     for slot in all_slots:
         target_path = out_dir / slot.path
-        if slot.template is not None:
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            if not target_path.exists():
-                target_path.write_text(slot.template, encoding="utf-8")
-            continue
         # RESUME: if the file already has substantial content, skip regeneration.
         # Empty/stub files (< 50 bytes) get regenerated; real files are kept.
         if target_path.exists() and target_path.stat().st_size > 50:
@@ -870,7 +873,7 @@ def _build_project_principal_inner(
     )
 
     (sage_dir / "BUILD_REPORT.json").write_text(
-        json.dumps(report.as_dict(), indent=2),
+        json.dumps(_clean_ansi(report.as_dict()), indent=2),
         encoding="utf-8",
     )
 

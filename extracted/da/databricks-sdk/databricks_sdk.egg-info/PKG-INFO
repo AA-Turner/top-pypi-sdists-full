@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-sdk
-Version: 0.111.0
+Version: 0.112.0
 Summary: Databricks SDK for Python (Beta)
 Project-URL: Documentation, https://databricks-sdk-py.readthedocs.io
 Keywords: databricks,sdk
@@ -26,10 +26,8 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-xdist<4.0,>=3.6.1; extra == "dev"
 Requires-Dist: pytest-mock; extra == "dev"
-Requires-Dist: black==24.8.0; extra == "dev"
+Requires-Dist: ruff==0.5.6; extra == "dev"
 Requires-Dist: pycodestyle; extra == "dev"
-Requires-Dist: autoflake==2.3.1; extra == "dev"
-Requires-Dist: isort==5.13.2; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
 Requires-Dist: ipython; extra == "dev"
 Requires-Dist: ipywidgets; extra == "dev"

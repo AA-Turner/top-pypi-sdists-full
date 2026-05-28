@@ -85,6 +85,7 @@ from .literals import (
     ClusterConfigModeType,
     ClusterEventLevelType,
     ClusterEventResourceTypeType,
+    ClusterFSxLustreDeletionPolicyType,
     ClusterImageVersionStatusType,
     ClusterInstanceStatusType,
     ClusterInstanceTypeType,
@@ -608,7 +609,11 @@ __all__ = (
     "ClusterOrchestratorTypeDef",
     "ClusterRestrictedInstanceGroupDetailsTypeDef",
     "ClusterRestrictedInstanceGroupSpecificationTypeDef",
+    "ClusterRestrictedInstanceGroupsConfigOutputTypeDef",
+    "ClusterRestrictedInstanceGroupsConfigTypeDef",
     "ClusterSchedulerConfigSummaryTypeDef",
+    "ClusterSharedEnvironmentConfigDetailsTypeDef",
+    "ClusterSharedEnvironmentConfigTypeDef",
     "ClusterSlurmConfigDetailsTypeDef",
     "ClusterSlurmConfigTypeDef",
     "ClusterSummaryTypeDef",
@@ -3061,6 +3066,11 @@ class ClusterSchedulerConfigSummaryTypeDef(TypedDict):
     ClusterArn: NotRequired[str]
 
 
+class FSxLustreConfigTypeDef(TypedDict):
+    SizeInGiB: int
+    PerUnitStorageThroughput: int
+
+
 class ClusterSummaryTypeDef(TypedDict):
     ClusterArn: str
     ClusterName: str
@@ -4545,6 +4555,7 @@ class ReservedCapacitySummaryTypeDef(TypedDict):
     UltraServerType: NotRequired[str]
     UltraServerCount: NotRequired[int]
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     DurationHours: NotRequired[int]
     DurationMinutes: NotRequired[int]
     StartTime: NotRequired[datetime]
@@ -4801,11 +4812,6 @@ class EndpointSummaryTypeDef(TypedDict):
     CreationTime: datetime
     LastModifiedTime: datetime
     EndpointStatus: EndpointStatusType
-
-
-class FSxLustreConfigTypeDef(TypedDict):
-    SizeInGiB: int
-    PerUnitStorageThroughput: int
 
 
 class EnvironmentParameterTypeDef(TypedDict):
@@ -7870,6 +7876,27 @@ class ListClusterSchedulerConfigsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ClusterSharedEnvironmentConfigDetailsTypeDef(TypedDict):
+    CurrentFSxLustreConfig: NotRequired[FSxLustreConfigTypeDef]
+    DesiredFSxLustreConfig: NotRequired[FSxLustreConfigTypeDef]
+    CurrentFSxLustreDeletionPolicy: NotRequired[ClusterFSxLustreDeletionPolicyType]
+    DesiredFSxLustreDeletionPolicy: NotRequired[ClusterFSxLustreDeletionPolicyType]
+
+
+class ClusterSharedEnvironmentConfigTypeDef(TypedDict):
+    FSxLustreDeletionPolicy: ClusterFSxLustreDeletionPolicyType
+    FSxLustreConfig: FSxLustreConfigTypeDef
+
+
+class EnvironmentConfigDetailsTypeDef(TypedDict):
+    FSxLustreConfig: NotRequired[FSxLustreConfigTypeDef]
+    S3OutputPath: NotRequired[str]
+
+
+class EnvironmentConfigTypeDef(TypedDict):
+    FSxLustreConfig: NotRequired[FSxLustreConfigTypeDef]
+
+
 class ListClustersResponseTypeDef(TypedDict):
     ClusterSummaries: list[ClusterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -10504,15 +10531,6 @@ class ListEndpointsOutputTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class EnvironmentConfigDetailsTypeDef(TypedDict):
-    FSxLustreConfig: NotRequired[FSxLustreConfigTypeDef]
-    S3OutputPath: NotRequired[str]
-
-
-class EnvironmentConfigTypeDef(TypedDict):
-    FSxLustreConfig: NotRequired[FSxLustreConfigTypeDef]
-
-
 class ModelConfigurationTypeDef(TypedDict):
     InferenceSpecificationName: NotRequired[str]
     EnvironmentParameters: NotRequired[list[EnvironmentParameterTypeDef]]
@@ -11772,6 +11790,14 @@ class ListClusterNodesResponseTypeDef(TypedDict):
     ClusterNodeSummaries: list[ClusterNodeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ClusterRestrictedInstanceGroupsConfigOutputTypeDef(TypedDict):
+    SharedEnvironmentConfig: ClusterSharedEnvironmentConfigDetailsTypeDef
+
+
+class ClusterRestrictedInstanceGroupsConfigTypeDef(TypedDict):
+    SharedEnvironmentConfig: ClusterSharedEnvironmentConfigTypeDef
 
 
 CodeEditorAppImageConfigUnionTypeDef = Union[
@@ -14960,6 +14986,7 @@ class DescribeClusterResponseTypeDef(TypedDict):
     FailureMessage: str
     InstanceGroups: list[ClusterInstanceGroupDetailsTypeDef]
     RestrictedInstanceGroups: list[ClusterRestrictedInstanceGroupDetailsTypeDef]
+    RestrictedInstanceGroupsConfig: ClusterRestrictedInstanceGroupsConfigOutputTypeDef
     VpcConfig: VpcConfigOutputTypeDef
     Orchestrator: ClusterOrchestratorTypeDef
     TieredStorageConfig: ClusterTieredStorageConfigTypeDef
@@ -15461,6 +15488,7 @@ class CreateClusterRequestTypeDef(TypedDict):
     RestrictedInstanceGroups: NotRequired[
         Sequence[ClusterRestrictedInstanceGroupSpecificationTypeDef]
     ]
+    RestrictedInstanceGroupsConfig: NotRequired[ClusterRestrictedInstanceGroupsConfigTypeDef]
     VpcConfig: NotRequired[VpcConfigUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
@@ -15477,6 +15505,7 @@ class UpdateClusterRequestTypeDef(TypedDict):
     RestrictedInstanceGroups: NotRequired[
         Sequence[ClusterRestrictedInstanceGroupSpecificationTypeDef]
     ]
+    RestrictedInstanceGroupsConfig: NotRequired[ClusterRestrictedInstanceGroupsConfigTypeDef]
     TieredStorageConfig: NotRequired[ClusterTieredStorageConfigTypeDef]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
     InstanceGroupsToDelete: NotRequired[Sequence[str]]

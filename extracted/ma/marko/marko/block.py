@@ -45,6 +45,8 @@ class BlockElement(Element):
     inline_body: str = ""
     #: If true, will replace the element which it derives from.
     override = False
+    #: If true, the element can break (end) a Paragraph block.
+    breaks_paragraph = False
     _prefix = ""
 
     @classmethod
@@ -86,6 +88,7 @@ class BlankLine(BlockElement):
     """Blank lines"""
 
     priority = 5
+    breaks_paragraph = True
 
     def __init__(self, start: int) -> None:
         self._anchor = start
@@ -111,6 +114,7 @@ class Heading(BlockElement):
         r" {0,3}(#{1,6})((?=\s)[^\n]*?|[^\n\S]*)(?:(?<=\s)(?<!\\)#+)?[^\n\S]*$\n?",
         flags=re.M,
     )
+    breaks_paragraph = True
 
     def __init__(self, match: Match[str]) -> None:
         self.level = len(match.group(1))
@@ -207,6 +211,7 @@ class FencedCode(BlockElement):
 
     priority = 7
     pattern = re.compile(r"( {,3})(`{3,}|~{3,})[^\n\S]*(.*?)$", re.M)
+    breaks_paragraph = True
 
     class ParseInfo(NamedTuple):
         prefix: str
@@ -357,11 +362,10 @@ class Paragraph(BlockElement):
         parser = source.parser
         prev_match = source.match
         try:
+            elements = parser.block_elements.values()
+            breaking_elements = [element for element in elements if element.breaks_paragraph]
             if (
-                parser.block_elements["Quote"].match(source)
-                or parser.block_elements["Heading"].match(source)
-                or parser.block_elements["BlankLine"].match(source)
-                or parser.block_elements["FencedCode"].match(source)
+                any(element.match(source) for element in breaking_elements)
             ):
                 return True
             if (
@@ -389,7 +393,7 @@ class Paragraph(BlockElement):
 
     @classmethod
     def parse(cls, source: Source) -> list[str] | SetextHeading:
-        lines = [cast(str, source.next_line())]
+        lines = [source.next_line()]
         source.consume()
         end_parse = False
         while not source.exhausted and not end_parse:
@@ -428,6 +432,7 @@ class Quote(BlockElement):
     """block quote element: (> hello world)"""
 
     priority = 6
+    breaks_paragraph = True
     _prefix = r" {,3}>[^\n\S]?"
 
     @classmethod
@@ -542,7 +547,7 @@ class ListItem(BlockElement):
             return False
         if not source.expect_re(cls.pattern):
             return False
-        next_line = cast(str, source.next_line(False)).expandtabs(4)
+        next_line = source.next_line(False).expandtabs(4)
         prefix_pos = 0
         m = re.match(source.prefix, next_line)
         if m is not None:
@@ -566,9 +571,9 @@ class ListItem(BlockElement):
         state = cls(source.context.list_item_info)
         state.children = []
         with source.under_state(state):
-            if not source.next_line().strip():  # type: ignore[union-attr]
+            if not source.next_line().strip():
                 source.consume()
-                if not source.next_line() or not source.next_line().strip():  # type: ignore[union-attr]
+                if not source.next_line() or not source.next_line().strip():
                     return state
             state.children = source.parser.parse_source(source)
         if isinstance(state.children[-1], BlankLine):

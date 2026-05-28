@@ -22,7 +22,7 @@ quote-style = "preserve"
 "tests/*.py" = "py38"
 "datarobot/auth/*.py" = "py39"
 "datarobot/core/*.py" = "py38"
-"datarobot/fs/*.py" = "py38"
+"datarobot/fs/*.py" = "py39"
 "sdk_docs/*.py" = "py311"
 
 [tool.ruff.lint]

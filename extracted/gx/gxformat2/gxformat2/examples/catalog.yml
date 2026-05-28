@@ -412,6 +412,61 @@
     - tests/test_basic.py
     - tests/test_interop_tests.py
 
+- file: format2/synthetic-text-restrictions.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-text-restrictions-options.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-text-suggestions.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-text-restrict-on-connections.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-bad-restrictions-on-data.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-bad-column-defs-on-list.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-bad-column-default-mismatch.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-record-input.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_basic.py
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-bad-fields-on-list.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
 - file: format2/synthetic-comments-dict.gxwf.yml
   origin: synthetic
   format: format2
@@ -615,5 +670,53 @@
   origin: synthetic
   format: format2
   description: List-form steps without labels — triggers "no label" warning.
+  tests:
+    - tests/test_interop_tests.py
+
+# --- schema-vs-codegen mismatches (issue #205) ---
+
+- file: format2/synthetic-int-link.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: $link value as a YAML integer; coerced to str during source resolution.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-multisource-bare-list.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: "Dict-form in: value as a bare list of source references (mapPredicate shorthand for multi-source)."
+  tests:
+    - tests/test_interop_tests.py
+
+# --- post_job_actions fixtures (issue #206) ---
+
+- file: format2/synthetic-step-post-job-actions.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Step-level explicit post_job_actions map (ValidateOutputsAction).
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-step-post-job-actions-merged.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Step has both out:-shorthand and explicit post_job_actions; both flow to native.
+  tests:
+    - tests/test_interop_tests.py
+
+# --- step-input default fixtures (issue #207) ---
+
+- file: format2/synthetic-step-input-default-scalar.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: "Tool step with scalar tool-state defaults via in/param/default."
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-step-input-default-file.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: "Tool step with an inline File-class default via in/input1/default."
   tests:
     - tests/test_interop_tests.py

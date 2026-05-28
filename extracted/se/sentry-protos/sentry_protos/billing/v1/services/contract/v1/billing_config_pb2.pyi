@@ -139,10 +139,15 @@ class BillingConfig(google.protobuf.message.Message):
     ADDRESS_FIELD_NUMBER: builtins.int
     CONTRACT_START_DATE_FIELD_NUMBER: builtins.int
     CONTRACT_END_DATE_FIELD_NUMBER: builtins.int
+    MONTH_INTERVAL_FIELD_NUMBER: builtins.int
     billing_type: global___BillingType.ValueType
     channel: global___BillingChannel.ValueType
     """Remaining fields are deprecated"""
     external_billing_provider: global___ExternalBillingProvider.ValueType
+    month_interval: builtins.int
+    """The number-of-months interval the contract was signed under
+    (1 = monthly, 12 = annual). Frozen for the life of the contract.
+    """
     @property
     def address(self) -> global___Address: ...
     @property
@@ -160,8 +165,9 @@ class BillingConfig(google.protobuf.message.Message):
         address: global___Address | None = ...,
         contract_start_date: global___Date | None = ...,
         contract_end_date: global___Date | None = ...,
+        month_interval: builtins.int = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["address", b"address", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["address", b"address", "billing_type", b"billing_type", "channel", b"channel", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "external_billing_provider", b"external_billing_provider"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["address", b"address", "billing_type", b"billing_type", "channel", b"channel", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "external_billing_provider", b"external_billing_provider", "month_interval", b"month_interval"]) -> None: ...
 
 global___BillingConfig = BillingConfig

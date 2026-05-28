@@ -92,6 +92,7 @@ __all__ = (
     "ClusterConfigModeType",
     "ClusterEventLevelType",
     "ClusterEventResourceTypeType",
+    "ClusterFSxLustreDeletionPolicyType",
     "ClusterImageVersionStatusType",
     "ClusterInstanceStatusType",
     "ClusterInstanceTypeType",
@@ -533,6 +534,7 @@ AIRecommendationInstanceTypeType = Literal[
     "ml.p5.4xlarge",
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
+    "ml.p6-b200.48xlarge",
 ]
 AIRecommendationJobStatusType = Literal["Completed", "Failed", "InProgress", "Stopped", "Stopping"]
 AIRecommendationMetricType = Literal["cost", "throughput", "ttft-ms"]
@@ -938,6 +940,7 @@ ClusterCapacityTypeType = Literal["OnDemand", "Spot"]
 ClusterConfigModeType = Literal["Disable", "Enable"]
 ClusterEventLevelType = Literal["Error", "Info", "Warn"]
 ClusterEventResourceTypeType = Literal["Cluster", "Instance", "InstanceGroup"]
+ClusterFSxLustreDeletionPolicyType = Literal["DeleteIfNotUsed", "Keep"]
 ClusterImageVersionStatusType = Literal["UpToDate", "UpdateAvailable"]
 ClusterInstanceStatusType = Literal[
     "DeepHealthCheckInProgress",

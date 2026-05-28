@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langsmith
-Version: 0.8.5
+Version: 0.8.6
 Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://smith.langchain.com/
 Project-URL: Documentation, https://docs.smith.langchain.com/
@@ -16,6 +16,7 @@ Requires-Dist: pydantic<3,>=2
 Requires-Dist: requests-toolbelt>=1.0.0
 Requires-Dist: requests>=2.0.0
 Requires-Dist: uuid-utils<1.0,>=0.12.0
+Requires-Dist: websockets>=15.0
 Requires-Dist: xxhash>=3.0.0
 Requires-Dist: zstandard>=0.23.0
 Provides-Extra: claude-agent-sdk
@@ -36,7 +37,6 @@ Requires-Dist: pytest>=7.0.0; extra == 'pytest'
 Requires-Dist: rich>=13.9.4; extra == 'pytest'
 Requires-Dist: vcrpy>=7.0.0; extra == 'pytest'
 Provides-Extra: sandbox
-Requires-Dist: websockets>=15.0; extra == 'sandbox'
 Provides-Extra: strands-agents
 Requires-Dist: opentelemetry-api>=1.30.0; extra == 'strands-agents'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0; extra == 'strands-agents'

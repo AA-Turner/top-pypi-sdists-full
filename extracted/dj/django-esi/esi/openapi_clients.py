@@ -1,7 +1,7 @@
-import datetime as dt
 import logging
 import pathlib
 import warnings
+from datetime import date, datetime, timedelta, timezone
 from hashlib import md5
 from timeit import default_timer
 from typing import Any
@@ -24,7 +24,6 @@ from tenacity import (
 
 from django.conf import settings
 from django.core.cache import cache
-from django.utils import timezone
 from django.utils.text import slugify
 
 from esi import app_settings
@@ -60,16 +59,19 @@ def _time_to_expiry(expires_header: str) -> int:
         int: The cache TTL in seconds
     """
     try:
-        expires_dt = dt.datetime.strptime(str(expires_header), '%a, %d %b %Y %H:%M:%S %Z')
+        expires_dt = datetime.strptime(str(expires_header), '%a, %d %b %Y %H:%M:%S %Z')
         if expires_dt.tzinfo is None:
-            expires_dt = expires_dt.replace(tzinfo=dt.timezone.utc)
-        return max(int((expires_dt - dt.datetime.now(dt.timezone.utc)).total_seconds()), 0)
+            expires_dt = expires_dt.replace(tzinfo=timezone.utc)
+        return max(int((expires_dt - datetime.now(timezone.utc)).total_seconds()), 0)
     except ValueError:
         return 0
 
 
-def _unpack_cache_control(headers: str) -> int:
-    """Calculate cache TTL from Cache-Control header
+def _unpack_cache_control(headers: dict[str, Any]) -> int:
+    """Calculate cache TTL from Cache-Control header,
+    Falling back to Expires header if no max-age is set
+    https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching#expires_or_max-age
+
     Args:
         headers (dict): request headers to generate ttl for cache
     Returns:
@@ -83,8 +85,8 @@ def _unpack_cache_control(headers: str) -> int:
     if "date" in headers:
         date_format = "%a, %d %b %Y %H:%M:%S %Z"
         try:
-            _date = dt.datetime.strptime(headers.get("date"), date_format)
-            _date = _date.replace(tzinfo=dt.timezone.utc)
+            _date = datetime.strptime(headers.get("date"), date_format)
+            _date = _date.replace(tzinfo=timezone.utc)
         except ValueError as e:
             logger.warning(f"Error converting date string: {e}")
     if "cache-control" in headers:
@@ -99,16 +101,26 @@ def _unpack_cache_control(headers: str) -> int:
             if "max-age" in _sections:
                 _max_age = min(MAX_CACHE_TIME, int(_sections.get("max-age", 0)))
                 if _date:
-                    _expire_date = _date + dt.timedelta(seconds=_max_age)
-                    _expire_time: dt.timedelta = _expire_date - timezone.now()
-                    _expires = _expire_time.total_seconds()
-                    _expires = _expires
+                    # Calculate expiry from date of request + max age
+                    _expire_date = _date + timedelta(seconds=_max_age)
+                    _expire_time: timedelta = _expire_date - datetime.now(timezone.utc)
+                    _expires = int(_expire_time.total_seconds())
                 else:
+                    # Date header failed nbd, so just use max-age as the ttl
                     _expires = _max_age
+            elif "no-store" in _sections:
+                _expires = 0
+            # elif "no-cache": is intentionally missing here.
+                # no-cache is mostly delegated off to E-Tags that are handled elsewhere.
+                # no-cache endpoints **can have** short HTTP caches 60 seconds, so why not keep
+            else:
+                # Cache Control exists, but no max-age is defined, fall back to legacy Expires header
+                _expires = _time_to_expiry(str(headers.get('Expires')))
         except ValueError as e:
             logger.warning(f"Error converting date strings: {e}")
             return 0
         return max(_expires, 0)
+    return 0  # please only call this function if cache-control header exists
 
 
 def _httpx_exceptions(exc: BaseException) -> bool:
@@ -151,7 +163,7 @@ def _load_plugins(app_name, tags: list[str] = [], operations: list[str] = []):
     """Load the plugins to make ESI work with this lib.
 
     Args:
-        app_name (str): app name to use for internal etags
+        app_name (str): app name to use for internal ETag
     """
     return [
         PatchCompatibilityDatePlugin(),
@@ -442,7 +454,7 @@ class BaseEsiOperation():
         return normalized
 
     def _etag_key(self) -> str:
-        """Generate a key name used to cache etag responses based on app_name and cache_key
+        """Generate a key name used to cache ETag responses based on app_name and cache_key
         Returns:
             str: Key
         """
@@ -527,10 +539,10 @@ class BaseEsiOperation():
                 logger.warning("Cache expired by %d seconds, forcing expiry", expiry)
                 return None, None, None
 
-            # check if etag is same before building models from cache
+            # check if ETag is same before building models from cache
             if etag:
                 if cached_response.headers.get('ETag') == etag:
-                    # refresh/store the etag's TTL
+                    # refresh/store the ETag's TTL
                     self._send_signal(
                         status_code=0,  # this is a cached response less a 304
                         headers=cached_response.headers,
@@ -548,26 +560,26 @@ class BaseEsiOperation():
 
         return None, None, None
 
-    def _store_etag(self, headers: dict):
+    def _store_etag(self, headers: dict) -> None:
         """
-            Store response etag in cache for 7 days
+            Store response ETag in cache for 7 days
         """
         if "ETag" in headers:
             cache.set(self._etag_key(), headers["ETag"], timeout=ETAG_EXPIRY)
 
-    def _update_etag_ttl(self):
+    def _update_etag_ttl(self) -> None:
         """
-            reset etag ttl in cache.
+            reset ETag ttl in cache.
         """
         cache.expire(self._etag_key(), timeout=ETAG_EXPIRY)
 
     def _clear_etag(self):
-        """ Delete the cached etag for this operation.
+        """ Delete the cached ETag for this operation.
         """
         try:
             cache.delete(self._etag_key())
         except Exception as e:
-            logger.error(f"Failed to delete etag {e}", exc_info=True)
+            logger.error(f"Failed to delete ETag {e}", exc_info=True)
 
     def _store_cache(self, cache_key: str, response) -> None:
         """ Store the response in cache for expiry TTL.
@@ -585,7 +597,7 @@ class BaseEsiOperation():
             except Exception as e:
                 logger.error(f"Failed to cache {e}", exc_info=True)
 
-    def _clear_cache(self):
+    def _clear_cache(self) -> None:
         """ Delete the cached data for this operation.
         """
         try:
@@ -616,7 +628,7 @@ class BaseEsiOperation():
         )
         return req._process_request(cached_response)
 
-    def _set_bucket(self):
+    def _set_bucket(self) -> None:
         """Setup the rate bucket"""
         _rate_limit = getattr(self.operation, "extensions", {}).get("rate-limit", False)
         if _rate_limit:
@@ -642,15 +654,18 @@ class BaseEsiOperation():
             bucket=self.bucket.slug if self.bucket else ""
         )
 
-    def _get_cache_expiry(self, headers: dict = {}):
-        expiry = 0
+    def _get_cache_expiry(self, headers: dict[str, Any] = {}) -> int:
         if "cache-control" in headers:
-            # this first
-            expiry = _unpack_cache_control(headers)
+            # If both Expires and Cache-Control: max-age are available,
+            # max-age is defined to be preferred.
+            # https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching#expires_or_max-age
+            # This function will handle falling back to Expires if max age is missing
+            return _unpack_cache_control(headers)
         elif "expires" in headers:
-            # this is the first doesn't exist.
-            expiry = _time_to_expiry(str(headers.get('Expires')))
-        return expiry
+            # If cache-control is missing entirely this is Legacy
+            return _time_to_expiry(str(headers.get('Expires')))
+        else:
+            return 0
 
 
 class EsiOperation(BaseEsiOperation):
@@ -663,7 +678,8 @@ class EsiOperation(BaseEsiOperation):
     def _make_request(
             self,
             parameters: dict[str, Any],
-            etag: str | None = None) -> RequestBase.Response:
+            etag: str | None = None,
+            last_modified: datetime | None = None) -> RequestBase.Response:
 
         reset = cache.get("esi_error_limit_reset")
         if reset is not None:
@@ -704,6 +720,11 @@ class EsiOperation(BaseEsiOperation):
                     req.req.headers["Authorization"] = f"Bearer {self.token.valid_access_token()}"
             if etag:
                 req.req.headers["If-None-Match"] = etag
+            if last_modified:
+                try:
+                    req.req.headers["If-Modified-Since"] = last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT")
+                except Exception as e:
+                    logger.error(f"Error formatting last_modified: {e}")
             _response = req.request(data=self.body, parameters=self._unnormalize_parameters(parameters))
 
             if self.bucket and "x-ratelimit-remaining" in _response.result.headers:
@@ -729,15 +750,17 @@ class EsiOperation(BaseEsiOperation):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = True,
+            last_modified: datetime | None = None,
             **extra) -> tuple[Any, Response] | Any:
         """Executes the request and returns the response from ESI for the current operation.
 
         Keyword Arguments:
-            use_etag -- Use the inbuilt e-tag matching system (default True)
+            use_etag -- Use the inbuilt ETag matching system (default True)
             return_response -- return the headers and request information (default False)
-            force_refresh -- ignore etag and cache and force a re-fetch from ESI (default False)
+            force_refresh -- clear ETag and cache, force a re-fetch from ESI (default False)
             use_cache -- check cache prior to fetching from ESI (default True)
             store_cache -- store the returned data from ESI in cache (default True)
+            last_modified -- Optional datetime to send as If-Modified-Since
 
         Raises:
             ESIErrorLimitException: _description_
@@ -763,6 +786,7 @@ class EsiOperation(BaseEsiOperation):
         if force_refresh:
             self._clear_cache()
             self._clear_etag()
+            last_modified = None
 
         if use_etag:
             etag = cache.get(etag_key)
@@ -780,9 +804,12 @@ class EsiOperation(BaseEsiOperation):
                 data = None
 
         if not response:
-            logger.debug(f"Cache Miss {self.url}")
+            if etag:
+                logger.debug(f"Cache Miss, E-Tag Hit {self.url}")
+            else:
+                logger.debug(f"Cache Miss {self.url}")
             try:
-                headers, data, response = self._make_request(parameters, etag)
+                headers, data, response = self._make_request(parameters, etag, last_modified)
             # Shim our exceptions into Django-ESI
             except base_HTTPServerError as e:
                 self._send_signal(
@@ -822,13 +849,13 @@ class EsiOperation(BaseEsiOperation):
                 latency=default_timer() - _t
             )
 
-            # store the ETAG in cache if using it.
+            # store the ETag in cache if using it.
             if use_etag:
                 self._store_etag(response.headers)
 
             # Throw a 304 exception for catching.
             if response.status_code == 304:
-                # refresh/store the etag's TTL
+                # refresh/store the ETag's TTL
                 self._update_etag_ttl()
                 raise HTTPNotModified(
                     status_code=304,
@@ -856,6 +883,7 @@ class EsiOperation(BaseEsiOperation):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = True,
+            last_modified: datetime | None = None,
             **extra) -> tuple[list[Any], Response | Any | None] | list[Any]:
         all_results: list[Any] = []
         last_response: Response | None = None
@@ -863,11 +891,12 @@ class EsiOperation(BaseEsiOperation):
         operation. Response will include all pages if there are more available.
 
         Keyword Arguments:
-            use_etag -- Use the inbuilt e-tag matching system (default True)
+            use_etag -- Use the inbuilt ETag matching system (default True)
             return_response -- return the headers and request information (default False)
-            force_refresh -- ignore etag and cache and force a re-fetch from ESI (default False)
+            force_refresh -- clear ETag and cache, force a re-fetch from ESI (default False)
             use_cache -- check cache prior to fetching from ESI (default True)
             store_cache -- store the returned data from ESI in cache (default True)
+            last_modified -- Optional datetime to send as If-Modified-Since
 
         Raises:
             ESIErrorLimitException: _description_
@@ -888,12 +917,13 @@ class EsiOperation(BaseEsiOperation):
                 self._kwargs["page"] = current_page
                 try:
                     data, response = self.result(
-                        # use cache where we can, but ignore etags if we are re-fetching
+                        # use cache where we can, but ignore ETag if we are re-fetching
                         use_etag=use_etag and not force_refetch,
                         return_response=True,
                         force_refresh=force_refresh,
                         use_cache=use_cache,
                         store_cache=store_cache,
+                        last_modified=last_modified if not force_refresh else None,  # Im treating this like an extra ETag here
                         **extra
                     )
                     last_response = response
@@ -918,7 +948,7 @@ class EsiOperation(BaseEsiOperation):
                     count_pages_etag_hit != total_pages and
                     count_pages_etag_hit > 0
                 ):
-                    # Not all pages hit etag, so refetch all
+                    # Not all pages hit ETag, so refetch all
                     force_refetch = True
                     current_page = 1
                     count_pages_etag_hit = 0
@@ -929,7 +959,7 @@ class EsiOperation(BaseEsiOperation):
                     current_page > total_pages and
                     count_pages_etag_hit == total_pages
                 ):
-                    # All etags hit raise 304
+                    # All ETags hit raise 304
                     raise HTTPNotModified(
                         status_code=304,
                         headers=last_headers
@@ -949,6 +979,7 @@ class EsiOperation(BaseEsiOperation):
                     force_refresh=force_refresh,
                     use_cache=use_cache,
                     store_cache=store_cache,
+                    last_modified=last_modified if not force_refresh else None,  # Im treating this like an extra ETag here
                     **extra
                 )
                 last_response = response
@@ -1019,7 +1050,8 @@ class EsiOperationAsync(BaseEsiOperation):  # pragma: no cover
     async def _make_request(
             self,
             parameters: dict[str, Any],
-            etag: str | None = None
+            etag: str | None = None,
+            last_modified: datetime | None = None
     ) -> RequestBase.Response:
 
         reset = cache.get("esi_error_limit_reset")
@@ -1038,6 +1070,11 @@ class EsiOperationAsync(BaseEsiOperation):  # pragma: no cover
                     req.req.headers["Authorization"] = f"Bearer {self.token.valid_access_token()}"
                 if etag:
                     req.req.headers["If-None-Match"] = etag
+                if last_modified:
+                    try:
+                        req.req.headers["If-Modified-Since"] = last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT")
+                    except Exception as e:
+                        logger.error(f"Error formatting last_modified: {e}")
                 return req.request(parameters=self._unnormalize_parameters(parameters))
         # Should never be reached because AsyncRetrying always yields at least once
         raise RuntimeError("Retry loop exited without performing a request")
@@ -1047,6 +1084,7 @@ class EsiOperationAsync(BaseEsiOperation):  # pragma: no cover
         etag: str | None = None,
         return_response: bool = False,
         use_cache: bool = True,
+        last_modified: datetime | None = None,
         **extra
     ) -> tuple[Any, Response] | Any:
         self.token = self._extract_token_param()
@@ -1072,7 +1110,7 @@ class EsiOperationAsync(BaseEsiOperation):  # pragma: no cover
         if not response:
             logger.debug(f"Cache Miss {self.url}")
             try:
-                headers, data, response = await self._make_request(parameters, etag)
+                headers, data, response = await self._make_request(parameters, etag, last_modified)
                 if response.status_code == 420:
                     reset = response.headers.get("X-RateLimit-Reset", None)
                     cache.set("esi_error_limit_reset", reset, timeout=reset)
@@ -1096,7 +1134,7 @@ class EsiOperationAsync(BaseEsiOperation):  # pragma: no cover
 
             # Throw a 304 exception for catching.
             if response.status_code == 304:
-                # refresh/store the etag's TTL
+                # refresh/store the ETag's TTL
                 self._store_etag(response.headers)
                 raise HTTPNotModified(
                     status_code=304,
@@ -1244,8 +1282,8 @@ class ESIClient(ESIClientStub):
             f"Available tags: {', '.join(sorted(self._tags))}"
         )
 
-    def purge_all_etags(self):
-        """ Delete all stored etags from the cache for this application
+    def purge_all_etags(self) -> Any:
+        """ Delete all stored ETags from the cache for this application
 
         TODO: consider making this more config agnostic
         """
@@ -1263,7 +1301,7 @@ class ESIClient(ESIClientStub):
         if keys:
             deleted = _client.delete(*keys)
 
-        logger.info(f"Deleted {deleted} etag keys")
+        logger.info(f"Deleted {deleted} ETag keys")
 
         return deleted
 
@@ -1319,7 +1357,7 @@ class ESIClientProvider:
 
     def __init__(
         self,
-        compatibility_date: str | dt.date,
+        compatibility_date: str | date,
         ua_appname: str,
         ua_version: str,
         ua_url: str | None = None,
@@ -1330,7 +1368,7 @@ class ESIClientProvider:
         additional_spec_headers: dict = {},
         **kwargs
     ) -> None:
-        if type(compatibility_date) is dt.date:
+        if type(compatibility_date) is date:
             self._compatibility_date: str = self._date_to_string(compatibility_date)
         else:
             self._compatibility_date: str = str(compatibility_date)
@@ -1378,7 +1416,7 @@ class ESIClientProvider:
         return self._client_async
 
     @classmethod
-    def _date_to_string(cls, compatibility_date: dt.date) -> str:
+    def _date_to_string(cls, compatibility_date: date) -> str:
         """Turns a date object in a compatibility_date string"""
         return f"{compatibility_date.year}-{compatibility_date.month:02}-{compatibility_date.day:02}"
 

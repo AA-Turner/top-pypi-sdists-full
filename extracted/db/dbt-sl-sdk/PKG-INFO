@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: dbt-sl-sdk
-Version: 0.13.3
+Version: 0.13.4
 Summary: A client for dbt's Semantic Layer
 Author: dbt Labs
 License-File: LICENSE

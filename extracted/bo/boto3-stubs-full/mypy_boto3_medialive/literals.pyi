@@ -69,6 +69,7 @@ __all__ = (
     "BurnInOutlineColorType",
     "BurnInShadowColorType",
     "BurnInTeletextGridControlType",
+    "CaptionSynchronizationModeType",
     "CdiInputResolutionType",
     "ChannelAlertStateType",
     "ChannelClassType",
@@ -504,6 +505,7 @@ BurnInFontColorType = Literal["BLACK", "BLUE", "GREEN", "RED", "WHITE", "YELLOW"
 BurnInOutlineColorType = Literal["BLACK", "BLUE", "GREEN", "RED", "WHITE", "YELLOW"]
 BurnInShadowColorType = Literal["BLACK", "NONE", "WHITE"]
 BurnInTeletextGridControlType = Literal["FIXED", "SCALED"]
+CaptionSynchronizationModeType = Literal["NO_VIDEO_DELAY", "VIDEO_ALIGNED_CAPTIONS"]
 CdiInputResolutionType = Literal["FHD", "HD", "SD", "UHD"]
 ChannelAlertStateType = Literal["CLEARED", "SET"]
 ChannelClassType = Literal["SINGLE_PIPELINE", "STANDARD"]

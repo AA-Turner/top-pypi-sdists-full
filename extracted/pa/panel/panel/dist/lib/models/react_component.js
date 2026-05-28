@@ -83,7 +83,7 @@ export class ReactComponentView extends ReactiveESMView {
         if (this.model.compiled === null || this.model.render_module === null) {
             return;
         }
-        this._changing = true;
+        this._rendered = false;
         if (this.model.usesMui) {
             if (this.model.root_node) {
                 this.style_cache = document.head;
@@ -246,13 +246,7 @@ export class ReactComponentView extends ReactiveESMView {
         this.mounted = true;
     }
     has_finished() {
-        if (!super.has_finished()) {
-            return false;
-        }
-        if (this._changing) {
-            return false;
-        }
-        return true;
+        return super.has_finished() && this._rendered;
     }
     patch_container(container) {
         this.el = this.container = container;
@@ -271,7 +265,6 @@ export class ReactComponentView extends ReactiveESMView {
             }
         }
         this._rendered = true;
-        this._changing = false;
         if (this._mounted_resolve) {
             const resolve = this._mounted_resolve;
             this._mounted_resolve = null;
@@ -286,6 +279,7 @@ export class ReactComponentView extends ReactiveESMView {
                 resolve();
             }
         }
+        this.finish();
     }
 }
 export class ReactComponent extends ReactiveESM {
@@ -548,27 +542,27 @@ async function render(id) {
   })
 
   class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props)
-    // initialize the error state
-    this.state = { hasError: false }
-  }
-
-  // if an error happened, set the state to true
-  static getDerivedStateFromError(error) {
-    return { hasError: true }
-  }
-
-  componentDidCatch(error) {
-    this.props.view.render_error(error)
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return React.createElement('div')
+    constructor(props) {
+      super(props)
+      // initialize the error state
+      this.state = { hasError: false }
     }
-    return React.createElement('div', {className: "error-wrapper"}, this.props.children)
-  }
+
+    // if an error happened, set the state to true
+    static getDerivedStateFromError(error) {
+      return { hasError: true }
+    }
+
+    componentDidCatch(error) {
+      this.props.view.render_error(error)
+    }
+
+    render() {
+      if (this.state.hasError) {
+        return React.createElement('div')
+      }
+      return React.createElement('div', {className: "error-wrapper"}, this.props.children)
+    }
   }
 
   class Component extends React.Component {

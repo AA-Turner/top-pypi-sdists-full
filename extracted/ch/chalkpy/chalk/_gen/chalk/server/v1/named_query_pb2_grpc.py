@@ -30,6 +30,16 @@ class NamedQueryServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_named__query__pb2.GetNamedQueryByNameRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_named__query__pb2.GetNamedQueryByNameResponse.FromString,
         )
+        self.ListAllNamedQueries = channel.unary_unary(
+            "/chalk.server.v1.NamedQueryService/ListAllNamedQueries",
+            request_serializer=chalk_dot_server_dot_v1_dot_named__query__pb2.ListAllNamedQueriesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_named__query__pb2.ListAllNamedQueriesResponse.FromString,
+        )
+        self.ListNamedQueryVersions = channel.unary_unary(
+            "/chalk.server.v1.NamedQueryService/ListNamedQueryVersions",
+            request_serializer=chalk_dot_server_dot_v1_dot_named__query__pb2.ListNamedQueryVersionsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_named__query__pb2.ListNamedQueryVersionsResponse.FromString,
+        )
 
 
 class NamedQueryServiceServicer(object):
@@ -53,6 +63,26 @@ class NamedQueryServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListAllNamedQueries(self, request, context):
+        """Returns one NamedQuerySummary per distinct query_name across both
+        code-defined NamedQuery declarations in the active deployment and
+        runtime-observed meta_queries rows. Drives the unified named-queries
+        index page.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListNamedQueryVersions(self, request, context):
+        """Returns one NamedQueryVersionSummary per distinct
+        (query_name, query_name_version) slot for a single named query name.
+        Drives the versions table on the code-defined branch of the
+        named-queries detail page.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_NamedQueryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -70,6 +100,16 @@ def add_NamedQueryServiceServicer_to_server(servicer, server):
             servicer.GetNamedQueryByName,
             request_deserializer=chalk_dot_server_dot_v1_dot_named__query__pb2.GetNamedQueryByNameRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_named__query__pb2.GetNamedQueryByNameResponse.SerializeToString,
+        ),
+        "ListAllNamedQueries": grpc.unary_unary_rpc_method_handler(
+            servicer.ListAllNamedQueries,
+            request_deserializer=chalk_dot_server_dot_v1_dot_named__query__pb2.ListAllNamedQueriesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_named__query__pb2.ListAllNamedQueriesResponse.SerializeToString,
+        ),
+        "ListNamedQueryVersions": grpc.unary_unary_rpc_method_handler(
+            servicer.ListNamedQueryVersions,
+            request_deserializer=chalk_dot_server_dot_v1_dot_named__query__pb2.ListNamedQueryVersionsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_named__query__pb2.ListNamedQueryVersionsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.NamedQueryService", rpc_method_handlers)
@@ -157,6 +197,64 @@ class NamedQueryService(object):
             "/chalk.server.v1.NamedQueryService/GetNamedQueryByName",
             chalk_dot_server_dot_v1_dot_named__query__pb2.GetNamedQueryByNameRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_named__query__pb2.GetNamedQueryByNameResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListAllNamedQueries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.NamedQueryService/ListAllNamedQueries",
+            chalk_dot_server_dot_v1_dot_named__query__pb2.ListAllNamedQueriesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_named__query__pb2.ListAllNamedQueriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListNamedQueryVersions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.NamedQueryService/ListNamedQueryVersions",
+            chalk_dot_server_dot_v1_dot_named__query__pb2.ListNamedQueryVersionsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_named__query__pb2.ListNamedQueryVersionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

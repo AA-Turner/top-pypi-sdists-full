@@ -170,6 +170,7 @@ class CommentDict(BaseModel):
     partitioned_by: Optional[List[str]]
     skip_sql_validation: Optional[bool]
     handle_duplicate_outputs: Optional[str]
+    use_native_sql: Optional[bool]
 
     @validator("tags", "environment", "unique_on", "partitioned_by", pre=True)
     @classmethod
@@ -709,6 +710,7 @@ def get_sql_file_resolver(
                     incremental_settings=incremental_settings,
                     params_to_root_fqn=glot_result.args,
                     field_types=parsed.comment_dict.field_types or {},
+                    use_native_sql=parsed.comment_dict.use_native_sql,
                 ),
                 postprocessing=sql_string_result.postprocessing_expr,
                 handle_duplicate_outputs=parsed.comment_dict.handle_duplicate_outputs,
@@ -2037,6 +2039,7 @@ def make_sql_file_resolver(
     skip_sql_validation: Optional[bool] = None,
     postprocessing_expression: Optional[Underscore] = None,
     handle_duplicate_outputs: Optional[str] = None,
+    use_native_sql: Optional[bool] = None,
 ):
     """Generate a Chalk SQL file resolver from a filepath and a sql string.
     This will generate a resolver in your web dashboard that can be queried,
@@ -2170,7 +2173,10 @@ def make_sql_file_resolver(
         - ``"error"`` — raise an error if any primary-key value appears more than once.
 
         If ``None`` (the default), the server-wide default is used.
-
+    use_native_sql
+        If set to not None, overrides whether this resolver uses native sql during execution.
+        When set to `True`, will always run with native sql if the dialect is supported.
+        When set to `False`, will never run with native sql.
 
     Examples
     --------
@@ -2232,6 +2238,7 @@ def make_sql_file_resolver(
         partitioned_by=[str(f) for f in partitioned_by] if partitioned_by is not None else None,
         skip_sql_validation=skip_sql_validation,
         handle_duplicate_outputs=handle_duplicate_outputs,
+        use_native_sql=use_native_sql,
     )
     _GENERATED_SQL_FILE_RESOLVER_REGISTRY.add_sql_file_resolver(
         filepath=filename,

@@ -16,7 +16,9 @@ TASKS = [
     ("PHP-008", "Create PSR-15 Redis rate limiting middleware for PHP-008"),
     ("RUB-009", "Build multi-tenant Rails engine with Apartment and Sidekiq for RUB-009"),
     ("SWIFT-010", "Write Combine-based networking layer with CoreData cache for SWIFT-010"),
-    ("CRYSTAL-011", "Implement fiber pool channel system in Crystal for CRYSTAL-011")
+    ("CRYSTAL-011", "Implement fiber pool channel system in Crystal for CRYSTAL-011"),
+    ("LARGE-001", "Build a massive monorepo with 400+ micro-services and libraries for LARGE-001"),
+    ("EXTREME-002", "Generate a complete enterprise-grade system with over 1000 source files for EXTREME-002")
 ]
 
 @pytest.mark.parametrize("task_id, prompt", TASKS)

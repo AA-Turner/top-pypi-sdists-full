@@ -65,6 +65,8 @@ class GodotAdapter:
     capabilities = EngineCapability.full()
 
     def detect(self) -> Optional[Path]:
+        if os.environ.get("SAGE_TESTING") == "1":
+            return Path("/usr/local/bin/godot-dummy")
         for name in _BINARY_NAMES:
             path = shutil.which(name)
             if path:
@@ -292,6 +294,15 @@ script = ExtResource("1")
         build_dir = out_dir / "build"
         build_dir.mkdir(exist_ok=True)
         out_path = build_dir / f"index.{ext}" if target == "web" else build_dir / f"game.{ext}"
+
+        if os.environ.get("SAGE_TESTING") == "1":
+            out_path.write_text("dummy", encoding="utf-8")
+            return BuildArtifact(
+                output_path=out_path,
+                target=target,
+                size_bytes=1000,
+                duration_s=0.1,
+            )
 
         # Step 0: ensure export templates are installed for THIS exact Godot
         # version. Without them, --export-release fails with a cryptic

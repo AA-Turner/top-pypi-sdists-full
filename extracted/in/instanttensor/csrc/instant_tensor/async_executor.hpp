@@ -27,7 +27,9 @@ public:
 
     template<typename F>
     int post(F&& f) {
-        int id = next_id.fetch_add(1, std::memory_order_relaxed);
+        int id = next_id;
+        if(next_id < INT_MAX) next_id++;
+        else next_id = 1; // skip 0
 
         Task t = [fn = std::forward<F>(f)]() mutable -> std::any {
             using R = std::invoke_result_t<decltype(fn)>;
@@ -43,7 +45,7 @@ public:
         WorkItem w{id, std::move(t)};
 
         while (!input_queue.try_push(w)) {
-            drainOutputQueueToBuffer();
+            // drainOutputQueueToBuffer(); // no longer drain as this causes thread contention
             std::this_thread::yield();
         }
         return id;
@@ -138,25 +140,31 @@ private:
     SPSCQueue<WorkPair, OutputQueueCapacity>      output_queue;
     std::unordered_map<int,std::any> result_buffer; // cache out-of-order results
 
-    std::atomic<int>         next_id;
-    std::thread              worker;
+    int         next_id;
+    std::thread worker;
 
     void run() {
-        WorkItem w;
-        while (true) {
-            while (!input_queue.try_pop(w)) {
-                std::this_thread::yield();
-            }
-            if (!w.task) {
-                break;
-            }
+        try {
+            WorkItem w;
+            while (true) {
+                while (!input_queue.try_pop(w)) {
+                    std::this_thread::yield();
+                }
+                if (!w.task) {
+                    break;
+                }
 
-            std::any res = w.task();
+                std::any res = w.task();
 
-            WorkPair pr{w.id, std::move(res)};
-            while (!output_queue.try_push(pr)) {
-                std::this_thread::yield();
+                WorkPair pr{w.id, std::move(res)};
+                while (!output_queue.try_push(pr)) {
+                    std::this_thread::yield();
+                }
             }
+        }
+        catch (const std::exception &e) {
+            fprintf(stderr, "AsyncExecutor thread exception: %s\n", e.what());
+            throw;
         }
     }
 

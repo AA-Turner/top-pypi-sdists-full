@@ -33,6 +33,7 @@ class VectorDBKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     VECTOR_DB_KIND_OPENSEARCH: _ClassVar[VectorDBKind]
     VECTOR_DB_KIND_PGVECTOR: _ClassVar[VectorDBKind]
     VECTOR_DB_KIND_MILVUS: _ClassVar[VectorDBKind]
+    VECTOR_DB_KIND_VALKEY: _ClassVar[VectorDBKind]
 
 class DeploymentBuildProfile(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -41,6 +42,18 @@ class DeploymentBuildProfile(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEPLOYMENT_BUILD_PROFILE_O3_PROFILING: _ClassVar[DeploymentBuildProfile]
     DEPLOYMENT_BUILD_PROFILE_O2_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
     DEPLOYMENT_BUILD_PROFILE_O2_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O3_RUST_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O3_RUST_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O2_RUST_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O2_RUST_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_RUST_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_RUST_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_RUST_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_RUST_PROFILING: _ClassVar[DeploymentBuildProfile]
 
 class DiscoveredBucketSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -73,11 +86,24 @@ VECTOR_DB_KIND_UNSPECIFIED: VectorDBKind
 VECTOR_DB_KIND_OPENSEARCH: VectorDBKind
 VECTOR_DB_KIND_PGVECTOR: VectorDBKind
 VECTOR_DB_KIND_MILVUS: VectorDBKind
+VECTOR_DB_KIND_VALKEY: VectorDBKind
 DEPLOYMENT_BUILD_PROFILE_UNSPECIFIED: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O3_NO_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O3_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O2_NO_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O2_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O3_RUST_NO_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O3_RUST_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O2_RUST_NO_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O2_RUST_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_NO_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_NO_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_RUST_NO_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_RUST_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_RUST_NO_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_RUST_PROFILING: DeploymentBuildProfile
 DISCOVERED_BUCKET_SOURCE_UNSPECIFIED: DiscoveredBucketSource
 DISCOVERED_BUCKET_SOURCE_ENGINE: DiscoveredBucketSource
 DISCOVERED_BUCKET_SOURCE_METADATA_PLANE: DiscoveredBucketSource

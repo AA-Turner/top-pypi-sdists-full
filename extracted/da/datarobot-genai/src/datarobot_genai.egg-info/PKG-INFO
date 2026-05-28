@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.15.72
+Version: 0.15.80
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -48,7 +48,7 @@ Requires-Dist: azure-ai-inference<2.0.0,>=1.0.0b9; extra == "crewai"
 Requires-Dist: crewai[litellm]>=1.11.0; extra == "crewai"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "crewai"
 Requires-Dist: crewai-tools[mcp]<0.77.0,>=0.69.0; extra == "crewai"
-Requires-Dist: nvidia-nat-crewai==1.6.0; extra == "crewai"
+Requires-Dist: nvidia-nat-crewai==1.7.0; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-crewai<1.0.0,>=0.40.5; extra == "crewai"
 Requires-Dist: pybase64<2.0.0,>=1.4.2; extra == "crewai"
 Provides-Extra: langgraph
@@ -72,7 +72,7 @@ Requires-Dist: langchain-mcp-adapters<0.2.0,>=0.1.12; extra == "langgraph"
 Requires-Dist: langgraph<2.0.0,>=1.0.0; extra == "langgraph"
 Requires-Dist: langgraph-prebuilt<2.0.0,>=1.0.0; extra == "langgraph"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "langgraph"
-Requires-Dist: nvidia-nat-langchain==1.6.0; extra == "langgraph"
+Requires-Dist: nvidia-nat-langchain==1.7.0; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-langchain<1.0.0,>=0.40.5; extra == "langgraph"
 Provides-Extra: llamaindex
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "llamaindex"
@@ -98,7 +98,7 @@ Requires-Dist: llama-index-llms-litellm<0.7.0,>=0.4.1; extra == "llamaindex"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "llamaindex"
 Requires-Dist: llama-index-llms-openai<0.7.0,>=0.6.0; extra == "llamaindex"
 Requires-Dist: llama-index-tools-mcp<0.5.0,>=0.1.0; extra == "llamaindex"
-Requires-Dist: nvidia-nat-llama-index==1.6.0; extra == "llamaindex"
+Requires-Dist: nvidia-nat-llama-index==1.7.0; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-llamaindex<1.0.0,>=0.40.5; extra == "llamaindex"
 Requires-Dist: pypdf<7.0.0,>=6.10.1; extra == "llamaindex"
 Provides-Extra: nat
@@ -119,11 +119,11 @@ Requires-Dist: ag-ui-protocol==0.1.15; extra == "nat"
 Requires-Dist: pyarrow==21.0.0; extra == "nat"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "nat"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "nat"
-Requires-Dist: nvidia-nat==1.6.0; extra == "nat"
-Requires-Dist: nvidia-nat-a2a==1.6.0; extra == "nat"
-Requires-Dist: nvidia-nat-opentelemetry==1.6.0; extra == "nat"
-Requires-Dist: nvidia-nat-langchain==1.6.0; extra == "nat"
-Requires-Dist: nvidia-nat-mcp==1.6.0; extra == "nat"
+Requires-Dist: nvidia-nat==1.7.0; extra == "nat"
+Requires-Dist: nvidia-nat-a2a==1.7.0; extra == "nat"
+Requires-Dist: nvidia-nat-opentelemetry==1.7.0; extra == "nat"
+Requires-Dist: nvidia-nat-langchain==1.7.0; extra == "nat"
+Requires-Dist: nvidia-nat-mcp==1.7.0; extra == "nat"
 Requires-Dist: anyio==4.11.0; extra == "nat"
 Provides-Extra: auth
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "auth"
@@ -132,7 +132,12 @@ Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "auth"
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == "auth"
 Requires-Dist: pyjwt[crypto]<3.0.0,>=2.12.0; extra == "auth"
 Requires-Dist: okta-client-python<1.0.0,>=0.2.0; extra == "auth"
+Provides-Extra: drmcpbase
+Requires-Dist: starlette>=1.0.1; extra == "drmcpbase"
+Requires-Dist: fastmcp<4.0.0,>=3.2.0; extra == "drmcpbase"
 Provides-Extra: drmcp
+Requires-Dist: starlette>=1.0.1; extra == "drmcp"
+Requires-Dist: fastmcp<4.0.0,>=3.2.0; extra == "drmcp"
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "drmcp"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drmcp"
 Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "drmcp"
@@ -151,7 +156,6 @@ Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "drmcp"
 Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "drmcp"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "drmcp"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drmcp"
-Requires-Dist: fastmcp<4.0.0,>=3.2.0; extra == "drmcp"
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "drmcp"
 Requires-Dist: openai<3.0.0,>=2.0.0; extra == "drmcp"
 Requires-Dist: pyjwt<3.0.0,>=2.12.0; extra == "drmcp"
@@ -206,14 +210,13 @@ Requires-Dist: ag-ui-protocol==0.1.15; extra == "dragent"
 Requires-Dist: pyarrow==21.0.0; extra == "dragent"
 Requires-Dist: colorama<1.0.0,>=0.4.6; extra == "dragent"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "dragent"
-Requires-Dist: nvidia-nat==1.6.0; extra == "dragent"
-Requires-Dist: nvidia-nat-a2a==1.6.0; extra == "dragent"
-Requires-Dist: nvidia-nat-opentelemetry==1.6.0; extra == "dragent"
-Requires-Dist: nvidia-nat-langchain==1.6.0; extra == "dragent"
-Requires-Dist: nvidia-nat-mcp==1.6.0; extra == "dragent"
+Requires-Dist: nvidia-nat==1.7.0; extra == "dragent"
+Requires-Dist: nvidia-nat-a2a==1.7.0; extra == "dragent"
+Requires-Dist: nvidia-nat-opentelemetry==1.7.0; extra == "dragent"
+Requires-Dist: nvidia-nat-langchain==1.7.0; extra == "dragent"
+Requires-Dist: nvidia-nat-mcp==1.7.0; extra == "dragent"
 Requires-Dist: anyio==4.11.0; extra == "dragent"
-Requires-Dist: fastapi<0.133.0; extra == "dragent"
-Requires-Dist: starlette<1.0.0; extra == "dragent"
+Requires-Dist: starlette>=1.0.1; extra == "dragent"
 Provides-Extra: memory
 Requires-Dist: mem0ai<2.0.0,>=1.0.4; extra == "memory"
 Dynamic: license-file
@@ -267,7 +270,8 @@ pip install "datarobot-genai[nat]"
 You can also install:
 * `datarobot-genai[dragent]`&mdash;serve and orchestrate your agent with `DRAgent`.
 * `datarobot-genai[drtools]`&mdash;use the standard library of agentic tools DataRobot provides.
-* `datarobot-genai[drmcp]`&mdash;host a custom MCP server in DataRobot.
+* `datarobot-genai[drmcpbase]`&mdash;Base class to derive FastMCP servers.
+* `datarobot-genai[drmcp]`&mdash;host a custom MCP server in DataRobot (includes `drmcpbase`, `drtools`, and template-server dependencies).
 * `datarobot-genai[memory]`&mdash;use the Mem0-backed memory client and NAT memory provider.
 
 ## Credentials

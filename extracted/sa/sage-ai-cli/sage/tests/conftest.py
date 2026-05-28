@@ -190,7 +190,7 @@ def read_root(): return {"status": "healthy"}"""
     def _get_content_for_ext(self, ext: str) -> str:
         ext_lower = ext.lower()
         if ext_lower in ("py", "pyw"):
-            return 'import sys\n\ndef main():\n    print("Hello")\n\nif __name__ == "__main__":\n    main()'
+            return 'import sys\n\ndef test_dummy():\n    assert True\n\ndef main():\n    print("Hello")\n\nif __name__ == "__main__":\n    main()'
         elif ext_lower in ("js", "mjs"):
             return 'function greet() {\n    console.log("Hello");\n}\ngreet();'
         elif ext_lower in ("ts", "mts"):
@@ -201,8 +201,10 @@ def read_root(): return {"status": "healthy"}"""
             return '#include <stdio.h>\n\nint main() {\n    printf("Hello\\n");\n    return 0;\n}'
         elif ext_lower in ("cpp", "hpp"):
             return '#include <iostream>\n\nint main() {\n    std::cout << "Hello" << std::endl;\n    return 0;\n}'
-        elif ext_lower in ("java", "kt", "scala"):
+        elif ext_lower in ("kt", "scala"):
             return 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello");\n    }\n}'
+        elif ext_lower == "java":
+            return 'class test_file {\n    public static void main(String[] args) {\n        System.out.println("Hello");\n    }\n}'
         elif ext_lower == "swift":
             return 'import Foundation\n\nfunc main() {\n    print("Hello")\n}\nmain()'
         elif ext_lower == "go":
@@ -233,8 +235,44 @@ def read_root(): return {"status": "healthy"}"""
             return 'main <- function() {\n  print("Hello")\n}\nmain()'
         elif ext_lower == "hs":
             return 'main :: IO ()\nmain = putStrLn "Hello"'
-        elif ext_lower in ("erl", "ex", "exs"):
+        elif ext_lower in ("erl", "ex", "exs", "hrl"):
             return 'defmodule Main do\n  def main do\n    IO.puts "Hello"\n  end\nend'
+        elif ext_lower in ("fs", "fsi"):
+            return 'module Main\nlet main() = printfn "Hello"\nmain()'
+        elif ext_lower == "cr":
+            return 'def main\n  puts "Hello"\nend\nmain'
+        elif ext_lower in ("groovy", "gvy"):
+            return 'class Main {\n    static void main(String[] args) {\n        println "Hello"\n    }\n}'
+        elif ext_lower == "sql":
+            return 'SELECT * FROM users WHERE id = 1;'
+        elif ext_lower == "sol":
+            return '// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\ncontract HelloWorld {\n    string public message = "Hello";\n}'
+        elif ext_lower == "zig":
+            return 'const std = @import("std");\npub fn main() !void {\n    std.debug.print("Hello\\n", .{});\n}'
+        elif ext_lower == "nim":
+            return 'echo "Hello"'
+        elif ext_lower == "d":
+            return 'import std.stdio;\nvoid main() {\n    writeln("Hello");\n}'
+        elif ext_lower == "pas":
+            return 'program Hello;\nbegin\n  writeln(\'Hello\');\nend.'
+        elif ext_lower == "elm":
+            return 'module Main exposing (main)\nimport Html exposing (text)\nmain = text "Hello"'
+        elif ext_lower == "vue":
+            return '<template>\n  <div>Hello</div>\n</template>\n<script>\nexport default {}\n</script>'
+        elif ext_lower == "svelte":
+            return '<script>\n</script>\n<h1>Hello</h1>'
+        elif ext_lower == "xml":
+            return '<?xml version="1.0" encoding="UTF-8"?>\n<note>\n  <to>Tove</to>\n</note>'
+        elif ext_lower == "tex":
+            return '\\documentclass{article}\n\\begin{document}\nHello\n\\end{document}'
+        elif ext_lower == "toml":
+            return '[package]\nname = "hello"\nversion = "0.1.0"'
+        elif ext_lower == "ini":
+            return '[owner]\nname=John Doe\n'
+        elif ext_lower == "csv":
+            return 'name,email\nJohn,john@example.com\n'
+        elif ext_lower in ("dockerfile", "docker"):
+            return 'FROM alpine\nCMD ["echo", "Hello"]'
         elif ext_lower == "json":
             return '{\n  "status": "ok"\n}'
         elif ext_lower in ("yaml", "yml"):
@@ -459,7 +497,9 @@ export default function Dashboard() {
   selector: 'app-kanban',
   template: '<div>Angular Kanban Board</div>'
 })
-export class KanbanComponent {}
+export class KanbanComponent {
+  title: string = 'Kanban Board';
+}
 """
         elif task_id == "JS-VUE-03":
             return "taskStore.js", """export const useTaskStore = {
@@ -558,22 +598,85 @@ public class VRDrawing : MonoBehaviour {
 print("Sprite sheet generated")
 """
         elif task_id == "IMG-02":
-            return "generate_logo.js", """console.log("SVG logo generated");
+            return "generate_logo.js", """const fs = require('fs');
+const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:rgb(255,255,0);stop-opacity:1" />
+            <stop offset="100%" style="stop-color:rgb(255,0,0);stop-opacity:1" />
+        </linearGradient>
+    </defs>
+    <circle cx="50" cy="50" r="40" fill="url(#grad)" />
+</svg>`;
+fs.writeFileSync('logo.svg', svgContent);
+console.log("Vector SVG logo with gradient generated successfully.");
 """
         elif task_id == "AUD-01":
-            return "generate_audio.py", """print("Drum loop WAV generated")
+            return "generate_audio.py", """import numpy as np
+import wave
+
+sample_rate = 44100
+t = np.linspace(0, 1, sample_rate, endpoint=False)
+data = np.sin(2 * np.pi * 60 * t) * np.exp(-10 * t)
+audio_bytes = (data * 32767).astype(np.int16).tobytes()
+
+with wave.open('drum_loop.wav', 'wb') as w:
+    w.setnchannels(1)
+    w.setsampwidth(2)
+    w.setframerate(sample_rate)
+    w.writeframes(audio_bytes)
+print("Procedural wav drum loop generated successfully.")
 """
         elif task_id == "AUD-02":
-            return "synthesize.py", """print("Voiceover narration MP3 synthesized")
+            return "synthesize.py", """import os
+import sys
+
+def synthesize_narration():
+    print("Sending TTS API request for narration...")
+    audio_data = b"STABLE_AUDIO_STREAM"
+    with open("narration.mp3", "wb") as f:
+        f.write(audio_data)
+    print("Voiceover narration MP3 synthesized successfully.")
+
+if __name__ == "__main__":
+    synthesize_narration()
 """
         elif task_id == "VID-01":
-            return "generate_intro.py", """print("Animated intro MP4 created")
+            return "generate_intro.py", """import os
+import sys
+
+def build_animated_intro():
+    print("Creating animated intro scenes...")
+    video_buffer = b"STABLE_VIDEO_STREAM"
+    with open("intro.mp4", "wb") as f:
+        f.write(video_buffer)
+    print("Animated intro MP4 created successfully.")
+
+if __name__ == "__main__":
+    build_animated_intro()
 """
         elif task_id == "MODEL-01":
-            return "blend_rig.py", """print("Humanoid rig FBX character exported")
+            return "blend_rig.py", """import sys
+
+def rig_humanoid():
+    print("Initializing Blender Python API context...")
+    with open("character.fbx", "w") as f:
+        f.write("FBX Header\\nVersion: 7400\\n")
+    print("Humanoid 3D character rig exported to FBX successfully.")
+
+if __name__ == "__main__":
+    rig_humanoid()
 """
         elif task_id == "MODEL-02":
-            return "build_scene.js", """console.log("ThreeJS Sun Scene GLB exported");
+            return "build_scene.js", """const fs = require('fs');
+
+function exportThreeJSScene() {
+    console.log("Building Three.js scene with a sun light source...");
+    const glbHeader = Buffer.from([0x67, 0x6C, 0x54, 0x46, 0x02, 0x00, 0x00, 0x00]);
+    fs.writeFileSync('scene.glb', glbHeader);
+    console.log("Three.js sun scene GLB exporter execution finished successfully.");
+}
+exportThreeJSScene();
 """
         elif task_id == "DOC-01":
             return "README.md", """# Project Documentation
@@ -588,7 +691,7 @@ Technical Specification for OAuth2 Server
 """
         elif task_id == "DATA-01":
             return "schema.json", """{
-  "\\$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "RateLimiterConfig",
   "type": "object",
   "properties": {
@@ -674,13 +777,188 @@ print("10M rows user data CSV dataset created")
                     if ext_match:
                         requested_ext = ext_match.group(1).lower()
 
-        # Check if the prompt/history mentions a task ID (e.g. PY-001, PY-FLK-01)
-        task_match = re.search(r'\b([A-Z]+-[A-Z0-9]+-[0-9]+|[A-Z]+-[0-9]+)\b', filtered_history)
-        task_id = task_match.group(1).upper() if task_match else None
+        # Extract requested path if any
+        requested_path = None
+        for msg in reversed(messages):
+            content = msg.get("content", "")
+            path_match = re.search(r"Path:\s*`([^`]+)`", content)
+            if path_match:
+                requested_path = path_match.group(1)
+                break
 
+        # Check if the prompt/history mentions a task ID (e.g. PY-001, PY-FLK-01)
+        task_match = re.search(r'\b([A-Z]+-[A-Z0-9]+-[0-9]+|[A-Z]+-[0-9]+)\b', filtered_history, re.IGNORECASE)
+        task_id = task_match.group(1).upper() if task_match else None
         if task_id:
-            filename, file_content = self._get_task_response(task_id)
+            prefix = task_id.split("-")[0].upper()
+            known_prefixes = {
+                "PY", "JS", "JAVA", "GO", "RS", "CPP", "TS", "PHP", "RUB", "SWIFT", "CRYSTAL",
+                "KOT", "DART", "ANDROID", "IOS", "REACT", "FLUT", "UNITY", "UNREAL", "GODOT",
+                "XNA", "HTML5", "VR", "IMG", "AUD", "VID", "MODEL", "DOC", "DATA", "LARGE", "EXTREME",
+                "FS", "SQL", "ZIG", "NIM", "D", "PAS", "ELM", "VUE", "SVELTE", "XML", "TEX", "TOML",
+                "INI", "CSV", "DOCKER"
+            }
+            if prefix not in known_prefixes:
+                task_id = None
+
+        use_task_response = False
+        if task_id:
+            # Check if this is a game decomposition prompt (requesting JSON game plan)
+            is_game_decomp = (
+                "extract the spec" in filtered_history
+                or "detected genre" in filtered_history
+                or "detected perspective" in filtered_history
+                or "output json with these keys" in filtered_history
+            )
+            if is_game_decomp:
+                use_task_response = False
+            else:
+                task_filename, task_file_content = self._get_task_response(task_id)
+                task_ext = task_filename.split(".")[-1].lower()
+                if not requested_path:
+                    use_task_response = True
+                else:
+                    req_basename = os.path.basename(requested_path).lower()
+                    req_ext = req_basename.split(".")[-1].lower() if "." in req_basename else ""
+                    is_test_file = "test" in req_basename or "spec" in req_basename
+                    if is_test_file:
+                        use_task_response = False
+                    elif req_basename == task_filename.lower():
+                        use_task_response = True
+                    elif req_ext == task_ext:
+                        use_task_response = True
+                    elif task_id in ("LARGE-001", "EXTREME-002"):
+                        use_task_response = True
+
+        if use_task_response:
+            filename = os.path.basename(requested_path) if requested_path else task_filename
+            file_content = task_file_content
             domain = "task_generation"
+        elif "extract the spec" in filtered_history or "detected genre" in filtered_history:
+            filename = "game_plan.json"
+            game_desc = "A game demonstrating 2D physics concepts in a browser."
+            if task_id:
+                game_desc = f"Game implementation for {task_id}"
+            file_content = json.dumps({
+                "title": "2D Physics Game",
+                "description": game_desc,
+                "features": ["Rigid body collision", "Gravity simulation", "User interaction"],
+                "sprites": [
+                    {"role": "ball", "prompt": "a red bouncing ball"},
+                    {"role": "box", "prompt": "a wooden box crate"}
+                ],
+                "meshes": [],
+                "audio": [
+                    {"role": "bounce", "prompt": "a clean bounce sound effect", "kind": "sfx"},
+                    {"role": "music", "prompt": "retro 8-bit chip tunes background music", "kind": "music"}
+                ]
+            }, indent=2)
+            domain = "game_decomposition"
+        elif "gdscript" in filtered_history or "godot 4 gdscript" in filtered_history or "main.gd" in filtered_history:
+            filename = "scripts"
+            file_content = """Here is the implementation.
+
+```Main.gd
+extends Node2D
+func _ready():
+    print("Main screen ready")
+```
+
+```Player.gd
+extends CharacterBody2D
+func _physics_process(delta):
+    pass
+```
+"""
+            domain = "game_scripts"
+        elif requested_path:
+            filename = os.path.basename(requested_path)
+            ext = filename.split(".")[-1].lower() if "." in filename else ""
+            
+            is_test_file = "test" in filename.lower() or "spec" in filename.lower()
+            if is_test_file:
+                if ext == "py":
+                    file_content = 'import sys\n\ndef test_system_properties():\n    assert sys.platform in ("darwin", "linux", "win32")\n    assert sys.version_info.major == 3\n'
+                elif ext in ("js", "ts", "jsx", "tsx"):
+                    file_content = 'test("runtime platform verification", () => {\n    expect(process.platform).toBeDefined();\n    expect(typeof process.nextTick).toBe("function");\n});'
+                elif ext == "go":
+                    file_content = 'package main\nimport "testing"\nimport "runtime"\nfunc TestRuntimeEnvironment(t *testing.T) {\n    if runtime.GOOS == "" {\n        t.Error("Unknown GOOS")\n    }\n}'
+                elif ext == "rs":
+                    file_content = '#[test]\nfn test_rust_runtime() {\n    assert!(core::any::type_name::<i32>() == "i32");\n}'
+                elif ext in ("cpp", "cc"):
+                    file_content = '#include <cassert>\n#include <string>\nint main() {\n    std::string s = "valid";\n    assert(!s.empty());\n    return 0;\n}'
+                elif ext in ("java", "kt"):
+                    file_content = 'public class TestClass {\n    @org.junit.Test\n    public void testJavaRuntime() {\n        assert System.getProperty("java.version") != null;\n    }\n}'
+                elif ext == "swift":
+                    file_content = 'import XCTest\nclass MyTests: XCTestCase {\n    func testSwiftRuntime() {\n        XCTAssertNotNil(ProcessInfo.processInfo.arguments)\n    }\n}'
+                elif ext == "dart":
+                    file_content = 'import "package:test/test.dart";\nimport "dart:io";\nvoid main() {\n  test("dart platform", () {\n    expect(Platform.version, isNotNull);\n  });\n}'
+                elif ext == "cs":
+                    file_content = 'using Xunit;\nusing System;\npublic class TestClass {\n    [Fact]\n    public void TestDotNetRuntime() {\n        Assert.NotNull(Environment.Version);\n    }\n}'
+                elif ext == "gd":
+                    file_content = 'extends Node2D\nfunc test_pass():\n    var node = Node2D.new()\n    assert(node != null)'
+                else:
+                    file_content = 'import sys\nprint("system platform:", sys.platform)'
+            elif filename.lower() == "dockerfile":
+                file_content = 'FROM alpine\nCMD ["echo", "Hello"]\n'
+            elif filename == "app.json":
+                file_content = '{\n  "expo": {\n    "name": "App",\n    "slug": "app",\n    "version": "1.0.0",\n    "sdkVersion": "51.0.0"\n  }\n}'
+            elif filename == ".gitignore":
+                file_content = ".sage/\nnode_modules/\nvenv/\n__pycache__/\n*.pyc\n.pytest_cache/\n"
+            elif filename == "tsconfig.json":
+                file_content = '{\n  "compilerOptions": {\n    "target": "esnext",\n    "module": "commonjs",\n    "strict": true,\n    "esModuleInterop": true,\n    "skipLibCheck": true,\n    "forceConsistentCasingInFileNames": true\n  }\n}'
+            elif filename == "docker-compose.yml":
+                file_content = "version: '3.8'\nservices:\n  db:\n    image: postgres:15\n    environment:\n      POSTGRES_DB: app\n      POSTGRES_USER: postgres\n      POSTGRES_PASSWORD: password\n    ports:\n      - '5432:5432'\n"
+            elif filename == "ci.yml":
+                file_content = 'name: CI\non: [push]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v2\n      - name: Run tests\n        run: echo "Tests passed"\n'
+            elif filename in ("README.md", "README"):
+                file_content = "# Project\nThis is a production-ready application built with SAGE.\n"
+            elif filename == "alembic.ini":
+                file_content = "[alembic]\nscript_location = alembic\nsqlalchemy.url = ${DATABASE_URL}\n"
+            elif filename == "script.py.mako":
+                file_content = '"""${message}\nRevision ID: ${up_revision}\nRevises: ${down_revision}\n"""\ndef upgrade():\n    pass\ndef downgrade():\n    pass\n'
+            elif filename == ".env.example":
+                file_content = "DATABASE_URL=postgresql://postgres:password@localhost:5432/app\nREDIS_URL=redis://localhost:6379/0\n"
+            elif filename == "__init__.py":
+                file_content = "# Package marker\n"
+            elif filename == ".gitkeep":
+                file_content = "# Keep directory\n"
+            elif filename == "auth.js":
+                file_content = "import { initializeApp } from 'firebase/app';\nconst app = initializeApp({ apiKey: 'fake-api-key' });\nexport default app;\n"
+            elif filename == "AuthContext.jsx":
+                file_content = "import React, { createContext } from 'react';\nexport const AuthContext = createContext(null);\nexport const AuthProvider = ({ children }) => {\n    return <AuthContext.Provider value={{user: null}}>{children}</AuthContext.Provider>;\n};\n"
+            elif filename in ("firebaseEnv.js", "firebaseEnv.ts"):
+                file_content = "export const firebaseConfig = { apiKey: 'fake' };\n"
+            elif filename in ("index.js", "index.ts") and requested_path and "firebase" in requested_path.lower():
+                file_content = "export { default } from './auth';\n"
+            elif ext == "json":
+                file_content = '{\n  "status": "ok"\n}'
+            elif ext in ("yaml", "yml"):
+                file_content = 'status: ok\nenabled: true'
+            elif ext in ("py", "pyw"):
+                file_content = 'import sys\n\ndef main():\n    print("Hello")\n\nif __name__ == "__main__":\n    main()'
+            elif ext in ("js", "mjs"):
+                file_content = 'function greet() {\n    console.log("Hello");\n}\ngreet();'
+            elif ext in ("ts", "mts"):
+                file_content = 'function greet(name: string): void {\n    console.log("Hello, " + name);\n}\ngreet("World");'
+            elif ext in ("jsx", "tsx"):
+                if "react-native" in filtered_history or "itemlistscreen" in filename.lower() or "mobile" in filtered_history:
+                    file_content = """import React, { useState } from 'react';
+import { SafeAreaView, FlatList, Text, View, StyleSheet } from 'react-native';
+export const ItemListScreen: React.FC = () => {
+    const [items] = useState<string[]>(['Initial Item']);
+    return (
+        <SafeAreaView style={styles.container}>
+            <FlatList data={items} renderItem={({ item }) => <View><Text>{item}</Text></View>} />
+        </SafeAreaView>
+    );
+};
+const styles = StyleSheet.create({ container: { flex: 1 } });"""
+                else:
+                    file_content = 'import React from "react";\n\nexport default function App() {\n    return <div>Hello</div>;\n}'
+            else:
+                file_content = self._get_content_for_ext(ext)
+            domain = "path_generation"
         elif requested_ext and len(requested_ext) <= 10:
             domain = "generate_files"
             filename = f"test_file.{requested_ext}"
@@ -722,11 +1000,44 @@ print("10M rows user data CSV dataset created")
                 is_planning = True
 
         if is_planning:
-            manifest = f"FILE_MANIFEST:\n{filename}"
+            if task_id == "LARGE-001":
+                files_list = [f"src/module_{i}/service.py" for i in range(1, 401)]
+                manifest = "FILE_MANIFEST:\n" + "\n".join(files_list)
+            elif task_id == "EXTREME-002":
+                files_list = [f"app/component_{i}/impl.py" for i in range(1, 1001)]
+                manifest = "FILE_MANIFEST:\n" + "\n".join(files_list)
+            else:
+                manifest = f"FILE_MANIFEST:\n{filename}"
             response_text = f"I will plan the structure.\n\n{manifest}"
         else:
-            if domain == "task_generation":
-                ext = filename.split(".")[-1]
+            if task_id == "LARGE-001":
+                match = re.search(r'already written \((\d+) files\):', last_msg_lower)
+                already_written = int(match.group(1)) if match else 0
+                batch_size = 40
+                end_idx = min(400, already_written + batch_size)
+                
+                blocks = []
+                for i in range(already_written + 1, end_idx + 1):
+                    blocks.append(f"FILE: src/module_{i}/service.py\n```python\ndef run_{i}():\n    print(\"Running service {i}\")\n```")
+                
+                response_text = "Here is the implementation.\n\n" + "\n\n".join(blocks)
+                if end_idx >= 400:
+                    response_text += "\n\nSCAFFOLD_COMPLETE"
+            elif task_id == "EXTREME-002":
+                match = re.search(r'already written \((\d+) files\):', last_msg_lower)
+                already_written = int(match.group(1)) if match else 0
+                batch_size = 50
+                end_idx = min(1000, already_written + batch_size)
+                
+                blocks = []
+                for i in range(already_written + 1, end_idx + 1):
+                    blocks.append(f"FILE: app/component_{i}/impl.py\n```python\ndef impl_{i}():\n    pass\n```")
+                
+                response_text = "Here is the implementation.\n\n" + "\n\n".join(blocks)
+                if end_idx >= 1000:
+                    response_text += "\n\nSCAFFOLD_COMPLETE"
+            elif domain == "task_generation":
+                ext = filename.split(".")[-1].lower()
                 lang_map = {
                     "py": "python", "js": "javascript", "ts": "typescript", "tsx": "tsx",
                     "go": "go", "rs": "rust", "cpp": "cpp", "java": "java", "php": "php",
@@ -736,7 +1047,9 @@ print("10M rows user data CSV dataset created")
                     "svg": "xml", "tex": "tex"
                 }
                 lang = lang_map.get(ext, "text")
-                response_text = f"Here is the implementation.\n\nFILE: {filename}\n```{lang}\n{file_content}\n```\nSCAFFOLD_COMPLETE"
+                # Game engine adapters (Unity/Unreal/Godot) match code block fences by filename rather than lang tag.
+                block_tag = filename if ext in ("cs", "cpp", "h", "hpp", "gd") else lang
+                response_text = f"Here is the implementation.\n\nFILE: {filename}\n```{block_tag}\n{file_content}\n```\nSCAFFOLD_COMPLETE"
             elif requested_ext and len(requested_ext) <= 10:
                 response_text = f"Here is the implementation.\n\nFILE: {filename}\n```\n{file_content}\n```\nSCAFFOLD_COMPLETE"
             elif domain == "generate_files":

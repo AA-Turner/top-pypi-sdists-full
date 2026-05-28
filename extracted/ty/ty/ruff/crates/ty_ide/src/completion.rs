@@ -2703,7 +2703,9 @@ fn completion_kind_from_type<'db>(db: &'db dyn Db, ty: Type<'db>) -> Option<Comp
             | Type::NewTypeInstance(_)
             | Type::EnumComplement(_) => CompletionKind::Struct,
             Type::LiteralValue(literal) if literal.is_enum() => CompletionKind::Enum,
-            Type::LiteralValue(_) | Type::TypeIs(_) | Type::TypeGuard(_) => CompletionKind::Value,
+            Type::LiteralValue(_) | Type::TypeIs(_) | Type::TypeGuard(_) | Type::TypeForm(_) => {
+                CompletionKind::Value
+            }
             Type::ProtocolInstance(_) => CompletionKind::Interface,
             Type::TypeVar(_) => CompletionKind::TypeParameter,
             Type::Union(union) => union
@@ -3512,6 +3514,42 @@ def frob(): ...
             builder.skip_keywords().skip_builtins().skip_auto_import().build().snapshot(),
             @"foo",
         );
+    }
+
+    #[test]
+    fn list_comprehension_member() {
+        completion_test_builder(
+            "\
+items: list[str] = []
+[item.<CURSOR> for item in items]
+",
+        )
+        .build()
+        .contains("upper");
+    }
+
+    #[test]
+    fn set_comprehension_member() {
+        completion_test_builder(
+            "\
+items: list[str] = []
+{item.<CURSOR> for item in items}
+",
+        )
+        .build()
+        .contains("upper");
+    }
+
+    #[test]
+    fn generator_expression_member() {
+        completion_test_builder(
+            "\
+items: list[str] = []
+(item.<CURSOR> for item in items)
+",
+        )
+        .build()
+        .contains("upper");
     }
 
     #[test]

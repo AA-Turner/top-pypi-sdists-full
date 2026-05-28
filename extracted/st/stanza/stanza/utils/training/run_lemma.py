@@ -37,6 +37,11 @@ def add_lemma_args(parser):
     parser.add_argument('--no_lemma_classifier', dest='lemma_classifier', action='store_false',
                         help="Don't use the lemma classifier datasets.  Default is to build lemma classifier as part of the original lemmatizer if the charlm is used")
 
+    parser.add_argument('--wordvec_pretrain_file', default=None, type=str,
+                        help="Location for finding the word vectors, if not default.  Used by the lemma classifier (which not all languages support)")
+    parser.add_argument('--lemma_classifier_save_dir', default=None, type=str,
+                        help="Save the lemma classifiers in this directory instead of the default lemma classifier home")
+
 def build_model_filename(paths, short_name, command_args, extra_args):
     """
     Figure out what the model savename will be, taking into account the model settings.
@@ -67,7 +72,7 @@ def build_model_filename(paths, short_name, command_args, extra_args):
                   "--mode", "train"]
     train_args = train_args + charlm_args + extra_args
     args = lemmatizer.parse_args(train_args)
-    save_name = lemmatizer.build_model_filename(args)
+    save_name = lemmatizer.model_file_name(args)
     return save_name
 
 def run_treebank(mode, paths, treebank, short_name, command_args, extra_args):
@@ -156,17 +161,31 @@ def run_treebank(mode, paths, treebank, short_name, command_args, extra_args):
             from stanza.models.lemma import attach_lemma_classifier
             from stanza.utils.training import run_lemma_classifier
 
+            lc_save_dir = command_args.lemma_classifier_save_dir
+            if short_name in prepare_lemma_classifier.DATASET_TARGETS:
+                lc_treebanks = ["%s.%s" % (short_name, lc.filename) for lc in prepare_lemma_classifier.DATASET_TARGETS[short_name]]
+            else:
+                lc_treebanks = [short_name]
+
             lc_charlm_args = ['--no_charlm'] if command_args.charlm is None else ['--charlm', command_args.charlm]
-            lemma_classifier_args = [treebank] + lc_charlm_args
+            lemma_classifier_args = lc_charlm_args
             if command_args.force:
                 lemma_classifier_args.append('--force')
-            run_lemma_classifier.main(lemma_classifier_args)
+            if lc_save_dir:
+                lemma_classifier_args.extend(['--save_dir', lc_save_dir])
+            if command_args.wordvec_pretrain_file is not None:
+                lemma_classifier_args.extend(['--wordvec_pretrain_file', command_args.wordvec_pretrain_file])
 
+            for lc_treebank in lc_treebanks:
+                run_lemma_classifier.main([lc_treebank] + lemma_classifier_args, paths=paths)
+
+            if lc_save_dir is None:
+                lc_save_dir = os.path.join('saved_models', 'lemma_classifier')
             save_name = build_model_filename(paths, short_name, command_args, extra_args)
-            # TODO: use a temp path for the lemma_classifier or keep it somewhere
+            lc_filenames = [os.path.join(lc_save_dir, '%s_lemma_classifier.pt' % lc_treebank) for lc_treebank in lc_treebanks]
             attach_args = ['--input', save_name,
                            '--output', save_name,
-                           '--classifier', 'saved_models/lemma_classifier/%s_lemma_classifier.pt' % short_name]
+                           '--classifier', *lc_filenames]
             attach_lemma_classifier.main(attach_args)
 
             # now we rerun the dev set - the HI in particular demonstrates some good improvement

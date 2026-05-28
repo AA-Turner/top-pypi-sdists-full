@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cartesia
-Version: 3.1.0
+Version: 3.2.0
 Summary: The official Python library for the cartesia API
 Project-URL: Homepage, https://github.com/cartesia-ai/cartesia-python
 Project-URL: Repository, https://github.com/cartesia-ai/cartesia-python
@@ -109,7 +109,7 @@ client = Cartesia(
 )
 
 response = client.tts.generate(
-    model_id="sonic-latest",
+    model_id="sonic-3.5",
     output_format={
         "container": "wav",
         "encoding": "pcm_f32le",
@@ -183,7 +183,7 @@ client = AsyncCartesia(
 
 async def main() -> None:
     response = await client.tts.generate(
-        model_id="sonic-latest",
+        model_id="sonic-3.5",
         output_format={
             "container": "wav",
             "encoding": "pcm_f32le",
@@ -245,7 +245,7 @@ async def main() -> None:
         http_client=DefaultAioHttpClient(),
     ) as client:
         response = await client.tts.generate(
-            model_id="sonic-latest",
+            model_id="sonic-3.5",
             output_format={
                 "container": "wav",
                 "encoding": "pcm_f32le",
@@ -344,7 +344,7 @@ from cartesia import Cartesia
 client = Cartesia()
 
 response = client.tts.generate(
-    model_id="model_id",
+    model_id="sonic-3.5",
     output_format={
         "container": "raw",
         "encoding": "pcm_f32le",

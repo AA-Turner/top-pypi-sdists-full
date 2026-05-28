@@ -1,5 +1,6 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
+from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -65,19 +66,39 @@ class ExecuteSqlResultPersistenceSettings(_message.Message):
     def __init__(self, enabled: bool = ...) -> None: ...
 
 class ExecuteSqlQueryRequest(_message.Message):
-    __slots__ = ("query", "correlation_id", "persistence_settings", "max_memory_bytes", "sync_options", "async_options")
+    __slots__ = (
+        "query",
+        "correlation_id",
+        "persistence_settings",
+        "max_memory_bytes",
+        "sync_options",
+        "async_options",
+        "compilation_options",
+    )
+    class CompilationOptionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
     QUERY_FIELD_NUMBER: _ClassVar[int]
     CORRELATION_ID_FIELD_NUMBER: _ClassVar[int]
     PERSISTENCE_SETTINGS_FIELD_NUMBER: _ClassVar[int]
     MAX_MEMORY_BYTES_FIELD_NUMBER: _ClassVar[int]
     SYNC_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     ASYNC_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    COMPILATION_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     query: str
     correlation_id: str
     persistence_settings: ExecuteSqlResultPersistenceSettings
     max_memory_bytes: int
     sync_options: ExecuteSqlSyncQueryRequestOptions
     async_options: ExecuteSqlAsyncQueryRequestOptions
+    compilation_options: _containers.MessageMap[str, _struct_pb2.Value]
     def __init__(
         self,
         query: _Optional[str] = ...,
@@ -86,6 +107,7 @@ class ExecuteSqlQueryRequest(_message.Message):
         max_memory_bytes: _Optional[int] = ...,
         sync_options: _Optional[_Union[ExecuteSqlSyncQueryRequestOptions, _Mapping]] = ...,
         async_options: _Optional[_Union[ExecuteSqlAsyncQueryRequestOptions, _Mapping]] = ...,
+        compilation_options: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
     ) -> None: ...
 
 class SignedOutputUris(_message.Message):
@@ -119,17 +141,19 @@ class ExecuteSqlAsyncQueryResponsePayload(_message.Message):
     ) -> None: ...
 
 class ExecuteSqlQueryResponse(_message.Message):
-    __slots__ = ("query_id", "parquet", "sync_payload", "async_payload", "errors")
+    __slots__ = ("query_id", "parquet", "sync_payload", "async_payload", "errors", "performance_summary")
     QUERY_ID_FIELD_NUMBER: _ClassVar[int]
     PARQUET_FIELD_NUMBER: _ClassVar[int]
     SYNC_PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     ASYNC_PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     ERRORS_FIELD_NUMBER: _ClassVar[int]
+    PERFORMANCE_SUMMARY_FIELD_NUMBER: _ClassVar[int]
     query_id: str
     parquet: bytes
     sync_payload: ExecuteSqlSyncQueryResponsePayload
     async_payload: ExecuteSqlAsyncQueryResponsePayload
     errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
+    performance_summary: str
     def __init__(
         self,
         query_id: _Optional[str] = ...,
@@ -137,6 +161,7 @@ class ExecuteSqlQueryResponse(_message.Message):
         sync_payload: _Optional[_Union[ExecuteSqlSyncQueryResponsePayload, _Mapping]] = ...,
         async_payload: _Optional[_Union[ExecuteSqlAsyncQueryResponsePayload, _Mapping]] = ...,
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
+        performance_summary: _Optional[str] = ...,
     ) -> None: ...
 
 class PlanSqlQueryRequest(_message.Message):
@@ -273,19 +298,22 @@ class PollSqlQueryRequest(_message.Message):
     def __init__(self, operation_id: _Optional[str] = ...) -> None: ...
 
 class PollSqlQueryResponse(_message.Message):
-    __slots__ = ("info", "progress", "response", "failed")
+    __slots__ = ("info", "progress", "response", "failed", "performance_summary_uri")
     INFO_FIELD_NUMBER: _ClassVar[int]
     PROGRESS_FIELD_NUMBER: _ClassVar[int]
     RESPONSE_FIELD_NUMBER: _ClassVar[int]
     FAILED_FIELD_NUMBER: _ClassVar[int]
+    PERFORMANCE_SUMMARY_URI_FIELD_NUMBER: _ClassVar[int]
     info: SqlQueryInfo
     progress: SqlQueryProgressInfo
     response: ExecuteSqlSyncQueryResponsePayload
     failed: SqlQueryFailedInfo
+    performance_summary_uri: str
     def __init__(
         self,
         info: _Optional[_Union[SqlQueryInfo, _Mapping]] = ...,
         progress: _Optional[_Union[SqlQueryProgressInfo, _Mapping]] = ...,
         response: _Optional[_Union[ExecuteSqlSyncQueryResponsePayload, _Mapping]] = ...,
         failed: _Optional[_Union[SqlQueryFailedInfo, _Mapping]] = ...,
+        performance_summary_uri: _Optional[str] = ...,
     ) -> None: ...

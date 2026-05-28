@@ -5,254 +5,431 @@ No GDAL dependency -- uses only numpy, numba, xarray, and the standard library.
 Public API
 ----------
 open_geotiff(source, ...)
-    Read a GeoTIFF file to an xarray.DataArray.
+    Read a GeoTIFF, COG, or VRT file to an xarray.DataArray. Auto-dispatches
+    to the GPU, dask, or numpy backend based on the ``gpu`` and ``chunks``
+    kwargs.
+read_geotiff_gpu(source, ...)
+    GPU-only read returning a CuPy-backed DataArray. ``open_geotiff(...,
+    gpu=True)`` calls this internally; use the explicit name when you want
+    the strict-mode failure semantics (``on_gpu_failure='strict'``) or want
+    to bypass auto-dispatch.
+read_geotiff_dask(source, ...)
+    Dask-only read returning a windowed lazy DataArray. ``open_geotiff(...,
+    chunks=N)`` calls this internally.
+read_vrt(source, ...)
+    Read a GDAL Virtual Raster Table (.vrt). ``open_geotiff`` routes ``.vrt``
+    paths here automatically; the explicit entry point is useful for
+    callers that already know they have a VRT.
 to_geotiff(data, path, ...)
-    Write an xarray.DataArray as a GeoTIFF or COG.
-write_vrt(vrt_path, source_files, ...)
-    Generate a VRT mosaic XML from a list of GeoTIFF files.
+    Write an xarray.DataArray as a GeoTIFF or COG. Auto-dispatches to GPU
+    when the data is CuPy-backed.
+write_geotiff_gpu(data, path, ...)
+    GPU-only writer using nvCOMP. ``to_geotiff(..., gpu=True)`` calls this
+    internally.
+write_vrt(path, source_files, ...)
+    Generate a VRT mosaic XML from a list of GeoTIFF files. ``vrt_path``
+    is kept as a deprecated alias for ``path``; passing both ``path`` and
+    ``vrt_path`` raises ``TypeError`` (#1946).
 """
 from __future__ import annotations
+
+import os
+import warnings
+from typing import TYPE_CHECKING
 
 import numpy as np
 import xarray as xr
 
-from ._geotags import GeoTransform, RASTER_PIXEL_IS_AREA, RASTER_PIXEL_IS_POINT
-from ._reader import read_to_array
-from ._writer import write
+if TYPE_CHECKING:
+    from typing import BinaryIO
 
-__all__ = ['open_geotiff', 'to_geotiff', 'write_vrt']
+# Re-exports only; consumers import these as ``xrspatial.geotiff._coords_from_pixel_geometry``
+# ``read_to_array`` is internal: it is used by ``open_geotiff`` and the
+# GPU fallback below but is not in ``__all__`` or the module-level
+# Public API docstring. Bind it under a leading-underscore name so it
+# does not leak into ``xrspatial.geotiff``'s public namespace. Tests
+# and internal callers that genuinely need it can import directly from
+# ``xrspatial.geotiff._reader``. See issue #1708.
+from ._attrs import (_LEVEL_RANGES, _VALID_COMPRESSIONS, GEOREF_STATUS_CRS_ONLY,  # noqa: F401
+                     GEOREF_STATUS_FULL, GEOREF_STATUS_NONE, GEOREF_STATUS_ROTATED_DROPPED,
+                     GEOREF_STATUS_TRANSFORM_ONLY, GEOREF_STATUS_VALUES, _extent_to_window,
+                     _extract_rich_tags, _finalize_eager_read, _resolve_nodata_attr)
+# Re-export only; called by xrspatial/geotiff/tests/test_nodata_*.py.
+from ._backends._gpu_helpers import _apply_nodata_mask_gpu  # noqa: F401
+from ._backends._gpu_helpers import _is_gpu_data  # noqa: F401
+from ._backends.dask import read_geotiff_dask
+from ._backends.gpu import read_geotiff_gpu
+from ._backends.vrt import read_vrt
+# etc. See the ``# noqa: F401`` pattern at lines 89 and 119 for the same convention.
+from ._coords import _BAND_DIM_NAMES  # noqa: F401
+from ._coords import coords_from_pixel_geometry as _coords_from_pixel_geometry  # noqa: F401
+from ._coords import coords_to_transform as _coords_to_transform  # noqa: F401
+from ._coords import \
+    require_transform_for_georeferenced as _require_transform_for_georeferenced  # noqa: F401
+from ._coords import transform_from_attr as _transform_from_attr  # noqa: F401
+from ._coords import transform_tuple as _transform_tuple  # noqa: F401
+from ._coords import \
+    transform_tuple_from_pixel_geometry as _transform_tuple_from_pixel_geometry  # noqa: F401
+from ._crs import _resolve_crs_to_wkt, _wkt_to_epsg  # noqa: F401
+from ._errors import (ConflictingCRSError, ConflictingNodataError, DuplicateIFDTagError,
+                      GeoTIFFAmbiguousMetadataError, InconsistentGeoKeysError, InvalidCRSCodeError,
+                      InvalidIntegerNodataError, MixedBandMetadataError,
+                      NonRepresentableEPSGCRSError, NonUniformCoordsError, RotatedTransformError,
+                      UnknownCRSModelTypeError, UnparseableCRSError, UnsupportedGeoTIFFFeatureError,
+                      VRTStableSourcesOnlyError)
+from ._geotags import RASTER_PIXEL_IS_AREA, RASTER_PIXEL_IS_POINT, GeoTransform  # noqa: F401
+from ._reader import _MAX_CLOUD_BYTES_SENTINEL, CloudSizeLimitError, UnsafeURLError
+from ._reader import read_to_array as _read_to_array
+from ._runtime import (_CRS_WKT_DEPRECATED_SENTINEL, _GPU_DEPRECATED_SENTINEL,  # noqa: F401
+                       _MISSING_SOURCES_SENTINEL, _ON_GPU_FAILURE_SENTINEL, GeoTIFFFallbackWarning,
+                       _geotiff_strict_mode, _gpu_fallback_warning_message)
+from ._validation import (_validate_3d_writer_dims, _validate_chunks_arg,  # noqa: F401
+                          _validate_tile_size_arg)
+# Re-export only; called by xrspatial/geotiff/tests/test_nodata_no_extra_copy_1553.py.
+# ``_writer.write`` (alias for ``_writer._write``) is module-private;
+# see ``_writer.py`` docstring and issue #2138. The public eager write
+# surface is :func:`to_geotiff`; do not re-export the array-level
+# entry point here. The dotted path ``xrspatial.geotiff._writer._write``
+# still works for the handful of internal call sites that need it.
+from ._writers.eager import _write_single_tile  # noqa: F401
+from ._writers.eager import to_geotiff
+from ._writers.gpu import write_geotiff_gpu
+from ._writers.vrt import write_vrt
 
-
-def _wkt_to_epsg(wkt_or_proj: str) -> int | None:
-    """Try to extract an EPSG code from a WKT or PROJ string.
-
-    Returns None if pyproj is not installed or the string can't be parsed.
-    """
-    try:
-        from pyproj import CRS
-        crs = CRS.from_user_input(wkt_or_proj)
-        epsg = crs.to_epsg()
-        return epsg
-    except Exception:
-        return None
-
-
-def _geo_to_coords(geo_info, height: int, width: int) -> dict:
-    """Build y/x coordinate arrays from GeoInfo.
-
-    For PixelIsArea (default): origin is the edge of pixel (0,0), so pixel
-    centers are at origin + 0.5*pixel_size.
-    For PixelIsPoint: origin (tiepoint) is already the center of pixel (0,0),
-    so no half-pixel offset is needed.
-
-    Returned coords are pixel-center values in either raster type, matching
-    xarray convention. The raw GeoTransform (origin and pixel size) is
-    preserved separately on the DataArray as a rasterio-style 6-tuple in
-    ``attrs['transform']``: ``(pixel_width, 0, origin_x, 0, pixel_height,
-    origin_y)``. ``to_geotiff`` prefers that attr over recomputing the
-    transform from the coord arrays, which avoids float drift on
-    fractional-precision rasters.
-
-    When the file carries no GeoTIFF tags (``has_georef=False``), fall back
-    to integer pixel coordinates 0..N-1 instead of inventing fractional
-    values from the default unit transform.
-    """
-    if not getattr(geo_info, 'has_georef', True):
-        return {
-            'y': np.arange(height, dtype=np.int64),
-            'x': np.arange(width, dtype=np.int64),
-        }
-    t = geo_info.transform
-    if geo_info.raster_type == RASTER_PIXEL_IS_POINT:
-        # Tiepoint is pixel center -- no offset needed
-        x = np.arange(width, dtype=np.float64) * t.pixel_width + t.origin_x
-        y = np.arange(height, dtype=np.float64) * t.pixel_height + t.origin_y
-    else:
-        # Tiepoint is pixel edge -- shift to center
-        x = np.arange(width, dtype=np.float64) * t.pixel_width + t.origin_x + t.pixel_width * 0.5
-        y = np.arange(height, dtype=np.float64) * t.pixel_height + t.origin_y + t.pixel_height * 0.5
-    return {'y': y, 'x': x}
-
-
-def _transform_tuple(geo_info) -> tuple | None:
-    """Return the rasterio-style 6-tuple for a GeoInfo's transform.
-
-    Format: ``(pixel_width, 0.0, origin_x, 0.0, pixel_height, origin_y)``.
-
-    This matches ``rasterio.Affine.to_gdal()``-adjacent ordering used by
-    rioxarray's ``rio.transform()`` output. Storing the tuple on the
-    DataArray lets ``to_geotiff`` reproduce the source GeoTransform
-    byte-for-byte, side-stepping float drift in the y/x coord arrays.
-    """
-    if geo_info is None:
-        return None
-    t = geo_info.transform
-    if t is None:
-        return None
-    return (
-        float(t.pixel_width), 0.0, float(t.origin_x),
-        0.0, float(t.pixel_height), float(t.origin_y),
-    )
-
-
-def _transform_from_attr(attr_val) -> 'GeoTransform | None':
-    """Build a GeoTransform from an ``attrs['transform']`` value.
-
-    Accepts a 6-tuple ``(a, b, c, d, e, f)`` (rasterio Affine ordering;
-    ``b`` and ``d`` are ignored, only axis-aligned affines round-trip),
-    a 6-tuple GDAL ordering ``(c, a, b, f, d, e)`` is NOT accepted, or
-    a ``GeoTransform`` instance. Returns None for anything else.
-    """
-    if attr_val is None:
-        return None
-    if isinstance(attr_val, GeoTransform):
-        return attr_val
-    try:
-        seq = tuple(attr_val)
-    except TypeError:
-        return None
-    if len(seq) != 6:
-        return None
-    try:
-        a, _b, c, _d, e, f = (float(x) for x in seq)
-    except (TypeError, ValueError):
-        return None
-    return GeoTransform(
-        origin_x=c, origin_y=f, pixel_width=a, pixel_height=e,
-    )
+# All names below are part of the supported public API. ``plot_geotiff``
+# is intentionally omitted: it is deprecated in favour of ``da.xrs.plot()``
+# and emits a ``DeprecationWarning`` when called.
+__all__ = [
+    'ConflictingCRSError',
+    'ConflictingNodataError',
+    'DuplicateIFDTagError',
+    'GeoTIFFAmbiguousMetadataError',
+    'GeoTIFFFallbackWarning',
+    'GEOREF_STATUS_CRS_ONLY',
+    'GEOREF_STATUS_FULL',
+    'GEOREF_STATUS_NONE',
+    'GEOREF_STATUS_ROTATED_DROPPED',
+    'GEOREF_STATUS_TRANSFORM_ONLY',
+    'GEOREF_STATUS_VALUES',
+    'InconsistentGeoKeysError',
+    'InvalidCRSCodeError',
+    'InvalidIntegerNodataError',
+    'MixedBandMetadataError',
+    'NonRepresentableEPSGCRSError',
+    'NonUniformCoordsError',
+    'RotatedTransformError',
+    'SUPPORTED_FEATURES',
+    'UnknownCRSModelTypeError',
+    'UnparseableCRSError',
+    'UnsafeURLError',
+    'UnsupportedGeoTIFFFeatureError',
+    'VRTStableSourcesOnlyError',
+    'open_geotiff',
+    'read_geotiff_gpu',
+    'read_geotiff_dask',
+    'read_vrt',
+    'to_geotiff',
+    'write_geotiff_gpu',
+    'write_vrt',
+]
 
 
-def _validate_dtype_cast(source_dtype, target_dtype):
-    """Validate that casting source_dtype to target_dtype is allowed.
-
-    Raises ValueError for float-to-int casts (lossy in a way users
-    often don't intend).  All other casts are permitted -- the user
-    asked for them explicitly.
-    """
-    src = np.dtype(source_dtype)
-    tgt = np.dtype(target_dtype)
-    if src.kind == 'f' and tgt.kind in ('u', 'i'):
-        raise ValueError(
-            f"Cannot cast float ({src}) to int ({tgt}). "
-            f"This loses fractional data and is usually unintentional. "
-            f"Cast explicitly after reading if you really want this.")
-
-
-def _coords_to_transform(da: xr.DataArray) -> GeoTransform | None:
-    """Infer GeoTransform from DataArray coordinates.
-
-    Coordinates are always pixel-center values. The transform origin depends
-    on raster_type:
-    - PixelIsArea (default): origin = center - half_pixel  (edge of pixel 0)
-    - PixelIsPoint: origin = center  (center of pixel 0)
-    """
-    ydim = da.dims[-2]
-    xdim = da.dims[-1]
-
-    if xdim not in da.coords or ydim not in da.coords:
-        return None
-
-    x = da.coords[xdim].values
-    y = da.coords[ydim].values
-
-    if len(x) < 2 or len(y) < 2:
-        return None
-
-    pixel_width = float(x[1] - x[0])
-    pixel_height = float(y[1] - y[0])
-
-    is_point = da.attrs.get('raster_type') == 'point'
-    if is_point:
-        # PixelIsPoint: tiepoint is at the pixel center
-        origin_x = float(x[0])
-        origin_y = float(y[0])
-    else:
-        # PixelIsArea: tiepoint is at the edge (center - half pixel)
-        origin_x = float(x[0]) - pixel_width * 0.5
-        origin_y = float(y[0]) - pixel_height * 0.5
-
-    return GeoTransform(
-        origin_x=origin_x,
-        origin_y=origin_y,
-        pixel_width=pixel_width,
-        pixel_height=pixel_height,
-    )
+# ``SUPPORTED_FEATURES`` and its derived ``_EXPERIMENTAL_CODECS`` set
+# live in ``_attrs.py`` so the writers can import them at module scope
+# without a circular dependency (this ``__init__`` already imports the
+# writers, so the writers cannot import from ``..`` at module scope).
+# The names are re-exported below to keep the public API at
+# ``xrspatial.geotiff.SUPPORTED_FEATURES``.
+#
+# Tier semantics
+# --------------
+# - ``"stable"`` -- the path a new user should be on. Local file in,
+#   local file out, lossless codec, axis-aligned grid. Covered by the
+#   cross-backend parity matrix.
+# - ``"advanced"`` -- works and is tested, but the caller should know
+#   what they are signing up for (cloud cost, partial VRT mosaics,
+#   rotated transforms dropping on write, BigTIFF promotion, etc.). No
+#   kwarg gate; the docstring carries an ``Advanced:`` marker.
+# - ``"experimental"`` -- works in our tests, no claim about external
+#   interop or numerical parity across backends. Tier 3 codecs
+#   (``lerc``, ``jpeg2000`` / ``j2k``, ``lz4``) require
+#   ``allow_experimental_codecs=True`` on the writers; the GPU paths
+#   use ``gpu=True`` as the explicit opt-in.
+# - ``"internal_only"`` -- the strictest tier. Already gated behind
+#   its own dedicated flag because the output does not round-trip
+#   through libtiff / GDAL / rasterio. ``codec.jpeg`` requires
+#   ``allow_internal_only_jpeg=True`` (issue #1845);
+#   ``allow_experimental_codecs`` does NOT cover it.
+#
+# Tests in ``xrspatial/geotiff/tests/release_gates/test_features.py``
+# walk the mapping and assert that every Tier 3 codec rejects without
+# the opt-in flag and every Tier 4 codec rejects without its own
+# dedicated flag. The user-guide notebook
+# (``examples/user_guide/39_GeoTIFF_IO.ipynb``) renders the same
+# mapping as a table so the documentation cannot drift from the code.
+#
+# See issue #2137.
+from ._attrs import SUPPORTED_FEATURES  # noqa: E402
 
 
-def _read_geo_info(source: str, *, overview_level: int | None = None):
+def _read_geo_info(source, *, overview_level: int | None = None,
+                   allow_rotated: bool = False,
+                   allow_invalid_nodata: bool = False):
     """Read only the geographic metadata and image dimensions from a GeoTIFF.
 
     Returns (geo_info, height, width, dtype, n_bands) without reading pixel
-    data.  Uses mmap for header-only access -- O(1) memory regardless of file
-    size.
+    data.  Uses mmap for header-only access on string paths; for file-like
+    inputs it reads the bytes directly. O(1) memory regardless of file size
+    when a path is supplied.
 
     Parameters
     ----------
+    source : str or binary file-like
+        Path or any object with ``read``/``seek``.
     overview_level : int or None
         Overview IFD index (0 = full resolution).
+    allow_rotated : bool, optional
+        Forwarded to the geotag parser. When True, a rotated
+        ``ModelTransformationTag`` reads as an ungeoreferenced pixel
+        grid instead of raising ``RotatedTransformError`` (issues #2115,
+        #2267).
+    allow_invalid_nodata : bool, optional
+        Forwarded to the geotag parser. When True, restores the legacy
+        no-op handling of non-finite / fractional ``GDAL_NODATA`` on
+        integer sources (#1774 follow-up, #2441).
     """
-    from ._dtypes import tiff_dtype_to_numpy
-    from ._geotags import extract_geo_info
-    from ._header import parse_all_ifds, parse_header
+    # ``_parse_cog_http_meta`` is imported from ``_cog_http`` directly
+    # rather than re-routed through ``_reader`` because the
+    # ``open_geotiff(..., chunks=...)`` fsspec metadata path is not part
+    # of the ``_reader.*`` monkeypatch surface (no test patches
+    # ``_reader._parse_cog_http_meta`` and then exercises this branch).
+    # The eager / dask HTTP paths that ARE patched route through
+    # ``_cog_http._read_cog_http`` and ``_backends/dask.py``'s
+    # ``_HTTPSource`` construction, both of which still go through
+    # ``_reader`` for the patchable names. See PR-J / #2258.
+    from ._cog_http import _parse_cog_http_meta
+    from ._dtypes import resolve_bits_per_sample, tiff_dtype_to_numpy
+    from ._geotags import extract_geo_info_with_overview_inheritance
+    from ._header import parse_all_ifds, parse_header, select_overview_ifd
+    from ._sources import _CloudSource, _coerce_path, _is_file_like, _is_fsspec_uri
+    from ._validation import _validate_predictor_sample_format
 
-    with open(source, 'rb') as f:
-        import mmap
-        data = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+    source = _coerce_path(source)
+    if isinstance(source, str) and _is_fsspec_uri(source):
+        # fsspec URI (s3://, gs://, az://, memory://, ...): use the
+        # bounded-prefetch metadata parser instead of downloading the
+        # full remote object. ``_parse_cog_http_meta`` only needs
+        # ``read_range`` on the source, which ``_CloudSource`` provides;
+        # it grows a small range buffer until the IFD chain resolves
+        # (capped by ``MAX_HTTP_HEADER_BYTES``). Avoids the
+        # whole-file fetch that would otherwise happen on every
+        # ``open_geotiff(..., chunks=...)`` graph build for a large COG.
+        #
+        # ``source_path=source`` opts the parser into external
+        # ``.tif.ovr`` sidecar discovery (issue #2239). Without it,
+        # ``open_geotiff(uri, chunks=..., overview_level=1)`` on a
+        # GDAL external-overview file raised out-of-range or picked a
+        # different overview than the eager read of the same URI.
+        # ``return_sidecar=False`` (the default) makes the helper
+        # close the sidecar buffer for us before returning -- the
+        # metadata-only path here only needs ``geo_info`` and the
+        # IFD's dimensions, both populated before the buffer is freed.
+        _src = _CloudSource(source)
+        try:
+            _header, _ifd, geo_info, _ = _parse_cog_http_meta(
+                _src, overview_level=overview_level,
+                allow_rotated=allow_rotated,
+                allow_invalid_nodata=allow_invalid_nodata,
+                source_path=source)
+        finally:
+            _src.close()
+        bps = resolve_bits_per_sample(_ifd.bits_per_sample)
+        file_dtype = tiff_dtype_to_numpy(bps, _ifd.sample_format)
+        _validate_predictor_sample_format(_ifd.predictor, _ifd.sample_format)
+        n_bands = (
+            _ifd.samples_per_pixel if _ifd.samples_per_pixel > 1 else 0
+        )
+        # Stash photometric + samples_per_pixel so the dask graph builder
+        # can detect MinIsWhite and invert ``geo_info.nodata`` before
+        # binding it into the chunk closure (#1809).
+        geo_info._ifd_photometric = _ifd.photometric
+        geo_info._ifd_samples_per_pixel = _ifd.samples_per_pixel
+        geo_info._ifd_compression = _ifd.compression
+        return geo_info, _ifd.height, _ifd.width, file_dtype, n_bands
+    if _is_file_like(source):
+        # File-like: read its full bytes; we don't try to mmap arbitrary
+        # buffers because they may not back a real file descriptor.
+        try:
+            cur = source.tell()
+        except (OSError, AttributeError):
+            cur = 0
+        source.seek(0)
+        data = source.read()
+        try:
+            source.seek(cur)
+        except (OSError, AttributeError):
+            pass
+        close_data = False
+    elif isinstance(source, str):
+        with open(source, 'rb') as f:
+            import mmap
+            data = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        close_data = True
+    else:
+        raise TypeError(
+            "source must be a str path or binary file-like, "
+            f"got {type(source).__name__}")
+    sidecar = None
     try:
         header = parse_header(data)
         ifds = parse_all_ifds(data, header)
-        ifd_idx = 0
-        if overview_level is not None:
-            ifd_idx = min(overview_level, len(ifds) - 1)
-        ifd = ifds[ifd_idx]
-        geo_info = extract_geo_info(ifd, data, header.byte_order)
-        bps = ifd.bits_per_sample
-        if isinstance(bps, tuple):
-            bps = bps[0]
+        if not ifds:
+            raise ValueError("No IFDs found in TIFF file")
+        # Append sibling `.tif.ovr` sidecar IFDs onto the pyramid list
+        # so ``overview_level`` indexes both internal and external
+        # overviews (issue #2112). Local file paths only.
+        #
+        # A broken sidecar must not break the base read. The release
+        # contract puts ``reader.local_file`` at the stable tier and
+        # ``reader.sidecar_ovr`` at advanced; a stale or corrupt
+        # ``.ovr`` written by an external tool falls back to base-only
+        # behaviour with a warning. Mirrors the eager CPU path in
+        # ``_reader._read_to_array`` and the dask metadata helper
+        # ``_sidecar.discover_remote_sidecar``. Issue #2416.
+        from ._sidecar import (attach_sidecar_origin, find_sidecar, handle_sidecar_parse_failure,
+                               load_sidecar)
+        sidecar_origin: dict[int, tuple] = {}
+        sidecar_path = find_sidecar(source)
+        if sidecar_path is not None:
+            try:
+                sidecar = load_sidecar(sidecar_path)
+            except CloudSizeLimitError:
+                # Re-raised for symmetry with ``_reader._read_to_array``;
+                # the byte budget is a caller-set contract. In practice
+                # this branch is local-file-only (the cloud / HTTP cases
+                # are handled in the earlier ``_parse_cog_http_meta`` /
+                # ``_CloudSource`` branch above) so the exception cannot
+                # fire from a local mmap today, but keeping the explicit
+                # re-raise prevents the symmetry breaking if a future
+                # patch routes a cloud-source path through here.
+                raise
+            except Exception as exc:
+                # Shared policy: surface the parse error when the
+                # caller asked for a level the base file alone cannot
+                # serve; warn and fall back otherwise. See
+                # ``_sidecar.handle_sidecar_parse_failure`` for the
+                # rationale. Issue #2484.
+                handle_sidecar_parse_failure(
+                    exc, sidecar_path, overview_level,
+                    base_ifd_count=len(ifds),
+                )
+                sidecar = None
+            if sidecar is not None:
+                # The origin mapping is consumed below for georef extraction
+                # only -- strip/tile bytes are sliced by ``read_to_array`` on
+                # the actual read. A sidecar IFD that carries its own
+                # GeoKeyDirectory / ModelPixelScale / ModelTiepoint /
+                # ModelTransformation needs the sidecar's byte order to
+                # parse cleanly; without the mapping the helper falls back
+                # to the base file's bytes (today's default, correct under
+                # the usual GDAL convention). See issue #2315.
+                sidecar_origin = attach_sidecar_origin(
+                    sidecar.ifds, sidecar.data, sidecar.header)
+                ifds = ifds + sidecar.ifds
+        ifd = select_overview_ifd(ifds, overview_level)
+        # Inherit georef from the level-0 IFD when the overview itself
+        # has no geokeys (issue #1640). Pass-through for level 0. The
+        # sidecar IFDs typically lack geokeys so the inheritance pulls
+        # from the base file's full-resolution IFD as GDAL does. When a
+        # sidecar IFD does declare its own georef payload, ``georef_origin``
+        # routes the parse to the sidecar's bytes / byte order so the
+        # sidecar's georef wins. See issue #2315.
+        georef_origin = (
+            {iid: (od, oh.byte_order)
+             for iid, (od, oh) in sidecar_origin.items()}
+            if sidecar_origin else None
+        )
+        geo_info = extract_geo_info_with_overview_inheritance(
+            ifd, ifds, data, header.byte_order,
+            allow_rotated=allow_rotated,
+            allow_invalid_nodata=allow_invalid_nodata,
+            sidecar_origin=georef_origin)
+        bps = resolve_bits_per_sample(ifd.bits_per_sample)
         file_dtype = tiff_dtype_to_numpy(bps, ifd.sample_format)
+        _validate_predictor_sample_format(ifd.predictor, ifd.sample_format)
         n_bands = ifd.samples_per_pixel if ifd.samples_per_pixel > 1 else 0
+        # Stash photometric + samples_per_pixel so the dask graph builder
+        # can detect MinIsWhite and invert ``geo_info.nodata`` before
+        # binding it into the chunk closure (#1809).
+        geo_info._ifd_photometric = ifd.photometric
+        geo_info._ifd_samples_per_pixel = ifd.samples_per_pixel
+        # Stash compression so the dask graph builder can fire the
+        # experimental / internal-only codec opt-in gate at graph build
+        # rather than waiting for the per-chunk task to fail (PR 4 of
+        # epic #2340).
+        geo_info._ifd_compression = ifd.compression
         return geo_info, ifd.height, ifd.width, file_dtype, n_bands
     finally:
-        data.close()
+        if close_data:
+            data.close()
+        from ._sidecar import close_sidecar
+        close_sidecar(sidecar)
 
 
-def _extent_to_window(transform, file_height, file_width,
-                      y_min, y_max, x_min, x_max):
-    """Convert geographic extent to pixel window (row_start, col_start, row_stop, col_stop).
-
-    Clamps to file bounds.
-    """
-    # Pixel coords from geographic coords
-    col_start = (x_min - transform.origin_x) / transform.pixel_width
-    col_stop = (x_max - transform.origin_x) / transform.pixel_width
-
-    row_start = (y_max - transform.origin_y) / transform.pixel_height
-    row_stop = (y_min - transform.origin_y) / transform.pixel_height
-
-    # pixel_height is typically negative, so row_start/row_stop may be swapped
-    if row_start > row_stop:
-        row_start, row_stop = row_stop, row_start
-    if col_start > col_stop:
-        col_start, col_stop = col_stop, col_start
-
-    row_start = max(0, int(np.floor(row_start)))
-    col_start = max(0, int(np.floor(col_start)))
-    row_stop = min(file_height, int(np.ceil(row_stop)))
-    col_stop = min(file_width, int(np.ceil(col_stop)))
-
-    return (row_start, col_start, row_stop, col_stop)
-
-
-
-
-def open_geotiff(source: str, *, dtype=None, window=None,
+def open_geotiff(source: str | BinaryIO, *,
+                 dtype: str | np.dtype | None = None,
+                 window: tuple | None = None,
                  overview_level: int | None = None,
                  band: int | None = None,
                  name: str | None = None,
                  chunks: int | tuple | None = None,
                  gpu: bool = False,
-                 max_pixels: int | None = None) -> xr.DataArray:
+                 max_pixels: int | None = None,
+                 max_cloud_bytes: int | None = (
+                     _MAX_CLOUD_BYTES_SENTINEL),  # type: ignore[assignment]
+                 on_gpu_failure: str = _ON_GPU_FAILURE_SENTINEL,
+                 missing_sources: str = _MISSING_SOURCES_SENTINEL,
+                 allow_rotated: bool = False,
+                 allow_unparseable_crs: bool = False,
+                 allow_inconsistent_geokeys: bool = False,
+                 allow_invalid_nodata: bool = False,
+                 stable_only: bool = False,
+                 allow_experimental_codecs: bool = False,
+                 allow_internal_only_jpeg: bool = False,
+                 band_nodata: str | None = None,
+                 mask_nodata: bool = True,
+                 ) -> xr.DataArray:
     """Read a GeoTIFF, COG, or VRT file into an xarray.DataArray.
+
+    Release-contract tier (epic #2340; see
+    ``docs/source/reference/release_gate_geotiff.rst`` for the audited
+    matrix and ``docs/source/reference/geotiff_release_contract.rst``
+    for the prose contract once that page lands):
+
+    * [stable] Local-file reads on axis-aligned grids with an EPSG CRS
+      in ``attrs['crs']``; Tier 1 codecs (``none`` / ``deflate`` /
+      ``lzw`` / ``packbits`` / ``zstd``); windowed reads via ``window=``.
+    * [advanced] Cloud / fsspec URIs, HTTP range reads, ``.vrt``
+      mosaics, external ``.tif.ovr`` sidecars, ``allow_rotated=True``,
+      ``allow_unparseable_crs=True``, ``overview_level=`` selection.
+      These paths work and are tested, but each carries a specific
+      failure mode named on the parameter doc.
+    * [experimental] ``gpu=True``; LERC / JPEG2000 / J2K / LZ4 decode.
+      No cross-backend numerical parity claim. JPEG-in-TIFF on the
+      read side decodes best-effort with no parity claim against
+      libtiff / GDAL / rasterio; the write side is ``[internal-only]``
+      (the encoder omits the required JPEGTables tag, so round-trips
+      hold only for files this library itself wrote).
+    * Out of scope for this release (allowed to raise): full GDAL VRT
+      parity, warped / reprojection VRTs, rotated/sheared write
+      support.
+
+    See :data:`xrspatial.geotiff.SUPPORTED_FEATURES` for the full tier
+    map (issue #2137). Per-parameter tier markers below describe the
+    tier the parameter itself carries; a parameter's effective tier
+    is bounded by the function-level surface above (e.g. ``[stable]``
+    ``mask_nodata`` is still only stable when combined with a
+    ``[stable]`` source, codec, and options).
 
     Automatically dispatches to the best backend:
     - ``gpu=True``: GPU-accelerated read via nvCOMP (returns CuPy)
@@ -260,32 +437,215 @@ def open_geotiff(source: str, *, dtype=None, window=None,
     - ``gpu=True, chunks=N``: Dask+CuPy for out-of-core GPU pipelines
     - Default: NumPy eager read
 
-    VRT files are auto-detected by extension.
+    VRT files are auto-detected by extension. The supported VRT subset
+    is narrow on purpose (issue #2321; epic #2340; epic #2342). See the
+    "VRT support matrix" section in ``docs/source/reference/geotiff.rst``
+    and the audited matrix in
+    ``docs/source/reference/release_gate_geotiff.rst`` for the
+    canonical contract. In short:
+
+    * Supported: simple GDAL VRT mosaics over GeoTIFF sources;
+      compatible CRS, transform orientation, pixel size, dtype, and
+      band count across sources; clean windowed reads; lazy / dask
+      reads over the same subset; explicit nodata with mixed-band
+      rejection by default; ``missing_sources='raise'`` as the
+      default.
+    * Non-goals (allowed to raise): warped / reprojection VRTs,
+      arbitrary resampling beyond the tested subset, mixed CRS /
+      resolution / dtype / band metadata without an opt-in, nested
+      VRTs, complex source / mask band / alpha band structures, full
+      GDAL VRT parity.
 
     Parameters
     ----------
-    source : str
-        File path, HTTP URL, or cloud URI (s3://, gs://, az://).
+    source : str or binary file-like
+        [stable for local file paths; advanced for HTTP/fsspec URIs,
+        ``.vrt`` paths, and in-memory file-like buffers (the file-like
+        path is restricted to the eager numpy reader -- dask, GPU,
+        VRT, and remote-URL paths require a string)] File path, HTTP
+        URL, cloud URI (s3://, gs://, az://), or a binary file-like
+        object (e.g. ``io.BytesIO``) with read+seek.
     dtype : str, numpy.dtype, or None
-        Cast the result to this dtype after reading. None keeps the
-        file's native dtype. Float-to-int casts raise ValueError to
-        prevent accidental data loss.
+        [stable] Cast the result to this dtype after reading. None
+        keeps the file's native dtype. Float-to-int casts raise
+        ValueError to prevent accidental data loss.
     window : tuple or None
-        (row_start, col_start, row_stop, col_stop) for windowed reading.
+        [stable] ``(row_start, col_start, row_stop, col_stop)`` for
+        windowed reading.
     overview_level : int or None
-        Overview level (0 = full resolution).
+        [advanced] Overview level (0 = full resolution). Must be a
+        non-negative int or ``None``; passing ``bool`` or any other
+        type raises ``TypeError``. External ``.tif.ovr`` sidecars are
+        also [advanced] and are tested but not load-bearing for
+        release-gate parity.
     band : int or None
-        Band index (0-based). None returns all bands.
+        [stable] Band index (0-based). None returns all bands.
     name : str or None
-        Name for the DataArray.
+        [stable] Name for the DataArray.
     chunks : int, tuple, or None
-        Chunk size for Dask lazy reading.
+        [stable] Chunk size for Dask lazy reading. Dask reads are
+        gated against the eager reader by the cross-backend parity
+        suite for the Tier 1 codec set.
     gpu : bool
-        Use GPU-accelerated decompression (requires cupy + nvCOMP).
+        [experimental] Use GPU-accelerated decompression. Requires
+        cupy + numba CUDA plus optional nvCOMP / nvJPEG / nvJPEG2K
+        libraries for codec-specific acceleration. The reader falls
+        back to CPU when those libraries are unavailable unless
+        ``on_gpu_failure='strict'`` is also set. No cross-backend
+        numerical parity claim outside the Tier 1 codec set.
     max_pixels : int or None
-        Maximum allowed pixel count (width * height * samples). None
-        uses the default (~1 billion). Raise to read legitimately
-        large files.
+        [stable] Maximum allowed pixel count (width * height *
+        samples). None uses the default (~1 billion). Raise to read
+        legitimately large files.
+    max_cloud_bytes : int or None, optional
+        [advanced] fsspec cloud reads can run up cost on large objects;
+        the budget defends against accidental large downloads but the
+        eager path still pulls the full object once the budget allows.
+        Byte ceiling for eager reads from fsspec sources (``s3://``,
+        ``gs://``, ``az://``, ``abfs://``, ``memory://``, ...). The
+        compressed object size is checked against this budget before
+        any bytes are downloaded. Default is 256 MiB, overridable via
+        the ``XRSPATIAL_GEOTIFF_MAX_CLOUD_BYTES`` env var. Pass
+        ``None`` to skip the check entirely. The HTTP path already
+        reads only what it needs via range requests and is not subject
+        to this limit. Has no effect on local file or file-like
+        sources. Passing this kwarg with ``gpu=True``, ``chunks=...``,
+        or a ``.vrt`` source raises ``ValueError`` because those
+        backends do not apply the cloud-byte budget. See issue #1928
+        (eager path) and issue #1974 (rejection guard).
+    on_gpu_failure : {'auto', 'strict'}, optional
+        [experimental] Forwarded to ``read_geotiff_gpu`` when
+        ``gpu=True``. Controls whether GPU decode failures fall back
+        to CPU (``'auto'``, default) or re-raise the original exception
+        (``'strict'``). Passing this kwarg with ``gpu=False`` raises
+        ``ValueError`` because the policy only applies to the GPU
+        pipeline. See ``read_geotiff_gpu`` for the full description.
+    missing_sources : {'raise', 'warn'}, optional
+        [advanced] VRT mosaics can return partial output under
+        ``missing_sources='warn'`` when a backing source is unreadable;
+        the ``attrs['vrt_holes']`` entry records which sources were
+        skipped so downstream code can detect the partial mosaic.
+        Forwarded to ``read_vrt`` when the source is a ``.vrt`` file.
+        When the caller does not pass this kwarg, the public
+        ``read_vrt`` default applies (``'raise'`` since #1860).
+        ``'raise'`` fails immediately on an unreadable backing source.
+        ``'warn'`` is the opt-in lenient mode: emit
+        ``GeoTIFFFallbackWarning``, record ``attrs['vrt_holes']``, and
+        return a partial mosaic. Passing this kwarg with a non-VRT
+        source raises ``ValueError`` because the policy only applies to
+        the VRT pipeline. See ``read_vrt`` for the full description.
+    band_nodata : {'first', None}, optional
+        [advanced] VRT-only. Opt-out for the fail-closed check that
+        rejects VRT sources whose bands declare disagreeing per-band
+        nodata sentinels (issue #1987 PR 5). When ``None`` (the
+        default), a VRT
+        that mosaics bands with different sentinels raises
+        ``MixedBandMetadataError``; flattening to one value would let
+        one band's valid pixels collide with another band's sentinel.
+        Pass ``band_nodata='first'`` to keep the legacy behaviour of
+        using band 0's sentinel for the whole mosaic. Passing this
+        kwarg with a non-VRT source raises ``ValueError`` because the
+        policy only applies to the VRT pipeline.
+    mask_nodata : bool, default True
+        [stable] If True (the default), replace the nodata sentinel
+        with ``NaN``; integer rasters get promoted to ``float64`` first
+        so NaN can be represented. If False, skip the sentinel-to-NaN
+        step and keep the source dtype. ``attrs['nodata']`` still
+        carries the raw sentinel either way, so downstream code can
+        mask explicitly. Pass ``mask_nodata=False`` when you want to
+        preserve an integer source dtype via ``dtype=``: the default
+        ``mask_nodata=True`` promotes to ``float64`` whenever the
+        sentinel matches an actual pixel, and ``dtype=<integer>`` then
+        raises ``ValueError`` on the float-to-int cast.
+    allow_rotated : bool, default False
+        [advanced] Read-only opt-in. ``to_geotiff`` does not currently
+        emit ``rotated_affine``; it rejects DataArrays that carry the
+        attr (``ValueError`` naming the attr) unless the caller passes
+        ``drop_rotation=True`` to accept the loss explicitly (#2216).
+        Read-side opt-in for rotated / sheared ``ModelTransformationTag``
+        files. By default the reader raises ``RotatedTransformError``
+        (a ``GeoTIFFAmbiguousMetadataError`` / ``ValueError`` subclass;
+        previously a bare ``NotImplementedError`` -- see #2267) because
+        the rest of xrspatial assumes an axis-aligned grid.
+        ``allow_rotated=True`` reads the pixel grid without the
+        geospatial assumption: the result has integer pixel coords on
+        ``x`` / ``y`` and both ``attrs['crs']`` and ``attrs['crs_wkt']``
+        are dropped. The CRS attrs are dropped together with the
+        transform because keeping them while the axis-aligned transform
+        is gone misleads downstream code that gates on
+        ``"crs" in da.attrs`` to mean the array is spatially usable
+        (issue #2126). The rotated 6-tuple itself is surfaced on
+        ``attrs['rotated_affine']`` as ``(a, b, c, d, e, f)`` (rasterio
+        ``Affine`` ordering) so consumers that know how to handle
+        rotated rasters can recover the mapping (issue #2129). The
+        contract is read-only -- writes must either reproject onto an
+        axis-aligned grid first, or pass ``drop_rotation=True`` to
+        ``to_geotiff`` / ``write_geotiff_gpu`` to accept the loss; the
+        ``ModelTransformationTag`` emit path is tracked separately
+        (issue #2115).
+    allow_unparseable_crs : bool, default False
+        [advanced] Read-side opt-in for CRS strings that pyproj cannot
+        resolve and that do not parse as WKT. When ``False`` (the
+        default since #1929), an unrecognised CRS payload raises
+        ``UnparseableCRSError`` instead of landing in ``attrs['crs_wkt']``
+        verbatim. Set to ``True`` to keep the pre-#1929 permissive
+        behaviour where the citation field passes through unchanged.
+        Matches the same kwarg on ``to_geotiff`` / ``write_geotiff_gpu``
+        so a value the reader accepted can survive a round-trip.
+    allow_inconsistent_geokeys : bool, default False
+        [advanced] Read-side opt-in for GeoTIFF sources whose GeoKey
+        directory is internally contradictory: ``ModelTypeGeoKey``
+        disagrees with the type-specific keys actually populated, or
+        ``ProjectedCSTypeGeoKey`` and ``GeographicTypeGeoKey`` resolve
+        to different EPSG codes. The legacy reader took the projected
+        code first and silently fabricated an
+        ``attrs['crs']`` / ``attrs['crs_wkt']`` from contradictory
+        inputs (issue #2417). When ``False`` (the default), the read
+        raises ``InconsistentGeoKeysError``. Set to ``True`` to keep
+        the legacy permissive behaviour for files known to carry
+        quirky-but-trusted GeoKey layouts.
+    allow_invalid_nodata : bool, default False
+        [advanced] Read-side opt-in for integer-dtype sources whose
+        ``GDAL_NODATA`` tag is non-finite (``"NaN"``, ``"Inf"``,
+        ``"-Inf"``) or fractional (e.g. ``"3.5"`` on a ``uint16``
+        file). The legacy reader (#1774) parsed the value into
+        ``attrs['nodata']`` and silently skipped the masking step, so
+        callers had no way to tell a silently-ignored sentinel from a
+        missing one. When ``False`` (the default), the read raises
+        ``InvalidIntegerNodataError``. Set to ``True`` to keep the
+        pre-rejection no-op behaviour for files known to carry such
+        sentinels (e.g. external tooling that writes ``"nan"`` on
+        integer outputs). See issue #2441 (#1774 follow-up).
+    stable_only : bool, default False
+        [advanced] Read-side opt-in for stable-tier sources only. When
+        ``True``, a ``.vrt`` source raises
+        :class:`VRTStableSourcesOnlyError` because ``reader.vrt`` and
+        the VRT child-source pipeline sit at the ``advanced`` /
+        ``experimental`` tiers in
+        :data:`xrspatial.geotiff.SUPPORTED_FEATURES`. Non-VRT sources
+        on this entry point already ride the stable ``reader.local_file``
+        path and the per-source codec gate, so the flag is a no-op for
+        them. The rejection names the file path and the
+        ``allow_experimental_codecs`` opt-in so the caller can unlock
+        the broader tier set explicitly when needed. See epic #2342
+        and ``docs/source/reference/release_gate_geotiff.rst``.
+    allow_experimental_codecs : bool, default False
+        Read-side opt-in for sources compressed with the Tier 3
+        experimental codecs (``lerc``, ``jpeg2000`` / ``j2k``, ``lz4``).
+        Default ``False`` rejects the read with ``ValueError`` naming
+        the flag; cross-backend numerical parity is not claimed and
+        reader support across GDAL versions is uneven. Matches the
+        same kwarg on the writers so a round-trip through a Tier 3
+        codec stays opt-in on both sides. See SUPPORTED_FEATURES tier
+        ``'experimental'`` (epic #2340 PR 4).
+    allow_internal_only_jpeg : bool, default False
+        Read-side opt-in for JPEG-in-TIFF sources. The encoder writes
+        self-contained JFIF tiles without the TIFF JPEGTables tag
+        (347), so the read path is not interoperable with libtiff /
+        GDAL / rasterio. ``allow_experimental_codecs=True`` does NOT
+        cover this codec; the dedicated flag is its only gate. See
+        SUPPORTED_FEATURES tier ``'internal_only'`` for ``codec.jpeg``
+        (epic #2340 PR 4, original writer gate #1845).
 
     Returns
     -------
@@ -310,1495 +670,234 @@ def open_geotiff(source: str, *, dtype=None, window=None,
 
     Integer rasters with a nodata sentinel are silently promoted to
     ``float64`` with NaN replacing the sentinel so downstream NaN-aware
-    code works uniformly. Pass ``dtype=...`` to keep the source dtype
-    (the cast will fail with ``ValueError`` for float-to-int because that
-    is lossy in a way users rarely intend; cast explicitly after read if
-    you need it).
+    code works uniformly. To keep the source dtype on a file whose
+    sentinel matches actual pixels, pass ``mask_nodata=False``; the raw
+    sentinel stays in the data and ``attrs['nodata']`` still carries it.
+    Passing ``dtype=<integer>`` on its own is not enough: the
+    sentinel-to-NaN promotion runs first and the subsequent integer cast
+    then raises ``ValueError`` (float-to-int is lossy in a way users
+    rarely intend). When the file has no in-range sentinel match, the
+    promotion is skipped and ``dtype=<integer>`` works either way.
+
+    Examples
+    --------
+    Safe VRT usage. Mosaic two compatible tiles and read with the
+    fail-closed defaults:
+
+    >>> from xrspatial.geotiff import open_geotiff, write_vrt
+    >>> vrt_path = write_vrt(  # doctest: +SKIP
+    ...     'mosaic.vrt',
+    ...     source_files=['tile_west.tif', 'tile_east.tif'],
+    ... )
+    >>> da = open_geotiff(vrt_path)  # doctest: +SKIP
+
+    Intentionally raises. A VRT whose source tiles disagree on their
+    per-band nodata sentinels is rejected by the default
+    ``band_nodata=None``:
+
+    >>> from xrspatial.geotiff import MixedBandMetadataError
+    >>> try:  # doctest: +SKIP
+    ...     open_geotiff('mixed_nodata.vrt')
+    ... except MixedBandMetadataError:
+    ...     pass  # pass band_nodata='first' to opt back into the
+    ...           # legacy flatten-to-band-0 semantics, or fix the
+    ...           # source tiles.
     """
-    # VRT files
-    if source.lower().endswith('.vrt'):
+    from ._reader import _coerce_path
+
+    source = _coerce_path(source)
+
+    # All dispatcher-level kwarg rejection lives in
+    # ``_validate_dispatch_kwargs`` so the three direct backends
+    # (``read_geotiff_dask``, ``read_geotiff_gpu``, ``read_vrt``)
+    # surface the same errors when called directly (issue #2175,
+    # parent #2162). The previous inline block at this line is now
+    # a single call that runs ``_validate_overview_level_arg`` (issue
+    # #2074), the ``on_gpu_failure`` GPU-only guard (issue #1615),
+    # the ``missing_sources`` VRT-only guard (issue #1810), the
+    # ``band_nodata`` VRT-only guard (issue #1987), the
+    # ``max_cloud_bytes`` non-VRT non-GPU non-dask guard (issue #1974),
+    # and the file-like source restrictions for gpu/chunks.
+    from ._validation import _validate_dispatch_kwargs
+    _validate_dispatch_kwargs(
+        source=source,
+        gpu=gpu,
+        chunks=chunks,
+        overview_level=overview_level,
+        on_gpu_failure=on_gpu_failure,
+        missing_sources=missing_sources,
+        band_nodata=band_nodata,
+        max_cloud_bytes=max_cloud_bytes,
+    )
+
+    missing_sources_passed = (
+        missing_sources is not _MISSING_SOURCES_SENTINEL)
+    _is_vrt_source = (
+        isinstance(source, str) and source.lower().endswith('.vrt'))
+
+    # VRT files (string paths only -- VRT XML references other files on disk)
+    if _is_vrt_source:
+        # ``read_vrt`` does not accept ``overview_level`` (the VRT XML
+        # references its own source files; overview selection would need
+        # to apply to each one). Silently dropping the kwarg was the same
+        # class of bug issue #1561 fixed for the dask and GPU dispatchers,
+        # so refuse the combination up front rather than handing the
+        # caller a full-resolution mosaic with no warning. See issue #1685.
+        # ``overview_level=0`` is documented as "full resolution" (the
+        # default), so treat it as a no-op the same as ``None`` rather
+        # than rejecting a kwarg value the caller could have omitted.
+        # Mirrored at ``_backends/vrt.py`` (the direct-call entry point)
+        # so callers see the same rejection through both paths. The
+        # value-level rejection stays here rather than in
+        # ``_validate_dispatch_kwargs`` so the helper does not need a
+        # special-case for ``overview_level=0`` vs ``overview_level=N``.
+        if overview_level not in (None, 0):
+            raise ValueError(
+                "overview_level is not supported for VRT sources. "
+                "VRT references its own source files; pass overview_level "
+                "to open_geotiff on a .tif source, or drop the kwarg.")
+        # ``on_gpu_failure`` only routes through ``read_geotiff_gpu``.
+        # ``read_vrt`` has no analogous failure policy, so any value the
+        # caller supplied alongside a VRT source would be silently lost.
+        # The ``gpu=False`` branch is already rejected above; this catches
+        # the ``gpu=True, source.endswith('.vrt')`` case the earlier check
+        # lets through.
+        if on_gpu_failure is not _ON_GPU_FAILURE_SENTINEL:
+            raise ValueError(
+                "on_gpu_failure is not supported for VRT sources. "
+                "VRT reads do not go through the GPU decoder pipeline; "
+                "drop the kwarg or call read_geotiff_gpu directly on a "
+                ".tif source.")
+        vrt_kwargs = {}
+        if missing_sources_passed:
+            vrt_kwargs['missing_sources'] = missing_sources
         return read_vrt(source, dtype=dtype, window=window, band=band,
                         name=name, chunks=chunks, gpu=gpu,
-                        max_pixels=max_pixels)
+                        max_pixels=max_pixels,
+                        allow_rotated=allow_rotated,
+                        allow_unparseable_crs=allow_unparseable_crs,
+                        allow_inconsistent_geokeys=(
+                            allow_inconsistent_geokeys),
+                        allow_invalid_nodata=allow_invalid_nodata,
+                        stable_only=stable_only,
+                        allow_experimental_codecs=allow_experimental_codecs,
+                        allow_internal_only_jpeg=allow_internal_only_jpeg,
+                        band_nodata=band_nodata,
+                        mask_nodata=mask_nodata,
+                        **vrt_kwargs)
+
+    # File-like buffer rejections for ``gpu=True`` / ``chunks=...`` already
+    # fired inside ``_validate_dispatch_kwargs`` above; the non-VRT branches
+    # below run with a string source or an eager file-like.
 
     # GPU path
     if gpu:
+        gpu_kwargs = {}
+        if on_gpu_failure is not _ON_GPU_FAILURE_SENTINEL:
+            gpu_kwargs['on_gpu_failure'] = on_gpu_failure
         return read_geotiff_gpu(source, dtype=dtype,
                                 overview_level=overview_level,
+                                window=window, band=band,
                                 name=name, chunks=chunks,
-                                max_pixels=max_pixels)
+                                max_pixels=max_pixels,
+                                allow_rotated=allow_rotated,
+                                allow_unparseable_crs=allow_unparseable_crs,
+                                allow_inconsistent_geokeys=(
+                                    allow_inconsistent_geokeys),
+                                allow_invalid_nodata=allow_invalid_nodata,
+                                stable_only=stable_only,
+                                allow_experimental_codecs=(
+                                    allow_experimental_codecs),
+                                allow_internal_only_jpeg=(
+                                    allow_internal_only_jpeg),
+                                mask_nodata=mask_nodata,
+                                **gpu_kwargs)
 
     # Dask path (CPU)
     if chunks is not None:
         return read_geotiff_dask(source, dtype=dtype, chunks=chunks,
-                                 overview_level=overview_level, name=name)
+                                 overview_level=overview_level,
+                                 window=window, band=band,
+                                 max_pixels=max_pixels, name=name,
+                                 allow_rotated=allow_rotated,
+                                 allow_unparseable_crs=allow_unparseable_crs,
+                                 allow_inconsistent_geokeys=(
+                                     allow_inconsistent_geokeys),
+                                 allow_invalid_nodata=allow_invalid_nodata,
+                                 stable_only=stable_only,
+                                 allow_experimental_codecs=(
+                                     allow_experimental_codecs),
+                                 allow_internal_only_jpeg=(
+                                     allow_internal_only_jpeg),
+                                 mask_nodata=mask_nodata)
 
     kwargs = {}
     if max_pixels is not None:
         kwargs['max_pixels'] = max_pixels
-    arr, geo_info = read_to_array(
+    if max_cloud_bytes is not _MAX_CLOUD_BYTES_SENTINEL:
+        kwargs['max_cloud_bytes'] = max_cloud_bytes
+
+    # ``read_to_array`` validates ``window`` against the selected IFD's
+    # extent and raises ``ValueError`` for out-of-bounds windows with
+    # the same message format as the dask path's pre-flight validator
+    # in :func:`read_geotiff_dask`. That keeps the two backends in sync
+    # on the contract without forcing a second metadata parse here. See
+    # issue #1634.
+    arr, geo_info = _read_to_array(
         source, window=window,
         overview_level=overview_level, band=band,
+        allow_rotated=allow_rotated,
+        allow_invalid_nodata=allow_invalid_nodata,
+        allow_experimental_codecs=allow_experimental_codecs,
+        allow_internal_only_jpeg=allow_internal_only_jpeg,
         **kwargs,
     )
 
-    height, width = arr.shape[:2]
-    coords = _geo_to_coords(geo_info, height, width)
-
-    if window is not None:
-        # Adjust coordinates for windowed read
-        r0, c0, r1, c1 = window
-        t = geo_info.transform
-        if geo_info.raster_type == RASTER_PIXEL_IS_POINT:
-            full_x = np.arange(c0, c1, dtype=np.float64) * t.pixel_width + t.origin_x
-            full_y = np.arange(r0, r1, dtype=np.float64) * t.pixel_height + t.origin_y
-        else:
-            full_x = np.arange(c0, c1, dtype=np.float64) * t.pixel_width + t.origin_x + t.pixel_width * 0.5
-            full_y = np.arange(r0, r1, dtype=np.float64) * t.pixel_height + t.origin_y + t.pixel_height * 0.5
-        coords = {'y': full_y, 'x': full_x}
-
     if name is None:
-        # Derive from source path
-        import os
-        name = os.path.splitext(os.path.basename(source))[0]
+        # Derive from source path. File-like buffers don't have a path,
+        # so leave name unset rather than fabricating one.
+        if isinstance(source, str):
+            name = os.path.splitext(os.path.basename(source))[0]
 
-    attrs = {}
-    if geo_info.crs_epsg is not None:
-        attrs['crs'] = geo_info.crs_epsg
-    if geo_info.crs_wkt is not None:
-        attrs['crs_wkt'] = geo_info.crs_wkt
-    if geo_info.raster_type == RASTER_PIXEL_IS_POINT:
-        attrs['raster_type'] = 'point'
-
-    # Preserve the source GeoTransform verbatim. For a windowed read the
-    # origin shifts to the window's top-left pixel so the transform stays
-    # consistent with the returned y/x coords.
-    src_t = geo_info.transform
-    if src_t is not None:
-        if window is not None:
-            r0, c0, _r1, _c1 = window
-            origin_x_w = float(src_t.origin_x) + c0 * float(src_t.pixel_width)
-            origin_y_w = float(src_t.origin_y) + r0 * float(src_t.pixel_height)
-            attrs['transform'] = (
-                float(src_t.pixel_width), 0.0, origin_x_w,
-                0.0, float(src_t.pixel_height), origin_y_w,
-            )
-        else:
-            attrs['transform'] = _transform_tuple(geo_info)
-
-    # CRS description fields
-    if geo_info.crs_name is not None:
-        attrs['crs_name'] = geo_info.crs_name
-    if geo_info.geog_citation is not None:
-        attrs['geog_citation'] = geo_info.geog_citation
-    if geo_info.datum_code is not None:
-        attrs['datum_code'] = geo_info.datum_code
-    if geo_info.angular_units is not None:
-        attrs['angular_units'] = geo_info.angular_units
-    if geo_info.linear_units is not None:
-        attrs['linear_units'] = geo_info.linear_units
-    if geo_info.semi_major_axis is not None:
-        attrs['semi_major_axis'] = geo_info.semi_major_axis
-    if geo_info.inv_flattening is not None:
-        attrs['inv_flattening'] = geo_info.inv_flattening
-    if geo_info.projection_code is not None:
-        attrs['projection_code'] = geo_info.projection_code
-    # Vertical CRS
-    if geo_info.vertical_epsg is not None:
-        attrs['vertical_crs'] = geo_info.vertical_epsg
-    if geo_info.vertical_citation is not None:
-        attrs['vertical_citation'] = geo_info.vertical_citation
-    if geo_info.vertical_units is not None:
-        attrs['vertical_units'] = geo_info.vertical_units
-
-    # GDAL metadata (tag 42112)
-    if geo_info.gdal_metadata is not None:
-        attrs['gdal_metadata'] = geo_info.gdal_metadata
-    if geo_info.gdal_metadata_xml is not None:
-        attrs['gdal_metadata_xml'] = geo_info.gdal_metadata_xml
-
-    # Extra (non-managed) TIFF tags for pass-through
-    if geo_info.extra_tags is not None:
-        attrs['extra_tags'] = geo_info.extra_tags
-
-    # Friendly accessors for a few common pass-through tags. The raw
-    # entry stays in attrs['extra_tags'] so the writer can re-emit the
-    # exact bytes; users who tweak these convenience attrs can rely on
-    # to_geotiff to fold the new value into extra_tags before write.
-    if geo_info.image_description is not None:
-        attrs['image_description'] = geo_info.image_description
-    if geo_info.extra_samples is not None:
-        attrs['extra_samples'] = geo_info.extra_samples
-
-    # Resolution / DPI metadata
-    if geo_info.x_resolution is not None:
-        attrs['x_resolution'] = geo_info.x_resolution
-    if geo_info.y_resolution is not None:
-        attrs['y_resolution'] = geo_info.y_resolution
-    if geo_info.resolution_unit is not None:
-        _unit_names = {1: 'none', 2: 'inch', 3: 'centimeter'}
-        attrs['resolution_unit'] = _unit_names.get(
-            geo_info.resolution_unit, str(geo_info.resolution_unit))
-
-    # Attach palette colormap for indexed-color TIFFs. The normalized
-    # RGBA triples drive matplotlib display; the raw uint16 ColorMap
-    # tag value lives in attrs['extra_tags'] for round-trip and is
-    # exposed here as attrs['colormap'] for convenience.
-    if geo_info.colormap is not None:
-        try:
-            from matplotlib.colors import ListedColormap
-            cmap = ListedColormap(geo_info.colormap, name='tiff_palette')
-            attrs['cmap'] = cmap
-            attrs['colormap_rgba'] = geo_info.colormap
-        except ImportError:
-            # matplotlib not available -- store raw RGBA tuples only
-            attrs['colormap_rgba'] = geo_info.colormap
-
-    # Raw uint16 ColorMap tag value (3 * 2**bps entries, R-then-G-then-B)
-    if geo_info.extra_tags is not None:
-        for _tag_id, _tt, _tc, _tv in geo_info.extra_tags:
-            if _tag_id == 320:  # TAG_COLORMAP
-                attrs['colormap'] = _tv
-                break
-
-    # Apply nodata mask: replace nodata sentinel values with NaN
+    # Hand the post-decode buffer to the shared eager finalizer
+    # (issue #2179). The helper runs the same validate -> populate attrs
+    # -> mask -> cast -> set_nodata_attrs -> build DataArray pipeline
+    # the inline block used to do. ``mask_sentinel`` honours the
+    # post-MinIsWhite inversion stashed on ``geo_info._mask_nodata`` by
+    # ``read_to_array`` / ``_read_cog_http`` (#1809); on non-MinIsWhite
+    # files it falls back to the raw declared sentinel.
     nodata = geo_info.nodata
-    if nodata is not None:
-        attrs['nodata'] = nodata
-        if arr.dtype.kind == 'f':
-            if not np.isnan(nodata):
-                arr = arr.copy()
-                arr[arr == arr.dtype.type(nodata)] = np.nan
-        elif arr.dtype.kind in ('u', 'i'):
-            # Integer arrays: convert to float to represent NaN
-            nodata_int = int(nodata)
-            mask = arr == arr.dtype.type(nodata_int)
-            if mask.any():
-                arr = arr.astype(np.float64)
-                arr[mask] = np.nan
-
-    if dtype is not None:
-        target = np.dtype(dtype)
-        _validate_dtype_cast(arr.dtype, target)
-        arr = arr.astype(target)
-
-    if arr.ndim == 3:
-        dims = ['y', 'x', 'band']
-        coords['band'] = np.arange(arr.shape[2])
-    else:
-        dims = ['y', 'x']
-
-    da = xr.DataArray(
+    mask_sentinel = (
+        getattr(geo_info, '_mask_nodata', nodata)
+        if nodata is not None else None
+    )
+    return _finalize_eager_read(
         arr,
-        dims=dims,
-        coords=coords,
-        name=name,
-        attrs=attrs,
-    )
-    return da
-
-
-def _is_gpu_data(data) -> bool:
-    """Check if data is CuPy-backed (raw array or DataArray)."""
-    try:
-        import cupy
-        _cupy_type = cupy.ndarray
-    except ImportError:
-        return False
-
-    if isinstance(data, xr.DataArray):
-        raw = data.data
-        if hasattr(raw, 'compute'):
-            meta = getattr(raw, '_meta', None)
-            return isinstance(meta, _cupy_type)
-        return isinstance(raw, _cupy_type)
-    return isinstance(data, _cupy_type)
-
-
-_LEVEL_RANGES = {
-    'deflate': (1, 9),
-    'zstd': (1, 22),
-    'lz4': (0, 16),
-}
-
-# Names accepted by ``compression=`` in :func:`to_geotiff`.  Kept in sync with
-# ``_compression_tag`` in ``_writer.py``.  Validated up-front so users see a
-# friendly error rather than the deeper traceback from ``_compression_tag``.
-_VALID_COMPRESSIONS = (
-    'none', 'deflate', 'lzw', 'jpeg', 'packbits', 'zstd', 'lz4',
-    'jpeg2000', 'j2k', 'lerc',
-)
-
-
-# TIFF type ids needed when synthesizing extra_tags entries from attrs.
-_TIFF_BYTE = 1
-_TIFF_ASCII = 2
-_TIFF_SHORT = 3
-
-
-def _merge_friendly_extra_tags(extra_tags_list, attrs: dict) -> list | None:
-    """Combine ``attrs['extra_tags']`` with friendly tag attrs.
-
-    Synthesizes ``(tag_id, type_id, count, value)`` entries from
-    ``attrs['image_description']`` (270, ASCII),
-    ``attrs['extra_samples']`` (338, SHORT) and ``attrs['colormap']``
-    (320, SHORT). An entry already present in ``extra_tags`` wins, so
-    a verbatim round-trip stays byte-identical.
-    """
-    existing = list(extra_tags_list) if extra_tags_list else []
-    seen_ids = {t[0] for t in existing}
-
-    img_desc = attrs.get('image_description')
-    if img_desc is not None and 270 not in seen_ids:
-        s = str(img_desc)
-        existing.append((270, _TIFF_ASCII, len(s) + 1, s))
-        seen_ids.add(270)
-
-    extra_samples = attrs.get('extra_samples')
-    if extra_samples is not None and 338 not in seen_ids:
-        try:
-            vals = tuple(int(x) for x in extra_samples)
-        except (TypeError, ValueError):
-            vals = None
-        if vals:
-            value = vals if len(vals) > 1 else vals[0]
-            existing.append((338, _TIFF_SHORT, len(vals), value))
-            seen_ids.add(338)
-
-    colormap = attrs.get('colormap')
-    if colormap is not None and 320 not in seen_ids:
-        try:
-            cmap_vals = tuple(int(x) for x in colormap)
-        except (TypeError, ValueError):
-            cmap_vals = None
-        if cmap_vals:
-            value = cmap_vals if len(cmap_vals) > 1 else cmap_vals[0]
-            existing.append((320, _TIFF_SHORT, len(cmap_vals), value))
-            seen_ids.add(320)
-
-    return existing or None
-
-
-def to_geotiff(data: xr.DataArray | np.ndarray, path: str, *,
-               crs: int | str | None = None,
-               nodata=None,
-               compression: str = 'zstd',
-               compression_level: int | None = None,
-               tiled: bool = True,
-               tile_size: int = 256,
-               predictor: bool | int = False,
-               cog: bool = False,
-               overview_levels: list[int] | None = None,
-               overview_resampling: str = 'mean',
-               bigtiff: bool | None = None,
-               gpu: bool | None = None,
-               streaming_buffer_bytes: int = 256 * 1024 * 1024) -> None:
-    """Write data as a GeoTIFF or Cloud Optimized GeoTIFF.
-
-    Dask-backed DataArrays are written in streaming mode: one tile-row
-    at a time, without materialising the full array into RAM.  Peak
-    memory is roughly ``tile_size * width * bytes_per_sample``.  COG
-    output (``cog=True``) still materialises because overviews need the
-    full array.
-
-    Automatically dispatches to GPU compression when:
-    - ``gpu=True`` is passed, or
-    - The input data is CuPy-backed (auto-detected)
-
-    GPU write uses nvCOMP batch compression (deflate/ZSTD) and keeps
-    the array on device. Falls back to CPU if nvCOMP is not available.
-
-    Parameters
-    ----------
-    data : xr.DataArray or np.ndarray
-        2D raster data.
-    path : str
-        Output file path.
-    crs : int, str, or None
-        EPSG code (int), WKT string, or PROJ string. If None and data
-        is a DataArray, tries to read from attrs ('crs' for EPSG,
-        'crs_wkt' for WKT).
-    nodata : float, int, or None
-        NoData value.
-    compression : str
-        'none', 'deflate', 'lzw', 'jpeg', 'packbits', or 'zstd'.
-        JPEG is lossy and only supports uint8 data (1 or 3 bands).
-        With ``gpu=True``, JPEG uses nvJPEG for GPU-accelerated
-        encode/decode when available, falling back to Pillow on CPU.
-    compression_level : int or None
-        Compression effort level. None uses each codec's default (6 for
-        deflate/zstd). Valid ranges: deflate 1-9, zstd 1-22, lz4 0-16.
-        Codecs without a level concept (lzw, packbits, jpeg) accept any
-        value and ignore it.
-    tiled : bool
-        Use tiled layout (default True).
-    tile_size : int
-        Tile size in pixels (default 256). Ignored when ``tiled=False``;
-        a warning is emitted if a non-default value is passed alongside
-        strip mode.
-    predictor : bool or int
-        TIFF predictor. Accepted values:
-
-        * ``False``, ``0``, or ``1`` -> no predictor.
-        * ``True`` or ``2`` -> horizontal differencing (good for integer
-          data; ``True`` and ``2`` are exactly equivalent).
-        * ``3`` -> floating-point predictor (float dtypes only; typically
-          gives better deflate/zstd ratios on float data than predictor 2).
-    cog : bool
-        Write as Cloud Optimized GeoTIFF.
-    overview_levels : list[int] or None
-        Overview decimation factors. Only used when cog=True.
-    overview_resampling : str
-        Resampling method for overviews: 'mean' (default), 'nearest',
-        'min', 'max', 'median', 'mode', or 'cubic'.
-    gpu : bool or None
-        Force GPU compression. None (default) auto-detects CuPy data.
-    streaming_buffer_bytes : int
-        Soft cap on bytes materialised per dask compute call when
-        streaming a dask-backed DataArray. Defaults to 256 MB. Wide
-        rasters whose tile-row exceeds this budget are split into
-        horizontal segments. Ignored for numpy / CuPy / COG paths.
-    """
-    # Up-front validation: catch bad compression names before they reach
-    # any of the deeper write paths (streaming, GPU, VRT, COG) where the
-    # error surfaces from _compression_tag with a less obvious traceback.
-    if isinstance(compression, str):
-        if compression.lower() not in _VALID_COMPRESSIONS:
-            raise ValueError(
-                f"Unknown compression {compression!r}. "
-                f"Valid options: {list(_VALID_COMPRESSIONS)}.")
-
-    # tile_size only applies to tiled output; warn if the caller passed a
-    # non-default size alongside strip mode (it would otherwise be silently
-    # ignored).
-    if not tiled and tile_size != 256:
-        import warnings
-        warnings.warn(
-            f"tile_size={tile_size} is ignored when tiled=False "
-            "(strip layout). Pass tiled=True to use tile_size, or drop "
-            "tile_size to silence this warning.",
-            stacklevel=2,
-        )
-
-    # VRT tiled output
-    if path.lower().endswith('.vrt'):
-        if cog:
-            raise ValueError(
-                "cog=True is not compatible with VRT output. "
-                "VRT writes tiled GeoTIFFs, not a single COG.")
-        if overview_levels is not None:
-            raise ValueError(
-                "overview_levels is not compatible with VRT output. "
-                "VRT tiles do not include overviews.")
-        _write_vrt_tiled(data, path,
-                         crs=crs, nodata=nodata,
-                         compression=compression,
-                         compression_level=compression_level,
-                         tile_size=tile_size,
-                         predictor=predictor,
-                         bigtiff=bigtiff)
-        return
-
-    # Auto-detect GPU data and dispatch to write_geotiff_gpu
-    use_gpu = gpu if gpu is not None else _is_gpu_data(data)
-    if use_gpu:
-        try:
-            write_geotiff_gpu(data, path, crs=crs, nodata=nodata,
-                              compression=compression,
-                              compression_level=compression_level,
-                              tile_size=tile_size,
-                              predictor=predictor,
-                              cog=cog,
-                              overview_levels=overview_levels,
-                              overview_resampling=overview_resampling)
-            return
-        except (ImportError, Exception):
-            pass  # fall through to CPU path
-
-    geo_transform = None
-    epsg = None
-    wkt_fallback = None  # WKT string when EPSG is not available
-    raster_type = RASTER_PIXEL_IS_AREA
-    x_res = None
-    y_res = None
-    res_unit = None
-    gdal_meta_xml = None
-    extra_tags_list = None
-
-    # Resolve crs argument: can be int (EPSG) or str (WKT/PROJ)
-    if isinstance(crs, int):
-        epsg = crs
-    elif isinstance(crs, str):
-        epsg = _wkt_to_epsg(crs)  # try to extract EPSG from WKT/PROJ
-        if epsg is None:
-            wkt_fallback = crs
-
-    if isinstance(data, xr.DataArray):
-        raw = data.data
-
-        # Extract metadata from DataArray attrs (no materialisation needed).
-        # Prefer attrs['transform'] (from open_geotiff) over the coord-derived
-        # transform: that path is bit-stable across round-trips, while
-        # _coords_to_transform can drift on fractional pixel sizes because
-        # x[1] - x[0] is computed in float64 from already-rounded coords.
-        if geo_transform is None:
-            geo_transform = _transform_from_attr(data.attrs.get('transform'))
-        if geo_transform is None:
-            geo_transform = _coords_to_transform(data)
-        if epsg is None and crs is None:
-            crs_attr = data.attrs.get('crs')
-            if isinstance(crs_attr, str):
-                epsg = _wkt_to_epsg(crs_attr)
-                if epsg is None and wkt_fallback is None:
-                    wkt_fallback = crs_attr
-            elif crs_attr is not None:
-                epsg = int(crs_attr)
-            if epsg is None:
-                wkt = data.attrs.get('crs_wkt')
-                if isinstance(wkt, str):
-                    epsg = _wkt_to_epsg(wkt)
-                    if epsg is None and wkt_fallback is None:
-                        wkt_fallback = wkt
-        if nodata is None:
-            nodata = data.attrs.get('nodata')
-        if data.attrs.get('raster_type') == 'point':
-            raster_type = RASTER_PIXEL_IS_POINT
-        gdal_meta_xml = data.attrs.get('gdal_metadata_xml')
-        if gdal_meta_xml is None:
-            gdal_meta_dict = data.attrs.get('gdal_metadata')
-            if isinstance(gdal_meta_dict, dict):
-                from ._geotags import _build_gdal_metadata_xml
-                gdal_meta_xml = _build_gdal_metadata_xml(gdal_meta_dict)
-        extra_tags_list = data.attrs.get('extra_tags')
-        # Fold friendly attrs into extra_tags so a user-edited
-        # attrs['image_description'] / ['extra_samples'] / ['colormap']
-        # actually reaches the file. Existing entries with the same tag id
-        # win, which keeps verbatim round-trips byte-stable.
-        extra_tags_list = _merge_friendly_extra_tags(
-            extra_tags_list, data.attrs)
-        x_res = data.attrs.get('x_resolution')
-        y_res = data.attrs.get('y_resolution')
-        unit_str = data.attrs.get('resolution_unit')
-        if unit_str is not None:
-            _unit_ids = {'none': 1, 'inch': 2, 'centimeter': 3}
-            res_unit = _unit_ids.get(str(unit_str), None)
-
-        # Dask-backed: stream tiles to avoid materialising the full array.
-        # COG requires overviews from the full array, so it falls through
-        # to the eager path.
-        if hasattr(raw, 'dask') and not cog:
-            dask_arr = raw
-            # Handle band-first dimension order (band, y, x) -> (y, x, band)
-            if raw.ndim == 3 and data.dims[0] in ('band', 'bands', 'channel'):
-                import dask.array as da
-                dask_arr = da.moveaxis(raw, 0, -1)
-            if dask_arr.ndim not in (2, 3):
-                raise ValueError(
-                    f"Expected 2D or 3D array, got {dask_arr.ndim}D")
-            # Validate compression_level
-            if compression_level is not None:
-                level_range = _LEVEL_RANGES.get(compression.lower())
-                if level_range is not None:
-                    lo, hi = level_range
-                    if not (lo <= compression_level <= hi):
-                        raise ValueError(
-                            f"compression_level={compression_level} out of "
-                            f"range for {compression} (valid: {lo}-{hi})")
-            from ._writer import write_streaming
-            write_streaming(
-                dask_arr, path,
-                geo_transform=geo_transform,
-                crs_epsg=epsg,
-                crs_wkt=wkt_fallback if epsg is None else None,
-                nodata=nodata,
-                compression=compression,
-                compression_level=compression_level,
-                tiled=tiled,
-                tile_size=tile_size,
-                predictor=predictor,
-                raster_type=raster_type,
-                x_resolution=x_res,
-                y_resolution=y_res,
-                resolution_unit=res_unit,
-                gdal_metadata_xml=gdal_meta_xml,
-                extra_tags=extra_tags_list,
-                bigtiff=bigtiff,
-                streaming_buffer_bytes=streaming_buffer_bytes,
-            )
-            return
-
-        # Eager compute (numpy, CuPy, or dask+COG)
-        if hasattr(raw, 'get'):
-            arr = raw.get()  # CuPy -> numpy
-        elif hasattr(raw, 'compute'):
-            arr = raw.compute()  # Dask -> numpy
-            if hasattr(arr, 'get'):
-                arr = arr.get()  # Dask+CuPy -> numpy
-        else:
-            arr = np.asarray(raw)
-        # Handle band-first dimension order (band, y, x) -> (y, x, band)
-        if arr.ndim == 3 and data.dims[0] in ('band', 'bands', 'channel'):
-            arr = np.moveaxis(arr, 0, -1)
-    else:
-        if hasattr(data, 'get'):
-            arr = data.get()  # CuPy -> numpy
-        else:
-            arr = np.asarray(data)
-
-    if arr.ndim not in (2, 3):
-        raise ValueError(f"Expected 2D or 3D array, got {arr.ndim}D")
-
-    # Auto-promote unsupported dtypes
-    if arr.dtype == np.float16:
-        arr = arr.astype(np.float32)
-    elif arr.dtype == np.bool_:
-        arr = arr.astype(np.uint8)
-
-    # Restore NaN pixels to the nodata sentinel value so the written file
-    # has sentinel values matching the GDAL_NODATA tag.
-    if nodata is not None and arr.dtype.kind == 'f' and not np.isnan(nodata):
-        nan_mask = np.isnan(arr)
-        if nan_mask.any():
-            arr = arr.copy()
-            arr[nan_mask] = arr.dtype.type(nodata)
-
-    # Validate compression_level against codec-specific range
-    if compression_level is not None:
-        level_range = _LEVEL_RANGES.get(compression.lower())
-        if level_range is not None:
-            lo, hi = level_range
-            if not (lo <= compression_level <= hi):
-                raise ValueError(
-                    f"compression_level={compression_level} out of range "
-                    f"for {compression} (valid: {lo}-{hi})")
-
-    write(
-        arr, path,
-        geo_transform=geo_transform,
-        crs_epsg=epsg,
-        crs_wkt=wkt_fallback if epsg is None else None,
+        geo_info=geo_info,
         nodata=nodata,
-        compression=compression,
-        compression_level=compression_level,
-        tiled=tiled,
-        tile_size=tile_size,
-        predictor=predictor,
-        cog=cog,
-        overview_levels=overview_levels,
-        overview_resampling=overview_resampling,
-        raster_type=raster_type,
-        x_resolution=x_res,
-        y_resolution=y_res,
-        resolution_unit=res_unit,
-        gdal_metadata_xml=gdal_meta_xml,
-        extra_tags=extra_tags_list,
-        bigtiff=bigtiff,
+        mask_sentinel=mask_sentinel,
+        mask_nodata=mask_nodata,
+        dtype=dtype,
+        window=window,
+        name=name,
+        allow_rotated=allow_rotated,
+        allow_unparseable_crs=allow_unparseable_crs,
+        allow_inconsistent_geokeys=allow_inconsistent_geokeys,
     )
-
-
-def _write_single_tile(chunk_data, path, geo_transform, epsg, wkt,
-                       nodata, compression, compression_level,
-                       tile_size, predictor, bigtiff):
-    """Write a single tile GeoTIFF. Used by _write_vrt_tiled."""
-    if hasattr(chunk_data, 'compute'):
-        chunk_data = chunk_data.compute()
-    if hasattr(chunk_data, 'get'):
-        chunk_data = chunk_data.get()  # CuPy -> numpy
-
-    arr = np.asarray(chunk_data)
-
-    # Auto-promote unsupported dtypes
-    if arr.dtype == np.float16:
-        arr = arr.astype(np.float32)
-    elif arr.dtype == np.bool_:
-        arr = arr.astype(np.uint8)
-
-    # Restore NaN to nodata sentinel
-    if nodata is not None and arr.dtype.kind == 'f' and not np.isnan(nodata):
-        nan_mask = np.isnan(arr)
-        if nan_mask.any():
-            arr = arr.copy()
-            arr[nan_mask] = arr.dtype.type(nodata)
-
-    write(arr, path,
-          geo_transform=geo_transform,
-          crs_epsg=epsg,
-          crs_wkt=wkt if epsg is None else None,
-          nodata=nodata,
-          compression=compression,
-          tiled=True,
-          tile_size=tile_size,
-          predictor=predictor,
-          compression_level=compression_level,
-          bigtiff=bigtiff)
-
-
-def _write_vrt_tiled(data, vrt_path, *, crs=None, nodata=None,
-                     compression='zstd', compression_level=None,
-                     tile_size=256, predictor: bool | int = False,
-                     bigtiff=None):
-    """Write a DataArray as a directory of tiled GeoTIFFs with a VRT index.
-
-    This enables streaming dask arrays to disk without materializing the
-    full array in RAM.
-    """
-    import os
-
-    # Validate compression_level against codec-specific range
-    if compression_level is not None:
-        level_range = _LEVEL_RANGES.get(compression.lower())
-        if level_range is not None:
-            lo, hi = level_range
-            if not (lo <= compression_level <= hi):
-                raise ValueError(
-                    f"compression_level={compression_level} out of range "
-                    f"for {compression} (valid: {lo}-{hi})")
-
-    # Derive tiles directory from VRT path stem
-    vrt_dir = os.path.dirname(os.path.abspath(vrt_path))
-    stem = os.path.splitext(os.path.basename(vrt_path))[0]
-    tiles_dir_name = stem + '_tiles'
-    tiles_dir = os.path.join(vrt_dir, tiles_dir_name)
-
-    # Validate tiles directory
-    if os.path.isdir(tiles_dir) and os.listdir(tiles_dir):
-        raise FileExistsError(
-            f"Tiles directory already contains files: {tiles_dir}")
-    os.makedirs(tiles_dir, exist_ok=True)
-
-    # Resolve CRS
-    epsg = None
-    wkt_fallback = None
-    if isinstance(crs, int):
-        epsg = crs
-    elif isinstance(crs, str):
-        epsg = _wkt_to_epsg(crs)
-        if epsg is None:
-            wkt_fallback = crs
-
-    geo_transform = None
-
-    if isinstance(data, xr.DataArray):
-        raw = data.data
-        if epsg is None and crs is None:
-            crs_attr = data.attrs.get('crs')
-            if isinstance(crs_attr, str):
-                epsg = _wkt_to_epsg(crs_attr)
-                if epsg is None and wkt_fallback is None:
-                    wkt_fallback = crs_attr
-            elif crs_attr is not None:
-                epsg = int(crs_attr)
-            if epsg is None:
-                wkt = data.attrs.get('crs_wkt')
-                if isinstance(wkt, str):
-                    epsg = _wkt_to_epsg(wkt)
-                    if epsg is None and wkt_fallback is None:
-                        wkt_fallback = wkt
-        if nodata is None:
-            nodata = data.attrs.get('nodata')
-        geo_transform = _transform_from_attr(data.attrs.get('transform'))
-        if geo_transform is None:
-            geo_transform = _coords_to_transform(data)
-    else:
-        raw = data
-
-    # Check for dask backing
-    is_dask = hasattr(raw, 'dask')
-
-    if is_dask:
-        if raw.ndim != 2:
-            raise ValueError(
-                "VRT tiled output currently supports 2D arrays only, "
-                f"got {raw.ndim}D. Squeeze or select a band first.")
-        # Use dask chunk grid
-        import dask
-        row_chunks = raw.chunks[0]  # tuple of chunk sizes along y
-        col_chunks = raw.chunks[1]  # tuple of chunk sizes along x
-        n_row_tiles = len(row_chunks)
-        n_col_tiles = len(col_chunks)
-    else:
-        # Numpy: tile using tile_size
-        if hasattr(raw, 'get'):
-            np_arr = raw.get()  # CuPy
-        elif hasattr(raw, 'compute'):
-            np_arr = raw.compute()
-        else:
-            np_arr = np.asarray(raw)
-        if np_arr.ndim != 2:
-            raise ValueError(
-                "VRT tiled output currently supports 2D arrays only, "
-                f"got {np_arr.ndim}D. Squeeze or select a band first.")
-        height, width = np_arr.shape[:2]
-        n_row_tiles = (height + tile_size - 1) // tile_size
-        n_col_tiles = (width + tile_size - 1) // tile_size
-
-    # Zero-padding width for tile names
-    pad_width = max(2, len(str(max(n_row_tiles, n_col_tiles) - 1)))
-
-    tile_paths = []
-    delayed_tasks = []
-
-    row_offset = 0
-    for ri in range(n_row_tiles):
-        if is_dask:
-            chunk_h = row_chunks[ri]
-        else:
-            chunk_h = min(tile_size, height - row_offset)
-
-        col_offset = 0
-        for ci in range(n_col_tiles):
-            if is_dask:
-                chunk_w = col_chunks[ci]
-            else:
-                chunk_w = min(tile_size, width - col_offset)
-
-            tile_name = f'tile_{ri:0{pad_width}d}_{ci:0{pad_width}d}.tif'
-            tile_path = os.path.join(tiles_dir, tile_name)
-            tile_paths.append(tile_path)
-
-            # Compute per-tile geo_transform
-            tile_gt = None
-            if geo_transform is not None:
-                tile_gt = GeoTransform(
-                    origin_x=geo_transform.origin_x + col_offset * geo_transform.pixel_width,
-                    origin_y=geo_transform.origin_y + row_offset * geo_transform.pixel_height,
-                    pixel_width=geo_transform.pixel_width,
-                    pixel_height=geo_transform.pixel_height,
-                )
-
-            if is_dask:
-                # Slice the dask array for this chunk
-                r_end = row_offset + chunk_h
-                c_end = col_offset + chunk_w
-                chunk_data = raw[row_offset:r_end, col_offset:c_end]
-
-                task = dask.delayed(_write_single_tile)(
-                    chunk_data, tile_path, tile_gt, epsg, wkt_fallback,
-                    nodata, compression, compression_level,
-                    tile_size, predictor, bigtiff)
-                delayed_tasks.append(task)
-            else:
-                # Numpy: slice and write directly
-                chunk_data = np_arr[row_offset:row_offset + chunk_h,
-                                    col_offset:col_offset + chunk_w]
-                _write_single_tile(
-                    chunk_data, tile_path, tile_gt, epsg, wkt_fallback,
-                    nodata, compression, compression_level,
-                    tile_size, predictor, bigtiff)
-
-            col_offset += chunk_w
-        row_offset += chunk_h
-
-    # Execute all dask tasks
-    if delayed_tasks:
-        import dask
-        dask.compute(*delayed_tasks, scheduler='synchronous')
-
-    # Write VRT index with relative paths
-    from ._vrt import write_vrt as _write_vrt_fn
-    _write_vrt_fn(vrt_path, tile_paths, relative=True, nodata=nodata)
-
-
-def read_geotiff_dask(source: str, *, dtype=None, chunks: int | tuple = 512,
-                      overview_level: int | None = None,
-                      name: str | None = None) -> xr.DataArray:
-    """Read a GeoTIFF as a dask-backed DataArray for out-of-core processing.
-
-    Each chunk is loaded lazily via windowed reads.
-
-    Parameters
-    ----------
-    source : str
-        File path.
-    dtype : str, numpy.dtype, or None
-        Cast each chunk to this dtype after reading. None keeps the
-        file's native dtype. Float-to-int casts raise ValueError.
-    chunks : int or (row_chunk, col_chunk) tuple
-        Chunk size in pixels. Default 512.
-    overview_level : int or None
-        Overview level (0 = full resolution).
-    name : str or None
-        Name for the DataArray.
-
-    Returns
-    -------
-    xr.DataArray
-        Dask-backed DataArray with y/x coordinates.
-    """
-    import dask.array as da
-
-    # ``read_geotiff`` already routes ``.vrt`` to ``read_vrt`` before
-    # reaching here, so this branch is only hit when ``read_geotiff_dask``
-    # is called directly with a VRT path. Keep it as a defensive fallback
-    # rather than letting the windowed-read path try to parse VRT XML as
-    # TIFF bytes. ``read_vrt`` is the single source of truth for VRT.
-    if source.lower().endswith('.vrt'):
-        return read_vrt(source, dtype=dtype, name=name, chunks=chunks)
-
-    # Metadata-only read: O(1) memory via mmap, no pixel decompression
-    geo_info, full_h, full_w, file_dtype, n_bands = _read_geo_info(
-        source, overview_level=overview_level)
-    nodata = geo_info.nodata
-
-    # Nodata masking promotes integer arrays to float64 (for NaN).
-    # Validate against the effective dtype, not the raw file dtype.
-    if nodata is not None and file_dtype.kind in ('u', 'i'):
-        effective_dtype = np.dtype('float64')
-    else:
-        effective_dtype = file_dtype
-
-    if dtype is not None:
-        target_dtype = np.dtype(dtype)
-        _validate_dtype_cast(effective_dtype, target_dtype)
-    else:
-        target_dtype = effective_dtype
-
-    coords = _geo_to_coords(geo_info, full_h, full_w)
-
-    if name is None:
-        import os
-        name = os.path.splitext(os.path.basename(source))[0]
-
-    attrs = {}
-    if geo_info.crs_epsg is not None:
-        attrs['crs'] = geo_info.crs_epsg
-    if geo_info.raster_type == RASTER_PIXEL_IS_POINT:
-        attrs['raster_type'] = 'point'
-    if nodata is not None:
-        attrs['nodata'] = nodata
-    transform_tuple = _transform_tuple(geo_info)
-    if transform_tuple is not None:
-        attrs['transform'] = transform_tuple
-
-    if isinstance(chunks, int):
-        ch_h = ch_w = chunks
-    else:
-        ch_h, ch_w = chunks
-
-    # Graph-size guard. Each chunk becomes a delayed task whose Python graph
-    # entry retains ~1KB. At very large chunk counts the graph itself OOMs
-    # the driver before any read executes (30TB at chunks=256 => ~500M tasks
-    # => ~500GB graph on host). Refuse anything past the cap and ask the
-    # caller to pick a chunk size, rather than silently rescaling -- the
-    # rescaled chunks may not align with the user's downstream pipeline.
-    _MAX_DASK_CHUNKS = 50_000
-    n_chunks = ((full_h + ch_h - 1) // ch_h) * ((full_w + ch_w - 1) // ch_w)
-    if n_chunks > _MAX_DASK_CHUNKS:
-        import math
-        scale = math.sqrt(n_chunks / _MAX_DASK_CHUNKS)
-        suggested_h = int(math.ceil(ch_h * scale))
-        suggested_w = int(math.ceil(ch_w * scale))
-        raise ValueError(
-            f"read_geotiff_dask: chunks=({ch_h}, {ch_w}) on a "
-            f"{full_h}x{full_w} image would produce {n_chunks:,} dask "
-            f"tasks, exceeding the {_MAX_DASK_CHUNKS:,}-task cap. Pass a "
-            f"larger chunks=... value explicitly (e.g. chunks="
-            f"({suggested_h}, {suggested_w}) keeps the task count under "
-            "the cap)."
-        )
-
-    # Build dask array from delayed windowed reads
-    rows = list(range(0, full_h, ch_h))
-    cols = list(range(0, full_w, ch_w))
-
-    # For multi-band, each window read returns (h, w, bands); for single-band (h, w)
-    # read_to_array with band=0 extracts a single band, band=None returns all
-    band_arg = None  # return all bands (or 2D if single-band)
-
-    dask_rows = []
-    for r0 in rows:
-        r1 = min(r0 + ch_h, full_h)
-        dask_cols = []
-        for c0 in cols:
-            c1 = min(c0 + ch_w, full_w)
-            if n_bands > 0:
-                block_shape = (r1 - r0, c1 - c0, n_bands)
-            else:
-                block_shape = (r1 - r0, c1 - c0)
-            block = da.from_delayed(
-                _delayed_read_window(source, r0, c0, r1, c1,
-                                     overview_level, nodata,
-                                     band_arg,
-                                     target_dtype=target_dtype if dtype is not None else None),
-                shape=block_shape,
-                dtype=target_dtype,
-            )
-            dask_cols.append(block)
-        dask_rows.append(da.concatenate(dask_cols, axis=1))
-
-    dask_arr = da.concatenate(dask_rows, axis=0)
-
-    if n_bands > 0:
-        dims = ['y', 'x', 'band']
-        coords['band'] = np.arange(n_bands)
-    else:
-        dims = ['y', 'x']
-
-    return xr.DataArray(
-        dask_arr, dims=dims, coords=coords, name=name, attrs=attrs,
-    )
-
-
-def _delayed_read_window(source, r0, c0, r1, c1, overview_level, nodata,
-                         band, *, target_dtype=None):
-    """Dask-delayed function to read a single window."""
-    import dask
-    @dask.delayed
-    def _read():
-        arr, _ = read_to_array(source, window=(r0, c0, r1, c1),
-                               overview_level=overview_level, band=band)
-        if nodata is not None:
-            if arr.dtype.kind == 'f' and not np.isnan(nodata):
-                arr = arr.copy()
-                arr[arr == arr.dtype.type(nodata)] = np.nan
-            elif arr.dtype.kind in ('u', 'i'):
-                mask = arr == arr.dtype.type(int(nodata))
-                if mask.any():
-                    arr = arr.astype(np.float64)
-                    arr[mask] = np.nan
-        if target_dtype is not None:
-            arr = arr.astype(target_dtype)
-        return arr
-    return _read()
-
-
-def read_geotiff_gpu(source: str, *,
-                     dtype=None,
-                     overview_level: int | None = None,
-                     name: str | None = None,
-                     chunks: int | tuple | None = None,
-                     max_pixels: int | None = None) -> xr.DataArray:
-    """Read a GeoTIFF with GPU-accelerated decompression via Numba CUDA.
-
-    Decompresses all tiles in parallel on the GPU and returns a
-    CuPy-backed DataArray that stays on device memory. No CPU->GPU
-    transfer needed for downstream xrspatial GPU operations.
-
-    With ``chunks=``, returns a Dask+CuPy DataArray for out-of-core
-    GPU pipelines.
-
-    Requires: cupy, numba with CUDA support.
-
-    Parameters
-    ----------
-    source : str
-        File path.
-    overview_level : int or None
-        Overview level (0 = full resolution).
-    chunks : int, tuple, or None
-        If set, return a Dask-chunked CuPy DataArray. int for square
-        chunks, (row, col) tuple for rectangular.
-    name : str or None
-        Name for the DataArray.
-    max_pixels : int or None
-        Maximum allowed pixel count (width * height * samples). None
-        uses the default (~1 billion).
-
-    Returns
-    -------
-    xr.DataArray
-        CuPy-backed DataArray on GPU device.
-    """
-    try:
-        import cupy
-    except ImportError:
-        raise ImportError(
-            "cupy is required for GPU reads. "
-            "Install it with: pip install cupy-cuda12x")
-
-    from ._reader import _FileSource, _check_dimensions, MAX_PIXELS_DEFAULT
-    from ._header import parse_header, parse_all_ifds, validate_tile_layout
-    from ._dtypes import tiff_dtype_to_numpy
-    from ._geotags import extract_geo_info
-    from ._gpu_decode import gpu_decode_tiles
-
-    if max_pixels is None:
-        max_pixels = MAX_PIXELS_DEFAULT
-
-    # Parse metadata on CPU (fast, <1ms)
-    src = _FileSource(source)
-    data = src.read_all()
-
-    try:
-        header = parse_header(data)
-        ifds = parse_all_ifds(data, header)
-
-        if len(ifds) == 0:
-            raise ValueError("No IFDs found in TIFF file")
-
-        ifd_idx = 0
-        if overview_level is not None:
-            ifd_idx = min(overview_level, len(ifds) - 1)
-        ifd = ifds[ifd_idx]
-
-        bps = ifd.bits_per_sample
-        if isinstance(bps, tuple):
-            bps = bps[0]
-        file_dtype = tiff_dtype_to_numpy(bps, ifd.sample_format)
-        geo_info = extract_geo_info(ifd, data, header.byte_order)
-
-        if not ifd.is_tiled:
-            # Fall back to CPU for stripped files
-            src.close()
-            arr_cpu, _ = read_to_array(source, overview_level=overview_level)
-            arr_gpu = cupy.asarray(arr_cpu)
-            coords = _geo_to_coords(geo_info, arr_gpu.shape[0], arr_gpu.shape[1])
-            if name is None:
-                import os
-                name = os.path.splitext(os.path.basename(source))[0]
-            attrs = {}
-            if geo_info.crs_epsg is not None:
-                attrs['crs'] = geo_info.crs_epsg
-            t_tuple = _transform_tuple(geo_info)
-            if t_tuple is not None:
-                attrs['transform'] = t_tuple
-            if dtype is not None:
-                target = np.dtype(dtype)
-                _validate_dtype_cast(np.dtype(str(arr_gpu.dtype)), target)
-                arr_gpu = arr_gpu.astype(target)
-            return xr.DataArray(arr_gpu, dims=['y', 'x'],
-                                coords=coords, name=name, attrs=attrs)
-
-        offsets = ifd.tile_offsets
-        byte_counts = ifd.tile_byte_counts
-        compression = ifd.compression
-        predictor = ifd.predictor
-        samples = ifd.samples_per_pixel
-        tw = ifd.tile_width
-        th = ifd.tile_height
-        width = ifd.width
-        height = ifd.height
-
-        if tw <= 0 or th <= 0:
-            raise ValueError(
-                f"Invalid tile dimensions: TileWidth={tw}, TileLength={th}")
-
-        _check_dimensions(width, height, samples, max_pixels)
-        # A single tile's decoded bytes must also fit under the pixel budget.
-        _check_dimensions(tw, th, samples, max_pixels)
-
-        # Reject malformed TIFFs whose declared tile grid exceeds the
-        # supplied TileOffsets length. The GPU tile-assembly kernel would
-        # read OOB otherwise. See issue #1219.
-        validate_tile_layout(ifd)
-
-    finally:
-        src.close()
-
-    # GPU decode: try GDS (SSD→GPU direct) first, then CPU mmap path
-    from ._gpu_decode import gpu_decode_tiles_from_file
-    arr_gpu = None
-
-    try:
-        arr_gpu = gpu_decode_tiles_from_file(
-            source, offsets, byte_counts,
-            tw, th, width, height,
-            compression, predictor, file_dtype, samples,
-        )
-    except Exception:
-        pass
-
-    if arr_gpu is None:
-        # Fallback: extract tiles via CPU mmap, then GPU decode
-        src2 = _FileSource(source)
-        data2 = src2.read_all()
-        try:
-            compressed_tiles = [
-                bytes(data2[offsets[i]:offsets[i] + byte_counts[i]])
-                for i in range(len(offsets))
-            ]
-        finally:
-            src2.close()
-
-    if arr_gpu is None:
-        try:
-            arr_gpu = gpu_decode_tiles(
-                compressed_tiles,
-                tw, th, width, height,
-                compression, predictor, file_dtype, samples,
-            )
-        except (ValueError, Exception):
-            # Unsupported compression -- fall back to CPU then transfer
-            arr_cpu, _ = read_to_array(source, overview_level=overview_level)
-            arr_gpu = cupy.asarray(arr_cpu)
-
-    if dtype is not None:
-        target = np.dtype(dtype)
-        _validate_dtype_cast(np.dtype(str(arr_gpu.dtype)), target)
-        arr_gpu = arr_gpu.astype(target)
-
-    # Build DataArray
-    if name is None:
-        import os
-        name = os.path.splitext(os.path.basename(source))[0]
-
-    coords = _geo_to_coords(geo_info, height, width)
-
-    attrs = {}
-    if geo_info.crs_epsg is not None:
-        attrs['crs'] = geo_info.crs_epsg
-    if geo_info.crs_wkt is not None:
-        attrs['crs_wkt'] = geo_info.crs_wkt
-    t_tuple = _transform_tuple(geo_info)
-    if t_tuple is not None:
-        attrs['transform'] = t_tuple
-
-    if arr_gpu.ndim == 3:
-        dims = ['y', 'x', 'band']
-        coords['band'] = np.arange(arr_gpu.shape[2])
-    else:
-        dims = ['y', 'x']
-
-    result = xr.DataArray(arr_gpu, dims=dims, coords=coords,
-                          name=name, attrs=attrs)
-
-    if chunks is not None:
-        if isinstance(chunks, int):
-            chunk_dict = {'y': chunks, 'x': chunks}
-        else:
-            chunk_dict = {'y': chunks[0], 'x': chunks[1]}
-        result = result.chunk(chunk_dict)
-
-    return result
-
-
-def write_geotiff_gpu(data, path: str, *,
-                      crs: int | str | None = None,
-                      nodata=None,
-                      compression: str = 'zstd',
-                      compression_level: int | None = None,
-                      tile_size: int = 256,
-                      predictor: bool | int = False,
-                      cog: bool = False,
-                      overview_levels: list[int] | None = None,
-                      overview_resampling: str = 'mean') -> None:
-    """Write a CuPy-backed DataArray as a GeoTIFF with GPU compression.
-
-    Tiles are extracted and compressed on the GPU via nvCOMP, then
-    assembled into a TIFF file on CPU. The CuPy array stays on device
-    throughout compression -- only the compressed bytes transfer to CPU
-    for file writing.
-
-    When ``cog=True``, generates overview pyramids on GPU and writes a
-    Cloud Optimized GeoTIFF with all IFDs at the file start for
-    efficient range-request access.
-
-    Falls back to CPU compression if nvCOMP is not available.
-
-    Parameters
-    ----------
-    data : xr.DataArray (CuPy-backed) or cupy.ndarray
-        2D raster on GPU.
-    path : str
-        Output file path.
-    crs : int, str, or None
-        EPSG code or WKT string.
-    nodata : float, int, or None
-        NoData value.
-    compression : str
-        'zstd' (default, fastest on GPU), 'deflate', 'jpeg', or 'none'.
-        JPEG uses nvJPEG when available, falling back to Pillow.
-    compression_level : int or None
-        Compression effort level. Accepted for API compatibility but
-        currently ignored -- nvCOMP does not expose level control.
-    tile_size : int
-        Tile size in pixels (default 256).
-    predictor : bool or int
-        TIFF predictor. ``False``/``0``/``1`` -> none, ``True``/``2`` ->
-        horizontal differencing, ``3`` -> floating-point predictor
-        (float dtypes only).
-    cog : bool
-        Write as Cloud Optimized GeoTIFF with overviews.
-    overview_levels : list[int] or None
-        Overview decimation factors (e.g. [2, 4, 8]). Only used when
-        cog=True. If None and cog=True, auto-generates levels by
-        halving until the smallest overview fits in a single tile.
-    overview_resampling : str
-        Resampling method for overviews: 'mean' (default), 'nearest',
-        'min', 'max', 'median', or 'mode'.
-    """
-    try:
-        import cupy
-    except ImportError:
-        raise ImportError("cupy is required for GPU writes")
-
-    from ._gpu_decode import gpu_compress_tiles, make_overview_gpu
-    from ._writer import (
-        _compression_tag, _assemble_tiff, _write_bytes,
-        normalize_predictor,
-        GeoTransform as _GT,
-    )
-    from ._dtypes import numpy_to_tiff_dtype
-
-    # Extract array and metadata
-    geo_transform = None
-    epsg = None
-    raster_type = 1
-
-    if isinstance(crs, int):
-        epsg = crs
-    elif isinstance(crs, str):
-        epsg = _wkt_to_epsg(crs)
-
-    if isinstance(data, xr.DataArray):
-        arr = data.data
-        # Handle Dask arrays: compute to materialize
-        if hasattr(arr, 'compute'):
-            arr = arr.compute()
-        # Now arr should be CuPy or numpy
-        if hasattr(arr, 'get'):
-            pass  # CuPy array, already on GPU
-        else:
-            arr = cupy.asarray(np.asarray(arr))  # numpy -> GPU
-
-        geo_transform = _coords_to_transform(data)
-        if epsg is None:
-            epsg = data.attrs.get('crs')
-        if nodata is None:
-            nodata = data.attrs.get('nodata')
-        if data.attrs.get('raster_type') == 'point':
-            raster_type = RASTER_PIXEL_IS_POINT
-    else:
-        if hasattr(data, 'compute'):
-            data = data.compute()  # Dask -> CuPy or numpy
-        if hasattr(data, 'device'):
-            arr = data  # already CuPy
-        elif hasattr(data, 'get'):
-            arr = data  # CuPy
-        else:
-            arr = cupy.asarray(np.asarray(data))  # numpy/list -> GPU
-
-    if arr.ndim not in (2, 3):
-        raise ValueError(f"Expected 2D or 3D array, got {arr.ndim}D")
-
-    height, width = arr.shape[:2]
-    samples = arr.shape[2] if arr.ndim == 3 else 1
-    np_dtype = np.dtype(str(arr.dtype))  # cupy dtype -> numpy dtype
-
-    comp_tag = _compression_tag(compression)
-    pred_val = normalize_predictor(predictor, np_dtype, comp_tag)
-
-    def _gpu_compress_to_part(gpu_arr, w, h, spp):
-        """Compress a GPU array into a (stub, w, h, offsets, counts, tiles) tuple."""
-        compressed = gpu_compress_tiles(
-            gpu_arr, tile_size, tile_size, w, h,
-            comp_tag, pred_val, np_dtype, spp)
-        rel_off = []
-        bc = []
-        off = 0
-        for tile in compressed:
-            rel_off.append(off)
-            bc.append(len(tile))
-            off += len(tile)
-        stub = np.empty((1, 1, spp) if spp > 1 else (1, 1), dtype=np_dtype)
-        return (stub, w, h, rel_off, bc, compressed)
-
-    # Full resolution
-    parts = [_gpu_compress_to_part(arr, width, height, samples)]
-
-    # Overview generation -- mirrors the CPU writer's 8-level cap.
-    if cog:
-        if overview_levels is None:
-            from ._writer import _MAX_OVERVIEW_LEVELS
-            overview_levels = []
-            oh, ow = height, width
-            while (oh > tile_size and ow > tile_size and
-                   len(overview_levels) < _MAX_OVERVIEW_LEVELS):
-                oh //= 2
-                ow //= 2
-                if oh > 0 and ow > 0:
-                    overview_levels.append(len(overview_levels) + 1)
-
-        current = arr
-        for _ in overview_levels:
-            current = make_overview_gpu(current, method=overview_resampling)
-            oh, ow = current.shape[:2]
-            parts.append(_gpu_compress_to_part(current, ow, oh, samples))
-
-    file_bytes = _assemble_tiff(
-        width, height, np_dtype, comp_tag, pred_val, True, tile_size,
-        parts, geo_transform, epsg, nodata,
-        is_cog=(cog and len(parts) > 1),
-        raster_type=raster_type)
-
-    _write_bytes(file_bytes, path)
-
-
-def read_vrt(source: str, *, dtype=None, window=None,
-             band: int | None = None,
-             name: str | None = None,
-             chunks: int | tuple | None = None,
-             gpu: bool = False,
-             max_pixels: int | None = None) -> xr.DataArray:
-    """Read a GDAL Virtual Raster Table (.vrt) into an xarray.DataArray.
-
-    The VRT's source GeoTIFFs are read via windowed reads and assembled
-    into a single array.
-
-    Parameters
-    ----------
-    source : str
-        Path to the .vrt file.
-    dtype : str, numpy.dtype, or None
-        Cast the result to this dtype after reading. None keeps the
-        file's native dtype. Float-to-int casts raise ValueError.
-    window : tuple or None
-        (row_start, col_start, row_stop, col_stop) for windowed reading.
-    band : int or None
-        Band index (0-based). None returns all bands.
-    name : str or None
-        Name for the DataArray.
-    chunks : int, tuple, or None
-        If set, return a Dask-chunked DataArray. int for square chunks,
-        (row, col) tuple for rectangular.
-    gpu : bool
-        If True, return a CuPy-backed DataArray on GPU.
-
-    Returns
-    -------
-    xr.DataArray
-        NumPy, Dask, CuPy, or Dask+CuPy backed depending on options.
-
-    Notes
-    -----
-    Like ``open_geotiff``, the CRS lands as an int EPSG in
-    ``attrs['crs']`` when the VRT's WKT resolves to a known EPSG code.
-    Otherwise ``attrs['crs']`` stays unset and ``attrs['crs_wkt']`` carries
-    the original WKT. The source GeoTransform is preserved as a
-    rasterio-style 6-tuple in ``attrs['transform']``.
-    """
-    from ._vrt import read_vrt as _read_vrt_internal
-
-    arr, vrt = _read_vrt_internal(source, window=window, band=band,
-                                   max_pixels=max_pixels)
-
-    if name is None:
-        import os
-        name = os.path.splitext(os.path.basename(source))[0]
-
-    # Build coordinates from GeoTransform.
-    #
-    # GDAL's convention: when AREA_OR_POINT=Area (default) the
-    # GeoTransform origin is the top-left corner of pixel (0, 0) and
-    # pixel centers need a half-pixel shift.  When AREA_OR_POINT=Point
-    # the origin already *is* the center of pixel (0, 0) and no shift
-    # is applied.  This mirrors ``_geo_to_coords`` for non-VRT reads.
-    gt = vrt.geo_transform
-    if gt is not None:
-        origin_x, res_x, _, origin_y, _, res_y = gt
-        if window is not None:
-            r0, c0, r1, c1 = window
-            r0 = max(0, r0)
-            c0 = max(0, c0)
-        else:
-            r0, c0 = 0, 0
-        height, width = arr.shape[:2]
-        if vrt.raster_type == 'point':
-            x_shift = c0 * res_x
-            y_shift = r0 * res_y
-        else:
-            x_shift = (c0 + 0.5) * res_x
-            y_shift = (r0 + 0.5) * res_y
-        x = np.arange(width, dtype=np.float64) * res_x + origin_x + x_shift
-        y = np.arange(height, dtype=np.float64) * res_y + origin_y + y_shift
-        coords = {'y': y, 'x': x}
-    else:
-        coords = {}
-
-    attrs = {}
-    if vrt.crs_wkt:
-        epsg = _wkt_to_epsg(vrt.crs_wkt)
-        if epsg is not None:
-            attrs['crs'] = epsg
-        attrs['crs_wkt'] = vrt.crs_wkt
-    if vrt.raster_type == 'point':
-        attrs['raster_type'] = 'point'
-    if vrt.bands:
-        nodata = vrt.bands[0].nodata
-        if nodata is not None:
-            attrs['nodata'] = nodata
-
-    # Surface the source GeoTransform in the same rasterio ordering used
-    # by open_geotiff: (pixel_width, 0, origin_x, 0, pixel_height, origin_y).
-    # vrt.geo_transform is GDAL ordering, so reorder. For a windowed read
-    # the origin shifts by (col_offset * res_x, row_offset * res_y).
-    if gt is not None:
-        if window is not None:
-            r0w, c0w, _r1w, _c1w = window
-            r0w = max(0, r0w)
-            c0w = max(0, c0w)
-        else:
-            r0w = c0w = 0
-        origin_x_out = float(origin_x) + c0w * float(res_x)
-        origin_y_out = float(origin_y) + r0w * float(res_y)
-        attrs['transform'] = (
-            float(res_x), 0.0, origin_x_out,
-            0.0, float(res_y), origin_y_out,
-        )
-
-    # Transfer to GPU if requested
-    if gpu:
-        import cupy
-        arr = cupy.asarray(arr)
-
-    if dtype is not None:
-        target = np.dtype(dtype)
-        _validate_dtype_cast(np.dtype(str(arr.dtype)), target)
-        arr = arr.astype(target)
-
-    if arr.ndim == 3:
-        dims = ['y', 'x', 'band']
-        coords['band'] = np.arange(arr.shape[2])
-    else:
-        dims = ['y', 'x']
-
-    result = xr.DataArray(arr, dims=dims, coords=coords, name=name, attrs=attrs)
-
-    # Chunk for Dask (or Dask+CuPy if gpu=True)
-    if chunks is not None:
-        if isinstance(chunks, int):
-            chunk_dict = {'y': chunks, 'x': chunks}
-        else:
-            chunk_dict = {'y': chunks[0], 'x': chunks[1]}
-        result = result.chunk(chunk_dict)
-
-    return result
-
-
-def write_vrt(vrt_path: str, source_files: list[str], **kwargs) -> str:
-    """Generate a VRT file that mosaics multiple GeoTIFF tiles.
-
-    Parameters
-    ----------
-    vrt_path : str
-        Output .vrt file path.
-    source_files : list of str
-        Paths to the source GeoTIFF files.
-    relative : bool, optional
-        Store source paths relative to the VRT file (default True).
-    crs_wkt : str or None, optional
-        CRS as a WKT string. If None, the CRS is taken from the first
-        source GeoTIFF.
-    nodata : float or None, optional
-        NoData value. If None, taken from the first source GeoTIFF.
-
-    Returns
-    -------
-    str
-        Path to the written VRT file.
-
-    Notes
-    -----
-    Only the keyword arguments listed above are accepted. Passing any
-    other keyword raises ``TypeError`` from the underlying writer.
-    """
-    from ._vrt import write_vrt as _write_vrt_internal
-    return _write_vrt_internal(vrt_path, source_files, **kwargs)
 
 
 def plot_geotiff(da: xr.DataArray, **kwargs):
     """Plot a DataArray using its embedded colormap if present.
 
-    Deprecated: use ``da.xrs.plot()`` instead.
+    .. deprecated:: 0.10.0
+        Use ``da.xrs.plot()`` instead. ``plot_geotiff`` is a thin wrapper
+        kept for backward compatibility and will be removed in a future
+        release.
     """
+    warnings.warn(
+        "plot_geotiff is deprecated and will be removed in a future "
+        "release. Use ``da.xrs.plot()`` instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return da.xrs.plot(**kwargs)

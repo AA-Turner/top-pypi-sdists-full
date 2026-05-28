@@ -181,7 +181,6 @@ connection credentials are used instead of vCenter credentials, the ``host_names
                     6500
 """
 
-import datetime
 import logging
 import sys
 from functools import wraps
@@ -191,6 +190,7 @@ import salt.utils.dictupdate as dictupdate
 import salt.utils.http
 import salt.utils.path
 import salt.utils.pbm
+import salt.utils.timeutil
 import salt.utils.vmware
 import salt.utils.vsan
 from salt.config.schemas.esxcluster import (
@@ -307,9 +307,9 @@ def _deprecation_message(function):
     @wraps(function)
     def wrapped(*args, **kwargs):
         salt.utils.versions.warn_until(
-            3008,
+            3009,
             "The 'vsphere' functionality in Salt has been deprecated and its "
-            "functionality will be removed in version 3008 in favor of the "
+            "functionality will be removed in version 3009 in favor of the "
             "saltext.vmware Salt Extension. "
             "(https://github.com/saltstack/salt-ext-modules-vmware)",
             category=FutureWarning,
@@ -3877,7 +3877,7 @@ def update_host_datetime(
         host_ref = _get_host_ref(service_instance, host, host_name=host_name)
         date_time_manager = _get_date_time_mgr(host_ref)
         try:
-            date_time_manager.UpdateDateTime(datetime.datetime.utcnow())
+            date_time_manager.UpdateDateTime(salt.utils.timeutil.utcnow())
         except vim.fault.HostConfigFault as err:
             msg = "'vsphere.update_date_time' failed for host {}: {}".format(
                 host_name, err

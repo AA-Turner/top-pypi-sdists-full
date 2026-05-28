@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uniface
-Version: 3.6.0
+Version: 3.7.0
 Summary: UniFace: A Unified Face Analysis Library for Python
 Author-email: Yakhyokhuja Valikhujaev <yakhyo9696@gmail.com>
 Maintainer-email: Yakhyokhuja Valikhujaev <yakhyo9696@gmail.com>
@@ -30,6 +30,7 @@ Requires-Dist: scikit-image>=0.22.0
 Requires-Dist: scipy>=1.7.0
 Requires-Dist: requests>=2.28.0
 Requires-Dist: tqdm>=4.64.0
+Requires-Dist: typing_extensions>=4.5.0
 Provides-Extra: cpu
 Requires-Dist: onnxruntime>=1.16.0; python_version >= "3.11" and extra == "cpu"
 Requires-Dist: onnxruntime<1.24,>=1.16.0; python_version < "3.11" and extra == "cpu"
@@ -85,6 +86,7 @@ Dynamic: license-file
 - **Attribute Analysis** — Age, gender, race (FairFace), and emotion
 - **Vector Store** — FAISS-backed embedding store for fast multi-identity search
 - **Anti-Spoofing** — Face liveness detection with MiniFASNet
+- **Face Quality Assessment** — eDifFIQA single-score quality (T/S/M/L, NIST FATE-Quality #1 with the L variant)
 - **Face Anonymization** — 5 blur methods for privacy protection
 - **Hardware Acceleration** — ARM64 (Apple Silicon), CUDA (NVIDIA), CPU
 
@@ -365,6 +367,7 @@ If you plan commercial use, verify model license compatibility.
 | Head Pose | [head-pose-estimation](https://github.com/yakhyo/head-pose-estimation) | ✓ | Head Pose Training (6DRepNet-style) |
 | Matting | [modnet](https://github.com/yakhyo/modnet) | - | MODNet Portrait Matting |
 | Anti-Spoofing | [face-anti-spoofing](https://github.com/yakhyo/face-anti-spoofing) | - | MiniFASNet Inference |
+| Quality | [face-image-quality-assessment](https://github.com/yakhyo/face-image-quality-assessment) | - | eDifFIQA ONNX Inference |
 | Attributes | [fairface-onnx](https://github.com/yakhyo/fairface-onnx) | - | FairFace ONNX Inference |
 
 *SCRFD and ArcFace models are from [InsightFace](https://github.com/deepinsight/insightface).

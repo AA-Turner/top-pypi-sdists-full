@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Route, compile_path, get_name
+from starlette.routing import Route, WebSocketRoute, compile_path, get_name
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from langgraph_api import config
@@ -161,6 +161,39 @@ class ApiRoute(Route):
 
         scope["route"] = self.path
         set_logging_context({"path": self.path, "method": scope.get("method")})
+        route_pattern = f"{scope.get('root_path', '')}{self.path}"
+        _name_otel_span(scope, route_pattern)
+        ctx = get_auth_ctx()
+        if ctx:
+            user, auth = ctx.user, ctx.permissions
+        else:
+            user, auth = scope.get("user"), scope.get("auth")
+        async with with_user(user, auth):
+            return await super().handle(scope, receive, send)
+
+
+class ApiWebSocketRoute(WebSocketRoute):
+    """WebSocket route that propagates the auth context var.
+
+    Mirrors ``ApiRoute.handle`` for WebSocket handlers: starlette's
+    ``AuthenticationMiddleware`` populates ``scope["user"]`` and
+    ``scope["auth"]`` on the upgrade, but code that reads auth via
+    the ``AuthContext`` ContextVar (``get_auth_ctx``) still sees
+    ``None`` because the default ``WebSocketRoute.handle`` does not
+    enter the ``with_user`` context manager.
+
+    Without this wrapper, ops like ``Runs.search`` / ``Threads.State.get``
+    invoked from the WebSocket handler path read ``None`` for the user
+    and silently return empty results or fail authorization. This is the
+    WebSocket analog of ``ApiRoute`` and must be used for any WS route
+    that reaches the ops layer.
+    """
+
+    async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
+        from langgraph_api.logging import set_logging_context  # noqa: PLC0415
+
+        scope["route"] = self.path
+        set_logging_context({"path": self.path, "method": "WEBSOCKET"})
         route_pattern = f"{scope.get('root_path', '')}{self.path}"
         _name_otel_span(scope, route_pattern)
         ctx = get_auth_ctx()

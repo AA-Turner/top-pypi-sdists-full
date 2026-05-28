@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import warnings
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import timedelta
@@ -317,6 +318,7 @@ class BeakerGpuType(IntEnum):
     NVIDIA_L40 = pb2.GpuType.GPU_TYPE_NVIDIA_L40
     NVIDIA_L40S = pb2.GpuType.GPU_TYPE_NVIDIA_L40S
     NVIDIA_B200 = pb2.GpuType.GPU_TYPE_NVIDIA_B200
+    NVIDIA_H200 = pb2.GpuType.GPU_TYPE_NVIDIA_H200
 
 
 T = TypeVar("T", bound="_BeakerSpecBase")
@@ -471,11 +473,17 @@ class BeakerTaskContext(_BeakerSpecBase):
 
     cluster: str | None = None
     priority: BeakerJobPriority | None = None
-    preemptible: bool | None = None
+    preemptible: bool | None = dataclasses.field(default=None, repr=False)  # deprecated
     min_runtime: int | None = None
     auto_resume: bool | None = None
 
     def __post_init__(self):
+        if self.preemptible is not None:
+            warnings.warn(
+                "The 'preemptible' field is deprecated, use 'min_runtime' and 'auto_resume' instead.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
         if self.priority is not None:
             self.priority = BeakerJobPriority.from_any(self.priority)
         if self.min_runtime is not None:

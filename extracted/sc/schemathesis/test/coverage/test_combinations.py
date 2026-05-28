@@ -5,14 +5,17 @@ import re
 from math import inf, nextafter
 from unittest.mock import ANY
 
+import hypothesis.strategies as st
 import jsonschema_rs
 import pytest
+from hypothesis import given, settings
 from hypothesis.errors import Unsatisfiable
 
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import transform
 from schemathesis.generation import GenerationMode
+from schemathesis.openapi.generation.filters import is_invalid_path_parameter
 from schemathesis.specs.openapi.converter import to_json_schema
 from schemathesis.specs.openapi.coverage._schema import (
     CoverageContext,
@@ -214,6 +217,13 @@ def test_unbounded_array_positive_baseline_is_non_empty(pctx):
     covered = cover_schema(pctx, {"type": "array", "items": {"type": "integer", "format": "int32"}})
     assert covered
     assert covered[0], covered
+
+
+@given(value=st.dictionaries(st.text(), st.text() | st.integers() | st.booleans() | st.none(), max_size=5))
+@settings(max_examples=50)
+def test_dicts_always_invalid_as_path_parameters(value):
+    # dict.__repr__ always contains `{` and `}`, making all dicts invalid path parameters.
+    assert is_invalid_path_parameter(value)
 
 
 @pytest.mark.parametrize(
@@ -2379,6 +2389,19 @@ def test_positive_string_skips_infeasible_boundary_lengths(pctx):
     for value in covered:
         assert isinstance(value.value, str)
     assert_conform(covered, schema)
+
+
+def test_path_pattern_with_literal_slash_is_unsatisfiable(ctx_factory):
+    # Pattern's literal / conflicts with the path-parameter transport constraint.
+    path_ctx = ctx_factory(location=ParameterLocation.PATH, generation_modes=[GenerationMode.POSITIVE])
+    schema = {
+        "type": "string",
+        "pattern": "arn:aws:kinesisvideo:[a-z0-9-]+:[0-9]+:[a-z]+/[a-zA-Z0-9_.-]+/[0-9]+",
+        "minLength": 1,
+        "maxLength": 1024,
+    }
+    with pytest.raises(Unsatisfiable):
+        path_ctx.generate_from_schema(schema)
 
 
 def test_items_false_with_prefix_items(pctx):

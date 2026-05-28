@@ -239,6 +239,30 @@ class SAGEBackend:
         base = self._base.replace("https://", "wss://").replace("http://", "ws://")
         return f"{base}/ws/sms"
 
+    def upload_file(self, file_path: str) -> str | None:
+        """Upload a file to the backend /upload endpoint. Returns file_id if successful."""
+        url = f"{self._base}/upload"
+        try:
+            import os
+            filename = os.path.basename(file_path)
+            import mimetypes
+            mime_type, _ = mimetypes.guess_type(file_path)
+            mime_type = mime_type or "application/octet-stream"
+            
+            with open(file_path, "rb") as f:
+                files = {"file": (filename, f, mime_type)}
+                r = httpx.post(url, headers=self._headers, files=files, timeout=30)
+                if r.status_code == 401:
+                    ok, reason = self._refresh_headers()
+                    if ok:
+                        f.seek(0)
+                        r = httpx.post(url, headers=self._headers, files=files, timeout=30)
+                r.raise_for_status()
+                return r.json().get("file_id")
+        except Exception as exc:
+            logger.warning("Failed to upload file %s: %s", file_path, exc)
+            return None
+
     def token(self) -> str:
         return self._token
 
@@ -337,7 +361,7 @@ def _imessage_row_matches(prev_max_rowid: int, text: str) -> bool:
         return False
 
 
-def _send_imessage(recipient: str, text: str) -> bool:
+def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None = None) -> bool:
     """Send an iMessage from this Mac via the Messages app.
 
     Recipient can be an Apple ID email (e.g. user@icloud.com) or a phone
@@ -366,23 +390,30 @@ def _send_imessage(recipient: str, text: str) -> bool:
 
     baseline = _imessage_max_rowid()
 
-    import os, re
-    attachment_path = None
-    paths = re.findall(r'(/[\w\.\-\_/]+)', text)
-    for p in paths:
-        if os.path.isfile(p):
-            attachment_path = p
-            break
+    if attachment_paths is None:
+        attachment_paths = []
+        import os, re
+        raw_paths = re.findall(r'(?:[a-zA-Z]:[\\/][^\s\'"`]+|/[^\s\'"`]+|\b[a-zA-Z0-9_\-\.]+\.[a-zA-Z0-9]{2,5}\b)', text)
+        for p in raw_paths:
+            p_clean = p.strip(".,;:!?()[]{}<>\"'`")
+            if os.path.isfile(p_clean):
+                attachment_paths.append(os.path.abspath(p_clean))
+            elif os.path.isfile(os.path.join(os.getcwd(), p_clean)):
+                attachment_paths.append(os.path.abspath(os.path.join(os.getcwd(), p_clean)))
 
     def _run_send_script(target_keyword: str) -> tuple[bool, str]:
         """Run the send via osascript with `participant` or `buddy` keyword."""
-        attachment_cmd = f'        send POSIX file "{attachment_path}" to targetBuddy\n' if attachment_path else ""
+        attachment_cmds = ""
+        if attachment_paths:
+            for ap in attachment_paths:
+                safe_ap = ap.replace("\\", "\\\\").replace('"', '\\"')
+                attachment_cmds += f'        send POSIX file "{safe_ap}" to targetBuddy\n'
         script = (
             'tell application "Messages"\n'
             '    try\n'
             '        set targetService to 1st service whose service type = iMessage\n'
             f'        set targetBuddy to {target_keyword} "{safe_to}" of targetService\n'
-            f'{attachment_cmd}'
+            f'{attachment_cmds}'
             f'        send "{safe_text}" to targetBuddy\n'
             '        return "ok"\n'
             '    on error errMsg number errNum\n'
@@ -658,6 +689,101 @@ def _strip_ansi(text: str) -> str:
     return re.sub(r'\x1b\][^\x07]*\x07', '', text).strip()
 
 
+def _extract_file_attachments(text: str, working_dir: Path) -> list[str]:
+    """Find files in the response text that actually exist on disk."""
+    import os
+    candidates = []
+    
+    # Extract quoted substrings
+    for quote_char in ("'", '"', "`"):
+        parts = text.split(quote_char)
+        for i in range(1, len(parts), 2):
+            candidates.append(parts[i].strip())
+            
+    # Split by whitespace and check each token
+    for token in text.split():
+        token_clean = token.strip(".,;:!?()[]{}<>\"'`")
+        if token_clean:
+            candidates.append(token_clean)
+            
+    found = []
+    seen = set()
+    for c in candidates:
+        if not c or c in seen:
+            continue
+        seen.add(c)
+        
+        try:
+            p = Path(c)
+            if p.is_absolute() and p.is_file():
+                found.append(str(p.resolve()))
+                continue
+        except Exception:
+            pass
+            
+        try:
+            p_rel = (working_dir / c).resolve()
+            if p_rel.is_file():
+                found.append(str(p_rel))
+                continue
+        except Exception:
+            pass
+            
+    return found
+
+
+def _find_recent_files(working_dir: Path, start_time: float) -> list[str]:
+    """Find files in the working directory modified since start_time, up to 50MB."""
+    import os
+    found = []
+    ignored_dirs = {".git", ".sage", "venv", ".venv", "node_modules", "__pycache__", "target"}
+    
+    # We walk the directory
+    for root, dirs, files in os.walk(str(working_dir)):
+        dirs[:] = [d for d in dirs if d not in ignored_dirs and not d.startswith(".")]
+        for file in files:
+            file_path = os.path.join(root, file)
+            try:
+                mtime = os.path.getmtime(file_path)
+                if mtime >= start_time:
+                    size = os.path.getsize(file_path)
+                    if 0 < size < 50 * 1024 * 1024:  # >0 and <50MB
+                        found.append(os.path.abspath(file_path))
+            except Exception:
+                pass
+    return found
+
+
+def _share_via_kdeconnect(file_path: str) -> bool:
+    """Share a file with the paired Android device via KDE Connect --share."""
+    cli = _find_kdeconnect_cli()
+    if not cli:
+        return False
+    try:
+        # Find a paired+reachable device
+        result = subprocess.run(
+            [cli, "--list-available", "--id-only"],
+            capture_output=True, text=True, timeout=5,
+        )
+        devices = []
+        for line in (result.stdout or "").splitlines():
+            line = line.strip()
+            if not line or "devices found" in line.lower() or " " in line:
+                continue
+            devices.append(line)
+        if not devices:
+            return False
+        device_id = devices[0]
+        share_result = subprocess.run(
+            [cli, "--share", file_path, "-d", device_id],
+            capture_output=True, text=True, timeout=15,
+        )
+        return share_result.returncode == 0
+    except Exception as exc:
+        logger.debug("KDE Connect share file failed: %s", exc)
+        return False
+
+
 # Tool-call / prompt / footer noise that streams from `sage ask --raw`.
 # We strip these before SMS so the user gets the FINAL ANSWER, not the work log.
 _TOOL_LINE_RE = re.compile(
@@ -819,7 +945,11 @@ class SAGEMessageBridge:
 
     def _log(self, msg: str) -> None:
         ts = time.strftime("%H:%M:%S")
-        line = f"[{ts}][{self.cfg.computer_name}] {msg}"
+        # Strip ANSI escapes to avoid mystery characters in the log
+        clean_msg = re.sub(r'\x1b\[[0-9;]*[mGKHFABCDEJst]', '', msg)
+        clean_msg = re.sub(r'\x1b\].*?\x07', '', clean_msg)
+        clean_msg = clean_msg.replace('\x1b', '')
+        line = f"[{ts}][{self.cfg.computer_name}] {clean_msg}"
         print(line)
         self._log_fp.write(line + "\n")
 
@@ -1333,6 +1463,9 @@ class SAGEMessageBridge:
         sender = msg.get("from", "")
         lower  = task.lower()
 
+        start_time = time.time()
+        is_execution = False
+
         # ── Built-in commands (no sage invocation needed) ──────────────────
         if lower in ("help", "?", "@help"):
             output = self._build_help_text()
@@ -1404,6 +1537,7 @@ class SAGEMessageBridge:
         elif lower.startswith("@run "):
             # Force agentic mode (sage run --prompt)
             actual_task = task.split(None, 1)[1].strip()
+            is_execution = True
             output = self._run_sage_task(actual_task, mode="agent")
             if len(output) > 280:
                 output = self._summarize_for_sms(output, actual_task)
@@ -1411,6 +1545,7 @@ class SAGEMessageBridge:
         elif lower.startswith("@ask "):
             # Force chat mode (sage ask)
             actual_task = task.split(None, 1)[1].strip()
+            is_execution = True
             output = self._run_sage_task(actual_task, mode="chat")
             if len(output) > 280:
                 output = self._summarize_for_sms(output, actual_task)
@@ -1420,6 +1555,7 @@ class SAGEMessageBridge:
             self._stop.set()
 
         else:
+            is_execution = True
             timeout = getattr(self.cfg, "task_timeout", None) or None
             output = self._run_sage_task(task, timeout=timeout)
             if len(output) > 280:
@@ -1428,6 +1564,17 @@ class SAGEMessageBridge:
             if getattr(self.cfg, "output_mode", None) in ("verbose", "quiet"):
                 self.cfg.output_mode = None
                 self.cfg.save()
+
+        # Find attachments if this was an execution
+        local_attachments = []
+        if is_execution:
+            paths_in_text = _extract_file_attachments(output, self.working_dir)
+            recent_files = _find_recent_files(self.working_dir, start_time)
+            seen_files = set()
+            for fp in paths_in_text + recent_files:
+                if fp not in seen_files:
+                    seen_files.add(fp)
+                    local_attachments.append(fp)
 
         body = f"[SAGE — {self.cfg.computer_name}] {output}"
         e164 = self._normalize_e164(sender)
@@ -1442,19 +1589,25 @@ class SAGEMessageBridge:
                 sent_via = "KDE Connect (takeover)"
             elif _send_via_kdeconnect(target, body):
                 sent_via = "KDE Connect"
+            if sent_via and local_attachments:
+                for ap in local_attachments:
+                    _share_via_kdeconnect(ap)
         elif device_type == "apple":
             if sys.platform == "darwin":
-                if _send_imessage(target, body):
+                if _send_imessage(target, body, local_attachments):
                     sent_via = "iMessage"
             
             # Fallback for Apple on non-macOS or failed iMessage
             if not sent_via and e164:
                 if _send_via_kdeconnect(target, body):
                     sent_via = "KDE Connect (SMS)"
+                    if local_attachments:
+                        for ap in local_attachments:
+                            _share_via_kdeconnect(ap)
         else:
             # Untagged/unknown device
             if sys.platform == "darwin":
-                if _send_imessage(target, body):
+                if _send_imessage(target, body, local_attachments):
                     sent_via = "iMessage"
                 elif _send_macos_sms(target, body):
                     sent_via = "SMS (iPhone relay)"
@@ -1463,6 +1616,9 @@ class SAGEMessageBridge:
             if not sent_via and e164:
                 if _send_via_kdeconnect(target, body):
                     sent_via = "KDE Connect (SMS)"
+                    if local_attachments:
+                        for ap in local_attachments:
+                            _share_via_kdeconnect(ap)
 
         if sent_via:
             self._log(f"→ replied to {sender} via {sent_via}")
@@ -1755,6 +1911,9 @@ class SAGEMessageBridge:
 
         self._log(f"← {sender}: {task[:80]}")
 
+        start_time = time.time()
+        is_execution = False
+
         # ── Built-in commands (shared with iMessage handler) ──────────────
         if lower in ("help", "?", "@help"):
             output = self._build_help_text()
@@ -1824,12 +1983,14 @@ class SAGEMessageBridge:
 
         elif lower.startswith("@run "):
             actual_task = task.split(None, 1)[1].strip()
+            is_execution = True
             output = self._run_sage_task(actual_task, mode="agent")
             if self._is_sms_gateway(sender):
                 output = self._summarize_for_sms(output, actual_task)
 
         elif lower.startswith("@ask "):
             actual_task = task.split(None, 1)[1].strip()
+            is_execution = True
             output = self._run_sage_task(actual_task, mode="chat")
             if self._is_sms_gateway(sender):
                 output = self._summarize_for_sms(output, actual_task)
@@ -1840,6 +2001,7 @@ class SAGEMessageBridge:
 
         else:
             # Run the FULL task — all real work happens here
+            is_execution = True
             timeout = getattr(self.cfg, "task_timeout", None) or None
             output = self._run_sage_task(task, timeout=timeout)
             # SMS gateway senders get a concise summary; email/iMessage get full output
@@ -1851,13 +2013,38 @@ class SAGEMessageBridge:
                 self.cfg.output_mode = None
                 self.cfg.save()
 
+        # Find attachments if this was an execution
+        local_attachments = []
+        uploaded_attachments = []
+        if is_execution:
+            paths_in_text = _extract_file_attachments(output, self.working_dir)
+            recent_files = _find_recent_files(self.working_dir, start_time)
+            seen_files = set()
+            for fp in paths_in_text + recent_files:
+                if fp not in seen_files:
+                    seen_files.add(fp)
+                    local_attachments.append(fp)
+            if local_attachments:
+                self._log(f"Detected {len(local_attachments)} file attachment(s): {local_attachments}")
+                
+            be = SAGEBackend(self._token, self._api_base)
+            for fp in local_attachments:
+                file_id = be.upload_file(fp)
+                if file_id:
+                    import os
+                    uploaded_attachments.append({
+                        "file_id": file_id,
+                        "filename": os.path.basename(fp),
+                        "mime_type": None
+                    })
+
         # If the backend asked us to deliver natively (carrier-gateway sender +
         # known device_type), do that NOW from this machine. SMTP through
         # carrier email-to-SMS bridges is unreliable — most drop without
         # bouncing, so the user never sees the reply if we trust SMTP alone.
         delivered_locally = False
         if deliver_natively:
-            delivered_locally = self._deliver_native(sender, output, device_type)
+            delivered_locally = self._deliver_native(sender, output, device_type, local_attachments)
             if delivered_locally:
                 self._log(f"→ delivered natively to {sender} via {device_type}")
             else:
@@ -1875,11 +2062,12 @@ class SAGEMessageBridge:
                 "task_id": task_id,
                 "output": output,
                 "delivered_locally": delivered_locally,
+                "attachments": uploaded_attachments,
             }))
         except Exception as exc:
             self._log(f"Failed to send result: {exc}")
 
-    def _deliver_native(self, gateway_email: str, text: str, device_type: str) -> bool:
+    def _deliver_native(self, gateway_email: str, text: str, device_type: str, local_attachments: list[str] = None) -> bool:
         """Deliver `text` to the user's phone via iMessage or KDE Connect.
 
         Routing is driven by `device_type`:
@@ -1910,7 +2098,7 @@ class SAGEMessageBridge:
         # machine and the recipient is registered with iMessage.
         if device_type == "apple":
             if sys.platform == "darwin":
-                if phone_e164 and _send_imessage(phone_e164, body):
+                if phone_e164 and _send_imessage(phone_e164, body, local_attachments):
                     return True
                 # Fallback to a linked Apple ID email if available
                 try:
@@ -1918,13 +2106,16 @@ class SAGEMessageBridge:
                     providers = be.get_linked_providers()
                     apple = next((p for p in providers
                                   if p.get("provider_id") == "apple.com" and p.get("email")), None)
-                    if apple and _send_imessage(apple["email"], body):
+                    if apple and _send_imessage(apple["email"], body, local_attachments):
                         return True
                 except Exception as exc:
                     self._log(f"Apple ID lookup failed: {exc}")
 
             # Fallback for Apple on non-macOS (or failed iMessage on macOS): try KDE Connect
             if phone_e164 and _send_via_kdeconnect(phone_e164, body):
+                if local_attachments:
+                    for ap in local_attachments:
+                        _share_via_kdeconnect(ap)
                 return True
             return False
 
@@ -1932,24 +2123,39 @@ class SAGEMessageBridge:
         # NEVER fall back to iPhone-relay — that would send from the iPhone's
         # number, not as a separate sage identity.
         if device_type == "android" and phone_e164:
+            sent_ok = False
             if getattr(self, "_kde_listener", None) and \
                self._kde_listener.send_sms(phone_e164, body):
+                sent_ok = True
+            elif _send_via_kdeconnect(phone_e164, body):
+                sent_ok = True
+            if sent_ok:
+                if local_attachments:
+                    for ap in local_attachments:
+                        _share_via_kdeconnect(ap)
                 return True
-            return _send_via_kdeconnect(phone_e164, body)
+            return False
 
         # Untagged/unknown device — try iMessage on macOS, KDE Connect everywhere.
         if not device_type:
             if sys.platform == "darwin":
-                if phone_e164 and _send_imessage(phone_e164, body):
+                if phone_e164 and _send_imessage(phone_e164, body, local_attachments):
                     return True
                 if phone_e164 and _send_macos_sms(phone_e164, body):
                     return True
             
             if phone_e164:
+                sent_ok = False
                 if getattr(self, "_kde_listener", None) and \
                    self._kde_listener.send_sms(phone_e164, body):
+                    sent_ok = True
+                elif _send_via_kdeconnect(phone_e164, body):
+                    sent_ok = True
+                if sent_ok:
+                    if local_attachments:
+                        for ap in local_attachments:
+                            _share_via_kdeconnect(ap)
                     return True
-                return _send_via_kdeconnect(phone_e164, body)
 
         return False
 
@@ -2247,7 +2453,7 @@ class SAGEMessageBridge:
         
         # P0 Security: track the UID of the token we started with.
         # If the user logs out and in as someone else, we must stop.
-        from utils.jwt_utils import get_uid_from_token
+        from sage.core.cli_auth import get_uid_from_token
         start_uid = get_uid_from_token(self._token)
 
         while not self._stop.is_set():

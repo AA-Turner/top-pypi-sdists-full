@@ -59,6 +59,7 @@ struct mjtEnableBit {
     std::make_pair("mjENBL_FWDINV", ::mjtEnableBit::mjENBL_FWDINV),
     std::make_pair("mjENBL_INVDISCRETE", ::mjtEnableBit::mjENBL_INVDISCRETE),
     std::make_pair("mjENBL_SLEEP", ::mjtEnableBit::mjENBL_SLEEP),
+    std::make_pair("mjENBL_DIAGEXACT", ::mjtEnableBit::mjENBL_DIAGEXACT),
     std::make_pair("mjNENABLE", ::mjtEnableBit::mjNENABLE)};
 };
 
@@ -476,15 +477,6 @@ struct mjtSDFType {
     std::make_pair("mjSDFTYPE_COLLISION", ::mjtSDFType::mjSDFTYPE_COLLISION)};
 };
 
-struct mjtTaskStatus {
-  static constexpr char name[] = "mjtTaskStatus";
-  using type = ::mjtTaskStatus;
-  static constexpr auto values = std::array{
-    std::make_pair("mjTASK_NEW", ::mjtTaskStatus::mjTASK_NEW),
-    std::make_pair("mjTASK_QUEUED", ::mjtTaskStatus::mjTASK_QUEUED),
-    std::make_pair("mjTASK_COMPLETED", ::mjtTaskStatus::mjTASK_COMPLETED)};
-};
-
 struct mjtState {
   static constexpr char name[] = "mjtState";
   using type = ::mjtState;
@@ -580,6 +572,15 @@ struct mjtSleepState {
     std::make_pair("mjS_AWAKE", ::mjtSleepState::mjS_AWAKE)};
 };
 
+struct mjtTaskStatus {
+  static constexpr char name[] = "mjtTaskStatus";
+  using type = ::mjtTaskStatus;
+  static constexpr auto values = std::array{
+    std::make_pair("mjTASK_NEW", ::mjtTaskStatus::mjTASK_NEW),
+    std::make_pair("mjTASK_QUEUED", ::mjtTaskStatus::mjTASK_QUEUED),
+    std::make_pair("mjTASK_COMPLETED", ::mjtTaskStatus::mjTASK_COMPLETED)};
+};
+
 struct mjtGeomInertia {
   static constexpr char name[] = "mjtGeomInertia";
   using type = ::mjtGeomInertia;
@@ -668,6 +669,22 @@ struct mjtOrientation {
     std::make_pair("mjORIENTATION_XYAXES", ::mjtOrientation::mjORIENTATION_XYAXES),
     std::make_pair("mjORIENTATION_ZAXIS", ::mjtOrientation::mjORIENTATION_ZAXIS),
     std::make_pair("mjORIENTATION_EULER", ::mjtOrientation::mjORIENTATION_EULER)};
+};
+
+struct mjtCTimer {
+  static constexpr char name[] = "mjtCTimer";
+  using type = ::mjtCTimer;
+  static constexpr auto values = std::array{
+    std::make_pair("mjCTIMER_TOTAL", ::mjtCTimer::mjCTIMER_TOTAL),
+    std::make_pair("mjCTIMER_ASSETS", ::mjtCTimer::mjCTIMER_ASSETS),
+    std::make_pair("mjCTIMER_TEXTURE", ::mjtCTimer::mjCTIMER_TEXTURE),
+    std::make_pair("mjCTIMER_MESH_LOAD", ::mjtCTimer::mjCTIMER_MESH_LOAD),
+    std::make_pair("mjCTIMER_MESH_HULL", ::mjtCTimer::mjCTIMER_MESH_HULL),
+    std::make_pair("mjCTIMER_MESH_POLYGON", ::mjtCTimer::mjCTIMER_MESH_POLYGON),
+    std::make_pair("mjCTIMER_MESH_INERTIA", ::mjtCTimer::mjCTIMER_MESH_INERTIA),
+    std::make_pair("mjCTIMER_MESH_BVH", ::mjtCTimer::mjCTIMER_MESH_BVH),
+    std::make_pair("mjCTIMER_MESH_OCTREE", ::mjtCTimer::mjCTIMER_MESH_OCTREE),
+    std::make_pair("mjNCTIMER", ::mjtCTimer::mjNCTIMER)};
 };
 
 struct mjtCatBit {
@@ -967,13 +984,13 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtLRMode{},
     mjtFlexSelf{},
     mjtSDFType{},
-    mjtTaskStatus{},
     mjtState{},
     mjtConstraint{},
     mjtConstraintState{},
     mjtWarning{},
     mjtTimer{},
     mjtSleepState{},
+    mjtTaskStatus{},
     mjtGeomInertia{},
     mjtMeshInertia{},
     mjtMeshBuiltin{},
@@ -983,6 +1000,7 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtAlignFree{},
     mjtInertiaFromGeom{},
     mjtOrientation{},
+    mjtCTimer{},
     mjtCatBit{},
     mjtMouse{},
     mjtPertBit{},

@@ -342,6 +342,97 @@ class TestValidation:
                       width=101, height=100, bounds=(0, 0, 1, 1),
                       max_pixels=10_000)
 
+    @pytest.mark.parametrize("bad", [0, -1, -0.5, float('inf'),
+                                     -float('inf'), float('nan')])
+    def test_invalid_resolution_scalar(self, bad):
+        with pytest.raises(ValueError, match="resolution must be finite"):
+            rasterize([(box(0, 0, 1, 1), 1.0)],
+                      resolution=bad, bounds=(0, 0, 1, 1))
+
+    @pytest.mark.parametrize("bad", [(0, 1), (1, 0), (-1, 1), (1, float('nan')),
+                                     (float('inf'), 1)])
+    def test_invalid_resolution_tuple(self, bad):
+        with pytest.raises(ValueError, match="resolution must be finite"):
+            rasterize([(box(0, 0, 1, 1), 1.0)],
+                      resolution=bad, bounds=(0, 0, 1, 1))
+
+    @pytest.mark.parametrize("bad", [0, -1, (0, 1), (1, -1)])
+    def test_invalid_chunks(self, bad):
+        # chunks=0 used to hang (issue #2066); negative diverged.
+        with pytest.raises(ValueError, match="chunks must be positive"):
+            rasterize([(box(0, 0, 1, 1), 1.0)],
+                      width=10, height=10, bounds=(0, 0, 1, 1),
+                      chunks=bad)
+
+    def test_gpu_edge_cap_check_raises(self):
+        # Issue #2067: the CUDA scanline kernel allocates a fixed 2048-entry
+        # local array.  Without a guard, exceeding it silently truncates
+        # active edges and produces wrong output.  The validator runs on
+        # the host, so this is testable without a GPU.
+        from xrspatial.rasterize import _check_gpu_edge_cap, _GPU_MAX_ISECT
+        # row_ptr where row 0 has _GPU_MAX_ISECT + 1 edges
+        row_ptr = np.array([0, _GPU_MAX_ISECT + 1, _GPU_MAX_ISECT + 1],
+                           dtype=np.int64)
+        with pytest.raises(ValueError, match="active edges"):
+            _check_gpu_edge_cap(row_ptr)
+
+    def test_gpu_edge_cap_check_passes_at_limit(self):
+        from xrspatial.rasterize import _check_gpu_edge_cap, _GPU_MAX_ISECT
+        row_ptr = np.array([0, _GPU_MAX_ISECT, _GPU_MAX_ISECT],
+                           dtype=np.int64)
+        # exactly at the cap is permitted
+        _check_gpu_edge_cap(row_ptr)
+
+    def test_gpu_edge_cap_check_passes_below_limit(self):
+        from xrspatial.rasterize import _check_gpu_edge_cap, _GPU_MAX_ISECT
+        row_ptr = np.array([0, _GPU_MAX_ISECT - 1, _GPU_MAX_ISECT - 1],
+                           dtype=np.int64)
+        # just under the cap, the common case
+        _check_gpu_edge_cap(row_ptr)
+
+    def test_empty_geometry_does_not_poison_inferred_bounds(self):
+        # Issue #2065: an empty geometry returns nan from .bounds; the
+        # caller used .min()/.max() unfiltered, so a single empty geom
+        # poisoned the inferred extent and produced a raster with nan
+        # x/y coords.  Drop the empty and infer from the rest.
+        empty = Polygon()
+        result = rasterize(
+            [(empty, 99), (box(0, 0, 1, 1), 1)],
+            width=2, height=2)
+        assert np.all(np.isfinite(result.x.values))
+        assert np.all(np.isfinite(result.y.values))
+        assert np.all(result.values == 1)
+
+    def test_only_empty_geometry_requires_explicit_bounds(self):
+        empty = Polygon()
+        with pytest.raises(ValueError, match="bounds must be provided"):
+            rasterize([(empty, 1.0)], width=2, height=2)
+
+    def test_empty_geodataframe_requires_explicit_bounds(self):
+        # Issue #2065: total_bounds on an empty frame is (nan,nan,nan,nan).
+        # That used to bypass the empty-bounds guard.
+        import geopandas as gpd
+        empty_gdf = gpd.GeoDataFrame(
+            {'value': []}, geometry=gpd.GeoSeries([]))
+        with pytest.raises(ValueError, match="bounds must be provided"):
+            rasterize(empty_gdf, width=2, height=2, column='value')
+
+    def test_explicit_nan_bounds_rejected(self):
+        with pytest.raises(ValueError, match="must be finite"):
+            rasterize([(box(0, 0, 1, 1), 1.0)], width=2, height=2,
+                      bounds=(0, 0, float('nan'), 1))
+
+    def test_empty_multipolygon_filtered_from_inferred_bounds(self):
+        # Same shape as the empty-Polygon case but exercises the
+        # MultiPolygon branch in shapely's is_empty / bounds path.
+        empty_mp = MultiPolygon()
+        result = rasterize(
+            [(empty_mp, 99), (box(0, 0, 1, 1), 1)],
+            width=2, height=2)
+        assert np.all(np.isfinite(result.x.values))
+        assert np.all(np.isfinite(result.y.values))
+        assert np.all(result.values == 1)
+
 
 # ---------------------------------------------------------------------------
 # all_touched mode
@@ -571,6 +662,148 @@ class TestMixedGeometries:
         assert result.values[0, 2] == 2.0
         # Point overwrites center
         assert result.values[2, 2] == 3.0
+
+
+# ---------------------------------------------------------------------------
+# Issue #2064: merge='first'/'last' must honour user input order across
+# geometry types, not the polygon -> line -> point burn order.
+# ---------------------------------------------------------------------------
+
+class TestMergeOrderAcrossTypes:
+    """A polygon supplied after a point in the user input must win the
+    pixel under merge='last', and vice versa for merge='first'.  Before
+    the fix, the burn pipeline rastered polygons first then points last,
+    so points always overwrote polygons regardless of input order.
+    """
+
+    def _mixed_input(self):
+        # Point covers pixel (1, 1); polygon also covers (1, 1).
+        # Point comes FIRST in user input, polygon SECOND.
+        pt = Point(1.5, 1.5)
+        poly = box(0, 0, 3, 3)
+        return [(pt, 9.0), (poly, 1.0)]
+
+    def test_last_respects_input_order_polygon_after_point(self):
+        result = rasterize(self._mixed_input(),
+                           width=3, height=3, bounds=(0, 0, 3, 3),
+                           fill=0, merge='last')
+        # Polygon is the LAST input, so it wins at the shared pixel.
+        assert result.values[1, 1] == 1.0
+
+    def test_first_respects_input_order_polygon_after_point(self):
+        result = rasterize(self._mixed_input(),
+                           width=3, height=3, bounds=(0, 0, 3, 3),
+                           fill=0, merge='first')
+        # Point is the FIRST input, so it wins at the shared pixel.
+        assert result.values[1, 1] == 9.0
+
+    def test_last_three_types_reverse_order(self):
+        # Input order: point -> line -> polygon (reverse of burn order).
+        pt = Point(1.5, 1.5)
+        line = LineString([(0.0, 1.5), (3.0, 1.5)])
+        poly = box(0, 0, 3, 3)
+        result = rasterize(
+            [(pt, 9.0), (line, 5.0), (poly, 1.0)],
+            width=3, height=3, bounds=(0, 0, 3, 3),
+            fill=0, merge='last')
+        # Polygon is last in input -> polygon wins everywhere it covers.
+        assert (result.values == 1.0).all()
+
+    def test_first_three_types_reverse_order(self):
+        pt = Point(1.5, 1.5)
+        line = LineString([(0.0, 1.5), (3.0, 1.5)])
+        poly = box(0, 0, 3, 3)
+        result = rasterize(
+            [(pt, 9.0), (line, 5.0), (poly, 1.0)],
+            width=3, height=3, bounds=(0, 0, 3, 3),
+            fill=0, merge='first')
+        # Point is first -> point wins at (1,1).
+        # Line is second -> line wins on row 1 except (1,1).
+        # Polygon is third -> polygon fills everything else.
+        assert result.values[1, 1] == 9.0
+        assert result.values[1, 0] == 5.0
+        assert result.values[1, 2] == 5.0
+        assert result.values[0, 0] == 1.0
+        assert result.values[2, 2] == 1.0
+
+    def test_commutative_merges_unaffected(self):
+        # max/min/sum should not change behaviour with the new order logic.
+        pt = Point(1.5, 1.5)
+        poly = box(0, 0, 3, 3)
+        r_max = rasterize([(pt, 9.0), (poly, 1.0)],
+                          width=3, height=3, bounds=(0, 0, 3, 3),
+                          fill=0, merge='max')
+        # Pixel (1,1) sees both; max is 9.0.
+        assert r_max.values[1, 1] == 9.0
+        # Other polygon-only pixels are 1.0.
+        assert r_max.values[0, 0] == 1.0
+
+        r_sum = rasterize([(pt, 9.0), (poly, 1.0)],
+                          width=3, height=3, bounds=(0, 0, 3, 3),
+                          fill=0, merge='sum')
+        assert r_sum.values[1, 1] == 10.0
+        assert r_sum.values[0, 0] == 1.0
+
+    def test_dask_numpy_respects_input_order(self):
+        result = rasterize(self._mixed_input(),
+                           width=3, height=3, bounds=(0, 0, 3, 3),
+                           fill=0, merge='last', chunks=2)
+        # Materialize the dask result.
+        if hasattr(result.data, 'compute'):
+            arr = result.data.compute()
+        else:
+            arr = result.values
+        assert arr[1, 1] == 1.0
+
+    def test_geometry_collection_sub_geoms_share_input_index(self):
+        # GC sub-geoms inherit the parent's global input index, so the
+        # winner between them is determined by which type burns first
+        # (polygons burn before points).  This locks that behavior in.
+        from shapely.geometry import GeometryCollection
+        poly = box(0, 0, 3, 3)
+        pt = Point(1.5, 1.5)
+        gc = GeometryCollection([poly, pt])
+        # GC at input idx 0; a second polygon at idx 1 sets the background.
+        bg = box(0, 0, 3, 3)
+        result = rasterize(
+            [(gc, 9.0), (bg, 1.0)],
+            width=3, height=3, bounds=(0, 0, 3, 3),
+            fill=0, merge='last')
+        # bg is last in input order, wins everywhere.
+        assert (result.values == 1.0).all()
+
+        result_first = rasterize(
+            [(gc, 9.0), (bg, 1.0)],
+            width=3, height=3, bounds=(0, 0, 3, 3),
+            fill=0, merge='first')
+        # gc is first; both its sub-geoms share idx=0.  Polygon component
+        # burns before point component, so polygon (value 9) covers (1,1)
+        # first and the point can't beat it (point's new_idx == cur_idx).
+        assert result_first.values[1, 1] == 9.0
+        assert result_first.values[0, 0] == 9.0
+
+    def test_custom_callable_preserves_last_burned_wins(self):
+        # User-supplied callables keep the public (pixel, props, is_first)
+        # signature and pair with the always-write predicate, so they
+        # retain the pre-2064 "last-burned-wins" semantics regardless of
+        # input order.  Locks that contract.
+        from xrspatial.utils import ngjit
+
+        @ngjit
+        def my_overwrite(pixel, props, is_first):
+            return props[0]
+
+        # Point at input idx 0, polygon at input idx 1.  Built-in 'last'
+        # would honour input order and return 1 (polygon).  A custom
+        # callable instead reflects burn order: polygons burn first, then
+        # points, so the point overwrites and the result is 9.
+        pt = Point(1.5, 1.5)
+        poly = box(0, 0, 3, 3)
+        result = rasterize(
+            [(pt, 9.0), (poly, 1.0)],
+            width=3, height=3, bounds=(0, 0, 3, 3),
+            fill=0, merge=my_overwrite)
+        assert result.values[1, 1] == 9.0
 
 
 # ---------------------------------------------------------------------------
@@ -1592,3 +1825,707 @@ class TestBuildRowCsrInt64:
         )
         # The polygon covers a 6x6 inner block; just check it burned in.
         assert np.any(result.values == 3.0)
+
+
+# ---------------------------------------------------------------------------
+# Metadata propagation (attrs from `like`, coord reuse, _FillValue)
+# ---------------------------------------------------------------------------
+
+def _make_like(width=10, height=10, attrs=None, dtype=np.float64):
+    """Build a 2D template DataArray with georeferenced coords and attrs."""
+    x = np.linspace(0.5, width - 0.5, width)
+    y = np.linspace(height - 0.5, 0.5, height)
+    data = np.zeros((height, width), dtype=dtype)
+    return xr.DataArray(
+        data, dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+        attrs=dict(attrs or {}),
+    )
+
+
+class TestMetadataPropagation:
+    """Verify `like.attrs` propagates, `like.coords` are reused, and the
+    fill value lands in `_FillValue` / `nodatavals`.
+    """
+
+    def test_like_propagates_attrs(self):
+        attrs = {
+            'crs': 'EPSG:32610',
+            'transform': (1.0, 0.0, 0.0, 0.0, -1.0, 10.0),
+            'res': (1.0, 1.0),
+        }
+        like = _make_like(attrs=attrs)
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)], like=like, fill=0,
+        )
+        assert result.attrs.get('crs') == 'EPSG:32610'
+        assert result.attrs.get('transform') == \
+            (1.0, 0.0, 0.0, 0.0, -1.0, 10.0)
+        assert result.attrs.get('res') == (1.0, 1.0)
+
+    def test_like_preserves_coords_bit_identical(self):
+        like = _make_like()
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)], like=like, fill=0,
+        )
+        # Output reuses like.coords exactly so xr.align keeps working.
+        np.testing.assert_array_equal(
+            result.coords['x'].values, like.coords['x'].values)
+        np.testing.assert_array_equal(
+            result.coords['y'].values, like.coords['y'].values)
+
+    def test_like_attrs_isolated_from_template(self):
+        """Mutating output attrs must not mutate the template's attrs."""
+        attrs = {'crs': 'EPSG:32610'}
+        like = _make_like(attrs=attrs)
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)], like=like, fill=0,
+        )
+        result.attrs['crs'] = 'EPSG:4326'
+        assert like.attrs['crs'] == 'EPSG:32610'
+
+    def test_fill_value_recorded_when_not_nan(self):
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            width=10, height=10, bounds=(0, 0, 10, 10),
+            fill=-9999, dtype=np.int32,
+        )
+        # Emit the full triplet: xrspatial's primary (nodata), the CF
+        # alias (_FillValue), and rioxarray's per-band tuple (nodatavals).
+        # All three must agree with fill so downstream consumers all
+        # resolve to the same sentinel regardless of which key they read.
+        assert result.attrs.get('nodata') == -9999
+        assert result.attrs.get('_FillValue') == -9999
+        assert result.attrs.get('nodatavals') == (-9999,)
+        # Sentinel round-trips cleanly when the array is cast to its
+        # declared dtype -- pins #1973-style dtype mismatch regressions.
+        assert np.array(-9999, dtype=result.dtype) == \
+            np.array(result.attrs['_FillValue'], dtype=result.dtype)
+
+    def test_fill_value_omitted_for_nan(self):
+        """Default fill=NaN should not pollute attrs with nodata keys."""
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            width=10, height=10, bounds=(0, 0, 10, 10),
+        )
+        assert 'nodata' not in result.attrs
+        assert '_FillValue' not in result.attrs
+        assert 'nodatavals' not in result.attrs
+
+    def test_no_like_no_attrs_pollution(self):
+        """Without `like` and with NaN fill, attrs must stay empty."""
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            width=10, height=10, bounds=(0, 0, 10, 10),
+        )
+        assert result.attrs == {}
+
+    @skip_no_dask
+    def test_like_attrs_propagated_dask(self):
+        like = _make_like(attrs={'crs': 'EPSG:32610'})
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)], like=like, fill=0, chunks=5,
+        )
+        # The dask backend routes through the same final xr.DataArray
+        # constructor, so attrs / coords / _FillValue behave identically.
+        assert result.attrs.get('crs') == 'EPSG:32610'
+        assert result.attrs.get('_FillValue') == 0
+        np.testing.assert_array_equal(
+            result.coords['x'].values, like.coords['x'].values)
+
+    @skip_no_cuda
+    def test_like_attrs_propagated_cupy(self):
+        like = _make_like(attrs={'crs': 'EPSG:32610'})
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)], like=like, fill=0, use_cuda=True,
+        )
+        assert result.attrs.get('crs') == 'EPSG:32610'
+        assert result.attrs.get('_FillValue') == 0
+
+    @skip_no_cuda
+    @skip_no_dask
+    def test_like_attrs_propagated_dask_cupy(self):
+        like = _make_like(attrs={'crs': 'EPSG:32610'})
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            like=like, fill=0, use_cuda=True, chunks=5,
+        )
+        assert result.attrs.get('crs') == 'EPSG:32610'
+        assert result.attrs.get('_FillValue') == 0
+
+    def test_like_stale_nodata_keys_replaced_with_fill(self):
+        """Inherited nodata keys from like must not outlive the new fill.
+
+        The geotiff writer's _resolve_nodata_attr checks ``nodata`` →
+        ``nodatavals`` → ``_FillValue``.  If a previous round-trip left
+        any of them on the template, they have to be replaced (or
+        cleared) so the writer doesn't tag pixels with a stale sentinel
+        that disagrees with the actual fill in the new array.
+        """
+        like = _make_like(attrs={
+            'nodata': -9999,
+            '_FillValue': -9999,
+            'nodatavals': (-9999,),
+            'crs': 'EPSG:32610',
+        })
+        # Case 1: explicit fill replaces all three keys.
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)], like=like, fill=0,
+        )
+        assert result.attrs.get('nodata') == 0
+        assert result.attrs.get('_FillValue') == 0
+        assert result.attrs.get('nodatavals') == (0,)
+        assert result.attrs.get('crs') == 'EPSG:32610'
+        # Case 2: NaN fill strips inherited nodata keys outright -- the
+        # actual unwritten pixels are NaN, not -9999, so advertising
+        # -9999 would lie to downstream tools.
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)], like=like,
+        )
+        assert 'nodata' not in result.attrs
+        assert '_FillValue' not in result.attrs
+        assert 'nodatavals' not in result.attrs
+        assert result.attrs.get('crs') == 'EPSG:32610'
+
+    def test_numpy_float_nan_fill_treated_as_nan(self):
+        """Numpy scalar NaN must be detected as NaN, not emitted as fill.
+
+        ``isinstance(np.float32(np.nan), float)`` is False, so a naive
+        ``isinstance(fill, float) and np.isnan(fill)`` check would let a
+        numpy-typed NaN slip through and land in ``_FillValue``.
+        """
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            width=10, height=10, bounds=(0, 0, 10, 10),
+            fill=np.float32(np.nan),
+        )
+        assert 'nodata' not in result.attrs
+        assert '_FillValue' not in result.attrs
+        assert 'nodatavals' not in result.attrs
+
+    def test_like_non_dim_coords_propagated(self):
+        """Non-dim coords on like (e.g. rioxarray's spatial_ref) carry over."""
+        like = _make_like()
+        # rioxarray attaches the CRS as a scalar non-dim coord
+        # called ``spatial_ref``.  rasterize must propagate it.
+        like = like.assign_coords(spatial_ref=0)
+        like['spatial_ref'].attrs['crs_wkt'] = (
+            'GEOGCS["WGS 84",DATUM["WGS_1984"]]'
+        )
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)], like=like, fill=0,
+        )
+        assert 'spatial_ref' in result.coords
+        assert (result.coords['spatial_ref'].attrs.get('crs_wkt')
+                == 'GEOGCS["WGS 84",DATUM["WGS_1984"]]')
+
+    def test_geotiff_round_trip_preserves_fill(self, tmp_path):
+        """rasterize → to_geotiff → read → nodata matches.
+
+        The user-visible motivation for #2018: a rasterized output
+        written to GeoTIFF must round-trip the fill sentinel so masks
+        and downstream readers identify the right nodata pixels.
+        """
+        pytest.importorskip('tifffile')
+        from xrspatial.geotiff import to_geotiff, open_geotiff
+
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            width=10, height=10, bounds=(0, 0, 10, 10),
+            fill=-9999.0, dtype=np.float32,
+        )
+        path = str(tmp_path / 'rasterize_fill_round_trip.tif')
+        to_geotiff(result, path)
+        read_back = open_geotiff(path)
+        # GeoTIFF stores nodata as a scalar; either ``nodata`` or
+        # ``_FillValue`` should land on the read-back DataArray and
+        # match the fill we supplied.
+        nodata = (read_back.attrs.get('nodata')
+                  or read_back.attrs.get('_FillValue'))
+        assert nodata is not None
+        assert float(nodata) == -9999.0
+
+
+class TestLikeStaleGridAttrs2251:
+    """Issue #2251 -- ``like.attrs['res']`` and ``attrs['transform']`` describe
+    the template's grid.  When the caller overrides ``bounds``,
+    ``width``/``height``, or ``resolution`` so the output grid is no longer
+    identical to ``like``, those keys have to be dropped so downstream
+    consumers (``get_dataarray_resolution`` prefers ``attrs['res']`` over
+    coords) don't see a stale cellsize.
+    """
+
+    @staticmethod
+    def _template():
+        x = np.linspace(0.5, 9.5, 10)
+        y = np.linspace(9.5, 0.5, 10)
+        return xr.DataArray(
+            np.zeros((10, 10), dtype=np.float64),
+            dims=['y', 'x'],
+            coords={'y': y, 'x': x},
+            attrs={
+                'crs': 'EPSG:32610',
+                'res': (1.0, 1.0),
+                'transform': (1.0, 0.0, 0.0, 0.0, -1.0, 10.0),
+            },
+        )
+
+    def test_bounds_override_strips_stale_grid_attrs(self):
+        like = self._template()
+        result = rasterize(
+            [(box(20, 20, 80, 80), 1.0)],
+            like=like, bounds=(0, 0, 100, 100),
+            width=10, height=10, fill=0,
+        )
+        # Grid shape moved from 1.0/pixel to 10.0/pixel; stale attrs gone.
+        assert 'res' not in result.attrs
+        assert 'transform' not in result.attrs
+        # Non-grid-shape attrs (crs) still propagate.
+        assert result.attrs.get('crs') == 'EPSG:32610'
+
+    def test_width_height_override_strips_stale_grid_attrs(self):
+        like = self._template()
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            like=like, width=5, height=5, fill=0,
+        )
+        assert 'res' not in result.attrs
+        assert 'transform' not in result.attrs
+        assert result.attrs.get('crs') == 'EPSG:32610'
+
+    def test_resolution_override_strips_stale_grid_attrs(self):
+        like = self._template()
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            like=like, resolution=0.5, fill=0,
+        )
+        assert 'res' not in result.attrs
+        assert 'transform' not in result.attrs
+        assert result.attrs.get('crs') == 'EPSG:32610'
+
+    def test_identical_grid_preserves_grid_attrs(self):
+        """No override -> output grid == template grid -> keep res/transform."""
+        like = self._template()
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)], like=like, fill=0,
+        )
+        assert result.attrs.get('res') == (1.0, 1.0)
+        assert result.attrs.get('transform') == \
+            (1.0, 0.0, 0.0, 0.0, -1.0, 10.0)
+
+    def test_matching_width_height_preserves_grid_attrs(self):
+        """Passing width/height that match the template's size still
+        reuses ``like.coords`` (so the grid is identical), so the
+        template's grid-shape attrs are still correct.
+        """
+        like = self._template()
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            like=like, width=10, height=10, fill=0,
+        )
+        assert result.attrs.get('res') == (1.0, 1.0)
+        assert result.attrs.get('transform') == \
+            (1.0, 0.0, 0.0, 0.0, -1.0, 10.0)
+
+    def test_get_dataarray_resolution_consistent_after_override(self):
+        """The user-visible symptom: ``get_dataarray_resolution`` must
+        report the actual cellsize, not the stale template value.
+        """
+        from xrspatial.utils import get_dataarray_resolution
+        like = self._template()
+        result = rasterize(
+            [(box(20, 20, 80, 80), 1.0)],
+            like=like, bounds=(0, 0, 100, 100),
+            width=10, height=10, fill=0,
+        )
+        # With res stripped, get_dataarray_resolution falls back to
+        # computing from coords; both axes should be 10.0.
+        cx, cy = get_dataarray_resolution(result)
+        assert abs(cx - 10.0) < 1e-9
+        assert abs(cy - 10.0) < 1e-9
+
+    @skip_no_dask
+    def test_bounds_override_strips_stale_grid_attrs_dask(self):
+        like = self._template()
+        result = rasterize(
+            [(box(20, 20, 80, 80), 1.0)],
+            like=like, bounds=(0, 0, 100, 100),
+            width=10, height=10, fill=0, chunks=5,
+        )
+        assert 'res' not in result.attrs
+        assert 'transform' not in result.attrs
+        assert result.attrs.get('crs') == 'EPSG:32610'
+
+    @skip_no_cuda
+    def test_bounds_override_strips_stale_grid_attrs_cupy(self):
+        like = self._template()
+        result = rasterize(
+            [(box(20, 20, 80, 80), 1.0)],
+            like=like, bounds=(0, 0, 100, 100),
+            width=10, height=10, fill=0, use_cuda=True,
+        )
+        assert 'res' not in result.attrs
+        assert 'transform' not in result.attrs
+        assert result.attrs.get('crs') == 'EPSG:32610'
+
+    @skip_no_cuda
+    @skip_no_dask
+    def test_bounds_override_strips_stale_grid_attrs_dask_cupy(self):
+        like = self._template()
+        result = rasterize(
+            [(box(20, 20, 80, 80), 1.0)],
+            like=like, bounds=(0, 0, 100, 100),
+            width=10, height=10, fill=0, use_cuda=True, chunks=5,
+        )
+        assert 'res' not in result.attrs
+        assert 'transform' not in result.attrs
+        assert result.attrs.get('crs') == 'EPSG:32610'
+
+
+class TestPolysToWkb:
+    """Tests for the _polys_to_wkb helper (issue #2059)."""
+
+    def test_empty_input_returns_empty_list(self):
+        from xrspatial.rasterize import _polys_to_wkb
+        result = _polys_to_wkb([])
+        assert result == []
+        assert isinstance(result, list)
+
+    def test_output_matches_per_geometry_wkb(self):
+        """Vectorized output is byte-identical to the per-geometry path."""
+        from xrspatial.rasterize import _polys_to_wkb
+        rng = np.random.default_rng(2059)
+        geoms = []
+        for _ in range(100):
+            cx, cy = rng.uniform(-100, 100, 2)
+            r = rng.uniform(0.1, 5.0)
+            geoms.append(box(cx - r, cy - r, cx + r, cy + r))
+
+        result = _polys_to_wkb(geoms)
+        expected = [g.wkb for g in geoms]
+
+        assert isinstance(result, list)
+        assert len(result) == len(expected)
+        assert all(isinstance(b, (bytes, bytearray)) for b in result)
+        assert result == expected
+
+    def test_roundtrip_through_from_wkb(self):
+        """Output round-trips through _polys_from_wkb to equal geometries."""
+        from xrspatial.rasterize import _polys_to_wkb, _polys_from_wkb
+        geoms = [
+            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
+            Polygon([(5, 5), (6, 5), (6, 6), (5, 6)]),
+            Polygon([(-2, -2), (2, -2), (2, 2), (-2, 2)]),
+        ]
+        restored = _polys_from_wkb(_polys_to_wkb(geoms))
+        assert len(restored) == len(geoms)
+        for original, copy in zip(geoms, restored):
+            assert original.equals(copy)
+
+
+# ---------------------------------------------------------------------------
+# Issue #2170 -- rasterize(like=...) y-axis orientation
+#
+# The rasterizer always burns with row 0 = ymax (top-down image
+# convention).  When the template's y axis is ascending, the burned
+# array has to be flipped so result.sel(y=...) lines up with the
+# geometry in world coordinates, and result.y still equals like.y.
+# ---------------------------------------------------------------------------
+
+
+def _like_2170(y_ascending, width=4, height=4):
+    """Build a 4x4 like-grid with the requested y orientation."""
+    x = np.linspace(0.5, width - 0.5, width)
+    if y_ascending:
+        y = np.linspace(0.5, height - 0.5, height)
+    else:
+        y = np.linspace(height - 0.5, 0.5, height)
+    return xr.DataArray(
+        np.zeros((height, width), dtype=np.float64),
+        dims=['y', 'x'],
+        coords={'y': y, 'x': x},
+    )
+
+
+class TestLikeYOrientation2170:
+    """Burning into an ascending-y like must agree with descending-y by
+    world coordinate, and output.y must round-trip like.y exactly."""
+
+    def test_numpy_ascending_matches_descending_by_world_y(self):
+        # Box in lower-left corner of the world grid -- with descending y
+        # this lands in the bottom row, with ascending y it lands in the
+        # top row, but result.sel(y=0.5) must return 1.0 in both cases.
+        geom = [(box(0, 0, 1, 1), 1.0)]
+        r_desc = rasterize(geom, like=_like_2170(False), fill=0)
+        r_asc = rasterize(geom, like=_like_2170(True), fill=0)
+
+        # like.y is preserved verbatim
+        np.testing.assert_array_equal(r_desc.y.values, [3.5, 2.5, 1.5, 0.5])
+        np.testing.assert_array_equal(r_asc.y.values, [0.5, 1.5, 2.5, 3.5])
+
+        # World-coord selection agrees
+        for yw in [0.5, 1.5, 2.5, 3.5]:
+            for xw in [0.5, 1.5, 2.5, 3.5]:
+                a = float(r_desc.sel(y=yw, x=xw).item())
+                b = float(r_asc.sel(y=yw, x=xw).item())
+                assert a == b, f"mismatch at world (y={yw}, x={xw}): " \
+                    f"desc={a}, asc={b}"
+
+        # The burned cell is at the lower-left corner of the world grid
+        assert float(r_desc.sel(y=0.5, x=0.5).item()) == 1.0
+        assert float(r_asc.sel(y=0.5, x=0.5).item()) == 1.0
+        # And nowhere near the top row
+        assert float(r_desc.sel(y=3.5, x=0.5).item()) == 0.0
+        assert float(r_asc.sel(y=3.5, x=0.5).item()) == 0.0
+
+    def test_numpy_output_array_matches_like_orientation(self):
+        """Row 0 of the output must correspond to like.y[0] in world
+        coords, no matter which way y points."""
+        geom = [(box(0, 0, 1, 1), 1.0)]
+        r_desc = rasterize(geom, like=_like_2170(False), fill=0)
+        r_asc = rasterize(geom, like=_like_2170(True), fill=0)
+        # Descending: row 0 is the top row (y=3.5), so all zeros there.
+        # Last row is y=0.5 with the burned 1.
+        assert r_desc.values[-1, 0] == 1.0
+        assert r_desc.values[0, 0] == 0.0
+        # Ascending: row 0 is the bottom row (y=0.5), so the burned 1
+        # has to be there.
+        assert r_asc.values[0, 0] == 1.0
+        assert r_asc.values[-1, 0] == 0.0
+
+    def test_numpy_round_trip_with_xr_align(self):
+        """output.y must equal like.y exactly so xr.align still works."""
+        geom = [(box(0, 0, 1, 1), 1.0)]
+        for ascending in (True, False):
+            like = _like_2170(ascending)
+            result = rasterize(geom, like=like, fill=0)
+            np.testing.assert_array_equal(result.y.values, like.y.values)
+            np.testing.assert_array_equal(result.x.values, like.x.values)
+            # xr.align is the actual downstream operation this protects
+            aligned_result, aligned_like = xr.align(result, like)
+            assert aligned_result.sizes == result.sizes
+
+    def test_numpy_points_respect_orientation(self):
+        """Same check with a point geometry rather than a polygon."""
+        from shapely.geometry import Point
+        geom = [(Point(0.5, 0.5), 7.0)]
+        r_desc = rasterize(geom, like=_like_2170(False), fill=0)
+        r_asc = rasterize(geom, like=_like_2170(True), fill=0)
+        assert float(r_desc.sel(y=0.5, x=0.5).item()) == 7.0
+        assert float(r_asc.sel(y=0.5, x=0.5).item()) == 7.0
+
+    def test_numpy_lines_respect_orientation(self):
+        """Same check with a line geometry along the bottom edge."""
+        from shapely.geometry import LineString
+        geom = [(LineString([(0.5, 0.5), (3.5, 0.5)]), 5.0)]
+        r_desc = rasterize(geom, like=_like_2170(False), fill=0)
+        r_asc = rasterize(geom, like=_like_2170(True), fill=0)
+        for xw in [0.5, 1.5, 2.5, 3.5]:
+            assert float(r_desc.sel(y=0.5, x=xw).item()) == 5.0
+            assert float(r_asc.sel(y=0.5, x=xw).item()) == 5.0
+
+    @skip_no_dask
+    def test_dask_numpy_ascending_matches_descending(self):
+        geom = [(box(0, 0, 1, 1), 1.0)]
+        r_desc = rasterize(
+            geom, like=_like_2170(False), fill=0, chunks=2).compute()
+        r_asc = rasterize(
+            geom, like=_like_2170(True), fill=0, chunks=2).compute()
+        np.testing.assert_array_equal(r_desc.y.values, [3.5, 2.5, 1.5, 0.5])
+        np.testing.assert_array_equal(r_asc.y.values, [0.5, 1.5, 2.5, 3.5])
+        for yw in [0.5, 1.5, 2.5, 3.5]:
+            a = float(r_desc.sel(y=yw, x=0.5).item())
+            b = float(r_asc.sel(y=yw, x=0.5).item())
+            assert a == b
+        assert float(r_desc.sel(y=0.5, x=0.5).item()) == 1.0
+        assert float(r_asc.sel(y=0.5, x=0.5).item()) == 1.0
+
+    @skip_no_cuda
+    def test_cupy_ascending_matches_descending(self):
+        geom = [(box(0, 0, 1, 1), 1.0)]
+        r_desc = rasterize(geom, like=_like_2170(False), fill=0, use_cuda=True)
+        r_asc = rasterize(geom, like=_like_2170(True), fill=0, use_cuda=True)
+        # CuPy DataArrays expose .data.get() per project notes
+        desc_vals = r_desc.data.get() if hasattr(r_desc.data, 'get') \
+            else r_desc.values
+        asc_vals = r_asc.data.get() if hasattr(r_asc.data, 'get') \
+            else r_asc.values
+        np.testing.assert_array_equal(r_desc.y.values, [3.5, 2.5, 1.5, 0.5])
+        np.testing.assert_array_equal(r_asc.y.values, [0.5, 1.5, 2.5, 3.5])
+        # descending: burned row is last; ascending: burned row is first
+        assert desc_vals[-1, 0] == 1.0
+        assert asc_vals[0, 0] == 1.0
+
+    @skip_no_cuda
+    @skip_no_dask
+    def test_dask_cupy_ascending_matches_descending(self):
+        geom = [(box(0, 0, 1, 1), 1.0)]
+        r_desc = rasterize(
+            geom, like=_like_2170(False), fill=0,
+            use_cuda=True, chunks=2).compute()
+        r_asc = rasterize(
+            geom, like=_like_2170(True), fill=0,
+            use_cuda=True, chunks=2).compute()
+        desc_vals = r_desc.data.get() if hasattr(r_desc.data, 'get') \
+            else r_desc.values
+        asc_vals = r_asc.data.get() if hasattr(r_asc.data, 'get') \
+            else r_asc.values
+        assert desc_vals[-1, 0] == 1.0
+        assert asc_vals[0, 0] == 1.0
+
+    def test_numpy_explicit_bounds_skips_flip(self):
+        """When bounds are passed explicitly, the orientation flip path
+        is bypassed (caller has full control of the output grid)."""
+        like = _like_2170(True)
+        geom = [(box(0, 0, 1, 1), 1.0)]
+        result = rasterize(geom, like=like, bounds=(0, 0, 4, 4), fill=0)
+        # With explicit bounds, output coords are rebuilt descending,
+        # which is the documented behaviour for any resized output.
+        # Lock the exact coord centres so an off-by-one in the rebuild
+        # path would surface here instead of silently passing.
+        np.testing.assert_array_equal(
+            result.y.values, np.array([3.5, 2.5, 1.5, 0.5]))
+        np.testing.assert_array_equal(
+            result.x.values, np.array([0.5, 1.5, 2.5, 3.5]))
+        # And world-coord selection still works correctly.
+        assert float(result.sel(y=0.5, x=0.5, method='nearest').item()) == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Issue #2168: reject non-uniformly spaced `like` grids
+# ---------------------------------------------------------------------------
+
+class TestLikeUniformGridValidation:
+    """The rasterizer only supports uniform grids.  If ``like`` has
+    non-uniform x or y spacing the previous code silently produced an
+    output whose coords disagreed with where pixels actually landed.
+    The fix raises a clear ValueError naming the offending axis.
+    """
+
+    def test_non_uniform_x_raises(self):
+        # Deliberately non-uniform x spacing: 0->1->2.5->3.5
+        x_2168 = np.array([0.0, 1.0, 2.5, 3.5])
+        y_2168 = np.array([3.0, 2.0, 1.0, 0.0])
+        like_2168 = xr.DataArray(
+            np.zeros((4, 4)),
+            dims=('y', 'x'),
+            coords={'y': y_2168, 'x': x_2168},
+        )
+        with pytest.raises(ValueError, match=r"'x'"):
+            rasterize(
+                [(box(0, 0, 3.5, 3.0), 1.0)],
+                like=like_2168, fill=0,
+            )
+
+    def test_non_uniform_y_raises(self):
+        # Uniform x, non-uniform y
+        x_2168 = np.array([0.5, 1.5, 2.5, 3.5])
+        y_2168 = np.array([3.0, 2.0, 0.5, 0.0])  # not evenly spaced
+        like_2168 = xr.DataArray(
+            np.zeros((4, 4)),
+            dims=('y', 'x'),
+            coords={'y': y_2168, 'x': x_2168},
+        )
+        with pytest.raises(ValueError, match=r"'y'"):
+            rasterize(
+                [(box(0, 0, 3.5, 3.0), 1.0)],
+                like=like_2168, fill=0,
+            )
+
+    def test_uniform_like_still_works(self):
+        # The existing happy path: a uniformly-spaced like still passes
+        # and burns the geometry in.
+        x_2168 = np.linspace(0.5, 9.5, 10)
+        y_2168 = np.linspace(9.5, 0.5, 10)
+        like_2168 = xr.DataArray(
+            np.zeros((10, 10)),
+            dims=('y', 'x'),
+            coords={'y': y_2168, 'x': x_2168},
+        )
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            like=like_2168, fill=0,
+        )
+        assert np.any(result.values == 1.0)
+        # Coords are reused bit-identically on the happy path.
+        np.testing.assert_array_equal(
+            result.coords['x'].values, x_2168)
+        np.testing.assert_array_equal(
+            result.coords['y'].values, y_2168)
+
+    def test_error_message_names_axis_and_deviation(self):
+        import re
+
+        x_2168 = np.array([0.0, 1.0, 2.5, 3.5])
+        y_2168 = np.array([3.0, 2.0, 1.0, 0.0])
+        like_2168 = xr.DataArray(
+            np.zeros((4, 4)),
+            dims=('y', 'x'),
+            coords={'y': y_2168, 'x': x_2168},
+        )
+        with pytest.raises(ValueError) as excinfo:
+            rasterize(
+                [(box(0, 0, 3.5, 3.0), 1.0)],
+                like=like_2168, fill=0,
+            )
+        msg = str(excinfo.value)
+        assert "'x'" in msg
+        assert "non-uniform" in msg.lower()
+        # The largest deviation should be reported numerically.  Match
+        # any reasonable float formatting (0.5, 5e-1, 0.5000...) rather
+        # than coupling to ``repr(0.5)``.
+        m = re.search(r"largest deviation\s+([\d.eE+-]+)", msg)
+        assert m is not None, msg
+        assert float(m.group(1)) == pytest.approx(0.5, rel=1e-6)
+
+    def test_zero_step_like_raises(self):
+        # All-equal x coords are a degenerate "grid".  The validator
+        # should reject this up front rather than letting a zero-width
+        # pixel reach the rasterizer.
+        x_2168 = np.array([1.0, 1.0, 1.0, 1.0])  # zero-width pixels
+        y_2168 = np.linspace(3.0, 0.0, 4)
+        like_2168 = xr.DataArray(
+            np.zeros((4, 4)),
+            dims=('y', 'x'),
+            coords={'y': y_2168, 'x': x_2168},
+        )
+        with pytest.raises(ValueError, match=r"'x'"):
+            rasterize(
+                [(box(0, 0, 3.5, 3.0), 1.0)],
+                like=like_2168, fill=0,
+            )
+
+    def test_tiny_float_drift_is_tolerated(self):
+        # Affine-transform-derived coords drift by a few ulps; ensure
+        # the check uses a tolerance rather than strict equality.
+        base = np.linspace(0.5, 9.5, 10)
+        x_2168 = base.copy()
+        x_2168[5] += 1e-12  # well below np.allclose's rtol
+        y_2168 = np.linspace(9.5, 0.5, 10)
+        like_2168 = xr.DataArray(
+            np.zeros((10, 10)),
+            dims=('y', 'x'),
+            coords={'y': y_2168, 'x': x_2168},
+        )
+        # Should not raise.
+        result = rasterize(
+            [(box(2, 2, 8, 8), 1.0)],
+            like=like_2168, fill=0,
+        )
+        assert result.shape == (10, 10)
+
+    def test_single_row_or_column_like_passes(self):
+        # Width == 1: only one x cell, cannot be non-uniform.  The
+        # validation needs to short-circuit rather than divide by zero.
+        x_2168 = np.array([0.5])
+        y_2168 = np.linspace(9.5, 0.5, 10)
+        like_2168 = xr.DataArray(
+            np.zeros((10, 1)),
+            dims=('y', 'x'),
+            coords={'y': y_2168, 'x': x_2168},
+        )
+        # Should not raise on x; y is uniform.
+        rasterize(
+            [(box(0, 0, 1, 10), 1.0)],
+            like=like_2168, fill=0,
+        )

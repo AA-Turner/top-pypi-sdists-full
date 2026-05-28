@@ -20,7 +20,6 @@ import trafaret as t
 
 from datarobot.context import Context, DefaultUseCase
 from datarobot.enums import (
-    SHARING_RECIPIENT_TYPE,
     SHARING_ROLE,
     UseCaseAPIPathEntityType,
     UseCaseEntityType,
@@ -553,8 +552,8 @@ class UseCase(APIObject, BrowserMixin):
             A list of :class:`SharingRole <datarobot.models.sharing.SharingRole>` instances, each of which
             references a user and a role to be assigned.
 
-            Currently, the only supported roles for Use Cases are OWNER, EDITOR, and CONSUMER,
-            and the only supported SHARING_RECIPIENT_TYPE is USER.
+            Currently, the only supported roles for Use Cases are OWNER, EDITOR, and CONSUMER.
+            Supported ``share_recipient_type`` values are USER, ORGANIZATION, and GROUP.
 
             To remove access, set a user's role to ``datarobot.enums.SHARING_ROLE.NO_ROLE``.
 
@@ -614,8 +613,6 @@ class UseCase(APIObject, BrowserMixin):
             for role in roles
         ):
             raise InvalidUsageError("Only NO_ROLE, OWNER, EDITOR, and CONSUMER roles are supported by Use Cases")
-        if any(role.share_recipient_type != SHARING_RECIPIENT_TYPE.USER for role in roles):
-            raise InvalidUsageError("Use Cases currently only support sharing with users, not organizations.")
         formatted_roles = [role.collect_payload() for role in roles]
         payload = {"roles": formatted_roles, "operation": "updateRoles"}
         path = f"{self._path}{self.id}/sharedRoles/"

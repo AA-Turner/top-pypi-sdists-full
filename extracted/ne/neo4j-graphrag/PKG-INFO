@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neo4j-graphrag
-Version: 1.16.1
+Version: 1.17.0
 Summary: Python package to allow easy integration to Neo4j's GraphRAG features
 Project-URL: Homepage, https://neo4j.com/
 Project-URL: Repository, https://github.com/neo4j/neo4j-graphrag-python
@@ -41,6 +41,8 @@ Provides-Extra: fuzzy-matching
 Requires-Dist: rapidfuzz<4.0.0,>=3.12.2; extra == 'fuzzy-matching'
 Provides-Extra: google
 Requires-Dist: google-cloud-aiplatform<2.0.0,>=1.66.0; extra == 'google'
+Provides-Extra: google-genai
+Requires-Dist: google-genai<2.0.0,>=1.62.0; extra == 'google-genai'
 Provides-Extra: kg-creation-tools
 Requires-Dist: neo4j-viz<0.5.0,>=0.4.2; extra == 'kg-creation-tools'
 Provides-Extra: mistralai
@@ -113,6 +115,7 @@ the extra dependencies described below:
     - **ollama**: LLMs from Ollama
     - **openai**: LLMs from OpenAI (including AzureOpenAI)
     - **google**: LLMs from Vertex AI
+    - **google-genai**: LLMs and embeddings from Google Gemini
     - **cohere**: LLMs from Cohere
     - **anthropic**: LLMs from Anthropic
     - **mistralai**: LLMs from MistralAI

@@ -124,9 +124,9 @@ def main():
             ), f"Prompt handle should be {prompt_name}"
 
             print(f"   Model: {prompt.model}")  # from the prompt data itself
-            assert (
-                prompt.model == "openai/gpt-5"
-            ), "Prompt model should be openai/gpt-4o-mini"
+            assert prompt.model.startswith(
+                "openai/gpt-5"
+            ), f"Prompt model should belong to the langwatch CLI's gpt-5 default family, got {prompt.model!r}"
 
             # 5. Test compile the prompt
             print("\n5️⃣ Test compile the prompt")

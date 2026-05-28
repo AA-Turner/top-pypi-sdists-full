@@ -33,7 +33,7 @@ from langgraph_api.utils import get_auth_ctx
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from langgraph_api.schema import Cron, CronSelectField
+    from langgraph_api.schema import Cron, CronSelectField, MetadataInput
 
 
 def _ensure_datetime(value: datetime | str | None) -> datetime | None:
@@ -287,6 +287,7 @@ class Crons(Authenticated):
         sort_order: str | None = None,
         select: list[CronSelectField] | None = None,
         ctx: Any = None,
+        metadata: MetadataInput = None,
     ) -> tuple[AsyncIterator[Cron], int | None]:
         """Search crons via gRPC."""
         auth_filters = await Crons.handle_event(
@@ -297,6 +298,7 @@ class Crons(Authenticated):
                 "thread_id": thread_id,
                 "limit": limit,
                 "offset": offset,
+                "metadata": metadata or {},
             },
         )
 
@@ -324,6 +326,7 @@ class Crons(Authenticated):
             sort_by=_map_crons_sort_by(sort_by),
             sort_order=_map_sort_order(sort_order),
             select=select or [],
+            metadata_json=json_dumpb_optional(metadata),
         )
 
         client = await get_shared_client()
@@ -425,10 +428,17 @@ class Crons(Authenticated):
         assistant_id: UUID | None = None,
         thread_id: UUID | None = None,
         ctx: Any = None,
+        metadata: MetadataInput = None,
     ) -> int:
         """Count crons via gRPC."""
         auth_filters = await Crons.handle_event(
-            ctx, "search", {"assistant_id": assistant_id, "thread_id": thread_id}
+            ctx,
+            "search",
+            {
+                "assistant_id": assistant_id,
+                "thread_id": thread_id,
+                "metadata": metadata or {},
+            },
         )
 
         # Thread-scoped auth filters
@@ -449,6 +459,7 @@ class Crons(Authenticated):
             if assistant_id is not None
             else None,
             thread_id=pb.UUID(value=str(thread_id)) if thread_id is not None else None,
+            metadata_json=json_dumpb_optional(metadata),
         )
 
         client = await get_shared_client()

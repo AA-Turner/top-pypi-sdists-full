@@ -18,6 +18,7 @@ from typing import Any, Literal, NamedTuple, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator, SerializeAsAny
 from typing_extensions import TypeAlias
 
+from gxformat2.schema._input_parameter import input_parameter_class
 from gxformat2.schema.gxformat2 import (
     BaseInputParameter,
     CreatorOrganization,
@@ -25,7 +26,6 @@ from gxformat2.schema.gxformat2 import (
     FrameComment,
     FreehandComment,
     GalaxyWorkflow,
-    input_parameter_class,
     MarkdownComment,
     Report,
     StepPosition,
@@ -39,9 +39,10 @@ from gxformat2.schema.gxformat2 import (
     WorkflowStepType,
 )
 from gxformat2.schema.gxformat2_strict import GalaxyWorkflow as StrictGalaxyWorkflow
+from gxformat2.schema.native import NativePostJobAction
 from gxformat2.yaml import ordered_load_path
 
-from ._types import ToolReference
+from ._types import INLINE_TOOL_CLASSES, ToolReference
 
 
 class GalaxyUserToolStub(BaseModel):
@@ -130,6 +131,10 @@ class NormalizedWorkflowStep(_DictMixin, BaseModel):
         default_factory=list, alias="in", description="Always a list, shorthands expanded."
     )
     out: list[WorkflowStepOutput] = Field(default_factory=list, description="Always a list, shorthands expanded.")
+    post_job_actions: dict[str, NativePostJobAction] | None = Field(
+        default=None,
+        description="Explicit post-job actions keyed by ``{ActionType}{OutputName}`` compound strings.",
+    )
     run: NormalizedFormat2 | GalaxyUserToolStub | ImportReference | str | None = Field(default=None)
 
     @field_validator("run", mode="before")
@@ -158,6 +163,29 @@ class NormalizedWorkflowStep(_DictMixin, BaseModel):
     @property
     def is_pick_value_step(self) -> bool:
         return self.type_ == WorkflowStepType.pick_value
+
+    @property
+    def is_inline_tool_step(self) -> bool:
+        """The step embeds an inline tool source via ``run``.
+
+        True when ``run`` is a ``GalaxyUserToolStub`` or a dict whose ``class``
+        is in ``INLINE_TOOL_CLASSES``. Native-validated stubs always normalize
+        through ``GalaxyUserToolStub``; the dict branch is defensive.
+        """
+        if isinstance(self.run, GalaxyUserToolStub):
+            return True
+        if isinstance(self.run, dict) and self.run.get("class") in INLINE_TOOL_CLASSES:
+            return True
+        return False
+
+    @property
+    def inline_tool_representation(self) -> dict[str, Any] | None:
+        """The embedded tool source as a dict, or ``None`` if not an inline tool step."""
+        if isinstance(self.run, GalaxyUserToolStub):
+            return self.run.model_dump(by_alias=True, exclude_none=True)
+        if isinstance(self.run, dict) and self.run.get("class") in INLINE_TOOL_CLASSES:
+            return self.run
+        return None
 
     @property
     def connected_paths(self) -> frozenset[str]:
@@ -568,8 +596,23 @@ def _normalize_step(step: WorkflowStep, strict_structure: bool = False) -> Norma
         errors=step.errors,
         uuid=step.uuid,
         out=out_list,
+        post_job_actions=_normalize_post_job_actions(step.post_job_actions),
         run=run,
     )
+
+
+def _normalize_post_job_actions(
+    raw: dict[str, Any] | None,
+) -> dict[str, NativePostJobAction] | None:
+    """Validate raw PJA dict-of-dicts into typed records.
+
+    Galaxy emits explicit ``post_job_actions:`` as plain mapping; the schema
+    field is ``Any?`` to keep the raw model lax.  Coerce here so downstream
+    code (lint, conversion) sees the same typed shape as the native side.
+    """
+    if not raw:
+        return None
+    return {key: NativePostJobAction.model_validate(value) for key, value in raw.items()}
 
 
 def _resolve_links(
@@ -587,6 +630,8 @@ def _resolve_links(
 
     if isinstance(value, dict) and "$link" in value:
         link_value = value["$link"]
+        if isinstance(link_value, int) and not isinstance(link_value, bool):
+            link_value = str(link_value)
         connections.setdefault(key, []).append(link_value)
         return dict(_CONNECTED_VALUE), connections
 
@@ -602,6 +647,8 @@ def _resolve_links(
         for i, v in enumerate(value):
             if isinstance(v, dict) and "$link" in v:
                 link_value = v["$link"]
+                if isinstance(link_value, int) and not isinstance(link_value, bool):
+                    link_value = str(link_value)
                 connections.setdefault(key, []).append(link_value)
                 new_list.append(None)
             else:
@@ -614,7 +661,7 @@ def _resolve_links(
 
 
 def _normalize_step_inputs(
-    in_: list[WorkflowStepInput] | dict[str, WorkflowStepInput | str] | None,
+    in_: list[WorkflowStepInput] | dict[str, WorkflowStepInput | str | list[str]] | None,
 ) -> list[WorkflowStepInput]:
     if in_ is None:
         return []
@@ -625,6 +672,9 @@ def _normalize_step_inputs(
     for key, value in in_.items():
         if isinstance(value, str):
             # Shorthand: input_name: "source_step/output"
+            result.append(WorkflowStepInput(id=key, source=value))
+        elif isinstance(value, list):
+            # Shorthand (mapPredicate: source): bare list value is the multi-source.
             result.append(WorkflowStepInput(id=key, source=value))
         elif isinstance(value, WorkflowStepInput):
             if value.id is None:

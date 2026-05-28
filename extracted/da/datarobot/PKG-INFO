@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot
-Version: 3.15.0
+Version: 3.16.0
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -47,7 +47,7 @@ Requires-Dist: pymarkdownlnt; extra == "dev"
 Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "dev"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "dev"
 Requires-Dist: databricks-connect>=13.0; extra == "dev"
-Requires-Dist: authlib<1.7.0,>=1.6.0; extra == "dev"
+Requires-Dist: authlib>=1.6.0; extra == "dev"
 Requires-Dist: pydantic>=2.11.3; extra == "dev"
 Requires-Dist: httpx>=0.28.1; extra == "dev"
 Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "dev"
@@ -65,7 +65,7 @@ Requires-Dist: types-decorator==5.1.8; extra == "dev"
 Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "dev"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "dev"
 Requires-Dist: databricks-connect>=13.0; extra == "dev"
-Requires-Dist: authlib<1.7.0,>=1.6.0; extra == "dev"
+Requires-Dist: authlib>=1.6.0; extra == "dev"
 Requires-Dist: pydantic>=2.11.3; extra == "dev"
 Requires-Dist: httpx>=0.28.1; extra == "dev"
 Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "dev"
@@ -114,7 +114,7 @@ Requires-Dist: types-decorator==5.1.8; extra == "lint"
 Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "lint"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "lint"
 Requires-Dist: databricks-connect>=13.0; extra == "lint"
-Requires-Dist: authlib<1.7.0,>=1.6.0; extra == "lint"
+Requires-Dist: authlib>=1.6.0; extra == "lint"
 Requires-Dist: pydantic>=2.11.3; extra == "lint"
 Requires-Dist: httpx>=0.28.1; extra == "lint"
 Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "lint"
@@ -149,7 +149,7 @@ Requires-Dist: pymarkdownlnt; extra == "test"
 Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "test"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "test"
 Requires-Dist: databricks-connect>=13.0; extra == "test"
-Requires-Dist: authlib<1.7.0,>=1.6.0; extra == "test"
+Requires-Dist: authlib>=1.6.0; extra == "test"
 Requires-Dist: pydantic>=2.11.3; extra == "test"
 Requires-Dist: httpx>=0.28.1; extra == "test"
 Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "test"
@@ -162,7 +162,7 @@ Requires-Dist: pydantic>=2.11.3; extra == "auth"
 Requires-Dist: httpx>=0.28.1; extra == "auth"
 Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "auth"
 Provides-Extra: auth-authlib
-Requires-Dist: authlib<1.7.0,>=1.6.0; extra == "auth-authlib"
+Requires-Dist: authlib>=1.6.0; extra == "auth-authlib"
 Requires-Dist: pydantic>=2.11.3; extra == "auth-authlib"
 Requires-Dist: httpx>=0.28.1; extra == "auth-authlib"
 Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "auth-authlib"
@@ -172,6 +172,8 @@ Requires-Dist: pydantic>=2.2.0; extra == "core"
 Requires-Dist: psutil>=7.2.1; extra == "core"
 Provides-Extra: fs
 Requires-Dist: fsspec>=2025.5.0; extra == "fs"
+Provides-Extra: otel
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.33.0; extra == "otel"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

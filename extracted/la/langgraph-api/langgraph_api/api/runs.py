@@ -933,6 +933,7 @@ async def search_crons(request: ApiRequest):
             assistant_id=assistant_id,
             thread_id=thread_id,
             enabled=payload.get("enabled", None),
+            metadata=payload.get("metadata"),
             limit=int(payload.get("limit", 10)),
             offset=offset,
             sort_by=payload.get("sort_by"),
@@ -963,6 +964,7 @@ async def count_crons(request: ApiRequest):
             conn,
             assistant_id=assistant_id,
             thread_id=thread_id,
+            metadata=payload.get("metadata"),
         )
     return ApiResponse(count)
 

@@ -382,7 +382,7 @@ class AsyncOAuth(AsyncOAuthComponent):
 
         token_data = OAuth2Token({
             "access_token": access_token,
-            "expires_at": 0,
+            "token_type": "Bearer",
         })
 
         user_data = await provider.userinfo(token=token_data)

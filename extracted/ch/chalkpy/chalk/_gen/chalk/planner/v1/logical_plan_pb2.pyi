@@ -126,8 +126,10 @@ class LogicalPlanArgument(_message.Message):
         "uint64_value",
         "bool_value",
         "bytes_value",
+        "double_value",
         "duration_value",
         "arrow_schema",
+        "arrow_field",
         "list_value",
         "unordered_dict_value",
         "expr_value",
@@ -140,8 +142,10 @@ class LogicalPlanArgument(_message.Message):
     UINT64_VALUE_FIELD_NUMBER: _ClassVar[int]
     BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
     BYTES_VALUE_FIELD_NUMBER: _ClassVar[int]
+    DOUBLE_VALUE_FIELD_NUMBER: _ClassVar[int]
     DURATION_VALUE_FIELD_NUMBER: _ClassVar[int]
     ARROW_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    ARROW_FIELD_FIELD_NUMBER: _ClassVar[int]
     LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
     UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
     EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -153,8 +157,10 @@ class LogicalPlanArgument(_message.Message):
     uint64_value: int
     bool_value: bool
     bytes_value: bytes
+    double_value: float
     duration_value: _duration_pb2.Duration
     arrow_schema: _arrow_pb2.Schema
+    arrow_field: _arrow_pb2.Field
     list_value: LogicalPlanArgumentList
     unordered_dict_value: LogicalPlanUnorderedDict
     expr_value: _expression_pb2.LogicalExprNode
@@ -168,8 +174,10 @@ class LogicalPlanArgument(_message.Message):
         uint64_value: _Optional[int] = ...,
         bool_value: bool = ...,
         bytes_value: _Optional[bytes] = ...,
+        double_value: _Optional[float] = ...,
         duration_value: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         arrow_schema: _Optional[_Union[_arrow_pb2.Schema, _Mapping]] = ...,
+        arrow_field: _Optional[_Union[_arrow_pb2.Field, _Mapping]] = ...,
         list_value: _Optional[_Union[LogicalPlanArgumentList, _Mapping]] = ...,
         unordered_dict_value: _Optional[_Union[LogicalPlanUnorderedDict, _Mapping]] = ...,
         expr_value: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,

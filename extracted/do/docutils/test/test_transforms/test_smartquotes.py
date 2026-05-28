@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# $Id: test_smartquotes.py 9480 2023-11-19 09:44:17Z milde $
+# $Id: test_smartquotes.py 10287 2026-01-07 13:40:59Z milde $
 # :Copyright: © 2011 Günter Milde.
 # :Maintainer: docutils-develop@lists.sourceforge.net
 # :License: Released under the terms of the `2-Clause BSD license`_, in short:
@@ -39,6 +39,7 @@ class TransformTestCase(unittest.TestCase):
         settings = get_default_settings(Parser)
         settings.warning_stream = ''
         settings.smart_quotes = True
+        settings.syntax_highlight = 'none'
         settings.trim_footnote_ref_space = True
         for name, (transforms, cases) in totest.items():
             for casenum, (case_input, case_expected) in enumerate(cases):
@@ -131,7 +132,6 @@ Do not "educate" quotes ``inside "literal" text`` and ::
   "literal" blocks.
 
 .. role:: python(code)
-   :class: python
 
 Keep quotes straight in code and math:
 :code:`print "hello"` :python:`print("hello")` :math:`1' 12"`.

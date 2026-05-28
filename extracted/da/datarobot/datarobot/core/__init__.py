@@ -12,5 +12,6 @@
 from __future__ import annotations
 
 from .config import DataRobotAppFrameworkBaseSettings, getenv
+from .otel import create_dr_resource
 
-__all__ = ["getenv", "DataRobotAppFrameworkBaseSettings"]
+__all__ = ["getenv", "DataRobotAppFrameworkBaseSettings", "create_dr_resource"]

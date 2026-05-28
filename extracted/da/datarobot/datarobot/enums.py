@@ -376,9 +376,20 @@ class SHARING_ROLE(StrEnum):
     NO_ROLE = "NO_ROLE"
 
 
+class TARGET_SHARING_ROLE(StrEnum):
+    """Target role for sharing"""
+
+    CONSUMER = "CONSUMER"
+    EDITOR = "EDITOR"
+    OWNER = "OWNER"
+    NO_ROLE = "NO_ROLE"
+
+
 class SHARING_RECIPIENT_TYPE(StrEnum):
     USER = "user"
     ORGANIZATION = "organization"
+    GROUP = "group"
+    EXTERNAL_APPLICATION = "externalApplication"
 
 
 MODEL_REPLACEMENT_REASON = enum(
@@ -1031,9 +1042,17 @@ class ApplicationPermissions(StrEnum):
 
 
 class FilesOverwriteStrategy(StrEnum):
+    """
+    Strategy to handle naming conflicts when writing to a path where a file already exists.
+    """
+
+    #: Rename an uploaded file using "<filename> (n).ext" pattern.
     RENAME = "rename"
+    #: Overwrite the existing file.
     REPLACE = "replace"
+    #: Skip uploading if a file already exists at the target path.
     SKIP = "skip"
+    #: Raise `FileExistsError` if a file already exists at the target path.
     ERROR = "error"
 
 
@@ -1287,6 +1306,8 @@ class KeyValueEntityType(Enum):
     CUSTOM_MODEL_VERSION = "customModelVersion"
     CUSTOM_APPLICATION_SOURCE_VERSION = "customApplicationSourceVersion"
     CUSTOM_APPLICATION = "customApplication"
+    PREDICTION_ENVIRONMENT = "predictionEnvironment"
+    PREDICTION_INSTANCE = "predictionInstance"
 
 
 class KeyValueType(Enum):

@@ -119,13 +119,24 @@ class GetDataPlaneWorkflowResponse(_message.Message):
     def __init__(self, workflow: _Optional[_Union[WorkflowExecution, _Mapping]] = ...) -> None: ...
 
 class ListDataPlaneWorkflowsRequest(_message.Message):
-    __slots__ = ("environment_id", "deployment_id", "kind", "status", "limit", "offset", "id_filter", "tags_filter")
+    __slots__ = (
+        "environment_id",
+        "deployment_id",
+        "kind",
+        "status",
+        "limit",
+        "offset",
+        "cursor",
+        "id_filter",
+        "tags_filter",
+    )
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     OFFSET_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
     ID_FILTER_FIELD_NUMBER: _ClassVar[int]
     TAGS_FILTER_FIELD_NUMBER: _ClassVar[int]
     environment_id: str
@@ -134,6 +145,7 @@ class ListDataPlaneWorkflowsRequest(_message.Message):
     status: WorkflowExecutionStatus
     limit: int
     offset: int
+    cursor: str
     id_filter: str
     tags_filter: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
@@ -144,18 +156,24 @@ class ListDataPlaneWorkflowsRequest(_message.Message):
         status: _Optional[_Union[WorkflowExecutionStatus, str]] = ...,
         limit: _Optional[int] = ...,
         offset: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
         id_filter: _Optional[str] = ...,
         tags_filter: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListDataPlaneWorkflowsResponse(_message.Message):
-    __slots__ = ("workflows", "total")
+    __slots__ = ("workflows", "total", "cursor")
     WORKFLOWS_FIELD_NUMBER: _ClassVar[int]
     TOTAL_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
     workflows: _containers.RepeatedCompositeFieldContainer[WorkflowExecution]
     total: int
+    cursor: str
     def __init__(
-        self, workflows: _Optional[_Iterable[_Union[WorkflowExecution, _Mapping]]] = ..., total: _Optional[int] = ...
+        self,
+        workflows: _Optional[_Iterable[_Union[WorkflowExecution, _Mapping]]] = ...,
+        total: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
     ) -> None: ...
 
 class GetWorkflowGraphRequest(_message.Message):

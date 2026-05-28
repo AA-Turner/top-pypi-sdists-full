@@ -111,6 +111,8 @@ __all__ = (
     "DeleteDataAutomationProjectResponseTypeDef",
     "DeleteEntitiesInfoTypeDef",
     "DocumentBoundingBoxTypeDef",
+    "DocumentCustomOutputConfigurationOutputTypeDef",
+    "DocumentCustomOutputConfigurationTypeDef",
     "DocumentExtractionGranularityOutputTypeDef",
     "DocumentExtractionGranularityTypeDef",
     "DocumentOutputAdditionalFileFormatTypeDef",
@@ -539,11 +541,11 @@ VideoStandardGenerativeFieldTypeDef = TypedDict(
     },
 )
 
-class CustomOutputConfigurationOutputTypeDef(TypedDict):
-    blueprints: NotRequired[list[BlueprintItemTypeDef]]
+class DocumentCustomOutputConfigurationOutputTypeDef(TypedDict):
+    fallbackBlueprints: NotRequired[list[BlueprintItemTypeDef]]
 
-class CustomOutputConfigurationTypeDef(TypedDict):
-    blueprints: NotRequired[Sequence[BlueprintItemTypeDef]]
+class DocumentCustomOutputConfigurationTypeDef(TypedDict):
+    fallbackBlueprints: NotRequired[Sequence[BlueprintItemTypeDef]]
 
 class BlueprintOptimizationOutputConfigurationTypeDef(TypedDict):
     s3Object: S3ObjectTypeDef
@@ -786,9 +788,13 @@ class VideoStandardExtractionTypeDef(TypedDict):
     category: VideoExtractionCategoryTypeDef
     boundingBox: VideoBoundingBoxTypeDef
 
-CustomOutputConfigurationUnionTypeDef = Union[
-    CustomOutputConfigurationTypeDef, CustomOutputConfigurationOutputTypeDef
-]
+class CustomOutputConfigurationOutputTypeDef(TypedDict):
+    blueprints: NotRequired[list[BlueprintItemTypeDef]]
+    document: NotRequired[DocumentCustomOutputConfigurationOutputTypeDef]
+
+class CustomOutputConfigurationTypeDef(TypedDict):
+    blueprints: NotRequired[Sequence[BlueprintItemTypeDef]]
+    document: NotRequired[DocumentCustomOutputConfigurationTypeDef]
 
 class GetBlueprintOptimizationStatusResponseTypeDef(TypedDict):
     status: BlueprintOptimizationJobStatusType
@@ -910,6 +916,10 @@ class VideoStandardOutputConfigurationOutputTypeDef(TypedDict):
 class VideoStandardOutputConfigurationTypeDef(TypedDict):
     extraction: NotRequired[VideoStandardExtractionTypeDef]
     generativeField: NotRequired[VideoStandardGenerativeFieldTypeDef]
+
+CustomOutputConfigurationUnionTypeDef = Union[
+    CustomOutputConfigurationTypeDef, CustomOutputConfigurationOutputTypeDef
+]
 
 class CreateBlueprintResponseTypeDef(TypedDict):
     blueprint: BlueprintTypeDef

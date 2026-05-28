@@ -396,6 +396,86 @@ class FileDiscovery:
                 has_tests=any(directory.glob("*_test.go")),
             )
 
+        # Java / Kotlin (Maven)
+        if (directory / "pom.xml").exists():
+            return ProjectInfo(
+                root=directory,
+                name=directory.name,
+                type="java",
+                test_command="mvn test",
+                has_tests=(directory / "src" / "test").is_dir(),
+            )
+
+        # Java / Kotlin (Gradle)
+        if (directory / "build.gradle").exists() or (directory / "build.gradle.kts").exists():
+            is_kotlin = (directory / "build.gradle.kts").exists() or any(directory.glob("src/main/kotlin/**/*.kt"))
+            return ProjectInfo(
+                root=directory,
+                name=directory.name,
+                type="kotlin" if is_kotlin else "java",
+                test_command="./gradlew test",
+                has_tests=(directory / "src" / "test").is_dir(),
+            )
+
+        # Ruby
+        if (directory / "Gemfile").exists():
+            has_rspec = (directory / "spec").is_dir()
+            return ProjectInfo(
+                root=directory,
+                name=directory.name,
+                type="ruby",
+                test_command="bundle exec rspec" if has_rspec else "bundle exec rake test",
+                has_tests=has_rspec or (directory / "test").is_dir(),
+            )
+
+        # Swift
+        if (directory / "Package.swift").exists():
+            return ProjectInfo(
+                root=directory,
+                name=directory.name,
+                type="swift",
+                test_command="swift test",
+                has_tests=(directory / "Tests").is_dir(),
+            )
+
+        # Dart / Flutter
+        if (directory / "pubspec.yaml").exists():
+            has_flutter = False
+            try:
+                content = (directory / "pubspec.yaml").read_text(encoding="utf-8", errors="replace")
+                if "sdk: flutter" in content or "flutter:" in content:
+                    has_flutter = True
+            except Exception:
+                pass
+            return ProjectInfo(
+                root=directory,
+                name=directory.name,
+                type="dart",
+                test_command="flutter test" if has_flutter else "dart test",
+                has_tests=(directory / "test").is_dir(),
+            )
+
+        # C++
+        if (directory / "CMakeLists.txt").exists():
+            return ProjectInfo(
+                root=directory,
+                name=directory.name,
+                type="cpp",
+                test_command="ctest",
+                has_tests=True,
+            )
+
+        # C#
+        csharp_files = list(directory.glob("*.csproj")) + list(directory.glob("*.sln"))
+        if csharp_files:
+            return ProjectInfo(
+                root=directory,
+                name=directory.name,
+                type="csharp",
+                test_command="dotnet test",
+                has_tests=True,
+            )
+
         return None
 
     def _detect_python_project(self, directory: Path, config_file: str) -> ProjectInfo:

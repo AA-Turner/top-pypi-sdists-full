@@ -129,7 +129,7 @@ class Connection:
         """Get OpenID config."""
         _LOGGER.debug("Requesting openid config")
         req = await self._session.get(
-            url=f"{BASE_API}/login/v1/idk/openid-configuration"
+            url=f"{BASE_API}/auth/v1/idk/oidc/openid-configuration"
         )
         if req.status != 200:
             _LOGGER.error("Failed to get OpenID configuration, status: %s", req.status)
@@ -458,7 +458,7 @@ class Connection:
             if self._session_headers.get("identity", {}).get("refresh_token"):
                 _LOGGER.info("Revoking Identity Refresh Token")
                 params = {"token": self._session_tokens["identity"]["refresh_token"]}
-                await self.post(f"{BASE_API}/login/v1/idk/revoke", data=params)
+                await self.post(f"{BASE_API}/auth/v1/idk/oidc/revoke", data=params)
 
     # HTTP methods to API
     async def _request(self, method, url, return_raw=False, **kwargs):
@@ -1135,7 +1135,7 @@ class Connection:
                 "client_id": CLIENT_ID,
             }
             response = await self._session.post(
-                url=f"{BASE_API}/login/v1/idk/token",
+                url=f"{BASE_API}/auth/v1/idk/oidc/token",
                 headers=tHeaders,
                 data=body,
             )

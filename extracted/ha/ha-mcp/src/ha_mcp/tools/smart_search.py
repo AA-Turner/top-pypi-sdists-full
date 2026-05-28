@@ -22,6 +22,7 @@ from ..utils.fuzzy_search import (
     tokenize,
 )
 from .helpers import exception_to_structured_error, safe_info, safe_progress
+from .tools_config_dashboards import fetch_dashboards_list
 
 logger = logging.getLogger(__name__)
 
@@ -196,14 +197,13 @@ class SmartSearchTools:
             aliases_map: dict[str, list[str]] = {}
             if survivor_ids:
                 try:
-                    entries_resp = await self.client.send_websocket_message({
-                        "type": "config/entity_registry/get_entries",
-                        "entity_ids": survivor_ids,
-                    })
-                    if (
-                        isinstance(entries_resp, dict)
-                        and entries_resp.get("success")
-                    ):
+                    entries_resp = await self.client.send_websocket_message(
+                        {
+                            "type": "config/entity_registry/get_entries",
+                            "entity_ids": survivor_ids,
+                        }
+                    )
+                    if isinstance(entries_resp, dict) and entries_resp.get("success"):
                         for eid, entry in (
                             entries_resp.get("result", {}) or {}
                         ).items():
@@ -231,11 +231,13 @@ class SmartSearchTools:
                 # Shallow copy + private-prefixed keys so downstream
                 # consumers that round-trip these dicts don't ship
                 # internal fields back to clients.
-                enriched.append({
-                    **entity,
-                    "_aliases": aliases_map.get(eid, []),
-                    "_hidden_by": slim.get("hidden_by"),
-                })
+                enriched.append(
+                    {
+                        **entity,
+                        "_aliases": aliases_map.get(eid, []),
+                        "_hidden_by": slim.get("hidden_by"),
+                    }
+                )
 
             entities = enriched
             if domain_filter:
@@ -388,7 +390,7 @@ class SmartSearchTools:
             # Two-pass area resolution. Pass 1 collects exact id / name /
             # alias matches; if any are found, fuzzy aggregation is
             # skipped entirely. This makes ``area_filter`` honor a
-            # literal area_id from ``ha_config_list_areas`` — pre-fix a
+            # literal area_id from ``ha_list_floors_areas`` — pre-fix a
             # query like ``"bedroom_kids"`` would also fuzzy-match its
             # parent ``"bedroom"`` (partial_ratio=100) and aggregate
             # sibling areas' entities. Aliases (per-area registry, used
@@ -518,9 +520,7 @@ class SmartSearchTools:
                                 ),
                                 "state": state_info.get("state", "unknown"),
                                 "_hidden_by": (
-                                    "hidden"
-                                    if entity_id in hidden_entity_ids
-                                    else None
+                                    "hidden" if entity_id in hidden_entity_ids else None
                                 ),
                             }
                         )
@@ -537,9 +537,7 @@ class SmartSearchTools:
                             "domain": entity_id.split(".")[0],
                             "state": state_info.get("state", "unknown"),
                             "_hidden_by": (
-                                "hidden"
-                                if entity_id in hidden_entity_ids
-                                else None
+                                "hidden" if entity_id in hidden_entity_ids else None
                             ),
                         }
                         for entity_id in area_entities
@@ -1773,14 +1771,9 @@ class SmartSearchTools:
             if "dashboard" in search_types:
                 try:
                     # List all storage-mode dashboards
-                    dash_list_resp = await self.client.send_websocket_message(
-                        {"type": "lovelace/dashboards/list"}
+                    dashboard_entries: list[dict[str, Any]] = (
+                        await fetch_dashboards_list(self.client) or []
                     )
-                    dashboard_entries: list[dict[str, Any]] = []
-                    if isinstance(dash_list_resp, dict) and dash_list_resp.get(
-                        "success"
-                    ):
-                        dashboard_entries = dash_list_resp.get("result", [])
 
                     # Build list of dashboards to search (include default)
                     dashboards_to_search: list[tuple[str, str]] = [

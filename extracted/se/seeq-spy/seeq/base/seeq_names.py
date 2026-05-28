@@ -6,6 +6,12 @@
 # =====================================================================================================================
 
 class SeeqNames:
+    class DataLab:
+        class Endpoints:
+            consumption = '/data-lab-consumption'
+            job = '/data-lab-job'
+        
+    
     class SystemFolderIdentifiers:
         corporate = '__Corporate__'
         users = '__Users__'
@@ -19,6 +25,8 @@ class SeeqNames:
         isolation_forest = 'ISOLATION_FOREST_TOOL_MODEL'
         clustering = 'CLUSTERING_TOOL_MODEL'
         operationalize_statistics = 'OPERATIONALIZE_STATISTICS_TOOL_MODEL'
+        control_loop_performance_monitoring = 'CONTROL_LOOP_PERFORMANCE_MONITORING_MODEL'
+        heat_exchanger_performance_monitoring = 'HEAT_EXCHANGER_PERFORMANCE_MONITORING_MODEL'
     
     class ModelNames:
         principal_component_analysis = 'Principal Component Analysis'
@@ -27,6 +35,8 @@ class SeeqNames:
         isolation_forest = 'Isolation Forest'
         clustering = 'Clustering'
         operationalize_statistics = 'Operationalize Statistics'
+        control_loop_performance_monitoring = 'Control Loop Performance Monitoring (CLPM)'
+        heat_exchanger_performance_monitoring = 'Heat Exchanger Performance Monitoring (HEPM)'
     
     class AnalysisViewType:
         trend = 'trend'
@@ -552,6 +562,7 @@ class SeeqNames:
         signal_monitor = 'SignalMonitor'
         mention_email_notification = 'MentionEmailNotification'
         seeq_models = 'SeeqModelsJobs'
+        custom_agent_schedule = 'CustomAgentSchedule'
     
     class Logging:
         migrations_complete_file = 'migrations_complete_'
@@ -631,6 +642,10 @@ class SeeqNames:
     class LocalDatasources:
         class Models:
             datasource_class = 'Seeq Models'
+            class Industry:
+                datasource_id = 'Industry Models'
+                datasource_name = 'Industry Models'
+            
             class User:
                 datasource_id = 'User Models'
                 datasource_name = 'User Models'
@@ -856,6 +871,8 @@ class SeeqNames:
         markdown_items = '/markdown-items'
         markdown_links = '/markdown/links'
         stored_tables = '/stored-tables'
+        boards = '/boards'
+        drill_dimensions = '/drill-dimensions'
         calculated_tables = '/calculated-tables'
         sharing = '/sharing'
         scim_users = 'Users'
@@ -923,6 +940,7 @@ class SeeqNames:
             width = 'x-sq-width'
             warning_message = 'x-sq-warning-message'
             export_truncated = 'x-sq-export-truncated'
+            source_job_key = 'x-sq-source-job-key'
             class Timings:
                 datasource = 'Datasource'
                 cache = 'Cache'
@@ -1100,6 +1118,7 @@ class SeeqNames:
         table_definition = 'TableDefinition'
         stored_table = 'StoredTable'
         version_history = 'VersionHistory'
+        approval_flow_step = 'ApprovalFlowStep'
         model = 'Model'
         hierarchy = 'Hierarchy'
         markdown_item = 'MarkdownItem'
@@ -1148,6 +1167,7 @@ class SeeqNames:
         original_uncertainty = 'Original Uncertainty'
         is_suppressed = 'Is Suppressed'
         capsule_id_property = 'Capsule ID Property'
+        internal_prefix = '_SeeqInternal_'
         class ThresholdMetric:
             priority = 'Priority'
             priority_name = 'Priority Name'
@@ -1367,6 +1387,9 @@ class SeeqNames:
         updated_at = 'Updated At'
         order = 'Order'
         removed_worksheet_workstep_relationships = 'Removed Worksheet Workstep Relationships'
+        approval_flow_id = 'Approval Flow ID'
+        step_order = 'Step Order'
+        lock_required = 'Lock Required'
         document = 'Document'
         plain_text_document = 'Plain Text Document'
         discoverable = 'Discoverable'
@@ -1418,6 +1441,7 @@ class SeeqNames:
         scheduled_at = 'Scheduled At'
         total_run_time = 'Total Run Time'
         average_run_time = 'Average Run Time'
+        wall_clock_run_time = 'Wall-Clock Run Time'
         cron_schedule = 'Cron Schedule'
         background = 'Background'
         condition_formula_now = 'Condition Formula Now'
@@ -1501,10 +1525,12 @@ class SeeqNames:
         query = 'Query'
         calculated_table_column_metadata = 'Calculated Table Column Metadata'
         calculated_table_column_dependency = 'Calculated Table Column Dependency'
+        vantage_view_definitions = 'Vantage View Definitions'
         columns = 'Columns'
         row_height = 'Row Height'
         background_color = 'Background Color'
         applied_filter = 'Applied Filter'
+        calculated_table_id = 'Calculated Table Id'
         users_shared = 'Users Shared'
         topics_shared = 'Topics Shared'
         workbooks_shared = 'Workbooks Shared'
@@ -1517,6 +1543,7 @@ class SeeqNames:
         organization_user_group_id = 'User Group ID'
         source = 'Source'
         application_id = 'Application ID'
+        workbook_state = 'workbookState'
     
 
 

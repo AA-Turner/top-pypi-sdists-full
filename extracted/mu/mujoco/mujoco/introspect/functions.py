@@ -4088,7 +4088,7 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
              ),
              FunctionParameterDecl(
                  name='flg_static',
-                 type=ValueType(name='mjtByte'),
+                 type=ValueType(name='mjtBool'),
              ),
              FunctionParameterDecl(
                  name='bodyexclude',
@@ -4152,7 +4152,7 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
              ),
              FunctionParameterDecl(
                  name='flg_static',
-                 type=ValueType(name='mjtByte'),
+                 type=ValueType(name='mjtBool'),
              ),
              FunctionParameterDecl(
                  name='bodyexclude',
@@ -4359,19 +4359,19 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
              ),
              FunctionParameterDecl(
                  name='flg_vert',
-                 type=ValueType(name='mjtByte'),
+                 type=ValueType(name='mjtBool'),
              ),
              FunctionParameterDecl(
                  name='flg_edge',
-                 type=ValueType(name='mjtByte'),
+                 type=ValueType(name='mjtBool'),
              ),
              FunctionParameterDecl(
                  name='flg_face',
-                 type=ValueType(name='mjtByte'),
+                 type=ValueType(name='mjtBool'),
              ),
              FunctionParameterDecl(
                  name='flg_skin',
-                 type=ValueType(name='mjtByte'),
+                 type=ValueType(name='mjtBool'),
              ),
              FunctionParameterDecl(
                  name='flexid',
@@ -6471,6 +6471,22 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
          ),
          doc='Get compiler error message from spec.',
      )),
+    ('mjs_getTimer',
+     FunctionDecl(
+         name='mjs_getTimer',
+         return_type=PointerType(
+             inner_type=ValueType(name='double', is_const=True),
+         ),
+         parameters=(
+             FunctionParameterDecl(
+                 name='s',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjSpec'),
+                 ),
+             ),
+         ),
+         doc='Get compiler timing diagnostics from spec, returns pointer to array of size mjNCTIMER.',  # pylint: disable=line-too-long
+     )),
     ('mjs_isWarning',
      FunctionDecl(
          name='mjs_isWarning',
@@ -8463,7 +8479,7 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
              ),
              FunctionParameterDecl(
                  name='flg_sym',
-                 type=ValueType(name='mjtByte'),
+                 type=ValueType(name='mjtBool'),
              ),
          ),
          doc='Convert banded matrix to dense matrix, fill upper triangle if flg_sym>0.',  # pylint: disable=line-too-long
@@ -8541,7 +8557,7 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
              ),
              FunctionParameterDecl(
                  name='flg_sym',
-                 type=ValueType(name='mjtByte'),
+                 type=ValueType(name='mjtBool'),
              ),
          ),
          doc='Multiply band-diagonal matrix with nvec vectors, include upper triangle if flg_sym>0.',  # pylint: disable=line-too-long
@@ -9388,7 +9404,7 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
              ),
              FunctionParameterDecl(
                  name='flg_centered',
-                 type=ValueType(name='mjtByte'),
+                 type=ValueType(name='mjtBool'),
              ),
              FunctionParameterDecl(
                  name='A',
@@ -9444,7 +9460,7 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
              ),
              FunctionParameterDecl(
                  name='flg_actuation',
-                 type=ValueType(name='mjtByte'),
+                 type=ValueType(name='mjtBool'),
              ),
              FunctionParameterDecl(
                  name='DfDq',
@@ -11611,7 +11627,7 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
     ('mjs_setInStringVec',
      FunctionDecl(
          name='mjs_setInStringVec',
-         return_type=ValueType(name='mjtByte'),
+         return_type=ValueType(name='mjtBool'),
          parameters=(
              FunctionParameterDecl(
                  name='dest',

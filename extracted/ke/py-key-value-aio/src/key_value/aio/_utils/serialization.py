@@ -75,11 +75,10 @@ class SerializationAdapter(ABC):
 
         if self._date_format == "isoformat":
             if created_at := key_must_be(data, key="created_at", expected_type=str):
-                managed_entry_proto["created_at"] = parse_datetime_str(value=created_at)
+                managed_entry_proto["created_at"] = parse_datetime_str(created_at)
             if expires_at := key_must_be(data, key="expires_at", expected_type=str):
-                managed_entry_proto["expires_at"] = parse_datetime_str(value=expires_at)
-
-        if self._date_format == "datetime":
+                managed_entry_proto["expires_at"] = parse_datetime_str(expires_at)
+        elif self._date_format == "datetime":
             if created_at := key_must_be(data, key="created_at", expected_type=datetime):
                 managed_entry_proto["created_at"] = created_at
             if expires_at := key_must_be(data, key="expires_at", expected_type=datetime):

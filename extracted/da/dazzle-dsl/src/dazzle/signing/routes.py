@@ -62,6 +62,7 @@ def create_signing_routes(
     *,
     repositories: dict[str, Any],
     branding: PdfBranding | None = None,
+    file_service: Any | None = None,
 ) -> APIRouter | None:
     """Build the auto-mounted signing router.
 
@@ -75,6 +76,14 @@ def create_signing_routes(
             jurisdiction). Defaults to a minimal ``PdfBranding`` whose
             ``organisation`` is "Dazzle App" — projects will normally
             supply their own via the runtime configuration.
+        file_service: Optional :class:`FileService` (or anything with
+            an ``upload(file, filename, content_type, entity_name,
+            entity_id, field_name)`` async method). When supplied, the
+            signed PDF is persisted via this service and the entity
+            row's ``signed_document`` field is patched with the
+            resulting URL. When ``None`` (file uploads disabled), the
+            PDF is still returned inline and the row's
+            ``signed_document`` stays null.
 
     Returns:
         ``None`` if no entity has ``signable: true``. Otherwise an
@@ -115,6 +124,7 @@ def create_signing_routes(
             signable=signable,
             repositories=repositories,
             branding=resolved_branding,
+            file_service=file_service,
         )
 
     return router
@@ -208,6 +218,7 @@ async def _handle_post(
     signable: dict[str, EntitySpec],
     repositories: dict[str, Any],
     branding: PdfBranding,
+    file_service: Any | None = None,
 ) -> Response:
     entity = _lookup_signable(entity_name, signable)
     repo = _lookup_repo(entity_name, repositories)
@@ -256,7 +267,13 @@ async def _handle_post(
 
         signature_png = base64.b64decode(body.signature_png_b64)
 
-    document_body = _stub_document_body(entity_name=entity.name, record_id=record_id)
+    if entity.signing_template:
+        try:
+            document_body = _invoke_template(entity.signing_template, entity=entity, row=row)
+        except SigningError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+    else:
+        document_body = _stub_document_body(entity_name=entity.name, record_id=record_id)
     pdf = generate_pdf(
         document_body,
         signer_name=signatory_name,
@@ -270,16 +287,43 @@ async def _handle_post(
         branding=branding,
     )
 
-    await repo.update(
-        record_id,
-        {
-            "status": "signed",
-            "signed_at": _utcnow(),
-            "signing_token_hash": token_hash(body.token),
-            "signer_ip": _client_ip(request),
-            "signer_user_agent": request.headers.get("user-agent", "")[:500],
-        },
-    )
+    patch: dict[str, Any] = {
+        "status": "signed",
+        "signed_at": _utcnow(),
+        "signing_token_hash": token_hash(body.token),
+        "signer_ip": _client_ip(request),
+        "signer_user_agent": request.headers.get("user-agent", "")[:500],
+    }
+
+    if file_service is not None:
+        import io as _io
+
+        filename = f"{entity.name}-{record_id}.pdf"
+        try:
+            metadata = await file_service.upload(
+                _io.BytesIO(signed_pdf),
+                filename=filename,
+                content_type="application/pdf",
+                entity_name=entity.name,
+                entity_id=str(record_id),
+                field_name="signed_document",
+                path_prefix=f"signing/{entity.name}",
+            )
+            # `signed_document` is a `file` field; the framework stores
+            # path/URL strings. Use the storage backend's public URL so
+            # the document is fetchable through the file-routes
+            # download path.
+            patch["signed_document"] = metadata.url
+        except Exception:
+            log.warning(
+                "Failed to persist signed PDF for %s/%s — PDF still "
+                "returned inline; signed_document field left null",
+                entity.name,
+                record_id,
+                exc_info=True,
+            )
+
+    await repo.update(record_id, patch)
 
     return Response(
         content=signed_pdf,
@@ -340,34 +384,61 @@ _ValidatorFn = Callable[..., Any] | Callable[..., Awaitable[Any]]
 _VALIDATOR_PATH_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$")
 
 
-def _invoke_validator(dotted_path: str, *, entity: EntitySpec, row: Any) -> None:
-    """Resolve and invoke a project-supplied ``signing_validator``.
+def _resolve_dotted_callable(dotted_path: str, *, kind: str) -> Any:
+    """Resolve a project-supplied dotted-path callable.
 
-    The hook can raise ``SigningError(...)`` to block the signature.
+    Used by both ``signing_validator`` and ``signing_template``. The
+    regex guard rejects anything outside the ``module.submodule.fn``
+    shape so an attacker who somehow tampered with the spec still
+    cannot reach arbitrary modules.
 
     Security: ``dotted_path`` is project-author DSL set at compile time
     (parsed via the lexer's identifier rule, not from request input).
-    The regex guard rejects anything outside the
-    ``module.submodule.fn`` shape so an attacker who somehow tampered
-    with the spec still cannot reach arbitrary modules.
+    The regex guard is defence-in-depth and a documented trust
+    boundary so static scanners can see the constraint explicitly.
     """
     if not _VALIDATOR_PATH_RE.match(dotted_path):
-        raise SigningError(f"signing_validator {dotted_path!r} is not a valid dotted path")
+        raise SigningError(f"{kind} {dotted_path!r} is not a valid dotted path")
     module_path, _, fn_name = dotted_path.rpartition(".")
     try:
         # dotted_path is constrained by _VALIDATOR_PATH_RE above and
         # originates from project DSL, never from request input.
         module = importlib.import_module(module_path)  # nosemgrep
-        fn: _ValidatorFn = getattr(module, fn_name)
+        return getattr(module, fn_name)
     except (ImportError, AttributeError) as exc:
-        raise SigningError(
-            f"signing_validator {dotted_path!r} could not be resolved: {exc}"
-        ) from exc
+        raise SigningError(f"{kind} {dotted_path!r} could not be resolved: {exc}") from exc
+
+
+def _invoke_validator(dotted_path: str, *, entity: EntitySpec, row: Any) -> None:
+    """Resolve and invoke a project-supplied ``signing_validator``.
+
+    The hook can raise ``SigningError(...)`` to block the signature.
+    """
+    fn: _ValidatorFn = _resolve_dotted_callable(dotted_path, kind="signing_validator")
     result = fn(entity=entity, row=row)
     if hasattr(result, "__await__"):
         import asyncio
 
         asyncio.get_event_loop().run_until_complete(result)
+
+
+def _invoke_template(dotted_path: str, *, entity: EntitySpec, row: Any) -> str:
+    """Resolve and invoke a project-supplied ``signing_template``.
+
+    Function must return the document body HTML as a ``str``. The
+    framework feeds the result into ``generate_pdf`` for fpdf2 to
+    render. Async templates are not supported in phase 6a — the
+    rendering happens inside a request handler that's already awaiting
+    other work, and adding asyncio.run-from-inside-async ergonomics
+    here is bigger than the use case warrants. Sync return only.
+    """
+    fn = _resolve_dotted_callable(dotted_path, kind="signing_template")
+    result = fn(entity=entity, row=row)
+    if not isinstance(result, str):
+        raise SigningError(
+            f"signing_template {dotted_path!r} must return str, got {type(result).__name__}"
+        )
+    return result
 
 
 def _stub_document_body(*, entity_name: str, record_id: UUID) -> str:
@@ -390,26 +461,42 @@ def _stub_document_body(*, entity_name: str, record_id: UUID) -> str:
 
 
 def _signing_page(*, entity_name: str, record_id: str, token: str) -> str:
+    import json
+
     safe_entity = html.escape(entity_name)
     safe_id = html.escape(record_id)
-    # Tokens are HMAC-signed base64-url payloads (alnum + `-_=`). The
-    # ``quote=True`` flag also escapes the ASCII quote characters so the
-    # value is safe in an HTML attribute.
-    safe_token = html.escape(token, quote=True)
+    # The Island reads props from data-island-props; encode as JSON and
+    # then HTML-escape so the JSON itself can't break out of the
+    # attribute quotes. Tokens are HMAC-signed base64-url payloads
+    # (alnum + ``-_=``) so by character class they're attribute-safe,
+    # but escaping defends against future token-shape changes.
+    props = json.dumps(
+        {
+            "entity": entity_name,
+            "record": record_id,
+            "token": token,
+            "signatoryName": "Signer",
+            "entityName": entity_name,
+            "apiBase": "/api/sign",
+        }
+    )
+    safe_props = html.escape(props, quote=True)
     return (
         "<!DOCTYPE html>"
         '<html lang="en"><head><meta charset="utf-8">'
-        f"<title>Sign {safe_entity}</title></head>"
+        f"<title>Sign {safe_entity}</title>"
+        '<link rel="stylesheet" href="/static/dist/dazzle.min.css">'
+        "</head>"
         '<body style="font-family: system-ui; max-width: 720px; margin: 2rem auto;">'
         f"<h1>Sign {safe_entity}</h1>"
         f"<p>Document identifier: <code>{safe_id}</code></p>"
-        '<div id="signing-island" data-island="signing_pad" '
-        f'data-entity="{safe_entity}" data-record="{safe_id}" '
-        f'data-token="{safe_token}">'
-        "<p>The signing pad will load here when the phase-4 Island JS "
-        "is wired in. This page proves the route is mounted and the "
-        "token + status transition are working.</p>"
+        '<div data-island="signing_pad" '
+        'data-island-src="/static/js/islands/signing-pad.js" '
+        f'data-island-props="{safe_props}">'
+        "<p>Loading signing pad…</p>"
         "</div>"
+        '<script src="https://cdn.jsdelivr.net/npm/signature_pad@5/dist/signature_pad.umd.min.js"></script>'
+        '<script src="/static/js/dz-islands.js"></script>'
         "</body></html>"
     )
 

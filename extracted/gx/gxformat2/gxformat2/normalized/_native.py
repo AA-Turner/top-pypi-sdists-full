@@ -40,7 +40,7 @@ from gxformat2.schema.native import (
 )
 from gxformat2.schema.native_strict import NativeGalaxyWorkflow as StrictNativeGalaxyWorkflow
 
-from ._types import ToolReference
+from ._types import INLINE_TOOL_CLASSES, ToolReference
 
 NativeComment: TypeAlias = Annotated[
     Union[
@@ -138,6 +138,24 @@ class NormalizedNativeStep(_DictMixin, BaseModel):
         return self.type_ == NativeStepType.pick_value
 
     @property
+    def is_inline_tool_step(self) -> bool:
+        """The step carries an inline tool source via ``tool_representation``.
+
+        Currently matches ``class: GalaxyUserTool`` (per-user dynamic tools);
+        see ``INLINE_TOOL_CLASSES`` for the full list.
+        """
+        if not self.tool_representation:
+            return False
+        return self.tool_representation.get("class") in INLINE_TOOL_CLASSES
+
+    @property
+    def inline_tool_class(self) -> str | None:
+        """The ``class`` field of an inline tool representation, or ``None``."""
+        if not self.tool_representation:
+            return None
+        return self.tool_representation.get("class")
+
+    @property
     def connected_paths(self) -> frozenset[str]:
         """State paths that have incoming connections."""
         return frozenset(self.input_connections.keys())
@@ -216,7 +234,7 @@ def _normalize_native_for_validation(data: dict[str, Any]) -> dict[str, Any]:
         for key, step in data["steps"].items():
             if isinstance(step, dict):
                 step = _normalize_step_for_validation(step)
-            steps[key] = step
+            steps[str(key)] = step  # Galaxy may use integer order_index as keys
         data["steps"] = steps
     return data
 

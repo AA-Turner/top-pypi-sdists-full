@@ -78,89 +78,6 @@ Example::
     }
 """
 
-ConsolidatedFunctionResult = tuple[Any, "NodeConfig | None"]
-"""Return type for "consolidated" functions.
-
-Return type for "consolidated" functions that do either or both of:
-- doing some work
-- specifying the next node to transition to after the work is done
-
-The first tuple element is the function-call result delivered to the LLM.
-Any JSON-serializable value is accepted (matching Pipecat's upstream
-``FunctionCallResultCallback`` contract). Pass ``None`` to signal a
-transition-only handler; FlowManager substitutes an acknowledgement result.
-"""
-
-ZeroArgFunctionHandler = Callable[[], Awaitable[Any]]
-"""Function handler that takes no arguments.
-
-.. deprecated:: 1.x.0
-    Use :data:`FlowFunctionHandler` (``(args, flow_manager)``) instead. Will be
-    removed in 2.0.0.
-
-Returns:
-    Any JSON-serializable value, or a :data:`ConsolidatedFunctionResult`
-    tuple to also specify the next node.
-"""
-
-LegacyFunctionHandler = Callable[[FlowArgs], Awaitable[Any]]
-"""Legacy function handler that only receives arguments.
-
-.. deprecated:: 1.x.0
-    Use :data:`FlowFunctionHandler` (``(args, flow_manager)``) instead. Will be
-    removed in 2.0.0.
-
-Args:
-    args: Dictionary of arguments from the function call.
-
-Returns:
-    Any JSON-serializable value, or a :data:`ConsolidatedFunctionResult`
-    tuple to also specify the next node.
-"""
-
-FlowFunctionHandler = Callable[[FlowArgs, "FlowManager"], Awaitable[Any]]
-"""Modern function handler that receives both arguments and flow_manager.
-
-Args:
-    args: Dictionary of arguments from the function call.
-    flow_manager: Reference to the FlowManager instance.
-
-Returns:
-    Any JSON-serializable value, or a :data:`ConsolidatedFunctionResult`
-    tuple to also specify the next node.
-"""
-
-
-FunctionHandler = ZeroArgFunctionHandler | LegacyFunctionHandler | FlowFunctionHandler
-"""Union type for function handlers supporting 0-arg, legacy, and modern patterns."""
-
-
-FlowsDirectFunction = Callable[..., Awaitable[ConsolidatedFunctionResult]]
-"""Type alias for "direct" functions with automatic metadata extraction.
-
-"Direct" functions have their definition automatically extracted from the
-function signature and docstring. This can be used in :data:`NodeConfig`
-directly, in lieu of a :class:`FlowsFunctionSchema` or function definition
-dict.
-
-Expected shape:
-
-.. code-block:: python
-
-    async def f(flow_manager: FlowManager, **params) -> ConsolidatedFunctionResult:
-        ...
-
-where ``**params`` are any named parameters described by the function's
-docstring.
-
-This is defined as ``Callable[..., ...]`` rather than a Protocol because
-Python's Protocol system cannot express "any concrete named-parameter list"
-against ``**kwargs: Any`` — a function with named params like ``llm: str``
-is not structurally compatible with a ``**kwargs: Any`` protocol signature.
-Runtime validation of the expected shape happens in
-:meth:`FlowsDirectFunctionWrapper.validate_function`.
-"""
-
 
 LegacyActionHandler = Callable[[dict[str, Any]], Awaitable[None]]
 """Legacy action handler type that only receives the action dictionary.
@@ -255,6 +172,155 @@ class ContextStrategyConfig:
         """
         if self.strategy == ContextStrategy.RESET_WITH_SUMMARY and not self.summary_prompt:
             raise ValueError("summary_prompt is required when using RESET_WITH_SUMMARY strategy")
+
+
+class NodeConfig(TypedDict, total=False):
+    """Configuration for a single node in the flow.
+
+    Parameters:
+        task_messages: List of message dicts defining the current node's objectives.
+        name: Name of the node, useful for debug logging when returning a next node
+            from a "consolidated" function.
+        role_message: The bot's role/personality as a plain string, sent as the
+            LLM's system instruction via ``LLMUpdateSettingsFrame``. When
+            provided, the system instruction persists across node transitions
+            until a new node explicitly sets ``role_message`` again.
+        role_messages: Deprecated list-of-dicts format for the bot's role/personality.
+
+            .. deprecated:: 0.0.24
+                Use ``role_message`` (str) instead. Will be removed in 2.0.0.
+
+        functions: List of FlowsFunctionSchema definitions or direct functions
+            whose definitions are automatically extracted from their signatures.
+        pre_actions: Actions to execute before LLM inference.
+        post_actions: Actions to execute after LLM inference.
+        context_strategy: Strategy for updating context during transitions.
+        respond_immediately: Whether to run LLM inference as soon as the node is
+            set (default: True).
+
+    Example::
+
+        {
+            "role_message": "You are a helpful assistant...",
+            "task_messages": [
+                {
+                    "role": "developer",
+                    "content": "Ask the user for their name..."
+                }
+            ],
+            "functions": [...],
+            "pre_actions": [...],
+            "post_actions": [...],
+            "context_strategy": ContextStrategyConfig(strategy=ContextStrategy.APPEND),
+            "respond_immediately": true,
+        }
+    """
+
+    task_messages: Required[list[dict]]
+    name: str
+    role_message: str
+    role_messages: list[dict[str, Any]]
+    # ``FlowsFunctionSchema`` and ``FlowsDirectFunction`` are defined below
+    # (see the note above ``ConsolidatedFunctionResult``); string forward
+    # references keep ``NodeConfig`` definable here without re-introducing the
+    # cross-module forward reference that ``ConsolidatedFunctionResult`` used
+    # to require.
+    functions: "list[FlowsFunctionSchema | FlowsDirectFunction]"
+    pre_actions: list[ActionConfig]
+    post_actions: list[ActionConfig]
+    context_strategy: ContextStrategyConfig
+    respond_immediately: bool
+
+
+# ``ConsolidatedFunctionResult`` is the public return-type alias for "direct"
+# functions. It must be defined **after** ``NodeConfig`` and without a string
+# forward reference: ``get_type_hints()`` on a user-defined direct function
+# resolves names against the user's module globals, not this module's, so a
+# ``"NodeConfig"`` forward reference here would fail unless the user happened
+# to import ``NodeConfig`` themselves.
+ConsolidatedFunctionResult = tuple[Any, NodeConfig | None]
+"""Return type for "consolidated" functions.
+
+Return type for "consolidated" functions that do either or both of:
+- doing some work
+- specifying the next node to transition to after the work is done
+
+The first tuple element is the function-call result delivered to the LLM.
+Any JSON-serializable value is accepted (matching Pipecat's upstream
+``FunctionCallResultCallback`` contract). Pass ``None`` to signal a
+transition-only handler; FlowManager substitutes an acknowledgement result.
+"""
+
+
+ZeroArgFunctionHandler = Callable[[], Awaitable[Any]]
+"""Function handler that takes no arguments.
+
+.. deprecated:: 1.x.0
+    Use :data:`FlowFunctionHandler` (``(args, flow_manager)``) instead. Will be
+    removed in 2.0.0.
+
+Returns:
+    Any JSON-serializable value, or a :data:`ConsolidatedFunctionResult`
+    tuple to also specify the next node.
+"""
+
+LegacyFunctionHandler = Callable[[FlowArgs], Awaitable[Any]]
+"""Legacy function handler that only receives arguments.
+
+.. deprecated:: 1.x.0
+    Use :data:`FlowFunctionHandler` (``(args, flow_manager)``) instead. Will be
+    removed in 2.0.0.
+
+Args:
+    args: Dictionary of arguments from the function call.
+
+Returns:
+    Any JSON-serializable value, or a :data:`ConsolidatedFunctionResult`
+    tuple to also specify the next node.
+"""
+
+FlowFunctionHandler = Callable[[FlowArgs, "FlowManager"], Awaitable[Any]]
+"""Modern function handler that receives both arguments and flow_manager.
+
+Args:
+    args: Dictionary of arguments from the function call.
+    flow_manager: Reference to the FlowManager instance.
+
+Returns:
+    Any JSON-serializable value, or a :data:`ConsolidatedFunctionResult`
+    tuple to also specify the next node.
+"""
+
+
+FunctionHandler = ZeroArgFunctionHandler | LegacyFunctionHandler | FlowFunctionHandler
+"""Union type for function handlers supporting 0-arg, legacy, and modern patterns."""
+
+
+FlowsDirectFunction = Callable[..., Awaitable[ConsolidatedFunctionResult]]
+"""Type alias for "direct" functions with automatic metadata extraction.
+
+"Direct" functions have their definition automatically extracted from the
+function signature and docstring. This can be used in :data:`NodeConfig`
+directly, in lieu of a :class:`FlowsFunctionSchema` or function definition
+dict.
+
+Expected shape:
+
+.. code-block:: python
+
+    async def f(flow_manager: FlowManager, **params) -> ConsolidatedFunctionResult:
+        ...
+
+where ``**params`` are any named parameters described by the function's
+docstring.
+
+This is defined as ``Callable[..., ...]`` rather than a Protocol because
+Python's Protocol system cannot express "any concrete named-parameter list"
+against ``**kwargs: Any`` — a function with named params like ``llm: str``
+is not structurally compatible with a ``**kwargs: Any`` protocol signature.
+Runtime validation of the expected shape happens in
+:meth:`FlowsDirectFunctionWrapper.validate_function`.
+"""
 
 
 @dataclass
@@ -385,59 +451,6 @@ class FlowsDirectFunctionWrapper(BaseDirectFunctionWrapper):
             The result of the function call.
         """
         return await self.function(flow_manager=flow_manager, **args)
-
-
-class NodeConfig(TypedDict, total=False):
-    """Configuration for a single node in the flow.
-
-    Parameters:
-        task_messages: List of message dicts defining the current node's objectives.
-        name: Name of the node, useful for debug logging when returning a next node
-            from a "consolidated" function.
-        role_message: The bot's role/personality as a plain string, sent as the
-            LLM's system instruction via ``LLMUpdateSettingsFrame``. When
-            provided, the system instruction persists across node transitions
-            until a new node explicitly sets ``role_message`` again.
-        role_messages: Deprecated list-of-dicts format for the bot's role/personality.
-
-            .. deprecated:: 0.0.24
-                Use ``role_message`` (str) instead. Will be removed in 2.0.0.
-
-        functions: List of FlowsFunctionSchema definitions or direct functions
-            whose definitions are automatically extracted from their signatures.
-        pre_actions: Actions to execute before LLM inference.
-        post_actions: Actions to execute after LLM inference.
-        context_strategy: Strategy for updating context during transitions.
-        respond_immediately: Whether to run LLM inference as soon as the node is
-            set (default: True).
-
-    Example::
-
-        {
-            "role_message": "You are a helpful assistant...",
-            "task_messages": [
-                {
-                    "role": "developer",
-                    "content": "Ask the user for their name..."
-                }
-            ],
-            "functions": [...],
-            "pre_actions": [...],
-            "post_actions": [...],
-            "context_strategy": ContextStrategyConfig(strategy=ContextStrategy.APPEND),
-            "respond_immediately": true,
-        }
-    """
-
-    task_messages: Required[list[dict]]
-    name: str
-    role_message: str
-    role_messages: list[dict[str, Any]]
-    functions: list[FlowsFunctionSchema | FlowsDirectFunction]
-    pre_actions: list[ActionConfig]
-    post_actions: list[ActionConfig]
-    context_strategy: ContextStrategyConfig
-    respond_immediately: bool
 
 
 def get_or_generate_node_name(node_config: NodeConfig) -> str:

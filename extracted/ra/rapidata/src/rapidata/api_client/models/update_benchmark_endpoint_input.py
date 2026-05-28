@@ -17,8 +17,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from pydantic import ValidationError
 from rapidata.api_client.lazy_model import LazyValidatedModel
 from typing import Optional, Set
@@ -31,7 +31,9 @@ class UpdateBenchmarkEndpointInput(LazyValidatedModel):
     name: Optional[StrictStr] = Field(default=None, description="The new name of the benchmark.")
     is_public: Optional[StrictBool] = Field(default=None, description="Whether the benchmark should be public (only admins can change this).", alias="isPublic")
     initial_boost_level: Optional[StrictInt] = Field(default=None, description="Initial boost level applied to the campaign of every run created from this benchmark.  Admins may set any value the validator allows (0-10) or null to clear the  override; non-admins are restricted to  0.. and may not clear  it. Both restrictions are enforced by  with a 403 on  violation.", alias="initialBoostLevel")
-    __properties: ClassVar[List[str]] = ["name", "isPublic", "initialBoostLevel"]
+    score_shift: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Additive offset applied to displayed scores on the overall scoreboard of this  benchmark.", alias="scoreShift")
+    score_scale: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Multiplicative factor applied to displayed scores (relative to the Bradley-Terry  center) on the overall scoreboard of this benchmark. Must be strictly positive.", alias="scoreScale")
+    __properties: ClassVar[List[str]] = ["name", "isPublic", "initialBoostLevel", "scoreShift", "scoreScale"]
 
     # model_config is inherited from LazyValidatedModel
 
@@ -87,7 +89,9 @@ class UpdateBenchmarkEndpointInput(LazyValidatedModel):
         _data = {
             "name": obj.get("name"),
             "isPublic": obj.get("isPublic"),
-            "initialBoostLevel": obj.get("initialBoostLevel")
+            "initialBoostLevel": obj.get("initialBoostLevel"),
+            "scoreShift": obj.get("scoreShift"),
+            "scoreScale": obj.get("scoreScale")
         }
         try:
             _obj = cls.model_validate(_data)

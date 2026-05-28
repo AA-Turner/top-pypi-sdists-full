@@ -57,6 +57,7 @@ from ..github import (
 )
 from ..github.workflows import (
     JobStep as _JobStep_c3287c05,
+    Step as _Step_da34ecb4,
     Tools as _Tools_75b93a2a,
     Triggers as _Triggers_e9ae7617,
 )
@@ -514,6 +515,436 @@ class IntegrationTestBaseOptions:
 
     def __repr__(self) -> str:
         return "IntegrationTestBaseOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_constructs_77d1e7e8.IMixin)
+class JsiiBuild(metaclass=jsii.JSIIMeta, jsii_type="projen.cdk.JsiiBuild"):
+    '''(experimental) A mixin that adds jsii compilation, multi-language packaging, and publishing capabilities to any TypeScript project.
+
+    This implements the constructs ``IMixin`` interface and is applied using the
+    ``.with()`` method on any construct.
+
+    :stability: experimental
+
+    Example::
+
+        const project = new TypeScriptProject({ disableTsconfig: true, ... });
+        project.with(new JsiiBuild({
+          jsiiVersion: '~5.9.0',
+          publishToMaven: { ... },
+        }));
+    '''
+
+    def __init__(
+        self,
+        options: typing.Optional[typing.Union["JsiiBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        extra_job_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    ) -> None:
+        '''
+        :param options: -
+        :param extra_job_options: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a3d365a2046cc4fa2e3e4e8b0ce65949f7e8db7699085e57fea96c37077a29e)
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+            check_type(argname="argument extra_job_options", value=extra_job_options, expected_type=type_hints["extra_job_options"])
+        jsii.create(self.__class__, self, [options, extra_job_options])
+
+    @jsii.member(jsii_name="applyTo")
+    def apply_to(self, project: "_constructs_77d1e7e8.IConstruct") -> None:
+        '''(experimental) Applies jsii configuration to the target TypeScriptProject.
+
+        :param project: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6afa67929c3fea1cbf4282e942201831ab62334521f3a04118baa97059af2467)
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+        return typing.cast(None, jsii.invoke(self, "applyTo", [project]))
+
+    @jsii.member(jsii_name="supports")
+    def supports(self, construct: "_constructs_77d1e7e8.IConstruct") -> builtins.bool:
+        '''(experimental) Returns true if the construct is a TypeScriptProject.
+
+        :param construct: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5509e68c3c5ab1c4a60ec641860aea13b9a100160f402475f055fe45f87e0c6)
+            check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
+        return typing.cast(builtins.bool, jsii.invoke(self, "supports", [construct]))
+
+
+@jsii.data_type(
+    jsii_type="projen.cdk.JsiiBuildOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "code_artifact_options": "codeArtifactOptions",
+        "compat": "compat",
+        "compat_ignore": "compatIgnore",
+        "compress_assembly": "compressAssembly",
+        "docgen": "docgen",
+        "docgen_file_path": "docgenFilePath",
+        "exclude_typescript": "excludeTypescript",
+        "jsii_version": "jsiiVersion",
+        "npm_trusted_publishing": "npmTrustedPublishing",
+        "publish_to_go": "publishToGo",
+        "publish_to_maven": "publishToMaven",
+        "publish_to_nuget": "publishToNuget",
+        "publish_to_pypi": "publishToPypi",
+        "release_to_npm": "releaseToNpm",
+        "stability": "stability",
+        "workflow_bootstrap_steps": "workflowBootstrapSteps",
+        "workflow_node_version": "workflowNodeVersion",
+        "workspace_directory": "workspaceDirectory",
+    },
+)
+class JsiiBuildOptions:
+    def __init__(
+        self,
+        *,
+        code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_7236977a", typing.Dict[builtins.str, typing.Any]]] = None,
+        compat: typing.Optional[builtins.bool] = None,
+        compat_ignore: typing.Optional[builtins.str] = None,
+        compress_assembly: typing.Optional[builtins.bool] = None,
+        docgen: typing.Optional[builtins.bool] = None,
+        docgen_file_path: typing.Optional[builtins.str] = None,
+        exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
+        jsii_version: typing.Optional[builtins.str] = None,
+        npm_trusted_publishing: typing.Optional[builtins.bool] = None,
+        publish_to_go: typing.Optional[typing.Union["JsiiGoTarget", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_maven: typing.Optional[typing.Union["JsiiJavaTarget", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_nuget: typing.Optional[typing.Union["JsiiDotNetTarget", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_pypi: typing.Optional[typing.Union["JsiiPythonTarget", typing.Dict[builtins.str, typing.Any]]] = None,
+        release_to_npm: typing.Optional[builtins.bool] = None,
+        stability: typing.Optional[builtins.str] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_Step_da34ecb4", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_node_version: typing.Optional[builtins.str] = None,
+        workspace_directory: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Options for ``JsiiBuild``.
+
+        :param code_artifact_options: (experimental) Options for publishing npm package to AWS CodeArtifact. Default: - undefined
+        :param compat: (experimental) Automatically run API compatibility test against the latest version published to npm after compilation. - You can manually run compatibility tests using ``yarn compat`` if this feature is disabled. - You can ignore compatibility failures by adding lines to a ".compatignore" file. Default: false
+        :param compat_ignore: (experimental) Name of the ignore file for API compatibility tests. Default: ".compatignore"
+        :param compress_assembly: (experimental) Emit a compressed version of the assembly. Default: false
+        :param docgen: (experimental) Generate a MarkDown file describing the jsii API. Default: true
+        :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
+        :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
+        :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
+        :param npm_trusted_publishing: (experimental) Whether to use trusted publishing for npm. Default: false
+        :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
+        :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
+        :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
+        :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
+        :param release_to_npm: (experimental) Whether to publish to npm. Default: true
+        :param stability: (experimental) The stability of the package. Default: "stable"
+        :param workflow_bootstrap_steps: (experimental) Additional steps to run before packaging in workflows. Default: []
+        :param workflow_node_version: (experimental) The node version to use in packaging workflows. Default: "lts/*"
+        :param workspace_directory: (experimental) Relative path of the package within the repository. This is used in monorepo setups where the package is not at the root. Packaging steps will extract build artifacts into this subdirectory. Default: "." - root of the repository
+
+        :stability: experimental
+        '''
+        if isinstance(code_artifact_options, dict):
+            code_artifact_options = _CodeArtifactOptions_7236977a(**code_artifact_options)
+        if isinstance(publish_to_go, dict):
+            publish_to_go = JsiiGoTarget(**publish_to_go)
+        if isinstance(publish_to_maven, dict):
+            publish_to_maven = JsiiJavaTarget(**publish_to_maven)
+        if isinstance(publish_to_nuget, dict):
+            publish_to_nuget = JsiiDotNetTarget(**publish_to_nuget)
+        if isinstance(publish_to_pypi, dict):
+            publish_to_pypi = JsiiPythonTarget(**publish_to_pypi)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2be890418c6835b6b4f6b427bf7274ec62dd8b848b74f2b17167b2a513272b3c)
+            check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument compat", value=compat, expected_type=type_hints["compat"])
+            check_type(argname="argument compat_ignore", value=compat_ignore, expected_type=type_hints["compat_ignore"])
+            check_type(argname="argument compress_assembly", value=compress_assembly, expected_type=type_hints["compress_assembly"])
+            check_type(argname="argument docgen", value=docgen, expected_type=type_hints["docgen"])
+            check_type(argname="argument docgen_file_path", value=docgen_file_path, expected_type=type_hints["docgen_file_path"])
+            check_type(argname="argument exclude_typescript", value=exclude_typescript, expected_type=type_hints["exclude_typescript"])
+            check_type(argname="argument jsii_version", value=jsii_version, expected_type=type_hints["jsii_version"])
+            check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
+            check_type(argname="argument publish_to_go", value=publish_to_go, expected_type=type_hints["publish_to_go"])
+            check_type(argname="argument publish_to_maven", value=publish_to_maven, expected_type=type_hints["publish_to_maven"])
+            check_type(argname="argument publish_to_nuget", value=publish_to_nuget, expected_type=type_hints["publish_to_nuget"])
+            check_type(argname="argument publish_to_pypi", value=publish_to_pypi, expected_type=type_hints["publish_to_pypi"])
+            check_type(argname="argument release_to_npm", value=release_to_npm, expected_type=type_hints["release_to_npm"])
+            check_type(argname="argument stability", value=stability, expected_type=type_hints["stability"])
+            check_type(argname="argument workflow_bootstrap_steps", value=workflow_bootstrap_steps, expected_type=type_hints["workflow_bootstrap_steps"])
+            check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
+            check_type(argname="argument workspace_directory", value=workspace_directory, expected_type=type_hints["workspace_directory"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if code_artifact_options is not None:
+            self._values["code_artifact_options"] = code_artifact_options
+        if compat is not None:
+            self._values["compat"] = compat
+        if compat_ignore is not None:
+            self._values["compat_ignore"] = compat_ignore
+        if compress_assembly is not None:
+            self._values["compress_assembly"] = compress_assembly
+        if docgen is not None:
+            self._values["docgen"] = docgen
+        if docgen_file_path is not None:
+            self._values["docgen_file_path"] = docgen_file_path
+        if exclude_typescript is not None:
+            self._values["exclude_typescript"] = exclude_typescript
+        if jsii_version is not None:
+            self._values["jsii_version"] = jsii_version
+        if npm_trusted_publishing is not None:
+            self._values["npm_trusted_publishing"] = npm_trusted_publishing
+        if publish_to_go is not None:
+            self._values["publish_to_go"] = publish_to_go
+        if publish_to_maven is not None:
+            self._values["publish_to_maven"] = publish_to_maven
+        if publish_to_nuget is not None:
+            self._values["publish_to_nuget"] = publish_to_nuget
+        if publish_to_pypi is not None:
+            self._values["publish_to_pypi"] = publish_to_pypi
+        if release_to_npm is not None:
+            self._values["release_to_npm"] = release_to_npm
+        if stability is not None:
+            self._values["stability"] = stability
+        if workflow_bootstrap_steps is not None:
+            self._values["workflow_bootstrap_steps"] = workflow_bootstrap_steps
+        if workflow_node_version is not None:
+            self._values["workflow_node_version"] = workflow_node_version
+        if workspace_directory is not None:
+            self._values["workspace_directory"] = workspace_directory
+
+    @builtins.property
+    def code_artifact_options(self) -> typing.Optional["_CodeArtifactOptions_7236977a"]:
+        '''(experimental) Options for publishing npm package to AWS CodeArtifact.
+
+        :default: - undefined
+
+        :stability: experimental
+        '''
+        result = self._values.get("code_artifact_options")
+        return typing.cast(typing.Optional["_CodeArtifactOptions_7236977a"], result)
+
+    @builtins.property
+    def compat(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Automatically run API compatibility test against the latest version published to npm after compilation.
+
+        - You can manually run compatibility tests using ``yarn compat`` if this feature is disabled.
+        - You can ignore compatibility failures by adding lines to a ".compatignore" file.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("compat")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def compat_ignore(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Name of the ignore file for API compatibility tests.
+
+        :default: ".compatignore"
+
+        :stability: experimental
+        '''
+        result = self._values.get("compat_ignore")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def compress_assembly(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Emit a compressed version of the assembly.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("compress_assembly")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def docgen(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate a MarkDown file describing the jsii API.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("docgen")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def docgen_file_path(self) -> typing.Optional[builtins.str]:
+        '''(experimental) File path for generated docs.
+
+        :default: "API.md"
+
+        :stability: experimental
+        '''
+        result = self._values.get("docgen_file_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def exclude_typescript(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Accepts a list of glob patterns.
+
+        Files matching any of those patterns will be excluded from the TypeScript compiler input.
+
+        By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input.
+        This can be problematic for example when the package's build or test procedure generates .ts files
+        that cannot be compiled with jsii's compiler settings.
+
+        :stability: experimental
+        '''
+        result = self._values.get("exclude_typescript")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def jsii_version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Version of the jsii compiler to use.
+
+        Set to "*" if you want to manually manage the version of jsii in your
+        project by managing updates to ``package.json`` on your own.
+
+        NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned
+        and should remain on the same minor, so we recommend using a ``~`` dependency
+        (e.g. ``~5.0.0``).
+
+        :default: "~5.9.0"
+
+        :stability: experimental
+        :pjnew: "~5.9.0"
+        '''
+        result = self._values.get("jsii_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def npm_trusted_publishing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to use trusted publishing for npm.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("npm_trusted_publishing")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def publish_to_go(self) -> typing.Optional["JsiiGoTarget"]:
+        '''(experimental) Publish Go bindings to a git repository.
+
+        :default: - no publishing
+
+        :stability: experimental
+        '''
+        result = self._values.get("publish_to_go")
+        return typing.cast(typing.Optional["JsiiGoTarget"], result)
+
+    @builtins.property
+    def publish_to_maven(self) -> typing.Optional["JsiiJavaTarget"]:
+        '''(experimental) Publish to maven.
+
+        :default: - no publishing
+
+        :stability: experimental
+        '''
+        result = self._values.get("publish_to_maven")
+        return typing.cast(typing.Optional["JsiiJavaTarget"], result)
+
+    @builtins.property
+    def publish_to_nuget(self) -> typing.Optional["JsiiDotNetTarget"]:
+        '''(experimental) Publish to NuGet.
+
+        :default: - no publishing
+
+        :stability: experimental
+        '''
+        result = self._values.get("publish_to_nuget")
+        return typing.cast(typing.Optional["JsiiDotNetTarget"], result)
+
+    @builtins.property
+    def publish_to_pypi(self) -> typing.Optional["JsiiPythonTarget"]:
+        '''(experimental) Publish to pypi.
+
+        :default: - no publishing
+
+        :stability: experimental
+        '''
+        result = self._values.get("publish_to_pypi")
+        return typing.cast(typing.Optional["JsiiPythonTarget"], result)
+
+    @builtins.property
+    def release_to_npm(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to publish to npm.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_to_npm")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def stability(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The stability of the package.
+
+        :default: "stable"
+
+        :stability: experimental
+        '''
+        result = self._values.get("stability")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def workflow_bootstrap_steps(
+        self,
+    ) -> typing.Optional[typing.List["_Step_da34ecb4"]]:
+        '''(experimental) Additional steps to run before packaging in workflows.
+
+        :default: []
+
+        :stability: experimental
+        '''
+        result = self._values.get("workflow_bootstrap_steps")
+        return typing.cast(typing.Optional[typing.List["_Step_da34ecb4"]], result)
+
+    @builtins.property
+    def workflow_node_version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The node version to use in packaging workflows.
+
+        :default: "lts/*"
+
+        :stability: experimental
+        '''
+        result = self._values.get("workflow_node_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def workspace_directory(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Relative path of the package within the repository.
+
+        This is used in monorepo setups where the package is not at the root.
+        Packaging steps will extract build artifacts into this subdirectory.
+
+        :default: "." - root of the repository
+
+        :stability: experimental
+        '''
+        result = self._values.get("workspace_directory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "JsiiBuildOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -9518,6 +9949,8 @@ __all__ = [
     "IntegrationTestAutoDiscoverBaseOptions",
     "IntegrationTestBase",
     "IntegrationTestBaseOptions",
+    "JsiiBuild",
+    "JsiiBuildOptions",
     "JsiiDocgen",
     "JsiiDocgenOptions",
     "JsiiDotNetTarget",
@@ -9586,6 +10019,49 @@ def _typecheckingstub__7dcdca80859bf80cb9fb647de7e6170902c312a88763e116e53ea6ea8
     entrypoint: builtins.str,
     tsconfig_path: builtins.str,
     name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a3d365a2046cc4fa2e3e4e8b0ce65949f7e8db7699085e57fea96c37077a29e(
+    options: typing.Optional[typing.Union[JsiiBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    extra_job_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6afa67929c3fea1cbf4282e942201831ab62334521f3a04118baa97059af2467(
+    project: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5509e68c3c5ab1c4a60ec641860aea13b9a100160f402475f055fe45f87e0c6(
+    construct: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2be890418c6835b6b4f6b427bf7274ec62dd8b848b74f2b17167b2a513272b3c(
+    *,
+    code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_7236977a, typing.Dict[builtins.str, typing.Any]]] = None,
+    compat: typing.Optional[builtins.bool] = None,
+    compat_ignore: typing.Optional[builtins.str] = None,
+    compress_assembly: typing.Optional[builtins.bool] = None,
+    docgen: typing.Optional[builtins.bool] = None,
+    docgen_file_path: typing.Optional[builtins.str] = None,
+    exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
+    jsii_version: typing.Optional[builtins.str] = None,
+    npm_trusted_publishing: typing.Optional[builtins.bool] = None,
+    publish_to_go: typing.Optional[typing.Union[JsiiGoTarget, typing.Dict[builtins.str, typing.Any]]] = None,
+    publish_to_maven: typing.Optional[typing.Union[JsiiJavaTarget, typing.Dict[builtins.str, typing.Any]]] = None,
+    publish_to_nuget: typing.Optional[typing.Union[JsiiDotNetTarget, typing.Dict[builtins.str, typing.Any]]] = None,
+    publish_to_pypi: typing.Optional[typing.Union[JsiiPythonTarget, typing.Dict[builtins.str, typing.Any]]] = None,
+    release_to_npm: typing.Optional[builtins.bool] = None,
+    stability: typing.Optional[builtins.str] = None,
+    workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_Step_da34ecb4, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workflow_node_version: typing.Optional[builtins.str] = None,
+    workspace_directory: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

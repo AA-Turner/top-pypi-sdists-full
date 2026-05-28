@@ -45,9 +45,11 @@ class Column(ABC):
         *,
         nullable: bool = False,
         primary_key: bool = False,
+        unique: bool = False,
         check: Check | None = None,
         alias: str | None = None,
         metadata: dict[str, Any] | None = None,
+        description: str | None = None,
     ):
         """
         Args:
@@ -55,32 +57,41 @@ class Column(ABC):
                 Explicitly set `nullable=True` if you want your column to be nullable.
             primary_key: Whether this column is part of the primary key of the schema.
                 If `True`, `nullable` is automatically set to `False`.
+            unique: Whether this column must contain unique values. Unlike `primary_key`,
+                this checks uniqueness for this column independently. Multiple columns
+                can each have `unique=True` without forming a composite constraint.
             check: A custom rule or multiple rules to run for this column. This can be:
+
                 - A single callable that returns a non-aggregated boolean expression.
-                The name of the rule is derived from the callable name, or defaults to
-                "check" for lambdas.
+                  The name of the rule is derived from the callable name, or defaults to
+                  "check" for lambdas.
+
                 - A list of callables, where each callable returns a non-aggregated
-                boolean expression. The name of the rule is derived from the callable
-                name, or defaults to "check" for lambdas. Where multiple rules result
-                in the same name, the suffix __i is appended to the name.
+                  boolean expression. The name of the rule is derived from the callable
+                  name, or defaults to "check" for lambdas. Where multiple rules result
+                  in the same name, the suffix __i is appended to the name.
+
                 - A dictionary mapping rule names to callables, where each callable
-                returns a non-aggregated boolean expression.
+                  returns a non-aggregated boolean expression.
+
                 All rule names provided here are given the prefix `"check_"`.
             alias: An overwrite for this column's name which allows for using a column
                 name that is not a valid Python identifier. Especially note that setting
                 this option does _not_ allow to refer to the column with two different
                 names, the specified alias is the only valid name.
             metadata: A dictionary of metadata to attach to the column.
+            description: A human-readable description of the column.
         """
-
         if nullable and primary_key:
             raise ValueError("Nullable primary key columns are not supported.")
 
         self.nullable = nullable
         self.primary_key = primary_key
+        self.unique = unique
         self.check = check
         self.alias = alias
         self.metadata = metadata
+        self.description = description
         # The name may be overridden by the schema on column access.
         self._name = ""
 
@@ -126,6 +137,9 @@ class Column(ABC):
         result = {}
         if not self.nullable:
             result["nullability"] = expr.is_not_null()
+
+        if self.unique:
+            result["unique"] = expr.is_unique()
 
         if self.check is not None:
             if isinstance(self.check, Mapping):
@@ -198,6 +212,7 @@ class Column(ABC):
             self.sqlalchemy_dtype(dialect),
             nullable=self.nullable,
             primary_key=self.primary_key,
+            unique=self.unique,
             autoincrement=False,
         )
 
@@ -265,7 +280,10 @@ class Column(ABC):
         Returns:
             A dictionary of kwargs to pass to pydantic.Field.
         """
-        return {}
+        kwargs: dict[str, Any] = {}
+        if self.description is not None:
+            kwargs["description"] = self.description
+        return kwargs
 
     # ------------------------------------ HELPER ------------------------------------ #
 
@@ -350,6 +368,17 @@ class Column(ABC):
         """
         return self.with_properties(metadata=metadata)
 
+    def with_description(self, description: str) -> Self:
+        """Return a new column definition with the specified description.
+
+        Args:
+            description: A human-readable description of the column.
+
+        Returns:
+            A new column instance with the specified description.
+        """
+        return self.with_properties(description=description)
+
     # ----------------------------------- SAMPLING ----------------------------------- #
 
     def sample(self, generator: Generator, n: int = 1) -> pl.Series:
@@ -424,7 +453,7 @@ class Column(ABC):
                     else getattr(self, param)
                 )
                 for param in inspect.signature(self.__class__.__init__).parameters
-                if param not in ("self", "alias")
+                if param not in ("self", "alias", "description")
             },
         }
 
@@ -473,8 +502,9 @@ class Column(ABC):
             for attr in attributes.parameters
             # NOTE: We do not want to compare the `alias` here as the comparison should
             #  only evaluate the type and its constraints. Names are checked in
-            #  :meth:`Schema.matches`.
-            if attr not in ("self", "alias")
+            #  :meth:`Schema.matches`. The `description` is also excluded as it is
+            #  human-readable documentation rather than a semantic constraint.
+            if attr not in ("self", "alias", "description")
         )
 
     def _attributes_match(
@@ -494,7 +524,9 @@ class Column(ABC):
                 self.__class__.__init__
             ).parameters.items()
             if attribute
-            not in ["self", "alias"]  # alias is always equal to the column name here
+            # alias is always equal to the column name here; description is
+            # human-readable documentation rather than a semantic constraint
+            not in ["self", "alias", "description"]
             and not (
                 # Do not include attributes that are set to their default value
                 getattr(self, attribute) == param_details.default

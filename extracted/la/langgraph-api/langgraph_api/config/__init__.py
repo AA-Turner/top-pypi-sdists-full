@@ -45,6 +45,16 @@ DATABASE_URI = env("DATABASE_URI", cast=str, default=getenv("POSTGRES_URI", unde
 # Not in public docs: infrastructure, set by platform
 MIGRATIONS_PATH = env("MIGRATIONS_PATH", cast=str, default="/storage/migrations")
 POSTGRES_POOL_MAX_SIZE = env("LANGGRAPH_POSTGRES_POOL_MAX_SIZE", cast=int, default=150)
+CHECKPOINTER_POSTGRES_POOL_MIN_SIZE = env(
+    "LANGGRAPH_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE",
+    cast=int,
+    default=1,
+)
+CHECKPOINTER_POSTGRES_POOL_TIMEOUT_SECONDS = env(
+    "LANGGRAPH_CHECKPOINTER_POSTGRES_POOL_TIMEOUT_SECONDS",
+    cast=float,
+    default=15.0,
+)
 
 # Checkpoint ingestion batch controls
 # Go defaults (core/config/config.go): CHECKPOINT_MAX_BATCH_SIZE=1000, CHECKPOINT_BATCH_DELAY=0.005 (5ms)
@@ -182,6 +192,21 @@ LSD_GRPC_SERVER_MAX_SEND_MSG_BYTES = env(
     "LSD_GRPC_SERVER_MAX_SEND_MSG_BYTES", cast=int, default=300 * 1024 * 1024
 )
 LSD_PUBLISH_QUEUE_SIZE = env("LSD_PUBLISH_QUEUE_SIZE", cast=int, default=512)
+# Per-run protocol v2 event buffer size. Each ``EventStreamingSession``
+# retains at most this many normalized protocol events for
+# reconnecting clients to replay via the body ``since`` cursor.
+# When the limit is exceeded, oldest events are evicted; reconnects
+# whose cursor falls behind the buffer head receive a ``resume_gap``
+# error. Operators running graphs that emit >10k events per run can
+# bump this to avoid gaps on flaky networks, at the cost of memory
+# (roughly ``size * avg_event_bytes`` per active run). See
+# ``langgraph_api.event_streaming.constants.DEFAULT_MAX_BUFFER_SIZE``.
+_DEFAULT_PROTOCOL_V2_BUFFER_SIZE = 10_000
+LSD_PROTOCOL_V2_BUFFER_SIZE = env(
+    "LSD_PROTOCOL_V2_BUFFER_SIZE",
+    cast=int,
+    default=_DEFAULT_PROTOCOL_V2_BUFFER_SIZE,
+)
 # Not in public docs: infrastructure, set by platform
 GRPC_CLIENT_MAX_RECV_MSG_BYTES = env(
     "GRPC_CLIENT_MAX_RECV_MSG_BYTES", cast=int, default=300 * 1024 * 1024
@@ -601,6 +626,8 @@ __all__ = [
     "BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS",
     "BG_JOB_TIMEOUT_SECS",
     "CHECKPOINTER_CONFIG",
+    "CHECKPOINTER_POSTGRES_POOL_MIN_SIZE",
+    "CHECKPOINTER_POSTGRES_POOL_TIMEOUT_SECONDS",
     "CHECKPOINT_BATCH_DELAY",
     "CHECKPOINT_MAX_BATCH_SIZE",
     "CORS_ALLOW_ORIGINS",

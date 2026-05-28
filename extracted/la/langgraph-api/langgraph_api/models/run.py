@@ -15,6 +15,7 @@ from langgraph_api.encryption.middleware import encrypt_request
 from langgraph_api.encryption.shared import (
     using_custom_encryption,
 )
+from langgraph_api.event_streaming.constants import EVENT_STREAMING_V2_CONFIG_KEY
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.graph import (
     GRAPHS,
@@ -231,6 +232,24 @@ async def create_valid_run(
             status_code=400,
             detail="Cannot specify both configurable and context. Prefer setting context alone. Context was introduced in LangGraph 0.6.0 and is the long term planned replacement for configurable.",
         )
+
+    # ``tools`` and ``lifecycle`` are emitted only by the protocol v2
+    # streaming pipeline (``stream_v2.py`` / ``StreamMessagesHandlerV2``
+    # plus the registered stream transformers). Accepting them on legacy
+    # streaming routes would either no-op (``lifecycle``, never emitted
+    # without a transformer) or leak v2-shaped events into v1 consumers
+    # (``tools``). Reject up front so callers get a clear 422 instead of
+    # a silently empty stream.
+    if not configurable.get(EVENT_STREAMING_V2_CONFIG_KEY):
+        v2_only = {"tools", "lifecycle"}.intersection(stream_mode)
+        if v2_only:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"stream_mode entries {sorted(v2_only)!r} are only "
+                    "supported on the v2 event streaming endpoints."
+                ),
+            )
 
     # Keep config and context in sync for user provided params
     if context:

@@ -86,6 +86,7 @@ from .literals import (
     PidModeType,
     PlacementConstraintTypeType,
     PlacementStrategyTypeType,
+    PlatformDeviceTypeType,
     PropagateMITagsType,
     PropagateTagsType,
     ResourceManagementTypeType,
@@ -1572,7 +1573,7 @@ PlatformDeviceTypeDef = TypedDict(
     "PlatformDeviceTypeDef",
     {
         "id": str,
-        "type": Literal["GPU"],
+        "type": PlatformDeviceTypeType,
     },
 )
 
@@ -1930,6 +1931,7 @@ class ContainerTypeDef(TypedDict):
     memory: NotRequired[str]
     memoryReservation: NotRequired[str]
     gpuIds: NotRequired[list[str]]
+    neuronDeviceIds: NotRequired[list[str]]
 
 
 class ContinueServiceDeploymentResponseTypeDef(TypedDict):

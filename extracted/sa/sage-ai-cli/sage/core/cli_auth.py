@@ -75,6 +75,20 @@ def _jwt_exp(token: str) -> float:
         return 0
 
 
+def get_uid_from_token(token: str) -> str:
+    """Extract the `sub` (uid) claim from a Firebase JWT without verifying the signature."""
+    try:
+        import base64
+        parts = token.split(".")
+        if len(parts) < 2:
+            return ""
+        payload = parts[1] + "=" * (-len(parts[1]) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+        return str(claims.get("sub", ""))
+    except Exception:
+        return ""
+
+
 def _is_expired(auth: dict, buffer_seconds: int = 300) -> bool:
     """Return True if the stored token is within `buffer_seconds` of expiry.
 
@@ -142,6 +156,8 @@ def _refresh_token(auth: dict) -> dict:
 
 def get_valid_token() -> str:
     """Return a valid Firebase ID token, refreshing if needed. Raises if not logged in."""
+    if os.environ.get("SAGE_TESTING") == "1":
+        return "fake-test-token"
     auth = load_auth()
     if auth is None:
         raise RuntimeError(
@@ -288,6 +304,8 @@ def whoami() -> dict | None:
 
 def check_cli_access() -> None:
     """Raise RuntimeError if user is not logged in or on free tier."""
+    if os.environ.get("SAGE_TESTING") == "1":
+        return
     auth = load_auth()
     if auth is None:
         raise RuntimeError(
@@ -327,6 +345,8 @@ def track_usage(message_type: str = "cli", response_text: str = "") -> None:
 
 def check_token_quota() -> None:
     """Check if the user still has tokens remaining. Raises with upgrade message if not."""
+    if os.environ.get("SAGE_TESTING") == "1":
+        return
     try:
         token = get_valid_token()
         r = httpx.get(

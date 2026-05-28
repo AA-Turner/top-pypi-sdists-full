@@ -7,11 +7,9 @@ from functools import reduce
 from django import http
 from django.contrib.admin.utils import lookup_spawns_duplicates
 from django.contrib.auth import get_permission_codename
-from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db.models import Q
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed
 from django.template.loader import render_to_string
-from django.utils.translation import gettext_lazy as _
 from django.views.generic.list import BaseListView
 
 
@@ -78,6 +76,21 @@ class BaseQuerySetView(ViewMixin, BaseListView):
     split_words = None
     template = None
     validate_create = None
+    case_sensitive_create = False
+
+    def _should_show_create(self, context, q):
+        if not self.create_field or not q:
+            return False
+        page_obj = context.get('page_obj')
+        if page_obj and page_obj.number != 1:
+            return False
+        if not self.has_add_permission(self.request):
+            return False
+        q_lower = q.lower()
+        labels = [self.get_result_label(r) for r in context['object_list']]
+        if self.case_sensitive_create:
+            return q not in labels
+        return not any(label.lower() == q_lower for label in labels)
 
     def has_more(self, context):
         """For widgets that have infinite-scroll feature."""
@@ -170,37 +183,24 @@ class BaseQuerySetView(ViewMixin, BaseListView):
         codename = get_permission_codename('add', opts)
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
-    def post(self, request, *args, **kwargs):
-        """
-        Create an object given a text after checking permissions.
+    def _post(self, request):
+        """Common POST logic shared by all autocomplete backends.
 
-        Runs self.validate() if self.validate_create is True.
+        Returns the created object on success, or an HttpResponse for early
+        exits (forbidden / bad request / method not allowed).
+        Raises ValidationError when validate_create is set — callers are
+        responsible for formatting the error response for their own frontend.
         """
         if not self.has_add_permission(request):
             return http.HttpResponseForbidden()
-
         if not self.create_field:
-            raise ImproperlyConfigured('Missing "create_field"')
-
+            return http.HttpResponse(status=405)
         text = request.POST.get('text', None)
-
         if text is None:
             return http.HttpResponseBadRequest()
-
         if self.validate_create:
-            try:
-                self.validate(text)
-            except ValidationError as error:
-                if self.create_field in error.message_dict:
-                    msg = error.message_dict.get(self.create_field, _('Error'))
-                    return http.JsonResponse(dict(error=msg))
-
-        result = self.create_object(text)
-
-        return http.JsonResponse({
-            'id': self.get_result_value(result),
-            'text': self.get_selected_result_label(result),
-        })
+            self.validate(text)  # raises ValidationError — caller handles it
+        return self.create_object(text)
 
     def validate(self, text):
         """

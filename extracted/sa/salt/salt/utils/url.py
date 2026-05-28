@@ -4,7 +4,7 @@ URL utils
 
 import re
 import sys
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, urlunsplit
 
 import salt.utils.data
 import salt.utils.path
@@ -44,15 +44,8 @@ def create(path, saltenv=None):
     if salt.utils.platform.is_windows():
         path = salt.utils.path.sanitize_win_path(path)
     path = salt.utils.data.decode(path)
-
-    # Build salt:// URLs directly. The previous approach used
-    # ``urlunparse(("file", "", path, ...))`` and stripped a ``file:///``
-    # prefix; for relative paths like ``ssh_state_tests.sls`` that yields
-    # ``file:ssh_state_tests.sls``, which ``urlparse`` treats as host ``ssh``
-    # and path ``_state_tests.sls``, breaking ``salt://`` resolution.
-    if saltenv:
-        return f"salt://{path}?saltenv={saltenv}"
-    return f"salt://{path}"
+    query = f"saltenv={saltenv}" if saltenv else ""
+    return f'salt://{salt.utils.data.decode(urlunsplit(("", "", path, query, "")))}'
 
 
 def is_escaped(url):

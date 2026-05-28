@@ -1478,6 +1478,37 @@ def _argument_starts_with_command(arg: str) -> bool:
     return bool(_NESTED_COMMAND_RE.match(arg or ""))
 
 
+def strip_markdown_fences(content: str) -> str:
+    """Strip starting and trailing markdown code block fences from content."""
+    lines = content.splitlines()
+    if not lines:
+        return content
+
+    start_idx = 0
+    # Strip leading empty lines
+    while start_idx < len(lines) and not lines[start_idx].strip():
+        start_idx += 1
+
+    if start_idx < len(lines) and lines[start_idx].strip().startswith("```"):
+        start_idx += 1  # Skip the starting fence
+    else:
+        start_idx = 0  # No starting fence found, start from beginning
+
+    # Find the trailing fence
+    end_idx = len(lines) - 1
+    # Strip trailing empty lines
+    while end_idx >= start_idx and not lines[end_idx].strip():
+        end_idx -= 1
+
+    if end_idx >= start_idx and lines[end_idx].strip() == "```":
+        end_idx -= 1  # Skip the trailing fence
+    else:
+        end_idx = len(lines) - 1  # No trailing fence found, end at the last line
+
+    content_lines = lines[start_idx:end_idx + 1]
+    return "\n".join(content_lines)
+
+
 def parse_tool_command(text: str) -> ToolCall | None:
     """Parse a tool command and return a ToolCall.
 
@@ -1498,6 +1529,7 @@ def parse_tool_command(text: str) -> ToolCall | None:
         if _argument_starts_with_command(path):
             return None
         content = "\n".join(lines[1:]) if len(lines) > 1 else ""
+        content = strip_markdown_fences(content)
         if path:
             return ToolCall(
                 tool_type=ToolType.FILE,
@@ -1610,6 +1642,7 @@ def parse_tool_commands(text: str) -> list[ToolCall]:
                 i += 1
 
             content = "\n".join(content_lines)
+            content = strip_markdown_fences(content)
             calls.append(
                 ToolCall(
                     tool_type=ToolType.FILE,

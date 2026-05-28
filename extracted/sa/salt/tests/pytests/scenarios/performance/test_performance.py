@@ -80,6 +80,26 @@ def prev_master(
         "user": "root",
     }
     config_overrides = {
+        "worker_pools_enabled": True,
+        "worker_pools": {
+            "fast": {
+                "worker_count": 2,
+                "commands": [
+                    "test.ping",
+                    "test.echo",
+                    "test.fib",
+                    "grains.items",
+                    "sys.doc",
+                    "pillar.items",
+                    "runner.test.arg",
+                    "auth",
+                ],
+            },
+            "general": {
+                "worker_count": 3,
+                "commands": ["*"],
+            },
+        },
         "open_mode": True,
         "interface": "0.0.0.0",
         "publish_port": ports.get_unused_localhost_port(),
@@ -150,6 +170,26 @@ def prev_minion(
     prev_container_image,
 ):
     config_overrides = {
+        "worker_pools_enabled": True,
+        "worker_pools": {
+            "fast": {
+                "worker_count": 2,
+                "commands": [
+                    "test.ping",
+                    "test.echo",
+                    "test.fib",
+                    "grains.items",
+                    "sys.doc",
+                    "pillar.items",
+                    "runner.test.arg",
+                    "auth",
+                ],
+            },
+            "general": {
+                "worker_count": 3,
+                "commands": ["*"],
+            },
+        },
         "master": prev_master.id,
         "open_mode": True,
         "user": "root",
@@ -218,7 +258,7 @@ def _install_salt_in_container(container):
         "pip",
         "install",
         "-r",
-        f"/salt/requirements/static/pkg/py{requirements_py_version}/linux.txt",
+        f"/salt/requirements/static/pkg/py{requirements_py_version}/linux.lock",
     )
     log.debug("Install Salt package requirements in the container: %s", ret)
     assert ret.returncode == 0, ret.stderr
@@ -229,7 +269,7 @@ def _install_salt_in_container(container):
         "-m",
         "pip",
         "install",
-        f"--constraint=/salt/requirements/static/ci/py{requirements_py_version}/linux.txt",
+        f"--constraint=/salt/requirements/static/ci/py{requirements_py_version}/linux.lock",
         "/salt",
     )
     log.debug("Install Salt in the container: %s", ret)
@@ -262,6 +302,26 @@ def curr_master(
     publish_port = ports.get_unused_localhost_port()
     ret_port = ports.get_unused_localhost_port()
     config_overrides = {
+        "worker_pools_enabled": True,
+        "worker_pools": {
+            "fast": {
+                "worker_count": 2,
+                "commands": [
+                    "test.ping",
+                    "test.echo",
+                    "test.fib",
+                    "grains.items",
+                    "sys.doc",
+                    "pillar.items",
+                    "runner.test.arg",
+                    "auth",
+                ],
+            },
+            "general": {
+                "worker_count": 3,
+                "commands": ["*"],
+            },
+        },
         "open_mode": True,
         "interface": "0.0.0.0",
         "publish_port": publish_port,
@@ -333,6 +393,26 @@ def curr_minion(
     curr_container_image,
 ):
     config_overrides = {
+        "worker_pools_enabled": True,
+        "worker_pools": {
+            "fast": {
+                "worker_count": 2,
+                "commands": [
+                    "test.ping",
+                    "test.echo",
+                    "test.fib",
+                    "grains.items",
+                    "sys.doc",
+                    "pillar.items",
+                    "runner.test.arg",
+                    "auth",
+                ],
+            },
+            "general": {
+                "worker_count": 3,
+                "commands": ["*"],
+            },
+        },
         "master": curr_master.id,
         "open_mode": True,
         "user": "root",
@@ -395,6 +475,7 @@ def perf_state_name(state_tree, curr_master, prev_master):
     return subdir
 
 
+@pytest.mark.skip("GREAT MODULE MIGRATION")
 def test_performance(
     prev_salt_cli,
     prev_minion,

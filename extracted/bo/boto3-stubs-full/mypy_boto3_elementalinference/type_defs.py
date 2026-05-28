@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_elementalinference.type_defs import ResponseMetadataTypeDef
+    from mypy_boto3_elementalinference.type_defs import AspectRatioTypeDef
 
-    data: ResponseMetadataTypeDef = ...
+    data: AspectRatioTypeDef = ...
     ```
 """
 
@@ -20,7 +20,14 @@ import sys
 from collections.abc import Mapping, Sequence
 from typing import Any, Union
 
-from .literals import FeedStatusType, OutputStatusType
+from .literals import (
+    DictionaryLanguageType,
+    DictionaryStatusType,
+    FeedStatusType,
+    OutputStatusType,
+    ProfanityFilterModeType,
+    TranscriptionLanguageType,
+)
 
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
@@ -29,23 +36,36 @@ else:
 
 
 __all__ = (
+    "AspectRatioTypeDef",
     "AssociateFeedRequestTypeDef",
     "AssociateFeedResponseTypeDef",
     "ClippingConfigTypeDef",
+    "CreateDictionaryRequestTypeDef",
+    "CreateDictionaryResponseTypeDef",
     "CreateFeedRequestTypeDef",
     "CreateFeedResponseTypeDef",
     "CreateOutputTypeDef",
+    "DeleteDictionaryRequestTypeDef",
+    "DeleteDictionaryResponseTypeDef",
     "DeleteFeedRequestTypeDef",
     "DeleteFeedResponseTypeDef",
+    "DictionarySummaryTypeDef",
     "DisassociateFeedRequestTypeDef",
     "DisassociateFeedResponseTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "ExportDictionaryEntriesRequestTypeDef",
+    "ExportDictionaryEntriesResponseTypeDef",
     "FeedAssociationTypeDef",
     "FeedSummaryTypeDef",
+    "GetDictionaryRequestTypeDef",
+    "GetDictionaryResponseTypeDef",
     "GetFeedRequestTypeDef",
     "GetFeedRequestWaitTypeDef",
     "GetFeedResponseTypeDef",
     "GetOutputTypeDef",
+    "ListDictionariesRequestPaginateTypeDef",
+    "ListDictionariesRequestTypeDef",
+    "ListDictionariesResponseTypeDef",
     "ListFeedsRequestPaginateTypeDef",
     "ListFeedsRequestTypeDef",
     "ListFeedsResponseTypeDef",
@@ -56,13 +76,21 @@ __all__ = (
     "OutputConfigUnionTypeDef",
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
+    "SubtitlingConfigTypeDef",
     "TagResourceRequestTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateDictionaryRequestTypeDef",
+    "UpdateDictionaryResponseTypeDef",
     "UpdateFeedRequestTypeDef",
     "UpdateFeedResponseTypeDef",
     "UpdateOutputTypeDef",
     "WaiterConfigTypeDef",
 )
+
+
+class AspectRatioTypeDef(TypedDict):
+    width: int
+    height: int
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -77,14 +105,37 @@ class ClippingConfigTypeDef(TypedDict):
     callbackMetadata: NotRequired[str]
 
 
+class CreateDictionaryRequestTypeDef(TypedDict):
+    name: str
+    language: DictionaryLanguageType
+    entries: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
 class FeedAssociationTypeDef(TypedDict):
     associatedResourceName: str
 
 
+DeleteDictionaryRequestTypeDef = TypedDict(
+    "DeleteDictionaryRequestTypeDef",
+    {
+        "id": str,
+    },
+)
 DeleteFeedRequestTypeDef = TypedDict(
     "DeleteFeedRequestTypeDef",
     {
         "id": str,
+    },
+)
+DictionarySummaryTypeDef = TypedDict(
+    "DictionarySummaryTypeDef",
+    {
+        "arn": str,
+        "id": str,
+        "name": str,
+        "language": DictionaryLanguageType,
+        "status": DictionaryStatusType,
     },
 )
 DisassociateFeedRequestTypeDef = TypedDict(
@@ -93,6 +144,18 @@ DisassociateFeedRequestTypeDef = TypedDict(
         "id": str,
         "associatedResourceName": str,
         "dryRun": NotRequired[bool],
+    },
+)
+ExportDictionaryEntriesRequestTypeDef = TypedDict(
+    "ExportDictionaryEntriesRequestTypeDef",
+    {
+        "id": str,
+    },
+)
+GetDictionaryRequestTypeDef = TypedDict(
+    "GetDictionaryRequestTypeDef",
+    {
+        "id": str,
     },
 )
 GetFeedRequestTypeDef = TypedDict(
@@ -114,6 +177,11 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 
+class ListDictionariesRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListFeedsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -133,11 +201,51 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 
+UpdateDictionaryRequestTypeDef = TypedDict(
+    "UpdateDictionaryRequestTypeDef",
+    {
+        "id": str,
+        "name": NotRequired[str],
+        "language": NotRequired[DictionaryLanguageType],
+        "entries": NotRequired[str],
+    },
+)
+
+
+class SubtitlingConfigTypeDef(TypedDict):
+    language: TranscriptionLanguageType
+    aspectRatio: NotRequired[AspectRatioTypeDef]
+    dictionary: NotRequired[str]
+    profanityFilter: NotRequired[ProfanityFilterModeType]
+
+
 AssociateFeedResponseTypeDef = TypedDict(
     "AssociateFeedResponseTypeDef",
     {
         "arn": str,
         "id": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+CreateDictionaryResponseTypeDef = TypedDict(
+    "CreateDictionaryResponseTypeDef",
+    {
+        "name": str,
+        "arn": str,
+        "id": str,
+        "language": DictionaryLanguageType,
+        "status": DictionaryStatusType,
+        "references": list[str],
+        "tags": dict[str, str],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+DeleteDictionaryResponseTypeDef = TypedDict(
+    "DeleteDictionaryResponseTypeDef",
+    {
+        "arn": str,
+        "id": str,
+        "status": DictionaryStatusType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -164,21 +272,44 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ExportDictionaryEntriesResponseTypeDef(TypedDict):
+    entries: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+GetDictionaryResponseTypeDef = TypedDict(
+    "GetDictionaryResponseTypeDef",
+    {
+        "name": str,
+        "arn": str,
+        "id": str,
+        "language": DictionaryLanguageType,
+        "status": DictionaryStatusType,
+        "references": list[str],
+        "tags": dict[str, str],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class OutputConfigOutputTypeDef(TypedDict):
-    cropping: NotRequired[dict[str, Any]]
-    clipping: NotRequired[ClippingConfigTypeDef]
-
-
-class OutputConfigTypeDef(TypedDict):
-    cropping: NotRequired[Mapping[str, Any]]
-    clipping: NotRequired[ClippingConfigTypeDef]
-
-
+UpdateDictionaryResponseTypeDef = TypedDict(
+    "UpdateDictionaryResponseTypeDef",
+    {
+        "name": str,
+        "arn": str,
+        "id": str,
+        "language": DictionaryLanguageType,
+        "status": DictionaryStatusType,
+        "references": list[str],
+        "tags": dict[str, str],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 FeedSummaryTypeDef = TypedDict(
     "FeedSummaryTypeDef",
     {
@@ -189,6 +320,14 @@ FeedSummaryTypeDef = TypedDict(
         "association": NotRequired[FeedAssociationTypeDef],
     },
 )
+
+
+class ListDictionariesResponseTypeDef(TypedDict):
+    dictionaries: list[DictionarySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 GetFeedRequestWaitTypeDef = TypedDict(
     "GetFeedRequestWaitTypeDef",
     {
@@ -198,8 +337,30 @@ GetFeedRequestWaitTypeDef = TypedDict(
 )
 
 
+class ListDictionariesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListFeedsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class OutputConfigOutputTypeDef(TypedDict):
+    cropping: NotRequired[dict[str, Any]]
+    clipping: NotRequired[ClippingConfigTypeDef]
+    subtitling: NotRequired[SubtitlingConfigTypeDef]
+
+
+class OutputConfigTypeDef(TypedDict):
+    cropping: NotRequired[Mapping[str, Any]]
+    clipping: NotRequired[ClippingConfigTypeDef]
+    subtitling: NotRequired[SubtitlingConfigTypeDef]
+
+
+class ListFeedsResponseTypeDef(TypedDict):
+    feeds: list[FeedSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class GetOutputTypeDef(TypedDict):
@@ -211,14 +372,6 @@ class GetOutputTypeDef(TypedDict):
 
 
 OutputConfigUnionTypeDef = Union[OutputConfigTypeDef, OutputConfigOutputTypeDef]
-
-
-class ListFeedsResponseTypeDef(TypedDict):
-    feeds: list[FeedSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
 CreateFeedResponseTypeDef = TypedDict(
     "CreateFeedResponseTypeDef",
     {

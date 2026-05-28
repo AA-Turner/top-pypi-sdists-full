@@ -15,8 +15,10 @@ async def _validate_hello(container: DockerContainer) -> None:
         await container.start()
         response = await container.wait()
         assert response["StatusCode"] == 0
-        await asyncio.sleep(5)  # wait for output in case of slow test container
-        logs = await container.log(stdout=True)
+        # Stream with follow=True so the daemon flushes all output before EOF;
+        # the container has already exited so this returns as soon as the log
+        # buffer drains rather than blocking on a fixed sleep.
+        logs = [line async for line in container.log(stdout=True, follow=True)]
         assert "hello\n" in logs
 
         with pytest.raises(TypeError):
@@ -168,6 +170,36 @@ async def test_container_stats_stream(docker: Docker, image_name: str) -> None:
 @pytest.mark.asyncio
 async def test_resize(shell_container: DockerContainer) -> None:
     await shell_container.resize(w=120, h=10)
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="docker top is not supported on Windows"
+)
+@pytest.mark.asyncio
+async def test_top(shell_container: DockerContainer) -> None:
+    result = await shell_container.top()
+    assert "Titles" in result
+    assert "Processes" in result
+    assert isinstance(result["Titles"], list)
+    assert isinstance(result["Processes"], list)
+    assert len(result["Processes"]) >= 1
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="docker top is not supported on Windows"
+)
+@pytest.mark.asyncio
+async def test_top_with_ps_args(shell_container: DockerContainer) -> None:
+    result = await shell_container.top(ps_args="-ef")
+    assert "Titles" in result
+    assert "Processes" in result
+    assert isinstance(result["Titles"], list)
+    assert len(result["Titles"]) > 0
+    assert isinstance(result["Processes"], list)
+    assert len(result["Processes"]) >= 1
+    # Each row should have one cell per column title.
+    for row in result["Processes"]:
+        assert len(row) == len(result["Titles"])
 
 
 @pytest.mark.skipif(
@@ -502,3 +534,13 @@ async def test_prune_containers_nothing_to_remove(docker: Docker) -> None:
     assert "SpaceReclaimed" in result
     assert result["ContainersDeleted"] is None
     assert isinstance(result["SpaceReclaimed"], int)
+
+
+def test_container_contains() -> None:
+    """`in` operator must reflect underlying dict membership."""
+    container = DockerContainer.__new__(DockerContainer)
+    container._container = {"Id": "abc", "State": {"Running": True}}
+
+    assert "Id" in container
+    assert "State" in container
+    assert "Missing" not in container

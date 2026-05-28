@@ -12,10 +12,12 @@ import sys
 import sysconfig
 import warnings
 from collections import OrderedDict
+from itertools import product
 from string import digits
 from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple
 
 if TYPE_CHECKING:
+    import tkinter as tk
     from collections.abc import Generator, Mapping
 
     from ._cache import PyInfoCache
@@ -72,6 +74,7 @@ class PythonInfo:  # noqa: PLR0904
         self.version = sys.version
         self.os = os.name
         self.free_threaded = sysconfig.get_config_var("Py_GIL_DISABLED") == 1
+        self.debug_build = bool(sysconfig.get_config_var("Py_DEBUG"))
 
     def _init_prefixes(self) -> None:
         def abs_path(value: str | None) -> str | None:
@@ -165,41 +168,36 @@ class PythonInfo:  # noqa: PLR0904
             try:
                 tcl = tk.Tcl()
                 tcl_lib = tcl.eval("info library")
-
-                # Try to get TK library path directly first
-                try:
-                    tk_lib = tcl.eval("set tk_library")
-                    if tk_lib and os.path.isdir(tk_lib):
-                        pass  # We found it directly
-                    else:
-                        tk_lib = None  # Reset if invalid
-                except tk.TclError:
-                    tk_lib = None
-
-                # If direct query failed, try constructing the path
-                if tk_lib is None:
-                    tk_version = tcl.eval("package require Tk")
-                    tcl_parent = os.path.dirname(tcl_lib)
-
-                    # Try different version formats
-                    version_variants = [
-                        tk_version,  # Full version like "8.6.12"
-                        ".".join(tk_version.split(".")[:2]),  # Major.minor like "8.6"
-                        tk_version.split(".")[0],  # Just major like "8"
-                    ]
-
-                    for version in version_variants:
-                        tk_lib_path = os.path.join(tcl_parent, f"tk{version}")
-                        if not os.path.isdir(tk_lib_path):
-                            continue
-                        if os.path.exists(os.path.join(tk_lib_path, "tk.tcl")):
-                            tk_lib = tk_lib_path
-                            break
-
+                tk_lib = PythonInfo._resolve_tk_lib(tcl, tcl_lib)
             except tk.TclError:
                 pass
 
         return tcl_lib, tk_lib
+
+    @staticmethod
+    def _query_tk_library(tcl: tk.Tk) -> str | None:  # pragma: no cover
+        """Try to get the TK library path directly from Tcl."""
+        import tkinter as tk  # noqa: PLC0415
+
+        try:
+            if (tk_lib := tcl.eval("set tk_library")) and os.path.isdir(tk_lib):
+                return tk_lib
+        except tk.TclError:
+            pass
+        return None
+
+    @staticmethod
+    def _resolve_tk_lib(tcl: tk.Tk, tcl_lib: str) -> str | None:  # pragma: no cover
+        """Resolve the TK library path by direct query or path construction."""
+        if (tk_lib := PythonInfo._query_tk_library(tcl)) is not None:
+            return tk_lib
+        tk_version = tcl.eval("package require Tk")
+        tcl_parent = os.path.dirname(tcl_lib)
+        for version in (tk_version, ".".join(tk_version.split(".")[:2]), tk_version.split(".")[0]):
+            tk_lib_path = os.path.join(tcl_parent, f"tk{version}")
+            if os.path.isdir(tk_lib_path) and os.path.exists(os.path.join(tk_lib_path, "tk.tcl")):
+                return tk_lib_path
+        return None
 
     def _fast_get_system_executable(self) -> str | None:
         """Try to get the system executable by just looking at properties."""
@@ -408,10 +406,11 @@ class PythonInfo:  # noqa: PLR0904
     @property
     def spec(self) -> str:
         """A specification string identifying this interpreter (e.g. ``CPython3.13.2-64-arm64``)."""
-        return "{}{}{}-{}-{}".format(
+        return "{}{}{}{}-{}-{}".format(
             self.implementation,
             ".".join(str(i) for i in self.version_info),
             "t" if self.free_threaded else "",
+            "d" if self.debug_build else "",
             self.architecture,
             self.machine,
         )
@@ -735,17 +734,14 @@ class PythonInfo:  # noqa: PLR0904
 
     def _find_possible_exe_names(self) -> list[str]:
         name_candidate = OrderedDict()
+        mods = ["", "t"] if self.free_threaded else [""]
+        debug_suffixes = ["_d", ""] if self.debug_build else [""]
+        archs = [f"-{self.architecture}", ""]
         for name in self._possible_base():
             for at in (3, 2, 1, 0):
                 version = ".".join(str(i) for i in self.version_info[:at])
-                mods = [""]
-                if self.free_threaded:
-                    mods.append("t")
-                for mod in mods:
-                    for arch in [f"-{self.architecture}", ""]:
-                        for ext in EXTENSIONS:
-                            candidate = f"{name}{version}{mod}{arch}{ext}"
-                            name_candidate[candidate] = None
+                for mod, debug, arch, ext in product(mods, debug_suffixes, archs, EXTENSIONS):
+                    name_candidate[f"{name}{version}{mod}{debug}{arch}{ext}"] = None
         return list(name_candidate.keys())
 
     def _possible_base(self) -> Generator[str, None, None]:

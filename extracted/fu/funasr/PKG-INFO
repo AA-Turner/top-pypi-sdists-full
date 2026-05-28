@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: funasr
-Version: 1.3.5
+Version: 1.3.7
 Summary: Industrial-grade speech recognition: 170x realtime, 50+ languages, speaker diarization, emotion detection.
 Home-page: https://github.com/modelscope/FunASR
 Author: Speech Lab of Alibaba Group
@@ -32,23 +32,28 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: scipy>=1.4.1
 Requires-Dist: librosa
-Requires-Dist: jamo
-Requires-Dist: PyYAML>=5.1.2
 Requires-Dist: soundfile>=0.12.1
-Requires-Dist: kaldiio>=2.17.0
-Requires-Dist: torch_complex
-Requires-Dist: sentencepiece
-Requires-Dist: jieba
-Requires-Dist: pytorch_wpe
-Requires-Dist: editdistance>=0.5.2
-Requires-Dist: oss2
+Requires-Dist: numpy
+Requires-Dist: PyYAML>=5.1.2
 Requires-Dist: tqdm
-Requires-Dist: umap_learn
-Requires-Dist: jaconv
-Requires-Dist: hydra-core>=1.3.2
-Requires-Dist: tensorboardX
 Requires-Dist: requests
+Requires-Dist: omegaconf>=2.0
+Requires-Dist: hydra-core>=1.3.2
 Requires-Dist: modelscope
+Requires-Dist: huggingface_hub
+Requires-Dist: safetensors
+Requires-Dist: transformers
+Requires-Dist: tiktoken
+Requires-Dist: sentencepiece
+Requires-Dist: kaldiio>=2.17.0
+Requires-Dist: jieba
+Requires-Dist: jamo
+Requires-Dist: jaconv
+Requires-Dist: umap_learn
+Requires-Dist: editdistance>=0.5.2
+Requires-Dist: torch_complex
+Requires-Dist: tensorboardX
+Requires-Dist: oss2
 Provides-Extra: train
 Requires-Dist: editdistance; extra == "train"
 Provides-Extra: all
@@ -149,6 +154,7 @@ Dynamic: summary
 No local setup? Open the [Colab quickstart](./examples/colab/) to transcribe a public sample or upload your own audio in a browser.
 
 ```bash
+pip install torch torchaudio
 pip install funasr
 ```
 
@@ -240,7 +246,7 @@ pip install funasr
 git clone https://github.com/modelscope/FunASR.git && cd FunASR
 pip install -e ./
 ```
-Requirements: Python ≥ 3.8, PyTorch ≥ 1.13, torchaudio
+Requirements: Python ≥ 3.8. Install PyTorch + torchaudio first ([pytorch.org](https://pytorch.org/get-started/locally/)), then `pip install funasr`.
 
 </details>
 
@@ -298,8 +304,9 @@ result = model.generate(input="audio.wav", granularity="utterance")
 
 ```bash
 # OpenAI-compatible API (recommended)
-pip install funasr fastapi uvicorn python-multipart
-funasr-server --model sensevoice --device cuda
+pip install torch torchaudio
+pip install funasr vllm fastapi uvicorn python-multipart
+funasr-server --device cuda
 # → POST /v1/audio/transcriptions at localhost:8000
 ```
 

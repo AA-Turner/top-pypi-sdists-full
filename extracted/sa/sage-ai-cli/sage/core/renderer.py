@@ -1193,15 +1193,13 @@ def _detect_bad_streaming_patterns(
     return False, ""
 
 
-_no_color_enabled = (
-    bool(os.environ.get("NO_COLOR"))
-    or os.environ.get("TERM") == "dumb"
-    or not sys.stdout.isatty()
-)
+_stdout_encoding = getattr(sys.stdout, "encoding", None) or ""
+_encoding_is_modern = _stdout_encoding.lower().replace("-", "") in ("utf8", "utf-8", "utf16", "utf32", "cp65001")
+
+_no_color_enabled = False
 _suppress_spinners = not sys.stdout.isatty() or _no_color_enabled
 _use_unicode = (
     not bool(os.environ.get("SAGE_ASCII"))
-    and not _no_color_enabled
     and hasattr(sys.stdout, "encoding")
     and sys.stdout.encoding is not None
     and sys.stdout.encoding.lower().replace("-", "") in ("utf8", "utf-8", "utf16", "utf32", "cp65001")
@@ -1422,6 +1420,14 @@ class SysStreamProxy:
         return getattr(sys, self.stream_name)
 
     def write(self, data: str) -> int:
+        if is_repl_active():
+            try:
+                from prompt_toolkit import print_formatted_text
+                from prompt_toolkit.formatted_text import ANSI
+                print_formatted_text(ANSI(data), end="", flush=True)
+                return len(data)
+            except Exception:
+                pass
         return self._stream.write(data)
 
     def flush(self) -> None:
@@ -1434,11 +1440,16 @@ class SysStreamProxy:
 def _build_console(*, stderr: bool = False) -> Console:
     stream_name = "stderr" if stderr else "stdout"
     is_a_tty = getattr(sys, stream_name).isatty()
+    _stdout_encoding = getattr(sys.stdout, "encoding", None) or ""
+    _encoding_is_modern = _stdout_encoding.lower().replace("-", "") in ("utf8", "utf-8", "utf16", "utf32", "cp65001")
     no_color = (
         _no_color_enabled 
         or bool(os.environ.get("NO_COLOR")) 
-        or os.environ.get("TERM") == "dumb"
+        or bool(os.environ.get("SAGE_NO_COLOR"))
+        or bool(os.environ.get("SAGE_ASCII"))
+        or os.environ.get("TERM") in (None, "", "dumb")
         or (not is_a_tty and not os.environ.get("FORCE_COLOR"))
+        or not _encoding_is_modern
     )
     if _bottom_dock_stream is not None:
         return Console(
@@ -1446,10 +1457,11 @@ def _build_console(*, stderr: bool = False) -> Console:
             stderr=False,
             no_color=no_color,
             color_system=None if no_color else "auto",
+            highlight=False if no_color else True,
         )
     stream = SysStreamProxy(stream_name)
     if no_color:
-        return Console(file=stream, no_color=True)
+        return Console(file=stream, no_color=True, highlight=False)
     return Console(file=stream)
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mailosaur
-Version: 8.1.0
+Version: 8.1.1
 Summary: The Mailosaur Python library lets you integrate email and SMS testing into your continuous integration process.
 Home-page: https://github.com/mailosaur/mailosaur-python
 Author: Mailosaur Ltd
@@ -63,7 +63,7 @@ This guide provides several key sections:
 
 - [Mailosaur - Python library · ](#mailosaur---python-library--)
   - [Get Started](#get-started)
-  - [Installation](#installation)
+    - [Installation](#installation)
     - [Set your API key](#set-your-api-key)
     - [Create your code](#create-your-code)
     - [API Reference](#api-reference)
@@ -71,6 +71,7 @@ This guide provides several key sections:
   - [Test email addresses with Mailosaur](#test-email-addresses-with-mailosaur)
   - [Find an email](#find-an-email)
     - [What is this code doing?](#what-is-this-code-doing)
+    - [My email wasn't found](#my-email-wasnt-found)
   - [Find an SMS message](#find-an-sms-message)
   - [Testing plain text content](#testing-plain-text-content)
     - [Extracting verification codes from plain text](#extracting-verification-codes-from-plain-text)
@@ -79,6 +80,7 @@ This guide provides several key sections:
   - [Working with hyperlinks](#working-with-hyperlinks)
     - [Links in plain text (including SMS messages)](#links-in-plain-text-including-sms-messages)
   - [Working with attachments](#working-with-attachments)
+    - [Writing an attachment to disk](#writing-an-attachment-to-disk)
   - [Working with images and web beacons](#working-with-images-and-web-beacons)
     - [Remotely-hosted images](#remotely-hosted-images)
     - [Triggering web beacons](#triggering-web-beacons)
@@ -90,9 +92,9 @@ You can find the full [Mailosaur documentation](https://mailosaur.com/docs/) on 
 
 If you get stuck, just contact us at support@mailosaur.com.
 
-## Installation
+### Installation
 
-```
+```sh
 pip install --upgrade mailosaur
 ```
 
@@ -118,17 +120,17 @@ mailosaur = MailosaurClient()
 This library is powered by the Mailosaur [email & SMS testing API](https://mailosaur.com/docs/api/). You can easily check out the API itself by looking at our [API reference documentation](https://mailosaur.com/docs/api/) or via our Postman or Insomnia collections:
 
 [![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/6961255-6cc72dff-f576-451a-9023-b82dec84f95d?action=collection%2Ffork&collection-url=entityId%3D6961255-6cc72dff-f576-451a-9023-b82dec84f95d%26entityType%3Dcollection%26workspaceId%3D386a4af1-4293-4197-8f40-0eb49f831325)
- [![Run in Insomnia}](https://insomnia.rest/images/run.svg)](https://insomnia.rest/run/?label=Mailosaur&uri=https%3A%2F%2Fmailosaur.com%2Finsomnia.json)
+ [![Run in Insomnia](https://insomnia.rest/images/run.svg)](https://insomnia.rest/run/?label=Mailosaur&uri=https%3A%2F%2Fmailosaur.com%2Finsomnia.json)
 
 ## Creating an account
 
 Create a [free trial account](https://mailosaur.com/app/signup) for Mailosaur via the website.
 
-Once you have this, navigate to the [API tab](https://mailosaur.com/app/project/api) to find the following values:
+To start testing you'll need three things:
 
-- **Server ID** - Servers act like projects, which group your tests together. You need this ID whenever you interact with a server via the API.
-- **Server Domain** - Every server has its own domain name. You'll need this to send email to your server.
-- **API Key** - You can create an API key per server (recommended), or an account-level API key to use across your whole account. [Learn more about API keys](https://mailosaur.com/docs/managing-your-account/api-keys/).
+- **API key** - [manage API keys within the Mailosaur Dashboard](https://mailosaur.com/app/keys). You can scope a key to a single inbox (server) — recommended — or create an account-level key. [Learn more about API keys](https://mailosaur.com/docs/managing-your-account/api-keys/).
+- **Inbox (server) domain** - open [your inbox](https://mailosaur.com/app/servers/default) (server) within the Mailosaur Dashboard to see its domain name (e.g. `abc123.mailosaur.net`). You'll need this to send email to the inbox (server).
+- **Inbox (server) ID** - the first part of the inbox (server) domain. For `abc123.mailosaur.net` the ID is `abc123`. You need this whenever you interact with the inbox (server) via the API.
 
 ## Test email addresses with Mailosaur
 
@@ -136,13 +138,13 @@ Mailosaur gives you an **unlimited number of test email addresses** - with no se
 
 Here's how it works:
 
-* When you create an account, you are given a server.
-* Every server has its own **Server Domain** name (e.g. `abc123.mailosaur.net`)
+* When you create an account, you are given an inbox (server).
+* Every inbox (server) has its own domain name (e.g. `abc123.mailosaur.net`)
 * Any email address that ends with `@{YOUR_SERVER_DOMAIN}` will work with Mailosaur without any special setup. For example:
   * `build-423@abc123.mailosaur.net`
   * `john.smith@abc123.mailosaur.net`
   * `rAnDoM63423@abc123.mailosaur.net`
-* You can create more servers when you need them. Each one will have its own domain name.
+* You can create more inboxes (servers) when you need them. Each one will have its own domain name.
 
 ***Can't use test email addresses?** You can also [use SMTP to test email](https://mailosaur.com/docs/email-testing/sending-to-mailosaur/#sending-via-smtp). By connecting your product or website to Mailosaur via SMTP, Mailosaur will catch all email your application sends, regardless of the email address.*
 
@@ -156,7 +158,6 @@ from mailosaur.models import SearchCriteria
 
 mailosaur = MailosaurClient()
 
-# See https://mailosaur.com/app/project/api
 server_id = "abc123"
 server_domain = "abc123.mailosaur.net"
 
@@ -171,8 +172,25 @@ print(email.subject) # "Hello world!"
 ### What is this code doing?
 
 1. Sets up an instance of `MailosaurClient` using the `MAILOSAUR_API_KEY` environment variable.
-2. Waits for an email to arrive at the server with ID `abc123`.
+2. Waits for an email to arrive at the inbox (server) with ID `abc123`.
 3. Outputs the subject line of the email.
+
+### My email wasn't found
+
+First, check that the email you sent is visible in the [Mailosaur Dashboard](https://mailosaur.com/app/project/messages).
+
+If it is, the likely reason is that by default, `messages.get` only searches emails received by Mailosaur in the last 1 hour. You can override this behavior (see the `received_after` argument below), however we only recommend doing this during setup, as your tests will generally run faster with the default settings:
+
+```py
+from datetime import datetime
+
+email = mailosaur.messages.get(
+    server_id,
+    criteria,
+    # Override received_after to search all messages since Jan 1st
+    received_after=datetime(2021, 1, 1)
+)
+```
 
 ## Find an SMS message
 
@@ -186,7 +204,6 @@ from mailosaur.models import SearchCriteria
 
 mailosaur = MailosaurClient()
 
-# See https://mailosaur.com/app/project/api
 server_id = "abc123"
 server_domain = "abc123.mailosaur.net"
 
@@ -211,18 +228,15 @@ if "Jason" in message.text.body:
 
 ### Extracting verification codes from plain text
 
-You may have an email or SMS message that contains an account verification code, or some other one-time passcode. You can extract content like this using a simple regex.
-
-Here is how to extract a 6-digit numeric code:
+You may have an email or SMS message that contains an account verification code, or some other one-time passcode. Mailosaur automatically extracts these for you and makes them available via the `codes` array on the message content:
 
 ```py
 print(message.text.body) # "Your access code is 243546."
 
-match = re.search("([0-9]{6})", message.text.body)
-print(match.group()) # "243546"
+print(message.text.codes[0].value) # "243546"
 ```
 
-[Read more](https://mailosaur.com/docs/test-cases/text-content/)
+[Read more](https://mailosaur.com/docs/automation/codes)
 
 ## Testing HTML content
 
@@ -234,7 +248,7 @@ print(message.html.body) # "<html><head ..."
 
 ### Working with HTML using Beautiful Soup
 
-If you need to traverse the HTML content of an email. For example, finding an element via a CSS selector, you can use the [Beautiful Soup](https://pypi.org/project/beautifulsoup4/) library.
+If you need to traverse the HTML content of an email — for example, finding an element via a CSS selector — you can use the [Beautiful Soup](https://pypi.org/project/beautifulsoup4/) library.
 
 ```sh
 pip install beautifulsoup4
@@ -247,7 +261,7 @@ from bs4 import BeautifulSoup
 
 dom = BeautifulSoup(message.html.body, 'html.parser')
 
-el = dom.find('.verification-code')
+el = dom.select_one('.verification-code')
 verification_code = el.text
 
 print(verification_code) # "542163"
@@ -270,7 +284,7 @@ print(first_link.text) # "Google Search"
 print(first_link.href) # "https://www.google.com/"
 ```
 
-**Important:** To ensure you always have valid emails. Mailosaur only extracts links that have been correctly marked up with `<a>` or `<area>` tags.
+**Important:** To ensure you always have valid emails, Mailosaur only extracts links that have been correctly marked up with `<a>` or `<area>` tags.
 
 ### Links in plain text (including SMS messages)
 
@@ -308,6 +322,17 @@ first_attachment = message.attachments[0]
 print(first_attachment.length) # 4028
 ```
 
+### Writing an attachment to disk
+
+```py
+first_attachment = message.attachments[1]
+
+response = mailosaur.files.get_attachment(first_attachment.id)
+with open(first_attachment.file_name, 'wb') as f:
+    for chunk in response:
+        f.write(chunk)
+```
+
 ## Working with images and web beacons
 
 The `html.images` property of a message contains an array of images found within the HTML content of an email. The length of this array corresponds to the number of images found within an email:
@@ -339,7 +364,7 @@ import requests
 
 # ...
 
-const image = message.html.images[0]
+image = message.html.images[0]
 print(image.src) # "https://example.com/s.png?abc123"
 
 # Make an HTTP call to trigger the web beacon

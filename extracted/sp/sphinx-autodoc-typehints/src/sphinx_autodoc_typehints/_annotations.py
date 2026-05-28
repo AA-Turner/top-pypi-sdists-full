@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 
     from sphinx.config import Config
 
+from typing import TypeAliasType
+
 _PYDATA_ANNOTS_TYPING = {
     "Any",
     "AnyStr",
@@ -101,6 +103,29 @@ def format_annotation(annotation: Any, config: Config, *, short_literals: bool =
         if isinstance(annotation, MyTypeAliasForwardRef) and annotation.crossref:
             return f":py:type:`{prefix}{annotation.name}`"
         return annotation.name
+
+    if isinstance(annotation, TypeAliasType):
+        fully_qualified: bool = getattr(config, "typehints_fully_qualified", False)
+        prefix = "" if fully_qualified else "~"
+        if (env := getattr(config, "_typehints_env", None)) is not None:
+            py_domain = env.get_domain("py")
+            module_prefix = getattr(config, "_typehints_module_prefix", "")
+            prefix_parts = module_prefix.split(".") if module_prefix else []
+            # Walk up the module prefix to find a matching type in the py domain
+            candidates = [
+                f"{'.'.join(prefix_parts[:n])}.{annotation.__name__}" for n in range(len(prefix_parts), 0, -1)
+            ]
+            candidates.append(annotation.__name__)
+            for candidate in candidates:
+                if candidate in py_domain.objects and py_domain.objects[candidate].objtype == "type":
+                    return f":py:type:`{prefix}{candidate}`"
+            # Handle external type aliases
+            canonical = _get_canonical_type_alias_name(annotation)
+            current_top = module_prefix.split(".")[0] if module_prefix else ""
+            if canonical and canonical.split(".")[0] != current_top:
+                full_name = _fixup_module_name(config, canonical.rpartition(".")[0]) + "." + annotation.__name__
+                return f":py:obj:`{prefix}{full_name}`"
+        return format_annotation(annotation.__value__, config, short_literals=short_literals)
 
     try:
         module = get_annotation_module(annotation)
@@ -290,6 +315,34 @@ def _get_types_type(obj: Any) -> str | None:
 
 def _is_newtype(annotation: Any) -> bool:
     return isinstance(annotation, NewType)
+
+
+def _get_canonical_type_alias_name(annotation: TypeAliasType) -> str:
+    """
+    Get canonical public qualified name for a TypeAliasType.
+
+    For types defined in private modules (e.g. ``numpy._typing.ArrayLike``),
+    search ``sys.modules`` for a public re-export
+    (e.g. ``numpy.typing.ArrayLike``).
+    """
+    module = getattr(annotation, "__module__", "") or ""
+    name = getattr(annotation, "__name__", "") or ""
+    if not module or not name:
+        return ""
+    if not any(part.startswith("_") for part in module.split(".")):
+        return f"{module}.{name}"
+    top_pkg = module.split(".")[0]
+    for mod_name in sorted(sys.modules):
+        if not mod_name.startswith(top_pkg):
+            continue
+        mod = sys.modules[mod_name]
+        if not isinstance(mod, types.ModuleType):
+            continue
+        if any(part.startswith("_") for part in mod_name.split(".")):
+            continue
+        if getattr(mod, name, None) is annotation:
+            return f"{mod_name}.{name}"
+    return f"{module}.{name}"
 
 
 def unescape(escaped: str) -> str:

@@ -24,7 +24,8 @@ class ScheduledAggregateBackfill:
         name: str,
         features: Collection[FeatureReference],
         schedule: CronTab | Duration,
-        target: AggregateBackfillTarget,
+        target: AggregateBackfillTarget | None = None,
+        targets: Collection[AggregateBackfillTarget] | None = None,
         query_tags: Collection[str] | None = None,
         resource_group: str | None = None,
         lower_bound: datetime | None = None,
@@ -48,11 +49,32 @@ class ScheduledAggregateBackfill:
                 f"Scheduled aggregate backfill '{name}' was instantiated with an empty set of features. At least one feature is required."
             )
 
-        if not isinstance(target, AggregateBackfillTarget):  # type: ignore[arg-type]
-            self.errors.append(
-                f"Scheduled aggregate backfill '{name}' was instantiated with invalid target '{target}'. Use AggregateBackfillTarget.ONLINE or AggregateBackfillTarget.OFFLINE."
+        resolved_targets: Collection[AggregateBackfillTarget]
+        if target is not None:
+            resolved_targets = [target]
+        elif targets is not None:
+            resolved_targets = targets
+        else:
+            raise TypeError(
+                "ScheduledAggregateBackfill requires exactly one of the keyword-only arguments 'target' or 'targets'"
             )
-        elif allow_empty_tiles and target != AggregateBackfillTarget.OFFLINE:
+
+        if target is not None and targets is not None:
+            raise TypeError(
+                "ScheduledAggregateBackfill requires exactly one of the keyword-only arguments 'target' or 'targets', but got both"
+            )
+        elif targets is not None and len(targets) == 0:
+            self.errors.append(
+                f"Scheduled aggregate backfill '{name}' was instantiated with an empty targets list, but at least one of AggregateBackfillTarget.ONLINE or AggregateBackfillTarget.OFFLINE is required"
+            )
+
+        for t in resolved_targets:  # type: ignore
+            if not isinstance(t, AggregateBackfillTarget):  # type: ignore[arg-type]
+                self.errors.append(
+                    f"Scheduled aggregate backfill '{name}' was instantiated with invalid target '{target}'. Use AggregateBackfillTarget.ONLINE or AggregateBackfillTarget.OFFLINE."
+                )
+
+        if allow_empty_tiles and AggregateBackfillTarget.OFFLINE not in resolved_targets:
             self.errors.append(
                 f"Scheduled aggregate backfill '{name}' was instantiated with allow_empty_tiles=True. Use AggregateBackfillTarget.OFFLINE when allowing empty tiles."
             )
@@ -74,6 +96,7 @@ class ScheduledAggregateBackfill:
         self.features = list(dict.fromkeys(str(feature) for feature in features))
         self.schedule = schedule
         self.target = target
+        self.targets = resolved_targets
         self.query_tags = list(query_tags) if query_tags is not None else None
         self.resource_group = resource_group
         self.lower_bound = lower_bound

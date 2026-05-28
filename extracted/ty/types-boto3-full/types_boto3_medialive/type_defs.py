@@ -69,6 +69,7 @@ from .literals import (
     BurnInOutlineColorType,
     BurnInShadowColorType,
     BurnInTeletextGridControlType,
+    CaptionSynchronizationModeType,
     CdiInputResolutionType,
     ChannelAlertStateType,
     ChannelClassType,
@@ -386,6 +387,7 @@ __all__ = (
     "AudioDescriptionOutputTypeDef",
     "AudioDescriptionTypeDef",
     "AudioDolbyEDecodeTypeDef",
+    "AudioFeedInputTypeDef",
     "AudioHlsRenditionSelectionTypeDef",
     "AudioLanguageSelectionTypeDef",
     "AudioNormalizationSettingsTypeDef",
@@ -926,6 +928,7 @@ __all__ = (
     "SdiSourceSummaryTypeDef",
     "SdiSourceTypeDef",
     "SignalMapSummaryTypeDef",
+    "SmartSubtitleSourceSettingsTypeDef",
     "Smpte2110ReceiverGroupOutputTypeDef",
     "Smpte2110ReceiverGroupSdpSettingsOutputTypeDef",
     "Smpte2110ReceiverGroupSdpSettingsTypeDef",
@@ -1155,6 +1158,11 @@ class AudioDolbyEDecodeTypeDef(TypedDict):
     ProgramSelection: DolbyEProgramSelectionType
 
 
+class AudioFeedInputTypeDef(TypedDict):
+    AudioSelectorName: NotRequired[str]
+    FeedInput: NotRequired[str]
+
+
 class AudioHlsRenditionSelectionTypeDef(TypedDict):
     GroupId: str
     Name: str
@@ -1319,6 +1327,11 @@ class Scte27SourceSettingsTypeDef(TypedDict):
     Pid: NotRequired[int]
 
 
+class SmartSubtitleSourceSettingsTypeDef(TypedDict):
+    CaptionSynchronizationMode: NotRequired[CaptionSynchronizationModeType]
+    InferenceFeedOutput: NotRequired[str]
+
+
 class CdiInputSpecificationTypeDef(TypedDict):
     Resolution: NotRequired[CdiInputResolutionType]
 
@@ -1349,10 +1362,6 @@ class ChannelEngineVersionResponseTypeDef(TypedDict):
 class DescribeAnywhereSettingsTypeDef(TypedDict):
     ChannelPlacementGroupId: NotRequired[str]
     ClusterId: NotRequired[str]
-
-
-class DescribeInferenceSettingsTypeDef(TypedDict):
-    FeedArn: NotRequired[str]
 
 
 class InputSpecificationTypeDef(TypedDict):
@@ -1457,10 +1466,6 @@ class CreateChannelPlacementGroupRequestTypeDef(TypedDict):
     Nodes: NotRequired[Sequence[str]]
     RequestId: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
-
-
-class InferenceSettingsTypeDef(TypedDict):
-    FeedArn: NotRequired[str]
 
 
 class MaintenanceCreateSettingsTypeDef(TypedDict):
@@ -2906,6 +2911,16 @@ class AudioCodecSettingsTypeDef(TypedDict):
     Mp2Settings: NotRequired[Mp2SettingsTypeDef]
     PassThroughSettings: NotRequired[Mapping[str, Any]]
     WavSettings: NotRequired[WavSettingsTypeDef]
+
+
+class DescribeInferenceSettingsTypeDef(TypedDict):
+    FeedArn: NotRequired[str]
+    AudioFeedInputs: NotRequired[list[AudioFeedInputTypeDef]]
+
+
+class InferenceSettingsTypeDef(TypedDict):
+    FeedArn: NotRequired[str]
+    AudioFeedInputs: NotRequired[Sequence[AudioFeedInputTypeDef]]
 
 
 class AudioOnlyHlsSettingsTypeDef(TypedDict):
@@ -4645,6 +4660,7 @@ class CaptionSelectorSettingsOutputTypeDef(TypedDict):
     Scte20SourceSettings: NotRequired[Scte20SourceSettingsTypeDef]
     Scte27SourceSettings: NotRequired[Scte27SourceSettingsTypeDef]
     TeletextSourceSettings: NotRequired[TeletextSourceSettingsTypeDef]
+    SmartSubtitleSourceSettings: NotRequired[SmartSubtitleSourceSettingsTypeDef]
 
 
 class CaptionSelectorSettingsTypeDef(TypedDict):
@@ -4655,6 +4671,7 @@ class CaptionSelectorSettingsTypeDef(TypedDict):
     Scte20SourceSettings: NotRequired[Scte20SourceSettingsTypeDef]
     Scte27SourceSettings: NotRequired[Scte27SourceSettingsTypeDef]
     TeletextSourceSettings: NotRequired[TeletextSourceSettingsTypeDef]
+    SmartSubtitleSourceSettings: NotRequired[SmartSubtitleSourceSettingsTypeDef]
 
 
 class CreateClusterRequestTypeDef(TypedDict):

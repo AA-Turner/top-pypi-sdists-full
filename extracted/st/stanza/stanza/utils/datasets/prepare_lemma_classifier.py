@@ -1,3 +1,4 @@
+from collections import namedtuple
 import os
 import sys
 
@@ -9,8 +10,13 @@ from stanza.utils.conll import CoNLL
 
 SECTIONS = ("train", "dev", "test")
 
-def process_treebank(paths, short_name, word, upos, allowed_lemmas, sections=SECTIONS):
-    treebank = short_name_to_treebank(short_name)
+Target = namedtuple("Target", "word upos filename")
+
+def process_treebank(paths, short_name, word, upos, allowed_lemmas, sections=SECTIONS, dataset_to_use=None):
+    if dataset_to_use is None:
+        treebank = short_name_to_treebank(short_name)
+    else:
+        treebank = short_name_to_treebank(dataset_to_use)
     udbase_dir = paths["UDBASE"]
 
     output_dir = paths["LEMMA_CLASSIFIER_DATA_DIR"]
@@ -32,6 +38,18 @@ def process_treebank(paths, short_name, word, upos, allowed_lemmas, sections=SEC
 
     return output_filenames
 
+def convert_en_combined_docs(docs, target_word, target_upos):
+    sentences = [ [], [], [] ]
+
+    for section_docs, section_sentences in zip(docs, sentences):
+        for filename, doc in section_docs:
+            processor = prepare_dataset.DataProcessor(target_word=target_word, target_upos=target_upos, allowed_lemmas=".*")
+            new_sentences = processor.process_document(doc, save_name=None)
+            print("Extracted %d sentences from %s" % (len(new_sentences), filename))
+            section_sentences.extend(new_sentences)
+
+    return sentences
+
 def process_en_combined(paths, short_name):
     udbase_dir = paths["UDBASE"]
     output_dir = paths["LEMMA_CLASSIFIER_DATA_DIR"]
@@ -40,31 +58,29 @@ def process_en_combined(paths, short_name):
     train_treebanks = ["UD_English-EWT", "UD_English-GUM", "UD_English-GUMReddit", "UD_English-LinES"]
     test_treebanks = ["UD_English-PUD", "UD_English-Pronouns"]
 
-    target_word = "'s"
-    target_upos = ["AUX"]
-
-    sentences = [ [], [], [] ]
+    docs = [ [], [], [] ]
     for treebank in train_treebanks:
         for section_idx, section in enumerate(SECTIONS):
             filename = find_treebank_dataset_file(treebank, udbase_dir, section, "conllu", fail=True)
             doc = CoNLL.conll2doc(filename)
-            processor = prepare_dataset.DataProcessor(target_word=target_word, target_upos=target_upos, allowed_lemmas=".*")
-            new_sentences = processor.process_document(doc, save_name=None)
-            print("Read %d sentences from %s" % (len(new_sentences), filename))
-            sentences[section_idx].extend(new_sentences)
+            docs[section_idx].append((filename, doc))
+            print("Loaded %s" % filename)
     for treebank in test_treebanks:
         section = "test"
         filename = find_treebank_dataset_file(treebank, udbase_dir, section, "conllu", fail=True)
         doc = CoNLL.conll2doc(filename)
-        processor = prepare_dataset.DataProcessor(target_word=target_word, target_upos=target_upos, allowed_lemmas=".*")
-        new_sentences = processor.process_document(doc, save_name=None)
-        print("Read %d sentences from %s" % (len(new_sentences), filename))
-        sentences[2].extend(new_sentences)
+        # only test set for these documents
+        docs[2].append((filename, doc))
+        print("Loaded %s" % filename)
 
-    for section, section_sentences in zip(SECTIONS, sentences):
-        output_filename = os.path.join(output_dir, "%s.%s.lemma" % (short_name, section))
-        prepare_dataset.DataProcessor.write_output_file(output_filename, target_upos, section_sentences)
-        print("Wrote %s sentences to %s" % (len(section_sentences), output_filename))
+    for target_word, target_upos, target_filename in DATASET_TARGETS["en_combined"]:
+        print("Processing %s_%s" % (target_word, target_upos))
+        sentences = convert_en_combined_docs(docs, target_word, target_upos)
+
+        for section, section_sentences in zip(SECTIONS, sentences):
+            output_filename = os.path.join(output_dir, "%s.%s.%s.lemma" % (short_name, target_filename, section))
+            prepare_dataset.DataProcessor.write_output_file(output_filename, target_upos, section_sentences)
+            print("Wrote %s sentences to %s" % (len(section_sentences), output_filename))
 
 def process_ja_gsd(paths, short_name):
     # this one looked promising, but only has 10 total dev & test cases
@@ -79,7 +95,8 @@ def process_ja_gsd(paths, short_name):
     upos = "AUX"
     allowed_lemmas = None
 
-    process_treebank(paths, short_name, word, upos, allowed_lemmas)
+    # both the base GSD and 'ja_combined' with extra training sentences will use the ja_gsd dataset
+    process_treebank(paths, short_name, word, upos, allowed_lemmas, dataset_to_use='ja_gsd')
 
 def process_fa_perdt(paths, short_name):
     word = "شد"
@@ -125,20 +142,27 @@ DATASET_MAPPING = {
     "en_combined":       process_en_combined,
     "fa_perdt":          process_fa_perdt,
     "hi_hdtb":           process_hi_hdtb,
+    "ja_combined":       process_ja_gsd,
     "ja_gsd":            process_ja_gsd,
 }
 
+DATASET_TARGETS = {
+    "en_combined":       [
+        Target("'s",  "AUX",  "s"),   # since we don't want filenames with 's
+        Target("her", "PRON", "her"),
+    ]
+}
 
 def main(dataset_name):
     paths = get_default_paths()
-    print("Processing %s" % dataset_name)
+    print("Processing lemma_classifier %s" % dataset_name)
 
     # obviously will want to multiplex to multiple languages / datasets
     if dataset_name in DATASET_MAPPING:
         DATASET_MAPPING[dataset_name](paths, dataset_name)
     else:
         raise UnknownDatasetError(dataset_name, f"dataset {dataset_name} currently not handled by prepare_lemma_classifier.py")
-    print("Done processing %s" % dataset_name)
+    print("Done processing lemma_classifier %s" % dataset_name)
 
 if __name__ == '__main__':
     main(sys.argv[1])

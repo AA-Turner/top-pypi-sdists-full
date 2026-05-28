@@ -286,6 +286,7 @@ class ListSpanRequest(_message.Message):
         "max_duration_us",
         "attribute_filters",
         "span_kind",
+        "resource_attribute_filters",
     )
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -300,6 +301,7 @@ class ListSpanRequest(_message.Message):
     MAX_DURATION_US_FIELD_NUMBER: _ClassVar[int]
     ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
     SPAN_KIND_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
     trace_id: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -313,6 +315,7 @@ class ListSpanRequest(_message.Message):
     max_duration_us: int
     attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
     span_kind: ChalkSpanKind
+    resource_attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
     def __init__(
         self,
         trace_id: _Optional[str] = ...,
@@ -328,6 +331,7 @@ class ListSpanRequest(_message.Message):
         max_duration_us: _Optional[int] = ...,
         attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
         span_kind: _Optional[_Union[ChalkSpanKind, str]] = ...,
+        resource_attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
     ) -> None: ...
 
 class ListSpanResponse(_message.Message):

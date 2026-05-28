@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dask-image
-Version: 2025.11.0
+Version: 2026.5.0
 Summary: Distributed image processing
 Author: dask-image contributors. see https://github.com/dask/dask-image/graphs/contributors
 License: BSD-3-Clause
@@ -21,12 +21,14 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: dask[array,dataframe]>=2024.4.1
+Requires-Dist: dask[array]>=2024.4.1
 Requires-Dist: numpy>=1.18
 Requires-Dist: scipy>=1.7.0
-Requires-Dist: pandas>=2.0.0
 Requires-Dist: pims>=0.4.1
-Requires-Dist: tifffile>=2018.10.18
+Requires-Dist: tifffile>=2020.10.1
+Provides-Extra: dataframe
+Requires-Dist: dask[dataframe]>=2024.4.1; extra == "dataframe"
+Requires-Dist: pandas>=2.0.0; extra == "dataframe"
 Provides-Extra: test
 Requires-Dist: build>=1.2.1; extra == "test"
 Requires-Dist: coverage>=7.2.1; extra == "test"

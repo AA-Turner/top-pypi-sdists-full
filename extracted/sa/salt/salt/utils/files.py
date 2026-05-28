@@ -12,6 +12,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.parse
@@ -701,7 +702,13 @@ def rm_rf(path):
                 path = salt.utils.stringutils.to_unicode(path)
             except TypeError:
                 pass
-        shutil.rmtree(path, onerror=_onerror)
+        # shutil.rmtree renamed onerror -> onexc in Py 3.12 (callback now
+        # receives the exception object instead of a (type, value, tb) tuple).
+        # Our callback uses a bare ``raise`` so it works for both call shapes.
+        # Build the kwarg dynamically so pylint linting on a single Python
+        # version does not flag the other version's kwarg name.
+        kw = {"onexc" if sys.version_info >= (3, 12) else "onerror": _onerror}
+        shutil.rmtree(path, **kw)
 
 
 @jinja_filter("is_empty")
@@ -721,7 +728,8 @@ def is_fcntl_available(check_sunos=False):
     Simple function to check if the ``fcntl`` module is available or not.
 
     If ``check_sunos`` is passed as ``True`` an additional check to see if host is
-    SunOS is also made. For additional information see: http://goo.gl/159FF8
+    SunOS is also made. For additional information see:
+    https://github.com/saltstack/salt/commit/bed877f8bd5c
     """
     if check_sunos and salt.utils.platform.is_sunos():
         return False

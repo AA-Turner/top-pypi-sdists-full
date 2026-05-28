@@ -115,7 +115,7 @@ def test_invalid_column_contents(
     df = df_type({"a": [1, 2, 3], "b": ["x", "longtext", None], "c": ["1", None, "3"]})
     with pytest.raises(
         ValidationError if eager else plexc.ComputeError,
-        match=r"2 rules failed validation",
+        match=r"2 rules failed validation" if eager else None,
     ):
         _validate_and_collect(MySchema, df, eager=eager)
     assert not MySchema.is_valid(df)
@@ -137,13 +137,41 @@ def test_invalid_primary_key(
 
 @pytest.mark.parametrize("df_type", [pl.DataFrame, pl.LazyFrame])
 @pytest.mark.parametrize("eager", [True, False])
+def test_invalid_primary_key_with_examples(
+    df_type: type[pl.DataFrame] | type[pl.LazyFrame], eager: bool
+) -> None:
+    df = df_type({"a": [1, 1], "b": ["x", "y"], "c": ["1", "2"]})
+    with dy.Config(max_failure_examples=5):
+        with pytest.raises(
+            ValidationError if eager else plexc.ComputeError,
+            match=r"'primary_key' failed for 2 rows; examples: \[\{'a': 1\}\]",
+        ):
+            _validate_and_collect(MySchema, df, eager=eager)
+
+
+@pytest.mark.parametrize("df_type", [pl.DataFrame, pl.LazyFrame])
+@pytest.mark.parametrize("eager", [True, False])
+def test_invalid_column_contents_with_examples(
+    df_type: type[pl.DataFrame] | type[pl.LazyFrame], eager: bool
+) -> None:
+    df = df_type({"a": [1, 2, 3], "b": ["x", "longtext", None], "c": ["1", None, "3"]})
+    with dy.Config(max_failure_examples=5):
+        with pytest.raises(
+            ValidationError if eager else plexc.ComputeError,
+            match=r"examples: \[\{'b': 'longtext'\}\]" if eager else r"examples: \[",
+        ):
+            _validate_and_collect(MySchema, df, eager=eager)
+
+
+@pytest.mark.parametrize("df_type", [pl.DataFrame, pl.LazyFrame])
+@pytest.mark.parametrize("eager", [True, False])
 def test_violated_custom_rule(
     df_type: type[pl.DataFrame] | type[pl.LazyFrame], eager: bool
 ) -> None:
     df = df_type({"a": [1, 1, 2, 3, 3], "b": [2, 2, 2, 4, 5]})
     with pytest.raises(
         ValidationError if eager else plexc.ComputeError,
-        match=r"2 rules failed validation",
+        match=r"2 rules failed validation" if eager else None,
     ):
         _validate_and_collect(MyComplexSchema, df, eager=eager)
     assert not MyComplexSchema.is_valid(df)
@@ -198,3 +226,106 @@ def test_validate_maintain_order() -> None:
     )
     out = schema.validate(df, cast=True)
     assert out.get_column("a").is_sorted()
+
+
+# ----------------------------------- UNIQUE CONSTRAINT --------------------------------- #
+
+
+class UniqueSchema(dy.Schema):
+    id = dy.Int64(primary_key=True)
+    email = dy.String(unique=True)
+    name = dy.String()
+
+
+class MultiUniqueSchema(dy.Schema):
+    a = dy.Int64(unique=True)
+    b = dy.String(unique=True)
+
+
+class NullableUniqueSchema(dy.Schema):
+    a = dy.Int64()
+    b = dy.String(unique=True, nullable=True)
+
+
+@pytest.mark.parametrize("df_type", [pl.DataFrame, pl.LazyFrame])
+@pytest.mark.parametrize("eager", [True, False])
+def test_unique_constraint_valid(
+    df_type: type[pl.DataFrame] | type[pl.LazyFrame], eager: bool
+) -> None:
+    df = df_type(
+        {
+            "id": [1, 2, 3],
+            "email": ["a@x.com", "b@x.com", "c@x.com"],
+            "name": ["A", "B", "C"],
+        }
+    )
+    result = _validate_and_collect(UniqueSchema, df, eager=eager)
+    assert len(result) == 3
+    assert UniqueSchema.is_valid(df)
+
+
+@pytest.mark.parametrize("df_type", [pl.DataFrame, pl.LazyFrame])
+@pytest.mark.parametrize("eager", [True, False])
+def test_unique_constraint_invalid(
+    df_type: type[pl.DataFrame] | type[pl.LazyFrame], eager: bool
+) -> None:
+    df = df_type({"id": [1, 2], "email": ["a@x.com", "a@x.com"], "name": ["A", "B"]})
+    with pytest.raises(
+        ValidationError if eager else plexc.ComputeError,
+        match=r"1 rules failed validation",
+    ):
+        _validate_and_collect(UniqueSchema, df, eager=eager)
+    assert not UniqueSchema.is_valid(df)
+
+
+@pytest.mark.parametrize("df_type", [pl.DataFrame, pl.LazyFrame])
+@pytest.mark.parametrize("eager", [True, False])
+def test_multiple_unique_columns_valid(
+    df_type: type[pl.DataFrame] | type[pl.LazyFrame], eager: bool
+) -> None:
+    df = df_type({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    result = _validate_and_collect(MultiUniqueSchema, df, eager=eager)
+    assert len(result) == 3
+    assert MultiUniqueSchema.is_valid(df)
+
+
+@pytest.mark.parametrize("df_type", [pl.DataFrame, pl.LazyFrame])
+@pytest.mark.parametrize("eager", [True, False])
+def test_multiple_unique_columns_one_invalid(
+    df_type: type[pl.DataFrame] | type[pl.LazyFrame], eager: bool
+) -> None:
+    # a is unique, b has duplicates
+    df = df_type({"a": [1, 2, 3], "b": ["x", "x", "z"]})
+    with pytest.raises(
+        ValidationError if eager else plexc.ComputeError,
+        match=r"1 rules failed validation",
+    ):
+        _validate_and_collect(MultiUniqueSchema, df, eager=eager)
+    assert not MultiUniqueSchema.is_valid(df)
+
+
+@pytest.mark.parametrize("df_type", [pl.DataFrame, pl.LazyFrame])
+@pytest.mark.parametrize("eager", [True, False])
+def test_multiple_unique_columns_both_invalid(
+    df_type: type[pl.DataFrame] | type[pl.LazyFrame], eager: bool
+) -> None:
+    # Both columns have duplicates
+    df = df_type({"a": [1, 1, 3], "b": ["x", "y", "y"]})
+    with pytest.raises(
+        ValidationError if eager else plexc.ComputeError,
+        match=r"2 rules failed validation" if eager else None,
+    ):
+        _validate_and_collect(MultiUniqueSchema, df, eager=eager)
+    assert not MultiUniqueSchema.is_valid(df)
+
+
+# ----------------------------------- PERFORMANCE ------------------------------------ #
+
+
+def test_lazy_validate_does_not_block_streaming_engine() -> None:
+    schema = create_schema("test", {"a": dy.Int64(), "b": dy.Int64()})
+    lf = pl.LazyFrame({"a": [1, 2, 3], "b": [2, 3, 4]}).lazy()
+    out = schema.validate(lf, eager=False)
+    graph = out.show_graph(engine="streaming", plan_stage="physical", raw_output=True)
+    assert graph is not None
+    assert "in-memory-map" not in graph

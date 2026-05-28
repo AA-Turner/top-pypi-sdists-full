@@ -20,31 +20,43 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListFeedsPaginator
+from .paginator import ListDictionariesPaginator, ListFeedsPaginator
 from .type_defs import (
     AssociateFeedRequestTypeDef,
     AssociateFeedResponseTypeDef,
+    CreateDictionaryRequestTypeDef,
+    CreateDictionaryResponseTypeDef,
     CreateFeedRequestTypeDef,
     CreateFeedResponseTypeDef,
+    DeleteDictionaryRequestTypeDef,
+    DeleteDictionaryResponseTypeDef,
     DeleteFeedRequestTypeDef,
     DeleteFeedResponseTypeDef,
     DisassociateFeedRequestTypeDef,
     DisassociateFeedResponseTypeDef,
     EmptyResponseMetadataTypeDef,
+    ExportDictionaryEntriesRequestTypeDef,
+    ExportDictionaryEntriesResponseTypeDef,
+    GetDictionaryRequestTypeDef,
+    GetDictionaryResponseTypeDef,
     GetFeedRequestTypeDef,
     GetFeedResponseTypeDef,
+    ListDictionariesRequestTypeDef,
+    ListDictionariesResponseTypeDef,
     ListFeedsRequestTypeDef,
     ListFeedsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateDictionaryRequestTypeDef,
+    UpdateDictionaryResponseTypeDef,
     UpdateFeedRequestTypeDef,
     UpdateFeedResponseTypeDef,
 )
@@ -112,12 +124,32 @@ class ElementalInferenceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#associate_feed)
         """
 
+    def create_dictionary(
+        self, **kwargs: Unpack[CreateDictionaryRequestTypeDef]
+    ) -> CreateDictionaryResponseTypeDef:
+        """
+        Creates a custom dictionary for improving transcription accuracy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/create_dictionary.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#create_dictionary)
+        """
+
     def create_feed(self, **kwargs: Unpack[CreateFeedRequestTypeDef]) -> CreateFeedResponseTypeDef:
         """
         Creates a feed.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/create_feed.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#create_feed)
+        """
+
+    def delete_dictionary(
+        self, **kwargs: Unpack[DeleteDictionaryRequestTypeDef]
+    ) -> DeleteDictionaryResponseTypeDef:
+        """
+        Deletes the specified dictionary.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/delete_dictionary.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#delete_dictionary)
         """
 
     def delete_feed(self, **kwargs: Unpack[DeleteFeedRequestTypeDef]) -> DeleteFeedResponseTypeDef:
@@ -132,11 +164,30 @@ class ElementalInferenceClient(BaseClient):
         self, **kwargs: Unpack[DisassociateFeedRequestTypeDef]
     ) -> DisassociateFeedResponseTypeDef:
         """
-        Releases the resource (for example, an MediaLive channel) that is associated
-        with this feed.
+        Releases the resource (the source media) that is associated with this feed.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/disassociate_feed.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#disassociate_feed)
+        """
+
+    def export_dictionary_entries(
+        self, **kwargs: Unpack[ExportDictionaryEntriesRequestTypeDef]
+    ) -> ExportDictionaryEntriesResponseTypeDef:
+        """
+        Exports the entries from the specified dictionary.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/export_dictionary_entries.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#export_dictionary_entries)
+        """
+
+    def get_dictionary(
+        self, **kwargs: Unpack[GetDictionaryRequestTypeDef]
+    ) -> GetDictionaryResponseTypeDef:
+        """
+        Retrieves information about the specified dictionary.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_dictionary.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_dictionary)
         """
 
     def get_feed(self, **kwargs: Unpack[GetFeedRequestTypeDef]) -> GetFeedResponseTypeDef:
@@ -145,6 +196,16 @@ class ElementalInferenceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_feed.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_feed)
+        """
+
+    def list_dictionaries(
+        self, **kwargs: Unpack[ListDictionariesRequestTypeDef]
+    ) -> ListDictionariesResponseTypeDef:
+        """
+        Lists the dictionaries in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/list_dictionaries.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#list_dictionaries)
         """
 
     def list_feeds(self, **kwargs: Unpack[ListFeedsRequestTypeDef]) -> ListFeedsResponseTypeDef:
@@ -186,6 +247,16 @@ class ElementalInferenceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#untag_resource)
         """
 
+    def update_dictionary(
+        self, **kwargs: Unpack[UpdateDictionaryRequestTypeDef]
+    ) -> UpdateDictionaryResponseTypeDef:
+        """
+        Updates the specified dictionary.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/update_dictionary.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#update_dictionary)
+        """
+
     def update_feed(self, **kwargs: Unpack[UpdateFeedRequestTypeDef]) -> UpdateFeedResponseTypeDef:
         """
         Updates the name and/or outputs in a feed.
@@ -194,6 +265,18 @@ class ElementalInferenceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#update_feed)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dictionaries"]
+    ) -> ListDictionariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_feeds"]
     ) -> ListFeedsPaginator:

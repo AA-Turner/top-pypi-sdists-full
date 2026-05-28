@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_tables.py 10208 2025-08-19 18:37:49Z milde $
+# $Id: test_tables.py 10280 2026-01-07 07:51:16Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -750,6 +750,29 @@ Paragraph.
                             two columns.
     <paragraph>
         Paragraph.
+"""],
+["""\
+=================================  ========
+The ERROR should point to line 2.  .. tip::
+=================================  ========
+""",
+"""\
+<document source="test data">
+    <table>
+        <tgroup cols="2">
+            <colspec colwidth="33">
+            <colspec colwidth="8">
+            <tbody>
+                <row>
+                    <entry>
+                        <paragraph>
+                            The ERROR should point to line 2.
+                    <entry>
+                        <system_message level="3" line="2" source="test data" type="ERROR">
+                            <paragraph>
+                                Content block expected for the "tip" directive; none found.
+                            <literal_block xml:space="preserve">
+                                .. tip::
 """],
 ["""\
 ============  ============

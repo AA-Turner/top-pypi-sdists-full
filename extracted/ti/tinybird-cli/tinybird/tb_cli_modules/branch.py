@@ -58,11 +58,10 @@ async def release_ls() -> None:
 async def print_releases(config: CLIConfig):
     response = await config.get_client().releases(config["id"])
 
-    table: List[Tuple[str, str, str, str, str]] = []
-    for release in response["releases"]:
-        table.append(
-            (release["created_at"], release["semver"], release["status"], release["commit"], release["rollback"])
-        )
+    table: List[Tuple[str, str, str, str, str]] = [
+        (release["created_at"], release["semver"], release["status"], release["commit"], release["rollback"])
+        for release in response["releases"]
+    ]
 
     columns = ["created_at", "semver", "status", "commit", "rollback release"]
     click.echo(FeedbackManager.info_releases())

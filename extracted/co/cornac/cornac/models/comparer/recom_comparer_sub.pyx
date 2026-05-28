@@ -472,7 +472,7 @@ class ComparERSub(MTER):
                 progress.set_postfix({
                     "loss": "%.2f" % (loss / 3 / self.n_element_samples),
                     "bpr_loss": "%.2f" % (bpr_loss / self.n_bpr_samples),
-                    "correct": "%.2f%%" % (100.0 * correct / (self.n_bpr_samples - skipped)),
+                    "correct": "%.2f%%" % (100.0 * correct / (self.n_bpr_samples - skipped + 1e-8)),
                     "skipped": "%.2f%%" % (100.0 * skipped / self.n_bpr_samples)
                 })
 
@@ -769,7 +769,7 @@ class ComparERSub(MTER):
                 np.repeat(range(self.num_items), n_top_aspects).reshape(
                     self.num_items, n_top_aspects
                 ),
-                ts3[:, :-1].argsort(axis=1)[::-1][:, :n_top_aspects],
+                ts3[:, :-1].argsort(axis=1)[:, ::-1][:, :n_top_aspects],
             ]
             known_item_scores = (
                 self.alpha * top_aspect_scores.mean(axis=1) + (1 - self.alpha) * ts3[:, -1]

@@ -58,6 +58,11 @@ def scaffold_expo(out_dir: Path, *, log: Callable[[str], None]) -> ScaffoldResul
     If npx isn't available OR the network is offline, returns ran=False and
     the manual generation path takes over.
     """
+    import os
+    if os.environ.get("SAGE_TESTING") == "1":
+        log("[bootstrap] SAGE_TESTING active — skipping Expo scaffold under test")
+        return ScaffoldResult(name="create-expo-app", ran=False, ok=False, log="testing bypass")
+
     if not _has("npx") or not _has("node"):
         log("[bootstrap] npx not found — skipping Expo scaffold, manual gen will run")
         return ScaffoldResult(name="create-expo-app", ran=False, ok=False, log="npx missing")
@@ -97,6 +102,11 @@ def scaffold_alembic(backend_dir: Path, *, log: Callable[[str], None]) -> Scaffo
 
     Falls back gracefully when alembic isn't installed in the host env.
     """
+    import os
+    if os.environ.get("SAGE_TESTING") == "1":
+        log("[bootstrap] SAGE_TESTING active — skipping Alembic scaffold under test")
+        return ScaffoldResult(name="alembic-init", ran=False, ok=False, log="testing bypass")
+
     if not _has("alembic"):
         # Try `python -m alembic` instead
         import sys

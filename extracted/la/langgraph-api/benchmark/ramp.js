@@ -1,6 +1,8 @@
 import { sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
-import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
+function randomIntBetween(min, max) {
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
 import { Benchmarks } from './benchmark-runners/dist/benchmarks.js';
 import { get_profile } from './benchmark-runners/dist/benchmark_profiles.js';
 

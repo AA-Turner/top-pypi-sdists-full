@@ -14,6 +14,59 @@ directly via tab-completion::
 import xarray as xr
 
 
+def _require_matplotlib():
+    """Import matplotlib or raise a helpful error.
+
+    matplotlib is an optional dependency (the ``plot`` extra). The
+    plotting helpers call this before importing ``pyplot`` so a missing
+    install produces a clear message instead of a bare
+    ``ModuleNotFoundError``. Importing ``pyplot`` (not just the top-level
+    package) also catches the case where matplotlib is installed but has
+    no usable backend.
+    """
+    try:
+        import matplotlib.pyplot  # noqa: F401
+    except ImportError as e:
+        raise ImportError(
+            "matplotlib is required for plotting but is not installed. "
+            "Install it with: pip install xarray-spatial[plot]"
+        ) from e
+
+
+def _listed_colormap_from_attrs(attrs):
+    """Build a :class:`matplotlib.colors.ListedColormap` from
+    ``attrs['colormap']`` (raw uint16 RGB triples from TIFF tag 320).
+
+    Returns ``None`` when ``attrs`` carries no colormap, when the
+    layout does not match the TIFF ColorMap spec, or when matplotlib
+    is not importable. The two ``.xrs.plot`` paths fall back to the
+    default plot when this returns ``None``.
+
+    Contract v2 (issue #2016) removed the ``attrs['cmap']`` shortcut
+    that older xrspatial releases set on palette reads. Callers and
+    the accessor build the colormap on the fly from the canonical
+    ``attrs['colormap']``.
+    """
+    raw = attrs.get('colormap')
+    if raw is None:
+        return None
+    try:
+        from matplotlib.colors import ListedColormap
+    except ImportError:
+        return None
+    total = len(raw)
+    if total == 0 or total % 3 != 0:
+        return None
+    n_colors = total // 3
+    colors = []
+    for i in range(n_colors):
+        r = raw[i] / 65535.0
+        g = raw[n_colors + i] / 65535.0
+        b = raw[2 * n_colors + i] / 65535.0
+        colors.append((r, g, b, 1.0))
+    return ListedColormap(colors, name='tiff_palette')
+
+
 @xr.register_dataarray_accessor("xrs")
 class XrsSpatialDataArrayAccessor:
     """DataArray accessor exposing xarray-spatial operations."""
@@ -39,6 +92,7 @@ class XrsSpatialDataArrayAccessor:
         -------
         matplotlib artist (from ``da.plot()``)
         """
+        _require_matplotlib()
         import matplotlib.pyplot as plt
         import numpy as np
 
@@ -50,8 +104,11 @@ class XrsSpatialDataArrayAccessor:
         except (AttributeError, TypeError):
             pass
 
-        # Use embedded GeoTIFF colormap when present.
-        cmap = da.attrs.get('cmap')
+        # Use embedded GeoTIFF colormap when present. Build the
+        # ``ListedColormap`` on the fly from the canonical
+        # ``attrs['colormap']``; the older ``attrs['cmap']`` shortcut
+        # was removed by contract v2 (issue #2016).
+        cmap = _listed_colormap_from_attrs(da.attrs)
         if cmap is not None and 'cmap' not in kwargs:
             from matplotlib.colors import BoundaryNorm
             n_colors = len(cmap.colors)
@@ -60,10 +117,16 @@ class XrsSpatialDataArrayAccessor:
             kwargs.setdefault('norm', BoundaryNorm(boundaries, n_colors))
             kwargs.setdefault('add_colorbar', True)
 
-        # Create a figure with sensible size if none provided.
+        # Create a figure with sensible size if none provided. Use
+        # ``constrained`` layout so palette colorbars and titles get sized
+        # correctly without calling ``tight_layout``; the tight-layout
+        # solver triggers a deepcopy of internal MarkerStyle objects on
+        # matplotlib 3.10 that recurses past Python's stack limit when a
+        # BoundaryNorm colorbar is attached (issue #1874).
         if 'ax' not in kwargs:
             fig, ax = plt.subplots(
                 figsize=kwargs.get('figsize', (8, 6)),
+                layout='constrained',
             )
             kwargs.pop('figsize', None)
             kwargs['ax'] = ax
@@ -71,7 +134,6 @@ class XrsSpatialDataArrayAccessor:
         result = da.plot(**kwargs)
 
         kwargs['ax'].set_aspect('equal')
-        plt.tight_layout()
         return result
 
     # ---- Surface ----
@@ -587,6 +649,7 @@ class XrsSpatialDatasetAccessor:
         -------
         numpy.ndarray of matplotlib.axes.Axes
         """
+        _require_matplotlib()
         import math
         import matplotlib.pyplot as plt
         import numpy as np
@@ -626,8 +689,10 @@ class XrsSpatialDatasetAccessor:
             except (AttributeError, TypeError):
                 pass
 
-            # Use embedded GeoTIFF colormap when present.
-            cmap = da.attrs.get('cmap')
+            # Use embedded GeoTIFF colormap when present. See the
+            # DataArray ``.xrs.plot`` path above for the contract v2
+            # migration note.
+            cmap = _listed_colormap_from_attrs(da.attrs)
             kw = dict(kwargs)
             if cmap is not None and 'cmap' not in kw:
                 n_colors = len(cmap.colors)

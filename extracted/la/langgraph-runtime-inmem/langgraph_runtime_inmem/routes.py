@@ -367,11 +367,13 @@ def get_internal_routes():
             cmd.extend(["--name", str(name)])
 
         cwd = await asyncio.to_thread(os.getcwd)
+        env = {**os.environ, "LANGGRAPH_CLI_ANALYTICS_SOURCE": "studio"}
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
+            env=env,
         )
 
         op = DeployOperation(proc=proc, started_at=time.time())

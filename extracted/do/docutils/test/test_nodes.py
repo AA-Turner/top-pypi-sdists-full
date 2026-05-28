@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_nodes.py 10227 2025-09-05 14:07:30Z milde $
+# $Id: test_nodes.py 10299 2026-02-06 09:09:19Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -58,12 +58,15 @@ class NodeTests(unittest.TestCase):
         self.assertEqual(list(e[0].findall()),
                          [e[0], e[0][0], e[0][1], e[0][1][0]])
         self.testlist = [e[0][0], e[0][1]]
+        # Condition is function returning a boolean, class or tuple of classes:
         self.assertEqual(list(e[0].findall(condition=self.not_in_testlist)),
                          [e[0], e[0][1][0]])
         self.testlist.append(e[0][1][0])
         self.assertEqual(list(e[0].findall(condition=self.not_in_testlist)),
                          [e[0]])
         self.assertEqual(list(e.findall(nodes.TextElement)), [e[0][1]])
+        self.assertEqual(list(e.findall((nodes.TextElement, nodes.Text))),
+                         [e[0][1], e[0][1][0]])
 
     def test_findall_duplicate_texts(self):
         e = nodes.Element()
@@ -815,26 +818,36 @@ class ElementValidationTests(unittest.TestCase):
 
     def test_validate_content_transition(self):
         """Test additional constraints on <transition> placement:
-           Not at begin or end of a section or document,
+           Not at begin or end of section or document text,
            not after another transition.
         """
         transition = nodes.transition()
+        comment = nodes.comment()
         paragraph = nodes.paragraph()
-        section = nodes.section('', nodes.title(), transition, paragraph)
+        subdef = nodes.substitution_definition()
+        target = nodes.target()
+        title = nodes.title()
+
+        section = nodes.section('', title, comment, transition, paragraph)
+        self.assertEqual(section.validate_content(), [])
+        section = nodes.section('', title, subdef, transition, target, subdef)
         with self.assertRaisesRegex(nodes.ValidationError,
-                                    '<transition> may not begin a section '):
-            section.validate_content()
-        section = nodes.section('', nodes.title(), paragraph, transition)
-        with self.assertRaisesRegex(nodes.ValidationError,
-                                    '<transition> may not end a section '):
-            section.validate_content()
-        section = nodes.section('', nodes.title(), paragraph,
-                                nodes.transition(), transition)
+                                    '<transition> may not begin a section .*\n'
+                                    '  <transition> may not end a section '):
+            self.assertEqual(section.validate_content(), [])
+        section = nodes.section('', title, paragraph, transition,
+                                nodes.transition(), paragraph)
         with self.assertRaisesRegex(nodes.ValidationError,
                                     'Element <section> invalid:\n'
-                                    '  <transition> may not end .*\n'
-                                    '  <transition> may not directly '):
-            section.validate_content()
+                                    '  <transition> may not directly follow'):
+            self.assertEqual(section.validate_content(), [])
+
+        document = utils.new_document('test')
+        document.extend([nodes.decoration(), transition, nodes.meta()])
+        with self.assertRaisesRegex(nodes.ValidationError,
+                                    '<transition> may not begin a section .*\n'
+                                    '  <transition> may not end a section '):
+            self.assertEqual(section.validate_content(), [])
 
 
 class MiscTests(unittest.TestCase):

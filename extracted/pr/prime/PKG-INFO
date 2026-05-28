@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prime
-Version: 0.6.9
+Version: 0.6.10
 Summary: Prime Intellect CLI + SDK
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime#readme
@@ -37,7 +37,7 @@ Requires-Dist: textual-plot>=0.10.1
 Requires-Dist: textual>=6.1.0
 Requires-Dist: toml>=0.10.0
 Requires-Dist: tomli>=2.0.0
-Requires-Dist: typer>=0.9.0
+Requires-Dist: typer<0.26,>=0.9.0
 Requires-Dist: verifiers>=0.1.14
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == 'dev'

@@ -56,6 +56,7 @@ export async function resolve(specifier, context, nextResolve) {
     if (specifier === "@langchain/langgraph" && !langgraphPackageURL) {
       langgraphPackageURL = resolved.url.toString();
     }
+    return resolved;
   }
   return nextResolve(specifier, context);
 }

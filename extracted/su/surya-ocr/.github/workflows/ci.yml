@@ -1,0 +1,30 @@
+name: Unit tests
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [t4_gpu, ubuntu-latest, windows-latest]
+      fail-fast: false
+    env:
+      # T4 can't run bf16 in vllm; size for the 16GB card. (No-op on the
+      # CPU runners, which skip the VLM-backed tests.)
+      VLLM_DTYPE: float16
+      VLLM_GPU_TYPE: t4
+      SURYA_INFERENCE_STARTUP_TIMEOUT: "1200"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: latest
+          enable-cache: true
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
+      - name: Run tests
+        run: uv run pytest

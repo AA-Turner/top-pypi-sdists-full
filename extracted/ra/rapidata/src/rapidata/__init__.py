@@ -1,4 +1,4 @@
-__version__ = "3.11.6"
+__version__ = "3.11.7"
 
 from .rapidata_client import (
     RapidataClient,
@@ -43,6 +43,7 @@ from .rapidata_client import (
     LocateMinPointsSetting,
     ComparePanoramaSetting,
     CompareEquirectangularSetting,
+    ClassifyEquirectangularSetting,
 # --- GENERATED SETTINGS IMPORTS END ---
     CountryFilter,
     DemographicFilter,

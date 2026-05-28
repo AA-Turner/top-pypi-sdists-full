@@ -18,6 +18,8 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     CreateModelVersionResponse,
     DownloadModelArtifactRequest,
     DownloadModelArtifactResponse,
+    GetModelArtifactRequest,
+    GetModelArtifactResponse,
     GetModelArtifactUploadUrlsRequest,
     GetModelArtifactUploadUrlsResponse,
     GetModelReferenceRequest,
@@ -107,6 +109,10 @@ class ModelRegistryServiceStub:
     ListModelArtifacts: UnaryUnaryMultiCallable[
         ListModelArtifactsRequest,
         ListModelArtifactsResponse,
+    ]
+    GetModelArtifact: UnaryUnaryMultiCallable[
+        GetModelArtifactRequest,
+        GetModelArtifactResponse,
     ]
 
 class ModelRegistryServiceServicer(metaclass=ABCMeta):
@@ -200,5 +206,11 @@ class ModelRegistryServiceServicer(metaclass=ABCMeta):
         request: ListModelArtifactsRequest,
         context: ServicerContext,
     ) -> ListModelArtifactsResponse: ...
+    @abstractmethod
+    def GetModelArtifact(
+        self,
+        request: GetModelArtifactRequest,
+        context: ServicerContext,
+    ) -> GetModelArtifactResponse: ...
 
 def add_ModelRegistryServiceServicer_to_server(servicer: ModelRegistryServiceServicer, server: Server) -> None: ...

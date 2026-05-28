@@ -44,6 +44,7 @@ from datarobot.enums import (
     DEFAULT_MAX_WAIT,
     DEFAULT_TIMEOUT,
     MEGABYTE,
+    SHARING_RECIPIENT_TYPE,
     FileLocationType,
     LocalSourceType,
 )
@@ -54,7 +55,12 @@ from datarobot.models.credential import Credential, CredentialDataSchema
 from datarobot.models.feature import DatasetFeature
 from datarobot.models.featurelist import DatasetFeaturelist
 from datarobot.models.project import Project
-from datarobot.models.sharing import SharingAccess
+from datarobot.models.sharing import (
+    CatalogSharedRole,
+    CatalogSharedRoleRequest,
+    ModifyCatalogSharedRolePayload,
+    SharingAccess,
+)
 from datarobot.models.use_cases.utils import UseCaseLike, add_to_use_case, resolve_use_cases
 from datarobot.utils import assert_single_parameter, dataframe_to_buffer
 from datarobot.utils.pagination import unpaginate
@@ -946,6 +952,79 @@ class Dataset(APIObject, BrowserMixin):
         self.name = data["name"]
         self.categories = data["categories"]
 
+    def modify_shared_roles(
+        self,
+        roles: List[CatalogSharedRoleRequest],
+        apply_grant_to_linked_objects: bool = False,
+        operation: str = "updateRoles",
+    ) -> None:
+        """
+        Grant access, remove access or update roles for users, groups and organizations who have access to this dataset.
+        Up to 100 roles may be set in a single request.
+
+        Parameters
+        ----------
+        roles:
+            An array of role requests to modify the roles for.
+        apply_grant_to_linked_objects:
+            If ``true`` for any users being granted access to the entity,
+            grant the user read access to any linked objects such as `DataSources`
+            and `DataStores` that may be used by this entity. Ignored if no such
+            objects are relevant for the entity. This will not result in access
+            being lowered for a user if the user already has higher access to
+            linked objects than read access. However, if the target user does
+            not have sharing permissions to the linked object, they will be given
+            sharing access without lowering existing permissions. May result in an
+            error if the user making the call does not have sufficient permissions
+            to complete the grant.
+        operation:
+            The name of the action being taken. The only supported operation is ``updateRoles``.
+
+        Examples
+        --------
+        Grant access to a user by name:
+
+        .. code-block:: python
+
+            >>> from datarobot.enums import TARGET_SHARING_ROLE, SHARING_RECIPIENT_TYPE
+            >>> from datarobot.models.sharing import CatalogSharedRoleRequest
+            >>> from datarobot.models.dataset import Dataset
+
+            >>> dataset = Dataset.get("my-dataset-id")
+            >>> dataset.modify_shared_roles(
+            ...     roles=[
+            ...         CatalogSharedRoleRequest(
+            ...             role=TARGET_SHARING_ROLE.EDITOR,
+            ...             share_recipient_type=SHARING_RECIPIENT_TYPE.USER,
+            ...             name="target_user_name",
+            ...         )
+            ...     ],
+            ... )
+
+        Remove access to a group by ID:
+
+        .. code-block:: python
+
+            >>> from datarobot.enums import TARGET_SHARING_ROLE, SHARING_RECIPIENT_TYPE
+            >>> from datarobot.models.sharing import CatalogSharedRoleRequest
+            >>> from datarobot.models.dataset import Dataset
+
+            >>> dataset = Dataset.get("my-dataset-id")
+            >>> dataset.modify_shared_roles(
+            ...     roles=[
+            ...         CatalogSharedRoleRequest(
+            ...             role=TARGET_SHARING_ROLE.NO_ROLE,
+            ...             share_recipient_type=SHARING_RECIPIENT_TYPE.GROUP,
+            ...             id="group-id",
+            ...         )
+            ...     ],
+            ... )
+        """
+        payload = ModifyCatalogSharedRolePayload(
+            roles=roles, apply_grant_to_linked_objects=apply_grant_to_linked_objects, operation=operation
+        )
+        self._client.patch(f"{self._path}{self.id}/sharedRoles/", data=payload)
+
     def share(
         self,
         access_list: List[SharingAccess],
@@ -1032,6 +1111,39 @@ class Dataset(APIObject, BrowserMixin):
         list[DatasetFeature]
         """
         return list(self.iterate_all_features(order_by=order_by))
+
+    def get_shared_roles(
+        self,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        share_recipient_type: Optional[SHARING_RECIPIENT_TYPE] = None,
+    ) -> List[CatalogSharedRole]:
+        """
+        List roles for users, groups, and organizations who have access to this dataset.
+
+        Parameters
+        ----------
+        id:
+            Only return the access control information for a organization, group or user with this
+            ID.
+        name:
+            Only return the access control information for a organization, group or user with this
+            name.
+        share_recipient_type:
+            Only returns results with the given recipient type.
+
+        Returns
+        -------
+        List[CatalogSharedRole]
+        """
+        params = {
+            "id": id,
+            "name": name,
+            "share_recipient_type": share_recipient_type.value if share_recipient_type else None,
+        }
+        params = _remove_empty_params(params)
+        path = f"{self._path}{self.id}/sharedRoles/"
+        return [CatalogSharedRole.from_server_data(role) for role in unpaginate(path, params, self._client)]
 
     def iterate_all_features(
         self,

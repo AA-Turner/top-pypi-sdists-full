@@ -25,6 +25,8 @@ StreamMode = Literal[
     "checkpoints",
     "custom",
     "messages-tuple",
+    "tools",
+    "lifecycle",
 ]
 
 ThreadStreamMode = Literal["lifecycle", "run_modes", "state_update"]

@@ -674,7 +674,7 @@ def ci(
             dataflow_traces = engine_type.has_dataflow_traces
 
         if max_memory is None:
-            max_memory = engine_type.default_max_memory
+            max_memory = engine_type.default_max_memory()
 
         if interfile_timeout is None:
             interfile_timeout = engine_type.default_interfile_timeout
@@ -718,7 +718,9 @@ def ci(
             dataflow_traces=dataflow_traces,
             max_log_list_entries=max_log_list_entries,
         )
-        output_handler = OutputHandler(output_settings)
+        output_handler = OutputHandler(
+            output_settings, disable_nosem=(not enable_nosem)
+        )
 
         per_product_excludes = {
             product: [*exclude] if exclude else [] for product in ALL_PRODUCTS
@@ -982,7 +984,6 @@ def ci(
         non_cai_matches_by_rule: RuleMatchMap = defaultdict(list)
         blocking_matches: List[RuleMatch] = []
         nonblocking_matches: List[RuleMatch] = []
-        cai_matches: List[RuleMatch] = []
 
         # Remove the prev scan matches by the rules that are in the current scan
         # Done before the next loop to avoid interfering with ignore logic
@@ -1003,16 +1004,22 @@ def ci(
                 ]
 
             for match in matches:
-                applicable_result_list = (
-                    cai_matches
-                    if "r2c-internal-cai" in rule.id
-                    else blocking_matches
-                    if match.is_blocking
-                    else nonblocking_matches
-                )
-                applicable_result_list.append(match)
-                if "r2c-internal-cai" not in rule.id:
-                    non_cai_matches_by_rule[rule].append(match)
+                # CAI (r2c-internal-cai-*) findings are uploaded to the
+                # Semgrep App via filtered_matches_by_rule but excluded
+                # from local exit code and CLI output.
+                if "r2c-internal-cai" in rule.id:
+                    continue
+                non_cai_matches_by_rule[rule].append(match)
+                # Nosemgrep-suppressed matches must not be bucketed as
+                # blocking/nonblocking (they should not fail the scan), but
+                # they still reach output_handler.output() above so the
+                # SARIF formatter can emit them with `suppressions` entries.
+                is_suppressed = enable_nosem and match.match.extra.is_ignored
+                if not is_suppressed:
+                    applicable_result_list = (
+                        blocking_matches if match.is_blocking else nonblocking_matches
+                    )
+                    applicable_result_list.append(match)
 
         num_nonblocking_findings = len(nonblocking_matches)
         num_blocking_findings = len(blocking_matches)

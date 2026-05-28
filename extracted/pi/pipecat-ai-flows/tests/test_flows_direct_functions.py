@@ -10,7 +10,11 @@ from typing import Optional, TypedDict, Union
 
 from pipecat_flows.exceptions import InvalidFunctionError
 from pipecat_flows.manager import FlowManager
-from pipecat_flows.types import FlowsDirectFunctionWrapper, flows_direct_function
+from pipecat_flows.types import (
+    ConsolidatedFunctionResult,
+    FlowsDirectFunctionWrapper,
+    flows_direct_function,
+)
 
 """Tests for FlowsDirectFunction class."""
 
@@ -349,6 +353,39 @@ class TestFlowsDirectFunctionDecorator(unittest.TestCase):
         )
         self.assertFalse(func.cancel_on_interruption)
         self.assertEqual(func.timeout_secs, 15.5)
+
+
+class TestConsolidatedFunctionResult(unittest.TestCase):
+    """Regression tests for ``ConsolidatedFunctionResult`` resolvability."""
+
+    def test_get_type_hints_resolves_without_nodeconfig_import(self):
+        """Annotating a function with ``ConsolidatedFunctionResult`` should not require importing ``NodeConfig``.
+
+        Previously the alias was defined as ``tuple[Any, "NodeConfig | None"]``
+        with a string forward reference, which ``get_type_hints()`` resolves
+        against the user's module globals. Users who did not separately import
+        ``NodeConfig`` got ``NameError: name 'NodeConfig' is not defined`` —
+        which then surfaced from ``FlowManager._set_node`` and stalled the
+        flow. See https://github.com/pipecat-ai/pipecat-flows/issues/271.
+        """
+        from typing import get_type_hints
+
+        async def my_tool(flow_manager: FlowManager) -> ConsolidatedFunctionResult:
+            """Do something and optionally transition."""
+            return None, None
+
+        hints = get_type_hints(my_tool)
+        self.assertIn("return", hints)
+
+    def test_direct_function_wrapper_accepts_consolidated_return_type(self):
+        """``FlowsDirectFunctionWrapper`` introspects via ``get_type_hints`` internally."""
+
+        async def my_tool(flow_manager: FlowManager) -> ConsolidatedFunctionResult:
+            """Do something and optionally transition."""
+            return None, None
+
+        self.assertIsNone(FlowsDirectFunctionWrapper.validate_function(my_tool))
+        FlowsDirectFunctionWrapper(function=my_tool)
 
 
 if __name__ == "__main__":

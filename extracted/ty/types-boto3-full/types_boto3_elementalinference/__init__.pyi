@@ -13,6 +13,7 @@ Usage::
         Client,
         ElementalInferenceClient,
         FeedDeletedWaiter,
+        ListDictionariesPaginator,
         ListFeedsPaginator,
     )
 
@@ -21,14 +22,21 @@ Usage::
 
     feed_deleted_waiter: FeedDeletedWaiter = client.get_waiter("feed_deleted")
 
+    list_dictionaries_paginator: ListDictionariesPaginator = client.get_paginator("list_dictionaries")
     list_feeds_paginator: ListFeedsPaginator = client.get_paginator("list_feeds")
     ```
 """
 
 from .client import ElementalInferenceClient
-from .paginator import ListFeedsPaginator
+from .paginator import ListDictionariesPaginator, ListFeedsPaginator
 from .waiter import FeedDeletedWaiter
 
 Client = ElementalInferenceClient
 
-__all__ = ("Client", "ElementalInferenceClient", "FeedDeletedWaiter", "ListFeedsPaginator")
+__all__ = (
+    "Client",
+    "ElementalInferenceClient",
+    "FeedDeletedWaiter",
+    "ListDictionariesPaginator",
+    "ListFeedsPaginator",
+)

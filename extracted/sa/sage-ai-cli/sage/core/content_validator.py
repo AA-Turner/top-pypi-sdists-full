@@ -406,7 +406,7 @@ def _check_balanced_brackets(code: str, filepath: str) -> bool:
     if suffix in (".py", ".rb", ".yaml", ".yml", ".toml", ".ini", ".sh"):
         code = re.sub(r"#.*", "", code)
     elif suffix in (".js", ".jsx", ".ts", ".tsx", ".rs", ".go", ".java", ".cpp", ".cs", ".swift", ".css"):
-        code = re.sub(r"//.*", "", code)
+        code = re.sub(r"(?<!:)//.*", "", code)
         code = re.sub(r"/\*.*?\*/", "", code, flags=re.DOTALL)
     
     code = re.sub(r'".*?"', '""', code)
@@ -532,7 +532,7 @@ def _detect_quality_issues(filepath: str, content: str) -> ContentValidationResu
             )
             
     non_empty_lines = [l for l in content.split("\n") if l.strip()]
-    if len(non_empty_lines) < 2:
+    if len(non_empty_lines) < 2 and Path(filepath).name != "__init__.py":
         return ContentValidationResult(
             ok=False, signal="poor_code_quality",
             reason="Code file is trivially short. Complete implementation is required."
@@ -557,6 +557,35 @@ def _detect_performance_issues(filepath: str, content: str) -> ContentValidation
     return ContentValidationResult(ok=True)
 
 
+def _detect_nested_config(filepath: str, content: str) -> ContentValidationResult:
+    """Ensure configuration folders like `.github` are only placed at the project root.
+    Reject nested paths like `backend/.github/...` or `frontend/.github/...`."""
+    path_obj = Path(filepath)
+    parts = path_obj.parts
+    if ".github" in parts:
+        idx = parts.index(".github")
+        try:
+            # If absolute, make it relative to CWD if possible
+            rel = path_obj.relative_to(Path.cwd()) if path_obj.is_absolute() else path_obj
+            rel_parts = rel.parts
+            if ".github" in rel_parts:
+                if rel_parts.index(".github") > 0:
+                    return ContentValidationResult(
+                        ok=False, signal="nested_config",
+                        reason=f"Nested `.github` directory detected at {filepath}. All `.github` configuration folders must be placed at the project root level.",
+                    )
+        except ValueError:
+            # Fallback: if we can't make it relative to CWD, check if any typical directory names precede '.github'
+            preceding = parts[:idx]
+            flagged_parents = {"backend", "frontend", "src", "app", "server", "client", "api", "web"}
+            if any(p in flagged_parents for p in preceding):
+                return ContentValidationResult(
+                    ok=False, signal="nested_config",
+                    reason=f"Nested `.github` directory detected under a subdirectory at {filepath}. All `.github` configuration folders must be placed at the project root level.",
+                )
+    return ContentValidationResult(ok=True)
+
+
 _DETECTORS = (
     ("protocol_leak", lambda fp, c: _detect_protocol_leak(c)),
     ("prompt_echo",   lambda fp, c: _detect_prompt_echo(c)),
@@ -568,6 +597,7 @@ _DETECTORS = (
     ("security_vulnerability", _detect_security_issues),
     ("poor_code_quality", _detect_quality_issues),
     ("performance_issue", _detect_performance_issues),
+    ("nested_config", _detect_nested_config),
 )
 
 

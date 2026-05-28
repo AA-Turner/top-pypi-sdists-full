@@ -27,7 +27,6 @@ DirectionType = Literal["maximize", "minimize"]
 ObjectiveType = Literal[
     "correctness",
     "latency",
-    "citations",
     "rouge_1",
     "faithfulness",
     "prompt_tokens",
@@ -88,7 +87,6 @@ search_direction_trafaret = t.Enum("maximize", "minimize")
 search_objective_trafaret = t.Enum(
     "correctness",
     "latency",
-    "citations",
     "rouge_1",
     "faithfulness",
     "prompt_tokens",
@@ -156,6 +154,9 @@ agentic_search_request_trafaret = t.Dict({
     t.Key("optimization_objectives"): t.List(t.Tuple(search_objective_trafaret, search_direction_trafaret)),
     t.Key("search_space"): search_space_trafaret,
     t.Key("name"): t.String,
+    t.Key("max_timeout"): t.Or(t.Int, t.Null),
+    t.Key("prune_pareto", default=True): t.Bool,
+    t.Key("max_cost"): t.Or(t.Float, t.Null),
 })
 
 job_status_trafaret = t.Enum("RUNNING", "COMPLETED", "FAILED")
@@ -179,35 +180,42 @@ history_point_trafaret = t.Dict({
     t.Key("search_parameters"): t.Dict(allow_extra=["*"]),
 })
 
-search_study_response_trafaret = t.Dict({
-    t.Key("search_space", default=None): t.Or(search_space_trafaret, t.Null),
-    t.Key("use_case_id"): t.String,
-    t.Key("grounding_dataset_id"): t.String,
-    t.Key("eval_dataset_id"): t.String,
-    t.Key("grounding_dataset_name"): t.String,
-    t.Key("eval_dataset_name"): t.String,
-    t.Key("user_id"): t.String,
-    t.Key("user_name"): t.String,
-    t.Key("num_trials"): t.Int,
-    t.Key("num_concurrent_trials"): t.Int,
-    t.Key("optimization_objectives"): t.List(t.Tuple(search_objective_trafaret, search_direction_trafaret)),
-    t.Key("playground_id"): t.String,
-    t.Key("temp_playground_id", default=None): t.Or(t.String, t.Null),
-    t.Key("pareto_front", default=None): t.Or(t.List(pareto_frontier_point_traferet), t.Null),
-    t.Key("datetime_start"): t.String,
-    t.Key("datetime_end", default=None): t.Or(t.String, t.Null),
-    t.Key("study_status"): job_status_trafaret,
-    t.Key("search_study_id"): t.String,
-    t.Key("name"): t.String,
-    t.Key("job_id", default=None): t.Or(t.String, t.Null),
-    t.Key("trials_running", default=None): t.Or(t.Int, t.Null),
-    t.Key("trials_failed", default=None): t.Or(t.Int, t.Null),
-    t.Key("trials_success", default=None): t.Or(t.Int, t.Null),
-    t.Key("all_trials", default=None): t.Or(t.List(history_point_trafaret), t.Null),
-    t.Key("existing_blueprint_ids", default=None): t.Or(t.List(t.String), t.Null),
-    t.Key("eval_results", default=None): t.Or(t.List(t.Any), t.Null),
-    t.Key("error_message", default=None): t.Or(t.String, t.Null),
-})
+
+search_study_response_trafaret = t.Dict(
+    {
+        t.Key("search_space", default=None): t.Or(search_space_trafaret, t.Null),
+        t.Key("use_case_id"): t.String,
+        t.Key("grounding_dataset_id"): t.String,
+        t.Key("eval_dataset_id"): t.String,
+        t.Key("grounding_dataset_name"): t.String,
+        t.Key("eval_dataset_name"): t.String,
+        t.Key("user_id"): t.String,
+        t.Key("user_name"): t.String(allow_blank=True),
+        t.Key("num_trials"): t.Int,
+        t.Key("num_concurrent_trials"): t.Int,
+        t.Key("optimization_objectives"): t.List(t.Tuple(search_objective_trafaret, search_direction_trafaret)),
+        t.Key("playground_id"): t.String,
+        t.Key("temp_playground_id", default=None): t.Or(t.String, t.Null),
+        t.Key("pareto_front", default=None): t.Or(t.List(pareto_frontier_point_traferet), t.Null),
+        t.Key("datetime_start"): t.String,
+        t.Key("datetime_end", default=None): t.Or(t.String, t.Null),
+        t.Key("study_status"): job_status_trafaret,
+        t.Key("search_study_id"): t.String,
+        t.Key("name"): t.String,
+        t.Key("job_id", default=None): t.Or(t.String, t.Null),
+        t.Key("trials_running", default=None): t.Or(t.Int, t.Null),
+        t.Key("trials_failed", default=None): t.Or(t.Int, t.Null),
+        t.Key("trials_success", default=None): t.Or(t.Int, t.Null),
+        t.Key("all_trials", default=None): t.Or(t.List(history_point_trafaret), t.Null),
+        t.Key("existing_blueprint_ids", default=None): t.Or(t.List(t.String), t.Null),
+        t.Key("eval_results", default=None): t.Or(t.List(t.Any), t.Null),
+        t.Key("error_message", default=None): t.Or(t.String, t.Null),
+        t.Key("max_timeout", default=None): t.Or(t.Int, t.Null),
+        t.Key("prune_pareto", default=True): t.Bool,
+        t.Key("max_cost", default=None): t.Or(t.Float, t.Null),
+    },
+    allow_extra=["*"],
+)
 
 
 class SearchStudy(APIObject):
@@ -270,6 +278,12 @@ class SearchStudy(APIObject):
         Results of the comparative evaluation.
     error_message : Optional[str]
         Error message if the study fails.
+    max_timeout: Optional[int]
+        Maximal running time of the search.
+    prune_pareto: bool
+        Whether to use Pareto pruner for the search.
+    max_cost: Optional[float]
+        Maximal cost of the search.
     """
 
     _path = "api/v2/genai/syftrSearch"
@@ -305,6 +319,9 @@ class SearchStudy(APIObject):
         existing_blueprint_ids: Optional[List[str]],
         eval_results: Optional[List[Any]],
         error_message: Optional[str],
+        max_timeout: Optional[int],
+        prune_pareto: bool,
+        max_cost: Optional[float],
     ):
         self.search_space = search_space
         self.use_case_id = use_case_id
@@ -333,6 +350,9 @@ class SearchStudy(APIObject):
         self.existing_blueprint_ids = existing_blueprint_ids
         self.eval_results = eval_results
         self.error_message = error_message
+        self.max_timeout = max_timeout
+        self.prune_pareto = prune_pareto
+        self.max_cost = max_cost
 
     @classmethod
     def create(
@@ -346,6 +366,11 @@ class SearchStudy(APIObject):
         optimization_objectives: List[Tuple[ObjectiveType, DirectionType]],
         search_space: SearchSpaceDict,
         name: str,
+        max_timeout: Optional[int] = None,
+        max_cost: Optional[float] = None,
+        prune_pareto: bool = True,
+        wait_for_completion: bool = False,
+        max_wait: int = 3 * 60 * 60,
     ) -> SearchStudy:
         """
         Create a new search search study with the specified parameters.
@@ -368,6 +393,23 @@ class SearchStudy(APIObject):
             Optimization objectives of the study, defined as (objective, direction) pairs.
         search_space : SearchSpaceDict
             Search space configuration for the search.
+        name : str
+            Name of the search study.
+        max_timeout : Optional[int]
+            Maximal running time of the search.
+        max_cost : Optional[float]
+            Maximal cost of the search.
+        prune_pareto : bool
+            Whether to use Pareto pruner for the search.
+        wait_for_completion : bool, optional
+            If ``True``, block until the study reaches ``COMPLETED`` or ``FAILED`` and return
+            the final :class:`SearchStudy`. If ``False`` (default), return immediately with the
+            study in ``RUNNING`` state. Use :meth:`wait_for_completion` on the returned object
+            to wait later.
+        max_wait : int, optional
+            Maximum number of seconds to wait when ``wait_for_completion=True``.
+            Defaults to 10800 (3 hours). Raises :class:`~datarobot.errors.AsyncTimeoutError`
+            if exceeded.
 
         Returns
         -------
@@ -384,10 +426,56 @@ class SearchStudy(APIObject):
             "optimization_objectives": optimization_objectives,
             "search_space": search_space,
             "name": name,
+            "max_timeout": max_timeout,
+            "prune_pareto": prune_pareto,
+            "max_cost": max_cost,
         })
         r_data = cls._client.post(f"{cls._client.domain}/{cls._path}/", data=payload)
-        location = wait_for_async_resolution(cls._client, r_data.headers["Location"])
-        return cls.from_location(location)
+        async_location = r_data.headers["Location"]
+
+        if wait_for_completion:
+            location = wait_for_async_resolution(cls._client, async_location, max_wait=max_wait)
+            return cls.from_location(location)
+
+        # The POST only returns {"searchStudyId": ..., "jobId": ...}, not the full object.
+        # Fetch the initial RUNNING-state study; the job_id field on the returned object
+        # is sufficient to reconstruct the async status URL for wait_for_completion().
+        return cls.get(r_data.json()["searchStudyId"])
+
+    def wait_for_completion(self, max_wait: int = 3 * 60 * 60) -> SearchStudy:
+        """
+        Block until the study reaches ``COMPLETED`` or ``FAILED`` and return the updated object.
+
+        Uses the same async resolution path as ``create(wait_for_completion=True)``.
+        The status URL is derived from the ``job_id`` field, so this method works
+        on any :class:`SearchStudy` instance that has a ``job_id`` — including those
+        fetched via :meth:`get`.
+
+        Parameters
+        ----------
+        max_wait : int, optional
+            Maximum number of seconds to wait. Defaults to 10800 (3 hours).
+
+        Returns
+        -------
+        search study : SearchStudy
+            The updated study object once the study has finished.
+
+        Raises
+        ------
+        ValueError
+            If ``job_id`` is ``None`` (the study has no associated async job).
+        AsyncTimeoutError
+            If the study does not finish within ``max_wait`` seconds.
+        """
+        if self.job_id is None:
+            raise ValueError(
+                f"Search study {self.search_study_id!r} has no job_id; "
+                "wait_for_completion() requires an associated async job."
+            )
+        async_location = f"{self._client.domain}/status/{self.job_id}/"
+        location = wait_for_async_resolution(self._client, async_location, max_wait=max_wait)
+        return self.from_location(location)
 
     @classmethod
     def get(cls, search_study_id: str) -> SearchStudy:

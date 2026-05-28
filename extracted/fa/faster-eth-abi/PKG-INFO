@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: faster_eth_abi
-Version: 5.2.28
+Version: 5.2.29
 Summary: A ~2-6x faster fork of eth_abi: Python utilities for working with Ethereum ABI definitions, especially encoding and decoding. Implemented in C.
 Home-page: https://github.com/BobTheBuidler/faster-eth-abi
 Author: The Ethereum Foundation
@@ -29,7 +29,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.10, <4
 Description-Content-Type: text/markdown
 Requires-Dist: cchecksum<0.5,>=0.4.3
-Requires-Dist: faster-eth-utils==5.3.26
+Requires-Dist: faster-eth-utils==5.3.27
 Requires-Dist: eth-abi==5.2.0
 Requires-Dist: eth-typing==5.2.1
 Requires-Dist: mypy_extensions

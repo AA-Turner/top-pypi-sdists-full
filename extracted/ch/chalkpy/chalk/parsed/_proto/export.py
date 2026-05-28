@@ -357,10 +357,11 @@ def export_from_registries(
             )
             continue
 
-        proto_target = {
+        proto_target_by_storage_target = {
             AggregateBackfillTarget.ONLINE: cron_aggregate_backfill_pb.CRON_AGGREGATE_BACKFILL_TARGET_ONLINE,
             AggregateBackfillTarget.OFFLINE: cron_aggregate_backfill_pb.CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE,
-        }[backfill.target]
+        }
+        proto_targets = [proto_target_by_storage_target[target] for target in backfill.targets]
         cron_aggregate_backfills.append(
             cron_aggregate_backfill_pb.CronAggregateBackfill(
                 name=backfill.name,
@@ -370,7 +371,8 @@ def export_from_registries(
                     if isinstance(backfill.schedule, timedelta)
                     else backfill.schedule
                 ),
-                target=proto_target,
+                target=proto_targets[0],  # backwards-compatibility
+                targets=proto_targets,
                 query_tags=backfill.query_tags,
                 resource_group=backfill.resource_group,
                 lower_bound=(

@@ -11,10 +11,14 @@ if [ -z "$PYPI_API_TOKEN" ]; then
     exit 1
 fi
 
+VERSION=$(poetry version -s)
+WHEEL="dist/sprig_config-${VERSION}-py3-none-any.whl"
+SDIST="dist/sprig_config-${VERSION}.tar.gz"
+
 echo "Building distribution..."
 poetry build
 
 echo "Uploading to PyPI..."
-poetry run twine upload -u __token__ -p "$PYPI_API_TOKEN" dist/*
+poetry run twine upload -u __token__ -p "$PYPI_API_TOKEN" "$WHEEL" "$SDIST"
 
 echo "Upload complete!"

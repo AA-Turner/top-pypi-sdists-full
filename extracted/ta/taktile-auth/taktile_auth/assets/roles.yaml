@@ -161,6 +161,7 @@ ws_editor/org_id,ws_id:
     - r+w:workspace_case_template/org_id,ws_id
     - r+w:workspace_case/org_id,ws_id
     - r:workspace_case_queue/org_id,ws_id
+    - r:workspace_case_analytics/org_id,ws_id
 ws_admin/org_id,ws_id:
     - ws_editor/org_id,ws_id
     - w:workspace_endpoint/org_id,ws_id

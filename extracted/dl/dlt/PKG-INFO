@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.27.0
+Version: 1.27.1
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -154,7 +154,7 @@ Provides-Extra: s3
 Requires-Dist: botocore>=1.28; extra == 's3'
 Requires-Dist: s3fs>=2022.4.0; extra == 's3'
 Provides-Extra: sftp
-Requires-Dist: paramiko>=3.3.0; extra == 'sftp'
+Requires-Dist: paramiko<5,>=3.3.0; extra == 'sftp'
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python>=3.5.0; extra == 'snowflake'
 Provides-Extra: sql-database
@@ -296,7 +296,7 @@ Please read [CONTRIBUTING](CONTRIBUTING.md) before you make a PR.
   </a>
 </p>
 
-[Blacksmith](https://blacksmith.sh/?utm_source=dlt&utm_medium=readme&utm_campaign=sponsorship) is a CI/CD platform that accelerates GitHub Actions by reducing queue times and improving build performance. It helps teams run workflows faster and more efficiently, making it easier to maintain a smooth development pipeline. We're grateful to Blacksmith for sponsoring dlt with free CI/CD minutes, which helps us keep builds fast and our costs lower.
+[Blacksmith](https://blacksmith.sh/?utm_source=dlt&utm_medium=readme&utm_campaign=sponsorship) is a drop-in replacement for GitHub-hosted runners that speed up our CI/CD pipelines by 2x and up to 75% cheaper. We're grateful to Blacksmith for sponsoring us with free CI/CD minutes--which helps us keep builds fast and our costs lower.
 
 ## License
 

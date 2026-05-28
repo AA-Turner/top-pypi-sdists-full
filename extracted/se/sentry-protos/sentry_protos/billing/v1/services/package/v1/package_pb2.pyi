@@ -91,16 +91,23 @@ class PackageConfig(google.protobuf.message.Message):
     BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
     BILLING_INTERVAL_FIELD_NUMBER: builtins.int
     TITLE_FIELD_NUMBER: builtins.int
+    SUPPORTED_MONTH_INTERVALS_FIELD_NUMBER: builtins.int
     uid: builtins.str
     base_price_cents: builtins.int
     """Base price for the package."""
     billing_interval: sentry_protos.billing.v1.common.v1.billing_interval_pb2.BillingInterval.ValueType
-    """Billing interval for this package."""
+    """Deprecated. Use supported_month_intervals."""
     title: builtins.str
     @property
     def line_item_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemConfig]: ...
     @property
     def shared_line_item_pools(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SharedLineItemPool]: ...
+    @property
+    def supported_month_intervals(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
+        """Number-of-months billing intervals this package offers.
+        [1] = monthly only, [1, 12] = monthly or annual, [12] = annual only.
+        """
+
     def __init__(
         self,
         *,
@@ -110,7 +117,8 @@ class PackageConfig(google.protobuf.message.Message):
         base_price_cents: builtins.int = ...,
         billing_interval: sentry_protos.billing.v1.common.v1.billing_interval_pb2.BillingInterval.ValueType = ...,
         title: builtins.str = ...,
+        supported_month_intervals: collections.abc.Iterable[builtins.int] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "title", b"title", "uid", b"uid"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid"]) -> None: ...
 
 global___PackageConfig = PackageConfig

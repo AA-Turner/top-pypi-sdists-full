@@ -3,7 +3,11 @@
 namespace instanttensor {
 
 void Loader::open_file_aio(FileInfo &f) {
-    f.fd = ::open(f.filename.c_str(), O_RDONLY | O_DIRECT);
+    int open_flags = O_RDONLY;
+    if (this->backend == Backend::AIO) {// != AIO_BUFFERED
+        open_flags |= O_DIRECT;
+    }
+    f.fd = ::open(f.filename.c_str(), open_flags);
     if (f.fd < 0) {
         throw std::runtime_error("Failed to open file: " + f.filename);
     }
@@ -11,12 +15,15 @@ void Loader::open_file_aio(FileInfo &f) {
     if (fstat(f.fd, &st) < 0) { throw std::runtime_error("Failed to fstat file: " + f.filename); }
     f.size = st.st_size;
 
-    this->need_aio = true;
+    if (this->backend == Backend::AIO_BUFFERED) {
+        posix_fadvise(f.fd, 0, 0, POSIX_FADV_SEQUENTIAL);
+    }
+
     this->need_host_buffer = true;
     this->need_cuda_thread = true;
 }
 
-void Loader::open_file_aio_context() {
+void Loader::initialize_aio_context() {
     int ret = io_setup(this->io_depth * this->num_threads, &this->aio_ctx);
     if(ret < 0){
         print_and_throw(std::runtime_error("Failed to setup aio: " + std::string(strerror(-ret))));
@@ -33,7 +40,7 @@ void Loader::close_file_aio(FileInfo &f) {
     ::close(f.fd);
 }
 
-void Loader::close_file_aio_context() {
+void Loader::destroy_aio_context() {
     int ret = io_destroy(this->aio_ctx);
     if(ret < 0){
         print_and_throw(std::runtime_error("Failed to destroy aio: " + std::string(strerror(-ret))));
@@ -61,23 +68,29 @@ ChunkRequest Loader::post_read_chunk_aio(const ChunkIOParams &p) {
         iocb->data = (void*)chunk_id;
         submit_cnt ++;
     }
-    this->chunks[chunk_id].extra_data.aio_unfinished_cnt = submit_cnt;
+    this->chunks[chunk_id].extra_data.unfinished_cnt = submit_cnt;
 
     // NOTE: This will block at the last page of the file if the file is not page aligned.
     //       So we put the last page into another thread
     auto aio_func = [=]() {
-        int ret = io_submit(this->aio_ctx, submit_cnt, this->aio_iocb_ptrs.data() + window_idx * this->num_threads);
-        if(ret < 0){
-            print_and_throw(std::runtime_error("Failed to submit aio: " + std::string(strerror(-ret))));
+        size_t submitted = 0;
+        while(submitted < submit_cnt) {
+            int ret = io_submit(this->aio_ctx, submit_cnt - submitted, this->aio_iocb_ptrs.data() + window_idx * this->num_threads + submitted);
+            if(ret < 0){
+                print_and_throw(std::runtime_error("Failed to submit aio: " + std::string(strerror(-ret))));
+            }
+            submitted += ret;
         }
     };
 
     int aio_req_id = 0;
-    if(unaligned_last_page) {
-        aio_req_id = this->aio_fallback_thread->post(std::move(aio_func));
-    }
-    else {
-        aio_func();
+    if(submit_cnt > 0) {
+        if(unaligned_last_page) {
+            aio_req_id = this->last_page_reader_thread->post(std::move(aio_func));
+        }
+        else {
+            aio_func();
+        }
     }
     
 
@@ -88,11 +101,11 @@ ChunkRequest Loader::post_read_chunk_aio(const ChunkIOParams &p) {
     size_t padded_rank_size = p.padded_rank_size;
     cudaEvent_t event = p.event;
     auto cuda_func = [=]() {
-        if(unaligned_last_page) {
-            this->aio_fallback_thread->pop(aio_req_id);
+        if(aio_req_id) {
+            this->last_page_reader_thread->pop(aio_req_id);
         }
         // disk to host
-        size_t &unfinished_cnt = this->chunks[chunk_id].extra_data.aio_unfinished_cnt;
+        size_t &unfinished_cnt = this->chunks[chunk_id].extra_data.unfinished_cnt;
         while(unfinished_cnt > 0) {
             int got = io_getevents(this->aio_ctx, unfinished_cnt, unfinished_cnt, this->aio_events.data(), NULL);
             // got may < min_nr and >= 0 if interrupted
@@ -107,7 +120,7 @@ ChunkRequest Loader::post_read_chunk_aio(const ChunkIOParams &p) {
                 }
                 // NOTE: event_chunk_id can be different from chunk_id
                 chunk_id_t event_chunk_id = (chunk_id_t)this->aio_events[i].data;
-                this->chunks[event_chunk_id].extra_data.aio_unfinished_cnt --;
+                this->chunks[event_chunk_id].extra_data.unfinished_cnt --;
             }
         }
 

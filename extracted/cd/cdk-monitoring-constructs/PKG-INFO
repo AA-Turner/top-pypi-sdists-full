@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-monitoring-constructs
-Version: 10.0.0
+Version: 10.1.0
 Summary: cdk-monitoring-constructs
 Home-page: https://github.com/cdklabs/cdk-monitoring-constructs
 Author: Amazon Web Services<aws-cdk-dev@amazon.com>
@@ -16,13 +16,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Typing :: Typed
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved
-Requires-Python: ~=3.9
+Requires-Python: ~=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.160.0
 Requires-Dist: constructs<11.0.0,>=10.0.5
-Requires-Dist: jsii<2.0.0,>=1.128.0
+Requires-Dist: jsii<2.0.0,>=1.132.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 

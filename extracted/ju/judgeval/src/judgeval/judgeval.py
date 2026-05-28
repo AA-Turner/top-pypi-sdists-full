@@ -136,10 +136,8 @@ class Judgeval:
         the offline trace id and the static ``example_fields``.
 
         Args:
-            dataset: Caller-owned list. Each completed root span appends a
-                new ``Example`` carrying the ``offline_trace_id`` of the
-                trace and the static ``example_fields``.
-            example_fields: Static fields copied onto every emitted example
+            dataset: List that receives an ``Example`` for each completed root span.
+            example_fields: Fields included on every ``Example`` in ``dataset``
                 (e.g. ``{"input": ..., "golden_output": ...}``).
             environment: Deployment environment label.
             set_active: If True, register this as the active tracer.
@@ -254,6 +252,37 @@ class Judgeval:
         from judgeval.prompts.prompt_factory import PromptFactory
 
         return PromptFactory(
+            client=self._internal_client,
+            project_id=self._project_id,
+            project_name=self._project_name,
+        )
+
+    @property
+    def agent_judges(self):
+        """Manage Agent Judges (prompt-based scorers) on the platform.
+
+        Returns:
+            AgentJudgeFactory: Use `.create()` or `.update()` to create
+                and update prompt-based Agent Judges.
+
+        Examples:
+            ```python
+            judge = client.agent_judges.create(
+                name="helpfulness",
+                prompt="Score the assistant's helpfulness from 0 to 1.",
+                model="gpt-5.2",
+                score_type="numeric",
+            )
+
+            client.agent_judges.update(
+                judge_id=judge.judge_id,
+                prompt="Updated rubric prompt.",
+            )
+            ```
+        """
+        from judgeval.agent_judges.agent_judge_factory import AgentJudgeFactory
+
+        return AgentJudgeFactory(
             client=self._internal_client,
             project_id=self._project_id,
             project_name=self._project_name,

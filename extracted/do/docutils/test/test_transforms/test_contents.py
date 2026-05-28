@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_contents.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_contents.py 10303 2026-03-27 08:41:10Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
 from docutils.frontend import get_default_settings
 from docutils.parsers.rst import Parser
-from docutils.transforms.references import Substitutions
+from docutils.transforms.references import SectionIDs, Substitutions
 from docutils.transforms.universal import TestMessages
 from docutils.utils import new_document
 
@@ -46,7 +46,7 @@ class TransformTestCase(unittest.TestCase):
 
 totest = {}
 
-totest['tables_of_contents'] = ((Substitutions,), [
+totest['tables_of_contents'] = ((SectionIDs, Substitutions,), [
 ["""\
 .. contents::
 

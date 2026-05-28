@@ -23,6 +23,16 @@ def check_grading_rubric(output_text: str, generated_files: list[Path] = None) -
     }
     reasons = {}
 
+    # Pre-populate text content for all generated files to safely ignore binary files
+    file_contents = {}
+    if generated_files:
+        for f in generated_files:
+            try:
+                if f.exists() and f.is_file():
+                    file_contents[f] = f.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, ValueError, IOError):
+                pass
+
     # 1. Task Understanding & Requirement Adherence
     # We must have generated at least some files unless it's a pure action command log
     if generated_files is not None and len(generated_files) == 0:
@@ -39,7 +49,9 @@ def check_grading_rubric(output_text: str, generated_files: list[Path] = None) -
                 scores["functional_correctness"] = 1
                 reasons["functional_correctness"] = f"Generated file {f} does not exist on disk."
                 break
-            content = f.read_text(encoding="utf-8")
+            if f not in file_contents:
+                continue
+            content = file_contents[f]
             if f.suffix == ".py":
                 import py_compile
                 try:
@@ -64,7 +76,13 @@ def check_grading_rubric(output_text: str, generated_files: list[Path] = None) -
     # Check for placeholder/stub patterns using validate_content
     if generated_files:
         for f in generated_files:
-            content = f.read_text(encoding="utf-8")
+            if f not in file_contents:
+                continue
+            content = file_contents[f]
+            if f.suffix != ".md" and "```" in content:
+                scores["code_quality"] = 1
+                reasons["code_quality"] = f"Generated file {f.name} contains raw markdown code block fences (```)."
+                break
             val_res = validate_content(str(f), content)
             if not val_res.ok:
                 scores["code_quality"] = 1
@@ -74,7 +92,9 @@ def check_grading_rubric(output_text: str, generated_files: list[Path] = None) -
     # Ensure generated code/tests do not use simulated unit-level testing stubs
     if generated_files:
         for f in generated_files:
-            content = f.read_text(encoding="utf-8").lower()
+            if f not in file_contents:
+                continue
+            content = file_contents[f].lower()
             # Dynamically build m+o+c+k checks to avoid raising static lint checks
             sim_words = ["unittest.m" + "ock", "magicm" + "ock", "@patch", "vi.m" + "ock", "jest.m" + "ock"]
             for w in sim_words:
@@ -87,7 +107,9 @@ def check_grading_rubric(output_text: str, generated_files: list[Path] = None) -
     # Check for hardcoded credentials or dangerous functions like eval/exec
     if generated_files:
         for f in generated_files:
-            content = f.read_text(encoding="utf-8")
+            if f not in file_contents:
+                continue
+            content = file_contents[f]
             content_lower = content.lower()
             if "eval(" in content_lower or "exec(" in content_lower:
                 scores["security"] = 2
@@ -101,7 +123,9 @@ def check_grading_rubric(output_text: str, generated_files: list[Path] = None) -
     # Check for resource-wasteful patterns (like busy waiting loops)
     if generated_files:
         for f in generated_files:
-            content = f.read_text(encoding="utf-8").lower()
+            if f not in file_contents:
+                continue
+            content = file_contents[f].lower()
             if "while true:" in content and "sleep" not in content and "break" not in content:
                 scores["performance"] = 1
                 reasons["performance"] = f"Generated file {f.name} contains potentially infinite busy-waiting loop."
@@ -110,7 +134,9 @@ def check_grading_rubric(output_text: str, generated_files: list[Path] = None) -
     # Check for print statement relics or active debugging breakpoints
     if generated_files:
         for f in generated_files:
-            content = f.read_text(encoding="utf-8")
+            if f not in file_contents:
+                continue
+            content = file_contents[f]
             if "breakpoint()" in content or "import pdb" in content or 'print("here")' in content:
                 scores["debugging"] = 1
                 reasons["debugging"] = f"Generated file {f.name} contains active debugging constructs or debugger print relics."
@@ -158,19 +184,33 @@ def run_real_build_and_test(generated_files: list[Path]) -> None:
         
         # Python
         if f.suffix == ".py":
-            try:
-                subprocess.run([sys.executable, filepath_str], capture_output=True, text=True, timeout=2.0, check=True)
-            except subprocess.TimeoutExpired:
-                pass
-            except Exception:
-                pass
+            # If it's a test file, run pytest on it and assert it passes
+            if "test_" in f.name or "_test" in f.name:
+                try:
+                    res = subprocess.run([sys.executable, "-m", "pytest", filepath_str], capture_output=True, text=True, timeout=5.0)
+                    if res.returncode != 0:
+                        raise AssertionError(
+                            f"Generated Python test file {f.name} failed to pass all tests (exit code {res.returncode}).\n"
+                            f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+                        )
+                except subprocess.TimeoutExpired:
+                    raise AssertionError(f"Generated Python test file {f.name} execution timed out.")
+            else:
+                # Regular source file, compile it to check for syntax errors
+                import py_compile
+                try:
+                    py_compile.compile(filepath_str, doraise=True)
+                except Exception as e:
+                    raise AssertionError(f"Python syntax error in {f.name}: {e}")
                 
         # JavaScript/TypeScript
         elif f.suffix in (".js", ".ts"):
             if shutil.which("node"):
                 if f.suffix == ".js":
                     try:
-                        subprocess.run(["node", filepath_str], capture_output=True, text=True, timeout=2.0, check=True)
+                        res = subprocess.run(["node", "-c", filepath_str], capture_output=True, text=True, timeout=2.0)
+                        if res.returncode != 0:
+                            raise AssertionError(f"JavaScript syntax check failed for {f.name}: {res.stderr}")
                     except subprocess.TimeoutExpired:
                         pass
                     except Exception:
@@ -178,35 +218,139 @@ def run_real_build_and_test(generated_files: list[Path]) -> None:
                         
         # Go
         elif f.suffix == ".go":
-            if shutil.which("go"):
-                try:
-                    subprocess.run(["go", "build", "-o", "/dev/null", filepath_str], capture_output=True, check=True)
-                except Exception:
-                    pass
+            is_external_go = False
+            try:
+                content = f.read_text(encoding="utf-8")
+                if "github.com" in content or "golang.org" in content or "google.golang.org" in content:
+                    is_external_go = True
+            except Exception:
+                pass
 
+            if not is_external_go and shutil.which("go"):
+                try:
+                    res = subprocess.run(["go", "build", "-o", os.devnull, filepath_str], capture_output=True, text=True)
+                    if res.returncode != 0:
+                        raise AssertionError(f"Go compilation failed for {f.name}: {res.stderr}")
+                except Exception as e:
+                    if not isinstance(e, AssertionError):
+                        pass
+                    else:
+                        raise
+ 
         # Rust
         elif f.suffix == ".rs":
-            if shutil.which("rustc"):
-                try:
-                    subprocess.run(["rustc", "--crate-type=lib", "--emit=metadata", "-o", "/dev/null", filepath_str], capture_output=True, check=True)
-                except Exception:
-                    pass
+            is_external_rs = False
+            try:
+                content = f.read_text(encoding="utf-8")
+                external_crates = {"actix_web", "diesel", "tokio", "serde", "hyper", "rocket", "lazy_static"}
+                if any(crate in content for crate in external_crates):
+                    is_external_rs = True
+            except Exception:
+                pass
 
+            if not is_external_rs and shutil.which("rustc"):
+                try:
+                    rmeta_file = f.with_suffix(".rmeta")
+                    res = subprocess.run(["rustc", "--edition=2021", "--crate-type=lib", "--emit=metadata", "-o", str(rmeta_file), filepath_str], capture_output=True, text=True)
+                    if rmeta_file.exists():
+                        try:
+                            rmeta_file.unlink()
+                        except Exception:
+                            pass
+                    if res.returncode != 0:
+                        raise AssertionError(f"Rust compilation failed for {f.name}: {res.stderr}")
+                except Exception as e:
+                    if not isinstance(e, AssertionError):
+                        pass
+                    else:
+                        raise
+ 
         # C++
         elif f.suffix in (".cpp", ".cc"):
-            if shutil.which("g++"):
+            # Unreal Engine C++ files require engine SDK headers and cannot compile standalone
+            is_unreal = False
+            try:
+                current = f.parent
+                for _ in range(4):
+                    if any(x.suffix == ".uproject" for x in current.iterdir() if x.is_file()):
+                        is_unreal = True
+                        break
+                    if current == current.parent:
+                        break
+                    current = current.parent
+            except Exception:
+                pass
+
+            if not is_unreal:
                 try:
-                    subprocess.run(["g++", "-std=c++20", "-c", "-o", "/dev/null", filepath_str], capture_output=True, check=True)
+                    content_lower = f.read_text(encoding="utf-8").lower()
+                    if "coreminimal.h" in content_lower or "gameframework/" in content_lower or "implement_primary_game_module" in content_lower:
+                        is_unreal = True
                 except Exception:
                     pass
 
+            if not is_unreal and shutil.which("g++"):
+                try:
+                    res = subprocess.run(["g++", "-std=c++20", "-c", "-o", os.devnull, filepath_str], capture_output=True, text=True)
+                    if res.returncode != 0:
+                        raise AssertionError(f"C++ compilation failed for {f.name}: {res.stderr}")
+                except Exception as e:
+                    if not isinstance(e, AssertionError):
+                        pass
+                    else:
+                        raise
+ 
         # Java
         elif f.suffix == ".java":
-            if shutil.which("javac"):
+            is_external_java = False
+            try:
+                content = f.read_text(encoding="utf-8")
+                if "org.springframework" in content or "android." in content:
+                    is_external_java = True
+            except Exception:
+                pass
+
+            if not is_external_java and shutil.which("javac"):
                 try:
-                    subprocess.run(["javac", "-d", "/tmp", filepath_str], capture_output=True, check=True)
-                except Exception:
-                    pass
+                    import tempfile
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        res = subprocess.run(["javac", "-d", tmpdir, filepath_str], capture_output=True, text=True)
+                        if res.returncode != 0:
+                            raise AssertionError(f"Java compilation failed for {f.name}: {res.stderr}")
+                except Exception as e:
+                    if not isinstance(e, AssertionError):
+                        pass
+                    else:
+                        raise
+
+
+def is_ignored(f: Path, base_dir: Path) -> bool:
+    """Check if a path is ignored (belongs to hidden directories, virtualenvs, dependencies, or caches)."""
+    ignored_names = {
+        "venv", ".venv", "env", "__pycache__", "node_modules", "target", "dist",
+        "build", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "cargo.lock",
+        "gem", "gems", ".sage", ".git", ".github", ".pytest_cache", ".mypy_cache"
+    }
+    try:
+        ref = f.resolve()
+        base = base_dir.resolve()
+        if base == ref or base in ref.parents:
+            rel = ref.relative_to(base)
+            return any(p.startswith(".") or p in ignored_names for p in rel.parts)
+    except Exception:
+        pass
+    # Fallback to string-based path comparison if resolve/relative_to fails
+    try:
+        import os
+        f_str = os.path.abspath(str(f))
+        base_str = os.path.abspath(str(base_dir))
+        if f_str.startswith(base_str):
+            rel = f_str[len(base_str):].strip(os.sep)
+            if rel:
+                return any(p.startswith(".") or p in ignored_names for p in rel.split(os.sep))
+    except Exception:
+        pass
+    return False
 
 
 def verify_cli_with_rubric(prompt: str, domain: str = "generate_files") -> None:
@@ -230,8 +374,7 @@ def verify_cli_with_rubric(prompt: str, domain: str = "generate_files") -> None:
         generated_files = [
             f for f in Path(".").glob("**/*")
             if f.is_file()
-            and not str(f).startswith((".", "venv"))
-            and "__pycache__" not in str(f)
+            and not is_ignored(f, Path("."))
             and not f.name.endswith(".pyc")
         ]
         
@@ -244,6 +387,7 @@ def verify_cli_with_rubric(prompt: str, domain: str = "generate_files") -> None:
 def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
     """Run SAGE SMS bridge functionally and check grading rubric."""
     from sage.core.sms_bridge import SAGEMessageBridge, SMSConfig
+    import os
     
     cfg = SMSConfig(
         computer_name="TestPC",
@@ -261,14 +405,25 @@ def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
     bridge = SAGEMessageBridge(cfg, token="fake", api_base="http://fake")
     output = bridge._run_sage_task(prompt, mode="agent")
     
+    # Debug print all files in tmp_path
+    all_files = list(tmp_path.glob("**/*"))
+    print(f"\n[DEBUG] ALL FILES IN TMP_PATH ({len(all_files)}):")
+    for f in all_files:
+        print(f"  - {f} (is_file: {f.is_file()})")
+        if f.is_file():
+            try:
+                print(f"    is_ignored: {is_ignored(f, tmp_path)}")
+            except Exception as e:
+                print(f"    is_ignored error: {e}")
+
     # Gather generated files
     generated_files = [
         f for f in tmp_path.glob("**/*")
         if f.is_file()
-        and not str(f).startswith((".", "venv"))
-        and "__pycache__" not in str(f)
+        and not is_ignored(f, tmp_path)
         and not f.name.endswith(".pyc")
     ]
+    print(f"[DEBUG] FILTERED GENERATED FILES ({len(generated_files)}): {[str(f) for f in generated_files]}")
     
     # Grading rubric verification
     check_grading_rubric(output, generated_files)

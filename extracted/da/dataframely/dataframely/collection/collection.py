@@ -32,7 +32,8 @@ from dataframely._storage import StorageBackend
 from dataframely._storage.constants import COLLECTION_METADATA_KEY
 from dataframely._storage.delta import DeltaStorageBackend
 from dataframely._storage.parquet import ParquetStorageBackend
-from dataframely._typing import LazyFrame, Validation
+from dataframely._typing import DataFrame, LazyFrame, Validation
+from dataframely.config import Config
 from dataframely.exc import (
     DeserializationError,
     ValidationError,
@@ -68,13 +69,13 @@ class Collection(BaseCollection, ABC):
     to 1-N relationships that are managed in separate data frames.
 
     A collection must only have type annotations for :class:`~dataframely.LazyFrame`
-    with known schema:
+    or :class:`~dataframely.DataFrame` with known schema:
 
     .. code:: python
 
         class MyCollection(dy.Collection):
             first_member: dy.LazyFrame[MyFirstSchema]
-            second_member: dy.LazyFrame[MySecondSchema]
+            second_member: dy.DataFrame[MySecondSchema]
 
     Besides, it may define *filters* (c.f. :meth:`~dataframely.filter`) and arbitrary
     methods.
@@ -409,11 +410,20 @@ class Collection(BaseCollection, ABC):
             # information to properly construct a useful error message.
             filtered, failures = cls.filter(data, cast=cast, eager=True)
             if any(len(failure) > 0 for failure in failures.values()):
-                errors = {
-                    member: format_rule_failures(list(failure.counts().items()))
-                    for member, failure in failures.items()
-                    if len(failure) > 0
-                }
+                errors: dict[str, str] = {}
+                for member, failure in failures.items():
+                    if len(failure) == 0:
+                        continue
+
+                    counts = failure.counts()
+                    errors[member] = format_rule_failures(
+                        list(counts.items()),
+                        failures_from=failure._df.select(counts.keys()),
+                        examples_from=failure.invalid(),
+                        primary_key_columns=cls.member_schemas()[member].primary_key(),
+                        max_examples=Config.options["max_failure_examples"],
+                    )
+
                 details = [
                     f" > Member '{member}' failed validation:\n"
                     + textwrap.indent(error, "   ")
@@ -451,7 +461,11 @@ class Collection(BaseCollection, ABC):
                         )
                         .filter(
                             all_rules_required(
-                                filter_names, null_is_valid=False, schema_name=name
+                                filter_names,
+                                null_is_valid=False,
+                                schema_name=name,
+                                data_columns=cls.common_primary_key(),
+                                primary_key_columns=cls.common_primary_key(),
                             )
                         )
                         .drop(filter_names)
@@ -788,17 +802,14 @@ class Collection(BaseCollection, ABC):
         particularly useful when :meth:`filter` is called with lazy frame inputs.
 
         Returns:
-            The same collection with all members collected once.
-
-        Note:
-            As all collection members are required to be lazy frames, the returned
-            collection's members are still "lazy". However, they are "shallow-lazy",
-            meaning they are obtained by calling `.collect().lazy()`.
+            The same collection with all members collected once. Members annotated
+            with :class:`~dataframely.DataFrame` are returned as DataFrames, while
+            members annotated with :class:`~dataframely.LazyFrame` are returned as
+            "shallow-lazy" frames (obtained by calling ``.collect().lazy()``).
         """
-        dfs = pl.collect_all(self.to_dict().values())
-        return self._init(
-            {key: dfs[i].lazy() for i, key in enumerate(self.to_dict().keys())}
-        )
+        lazy_dict = self.to_dict()
+        dfs = pl.collect_all(lazy_dict.values())
+        return self._init(dict(zip(lazy_dict, dfs)))
 
     # --------------------------------- SERIALIZATION -------------------------------- #
 
@@ -842,6 +853,7 @@ class Collection(BaseCollection, ABC):
                 name: {
                     "schema": info.schema._as_dict(),
                     "is_optional": info.is_optional,
+                    "is_lazy": info.is_lazy,
                     "ignored_in_filters": info.ignored_in_filters,
                     "inline_for_sampling": info.inline_for_sampling,
                 }
@@ -1330,11 +1342,14 @@ def deserialize_collection(data: str, strict: bool = True) -> type[Collection] |
 
         annotations: dict[str, Any] = {}
         for name, info in decoded["members"].items():
-            lf_type = LazyFrame[_schema_from_dict(info["schema"])]  # type: ignore
+            schema = _schema_from_dict(info["schema"])
+            # Default to lazy for backwards compatibility with old serialized data
+            is_lazy = info.get("is_lazy", True)
+            frame_type = LazyFrame[schema] if is_lazy else DataFrame[schema]  # type: ignore
             if info["is_optional"]:
-                lf_type = lf_type | None  # type: ignore
+                frame_type = frame_type | None  # type: ignore
             annotations[name] = Annotated[
-                lf_type,
+                frame_type,
                 CollectionMember(
                     ignored_in_filters=info["ignored_in_filters"],
                     inline_for_sampling=info["inline_for_sampling"],

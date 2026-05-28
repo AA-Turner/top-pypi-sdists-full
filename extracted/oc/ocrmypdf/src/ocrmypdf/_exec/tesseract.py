@@ -17,13 +17,14 @@ from subprocess import PIPE, STDOUT, CalledProcessError, TimeoutExpired
 
 from packaging.version import Version
 
+from ocrmypdf._exec._probe import ToolProbe
 from ocrmypdf.exceptions import (
     MissingDependencyError,
     SubprocessOutputError,
     TesseractConfigError,
 )
 from ocrmypdf.pluginspec import OrientationConfidence
-from ocrmypdf.subprocess import get_version, run
+from ocrmypdf.subprocess import run
 
 log = logging.getLogger(__name__)
 
@@ -115,8 +116,13 @@ class TesseractVersion(Version):
     )
 
 
-def version() -> Version:
-    return TesseractVersion(get_version('tesseract', regex=r'tesseract\s(.+)'))
+PROBE = ToolProbe(
+    program='tesseract',
+    version_regex=r'tesseract\s(.+)',
+    version_cls=TesseractVersion,
+)
+version = PROBE.version
+available = PROBE.available
 
 
 def has_thresholding() -> bool:
@@ -287,9 +293,7 @@ def tesseract_log_output(stream: bytes) -> None:
 
     lines = text.splitlines()
     for line in lines:
-        if line.startswith(
-            ("Tesseract Open Source", "Warning in pixReadMem")
-        ):
+        if line.startswith(("Tesseract Open Source", "Warning in pixReadMem")):
             continue
         elif 'diacritics' in line:
             tlog.warning("lots of diacritics - possibly poor OCR")
@@ -309,6 +313,23 @@ def tesseract_log_output(stream: bytes) -> None:
             tlog.warning(line.strip())
         elif 'read_params_file' in line.lower():
             tlog.error(line.strip())
+            # Tesseract emits "read_params_file: Can't open <name>" when it
+            # cannot locate a config file (e.g. 'hocr', 'txt') in its
+            # tessdata configs/ directory, then exits 0 without producing
+            # the requested output. Promote to a hard error so the user
+            # sees the root cause instead of a downstream FileNotFoundError.
+            if "Can't open" in line:
+                missing = line.split("Can't open", 1)[1].strip()
+            else:
+                missing = line.strip()
+            raise TesseractConfigError(
+                f"Tesseract cannot open its config file '{missing}'. "
+                "This usually means Tesseract is installed but its config "
+                "files are missing from the tessdata configs/ directory. "
+                "On Debian/Ubuntu, ensure the 'tesseract-ocr' package is "
+                "fully installed. If you set TESSDATA_PREFIX, verify its "
+                "configs/ subdirectory contains the required files."
+            )
         else:
             tlog.info(line.strip())
 
@@ -389,6 +410,12 @@ def generate_hocr(
         raise SubprocessOutputError() from e
     else:
         tesseract_log_output(stdout)
+        if not output_hocr.exists():
+            raise SubprocessOutputError(
+                "Tesseract exited successfully but did not produce the "
+                f"expected hOCR output at {output_hocr}. Tesseract output:\n"
+                + (stdout.decode(errors='replace') if stdout else '(empty)')
+            )
         # The sidecar text file will get the suffix .txt; rename it to
         # whatever caller wants it named
         with suppress(FileNotFoundError):
@@ -457,6 +484,12 @@ def generate_pdf(
         stdout = p.stdout
         with suppress(FileNotFoundError):
             prefix.with_suffix('.txt').replace(output_text)
+        if not output_pdf.exists():
+            raise SubprocessOutputError(
+                "Tesseract exited successfully but did not produce the "
+                f"expected PDF output at {output_pdf}. Tesseract output:\n"
+                + (stdout.decode(errors='replace') if stdout else '(empty)')
+            )
     except TimeoutExpired:
         page_timedout(timeout)
         use_skip_page(output_pdf, output_text)

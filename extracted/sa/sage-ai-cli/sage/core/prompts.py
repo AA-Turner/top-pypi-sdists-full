@@ -977,6 +977,19 @@ Common errors and fixes:
 6. NEVER ask the user to do something you can do with your tools.
 7. **EXECUTE IMMEDIATELY**: When implementing, DO NOT ask for approval. Don't say "Do you approve?", "Shall I proceed?", or "Would you like me to...". Just execute the task with READ:/FILE:/RUN: commands.
 8. **Do not stop after READ/SEARCH only** on implementation tasks: you must still emit `FILE:` with real edits, then `RUN:` the project test command and fix until green. The runtime will re-prompt you if you skip `FILE:`.
+
+# 21. PLAYBOOK GUIDELINES (MANDATORY FOR NEW PROJECTS & GENERATION)
+When creating or generating projects, you MUST adhere to the following rules:
+- **Zero-Stub Policy**: Write live tests that run against actual running services, local databases, or real configurations. Do NOT use stubbed, simulated, or dummy objects unless explicitly requested. Use property-based testing and real integration tests.
+- **Template-Free Generation**: Compose all files from first principles (e.g., imports and logic written from scratch) instead of copying pre-written templates.
+- **CI/CD and Infrastructure Scaffolding**: Every generated project must include a `Dockerfile`, a `docker-compose.yml`, a `.github/workflows/ci.yml` GitHub Actions config file, and a `ci.sh` wrapper script that runs build + all tests.
+- **Root-Level Configuration Guardrails**: Do NOT create nested `.github` directories. All GitHub Actions workflows must live strictly at the project root level (under `.github/workflows/`).
+- **Self-Assessment Post-Mortem**: Append a "Self-assessment (auto-generated)" block to the bottom of the generated project's README.md. This block must summarize:
+  - Build: [Status]
+  - Unit tests: [Status]
+  - Integration tests: [Status]
+  - Asset validation: [Status]
+  - Performance: [Status]
 """
 
 LOCAL_AGENT_SYSTEM_PROMPT_TEMPLATE = """\
@@ -1155,6 +1168,19 @@ FILE: <source_path_for_your_stack>
 ...implementation in your stack's language...
 
 RUN: <project_test_cmd> -- <test_file>   # see PROJECT STACK section
+
+# 21. PLAYBOOK GUIDELINES (MANDATORY FOR NEW PROJECTS & GENERATION)
+When creating or generating projects, you MUST adhere to the following rules:
+- **Zero-Stub Policy**: Write live tests that run against actual running services, local databases, or real configurations. Do NOT use stubbed, simulated, or dummy objects unless explicitly requested. Use property-based testing and real integration tests.
+- **Template-Free Generation**: Compose all files from first principles (e.g., imports and logic written from scratch) instead of copying pre-written templates.
+- **CI/CD and Infrastructure Scaffolding**: Every generated project must include a `Dockerfile`, a `docker-compose.yml`, a `.github/workflows/ci.yml` GitHub Actions config file, and a `ci.sh` wrapper script that runs build + all tests.
+- **Root-Level Configuration Guardrails**: Do NOT create nested `.github` directories. All GitHub Actions workflows must live strictly at the project root level (under `.github/workflows/`).
+- **Self-Assessment Post-Mortem**: Append a "Self-assessment (auto-generated)" block to the bottom of the generated project's README.md. This block must summarize:
+  - Build: [Status]
+  - Unit tests: [Status]
+  - Integration tests: [Status]
+  - Asset validation: [Status]
+  - Performance: [Status]
 """
 
 
@@ -1434,6 +1460,47 @@ def _stack_profile(cwd: Path) -> dict:
             "file_extensions": [".ts", ".tsx", ".js"],
             "manifest": manifest,
         })
+    elif (cwd / "pubspec.yaml").exists():
+        is_flutter = False
+        try:
+            content = (cwd / "pubspec.yaml").read_text(encoding="utf-8", errors="replace")
+            if "sdk: flutter" in content or "flutter:" in content:
+                is_flutter = True
+        except Exception:
+            pass
+        profile.update({
+            "name": "Flutter" if is_flutter else "Dart",
+            "language": "Dart",
+            "package_manager": "pub",
+            "test_cmd": "flutter test" if is_flutter else "dart test",
+            "build_cmd": "flutter build" if is_flutter else "dart compile",
+            "install_cmd": "flutter pub get" if is_flutter else "dart pub get",
+            "file_extensions": [".dart"],
+            "manifest": "pubspec.yaml",
+        })
+    elif (cwd / "CMakeLists.txt").exists():
+        profile.update({
+            "name": "C++ (CMake)",
+            "language": "C++",
+            "package_manager": "cmake",
+            "test_cmd": "ctest",
+            "build_cmd": "cmake -B build && cmake --build build",
+            "install_cmd": "cmake -B build",
+            "file_extensions": [".cpp", ".h", ".hpp", ".c"],
+            "manifest": "CMakeLists.txt",
+        })
+    elif (cwd / "Makefile").exists() or (cwd / "makefile").exists():
+        manifest = "Makefile" if (cwd / "Makefile").exists() else "makefile"
+        profile.update({
+            "name": "C++ (Make)",
+            "language": "C++",
+            "package_manager": "make",
+            "test_cmd": "make test",
+            "build_cmd": "make",
+            "install_cmd": "",
+            "file_extensions": [".cpp", ".h", ".hpp", ".c"],
+            "manifest": manifest,
+        })
 
     # Detect whether the project already has tests
     test_indicators = [
@@ -1472,7 +1539,7 @@ def build_stack_context(cwd: Path) -> str:
             f"{_STACK_SECTION_HEADER}\n"
             "- No project manifest was found in the current working directory "
             "(no package.json, pyproject.toml, Cargo.toml, go.mod, Gemfile, "
-            "pom.xml, build.gradle).\n"
+            "pom.xml, build.gradle, CMakeLists.txt, pubspec.yaml).\n"
             "- The project stack is UNDETECTED.\n"
             "- **Do NOT default to Python.** Read the user's message carefully for "
             "stack hints (e.g. 'React and Node.js', 'I want a Rust CLI').\n"

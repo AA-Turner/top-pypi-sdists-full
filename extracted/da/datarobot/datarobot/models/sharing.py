@@ -11,14 +11,15 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import trafaret as t
 
 from datarobot._compat import String
-from datarobot.enums import SHARING_RECIPIENT_TYPE, SHARING_ROLE
+from datarobot.enums import SHARING_RECIPIENT_TYPE, SHARING_ROLE, TARGET_SHARING_ROLE
 from datarobot.errors import InvalidUsageError
 from datarobot.models.api_object import APIObject
+from datarobot.models.user_blueprints.models import HumanReadable
 
 if TYPE_CHECKING:
     from datarobot._compat import TypedDict
@@ -195,3 +196,143 @@ class SharingRole(APIObject):
         if self.username:
             formatted_role["username"] = self.username
         return formatted_role
+
+
+class CatalogSharedRole(APIObject, HumanReadable):
+    """Represents a role/access entry returned from the sharing API for a catalog item.
+
+    Attributes
+    ----------
+    can_share : bool
+        True if this user can share with other users.
+    can_use_data : bool
+        True if the user can view, download and process data
+        (use to create projects, predictions, etc).
+    id : str
+        The ID of the recipient organization, group or user.
+    name : str
+        The name of the recipient organization, group or user.
+    role : str
+        The role of the org/group/user on this catalog entry or ``NO_ROLE``
+        or removing access when used with route to modify access. One of
+        ``datarobot.enums.TARGET_SHARING_ROLE``.
+    share_recipient_type : str
+        The recipient type.
+    user_full_name : str or None
+        If the recipient type is a user, the full name of the user if available.
+    """
+
+    _converter = t.Dict({
+        t.Key("can_share"): t.Bool,
+        t.Key("can_use_data"): t.Bool,
+        t.Key("id"): t.String,
+        t.Key("name"): t.String,
+        t.Key("role"): t.Enum(*list(TARGET_SHARING_ROLE)),
+        t.Key("share_recipient_type"): t.Enum(*list(SHARING_RECIPIENT_TYPE)),
+        t.Key("user_full_name", optional=True): t.String,
+    }).ignore_extra("*")
+
+    def __init__(
+        self,
+        id: str,
+        name: str,
+        role: str,
+        share_recipient_type: SHARING_RECIPIENT_TYPE,
+        can_share: Optional[bool] = None,
+        can_use_data: Optional[bool] = None,
+        user_full_name: Optional[str] = None,
+    ) -> None:
+        self.id = id
+        self.name = name
+        self.role = TARGET_SHARING_ROLE[role]
+        self.share_recipient_type = share_recipient_type
+        self.user_full_name = user_full_name
+        self.can_share = can_share
+        self.can_use_data = can_use_data
+
+
+class CatalogSharedRoleRequest(APIObject, HumanReadable):
+    """A single recipient/role entry used in a catalog sharing modification request.
+
+    Exactly one of ``id`` or ``name`` must be provided to identify the recipient.
+
+    Attributes
+    ----------
+    role : str
+        The role of the org/group/user on this catalog entity or ``NO_ROLE`` for removing
+        access when used with route to modify access. One of
+        ``datarobot.enums.TARGET_SHARING_ROLE``.
+    share_recipient_type : str
+        The recipient type. One of ``datarobot.enums.SHARING_RECIPIENT_TYPE``.
+    id : str or None
+        The org/group/user ID. Required if ``name`` is not provided.
+    name : str or None
+        Name of the user/group/org to update the access role for. Required if ``id`` is
+        not provided.
+    can_share : bool
+        Whether the org/group/user should be able to share with others. If ``True``, the
+        org/group/user will be able to grant any role (up to and including their own) to
+        other orgs/groups/user. If ``role`` is ``NO_ROLE``, ``can_share`` is ignored.
+    can_use_data : bool or None
+        Whether the user/group/org should be able to view, download, and process (e.g.,
+        use it to create projects, predictions, etc) data. For ``OWNER``, ``can_use_data``
+        is always ``True``.
+    """
+
+    _converter = t.Dict({
+        t.Key("can_share", optional=True, default=False): t.Bool,
+        t.Key("can_use_data", optional=True): t.Bool,
+        t.Key("id", optional=True): t.String,
+        t.Key("name", optional=True): t.String,
+        t.Key("role"): t.Enum(*list(TARGET_SHARING_ROLE)),
+        t.Key("share_recipient_type"): t.Enum(*list(SHARING_RECIPIENT_TYPE)),
+    }).ignore_extra("*")
+
+    def __init__(
+        self,
+        role: str,
+        share_recipient_type: SHARING_RECIPIENT_TYPE,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        can_share: bool = False,
+        can_use_data: Optional[bool] = None,
+    ) -> None:
+        if bool(id) == bool(name):
+            raise InvalidUsageError("RoleRequest requires exactly one of `id` or `name` to identify the recipient.")
+        self.role = role
+        self.share_recipient_type = share_recipient_type
+        self.id = id
+        self.name = name
+        self.can_share = can_share
+        self.can_use_data = can_use_data
+
+
+class ModifyCatalogSharedRolePayload(APIObject, HumanReadable):
+    """Payload used to modify the sharing roles on an entity.
+
+    Attributes
+    ----------
+    operation : str
+        The name of the action being taken. The only supported operation is ``updateRoles``.
+    roles : list of RoleRequest
+        A list of role-request entries (1-100 items).
+    apply_grant_to_linked_objects : bool
+        If ``True``, grant the user read access to any linked objects (e.g., ``DataSources`` and
+        ``DataStores``) used by this entity. Defaults to ``False``.
+    """
+
+    _converter = t.Dict({
+        t.Key("operation", default="updateRoles"): t.Enum("updateRoles"),
+        t.Key("roles"): t.List(CatalogSharedRoleRequest._converter, min_length=1, max_length=100),
+        t.Key("apply_grant_to_linked_objects", optional=True, default=False): t.Bool,
+    }).ignore_extra("*")
+
+    def __init__(
+        self,
+        roles: List[CatalogSharedRoleRequest],
+        operation: str = "updateRoles",
+        apply_grant_to_linked_objects: bool = False,
+    ) -> None:
+        self.operation = operation
+        self.roles = roles
+        self.apply_grant_to_linked_objects = apply_grant_to_linked_objects

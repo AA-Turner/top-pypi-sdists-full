@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-esi
-Version: 9.3.0
+Version: 9.4.0
 Summary: Django app for accessing the EVE Stable Interface (ESI).
 Keywords: eveonline
 Author-email: Alliance Auth <adarnof@gmail.com>

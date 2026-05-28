@@ -1601,7 +1601,7 @@ class ToProtoConverter:
         """
         Inverts `convert_sql_settings`: creates a pb.SQLResolverSettings from a SQLResolverSettings object.
         """
-        return pb.SQLResolverSettings(
+        settings = pb.SQLResolverSettings(
             finalizer=cls.convert_finalizer(source.finalizer),
             incremental_settings=(
                 cls.convert_incremental_settings(source.incremental_settings)
@@ -1612,6 +1612,9 @@ class ToProtoConverter:
             escaped_param_name_to_fqn=source.params_to_root_fqn,
             field_types=source.field_types,
         )
+        if source.use_native_sql is not None:
+            settings.use_native_sql = source.use_native_sql
+        return settings
 
     @classmethod
     def convert_finalizer(cls, source: Finalizer) -> pb.Finalizer:

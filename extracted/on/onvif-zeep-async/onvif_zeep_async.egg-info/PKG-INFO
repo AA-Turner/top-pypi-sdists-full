@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onvif-zeep-async
-Version: 4.1.0
+Version: 4.1.1
 Summary: Async Python Client for ONVIF Camera
 Home-page: http://github.com/hunterjm/python-onvif-zeep-async
 Author: Cherish Chen

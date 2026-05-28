@@ -1,10 +1,10 @@
 import logging
+from collections.abc import Generator
 from typing import Any
 
-from collections.abc import Generator
-from django.conf import settings
-
 from aiopenapi3.plugin import Document, Init
+
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -219,6 +219,6 @@ class DjangoESIInit(Init):
         self.app_name = ua_appname
 
     def initialized(self, ctx: Init.Context) -> Init.Context:
-        # Force the app_name into the api client class for etags
+        # Force the app_name into the api client class for ETags
         self.api.app_name = self.app_name
         return ctx  # noqa

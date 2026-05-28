@@ -199,8 +199,19 @@ def geoid_height(lon, lat, model='EGM96'):
     data, left, top, res_x, res_y, h, w = _load_geoid(model)
 
     scalar = np.ndim(lon) == 0 and np.ndim(lat) == 0
-    lon_arr = np.atleast_1d(np.asarray(lon, dtype=np.float64)).ravel()
-    lat_arr = np.atleast_1d(np.asarray(lat, dtype=np.float64)).ravel()
+    lon_in = np.asarray(lon, dtype=np.float64)
+    lat_in = np.asarray(lat, dtype=np.float64)
+    # Reject mismatched shapes before raveling. The numba kernel below runs
+    # under @njit(parallel=True) and indexes lat by lon.shape[0], so a
+    # shorter lat array would read past its end and silently return wrong
+    # values rather than raising IndexError. See GH issue #2026.
+    if lon_in.shape != lat_in.shape:
+        raise ValueError(
+            f"geoid_height(): lon and lat must have the same shape, "
+            f"got lon.shape={lon_in.shape} and lat.shape={lat_in.shape}."
+        )
+    lon_arr = np.atleast_1d(lon_in).ravel()
+    lat_arr = np.atleast_1d(lat_in).ravel()
 
     if not np.isfinite(lon_arr).all():
         raise ValueError(
@@ -229,13 +240,18 @@ def geoid_height_raster(raster, model='EGM96'):
     ----------
     raster : xr.DataArray
         Raster with y (latitude) and x (longitude) coordinates in degrees.
+        2D or 3D. For 3D inputs (e.g. ``(y, x, band)``), the band axis is
+        dropped because the geoid undulation depends only on position.
     model : str
         Geoid model name.
 
     Returns
     -------
     xr.DataArray
-        Geoid undulation N in metres, same shape as input.
+        Geoid undulation N in metres on the same y/x grid as the input.
+        Output is always 2D. Input ``attrs`` (``crs``, ``res``,
+        ``transform``, ``_FillValue``, ``long_name``, etc.) are carried
+        forward; ``units`` and ``model`` are added on top.
     """
     import xarray as xr
 
@@ -244,21 +260,32 @@ def geoid_height_raster(raster, model='EGM96'):
     _validate_raster(raster, func_name='geoid_height_raster',
                      name='raster', ndim=(2, 3))
 
+    # Locate the y/x dims regardless of the band layout. Resolved here so
+    # 3D inputs ((y, x, band) or (band, y, x)) produce a correct 2D result.
+    from . import _find_spatial_dims
+    ydim, xdim = _find_spatial_dims(raster)
+
     data, left, top, res_x, res_y, h, w = _load_geoid(model)
 
-    y = raster.coords[raster.dims[-2]].values.astype(np.float64)
-    x = raster.coords[raster.dims[-1]].values.astype(np.float64)
+    y = raster.coords[ydim].values.astype(np.float64)
+    x = raster.coords[xdim].values.astype(np.float64)
     xx, yy = np.meshgrid(x, y)
 
     out = np.empty_like(xx)
     _interp_geoid_2d(xx, yy, out, data, left, top, res_x, res_y, h, w)
 
+    # Carry input attrs forward (crs, res, transform, _FillValue, etc.)
+    # and layer units / model on top. The output grid is identical to the
+    # input grid, so georeferencing metadata still applies.
+    out_attrs = {**raster.attrs}
+    out_attrs['units'] = 'metres'
+    out_attrs['model'] = model
+
     return xr.DataArray(
-        out, dims=raster.dims[-2:],
-        coords={raster.dims[-2]: raster.coords[raster.dims[-2]],
-                raster.dims[-1]: raster.coords[raster.dims[-1]]},
+        out, dims=(ydim, xdim),
+        coords={ydim: raster.coords[ydim], xdim: raster.coords[xdim]},
         name='geoid_undulation',
-        attrs={'units': 'metres', 'model': model},
+        attrs=out_attrs,
     )
 
 

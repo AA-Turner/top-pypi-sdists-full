@@ -9,6 +9,10 @@ Manage X.509 certificates
     This module represents a complete rewrite of the original ``x509`` modules
     and is named ``x509_v2`` since it introduces breaking changes.
 
+.. versionchanged:: 3008.0
+
+    This module is now the default ``x509`` module and therefore does not need
+    to be enabled explicitly anymore.
 
 .. note::
 
@@ -19,19 +23,6 @@ Manage X.509 certificates
 
 Configuration
 -------------
-Explicit activation
-~~~~~~~~~~~~~~~~~~~
-Since this module uses the same virtualname as the previous ``x509`` modules,
-but is incompatible with them, it needs to be explicitly activated on each
-minion by including the following line in the minion configuration:
-
-.. code-block:: yaml
-
-    # /etc/salt/minion.d/x509.conf
-
-    features:
-      x509_v2: true
-
 Peer communication
 ~~~~~~~~~~~~~~~~~~
 To be able to remotely sign certificates, it is required to configure the Salt
@@ -137,6 +128,14 @@ or compound matcher (for the latter, see the notes above).
 
 Breaking changes versus the previous ``x509`` modules
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* The ``public_key`` parameter to ``x509.certificate_managed`` (and corresponding
+  ``x509.create_certificate``) used to accept a private key.
+  The new modules require an actual public key if this parameter is specified.
+  You can pass a private key in the ``private_key`` parameter instead.
+
+  Failing to ensure it really is a public key you are passing as ``public_key`` fails
+  with ``Could not load PEM-encoded public key.``.
+
 * The output format has changed for all ``read_*`` functions as well as the state return dict.
 * The formatting of some extension definitions might have changed, but should
   be stable for most basic use cases.
@@ -162,6 +161,18 @@ Breaking changes versus the previous ``x509`` modules
         - match.compound_matches
 
 Note that when a ``ca_server`` is involved, both peers must use the updated module version.
+
+Revert to old modules
+~~~~~~~~~~~~~~~~~~~~~
+Until they are removed, you can still revert to the deprecated ``x509`` modules
+by setting the following minion configuration value:
+
+.. code-block:: yaml
+
+    # /etc/salt/minion.d/x509.conf
+
+    features:
+      x509_v2: false
 
 .. _x509-setup:
 """
@@ -189,6 +200,7 @@ from collections import OrderedDict
 
 import salt.utils.dictupdate
 import salt.utils.files
+import salt.utils.functools
 import salt.utils.stringutils
 from salt.exceptions import CommandExecutionError, SaltInvocationError
 
@@ -201,13 +213,6 @@ __virtualname__ = "x509"
 def __virtual__():
     if not HAS_CRYPTOGRAPHY:
         return (False, "Could not load cryptography")
-    # salt.features appears to not be setup when invoked via peer publishing
-    if not __opts__.get("features", {}).get("x509_v2"):
-        return (
-            False,
-            "x509_v2 needs to be explicitly enabled by setting `x509_v2: true` "
-            "in the minion configuration value `features` until Salt 3008 (Argon).",
-        )
     return __virtualname__
 
 
@@ -300,33 +305,48 @@ def create_certificate(
         The hashing algorithm to use for the signature. Valid values are:
         sha1, sha224, sha256, sha384, sha512, sha512_224, sha512_256, sha3_224,
         sha3_256, sha3_384, sha3_512. Defaults to ``sha256``.
-        This will be ignored for ``ed25519`` and ``ed448`` key types.
+        Ignored for ``ed25519`` and ``ed448`` key types.
 
     private_key
-        The private key corresponding to the public key the certificate should
-        be issued for. This is one way of specifying the public key that will
-        be included in the certificate, the other ones being ``public_key`` and ``csr``.
+        A **private key**, which is used to derive the public key the certificate
+        is issued for. If unset, checks ``public_key`` or ``csr`` to derive it.
+
+        Ignored when creating self-signed certificates (missing ``signing_cert``).
+
+        .. hint::
+            When ``encoding`` is ``pkcs12``, this private key is embedded into
+            the resulting container.
 
     private_key_passphrase
         If ``private_key`` is specified and encrypted, the passphrase to decrypt it.
 
     public_key
-        The public key the certificate should be issued for. Other ways of passing
-        the required information are ``private_key`` and ``csr``. If neither are set,
-        the public key of the ``signing_private_key`` will be included, i.e.
-        a self-signed certificate is generated.
+        A **public key**, which is used as the public key the certificate is issued for,
+        but only if ``private_key`` is **not** specified.
+
+        If this is unset, checks ``csr`` to derive it.
+
+        Ignored when creating self-signed certificates (missing ``signing_cert``).
 
     csr
-        A certificate signing request to use as a base for generating the certificate.
-        The following information will be respected, depending on configuration:
-        * public key
-        * extensions, if not otherwise specified (arguments, signing_policy)
+        A **certificate signing request** to use as a base for generating the certificate:
+
+        - Extensions not otherwise specified (arguments, signing_policy) are copied.
+        - If ``private_key`` and ``public_key`` are both unspecified, copies the embedded
+          public key into the certificate. This step is skipped when creating self-signed
+          certificates (missing ``signing_cert``).
 
     signing_cert
         The CA certificate to be used for signing the issued certificate.
 
+        Leave empty to create a self-signed certificate.
+
     signing_private_key
-        The private key corresponding to the public key in ``signing_cert``. Required.
+        The private key to be used for signing the new certificate. Required.
+
+        Usually, this is the private key corresponding to the public key in ``signing_cert``.
+        When creating self-signed certificates (missing ``signing_cert``), derives
+        the new certificate's embedded public key from this private key.
 
     signing_private_key_passphrase
         If ``signing_private_key`` is encrypted, the passphrase to decrypt it.
@@ -418,10 +438,9 @@ def create_certificate(
 
             .. code-block:: yaml
 
-                # mind this being a list, not a dict
                 - subjectAltName:
-                    - email:me@example.com
-                    - DNS:example.com
+                    - email:me@example.com  # list items can be strings
+                    - dns: example.com      # or single-key dicts
 
         issuerAltName
             The syntax is the same as for ``subjectAltName``, except that the additional
@@ -593,6 +612,11 @@ def create_certificate(
     with salt.utils.files.fopen(path, "wb") as fp_:
         fp_.write(out)
     return f"Certificate written to {path}"
+
+
+create_certificate_ssh = salt.utils.functools.alias_function(
+    create_certificate, "create_certificate_ssh"
+)
 
 
 def _create_certificate_remote(
@@ -879,7 +903,7 @@ def create_crl(
         The hashing algorithm to use for the signature. Valid values are:
         sha1, sha224, sha256, sha384, sha512, sha512_224, sha512_256, sha3_224,
         sha3_256, sha3_384, sha3_512. Defaults to ``sha256``.
-        This will be ignored for ``ed25519`` and ``ed448`` key types.
+        Ignored for ``ed25519`` and ``ed448`` key types.
 
     encoding
         Specify the encoding of the resulting certificate revocation list.
@@ -1092,7 +1116,7 @@ def create_csr(
         The hashing algorithm to use for the signature. Valid values are:
         sha1, sha224, sha256, sha384, sha512, sha512_224, sha512_256, sha3_224,
         sha3_256, sha3_384, sha3_512. Defaults to ``sha256``.
-        This will be ignored for ``ed25519`` and ``ed448`` key types.
+        Ignored for ``ed25519`` and ``ed448`` key types.
 
     encoding
         Specify the encoding of the resulting certificate signing request.
@@ -1948,10 +1972,13 @@ def sign_remote_certificate(
 
 
 def _query_remote(ca_server, signing_policy, kwargs, get_signing_policy_only=False):
+    # Default publish.publish timeout is 5s; remote signing can exceed that on
+    # slow or heavily loaded CI hosts (e.g. ARM builders).
     result = __salt__["publish.publish"](
         ca_server,
         "x509.sign_remote_certificate",
         arg=[signing_policy, kwargs, get_signing_policy_only],
+        timeout=60,
     )
 
     if not result:

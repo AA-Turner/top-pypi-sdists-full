@@ -69,12 +69,22 @@ class TelemetryLogger:
         success: bool,
         meta: dict | None = None,
     ) -> None:
+        def _clean(val: str) -> str:
+            if not val:
+                return ""
+            val = re.sub(r'\x1b\[[0-9;]*[mGKHFABCDEJst]', '', val)
+            val = re.sub(r'\x1b\].*?\x07', '', val)
+            return val.replace('\x1b', '')
+
+        cleaned_prompt = _clean(prompt or "")
+        cleaned_output = _clean(output or "")
+
         record = {
             "ts": time.time(),
             "session": self.session_id,
             "model": model,
-            "prompt": redact_secrets(prompt or "")[:4000],
-            "output": redact_secrets(output or "")[:8000],
+            "prompt": redact_secrets(cleaned_prompt)[:4000],
+            "output": redact_secrets(cleaned_output)[:8000],
             "validator_signal": validator_signal,
             "success": bool(success),
             "meta": meta or {},

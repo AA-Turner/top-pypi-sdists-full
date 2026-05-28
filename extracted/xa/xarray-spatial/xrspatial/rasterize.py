@@ -11,8 +11,9 @@ Supports numpy, cupy, dask+numpy, and dask+cupy backends.
 """
 from __future__ import annotations
 
+import math
 import warnings
-from typing import Optional, Tuple, Union
+from typing import Any, Callable, NamedTuple, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -29,12 +30,33 @@ try:
 except ImportError:
     cuspatial = None
 
-# Detect shapely 2.0+ for vectorized extraction
-try:
-    import shapely as _shapely_mod
-    _HAS_SHAPELY2 = hasattr(_shapely_mod, 'get_parts')
-except ImportError:
-    _HAS_SHAPELY2 = False
+#: Cached shapely module, populated by :func:`_require_shapely` on first use.
+#: shapely is an optional dependency (the ``vector`` extra). It is imported
+#: lazily so ``import xrspatial`` does not pull in shapely (and GEOS) for users
+#: who never rasterize vector geometry.
+_shapely = None
+
+
+def _require_shapely():
+    """Import shapely or raise a helpful error, caching the module.
+
+    rasterize and polygonize are the only paths that need shapely. Every
+    function here that touches the shapely array API calls this and binds the
+    return value to a local ``shapely`` name, so the error surfaces clearly
+    (including inside dask workers, which call the tile helpers directly rather
+    than through :func:`rasterize`).
+    """
+    global _shapely
+    if _shapely is None:
+        try:
+            import shapely as _s
+        except ImportError as e:
+            raise ImportError(
+                "shapely is required for rasterize/polygonize but is not "
+                "installed. Install it with: pip install xarray-spatial[vector]"
+            ) from e
+        _shapely = _s
+    return _shapely
 
 
 # ---------------------------------------------------------------------------
@@ -67,35 +89,59 @@ def _check_output_dimensions(width, height, max_pixels):
 # ---------------------------------------------------------------------------
 # Merge functions (CPU, numba-jitted)
 #
-# Signature: merge_fn(pixel, props, is_first) -> float64
+# Public merge_fn signature (user-supplied callables): see below.
+#
+# For built-in ``'first'`` / ``'last'`` modes, input order is the source of
+# truth: the geometry with the smallest / largest global input index wins
+# regardless of which type bucket it falls into.  That decision is made by a
+# companion predicate ``should_write(is_first, new_idx, cur_idx)`` which
+# gates the call to ``merge_fn``.  When the gate fires for an "ordered
+# overwrite" merge, the merge function is just an overwrite, so first and
+# last share ``_merge_overwrite``.
+#
+# Public merge_fn signature: ``merge_fn(pixel, props, is_first) -> float64``
 #   pixel    : current pixel value (fill value on first write)
 #   props    : 1D float64 array of property values for the geometry
 #   is_first : 1 if first write to this pixel, 0 otherwise
 # ---------------------------------------------------------------------------
 
 @ngjit
-def _merge_last(pixel, props, is_first):
+def _merge_overwrite(pixel, props, is_first):
     return props[0]
 
 
-@ngjit
-def _merge_first(pixel, props, is_first):
-    if is_first:
-        return props[0]
-    return pixel
+# Kept for back-compat in case anything imports them by name.
+_merge_last = _merge_overwrite
+_merge_first = _merge_overwrite
 
 
 @ngjit
 def _merge_max(pixel, props, is_first):
-    if is_first or props[0] > pixel:
-        return props[0]
+    val = props[0]
+    # NaN burn poisons max regardless of order.  Without this branch the
+    # outcome would depend on whether the NaN burn happened to land before
+    # or after the finite burns ('NaN > finite' is False, so a NaN burn
+    # arriving second is silently dropped).  Issue #2255.
+    if val != val:
+        return val
+    if is_first:
+        return val
+    # If pixel is already NaN from an earlier burn, 'val > NaN' is False
+    # below and we fall through to 'return pixel', keeping NaN sticky.
+    if val > pixel:
+        return val
     return pixel
 
 
 @ngjit
 def _merge_min(pixel, props, is_first):
-    if is_first or props[0] < pixel:
-        return props[0]
+    val = props[0]
+    if val != val:
+        return val
+    if is_first:
+        return val
+    if val < pixel:
+        return val
     return pixel
 
 
@@ -113,10 +159,36 @@ def _merge_count(pixel, props, is_first):
     return pixel + 1.0
 
 
+# ---------------------------------------------------------------------------
+# Ordering predicates: decide whether to call merge_fn given the new
+# geometry's global input index and the index that currently owns the pixel.
+# ---------------------------------------------------------------------------
+
+@ngjit
+def _should_write_any(is_first, new_idx, cur_idx):
+    return True
+
+
+@ngjit
+def _should_write_first(is_first, new_idx, cur_idx):
+    # 'first' wins on the smallest input index
+    return is_first or new_idx < cur_idx
+
+
+@ngjit
+def _should_write_last(is_first, new_idx, cur_idx):
+    # 'last' wins on the largest input index
+    return is_first or new_idx > cur_idx
+
+
+# (merge_fn, should_write_fn) tuples, dispatched by merge name.
 _MERGE_FUNCTIONS = {
-    'last': _merge_last, 'first': _merge_first,
-    'max': _merge_max, 'min': _merge_min,
-    'sum': _merge_sum, 'count': _merge_count,
+    'last':  (_merge_overwrite, _should_write_last),
+    'first': (_merge_overwrite, _should_write_first),
+    'max':   (_merge_max,       _should_write_any),
+    'min':   (_merge_min,       _should_write_any),
+    'sum':   (_merge_sum,       _should_write_any),
+    'count': (_merge_count,     _should_write_any),
 }
 
 
@@ -125,16 +197,22 @@ _MERGE_FUNCTIONS = {
 # ---------------------------------------------------------------------------
 
 @ngjit
-def _apply_merge(out, written, r, c, props, merge_fn):
+def _apply_merge(out, written, order, r, c, props, new_idx,
+                 merge_fn, should_write):
     """Write a value into ``out[r, c]`` using the given merge function.
 
-    *props* is a 1D float64 array of property values for the geometry.
-    A separate ``written`` array (int8) tracks which pixels have been
-    touched.
+    ``order`` is an int64 array tracking which input-index currently owns
+    each pixel.  For order-sensitive merges, ``should_write`` decides
+    whether the new geometry beats the current owner; commutative merges
+    pass ``_should_write_any`` and behave as before.
     """
     is_first = np.int64(written[r, c] == 0)
+    cur_idx = order[r, c]
+    if not should_write(is_first, new_idx, cur_idx):
+        return
     out[r, c] = merge_fn(out[r, c], props, is_first)
     written[r, c] = 1
+    order[r, c] = new_idx
 
 
 # ---------------------------------------------------------------------------
@@ -144,11 +222,16 @@ def _apply_merge(out, written, r, c, props, merge_fn):
 def _classify_geometries(geometries, props_array):
     """Classify geometries by type in a single pass.
 
+    Two internal paths: a vectorized fast path that uses shapely 2.0
+    array ops (``get_type_id`` / ``is_empty``) for the common case of
+    no ``GeometryCollection`` inputs, and a recursive slow path that
+    unpacks nested collections so their contents are rasterized rather
+    than silently dropped. The slow path runs only when at least one
+    input is a ``GeometryCollection``; both paths produce identical
+    output shapes.
+
     Also tracks each polygon's input index so the scanline fill can
     process geometries in input order (needed for first/last merge).
-
-    GeometryCollections are recursively unpacked so their contents are
-    rasterized rather than silently dropped.
 
     Parameters
     ----------
@@ -157,32 +240,28 @@ def _classify_geometries(geometries, props_array):
 
     Returns
     -------
-    (poly_geoms, poly_props, poly_ids),
-    (line_geoms, line_props),
-    (point_geoms, point_props)
+    (poly_geoms, poly_props, poly_ids, poly_global_idx),
+    (line_geoms, line_props, line_global_idx),
+    (point_geoms, point_props, point_global_idx)
 
-    Where poly_props is (N_poly, P), line_props is (N_line, P),
-    point_props is (N_point, P) float64 arrays.
+    Where ``*_props`` is an (N, P) float64 array, ``poly_ids`` is the
+    local-to-edges integer keyed by scanline (still 0..N_poly-1), and
+    each ``*_global_idx`` is an int64 array mapping the per-type local
+    index back to the original input position.  The global index is what
+    decides ordered merges (`first`, `last`) across geometry types.
     """
-    if _HAS_SHAPELY2:
-        return _classify_geometries_vectorized(geometries, props_array)
-    return _classify_geometries_loop(geometries, props_array)
-
-
-def _classify_geometries_vectorized(geometries, props_array):
-    """Vectorized classification using shapely 2.0 array ops."""
-    import shapely
-
     n_props = props_array.shape[1] if props_array.ndim == 2 else 1
     geom_arr = np.array(geometries, dtype=object)
     n = len(geom_arr)
 
     if n == 0:
         empty_props = np.empty((0, n_props), dtype=np.float64)
-        return (([], empty_props, []),
-                ([], empty_props.copy()),
-                ([], empty_props.copy()))
+        empty_idx = np.empty(0, dtype=np.int64)
+        return (([], empty_props, [], empty_idx),
+                ([], empty_props.copy(), empty_idx.copy()),
+                ([], empty_props.copy(), empty_idx.copy()))
 
+    shapely = _require_shapely()
     type_ids = shapely.get_type_id(geom_arr)
     empty = shapely.is_empty(geom_arr)
     valid = ~empty
@@ -196,10 +275,8 @@ def _classify_geometries_vectorized(geometries, props_array):
     point_mask = valid & ((type_ids == 0) | (type_ids == 4))
     gc_mask = valid & (type_ids == 7)
 
-    has_gc = np.any(gc_mask)
-
     # Fast path: no GeometryCollections (common case)
-    if not has_gc:
+    if not np.any(gc_mask):
         poly_idx = np.where(poly_mask)[0]
         line_idx = np.where(line_mask)[0]
         point_idx = np.where(point_mask)[0]
@@ -208,47 +285,49 @@ def _classify_geometries_vectorized(geometries, props_array):
         poly_ids = list(range(len(poly_idx)))
         poly_props = (props_array[poly_idx] if len(poly_idx) > 0
                       else np.empty((0, n_props), dtype=np.float64))
+        poly_global = poly_idx.astype(np.int64)
 
         line_geoms = [geometries[i] for i in line_idx]
         line_props = (props_array[line_idx] if len(line_idx) > 0
                       else np.empty((0, n_props), dtype=np.float64))
+        line_global = line_idx.astype(np.int64)
 
         point_geoms = [geometries[i] for i in point_idx]
         point_props = (props_array[point_idx] if len(point_idx) > 0
                        else np.empty((0, n_props), dtype=np.float64))
+        point_global = point_idx.astype(np.int64)
 
-        return ((poly_geoms, poly_props, poly_ids),
-                (line_geoms, line_props),
-                (point_geoms, point_props))
+        return ((poly_geoms, poly_props, poly_ids, poly_global),
+                (line_geoms, line_props, line_global),
+                (point_geoms, point_props, point_global))
 
-    # Slow path: unpack GeometryCollections, then classify
-    return _classify_geometries_loop(geometries, props_array)
-
-
-def _classify_geometries_loop(geometries, props_array):
-    """Per-object classification fallback (handles GeometryCollections)."""
-    n_props = props_array.shape[1] if props_array.ndim == 2 else 1
+    # Slow path: recursively unpack GeometryCollections before classifying.
+    # Only taken when at least one input is a GeometryCollection.
     poly_geoms, poly_prop_rows, poly_ids = [], [], []
+    poly_global, line_global, point_global = [], [], []
     line_geoms, line_prop_rows = [], []
     point_geoms, point_prop_rows = [], []
-
-    poly_counter = [0]
+    poly_counter = 0
 
     def _classify_one(geom, prop_row, global_idx):
+        nonlocal poly_counter
         if geom is None or geom.is_empty:
             return
         gt = geom.geom_type
         if gt in ('Polygon', 'MultiPolygon'):
             poly_geoms.append(geom)
             poly_prop_rows.append(prop_row)
-            poly_ids.append(poly_counter[0])
-            poly_counter[0] += 1
+            poly_ids.append(poly_counter)
+            poly_global.append(global_idx)
+            poly_counter += 1
         elif gt in ('LineString', 'MultiLineString'):
             line_geoms.append(geom)
             line_prop_rows.append(prop_row)
+            line_global.append(global_idx)
         elif gt in ('Point', 'MultiPoint'):
             point_geoms.append(geom)
             point_prop_rows.append(prop_row)
+            point_global.append(global_idx)
         elif gt == 'GeometryCollection':
             for sub in geom.geoms:
                 _classify_one(sub, prop_row, global_idx)
@@ -261,9 +340,12 @@ def _classify_geometries_loop(geometries, props_array):
             return np.array(rows, dtype=np.float64)
         return np.empty((0, n_props), dtype=np.float64)
 
-    return ((poly_geoms, _to_2d(poly_prop_rows), poly_ids),
-            (line_geoms, _to_2d(line_prop_rows)),
-            (point_geoms, _to_2d(point_prop_rows)))
+    def _to_i64(lst):
+        return np.array(lst, dtype=np.int64) if lst else np.empty(0, dtype=np.int64)
+
+    return ((poly_geoms, _to_2d(poly_prop_rows), poly_ids, _to_i64(poly_global)),
+            (line_geoms, _to_2d(line_prop_rows), _to_i64(line_global)),
+            (point_geoms, _to_2d(point_prop_rows), _to_i64(point_global)))
 
 
 # ---------------------------------------------------------------------------
@@ -287,18 +369,14 @@ def _extract_edges(geometries, geom_ids, bounds, height, width,
     """
     if not geometries:
         return _EMPTY_EDGES
-    if _HAS_SHAPELY2:
-        return _extract_edges_vectorized(
-            geometries, geom_ids, bounds, height, width, all_touched)
-    return _extract_edges_loop(
+    return _extract_edges_vectorized(
         geometries, geom_ids, bounds, height, width, all_touched)
 
 
 def _extract_edges_vectorized(geometries, geom_ids, bounds,
                               height, width, all_touched):
     """Vectorized edge extraction using shapely 2.0 array ops."""
-    import shapely
-
+    shapely = _require_shapely()
     xmin, ymin, xmax, ymax = bounds
     px = (xmax - xmin) / width
     py = (ymax - ymin) / height
@@ -396,85 +474,6 @@ def _extract_edges_vectorized(geometries, geom_ids, bounds,
             edge_ids[valid])
 
 
-def _extract_edges_loop(geometries, geom_ids, bounds, height, width,
-                        all_touched):
-    """Loop-based edge extraction (shapely < 2.0 fallback).
-
-    Pre-allocates output arrays sized to the total vertex count (an upper
-    bound on edge count) to avoid per-edge Python list appends and
-    np.int32() scalar wrapping overhead.
-    """
-    xmin, ymin, xmax, ymax = bounds
-    px = (xmax - xmin) / width
-    py = (ymax - ymin) / height
-
-    # Upper bound: each ring vertex pair can produce at most one edge.
-    # Sum of (len(ring.coords) - 1) across all rings.
-    est = 0
-    ring_data = []  # (coords_array, gid) pairs
-    for geom, gid in zip(geometries, geom_ids):
-        if geom is None or geom.is_empty:
-            continue
-        if geom.geom_type == 'Polygon':
-            parts = [geom]
-        elif geom.geom_type == 'MultiPolygon':
-            parts = list(geom.geoms)
-        else:
-            continue
-        for poly in parts:
-            rings = [poly.exterior] + list(poly.interiors)
-            for ring in rings:
-                coords = np.asarray(ring.coords)
-                n = len(coords) - 1
-                if n > 0:
-                    ring_data.append((coords, gid))
-                    est += n
-
-    if est == 0:
-        return _EMPTY_EDGES
-
-    # Pre-allocate arrays
-    buf_ymin = np.empty(est, dtype=np.int32)
-    buf_ymax = np.empty(est, dtype=np.int32)
-    buf_xmin = np.empty(est, dtype=np.float64)
-    buf_inv = np.empty(est, dtype=np.float64)
-    buf_gid = np.empty(est, dtype=np.int32)
-    pos = 0
-
-    for coords, gid in ring_data:
-        row = (ymax - coords[:, 1]) / py - 0.5
-        col = (coords[:, 0] - xmin) / px - 0.5
-        n = len(row) - 1
-        for i in range(n):
-            r0, c0 = row[i], col[i]
-            r1, c1 = row[i + 1], col[i + 1]
-            if r0 == r1:
-                continue
-            if r0 > r1:
-                r0, c0, r1, c1 = r1, c1, r0, c0
-            if all_touched:
-                ry_min = max(int(np.floor(r0 - 0.5)), 0)
-                ry_max = min(int(np.ceil(r1 + 0.5)) - 1, height - 1)
-            else:
-                ry_min = max(int(np.ceil(r0)), 0)
-                ry_max = min(int(np.ceil(r1)) - 1, height - 1)
-            if ry_min > ry_max:
-                continue
-            inv_slope = (c1 - c0) / (r1 - r0)
-            buf_ymin[pos] = ry_min
-            buf_ymax[pos] = ry_max
-            buf_xmin[pos] = c0 + (ry_min - r0) * inv_slope
-            buf_inv[pos] = inv_slope
-            buf_gid[pos] = gid
-            pos += 1
-
-    if pos == 0:
-        return _EMPTY_EDGES
-
-    return (buf_ymin[:pos], buf_ymax[:pos], buf_xmin[:pos],
-            buf_inv[:pos], buf_gid[:pos])
-
-
 def _sort_edges(edge_arrays):
     """Sort edge table by y_min for scanline early termination."""
     if len(edge_arrays[0]) == 0:
@@ -496,17 +495,13 @@ def _extract_points(geometries, bounds, height, width):
     if not geometries:
         return (np.empty(0, np.int32), np.empty(0, np.int32),
                 np.empty(0, np.int32))
-    if _HAS_SHAPELY2:
-        return _extract_points_vectorized(
-            geometries, bounds, height, width)
-    return _extract_points_loop(
+    return _extract_points_vectorized(
         geometries, bounds, height, width)
 
 
 def _extract_points_vectorized(geometries, bounds, height, width):
     """Vectorized point extraction using shapely 2.0 array ops."""
-    import shapely
-
+    shapely = _require_shapely()
     xmin, ymin, xmax, ymax = bounds
     px = (xmax - xmin) / width
     py = (ymax - ymin) / height
@@ -534,39 +529,6 @@ def _extract_points_vectorized(geometries, bounds, height, width):
     return (rows[valid], cols[valid], pt_geom_idx[valid])
 
 
-def _extract_points_loop(geometries, bounds, height, width):
-    """Loop-based point extraction (shapely < 2.0 fallback)."""
-    xmin, ymin, xmax, ymax = bounds
-    px = (xmax - xmin) / width
-    py = (ymax - ymin) / height
-
-    all_rows, all_cols, all_idx = [], [], []
-
-    for gi, geom in enumerate(geometries):
-        if geom is None or geom.is_empty:
-            continue
-        if geom.geom_type == 'Point':
-            pts = [geom]
-        elif geom.geom_type == 'MultiPoint':
-            pts = list(geom.geoms)
-        else:
-            continue
-        for pt in pts:
-            col = int(np.floor((pt.x - xmin) / px))
-            row = int(np.floor((ymax - pt.y) / py))
-            if 0 <= row < height and 0 <= col < width:
-                all_rows.append(row)
-                all_cols.append(col)
-                all_idx.append(gi)
-
-    if not all_rows:
-        return (np.empty(0, np.int32), np.empty(0, np.int32),
-                np.empty(0, np.int32))
-    return (np.array(all_rows, np.int32),
-            np.array(all_cols, np.int32),
-            np.array(all_idx, np.int32))
-
-
 # ---------------------------------------------------------------------------
 # Line segment extraction (always on host)
 # ---------------------------------------------------------------------------
@@ -574,6 +536,13 @@ def _extract_points_loop(geometries, bounds, height, width):
 _EMPTY_LINES = (np.empty(0, np.int32), np.empty(0, np.int32),
                 np.empty(0, np.int32), np.empty(0, np.int32),
                 np.empty(0, np.int32))
+
+# Float-coordinate variant used by the supercover boundary burn.
+# Endpoints are kept in subpixel space so grid traversal can pick up
+# every cell a segment crosses, not just the dominant-axis steps.
+_EMPTY_LINES_FLOAT = (np.empty(0, np.float64), np.empty(0, np.float64),
+                      np.empty(0, np.float64), np.empty(0, np.float64),
+                      np.empty(0, np.int32))
 
 
 def _extract_line_segments(geometries, bounds, height, width):
@@ -587,49 +556,13 @@ def _extract_line_segments(geometries, bounds, height, width):
     """
     if not geometries:
         return _EMPTY_LINES
-    if _HAS_SHAPELY2:
-        return _extract_lines_vectorized(
-            geometries, bounds, height, width)
-    return _extract_lines_loop(
+    return _extract_lines_vectorized(
         geometries, bounds, height, width)
-
-
-def _liang_barsky_clip(x0, y0, x1, y1, xmin, ymin, xmax, ymax):
-    """Liang-Barsky line clipping.  Returns clipped (x0,y0,x1,y1) or None."""
-    dx = x1 - x0
-    dy = y1 - y0
-    p = np.array([-dx, dx, -dy, dy])
-    q = np.array([x0 - xmin, xmax - x0, y0 - ymin, ymax - y0])
-
-    t0, t1 = 0.0, 1.0
-    for i in range(4):
-        if p[i] == 0.0:
-            if q[i] < 0.0:
-                return None
-        elif p[i] < 0.0:
-            t = q[i] / p[i]
-            if t > t1:
-                return None
-            if t > t0:
-                t0 = t
-        else:
-            t = q[i] / p[i]
-            if t < t0:
-                return None
-            if t < t1:
-                t1 = t
-
-    cx0 = x0 + t0 * dx
-    cy0 = y0 + t0 * dy
-    cx1 = x0 + t1 * dx
-    cy1 = y0 + t1 * dy
-    return cx0, cy0, cx1, cy1
 
 
 def _extract_lines_vectorized(geometries, bounds, height, width):
     """Vectorized line extraction with Liang-Barsky clipping."""
-    import shapely
-
+    shapely = _require_shapely()
     xmin, ymin, xmax, ymax = bounds
     px = (xmax - xmin) / width
     py = (ymax - ymin) / height
@@ -718,50 +651,6 @@ def _extract_lines_vectorized(geometries, bounds, height, width):
 
     v = valid
     return (r0[v], c0[v], r1[v], c1[v], seg_geom_idx[v])
-
-
-def _extract_lines_loop(geometries, bounds, height, width):
-    """Loop-based line extraction with Liang-Barsky clipping (fallback)."""
-    xmin, ymin, xmax, ymax = bounds
-    px = (xmax - xmin) / width
-    py = (ymax - ymin) / height
-
-    all_r0, all_c0, all_r1, all_c1, all_idx = [], [], [], [], []
-
-    for gi, geom in enumerate(geometries):
-        if geom is None or geom.is_empty:
-            continue
-        if geom.geom_type == 'LineString':
-            lines = [geom]
-        elif geom.geom_type == 'MultiLineString':
-            lines = list(geom.geoms)
-        else:
-            continue
-        for line in lines:
-            coords = np.asarray(line.coords)
-            for i in range(len(coords) - 1):
-                clipped = _liang_barsky_clip(
-                    coords[i, 0], coords[i, 1],
-                    coords[i + 1, 0], coords[i + 1, 1],
-                    xmin, ymin, xmax, ymax)
-                if clipped is None:
-                    continue
-                cx0, cy0, cx1, cy1 = clipped
-                r0 = min(max(int(np.floor((ymax - cy0) / py)), 0), height - 1)
-                c0 = min(max(int(np.floor((cx0 - xmin) / px)), 0), width - 1)
-                r1 = min(max(int(np.floor((ymax - cy1) / py)), 0), height - 1)
-                c1 = min(max(int(np.floor((cx1 - xmin) / px)), 0), width - 1)
-                all_r0.append(r0)
-                all_c0.append(c0)
-                all_r1.append(r1)
-                all_c1.append(c1)
-                all_idx.append(gi)
-
-    if not all_r0:
-        return _EMPTY_LINES
-    return (np.array(all_r0, np.int32), np.array(all_c0, np.int32),
-            np.array(all_r1, np.int32), np.array(all_c1, np.int32),
-            np.array(all_idx, np.int32))
 
 
 # ---------------------------------------------------------------------------
@@ -871,30 +760,134 @@ def _extract_polygon_boundary_segments(geometries, geom_ids, bounds,
     return (r0[v], c0[v], r1[v], c1[v], seg_ids[v])
 
 
+def _extract_polygon_boundary_segments_float(geometries, geom_ids, bounds,
+                                             height, width):
+    """Polygon ring edges as float pixel-space segments.
+
+    Variant of :func:`_extract_polygon_boundary_segments` that keeps
+    sub-pixel precision so a supercover line walker can pick up every
+    cell crossed by the segment. World-space clipping uses Liang-Barsky
+    against the raster bounds; the result is converted to pixel
+    coordinates (col = x in pixels, row = y in pixels) without rounding.
+
+    Returns
+    -------
+    (cx0, cy0, cx1, cy1, seg_ids) as float64 arrays (and int32 ids).
+    ``cy`` increases downward (matches the raster row axis); the y-flip
+    against world coordinates is applied here so the grid traversal
+    kernel does not need to know about it.
+    """
+    xmin, ymin, xmax, ymax = bounds
+    px = (xmax - xmin) / width
+    py = (ymax - ymin) / height
+
+    all_coords = []
+    all_ids = []
+    for geom, gid in zip(geometries, geom_ids):
+        if geom is None or geom.is_empty:
+            continue
+        if geom.geom_type == 'Polygon':
+            parts = [geom]
+        elif geom.geom_type == 'MultiPolygon':
+            parts = list(geom.geoms)
+        else:
+            continue
+        for poly in parts:
+            coords = np.asarray(poly.exterior.coords)
+            n = len(coords) - 1
+            if n > 0:
+                all_coords.append(coords)
+                all_ids.append(np.full(n, gid, dtype=np.int32))
+            for interior in poly.interiors:
+                coords = np.asarray(interior.coords)
+                n = len(coords) - 1
+                if n > 0:
+                    all_coords.append(coords)
+                    all_ids.append(np.full(n, gid, dtype=np.int32))
+
+    if not all_coords:
+        return _EMPTY_LINES_FLOAT
+
+    seg_x0, seg_y0, seg_x1, seg_y1 = [], [], [], []
+    for coords in all_coords:
+        seg_x0.append(coords[:-1, 0])
+        seg_y0.append(coords[:-1, 1])
+        seg_x1.append(coords[1:, 0])
+        seg_y1.append(coords[1:, 1])
+
+    x0 = np.concatenate(seg_x0).astype(np.float64)
+    y0 = np.concatenate(seg_y0).astype(np.float64)
+    x1 = np.concatenate(seg_x1).astype(np.float64)
+    y1 = np.concatenate(seg_y1).astype(np.float64)
+    seg_ids = np.concatenate(all_ids)
+
+    # Vectorized Liang-Barsky clip to raster world-space bounds.
+    dx = x1 - x0
+    dy = y1 - y0
+    p = np.array([-dx, dx, -dy, dy])
+    q = np.array([x0 - xmin, xmax - x0, y0 - ymin, ymax - y0])
+
+    t0 = np.zeros(len(x0))
+    t1 = np.ones(len(x0))
+    valid = np.ones(len(x0), dtype=bool)
+
+    for i in range(4):
+        parallel = p[i] == 0.0
+        valid &= ~(parallel & (q[i] < 0.0))
+        neg = (~parallel) & (p[i] < 0.0)
+        pos = (~parallel) & (p[i] > 0.0)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            t_neg = np.where(neg, q[i] / p[i], 0.0)
+            t_pos = np.where(pos, q[i] / p[i], 1.0)
+        t0 = np.where(neg, np.maximum(t0, t_neg), t0)
+        t1 = np.where(pos, np.minimum(t1, t_pos), t1)
+
+    valid &= (t0 <= t1)
+
+    cx0_w = x0 + t0 * dx
+    cy0_w = y0 + t0 * dy
+    cx1_w = x0 + t1 * dx
+    cy1_w = y0 + t1 * dy
+
+    # World -> float pixel coordinates. ymax is the top of the raster,
+    # row 0 is at the top, so y increases downward in pixel space.
+    cx0 = (cx0_w - xmin) / px
+    cy0 = (ymax - cy0_w) / py
+    cx1 = (cx1_w - xmin) / px
+    cy1 = (ymax - cy1_w) / py
+
+    v = valid
+    return (cx0[v], cy0[v], cx1[v], cy1[v], seg_ids[v])
+
+
 # ---------------------------------------------------------------------------
 # CPU burn kernels (numba)
 # ---------------------------------------------------------------------------
 
 @ngjit
 def _burn_points_cpu(out, written, rows, cols, geom_idx, geom_props,
-                     merge_fn):
+                     geom_global_idx, merge_fn, should_write, order):
     for i in range(len(rows)):
         r = rows[i]
         c = cols[i]
         if 0 <= r < out.shape[0] and 0 <= c < out.shape[1]:
-            _apply_merge(out, written, r, c, geom_props[geom_idx[i]],
-                         merge_fn)
+            gi = geom_idx[i]
+            _apply_merge(out, written, order, r, c, geom_props[gi],
+                         geom_global_idx[gi], merge_fn, should_write)
 
 
 @ngjit
 def _burn_lines_cpu(out, written, r0_arr, c0_arr, r1_arr, c1_arr, geom_idx,
-                    geom_props, height, width, merge_fn):
+                    geom_props, height, width, geom_global_idx,
+                    merge_fn, should_write, order):
     for i in range(len(r0_arr)):
         r0 = r0_arr[i]
         c0 = c0_arr[i]
         r1 = r1_arr[i]
         c1 = c1_arr[i]
-        props = geom_props[geom_idx[i]]
+        gi = geom_idx[i]
+        props = geom_props[gi]
+        new_idx = geom_global_idx[gi]
 
         dr = r1 - r0
         dc = c1 - c0
@@ -908,7 +901,8 @@ def _burn_lines_cpu(out, written, r0_arr, c0_arr, r1_arr, c1_arr, geom_idx,
             r, c = r0, c0
             for _ in range(dr + 1):
                 if 0 <= r < height and 0 <= c < width:
-                    _apply_merge(out, written, r, c, props, merge_fn)
+                    _apply_merge(out, written, order, r, c, props,
+                                 new_idx, merge_fn, should_write)
                 if err >= 0:
                     c += sc
                     err -= dr
@@ -919,12 +913,131 @@ def _burn_lines_cpu(out, written, r0_arr, c0_arr, r1_arr, c1_arr, geom_idx,
             r, c = r0, c0
             for _ in range(dc + 1):
                 if 0 <= r < height and 0 <= c < width:
-                    _apply_merge(out, written, r, c, props, merge_fn)
+                    _apply_merge(out, written, order, r, c, props,
+                                 new_idx, merge_fn, should_write)
                 if err >= 0:
                     r += sr
                     err -= dc
                 c += sc
                 err += dr
+
+
+# ---------------------------------------------------------------------------
+# CPU supercover line burn (numba) -- used by all_touched polygon
+# boundaries to match rasterio.features.rasterize(all_touched=True).
+#
+# Amanatides & Woo grid traversal: walks the segment cell-by-cell in
+# pixel space, advancing along whichever axis hits the next cell
+# boundary first. Every cell the mathematical segment crosses is
+# visited, including the off-axis cells Bresenham would skip on a
+# shallow diagonal.
+# ---------------------------------------------------------------------------
+
+@ngjit
+def _burn_lines_supercover_cpu(out, written, x0_arr, y0_arr, x1_arr, y1_arr,
+                               geom_idx, geom_props, height, width,
+                               geom_global_idx, merge_fn, should_write,
+                               order):
+    n = len(x0_arr)
+    for i in range(n):
+        x0 = x0_arr[i]
+        y0 = y0_arr[i]
+        x1 = x1_arr[i]
+        y1 = y1_arr[i]
+        gi = geom_idx[i]
+        props = geom_props[gi]
+        new_idx = geom_global_idx[gi]
+
+        # Starting cell. floor() gives the cell index containing the
+        # endpoint; integer endpoints land on cell boundaries and we
+        # break ties by stepping into the cell in the segment direction.
+        cx = int(np.floor(x0))
+        cy = int(np.floor(y0))
+
+        end_cx = int(np.floor(x1))
+        end_cy = int(np.floor(y1))
+
+        dx = x1 - x0
+        dy = y1 - y0
+
+        # Step direction along each axis. 0 dx/dy -> step is irrelevant
+        # because we will never advance that axis (t_delta is +inf).
+        if dx > 0.0:
+            step_x = 1
+        elif dx < 0.0:
+            step_x = -1
+        else:
+            step_x = 0
+
+        if dy > 0.0:
+            step_y = 1
+        elif dy < 0.0:
+            step_y = -1
+        else:
+            step_y = 0
+
+        # t to traverse one full cell along each axis (parametric t in
+        # [0, 1] along the segment).
+        if dx != 0.0:
+            t_delta_x = 1.0 / (dx if dx > 0.0 else -dx)
+        else:
+            t_delta_x = np.inf
+
+        if dy != 0.0:
+            t_delta_y = 1.0 / (dy if dy > 0.0 else -dy)
+        else:
+            t_delta_y = np.inf
+
+        # t at which the segment first crosses the next x / y cell
+        # boundary in its direction of travel.
+        if dx > 0.0:
+            next_x_boundary = float(cx + 1)
+            t_max_x = (next_x_boundary - x0) / dx
+        elif dx < 0.0:
+            next_x_boundary = float(cx)
+            t_max_x = (next_x_boundary - x0) / dx
+        else:
+            t_max_x = np.inf
+
+        if dy > 0.0:
+            next_y_boundary = float(cy + 1)
+            t_max_y = (next_y_boundary - y0) / dy
+        elif dy < 0.0:
+            next_y_boundary = float(cy)
+            t_max_y = (next_y_boundary - y0) / dy
+        else:
+            t_max_y = np.inf
+
+        # Walk cells until we have stepped through the cell containing
+        # the segment endpoint. A small step cap guards against any
+        # pathological floating point case where t_max never crosses 1.
+        max_steps = (abs(end_cx - cx) + abs(end_cy - cy) + 2)
+        for _ in range(max_steps):
+            if 0 <= cy < height and 0 <= cx < width:
+                _apply_merge(out, written, order, cy, cx, props,
+                             new_idx, merge_fn, should_write)
+
+            if cx == end_cx and cy == end_cy:
+                break
+
+            if t_max_x < t_max_y:
+                t_max_x += t_delta_x
+                cx += step_x
+            elif t_max_y < t_max_x:
+                t_max_y += t_delta_y
+                cy += step_y
+            else:
+                # Exact corner crossing. Stepping just one axis at a
+                # time misses the diagonal-neighbour cells the segment
+                # technically only grazes; matching rasterio's
+                # all_touched semantics here means advancing both
+                # axes in a single tick so we land in the next cell
+                # along the diagonal without burning the two off-axis
+                # neighbours.
+                t_max_x += t_delta_x
+                t_max_y += t_delta_y
+                cx += step_x
+                cy += step_y
 
 
 # ---------------------------------------------------------------------------
@@ -934,7 +1047,8 @@ def _burn_lines_cpu(out, written, r0_arr, c0_arr, r1_arr, c1_arr, geom_idx,
 @ngjit
 def _scanline_fill_cpu(out, written, edge_y_min, edge_y_max, edge_x_at_ymin,
                        edge_inv_slope, edge_geom_id,
-                       geom_props, height, width, merge_fn):
+                       geom_props, height, width, geom_global_idx,
+                       merge_fn, should_write, order):
     """Scanline fill with active-edge-list for O(active) work per row.
 
     Instead of scanning all edges up to the binary-search cutoff (which
@@ -1003,6 +1117,7 @@ def _scanline_fill_cpu(out, written, edge_y_min, edge_y_max, edge_x_at_ymin,
         i = 0
         while i < n_active - 1:
             gid = gs[i]
+            new_idx = geom_global_idx[gid]
             j = i
             while j < n_active and gs[j] == gid:
                 j += 1
@@ -1013,20 +1128,26 @@ def _scanline_fill_cpu(out, written, edge_y_min, edge_y_max, edge_x_at_ymin,
                 col_start = max(int(np.ceil(x_start)), 0)
                 col_end = min(int(np.ceil(x_end)) - 1, width - 1)
                 for c in range(col_start, col_end + 1):
-                    _apply_merge(out, written, row, c,
-                                 geom_props[gid], merge_fn)
+                    _apply_merge(out, written, order, row, c,
+                                 geom_props[gid], new_idx,
+                                 merge_fn, should_write)
                 k += 2
             i = j
 
 
 def _run_numpy(geometries, props_array, bounds, height, width, fill, dtype,
-               all_touched, merge_fn):
+               all_touched, merge_fn, should_write):
     """NumPy backend for rasterize."""
     out = np.full((height, width), fill, dtype=np.float64)
     written = np.zeros((height, width), dtype=np.int8)
+    # Order tracks the input index of the current owner per pixel.  -1
+    # sentinel is fine: written[r,c]==0 means cur_idx is never consulted
+    # for the "first write" branch of the predicates.
+    order = np.full((height, width), -1, dtype=np.int64)
 
-    (poly_geoms, poly_props, poly_ids), (line_geoms, line_props), \
-        (point_geoms, point_props) = _classify_geometries(
+    (poly_geoms, poly_props, poly_ids, poly_global), \
+        (line_geoms, line_props, line_global), \
+        (point_geoms, point_props, point_global) = _classify_geometries(
             geometries, props_array)
 
     # 1. Polygons -- always use normal edge ranges for scanline fill
@@ -1037,31 +1158,37 @@ def _run_numpy(geometries, props_array, bounds, height, width, fill, dtype,
     edge_arrays = _sort_edges(edge_arrays)
     if len(edge_arrays[0]) > 0:
         _scanline_fill_cpu(out, written, *edge_arrays,
-                           poly_props, height, width, merge_fn)
+                           poly_props, height, width, poly_global,
+                           merge_fn, should_write, order)
 
-    # 1b. all_touched: draw polygon boundaries via Bresenham so every
-    #     pixel the boundary passes through is burned.  This guarantees
-    #     all_touched is a superset of the normal fill.
+    # 1b. all_touched: draw polygon boundaries with a supercover
+    #     grid traversal so every pixel a ring segment crosses is
+    #     burned (matches rasterio.features.rasterize all_touched).
     if all_touched and poly_geoms:
-        br0, bc0, br1, bc1, bidx = _extract_polygon_boundary_segments(
-            poly_geoms, poly_ids, bounds, height, width)
-        if len(br0) > 0:
-            _burn_lines_cpu(out, written, br0, bc0, br1, bc1, bidx,
-                            poly_props, height, width, merge_fn)
+        bx0, by0, bx1, by1, bidx = (
+            _extract_polygon_boundary_segments_float(
+                poly_geoms, poly_ids, bounds, height, width))
+        if len(bx0) > 0:
+            _burn_lines_supercover_cpu(
+                out, written, bx0, by0, bx1, by1, bidx,
+                poly_props, height, width, poly_global,
+                merge_fn, should_write, order)
 
     # 2. Lines
     r0, c0, r1, c1, line_idx = _extract_line_segments(
         line_geoms, bounds, height, width)
     if len(r0) > 0:
         _burn_lines_cpu(out, written, r0, c0, r1, c1, line_idx,
-                        line_props, height, width, merge_fn)
+                        line_props, height, width, line_global,
+                        merge_fn, should_write, order)
 
     # 3. Points
     prows, pcols, pt_idx = _extract_points(
         point_geoms, bounds, height, width)
     if len(prows) > 0:
         _burn_points_cpu(out, written, prows, pcols, pt_idx,
-                         point_props, merge_fn)
+                         point_props, point_global,
+                         merge_fn, should_write, order)
 
     import warnings
     with warnings.catch_warnings():
@@ -1084,7 +1211,9 @@ _gpu_merge_fns = None
 
 
 def _get_gpu_merge_fns():
-    """Lazily define and cache built-in GPU merge device functions."""
+    """Lazily define and cache built-in GPU merge device functions and the
+    matching ordering predicates.  Mirrors the CPU dispatch table.
+    """
     global _gpu_merge_fns
     if _gpu_merge_fns is not None:
         return _gpu_merge_fns
@@ -1092,14 +1221,8 @@ def _get_gpu_merge_fns():
     from numba import cuda
 
     @cuda.jit(device=True)
-    def _merge_last_gpu(pixel, props, is_first):
+    def _merge_overwrite_gpu(pixel, props, is_first):
         return props[0]
-
-    @cuda.jit(device=True)
-    def _merge_first_gpu(pixel, props, is_first):
-        if is_first:
-            return props[0]
-        return pixel
 
     @cuda.jit(device=True)
     def _merge_max_gpu(pixel, props, is_first):
@@ -1125,44 +1248,175 @@ def _get_gpu_merge_fns():
             return 1.0
         return pixel + 1.0
 
+    @cuda.jit(device=True)
+    def _should_write_any_gpu(is_first, new_idx, cur_idx):
+        return True
+
+    @cuda.jit(device=True)
+    def _should_write_first_gpu(is_first, new_idx, cur_idx):
+        return is_first or new_idx < cur_idx
+
+    @cuda.jit(device=True)
+    def _should_write_last_gpu(is_first, new_idx, cur_idx):
+        return is_first or new_idx > cur_idx
+
     _gpu_merge_fns = {
-        'last': _merge_last_gpu, 'first': _merge_first_gpu,
-        'max': _merge_max_gpu, 'min': _merge_min_gpu,
-        'sum': _merge_sum_gpu, 'count': _merge_count_gpu,
+        'last':  (_merge_overwrite_gpu, _should_write_last_gpu),
+        'first': (_merge_overwrite_gpu, _should_write_first_gpu),
+        'max':   (_merge_max_gpu,       _should_write_any_gpu),
+        'min':   (_merge_min_gpu,       _should_write_any_gpu),
+        'sum':   (_merge_sum_gpu,       _should_write_any_gpu),
+        'count': (_merge_count_gpu,     _should_write_any_gpu),
     }
     return _gpu_merge_fns
 
 
 # ---------------------------------------------------------------------------
-# GPU kernels -- compiled per merge function and cached.
+# GPU kernels -- compiled per (merge_fn, should_write) pair and cached.
 # ---------------------------------------------------------------------------
 
 _gpu_kernel_cache = {}
 
+# Must stay in lock-step with the cuda.local.array(2048, ...) allocations in
+# _scanline_fill_gpu.  Raise both together if this is ever tuned.
+_GPU_MAX_ISECT = 2048
 
-def _ensure_gpu_kernels(merge_fn):
-    """Compile CUDA kernels for the given merge device function and cache.
 
-    Each unique merge function produces a separate set of kernels because
-    CUDA kernels cannot accept function arguments -- the merge function
-    is captured by closure at compile time.
+def _check_gpu_edge_cap(row_ptr):
+    """Raise if any raster row needs more active edges than the GPU kernel
+    can hold in its fixed-size local array.  Without this guard the CUDA
+    scanline kernel would silently truncate and emit wrong pixels.
     """
-    key = id(merge_fn)
+    max_edges_per_row = int(np.diff(row_ptr).max())
+    if max_edges_per_row > _GPU_MAX_ISECT:
+        raise ValueError(
+            f"rasterize CUDA kernel: {max_edges_per_row} active edges in a "
+            f"single row exceeds the limit of {_GPU_MAX_ISECT}. The kernel "
+            f"would silently drop excess edges and produce wrong output. "
+            f"Use the numpy/dask+numpy backend, or reduce polygon density."
+        )
+
+
+#: Built-in merges whose GPU path uses CUDA atomics so overlapping
+#: writes are deterministic.  User-supplied merge callables fall back to
+#: the non-atomic closure path (the public ``merge_fn`` signature has no
+#: slot for atomicity, and we cannot synthesise atomics for an arbitrary
+#: Python function).
+_GPU_ATOMIC_MERGES = ('sum', 'count', 'min', 'max', 'first', 'last')
+
+
+def _ensure_gpu_kernels(merge_fn, should_write, merge_name=None):
+    """Compile CUDA kernels for the given merge + predicate pair and cache.
+
+    Each unique pair produces a separate set of kernels because CUDA kernels
+    cannot accept function arguments; both functions are captured by closure
+    at compile time.
+
+    When ``merge_name`` is one of the built-in merges (``sum``, ``count``,
+    ``min``, ``max``, ``first``, ``last``), the returned kernel set uses
+    CUDA atomics on ``out`` / ``order`` so that overlapping point writes,
+    crossing line segments, and shared polygon-boundary pixels produce
+    deterministic results matching the CPU backend.  Otherwise (callable
+    or unknown merge) the kernels keep the legacy non-atomic
+    read-modify-write path, which is racy on overlap but preserved for
+    user callables whose signature has no atomic equivalent.
+    """
+    key = (id(merge_fn), id(should_write), merge_name)
     if key in _gpu_kernel_cache:
         return _gpu_kernel_cache[key]
 
     from numba import cuda
 
+    atomic_mode = merge_name if merge_name in _GPU_ATOMIC_MERGES else None
+
+    # The per-pixel write strategy depends on ``atomic_mode``.  Numba
+    # treats free Python variables in a ``cuda.jit`` closure as compile-
+    # time constants, so the if/elif ladder below is folded away and
+    # each compiled kernel contains only the relevant atomic call.
+    #
+    # Initialisation contract (launcher fills ``out`` / ``order`` before
+    # the kernel runs):
+    #   sum, count    -> out = 0.0           , order = MIN_INT64
+    #   min           -> out = +inf          , order = MIN_INT64
+    #   max           -> out = -inf          , order = MIN_INT64
+    #   first         -> out = fill          , order = MAX_INT64
+    #   last          -> out = fill          , order = MIN_INT64
+    #   None (user)   -> out = fill          , order = -1 (legacy)
+    #
+    # For sum/count/min/max, ``order`` is repurposed as a touched mask:
+    # any non-sentinel value means the pixel was written by at least
+    # one geometry.  A host-side post-pass blends in ``fill`` where
+    # the pixel is still untouched, and substitutes ``fill`` for the
+    # numerical sentinels used by min/max init.
+    #
+    # For first/last, the kernel is two-pass: pass 1 resolves the
+    # winning input index atomically into ``order``; pass 2 stamps the
+    # winner's ``props[0]`` value into ``out``.  Pass 1 and pass 2 are
+    # separate compiled kernels (``_..._gpu`` and ``_..._gpu_pass2``);
+    # ``_run_cupy`` / ``_rasterize_tile_cupy`` skip the pass-2 launch
+    # for all other modes.
+
     @cuda.jit(device=True)
-    def _apply_merge_gpu(out, written, r, c, props):
-        is_first = np.int64(written[r, c] == 0)
-        out[r, c] = merge_fn(out[r, c], props, is_first)
-        written[r, c] = 1
+    def _apply_merge_gpu(out, written, order, r, c, props, new_idx):
+        if atomic_mode == 'sum':
+            cuda.atomic.add(out, (r, c), props[0])
+            cuda.atomic.max(order, (r, c), new_idx)
+        elif atomic_mode == 'count':
+            cuda.atomic.add(out, (r, c), 1.0)
+            cuda.atomic.max(order, (r, c), new_idx)
+        elif atomic_mode == 'min':
+            val = props[0]
+            # CUDA atomicMin uses a < comparison, which returns False for
+            # any NaN operand, so a NaN burn would silently leave the +inf
+            # initialiser in place.  Track NaN burns in ``written`` (sized
+            # H*W int32 for min/max, see _gpu_init_buffers) and stamp NaN
+            # into ``out`` at finalize.  Issue #2255.
+            if val == val:
+                cuda.atomic.min(out, (r, c), val)
+            else:
+                cuda.atomic.max(written, (r, c), 1)
+            cuda.atomic.max(order, (r, c), new_idx)
+        elif atomic_mode == 'max':
+            val = props[0]
+            # See min branch above; the -inf initialiser would otherwise
+            # win against any NaN burn.  Issue #2255.
+            if val == val:
+                cuda.atomic.max(out, (r, c), val)
+            else:
+                cuda.atomic.max(written, (r, c), 1)
+            cuda.atomic.max(order, (r, c), new_idx)
+        elif atomic_mode == 'first':
+            # Pass 1: resolve winning input index per pixel.
+            cuda.atomic.min(order, (r, c), new_idx)
+        elif atomic_mode == 'last':
+            cuda.atomic.max(order, (r, c), new_idx)
+        else:
+            # Legacy non-atomic path for user callables.
+            is_first = np.int64(written[r, c] == 0)
+            cur_idx = order[r, c]
+            if not should_write(is_first, new_idx, cur_idx):
+                return
+            out[r, c] = merge_fn(out[r, c], props, is_first)
+            written[r, c] = 1
+            order[r, c] = new_idx
+
+    # Pass-2 device function for first/last: stamp the winner's value
+    # into ``out``.  Only the geometry whose index won pass 1 writes.
+    # Multiple threads from the same geometry may write the same pixel,
+    # but they all write ``props[0]`` so the outcome is deterministic.
+    @cuda.jit(device=True)
+    def _apply_merge_gpu_pass2(out, written, order, r, c, props, new_idx):
+        if atomic_mode == 'first' or atomic_mode == 'last':
+            if order[r, c] == new_idx:
+                out[r, c] = props[0]
+        # else: pass 2 is a no-op for all other modes; the launcher
+        # simply skips it.
 
     @cuda.jit
-    def _scanline_fill_gpu(out, written, edge_y_min, edge_x_at_ymin,
+    def _scanline_fill_gpu(out, written, order, edge_y_min, edge_x_at_ymin,
                            edge_inv_slope, edge_geom_id,
-                           geom_props, row_ptr, col_idx, width):
+                           geom_props, geom_global_idx,
+                           row_ptr, col_idx, width):
         """CUDA kernel: one thread per raster row, CSR-indexed active edges."""
         row = cuda.grid(1)
         if row >= out.shape[0]:
@@ -1211,6 +1465,7 @@ def _ensure_gpu_kernels(merge_fn):
         i = 0
         while i < actual - 1:
             gid = gs[i]
+            new_idx = geom_global_idx[gid]
             j = i
             while j < actual and gs[j] == gid:
                 j += 1
@@ -1232,26 +1487,28 @@ def _ensure_gpu_kernels(merge_fn):
                 if col_end >= width:
                     col_end = width - 1
                 for c in range(col_start, col_end + 1):
-                    _apply_merge_gpu(out, written, row, c,
-                                     geom_props[gid])
+                    _apply_merge_gpu(out, written, order, row, c,
+                                     geom_props[gid], new_idx)
                 k += 2
             i = j
 
     @cuda.jit
-    def _burn_points_gpu(out, written, rows, cols, geom_idx, geom_props,
-                         n_points):
+    def _burn_points_gpu(out, written, order, rows, cols, geom_idx,
+                         geom_props, geom_global_idx, n_points):
         i = cuda.grid(1)
         if i >= n_points:
             return
         r = rows[i]
         c = cols[i]
         if 0 <= r < out.shape[0] and 0 <= c < out.shape[1]:
-            _apply_merge_gpu(out, written, r, c,
-                             geom_props[geom_idx[i]])
+            gi = geom_idx[i]
+            _apply_merge_gpu(out, written, order, r, c,
+                             geom_props[gi], geom_global_idx[gi])
 
     @cuda.jit
-    def _burn_lines_gpu(out, written, r0_arr, c0_arr, r1_arr, c1_arr,
-                        geom_idx, geom_props, n_segs, height, width):
+    def _burn_lines_gpu(out, written, order, r0_arr, c0_arr, r1_arr, c1_arr,
+                        geom_idx, geom_props, geom_global_idx,
+                        n_segs, height, width):
         i = cuda.grid(1)
         if i >= n_segs:
             return
@@ -1259,7 +1516,9 @@ def _ensure_gpu_kernels(merge_fn):
         c0 = c0_arr[i]
         r1 = r1_arr[i]
         c1 = c1_arr[i]
-        props = geom_props[geom_idx[i]]
+        gi = geom_idx[i]
+        props = geom_props[gi]
+        new_idx = geom_global_idx[gi]
 
         dr = r1 - r0
         dc = c1 - c0
@@ -1275,7 +1534,8 @@ def _ensure_gpu_kernels(merge_fn):
             r, c = r0, c0
             for _ in range(dr + 1):
                 if 0 <= r < height and 0 <= c < width:
-                    _apply_merge_gpu(out, written, r, c, props)
+                    _apply_merge_gpu(out, written, order, r, c,
+                                     props, new_idx)
                 if err >= 0:
                     c += sc
                     err -= dr
@@ -1286,17 +1546,330 @@ def _ensure_gpu_kernels(merge_fn):
             r, c = r0, c0
             for _ in range(dc + 1):
                 if 0 <= r < height and 0 <= c < width:
-                    _apply_merge_gpu(out, written, r, c, props)
+                    _apply_merge_gpu(out, written, order, r, c,
+                                     props, new_idx)
                 if err >= 0:
                     r += sr
                     err -= dc
                 c += sc
                 err += dr
 
+    @cuda.jit
+    def _burn_lines_supercover_gpu(
+            out, written, order,
+            x0_arr, y0_arr, x1_arr, y1_arr,
+            geom_idx, geom_props, geom_global_idx,
+            n_segs, height, width):
+        """Amanatides & Woo grid traversal on the GPU.
+
+        One thread per segment; walks cells along the float-pixel
+        segment so every cell crossed is burned. Used only by the
+        all_touched polygon-boundary path; the regular line and
+        point kernels still call ``_burn_lines_gpu`` so their
+        behaviour is unchanged.
+        """
+        i = cuda.grid(1)
+        if i >= n_segs:
+            return
+        x0 = x0_arr[i]
+        y0 = y0_arr[i]
+        x1 = x1_arr[i]
+        y1 = y1_arr[i]
+        gi = geom_idx[i]
+        props = geom_props[gi]
+        new_idx = geom_global_idx[gi]
+
+        cx = int(math.floor(x0))
+        cy = int(math.floor(y0))
+        end_cx = int(math.floor(x1))
+        end_cy = int(math.floor(y1))
+
+        dx = x1 - x0
+        dy = y1 - y0
+
+        if dx > 0.0:
+            step_x = 1
+        elif dx < 0.0:
+            step_x = -1
+        else:
+            step_x = 0
+
+        if dy > 0.0:
+            step_y = 1
+        elif dy < 0.0:
+            step_y = -1
+        else:
+            step_y = 0
+
+        if dx != 0.0:
+            t_delta_x = 1.0 / (dx if dx > 0.0 else -dx)
+        else:
+            t_delta_x = math.inf
+
+        if dy != 0.0:
+            t_delta_y = 1.0 / (dy if dy > 0.0 else -dy)
+        else:
+            t_delta_y = math.inf
+
+        if dx > 0.0:
+            t_max_x = (float(cx + 1) - x0) / dx
+        elif dx < 0.0:
+            t_max_x = (float(cx) - x0) / dx
+        else:
+            t_max_x = math.inf
+
+        if dy > 0.0:
+            t_max_y = (float(cy + 1) - y0) / dy
+        elif dy < 0.0:
+            t_max_y = (float(cy) - y0) / dy
+        else:
+            t_max_y = math.inf
+
+        max_steps = abs(end_cx - cx) + abs(end_cy - cy) + 2
+        for _ in range(max_steps):
+            if 0 <= cy < height and 0 <= cx < width:
+                _apply_merge_gpu(out, written, order, cy, cx,
+                                 props, new_idx)
+            if cx == end_cx and cy == end_cy:
+                break
+            if t_max_x < t_max_y:
+                t_max_x += t_delta_x
+                cx += step_x
+            elif t_max_y < t_max_x:
+                t_max_y += t_delta_y
+                cy += step_y
+            else:
+                t_max_x += t_delta_x
+                t_max_y += t_delta_y
+                cx += step_x
+                cy += step_y
+
+    # ---- Pass-2 kernels (only meaningful for first / last) -----------
+    # These mirror the pass-1 kernels but call ``_apply_merge_gpu_pass2``
+    # to stamp the winner's value once ``order`` holds the resolved
+    # input index.  Compiled unconditionally so the kernels dict shape
+    # stays uniform; for non-first/last modes the launcher does not
+    # invoke them.
+
+    @cuda.jit
+    def _scanline_fill_gpu_pass2(out, written, order, edge_y_min,
+                                 edge_x_at_ymin, edge_inv_slope,
+                                 edge_geom_id, geom_props, geom_global_idx,
+                                 row_ptr, col_idx, width):
+        row = cuda.grid(1)
+        if row >= out.shape[0]:
+            return
+        start = row_ptr[row]
+        end = row_ptr[row + 1]
+        if end - start == 0:
+            return
+        MAX_ISECT = 2048
+        xs = cuda.local.array(2048, dtype=np.float64)
+        gs = cuda.local.array(2048, dtype=np.int32)
+        actual = 0
+        for k in range(start, end):
+            if actual >= MAX_ISECT:
+                break
+            e = col_idx[k]
+            xs[actual] = (edge_x_at_ymin[e]
+                          + (row - edge_y_min[e]) * edge_inv_slope[e])
+            gs[actual] = edge_geom_id[e]
+            actual += 1
+        gap = actual >> 1
+        while gap > 0:
+            for i in range(gap, actual):
+                kx = xs[i]
+                kg = gs[i]
+                j = i - gap
+                while j >= 0 and (gs[j] > kg or (gs[j] == kg and xs[j] > kx)):
+                    xs[j + gap] = xs[j]
+                    gs[j + gap] = gs[j]
+                    j -= gap
+                xs[j + gap] = kx
+                gs[j + gap] = kg
+            gap >>= 1
+        i = 0
+        while i < actual - 1:
+            gid = gs[i]
+            new_idx = geom_global_idx[gid]
+            j = i
+            while j < actual and gs[j] == gid:
+                j += 1
+            k = i
+            while k + 1 < j:
+                x_start = xs[k]
+                x_end = xs[k + 1]
+                ix = int(x_start)
+                col_start = ix + 1 if x_start > ix else ix
+                if col_start < 0:
+                    col_start = 0
+                ix_end = int(x_end)
+                col_end = ix_end if x_end > ix_end else ix_end - 1
+                if col_end >= width:
+                    col_end = width - 1
+                for c in range(col_start, col_end + 1):
+                    _apply_merge_gpu_pass2(out, written, order, row, c,
+                                           geom_props[gid], new_idx)
+                k += 2
+            i = j
+
+    @cuda.jit
+    def _burn_points_gpu_pass2(out, written, order, rows, cols, geom_idx,
+                               geom_props, geom_global_idx, n_points):
+        i = cuda.grid(1)
+        if i >= n_points:
+            return
+        r = rows[i]
+        c = cols[i]
+        if 0 <= r < out.shape[0] and 0 <= c < out.shape[1]:
+            gi = geom_idx[i]
+            _apply_merge_gpu_pass2(out, written, order, r, c,
+                                   geom_props[gi], geom_global_idx[gi])
+
+    @cuda.jit
+    def _burn_lines_gpu_pass2(out, written, order, r0_arr, c0_arr, r1_arr,
+                              c1_arr, geom_idx, geom_props,
+                              geom_global_idx, n_segs, height, width):
+        i = cuda.grid(1)
+        if i >= n_segs:
+            return
+        r0 = r0_arr[i]
+        c0 = c0_arr[i]
+        r1 = r1_arr[i]
+        c1 = c1_arr[i]
+        gi = geom_idx[i]
+        props = geom_props[gi]
+        new_idx = geom_global_idx[gi]
+        dr = r1 - r0
+        dc = c1 - c0
+        sr = 1 if dr >= 0 else -1
+        sc = 1 if dc >= 0 else -1
+        if dr < 0:
+            dr = -dr
+        if dc < 0:
+            dc = -dc
+        if dr >= dc:
+            err = dc - dr
+            r, c = r0, c0
+            for _ in range(dr + 1):
+                if 0 <= r < height and 0 <= c < width:
+                    _apply_merge_gpu_pass2(out, written, order, r, c,
+                                           props, new_idx)
+                if err >= 0:
+                    c += sc
+                    err -= dr
+                r += sr
+                err += dc
+        else:
+            err = dr - dc
+            r, c = r0, c0
+            for _ in range(dc + 1):
+                if 0 <= r < height and 0 <= c < width:
+                    _apply_merge_gpu_pass2(out, written, order, r, c,
+                                           props, new_idx)
+                if err >= 0:
+                    r += sr
+                    err -= dc
+                c += sc
+                err += dr
+    @cuda.jit
+    def _burn_lines_supercover_gpu_pass2(
+            out, written, order,
+            x0_arr, y0_arr, x1_arr, y1_arr,
+            geom_idx, geom_props, geom_global_idx,
+            n_segs, height, width):
+        """Pass-2 supercover boundary burn for first/last modes.
+
+        Mirrors ``_burn_lines_supercover_gpu`` but calls
+        ``_apply_merge_gpu_pass2`` so the winning-index resolved in
+        pass 1 gets stamped exactly once per pixel.
+        """
+        i = cuda.grid(1)
+        if i >= n_segs:
+            return
+        x0 = x0_arr[i]
+        y0 = y0_arr[i]
+        x1 = x1_arr[i]
+        y1 = y1_arr[i]
+        gi = geom_idx[i]
+        props = geom_props[gi]
+        new_idx = geom_global_idx[gi]
+
+        cx = int(math.floor(x0))
+        cy = int(math.floor(y0))
+        end_cx = int(math.floor(x1))
+        end_cy = int(math.floor(y1))
+
+        dx = x1 - x0
+        dy = y1 - y0
+
+        if dx > 0.0:
+            step_x = 1
+        elif dx < 0.0:
+            step_x = -1
+        else:
+            step_x = 0
+
+        if dy > 0.0:
+            step_y = 1
+        elif dy < 0.0:
+            step_y = -1
+        else:
+            step_y = 0
+
+        if dx != 0.0:
+            t_delta_x = 1.0 / (dx if dx > 0.0 else -dx)
+        else:
+            t_delta_x = math.inf
+
+        if dy != 0.0:
+            t_delta_y = 1.0 / (dy if dy > 0.0 else -dy)
+        else:
+            t_delta_y = math.inf
+
+        if dx > 0.0:
+            t_max_x = (float(cx + 1) - x0) / dx
+        elif dx < 0.0:
+            t_max_x = (float(cx) - x0) / dx
+        else:
+            t_max_x = math.inf
+
+        if dy > 0.0:
+            t_max_y = (float(cy + 1) - y0) / dy
+        elif dy < 0.0:
+            t_max_y = (float(cy) - y0) / dy
+        else:
+            t_max_y = math.inf
+
+        max_steps = abs(end_cx - cx) + abs(end_cy - cy) + 2
+        for _ in range(max_steps):
+            if 0 <= cy < height and 0 <= cx < width:
+                _apply_merge_gpu_pass2(out, written, order, cy, cx,
+                                       props, new_idx)
+            if cx == end_cx and cy == end_cy:
+                break
+            if t_max_x < t_max_y:
+                t_max_x += t_delta_x
+                cx += step_x
+            elif t_max_y < t_max_x:
+                t_max_y += t_delta_y
+                cy += step_y
+            else:
+                t_max_x += t_delta_x
+                t_max_y += t_delta_y
+                cx += step_x
+                cy += step_y
+
     kernels = {
         'scanline_fill': _scanline_fill_gpu,
         'burn_points': _burn_points_gpu,
         'burn_lines': _burn_lines_gpu,
+        'burn_lines_supercover': _burn_lines_supercover_gpu,
+        'scanline_fill_pass2': _scanline_fill_gpu_pass2,
+        'burn_points_pass2': _burn_points_gpu_pass2,
+        'burn_lines_pass2': _burn_lines_gpu_pass2,
+        'burn_lines_supercover_pass2': _burn_lines_supercover_gpu_pass2,
+        'atomic_mode': atomic_mode,
     }
     _gpu_kernel_cache[key] = kernels
     return kernels
@@ -1359,16 +1932,114 @@ def _build_row_csr_numba(edge_y_min, edge_y_max, height):
     return row_ptr, col_idx
 
 
+#: Sentinels used to mark "untouched" pixels in the GPU ``order`` array.
+#: Numba's ``cuda.atomic.{min,max}`` on int64 accepts standard limits.
+_GPU_ORDER_SENTINEL_MIN = np.int64(np.iinfo(np.int64).min)
+_GPU_ORDER_SENTINEL_MAX = np.int64(np.iinfo(np.int64).max)
+
+
+def _gpu_init_buffers(height, width, fill, merge_name):
+    """Allocate ``out`` / ``written`` / ``order`` with the right initial
+    values for the selected atomic merge.  Returns the trio plus the
+    sentinel value used in ``order`` so the caller can blend ``fill``
+    back in afterwards.
+
+    Most atomic kernels never consult ``written`` (the legacy
+    user-callable path is the only consumer of the H*W int8 mask), so
+    they get a placeholder ``(1, 1)`` buffer to satisfy the kernel
+    signature without spending ``H*W`` bytes on dead storage.
+
+    ``min`` / ``max`` repurpose ``written`` as a NaN-burn mask: the
+    +/-inf initialisers used by the atomic min/max kernels would
+    otherwise outrank any NaN burn ('NaN > finite' is False), silently
+    dropping NaN-valued geometries.  The mask records which pixels saw
+    a NaN burn so finalize can stamp NaN back in.  Issue #2255.
+    ``cuda.atomic.max`` requires int32 / int64 / uint32 / uint64 (int8
+    is not supported), hence the dtype bump for these two modes.
+    """
+    if merge_name in ('min', 'max'):
+        written = cupy.zeros((height, width), dtype=cupy.int32)
+    elif merge_name in _GPU_ATOMIC_MERGES:
+        written = cupy.zeros((1, 1), dtype=cupy.int8)
+    else:
+        written = cupy.zeros((height, width), dtype=cupy.int8)
+    if merge_name in ('sum', 'count'):
+        out = cupy.zeros((height, width), dtype=cupy.float64)
+        order = cupy.full((height, width), _GPU_ORDER_SENTINEL_MIN,
+                          dtype=cupy.int64)
+        order_sentinel = _GPU_ORDER_SENTINEL_MIN
+    elif merge_name == 'min':
+        out = cupy.full((height, width), cupy.inf, dtype=cupy.float64)
+        order = cupy.full((height, width), _GPU_ORDER_SENTINEL_MIN,
+                          dtype=cupy.int64)
+        order_sentinel = _GPU_ORDER_SENTINEL_MIN
+    elif merge_name == 'max':
+        out = cupy.full((height, width), -cupy.inf, dtype=cupy.float64)
+        order = cupy.full((height, width), _GPU_ORDER_SENTINEL_MIN,
+                          dtype=cupy.int64)
+        order_sentinel = _GPU_ORDER_SENTINEL_MIN
+    elif merge_name == 'first':
+        out = cupy.full((height, width), fill, dtype=cupy.float64)
+        order = cupy.full((height, width), _GPU_ORDER_SENTINEL_MAX,
+                          dtype=cupy.int64)
+        order_sentinel = _GPU_ORDER_SENTINEL_MAX
+    elif merge_name == 'last':
+        out = cupy.full((height, width), fill, dtype=cupy.float64)
+        order = cupy.full((height, width), _GPU_ORDER_SENTINEL_MIN,
+                          dtype=cupy.int64)
+        order_sentinel = _GPU_ORDER_SENTINEL_MIN
+    else:
+        # User callable path: legacy initialisation, non-atomic semantics.
+        out = cupy.full((height, width), fill, dtype=cupy.float64)
+        order = cupy.full((height, width), -1, dtype=cupy.int64)
+        order_sentinel = None
+    return out, written, order, order_sentinel
+
+
+def _gpu_finalize_buffers(out, written, order, order_sentinel, fill,
+                          merge_name):
+    """Apply the post-pass blend that restores ``fill`` for untouched
+    pixels (sum/count/min/max/first/last) and replaces the +/- inf
+    initialisers used by min/max.
+
+    For ``min`` / ``max``, also stamps NaN into pixels that received at
+    least one NaN burn -- ``written`` is repurposed as the NaN-mask for
+    those modes (see ``_gpu_init_buffers``).  Issue #2255.
+
+    Returns ``out`` (modified in-place where convenient).
+    """
+    if merge_name is None or order_sentinel is None:
+        return out
+    touched = order != order_sentinel
+    if merge_name in ('sum', 'count'):
+        # Pixels with no contribution should show ``fill``, not 0.
+        out = cupy.where(touched, out, cupy.float64(fill))
+    elif merge_name in ('min', 'max'):
+        # Any pixel that saw a NaN burn must show NaN, otherwise the
+        # +/-inf initialiser would leak through (or the finite max/min
+        # of the non-NaN burns would silently win).  Issue #2255.
+        nan_burned = written > 0
+        out = cupy.where(nan_burned, cupy.float64(cupy.nan), out)
+        # +/-inf initialiser leaks into untouched pixels; restore fill.
+        out = cupy.where(touched, out, cupy.float64(fill))
+    # first/last already initialise ``out`` to ``fill``; pass-2 only
+    # writes for touched pixels, so no blend is needed.
+    return out
+
+
 def _run_cupy(geometries, props_array, bounds, height, width, fill, dtype,
-              all_touched, merge_fn):
+              all_touched, merge_fn, should_write, merge_name=None):
     """CuPy backend for rasterize."""
-    kernels = _ensure_gpu_kernels(merge_fn)
+    kernels = _ensure_gpu_kernels(merge_fn, should_write, merge_name)
+    atomic_mode = kernels['atomic_mode']
+    two_pass = atomic_mode in ('first', 'last')
 
-    out = cupy.full((height, width), fill, dtype=cupy.float64)
-    written = cupy.zeros((height, width), dtype=cupy.int8)
+    out, written, order, order_sentinel = _gpu_init_buffers(
+        height, width, fill, atomic_mode)
 
-    (poly_geoms, poly_props, poly_ids), (line_geoms, line_props), \
-        (point_geoms, point_props) = _classify_geometries(
+    (poly_geoms, poly_props, poly_ids, poly_global), \
+        (line_geoms, line_props, line_global), \
+        (point_geoms, point_props, point_global) = _classify_geometries(
             geometries, props_array)
 
     # 1. Polygons -- always use normal edge ranges (see _run_numpy comment)
@@ -1378,76 +2049,109 @@ def _run_cupy(geometries, props_array, bounds, height, width, fill, dtype,
     edge_y_min, edge_y_max, edge_x_at_ymin, edge_inv_slope, \
         edge_geom_id = edge_arrays
 
+    # Stage the per-launch inputs once; first/last reuses these tensors
+    # for the pass-2 stamp launches.
+    poly_launch = None
     if len(edge_y_min) > 0:
-        # Build CSR structure on CPU, then transfer to GPU
         row_ptr, col_idx = _build_row_csr_numba(
             edge_y_min, edge_y_max, height)
+        # The CUDA scanline kernel allocates a fixed-size local array; rows
+        # exceeding _GPU_MAX_ISECT would have edges silently dropped and
+        # produce wrong output.  Fail fast instead.
+        _check_gpu_edge_cap(row_ptr)
+        poly_launch = (
+            cupy.asarray(edge_y_min), cupy.asarray(edge_x_at_ymin),
+            cupy.asarray(edge_inv_slope), cupy.asarray(edge_geom_id),
+            cupy.asarray(poly_props), cupy.asarray(poly_global),
+            cupy.asarray(row_ptr), cupy.asarray(col_idx))
 
-        # Check for rows exceeding the GPU kernel's local array limit
-        _GPU_MAX_ISECT = 2048
-        max_edges_per_row = int(np.diff(row_ptr).max())
-        if max_edges_per_row > _GPU_MAX_ISECT:
-            warnings.warn(
-                f"rasterize CUDA kernel: {max_edges_per_row} active edges "
-                f"in a single row exceeds the limit of {_GPU_MAX_ISECT}. "
-                f"Excess edges will be silently dropped, causing incorrect "
-                f"results. Reduce polygon density or use the numpy backend.",
-                stacklevel=3,
-            )
-
-        d_y_min = cupy.asarray(edge_y_min)
-        d_x_at_ymin = cupy.asarray(edge_x_at_ymin)
-        d_inv_slope = cupy.asarray(edge_inv_slope)
-        d_geom_id = cupy.asarray(edge_geom_id)
-        d_geom_props = cupy.asarray(poly_props)
-        d_row_ptr = cupy.asarray(row_ptr)
-        d_col_idx = cupy.asarray(col_idx)
-
-        tpb = 256
-        blocks = (height + tpb - 1) // tpb
-        kernels['scanline_fill'][blocks, tpb](
-            out, written, d_y_min, d_x_at_ymin, d_inv_slope,
-            d_geom_id, d_geom_props, d_row_ptr, d_col_idx, width)
-
-    # 1b. all_touched: draw polygon boundaries via Bresenham (GPU)
+    # all_touched boundaries.  ``poly_geoms`` and ``poly_ids`` come
+    # from ``_classify_geometries`` above and are always defined here,
+    # so this block does not depend on the polygon scanline path
+    # having allocated ``poly_launch``.  The supercover boundary kernel
+    # walks every cell a ring segment crosses (float pixel endpoints),
+    # replacing the older Bresenham boundary burn.
+    boundary_launch = None
     if all_touched and poly_geoms:
-        br0, bc0, br1, bc1, bidx = _extract_polygon_boundary_segments(
-            poly_geoms, poly_ids, bounds, height, width)
-        if len(br0) > 0:
-            n_bsegs = len(br0)
-            tpb = 256
-            bpg = (n_bsegs + tpb - 1) // tpb
-            kernels['burn_lines'][bpg, tpb](
-                out, written, cupy.asarray(br0), cupy.asarray(bc0),
-                cupy.asarray(br1), cupy.asarray(bc1),
+        bx0, by0, bx1, by1, bidx = (
+            _extract_polygon_boundary_segments_float(
+                poly_geoms, poly_ids, bounds, height, width))
+        if len(bx0) > 0:
+            boundary_launch = (
+                cupy.asarray(bx0), cupy.asarray(by0),
+                cupy.asarray(bx1), cupy.asarray(by1),
                 cupy.asarray(bidx), cupy.asarray(poly_props),
-                n_bsegs, height, width)
+                cupy.asarray(poly_global), len(bx0))
 
-    # 2. Lines
     r0, c0, r1, c1, line_idx = _extract_line_segments(
         line_geoms, bounds, height, width)
+    line_launch = None
     if len(r0) > 0:
-        n_segs = len(r0)
-        tpb = 256
-        bpg = (n_segs + tpb - 1) // tpb
-        kernels['burn_lines'][bpg, tpb](
-            out, written, cupy.asarray(r0), cupy.asarray(c0),
+        line_launch = (
+            cupy.asarray(r0), cupy.asarray(c0),
             cupy.asarray(r1), cupy.asarray(c1),
             cupy.asarray(line_idx), cupy.asarray(line_props),
-            n_segs, height, width)
+            cupy.asarray(line_global), len(r0))
 
-    # 3. Points
     prows, pcols, pt_idx = _extract_points(
         point_geoms, bounds, height, width)
+    point_launch = None
     if len(prows) > 0:
-        n_pts = len(prows)
-        tpb = 256
-        bpg = (n_pts + tpb - 1) // tpb
-        kernels['burn_points'][bpg, tpb](
-            out, written, cupy.asarray(prows), cupy.asarray(pcols),
-            cupy.asarray(pt_idx), cupy.asarray(point_props), n_pts)
+        point_launch = (
+            cupy.asarray(prows), cupy.asarray(pcols),
+            cupy.asarray(pt_idx), cupy.asarray(point_props),
+            cupy.asarray(point_global), len(prows))
 
-    return out.astype(dtype)
+    def _launch_phase(k_scan, k_lines, k_boundary, k_points):
+        tpb = 256
+        if poly_launch is not None:
+            blocks = (height + tpb - 1) // tpb
+            k_scan[blocks, tpb](out, written, order,
+                                poly_launch[0], poly_launch[1],
+                                poly_launch[2], poly_launch[3],
+                                poly_launch[4], poly_launch[5],
+                                poly_launch[6], poly_launch[7], width)
+        if boundary_launch is not None:
+            n_bsegs = boundary_launch[7]
+            bpg = (n_bsegs + tpb - 1) // tpb
+            k_boundary[bpg, tpb](out, written, order,
+                                 boundary_launch[0], boundary_launch[1],
+                                 boundary_launch[2], boundary_launch[3],
+                                 boundary_launch[4], boundary_launch[5],
+                                 boundary_launch[6], n_bsegs, height, width)
+        if line_launch is not None:
+            n_segs = line_launch[7]
+            bpg = (n_segs + tpb - 1) // tpb
+            k_lines[bpg, tpb](out, written, order,
+                              line_launch[0], line_launch[1],
+                              line_launch[2], line_launch[3],
+                              line_launch[4], line_launch[5],
+                              line_launch[6], n_segs, height, width)
+        if point_launch is not None:
+            n_pts = point_launch[5]
+            bpg = (n_pts + tpb - 1) // tpb
+            k_points[bpg, tpb](out, written, order,
+                               point_launch[0], point_launch[1],
+                               point_launch[2], point_launch[3],
+                               point_launch[4], n_pts)
+
+    # Pass 1: write values (atomics) or, for first/last, resolve the
+    # per-pixel winning input index into ``order``.
+    _launch_phase(kernels['scanline_fill'],
+                  kernels['burn_lines'],
+                  kernels['burn_lines_supercover'],
+                  kernels['burn_points'])
+
+    # Pass 2 (first / last only): stamp the winner's value into ``out``.
+    if two_pass:
+        _launch_phase(kernels['scanline_fill_pass2'],
+                      kernels['burn_lines_pass2'],
+                      kernels['burn_lines_supercover_pass2'],
+                      kernels['burn_points_pass2'])
+
+    final_out = _gpu_finalize_buffers(out, written, order, order_sentinel,
+                                      fill, atomic_mode)
+    return final_out.astype(dtype)
 
 
 # ---------------------------------------------------------------------------
@@ -1458,10 +2162,8 @@ def _geometry_bboxes(geometries):
     """Return (N, 4) float64 array of [xmin, ymin, xmax, ymax] per geometry."""
     if len(geometries) == 0:
         return np.empty((0, 4), dtype=np.float64)
-    if _HAS_SHAPELY2:
-        import shapely
-        return shapely.bounds(np.asarray(geometries, dtype=object))
-    return np.array([g.bounds for g in geometries], dtype=np.float64)
+    shapely = _require_shapely()
+    return shapely.bounds(np.asarray(geometries, dtype=object))
 
 
 def _tile_grid(bounds, height, width, row_chunks, col_chunks):
@@ -1516,6 +2218,12 @@ def _normalize_chunks(chunks, height, width):
         rchunk = cchunk = chunks
     else:
         rchunk, cchunk = chunks
+
+    # Both axes must have positive chunk sizes. A zero would loop forever
+    # below; a negative would diverge.
+    if rchunk <= 0 or cchunk <= 0:
+        raise ValueError(
+            f"chunks must be positive, got ({rchunk}, {cchunk})")
 
     row_chunks = []
     remaining = height
@@ -1578,35 +2286,81 @@ def _points_for_tile(rows, cols, geom_idx, r_start, r_end, c_start, c_end):
     return (rows[mask] - r_start, cols[mask] - c_start, geom_idx[mask])
 
 
+def _slice_props_for_tile(geom_idx, props):
+    """Slice a per-type props table to only entries referenced by *geom_idx*.
+
+    Returns ``(local_idx, sliced_props)`` where ``local_idx`` is a remapped
+    int32 array of the same length as ``geom_idx`` but with values in
+    ``range(len(sliced_props))``, and ``sliced_props`` is the
+    contiguous subset of ``props`` that those local indices index into.
+
+    This is the line / point counterpart to the polygon path's
+    ``poly_wkb_arr[pmask]`` / ``poly_props[pmask]`` slicing.  Without it,
+    every dask tile task would embed the full ``line_props`` /
+    ``point_props`` table in its closure, even when the tile sees only
+    a handful of segments.  At a few thousand geometries this is a
+    multi-MB scheduler overhead per task; at 1 M geometries x 100 tiles
+    the difference is ~800 MB of redundant graph state.
+
+    If ``geom_idx`` is empty, returns an empty ``(0,)`` int32 array and
+    a zero-row slice of ``props`` (preserving column count).
+    """
+    if len(geom_idx) == 0:
+        return geom_idx.astype(np.int32, copy=False), props[:0]
+    # np.unique returns sorted unique values and an inverse map that
+    # points each entry in geom_idx to its position in unique_idx.
+    unique_idx, local_idx = np.unique(geom_idx, return_inverse=True)
+    return local_idx.astype(np.int32), props[unique_idx]
+
+
+def _slice_per_tile(geom_idx, props, global_idx):
+    """Same as ``_slice_props_for_tile`` but also slices the per-type
+    global-input-index array so the tile worker can resolve ordered
+    merges.  Returns ``(local_idx, sliced_props, sliced_global_idx)``.
+    """
+    if len(geom_idx) == 0:
+        empty = global_idx[:0] if len(global_idx) else np.empty(0, dtype=np.int64)
+        return (geom_idx.astype(np.int32, copy=False), props[:0], empty)
+    unique_idx, local_idx = np.unique(geom_idx, return_inverse=True)
+    return (local_idx.astype(np.int32), props[unique_idx],
+            global_idx[unique_idx])
+
+
 def _polys_to_wkb(geoms):
     """Pre-serialize polygon geometries to WKB for cheap pickling."""
-    return [g.wkb for g in geoms]
+    if not geoms:
+        return []
+    shapely = _require_shapely()
+    return shapely.to_wkb(np.asarray(geoms, dtype=object)).tolist()
 
 
 def _polys_from_wkb(wkb_list):
     """Deserialize WKB back to shapely geometries."""
-    from shapely import from_wkb
-    geoms = from_wkb(wkb_list)
+    shapely = _require_shapely()
+    geoms = shapely.from_wkb(wkb_list)
     if not isinstance(geoms, (list, np.ndarray)):
         geoms = [geoms]
     return list(geoms)
 
 
-def _rasterize_tile_numpy(poly_wkb, poly_props_2d, tile_bounds, tile_h,
-                          tile_w, fill, dtype, all_touched, merge_fn,
+def _rasterize_tile_numpy(poly_wkb, poly_props_2d, poly_global_2d, tile_bounds,
+                          tile_h, tile_w, fill, dtype, all_touched,
+                          merge_fn, should_write,
                           seg_r0, seg_c0, seg_r1, seg_c1, seg_geom_idx,
-                          line_props,
+                          line_props, line_global,
                           pt_rows, pt_cols, pt_geom_idx,
-                          point_props):
+                          point_props, point_global):
     """Rasterize a single tile.
 
     Polygons are passed as WKB bytes (cheap to pickle) and deserialized
     inside the worker.  Line segments and points are passed in tile-local
     pixel coordinates with geometry indices into their respective props
-    tables.
+    tables.  Each per-type global-input-index array carries the original
+    input position so order-sensitive merges work across types.
     """
     out = np.full((tile_h, tile_w), fill, dtype=np.float64)
     written = np.zeros((tile_h, tile_w), dtype=np.int8)
+    order = np.full((tile_h, tile_w), -1, dtype=np.int64)
 
     # 1. Polygons (deserialize WKB, then scanline fill)
     if poly_wkb:
@@ -1618,38 +2372,48 @@ def _rasterize_tile_numpy(poly_wkb, poly_props_2d, tile_bounds, tile_h,
         edge_arrays = _sort_edges(edge_arrays)
         if len(edge_arrays[0]) > 0:
             _scanline_fill_cpu(out, written, *edge_arrays,
-                               poly_props_2d, tile_h, tile_w, merge_fn)
+                               poly_props_2d, tile_h, tile_w,
+                               poly_global_2d, merge_fn, should_write, order)
 
-        # 1b. all_touched: draw polygon boundaries via Bresenham
+        # 1b. all_touched: draw polygon boundaries with the
+        # supercover grid traversal so the dask path matches the
+        # eager numpy path pixel-for-pixel under all_touched=True.
         if all_touched:
-            br0, bc0, br1, bc1, bidx = _extract_polygon_boundary_segments(
-                poly_geoms, poly_ids, tile_bounds, tile_h, tile_w)
-            if len(br0) > 0:
-                _burn_lines_cpu(out, written, br0, bc0, br1, bc1, bidx,
-                                poly_props_2d, tile_h, tile_w, merge_fn)
+            bx0, by0, bx1, by1, bidx = (
+                _extract_polygon_boundary_segments_float(
+                    poly_geoms, poly_ids, tile_bounds, tile_h, tile_w))
+            if len(bx0) > 0:
+                _burn_lines_supercover_cpu(
+                    out, written, bx0, by0, bx1, by1, bidx,
+                    poly_props_2d, tile_h, tile_w,
+                    poly_global_2d, merge_fn, should_write, order)
 
     # 2. Lines (tile-local segments, Bresenham with bounds check)
     if len(seg_r0) > 0:
         _burn_lines_cpu(out, written, seg_r0, seg_c0, seg_r1, seg_c1,
-                        seg_geom_idx, line_props, tile_h, tile_w, merge_fn)
+                        seg_geom_idx, line_props, tile_h, tile_w,
+                        line_global, merge_fn, should_write, order)
 
     # 3. Points (tile-local)
     if len(pt_rows) > 0:
         _burn_points_cpu(out, written, pt_rows, pt_cols, pt_geom_idx,
-                         point_props, merge_fn)
+                         point_props, point_global,
+                         merge_fn, should_write, order)
 
     return out.astype(dtype)
 
 
 def _run_dask_numpy(geometries, props_array, bounds, height, width, fill,
-                    dtype, all_touched, merge_fn, row_chunks, col_chunks):
+                    dtype, all_touched, merge_fn, should_write,
+                    row_chunks, col_chunks):
     """Dask + NumPy backend: tile-based parallel rasterization."""
     import dask
     import dask.array as da
 
     # Classify geometries once
-    (poly_geoms, poly_props, _poly_ids), (line_geoms, line_props), \
-        (point_geoms, point_props) = _classify_geometries(
+    (poly_geoms, poly_props, _poly_ids, poly_global), \
+        (line_geoms, line_props, line_global), \
+        (point_geoms, point_props, point_global) = _classify_geometries(
             geometries, props_array)
 
     # Compact representations in full-raster pixel space
@@ -1662,7 +2426,7 @@ def _run_dask_numpy(geometries, props_array, bounds, height, width, fill,
     # Store as object array for single-pass boolean indexing per tile.
     if poly_geoms:
         poly_bboxes = _geometry_bboxes(poly_geoms)
-        poly_wkb_arr = np.array([g.wkb for g in poly_geoms], dtype=object)
+        poly_wkb_arr = np.array(_polys_to_wkb(poly_geoms), dtype=object)
     else:
         poly_bboxes = np.empty((0, 4), dtype=np.float64)
         poly_wkb_arr = np.empty(0, dtype=object)
@@ -1687,9 +2451,11 @@ def _run_dask_numpy(geometries, props_array, bounds, height, width, fill,
             if len(poly_wkb_arr) > 0:
                 tile_wkb = poly_wkb_arr[pmask].tolist()
                 tile_poly_props = poly_props[pmask]
+                tile_poly_global = poly_global[pmask]
             else:
                 tile_wkb = []
                 tile_poly_props = poly_props[:0]  # empty (0, P)
+                tile_poly_global = np.empty(0, dtype=np.int64)
 
             # Filter segments and points by tile pixel range
             ts = _segments_for_tile(seg_r0, seg_c0, seg_r1, seg_c1,
@@ -1698,10 +2464,22 @@ def _run_dask_numpy(geometries, props_array, bounds, height, width, fill,
             tp = _points_for_tile(pt_rows, pt_cols, pt_geom_idx,
                                   r_start, r_end, c_start, c_end)
 
+            # Slice line_props / point_props (and their global-idx
+            # companions) to only the geometries this tile actually
+            # references, remapping the geom_idx arrays to local indices.
+            ts_local_idx, tile_line_props, tile_line_global = \
+                _slice_per_tile(ts[4], line_props, line_global)
+            ts = (*ts[:4], ts_local_idx)
+            tp_local_idx, tile_point_props, tile_point_global = \
+                _slice_per_tile(tp[2], point_props, point_global)
+            tp = (*tp[:2], tp_local_idx)
+
             delayed_tile = dask.delayed(_rasterize_tile_numpy)(
-                tile_wkb, tile_poly_props, tile_bounds,
-                tile_h, tile_w, fill, dtype, all_touched, merge_fn,
-                *ts, line_props, *tp, point_props)
+                tile_wkb, tile_poly_props, tile_poly_global, tile_bounds,
+                tile_h, tile_w, fill, dtype, all_touched,
+                merge_fn, should_write,
+                *ts, tile_line_props, tile_line_global,
+                *tp, tile_point_props, tile_point_global)
             blocks[i][j] = da.from_delayed(
                 delayed_tile, shape=(tile_h, tile_w), dtype=dtype)
             ri += 1
@@ -1716,89 +2494,142 @@ def _ensure_cupy(arr):
     return cupy.asarray(arr)
 
 
-def _rasterize_tile_cupy(poly_wkb, poly_props_2d, tile_bounds, tile_h,
-                         tile_w, fill, dtype, all_touched, merge_fn,
+def _rasterize_tile_cupy(poly_wkb, poly_props_2d, poly_global_2d, tile_bounds,
+                         tile_h, tile_w, fill, dtype, all_touched,
+                         merge_fn, should_write,
                          seg_r0, seg_c0, seg_r1, seg_c1, seg_geom_idx,
-                         line_props,
+                         line_props, line_global,
                          pt_rows, pt_cols, pt_geom_idx,
-                         point_props):
-    """GPU tile rasterization: polygons as WKB, lines/points as segments."""
-    kernels = _ensure_gpu_kernels(merge_fn)
+                         point_props, point_global, merge_name=None):
+    """GPU tile rasterization: polygons as WKB, lines/points as segments.
 
-    out = cupy.full((tile_h, tile_w), fill, dtype=cupy.float64)
-    written = cupy.zeros((tile_h, tile_w), dtype=cupy.int8)
+    When ``merge_name`` selects an atomic built-in merge, the per-tile
+    kernels use CUDA atomics so overlapping writes inside the tile are
+    deterministic.  Cross-tile pixels do not overlap (the tiling is a
+    partition of the output grid), so per-tile atomicity is sufficient.
+    """
+    kernels = _ensure_gpu_kernels(merge_fn, should_write, merge_name)
+    atomic_mode = kernels['atomic_mode']
+    two_pass = atomic_mode in ('first', 'last')
 
-    # 1. Polygons (deserialize WKB, then scanline fill on GPU)
+    out, written, order, order_sentinel = _gpu_init_buffers(
+        tile_h, tile_w, fill, atomic_mode)
+
+    # Stage launches (same pattern as _run_cupy).  Stage once so the
+    # first/last pass-2 sweep reuses the device buffers.  ``poly_geoms``
+    # and ``poly_ids`` are bound inside the ``if poly_wkb:`` block, so
+    # ``boundary_launch`` is staged inside the same block to keep the
+    # dependency local.
+    poly_launch = None
+    boundary_launch = None
     if poly_wkb:
         poly_geoms = _polys_from_wkb(poly_wkb)
         poly_ids = np.arange(len(poly_geoms), dtype=np.int32)
         edge_arrays = _extract_edges(
-            poly_geoms, poly_ids, tile_bounds,
-            tile_h, tile_w)
+            poly_geoms, poly_ids, tile_bounds, tile_h, tile_w)
         edge_arrays = _sort_edges(edge_arrays)
         edge_y_min = edge_arrays[0]
         if len(edge_y_min) > 0:
-            edge_y_max, edge_x_at_ymin, edge_inv_slope, \
-                edge_geom_id = edge_arrays[1:]
+            edge_y_max, edge_x_at_ymin, edge_inv_slope, edge_geom_id = \
+                edge_arrays[1:]
             row_ptr, col_idx = _build_row_csr_numba(
                 edge_y_min, edge_y_max, tile_h)
-            tpb = 256
-            blocks = (tile_h + tpb - 1) // tpb
-            kernels['scanline_fill'][blocks, tpb](
-                out, written,
+            _check_gpu_edge_cap(row_ptr)
+            poly_launch = (
                 cupy.asarray(edge_y_min), cupy.asarray(edge_x_at_ymin),
                 cupy.asarray(edge_inv_slope), cupy.asarray(edge_geom_id),
-                cupy.asarray(poly_props_2d), cupy.asarray(row_ptr),
-                cupy.asarray(col_idx), tile_w)
+                cupy.asarray(poly_props_2d), cupy.asarray(poly_global_2d),
+                cupy.asarray(row_ptr), cupy.asarray(col_idx))
 
-        # 1b. all_touched: draw polygon boundaries via Bresenham (GPU)
+        # all_touched: stage the supercover boundary burn through
+        # ``boundary_launch`` so the two-pass first/last path can fire
+        # both pass-1 and pass-2 kernels.
         if all_touched:
-            br0, bc0, br1, bc1, bidx = _extract_polygon_boundary_segments(
-                poly_geoms, poly_ids, tile_bounds, tile_h, tile_w)
-            if len(br0) > 0:
-                n_bsegs = len(br0)
-                tpb_b = 256
-                bpg_b = (n_bsegs + tpb_b - 1) // tpb_b
-                kernels['burn_lines'][bpg_b, tpb_b](
-                    out, written, cupy.asarray(br0), cupy.asarray(bc0),
-                    cupy.asarray(br1), cupy.asarray(bc1),
+            bx0, by0, bx1, by1, bidx = (
+                _extract_polygon_boundary_segments_float(
+                    poly_geoms, poly_ids, tile_bounds, tile_h, tile_w))
+            if len(bx0) > 0:
+                boundary_launch = (
+                    cupy.asarray(bx0), cupy.asarray(by0),
+                    cupy.asarray(bx1), cupy.asarray(by1),
                     cupy.asarray(bidx), cupy.asarray(poly_props_2d),
-                    n_bsegs, tile_h, tile_w)
+                    cupy.asarray(poly_global_2d), len(bx0))
 
-    # 2. Lines (tile-local segments, GPU Bresenham)
+    line_launch = None
     if len(seg_r0) > 0:
-        n_segs = len(seg_r0)
-        tpb = 256
-        bpg = (n_segs + tpb - 1) // tpb
-        kernels['burn_lines'][bpg, tpb](
-            out, written,
+        line_launch = (
             cupy.asarray(seg_r0), cupy.asarray(seg_c0),
             cupy.asarray(seg_r1), cupy.asarray(seg_c1),
             cupy.asarray(seg_geom_idx), _ensure_cupy(line_props),
-            n_segs, tile_h, tile_w)
+            _ensure_cupy(line_global), len(seg_r0))
 
-    # 3. Points (tile-local)
+    point_launch = None
     if len(pt_rows) > 0:
-        n_pts = len(pt_rows)
-        tpb = 256
-        bpg = (n_pts + tpb - 1) // tpb
-        kernels['burn_points'][bpg, tpb](
-            out, written,
+        point_launch = (
             cupy.asarray(pt_rows), cupy.asarray(pt_cols),
-            cupy.asarray(pt_geom_idx), _ensure_cupy(point_props), n_pts)
+            cupy.asarray(pt_geom_idx), _ensure_cupy(point_props),
+            _ensure_cupy(point_global), len(pt_rows))
 
-    return out.astype(dtype)
+    def _launch_phase(k_scan, k_lines, k_boundary, k_points):
+        tpb = 256
+        if poly_launch is not None:
+            blocks = (tile_h + tpb - 1) // tpb
+            k_scan[blocks, tpb](out, written, order,
+                                poly_launch[0], poly_launch[1],
+                                poly_launch[2], poly_launch[3],
+                                poly_launch[4], poly_launch[5],
+                                poly_launch[6], poly_launch[7], tile_w)
+        if boundary_launch is not None:
+            n_bsegs = boundary_launch[7]
+            bpg = (n_bsegs + tpb - 1) // tpb
+            k_boundary[bpg, tpb](out, written, order,
+                                 boundary_launch[0], boundary_launch[1],
+                                 boundary_launch[2], boundary_launch[3],
+                                 boundary_launch[4], boundary_launch[5],
+                                 boundary_launch[6],
+                                 n_bsegs, tile_h, tile_w)
+        if line_launch is not None:
+            n_segs = line_launch[7]
+            bpg = (n_segs + tpb - 1) // tpb
+            k_lines[bpg, tpb](out, written, order,
+                              line_launch[0], line_launch[1],
+                              line_launch[2], line_launch[3],
+                              line_launch[4], line_launch[5],
+                              line_launch[6], n_segs, tile_h, tile_w)
+        if point_launch is not None:
+            n_pts = point_launch[5]
+            bpg = (n_pts + tpb - 1) // tpb
+            k_points[bpg, tpb](out, written, order,
+                               point_launch[0], point_launch[1],
+                               point_launch[2], point_launch[3],
+                               point_launch[4], n_pts)
+
+    _launch_phase(kernels['scanline_fill'],
+                  kernels['burn_lines'],
+                  kernels['burn_lines_supercover'],
+                  kernels['burn_points'])
+    if two_pass:
+        _launch_phase(kernels['scanline_fill_pass2'],
+                      kernels['burn_lines_pass2'],
+                      kernels['burn_lines_supercover_pass2'],
+                      kernels['burn_points_pass2'])
+
+    final_out = _gpu_finalize_buffers(out, written, order, order_sentinel,
+                                      fill, atomic_mode)
+    return final_out.astype(dtype)
 
 
 def _run_dask_cupy(geometries, props_array, bounds, height, width, fill,
-                   dtype, all_touched, merge_fn, row_chunks, col_chunks):
+                   dtype, all_touched, merge_fn, should_write,
+                   row_chunks, col_chunks, merge_name=None):
     """Dask + CuPy backend: tile-based parallel GPU rasterization."""
     import dask
     import dask.array as da
 
     # Classify geometries once
-    (poly_geoms, poly_props, _poly_ids), (line_geoms, line_props), \
-        (point_geoms, point_props) = _classify_geometries(
+    (poly_geoms, poly_props, _poly_ids, poly_global), \
+        (line_geoms, line_props, line_global), \
+        (point_geoms, point_props, point_global) = _classify_geometries(
             geometries, props_array)
 
     # Compact representations in full-raster pixel space
@@ -1810,7 +2641,7 @@ def _run_dask_cupy(geometries, props_array, bounds, height, width, fill,
     # Pre-serialize polygons to WKB (20x cheaper to pickle than shapely).
     if poly_geoms:
         poly_bboxes = _geometry_bboxes(poly_geoms)
-        poly_wkb_arr = np.array([g.wkb for g in poly_geoms], dtype=object)
+        poly_wkb_arr = np.array(_polys_to_wkb(poly_geoms), dtype=object)
     else:
         poly_bboxes = np.empty((0, 4), dtype=np.float64)
         poly_wkb_arr = np.empty(0, dtype=object)
@@ -1818,10 +2649,15 @@ def _run_dask_cupy(geometries, props_array, bounds, height, width, fill,
     # Pre-compute segment bboxes once (avoids redundant min/max per tile)
     seg_bboxes = _segment_bboxes(seg_r0, seg_c0, seg_r1, seg_c1)
 
-    # Transfer shared props tables to GPU once (avoids repeated PCIe
-    # transfers in each tile worker).
-    d_line_props = cupy.asarray(line_props)
-    d_point_props = cupy.asarray(point_props)
+    # Per-tile props slicing keeps PCIe traffic and graph payload small:
+    # each tile only references a subset of geometries, so we slice
+    # line_props / point_props per tile (as np arrays in the graph) and
+    # transfer only that subset to the GPU inside the worker.  Mirrors
+    # the polygon path's poly_props[pmask] pattern.  Tradeoff: for
+    # sprawling-line workloads where every tile references most rows,
+    # the GPU now sees N_tiles small uploads instead of one shared
+    # driver-side upload, shifting cost from graph payload to PCIe
+    # traffic.  Localized geometries (the realistic case) still win.
 
     tiles = _tile_grid(bounds, height, width, row_chunks, col_chunks)
     n_row_chunks = len(row_chunks)
@@ -1840,9 +2676,11 @@ def _run_dask_cupy(geometries, props_array, bounds, height, width, fill,
             if len(poly_wkb_arr) > 0:
                 tile_wkb = poly_wkb_arr[pmask].tolist()
                 tile_poly_props = poly_props[pmask]
+                tile_poly_global = poly_global[pmask]
             else:
                 tile_wkb = []
                 tile_poly_props = poly_props[:0]  # empty (0, P)
+                tile_poly_global = np.empty(0, dtype=np.int64)
 
             ts = _segments_for_tile(seg_r0, seg_c0, seg_r1, seg_c1,
                                     seg_geom_idx, seg_bboxes,
@@ -1850,10 +2688,20 @@ def _run_dask_cupy(geometries, props_array, bounds, height, width, fill,
             tp = _points_for_tile(pt_rows, pt_cols, pt_geom_idx,
                                   r_start, r_end, c_start, c_end)
 
+            ts_local_idx, tile_line_props, tile_line_global = \
+                _slice_per_tile(ts[4], line_props, line_global)
+            ts = (*ts[:4], ts_local_idx)
+            tp_local_idx, tile_point_props, tile_point_global = \
+                _slice_per_tile(tp[2], point_props, point_global)
+            tp = (*tp[:2], tp_local_idx)
+
             delayed_tile = dask.delayed(_rasterize_tile_cupy)(
-                tile_wkb, tile_poly_props, tile_bounds,
-                tile_h, tile_w, fill, dtype, all_touched, merge_fn,
-                *ts, d_line_props, *tp, d_point_props)
+                tile_wkb, tile_poly_props, tile_poly_global, tile_bounds,
+                tile_h, tile_w, fill, dtype, all_touched,
+                merge_fn, should_write,
+                *ts, tile_line_props, tile_line_global,
+                *tp, tile_point_props, tile_point_global,
+                merge_name)
             blocks[i][j] = da.from_delayed(
                 delayed_tile, shape=(tile_h, tile_w), dtype=dtype,
                 meta=cupy.empty(()))
@@ -1889,6 +2737,11 @@ def _parse_input(geometries, column=None, columns=None):
         if isinstance(geometries, gpd.GeoDataFrame):
             geom_list = geometries.geometry.tolist()
             total_bounds = tuple(geometries.total_bounds)
+            # GeoPandas returns (nan, nan, nan, nan) for an empty frame.
+            # Treat as "no inferred bounds" so the caller's explicit-bounds
+            # guard fires instead of producing a raster with nan coords.
+            if any(not np.isfinite(v) for v in total_bounds):
+                total_bounds = None
             if columns is not None:
                 props_array = geometries[columns].values.astype(np.float64)
             else:
@@ -1927,8 +2780,83 @@ def _parse_input(geometries, column=None, columns=None):
     return geom_list, props_array, None
 
 
+def _check_uniform_axis(axis_name, coords, expected_step):
+    """Raise ``ValueError`` if ``coords`` is not uniformly spaced.
+
+    ``coords`` is a 1-D float64 array of dim-coord values for the named
+    axis (``'x'`` or ``'y'``).  ``expected_step`` is the magnitude of the
+    first interval (already computed by the caller).  Axes with fewer
+    than three points cannot be non-uniform in a way this check would
+    catch, so they pass trivially.
+
+    The comparison is on ``abs(diff)`` so the validation does not care
+    whether the axis is ascending or descending -- ascending-y ``like``
+    inputs are supported by the orientation flip in ``rasterize``, and
+    gating on the sign here would block that.  ``np.allclose`` is used
+    (rather than strict equality) because affine-transform-derived
+    coords drift by a few ulps in practice.
+    """
+    if coords.size < 3:
+        return
+
+    # A non-finite ``expected_step`` (NaN / inf) is a separate kind of
+    # broken; let the downstream rasterizer surface that rather than
+    # masking it with a misleading "non-uniform spacing" message here.
+    if not np.isfinite(expected_step):
+        return
+
+    # An all-equal coord vector gives expected_step==0 and diffs all
+    # zero; allclose would pass and the rasterizer would later trip on
+    # a zero-sized pixel.  Reject up front with the same "non-uniform"
+    # framing so users get one diagnostic, not two.
+    if expected_step == 0:
+        raise ValueError(
+            f"'like' DataArray has zero-width pixels along the "
+            f"{axis_name!r} axis (consecutive coords are equal). "
+            "rasterize() requires a regular grid with non-zero "
+            "spacing; resample 'like' to a uniform grid (e.g. with "
+            "xarray's ``interp`` or ``reindex``) before passing it."
+        )
+
+    diffs = np.abs(np.diff(coords))
+    if not np.allclose(diffs, expected_step, rtol=1e-5, atol=1e-8):
+        max_dev = float(np.max(np.abs(diffs - expected_step)))
+        raise ValueError(
+            "'like' DataArray has non-uniform spacing along the "
+            f"{axis_name!r} axis (expected step {expected_step}, "
+            f"largest deviation {max_dev}). rasterize() requires a "
+            "regular grid; resample 'like' to a uniform grid (e.g. "
+            "with xarray's ``interp`` or ``reindex``) before passing "
+            "it."
+        )
+
+
+class _LikeGrid(NamedTuple):
+    """Grid attributes extracted from a template DataArray.
+
+    Returned by :func:`_extract_grid_from_like`.  Using a named tuple
+    instead of a bare tuple keeps the call site readable as more
+    template-derived attributes accrete over time.
+    """
+    width: int
+    height: int
+    bounds: Tuple[float, float, float, float]
+    dtype: np.dtype
+    x_coord: xr.DataArray
+    y_coord: xr.DataArray
+    extra_coords: dict
+    attrs: dict
+    y_ascending: bool
+
+
 def _extract_grid_from_like(like):
-    """Extract width, height, bounds, dtype from a template DataArray."""
+    """Extract width, height, bounds, dtype from a template DataArray.
+
+    Also returns the input coords and attrs so the caller can propagate
+    them onto the output raster.  Reusing ``like.coords`` directly (rather
+    than rebuilding with ``linspace``) keeps the output bit-identical to
+    the template and so preserves ``xr.align`` compatibility.
+    """
     if not isinstance(like, xr.DataArray):
         raise TypeError("'like' must be an xr.DataArray")
     if like.ndim != 2 or 'y' not in like.dims or 'x' not in like.dims:
@@ -1951,12 +2879,56 @@ def _extract_grid_from_like(like):
     else:
         py = 1.0
 
+    # The rasterizer assumes a uniform grid.  If ``like`` has non-uniform
+    # spacing on either axis, ``px``/``py`` (taken from the first interval)
+    # will not describe the rest of the grid, and reusing ``like.coords``
+    # on the output (see ``rasterize`` below) would mislabel where each
+    # pixel lives.  Validate uniform spacing here so the rasterizer never
+    # produces a DataArray whose coords disagree with its data layout.
+    #
+    # Compare ``abs(diff)`` against the first interval so the check stays
+    # agnostic to axis direction -- ascending or descending y both pass as
+    # long as the spacing is uniform.  Use ``np.allclose`` rather than
+    # strict equality because affine-transform-derived coords drift by a
+    # few ulps.
+    _check_uniform_axis('x', x, px)
+    _check_uniform_axis('y', y, py)
+
     xmin = float(np.min(x)) - px / 2
     xmax = float(np.max(x)) + px / 2
     ymin = float(np.min(y)) - py / 2
     ymax = float(np.max(y)) + py / 2
 
-    return width, height, (xmin, ymin, xmax, ymax), dt
+    # Detect y-axis orientation.  The rasterizer always burns with row 0
+    # at ymax (standard image convention), so if the template's y is
+    # ascending (low-to-high), the burned rows have to be flipped before
+    # we hand back the coords or downstream coord-aware ops line up
+    # against the wrong rows.  Only the first and last samples are
+    # inspected; the ``_check_uniform_axis`` call above has already
+    # rejected non-monotonic or duplicate-valued y coords, so this is
+    # safe.  The x-axis is assumed ascending; descending-x templates
+    # would hit the same bug class and are not supported here.
+    y_ascending = height > 1 and float(y[-1]) > float(y[0])
+
+    # Carry through any non-dim coords (e.g. rioxarray's ``spatial_ref``
+    # CRS coord).  The y/x dim coords are returned separately because the
+    # caller decides whether to reuse them (bit-identical grid) or build
+    # fresh ones (resized grid).
+    extra_coords = {
+        k: v for k, v in like.coords.items() if k not in ('x', 'y')
+    }
+
+    return _LikeGrid(
+        width=width,
+        height=height,
+        bounds=(xmin, ymin, xmax, ymax),
+        dtype=dt,
+        x_coord=like.coords['x'],
+        y_coord=like.coords['y'],
+        extra_coords=extra_coords,
+        attrs=dict(like.attrs),
+        y_ascending=y_ascending,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1964,12 +2936,12 @@ def _extract_grid_from_like(like):
 # ---------------------------------------------------------------------------
 
 def rasterize(
-    geometries,
+    geometries: Any,
     width: Optional[int] = None,
     height: Optional[int] = None,
     bounds: Optional[Tuple[float, float, float, float]] = None,
     column: Optional[str] = None,
-    columns=None,
+    columns: Optional[Sequence[str]] = None,
     fill: float = np.nan,
     dtype: Optional[np.dtype] = None,
     all_touched: bool = False,
@@ -1977,7 +2949,7 @@ def rasterize(
     name: str = 'rasterize',
     resolution: Optional[Union[float, Tuple[float, float]]] = None,
     like: Optional[xr.DataArray] = None,
-    merge='last',
+    merge: Union[str, Callable] = 'last',
     chunks: Optional[Union[int, Tuple[int, int]]] = None,
     max_pixels: int = MAX_PIXELS_DEFAULT,
 ) -> xr.DataArray:
@@ -2025,19 +2997,33 @@ def rasterize(
         Data type of the output array.  Defaults to np.float64, or
         to the dtype of ``like`` if provided.
     all_touched : bool, default False
-        If True, all pixels touched by a geometry are burned, not just
-        those whose center falls inside a polygon.
+        If True, every pixel a polygon boundary passes through is
+        burned in addition to the normal center-fill, using a
+        supercover (Amanatides & Woo) grid traversal. Output matches
+        ``rasterio.features.rasterize(..., all_touched=True)``
+        pixel-for-pixel up to rasterization tie-breaking on shared
+        edges. If False, only pixels whose centers fall inside a
+        polygon are burned.
     use_cuda : bool, default False
         If True, use the CuPy/CUDA backend.
     name : str, default 'rasterize'
         Name for the output DataArray.
     resolution : float or (x_res, y_res), optional
-        Pixel size.  When given with ``bounds``, computes ``width`` and
-        ``height`` automatically.  A single float uses the same
-        resolution for both axes.
+        Pixel size.  Must be finite and ``> 0``.  When given with
+        ``bounds``, computes ``width`` and ``height`` automatically.
+        A single float uses the same resolution for both axes.
     like : xr.DataArray, optional
         Template raster.  Width, height, bounds, and dtype are copied
         from this array (any can still be overridden explicitly).
+        Must have uniformly spaced ``x`` and ``y`` dim coords -- the
+        rasterizer only writes to a regular grid, so a non-uniform
+        ``like`` is rejected with ``ValueError`` rather than silently
+        producing pixel labels that don't match the data.  Both
+        descending (top-down, ymax first) and ascending (bottom-up,
+        ymin first) y coords are supported -- the burned rows are
+        flipped to match so ``result.sel(y=...)`` lines up with the
+        geometry in world coordinates either way, and ``result.y``
+        always equals ``like.y`` exactly.
     merge : str or callable, default 'last'
         How to combine values when geometries overlap.
 
@@ -2063,9 +3049,9 @@ def rasterize(
 
     chunks : int or (int, int), optional
         If given, use the dask backend and split the output raster into
-        tiles of this size ``(row_chunk, col_chunk)``.  A single int
-        uses the same chunk size for both axes.  Combined with
-        ``use_cuda`` to select dask+numpy vs dask+cupy.
+        tiles of this size ``(row_chunk, col_chunk)``.  Both axes must be
+        ``> 0``.  A single int uses the same chunk size for both axes.
+        Combined with ``use_cuda`` to select dask+numpy vs dask+cupy.
     max_pixels : int, default 1_000_000_000
         Safety cap on the resolved output size (``width * height``).  The
         function raises ``ValueError`` before any host or device
@@ -2096,22 +3082,33 @@ def rasterize(
         >>> density = rasterize(gdf, width=100, height=100,
         ...                     column='pop', merge='sum', fill=0)
     """
+    # Fail early with a clear message if the optional ``vector`` extra
+    # (shapely) is not installed, rather than deep inside a helper.
+    _require_shapely()
+
     if column is not None and columns is not None:
         raise ValueError(
             "'column' and 'columns' are mutually exclusive; use one or "
             "the other")
-    # Resolve merge: string -> built-in function, or pass callable through.
+    # Resolve merge: string -> (merge_fn, should_write_fn), or pass callable
+    # through.  User-supplied callables are treated as order-insensitive (the
+    # public signature is (pixel, props, is_first) -> float64, with no slot
+    # for input order); they keep the pre-2064 behaviour where the last
+    # call wins per-pixel.  Built-in ``'first'`` / ``'last'`` are
+    # order-sensitive: the predicate gates writes by global input index so
+    # the bug-2064 example (Point before Polygon, ``merge='last'``) returns
+    # the polygon's value rather than letting the points-burned-last phase
+    # win.
     if callable(merge):
         merge_fn = merge
-        # For GPU, the caller provides a @cuda.jit(device=True) function
-        # directly.  For CPU, a @ngjit function.
+        should_write_cpu = _should_write_any
         _merge_fn_gpu = merge  # same object for GPU path
     elif isinstance(merge, str):
         if merge not in _MERGE_FUNCTIONS:
             raise ValueError(
                 f"merge must be one of {set(_MERGE_FUNCTIONS)} or a "
                 f"callable, got {merge!r}")
-        merge_fn = _MERGE_FUNCTIONS[merge]
+        merge_fn, should_write_cpu = _MERGE_FUNCTIONS[merge]
         _merge_fn_gpu = merge  # resolved lazily in GPU path by name
     else:
         raise TypeError(
@@ -2119,9 +3116,22 @@ def rasterize(
 
     # Extract defaults from template raster
     like_width = like_height = like_bounds = like_dtype = None
+    like_x_coord = like_y_coord = None
+    like_extra_coords = {}
+    like_attrs = None
+    like_y_ascending = False
+    bounds_explicit = bounds is not None
     if like is not None:
-        like_width, like_height, like_bounds, like_dtype = \
-            _extract_grid_from_like(like)
+        grid = _extract_grid_from_like(like)
+        like_width = grid.width
+        like_height = grid.height
+        like_bounds = grid.bounds
+        like_dtype = grid.dtype
+        like_x_coord = grid.x_coord
+        like_y_coord = grid.y_coord
+        like_extra_coords = grid.extra_coords
+        like_attrs = grid.attrs
+        like_y_ascending = grid.y_ascending
 
     # Parse input geometries
     geom_list, props_array, inferred_bounds = _parse_input(
@@ -2134,19 +3144,28 @@ def rasterize(
     if final_bounds is None:
         final_bounds = inferred_bounds
     if final_bounds is None and geom_list:
-        # Compute bounds lazily only when not supplied by the caller
+        # Compute bounds lazily only when not supplied by the caller.
+        # Drop empty/invalid geoms whose bbox is nan so they don't poison
+        # the inferred extent.
         geom_bboxes = _geometry_bboxes(geom_list)
         if len(geom_bboxes) > 0:
-            final_bounds = (geom_bboxes[:, 0].min(),
-                            geom_bboxes[:, 1].min(),
-                            geom_bboxes[:, 2].max(),
-                            geom_bboxes[:, 3].max())
+            finite = np.all(np.isfinite(geom_bboxes), axis=1)
+            geom_bboxes = geom_bboxes[finite]
+            if len(geom_bboxes) > 0:
+                final_bounds = (geom_bboxes[:, 0].min(),
+                                geom_bboxes[:, 1].min(),
+                                geom_bboxes[:, 2].max(),
+                                geom_bboxes[:, 3].max())
     if final_bounds is None:
         raise ValueError(
             "bounds must be provided when geometries are empty or have "
             "no spatial extent")
 
     xmin, ymin, xmax, ymax = final_bounds
+    if not all(np.isfinite(v) for v in (xmin, ymin, xmax, ymax)):
+        raise ValueError(
+            f"Invalid bounds: all of (xmin, ymin, xmax, ymax) must be "
+            f"finite, got {(xmin, ymin, xmax, ymax)!r}")
     if xmin >= xmax or ymin >= ymax:
         raise ValueError(
             f"Invalid bounds: xmin ({xmin}) must be < xmax ({xmax}) and "
@@ -2160,6 +3179,13 @@ def rasterize(
             x_res = y_res = float(resolution)
         else:
             x_res, y_res = float(resolution[0]), float(resolution[1])
+        # Reject non-finite or non-positive resolution before dimension math.
+        # Without this, inf/-1 quietly produce a 1x1 raster, 0 raises an
+        # opaque ZeroDivisionError, and nan raises an int-conversion error.
+        for r in (x_res, y_res):
+            if not np.isfinite(r) or r <= 0:
+                raise ValueError(
+                    f"resolution must be finite and > 0, got {resolution!r}")
         final_width = max(int(np.ceil((xmax - xmin) / x_res)), 1)
         final_height = max(int(np.ceil((ymax - ymin) / y_res)), 1)
     elif like_width is not None:
@@ -2185,16 +3211,27 @@ def rasterize(
     else:
         final_dtype = np.float64
 
-    # For GPU paths, resolve string merge names to GPU device functions.
+    # For GPU paths, resolve string merge names to GPU (merge_fn,
+    # should_write_fn) pairs.  User callables are paired with the
+    # always-write predicate (matches the public 3-arg signature).
+    # ``gpu_merge_name`` selects the atomic kernel path in
+    # ``_ensure_gpu_kernels``; ``None`` falls back to the non-atomic
+    # closure path used for user callables.
+    gpu_merge_name = None
     if use_cuda:
         if cupy is None:
             raise ImportError(
                 "CuPy is required for use_cuda=True but is not installed")
+        gpu_fns = _get_gpu_merge_fns()
         if isinstance(_merge_fn_gpu, str):
-            gpu_fns = _get_gpu_merge_fns()
-            gpu_merge_fn = gpu_fns[_merge_fn_gpu]
+            gpu_merge_fn, should_write_gpu = gpu_fns[_merge_fn_gpu]
+            gpu_merge_name = _merge_fn_gpu
         else:
             gpu_merge_fn = _merge_fn_gpu
+            # Need an always-true predicate compiled for cuda; reuse any
+            # _should_write_any_gpu from the cache.  The cached dict
+            # always includes a sum/count entry that uses it.
+            _, should_write_gpu = gpu_fns['sum']
 
     if chunks is not None:
         row_chunks, col_chunks = _normalize_chunks(
@@ -2203,30 +3240,99 @@ def rasterize(
             out = _run_dask_cupy(
                 geom_list, props_array, final_bounds,
                 final_height, final_width, fill, final_dtype,
-                all_touched, gpu_merge_fn, row_chunks, col_chunks)
+                all_touched, gpu_merge_fn, should_write_gpu,
+                row_chunks, col_chunks, gpu_merge_name)
         else:
             out = _run_dask_numpy(
                 geom_list, props_array, final_bounds,
                 final_height, final_width, fill, final_dtype,
-                all_touched, merge_fn, row_chunks, col_chunks)
+                all_touched, merge_fn, should_write_cpu,
+                row_chunks, col_chunks)
     elif use_cuda:
         out = _run_cupy(geom_list, props_array, final_bounds,
                         final_height, final_width, fill, final_dtype,
-                        all_touched, gpu_merge_fn)
+                        all_touched, gpu_merge_fn, should_write_gpu,
+                        gpu_merge_name)
     else:
         out = _run_numpy(geom_list, props_array, final_bounds,
                          final_height, final_width, fill, final_dtype,
-                         all_touched, merge_fn)
+                         all_touched, merge_fn, should_write_cpu)
 
-    # Build coordinates
-    px = (xmax - xmin) / final_width
-    py = (ymax - ymin) / final_height
-    x_coords = np.linspace(xmin + px / 2, xmax - px / 2, final_width)
-    y_coords = np.linspace(ymax - py / 2, ymin + py / 2, final_height)
+    # Build coordinates.  When the caller didn't override the grid (no
+    # explicit width/height/bounds/resolution that resizes the output),
+    # reuse like.coords directly so the output is bit-identical to the
+    # template and xr.align keeps working.  Float-equal bound comparison
+    # would be fragile, so key the reuse on size + "bounds weren't
+    # overridden" instead.
+    reuse_like_coords = (
+        like_x_coord is not None
+        and like_x_coord.sizes['x'] == final_width
+        and like_y_coord.sizes['y'] == final_height
+        and not bounds_explicit
+        and resolution is None
+    )
+    if reuse_like_coords:
+        x_coords = like_x_coord
+        y_coords = like_y_coord
+        # The rasterizer always burns with row 0 = ymax (top-down image
+        # convention).  If the template's y axis is ascending, the rows
+        # have to be flipped along axis 0 before assigning the template's
+        # coords so world-y selection still lines up with the geometry.
+        # Works for numpy, cupy, dask+numpy, and dask+cupy alike -- they
+        # all expose the same slicing semantics on axis 0.
+        if like_y_ascending:
+            out = out[::-1, :]
+    else:
+        px = (xmax - xmin) / final_width
+        py = (ymax - ymin) / final_height
+        x_coords = np.linspace(xmin + px / 2, xmax - px / 2, final_width)
+        y_coords = np.linspace(ymax - py / 2, ymin + py / 2, final_height)
+
+    # Build attrs.  Start from like.attrs if given so chained spatial
+    # pipelines (slope(rasterize(gdf, like=elevation))) see the same res,
+    # crs, transform, etc. as the template.  Strip any inherited nodata
+    # keys first -- the template's old fill value almost certainly
+    # disagrees with this call's fill, and the geotiff writer's
+    # _resolve_nodata_attr would otherwise tag pixels with a stale
+    # sentinel.  Then re-emit a consistent triplet keyed off the actual
+    # fill: nodata (xrspatial's primary key), _FillValue (CF), and
+    # nodatavals (rioxarray's per-band tuple).
+    out_attrs = like_attrs if like_attrs is not None else {}
+    for k in ('nodata', '_FillValue', 'nodatavals'):
+        out_attrs.pop(k, None)
+    # Grid-shape attrs (res, transform) describe the template's grid.
+    # When the caller overrides bounds/width/height/resolution so the
+    # output grid no longer matches ``like``, leaving the inherited
+    # values in place lies to downstream consumers: get_dataarray_
+    # resolution() prefers ``attrs['res']`` over computing from coords,
+    # so a stale res silently poisons slope/aspect/proximity callers
+    # with the template's cellsize instead of the actual one.  Drop them
+    # when the grid was reshaped; keep them when the output reuses the
+    # template's coords bit-identically.
+    if like_attrs is not None and not reuse_like_coords:
+        for k in ('res', 'transform'):
+            out_attrs.pop(k, None)
+    try:
+        fill_as_float = float(fill)
+        fill_is_nan = np.isnan(fill_as_float)
+    except (TypeError, ValueError):
+        fill_is_nan = False
+    if not fill_is_nan:
+        out_attrs['nodata'] = fill
+        out_attrs['_FillValue'] = fill
+        out_attrs['nodatavals'] = (fill,)
+
+    # Combine y/x dim coords with any non-dim coords carried from the
+    # template (e.g. rioxarray's spatial_ref CRS coord).
+    out_coords = {'y': y_coords, 'x': x_coords}
+    for k, v in like_extra_coords.items():
+        if k not in out_coords:
+            out_coords[k] = v
 
     return xr.DataArray(
         out,
         name=name,
         dims=['y', 'x'],
-        coords={'y': y_coords, 'x': x_coords},
+        coords=out_coords,
+        attrs=out_attrs,
     )

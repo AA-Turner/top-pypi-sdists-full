@@ -1,6 +1,8 @@
 # Polygonize algorithm creates vector polygons for connected regions of pixels
-# that share the same pixel value in a raster.  It is a raster to vector
-# converter.
+# in a raster that group together by pixel value.  It is a raster to vector
+# converter.  Integer rasters group by strict equality; float rasters group
+# by an absolute / relative tolerance (see _DEFAULT_ATOL and _DEFAULT_RTOL,
+# and the public polygonize() docstring for the atol / rtol parameters).
 #
 # Algorithm here uses compass directions for clarity, so +x direction is East
 # and +y direction is North.  2D arrays are flattened to 1D to make maths of
@@ -27,7 +29,12 @@
 # x and y coordinates are monotonically increasing or decreasing.
 
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+
+if TYPE_CHECKING:
+    import awkward as ak
+    import geopandas as gpd
+    import spatialpandas
 
 import numba as nb
 import numpy as np
@@ -224,22 +231,102 @@ def _follow(
     return region, points
 
 
+# Default absolute and relative tolerances used by the float pathway of the
+# value-equality predicate.  These values mirror numpy.isclose's defaults
+# and have been the historical defaults of polygonize since the float path
+# was introduced.  A user can override them via the polygonize() public
+# atol / rtol parameters, including passing atol=0.0 and rtol=0.0 to get
+# strict equality for float rasters.
+_DEFAULT_ATOL = 1e-8
+_DEFAULT_RTOL = 1e-5
+
+
 # Generator of numba-compatible comparison functions for values.
 # If both values are integers use a fast equality operator, otherwise use a
-# slower floating-point comparison like numpy.isclose.
+# slower floating-point comparison like numpy.isclose with caller-supplied
+# tolerances.  Passing atol=0.0 and rtol=0.0 reduces the float branch to
+# strict equality.
+#
+# Inf handling (issue #2174): the plain tolerance check misbehaves on
+# infinities.  ``abs(1.0 - inf) = inf`` and ``atol + rtol*abs(inf) = inf``
+# so ``inf <= inf`` is True, which would merge a finite cell into an
+# adjacent Inf region.  ``abs(inf - inf) = nan`` and ``nan <= x = False``
+# would also split two same-sign Inf cells.  Branch on whether either
+# operand is infinite and fall back to exact equality there: +inf == +inf,
+# -inf == -inf, +inf != -inf, finite != inf.  NaN semantics are unchanged
+# (any comparison with NaN is False).
 @generated_jit(nogil=True, nopython=True)
 def _is_close(
     reference: Union[int, float],
     value: Union[int, float],
+    atol: float,
+    rtol: float,
 ) -> bool:
     if (isinstance(reference, nb.types.Integer) and
             isinstance(value, nb.types.Integer)):
-        return lambda reference, value: value == reference
+        # Integer raster: tolerance does not apply, use strict equality.
+        return lambda reference, value, atol, rtol: value == reference
     else:
-        atol = 1e-8
-        rtol = 1e-5
-        return lambda reference, value: \
-            abs(value - reference) <= (atol + rtol*abs(reference))
+        def impl(reference, value, atol, rtol):
+            # Exact equality short-circuit handles ±inf == ±inf correctly
+            # and finite-vs-inf falls through as not close.
+            if np.isinf(reference) or np.isinf(value):
+                return value == reference
+            return abs(value - reference) <= (atol + rtol*abs(reference))
+        return impl
+
+
+# Pure-Python tolerance check that mirrors ``_is_close`` for use at the
+# orchestration layer (outside numba kernels).  Integer values fall back
+# to exact equality; floats use the caller-supplied atol / rtol so the
+# cross-chunk merge honours ``polygonize(..., atol=, rtol=)`` (passing
+# atol=rtol=0 reduces the float branch to strict equality, matching the
+# CPU CCL behaviour inside a single chunk).  See issues #2171, #2173.
+#
+# Inf handling (issue #2174): match the numba ``_is_close`` semantics --
+# short-circuit on ±inf to exact equality so chunk-boundary bucket
+# matching never groups finite with Inf, or +inf with -inf.
+def _values_close(reference, value,
+                  atol: float = _DEFAULT_ATOL,
+                  rtol: float = _DEFAULT_RTOL):
+    if isinstance(reference, (int, np.integer)) and \
+            isinstance(value, (int, np.integer)):
+        return value == reference
+    if np.isinf(reference) or np.isinf(value):
+        return value == reference
+    return abs(value - reference) <= (atol + rtol * abs(reference))
+
+
+def _bucket_key_for_value(boundary_by_value, val,
+                          atol: float = _DEFAULT_ATOL,
+                          rtol: float = _DEFAULT_RTOL):
+    """Return the dict key that ``val`` should bucket into.
+
+    If an existing key in ``boundary_by_value`` is close to ``val`` under
+    ``_values_close`` (using the caller's ``atol`` / ``rtol``), return
+    that key so close float values from adjacent chunks land in the same
+    bucket.  Otherwise return ``val`` unchanged.
+
+    This keeps Dask chunk-stitching consistent with the tolerance-based
+    grouping the NumPy / numba path uses inside a single chunk (#2171),
+    and lets ``polygonize(atol=0, rtol=0)`` opt into exact-value
+    bucketing across chunks (#2173).
+
+    Performance note: the float branch is a linear scan over existing
+    keys, so total cost is O(B^2) in the number of distinct float
+    buckets B.  Polygonize inputs in practice have a small B (a handful
+    of categorical values), so the scan is cheap.  If a workload with
+    many thousand distinct float buckets shows up, swap the scan for a
+    sorted-keys structure (e.g. bisect over a sorted list).
+    """
+    # Integer-valued rasters use exact equality, so the existing dict
+    # lookup is already correct -- skip the linear scan.
+    if isinstance(val, (int, np.integer)):
+        return val
+    for existing in boundary_by_value:
+        if _values_close(existing, val, atol, rtol):
+            return existing
+    return val
 
 
 # Calculate region connectivity for the specified values raster and optional
@@ -268,6 +355,8 @@ def _calculate_regions(
     connectivity_8: bool,
     nx: int,
     ny: int,
+    atol: float,
+    rtol: float,
 ) -> np.ndarray:  # _regions_dtype, shape (nx*ny,)
     # Array of regions to return, integers starting at zero.
     regions = np.zeros_like(values, dtype=_regions_dtype)
@@ -288,7 +377,7 @@ def _calculate_regions(
             matches_W = \
                 (ij % nx > 0 and                         # i > 0
                     (mask is None or mask[ij-1]) and     # W pixel in mask
-                    _is_close(values[ij], values[ij-1]))
+                    _is_close(values[ij], values[ij-1], atol, rtol))
 
             if matches_W:
                 region_W = regions[ij-1]
@@ -297,7 +386,7 @@ def _calculate_regions(
             matches_S = \
                 (ij >= nx and                             # j > 0
                     (mask is None or mask[ij-nx]) and     # S pixel in mask
-                    _is_close(values[ij], values[ij-nx]))
+                    _is_close(values[ij], values[ij-nx], atol, rtol))
 
             if matches_S:
                 region_S = regions[ij-nx]
@@ -308,13 +397,15 @@ def _calculate_regions(
             if connectivity_8 and ij >= nx:
                 if (not matches_W and ij % nx > 0 and
                         (mask is None or mask[ij-nx-1]) and
-                        _is_close(values[ij], values[ij-nx-1])):
+                        _is_close(values[ij], values[ij-nx-1],
+                                  atol, rtol)):
                     matches_W = True
                     region_W = regions[ij-nx-1]
 
                 if (not matches_S and ij % nx < nx-1 and
                         (mask is None or mask[ij-nx+1]) and
-                        _is_close(values[ij], values[ij-nx+1])):
+                        _is_close(values[ij], values[ij-nx+1],
+                                  atol, rtol)):
                     matches_S = True
                     region_S = regions[ij-nx+1]
 
@@ -473,42 +564,86 @@ def _to_awkward(
     return column, ak_array
 
 
+def _detect_raster_crs(raster: xr.DataArray):
+    """Detect the CRS of an input raster for output georeferencing.
+
+    Mirrors the resolution order in
+    ``xrspatial.reproject._crs_utils._detect_source_crs`` without
+    pulling pyproj as a hard dependency: returns the raw attribute
+    value (string / int / pyproj.CRS / rioxarray CRS) so the caller can
+    hand it straight to ``GeoDataFrame.set_crs``, which performs its own
+    parsing.
+
+    Resolution order:
+
+    1. ``raster.attrs['crs']`` (xrspatial.geotiff convention)
+    2. ``raster.attrs['crs_wkt']``
+    3. ``raster.rio.crs`` (rioxarray, if installed)
+    4. ``None``
+    """
+    crs_attr = raster.attrs.get('crs')
+    if crs_attr is not None:
+        return crs_attr
+
+    crs_wkt = raster.attrs.get('crs_wkt')
+    if crs_wkt is not None:
+        return crs_wkt
+
+    try:
+        rio_crs = raster.rio.crs
+        if rio_crs is not None:
+            return rio_crs
+    except Exception:
+        pass
+
+    return None
+
+
 def _to_geopandas(
     column: List[Union[int, float]],
     polygon_points: List[np.ndarray],
     column_name: str,
+    crs=None,
 ):
     import geopandas as gpd
     import shapely
     from shapely.geometry import Polygon
 
-    if hasattr(shapely, 'polygons'):
-        # Shapely 2.0+: batch-construct hole-free polygons via
-        # linearrings -> polygons pipeline (both are C-level batch ops).
-        no_holes = [i for i, pts in enumerate(polygon_points)
-                    if len(pts) == 1]
+    # Batch-construct hole-free polygons via the shapely 2.0
+    # linearrings -> polygons pipeline (both are C-level batch ops).
+    # The pre-#2060 fallback to ``[Polygon(...) for pts in ...]`` for
+    # shapely < 2 is gone now that the package pins ``shapely>=2.0``.
+    no_holes = [i for i, pts in enumerate(polygon_points)
+                if len(pts) == 1]
 
-        if len(no_holes) == len(polygon_points):
-            # All hole-free: batch create LinearRings then Polygons.
-            rings = [shapely.linearrings(pts[0])
-                     for pts in polygon_points]
-            polygons = list(shapely.polygons(rings))
-        else:
-            polygons = [None] * len(polygon_points)
-            if no_holes:
-                rings = [shapely.linearrings(polygon_points[i][0])
-                         for i in no_holes]
-                batch = shapely.polygons(rings)
-                for idx, poly in zip(no_holes, batch):
-                    polygons[idx] = poly
-            for i, pts in enumerate(polygon_points):
-                if polygons[i] is None:
-                    polygons[i] = Polygon(pts[0], pts[1:])
+    if len(no_holes) == len(polygon_points):
+        # All hole-free: batch create LinearRings then Polygons.
+        rings = [shapely.linearrings(pts[0])
+                 for pts in polygon_points]
+        polygons = list(shapely.polygons(rings))
     else:
-        # Shapely < 2.0 fallback.
-        polygons = [Polygon(pts[0], pts[1:]) for pts in polygon_points]
+        polygons = [None] * len(polygon_points)
+        if no_holes:
+            rings = [shapely.linearrings(polygon_points[i][0])
+                     for i in no_holes]
+            batch = shapely.polygons(rings)
+            for idx, poly in zip(no_holes, batch):
+                polygons[idx] = poly
+        for i, pts in enumerate(polygon_points):
+            if polygons[i] is None:
+                polygons[i] = Polygon(pts[0], pts[1:])
 
     df = gpd.GeoDataFrame({column_name: column, "geometry": polygons})
+    if crs is not None:
+        # GeoPandas accepts pyproj.CRS, EPSG ints, "EPSG:XXXX" strings,
+        # WKT strings, and the CRS objects rioxarray exposes; let it
+        # parse whatever the raster carried.
+        try:
+            df = df.set_crs(crs)
+        except Exception:
+            # Don't fail the whole call if the CRS value is unparseable;
+            # GeoDataFrame is still functional, just without CRS.
+            pass
     return df
 
 
@@ -552,6 +687,8 @@ def _polygonize_numpy(
     mask: Optional[np.ndarray],
     connectivity_8: bool,
     transform: Optional[np.ndarray],
+    atol: float = _DEFAULT_ATOL,
+    rtol: float = _DEFAULT_RTOL,
 ) -> Tuple[List[Union[int, float]], List[List[np.ndarray]]]:
 
     ny, nx = values.shape
@@ -579,7 +716,8 @@ def _polygonize_numpy(
     values_flat = values.ravel()
     mask_flat = mask.ravel() if mask is not None else None
 
-    regions = _calculate_regions(values_flat, mask_flat, connectivity_8, nx, ny)
+    regions = _calculate_regions(
+        values_flat, mask_flat, connectivity_8, nx, ny, atol, rtol)
     column, polygon_points = _scan(
         regions, values_flat, mask_flat, connectivity_8, transform, nx, ny)
 
@@ -591,10 +729,16 @@ _DIR_ANGLE = {(1, 0): 0, (0, 1): 1, (-1, 0): 2, (0, -1): 3}
 
 
 def _calculate_regions_cupy(data, mask_data, connectivity_8):
-    """CuPy GPU backend for connected-component labeling.
+    """CuPy GPU backend for connected-component labeling on integer data.
 
     Uses cupyx.scipy.ndimage.label per unique value to produce a regions
     array compatible with _scan.  Returns a cupy uint32 2D array.
+
+    Only used for integer dtypes; float dtypes route through the CPU
+    ``_calculate_regions`` so that connected components honour the numba
+    ``_is_close`` predicate (``atol=1e-8``, ``rtol=1e-5``) exactly.
+    A purely value-based grouping on the GPU cannot reproduce CPU spatial
+    CCL when transitively-close values are not spatially adjacent.
     """
     import cupy as cp
     from cupyx.scipy.ndimage import label as cp_label
@@ -606,14 +750,10 @@ def _calculate_regions_cupy(data, mask_data, connectivity_8):
 
     regions = cp.zeros(data.shape, dtype=cp.uint32)
 
-    # Build valid mask (unmask + handle float NaN).
-    is_float = cp.issubdtype(data.dtype, cp.floating)
     if mask_data is not None:
         valid = cp.asarray(mask_data, dtype=bool)
-        if is_float:
-            valid &= ~cp.isnan(data)
     else:
-        valid = ~cp.isnan(data) if is_float else None
+        valid = None
 
     unique_vals = data[valid] if valid is not None else data.ravel()
     unique_vals = cp.unique(unique_vals)
@@ -665,14 +805,29 @@ def _renumber_regions(regions, nx, ny):
     return regions
 
 
-def _polygonize_cupy(data, mask_data, connectivity_8, transform):
-    """Hybrid GPU/CPU: GPU CCL, CPU boundary tracing."""
+def _polygonize_cupy(data, mask_data, connectivity_8, transform,
+                     atol=_DEFAULT_ATOL, rtol=_DEFAULT_RTOL):
+    """Hybrid GPU/CPU: GPU CCL for integer data, CPU CCL for float data,
+    CPU boundary tracing in either case.
+
+    Float dtypes route through ``_polygonize_numpy`` so that connected
+    components honour the numba ``_is_close`` tolerance (defaults
+    ``atol=1e-8``, ``rtol=1e-5``) for spatially adjacent pixels (#2151).
+    GPU CCL is a per-value labeling, which cannot reproduce spatial
+    tolerance-aware CCL when transitively-close values are not spatially
+    adjacent.  The integer GPU path uses strict value equality, so the
+    ``atol`` / ``rtol`` arguments do not apply to it.
+    """
     np_data = cupy.asnumpy(data)
     np_mask = cupy.asnumpy(mask_data) if mask_data is not None else None
+    if np.issubdtype(np_data.dtype, np.floating):
+        return _polygonize_numpy(np_data, np_mask, connectivity_8, transform,
+                                 atol=atol, rtol=rtol)
     ny, nx = np_data.shape
     if nx == 1:
         # Edge case: fall back to full numpy path (pads array).
-        return _polygonize_numpy(np_data, np_mask, connectivity_8, transform)
+        return _polygonize_numpy(np_data, np_mask, connectivity_8, transform,
+                                 atol=atol, rtol=rtol)
     regions_gpu = _calculate_regions_cupy(data, mask_data, connectivity_8)
     regions = cupy.asnumpy(regions_gpu).ravel()
     # Renumber into raster-scan order for _scan compatibility.
@@ -692,7 +847,8 @@ def _to_numpy(arr):
 
 
 def _polygonize_chunk(block, mask_block, connectivity_8, row_offset, col_offset,
-                      ny_total, nx_total):
+                      ny_total, nx_total,
+                      atol=_DEFAULT_ATOL, rtol=_DEFAULT_RTOL):
     """Run _polygonize_numpy on a single chunk, offset coords to global space.
 
     Polygons are classified as "interior" (no vertex on an inter-chunk
@@ -705,7 +861,8 @@ def _polygonize_chunk(block, mask_block, connectivity_8, row_offset, col_offset,
         mask_block = _to_numpy(mask_block)
     ny, nx = block.shape
     column, polygon_points = _polygonize_numpy(
-        block, mask_block, connectivity_8, transform=None)
+        block, mask_block, connectivity_8, transform=None,
+        atol=atol, rtol=rtol)
 
     interior = []  # (value, [ring, ...])
     boundary = []  # (value, [ring, ...])
@@ -778,14 +935,31 @@ def _rings_to_unit_edges(polys_list, edge_set):
                         x += step
 
 
-def _pick_next_edge(adj, prev_vertex, current_vertex):
-    """Pick the next outgoing edge using the rightmost-turn rule.
+def _pick_next_edge(adj, prev_vertex, current_vertex,
+                    connectivity_8=False):
+    """Pick the next outgoing edge at a (possibly degree>2) vertex.
 
-    At a vertex with multiple outgoing edges, picks the first edge clockwise
-    from the incoming direction (= smallest right turn).  This correctly
-    traces individual polygon rings even when separate same-value polygons
-    share a vertex, because it follows the ring that keeps the polygon
-    interior to the left.
+    The pixel grid means edges only ever leave a vertex in one of four
+    axis-aligned directions.  At a degree-4 vertex two same-value
+    polygons meet diagonally; the choice of pairing determines whether
+    they trace as two separate squares or as a single figure-8 ring.
+
+    For ``connectivity_8=False`` (4-connectivity), pick the smallest
+    CCW turn from the incoming direction.  This keeps two same-value
+    polygons that touch only at a corner as separate rings, matching
+    NumPy 4-connectivity semantics.
+
+    For ``connectivity_8=True``, prefer "straight through" (rel == 0)
+    when available, otherwise pick the largest CCW turn (smallest CW
+    turn) at degree-4 vertices.  Within a single ring, ``rel == 0``
+    cannot occur on a grid because the simplify pass folds consecutive
+    same-direction edges; but ``_merge_polygon_rings`` operates on
+    multiple rings sharing a vertex, where one ring can pass straight
+    through V while another corners at V.  Preferring "straight
+    through" keeps such rings continuous; falling back to the largest
+    turn pairs up the diagonal crossings into a single figure-8 ring,
+    matching the NumPy 8-connectivity output for two diagonally
+    adjacent same-value cells.
     """
     targets = adj[current_vertex]
     if len(targets) == 1:
@@ -796,17 +970,38 @@ def _pick_next_edge(adj, prev_vertex, current_vertex):
     incoming_angle = _DIR_ANGLE[(dx_in, dy_in)]
 
     best = None
-    best_rel = 5
-    for target in targets:
-        dx = target[0] - current_vertex[0]
-        dy = target[1] - current_vertex[1]
-        out_angle = _DIR_ANGLE[(dx, dy)]
-        rel = (out_angle - incoming_angle) % 4
-        if rel == 0:
-            rel = 4  # straight ahead → last priority (u-turn equivalent)
-        if rel < best_rel:
-            best_rel = rel
-            best = target
+    if connectivity_8:
+        # Priority order at a degree-4 vertex:
+        #   1. ``rel == 0`` (continue straight) -- keeps a ring that
+        #      passes through V on the same trajectory.
+        #   2. ``rel == 3`` (90 deg CW) -- pairs the diagonal-only
+        #      crossing into a figure-8 ring.
+        #   3. ``rel == 1`` (90 deg CCW) -- the 4-connectivity choice,
+        #      used only if 0 and 3 are unavailable.
+        #   4. ``rel == 2`` (180 deg u-turn) -- last resort.
+        priority = {0: 4, 3: 3, 1: 2, 2: 1}
+        best_rel = -1
+        for target in targets:
+            dx = target[0] - current_vertex[0]
+            dy = target[1] - current_vertex[1]
+            out_angle = _DIR_ANGLE[(dx, dy)]
+            rel = (out_angle - incoming_angle) % 4
+            score = priority[rel]
+            if score > best_rel:
+                best_rel = score
+                best = target
+    else:
+        best_rel = 5
+        for target in targets:
+            dx = target[0] - current_vertex[0]
+            dy = target[1] - current_vertex[1]
+            out_angle = _DIR_ANGLE[(dx, dy)]
+            rel = (out_angle - incoming_angle) % 4
+            if rel == 0:
+                rel = 4  # straight ahead → last priority (u-turn equivalent)
+            if rel < best_rel:
+                best_rel = rel
+                best = target
     return best
 
 
@@ -818,11 +1013,12 @@ def _remove_directed_edge(adj, from_v, to_v):
         del targets[to_v]
 
 
-def _trace_rings(edge_set):
+def _trace_rings(edge_set, connectivity_8=False):
     """Trace directed unit edges into closed rings.
 
     Uses CW planar face ordering to correctly handle vertices with degree > 2
-    (e.g. where two same-value regions share a corner vertex).
+    (e.g. where two same-value regions share a corner vertex).  See
+    :func:`_pick_next_edge` for the role of ``connectivity_8``.
     """
     # Build adjacency: vertex -> {successor_vertex: count}.
     adj = {}
@@ -844,7 +1040,8 @@ def _trace_rings(edge_set):
 
         while current != start:
             ring.append(current)
-            next_v = _pick_next_edge(adj, prev, current)
+            next_v = _pick_next_edge(adj, prev, current,
+                                     connectivity_8=connectivity_8)
             _remove_directed_edge(adj, current, next_v)
             prev = current
             current = next_v
@@ -1396,12 +1593,17 @@ def _simplify_polygons(column, polygon_points, tolerance,
     return result_column, result
 
 
-def _merge_polygon_rings(polys_list):
+def _merge_polygon_rings(polys_list, connectivity_8=False):
     """Merge polygon ring sets that share chunk-boundary edges.
 
     Uses edge cancellation: splits all rings into unit-length directed edges,
     cancels opposing edges (which occur at chunk boundaries where the same
     value continues across), and traces the remaining edges into closed rings.
+
+    ``connectivity_8`` selects the degree-4 vertex pairing rule used during
+    ring tracing (see :func:`_pick_next_edge`).  Set to ``True`` for
+    8-connectivity to preserve figure-8 rings produced by diagonal-only
+    adjacency at chunk corners.
 
     polys_list: list of [exterior_ring, *hole_rings] lists (same pixel value)
     Returns: list of [exterior_ring, *hole_rings] lists (merged)
@@ -1412,29 +1614,35 @@ def _merge_polygon_rings(polys_list):
     if not edge_set:
         return []
 
-    raw_rings = _trace_rings(edge_set)
+    raw_rings = _trace_rings(edge_set, connectivity_8=connectivity_8)
     simplified = [_simplify_ring(r) for r in raw_rings]
     return _group_rings_into_polygons(simplified)
 
 
-def _merge_chunk_polygons(chunk_results, transform):
-    """Merge polygons from all chunks and return final output."""
+def _merge_chunk_polygons(chunk_results, transform, connectivity_8=False):
+    """Merge polygons from all chunks and return final output.
+
+    ``connectivity_8`` is forwarded to :func:`_merge_polygon_rings` to
+    select the degree-4-vertex pairing rule used by the trace step.
+    """
     all_interior = []
     boundary_by_value = {}
 
     for interior, boundary in chunk_results:
         all_interior.extend(interior)
         for val, rings in boundary:
-            boundary_by_value.setdefault(val, []).append(rings)
+            key = _bucket_key_for_value(boundary_by_value, val)
+            boundary_by_value.setdefault(key, []).append(rings)
 
     # Merge boundary polygons per value using edge cancellation.
     merged = []
     for val, polys_list in boundary_by_value.items():
         if len(polys_list) == 1:
-            # Single polygon set for this value — nothing to merge.
+            # Single polygon set for this value -- nothing to merge.
             merged.append((val, polys_list[0]))
         else:
-            merged_polys = _merge_polygon_rings(polys_list)
+            merged_polys = _merge_polygon_rings(
+                polys_list, connectivity_8=connectivity_8)
             for rings in merged_polys:
                 merged.append((val, rings))
 
@@ -1463,12 +1671,17 @@ def _merge_chunk_polygons(chunk_results, transform):
     return column, polygon_points
 
 
-def _merge_from_separated(all_interior, boundary_by_value, transform):
+def _merge_from_separated(all_interior, boundary_by_value, transform,
+                          connectivity_8=False):
     """Merge pre-separated interior/boundary polygons into final output.
 
     Like _merge_chunk_polygons but takes already-separated data so the
     caller can accumulate incrementally (one chunk at a time) instead of
     holding all chunk_results in memory simultaneously.
+
+    ``connectivity_8`` is forwarded to :func:`_merge_polygon_rings` so
+    the trace step uses the right degree-4-vertex pairing rule when
+    stitching boundary polygons across chunks.
     """
     # Merge boundary polygons per value using edge cancellation.
     merged = []
@@ -1476,7 +1689,8 @@ def _merge_from_separated(all_interior, boundary_by_value, transform):
         if len(polys_list) == 1:
             merged.append((val, polys_list[0]))
         else:
-            merged_polys = _merge_polygon_rings(polys_list)
+            merged_polys = _merge_polygon_rings(
+                polys_list, connectivity_8=connectivity_8)
             for rings in merged_polys:
                 merged.append((val, rings))
 
@@ -1502,7 +1716,8 @@ def _merge_from_separated(all_interior, boundary_by_value, transform):
     return column, polygon_points
 
 
-def _polygonize_dask(dask_data, mask_data, connectivity_8, transform):
+def _polygonize_dask(dask_data, mask_data, connectivity_8, transform,
+                     atol=_DEFAULT_ATOL, rtol=_DEFAULT_RTOL):
     """Dask backend for polygonize: per-chunk polygonize + edge merge."""
     # Ensure mask chunks match raster chunks.
     if mask_data is not None and mask_data.chunks != dask_data.chunks:
@@ -1535,12 +1750,17 @@ def _polygonize_dask(dask_data, mask_data, connectivity_8, transform):
                     block, mask_block, connectivity_8,
                     int(row_offsets[iy]), int(col_offsets[ix]),
                     ny_total, nx_total,
+                    atol, rtol,
                 ))[0]
             all_interior.extend(interior)
             for val, rings in boundary:
-                boundary_by_value.setdefault(val, []).append(rings)
+                key = _bucket_key_for_value(
+                    boundary_by_value, val, atol, rtol)
+                boundary_by_value.setdefault(key, []).append(rings)
 
-    return _merge_from_separated(all_interior, boundary_by_value, transform)
+    return _merge_from_separated(
+        all_interior, boundary_by_value, transform,
+        connectivity_8=connectivity_8)
 
 
 def polygonize(
@@ -1552,11 +1772,26 @@ def polygonize(
     return_type: str = "numpy",
     simplify_tolerance: Optional[float] = None,
     simplify_method: str = "douglas-peucker",
-):
+    atol: float = _DEFAULT_ATOL,
+    rtol: float = _DEFAULT_RTOL,
+) -> Union[
+    Tuple[List[Union[int, float]], List[List[np.ndarray]]],
+    Tuple[List[Union[int, float]], "ak.Array"],
+    "gpd.GeoDataFrame",
+    "spatialpandas.GeoDataFrame",
+    Dict[str, Any],
+]:
     """
     Polygonize creates vector polygons for connected regions of pixels in a
-    raster that share the same pixel value.  It is a raster to vector
+    raster that group together by pixel value.  It is a raster to vector
     converter.
+
+    For integer rasters, "same value" means strict equality.  For float
+    rasters, adjacent pixels are grouped when their values agree within a
+    small numerical tolerance (controlled by ``atol`` and ``rtol``), so
+    floating-point noise from upstream arithmetic does not split otherwise
+    identical regions.  See the ``atol`` / ``rtol`` parameters below for
+    the formula and for how to opt into strict float equality.
 
     Parameters
     ----------
@@ -1575,10 +1810,6 @@ def polygonize(
         (by shapely's definition) provided both x and y are monotonically
         increasing or decreasing.  Connectivity of 8 does not necessarily
         return valid polygons.
-
-        Note: when using Dask arrays, 8-connectivity may produce extra polygon
-        splits at chunk corners where diagonal-only adjacency crosses a chunk
-        boundary.  4-connectivity works perfectly with Dask chunking.
 
     transform: ndarray, optional
         Optional affine transform to apply to return polygon coordinates.
@@ -1609,10 +1840,37 @@ def polygonize(
         (distance-based, good for general use) and ``"visvalingam-whyatt"``
         (area-based, tends to produce better cartographic results).
 
+    atol: float, default=1e-8
+        Absolute tolerance used when grouping adjacent **float** pixels.
+        Two adjacent float values ``a`` and ``b`` are considered the same
+        value (and merged into one polygon) when
+        ``abs(a - b) <= atol + rtol * abs(a)``.  Has no effect on integer
+        rasters, which always use strict equality.  Pass ``atol=0.0``
+        together with ``rtol=0.0`` to opt into strict equality for float
+        rasters as well (useful when float values encode discrete category
+        labels).  The default matches ``numpy.isclose``'s default ``atol``
+        and is exported as ``xrspatial.polygonize._DEFAULT_ATOL``.
+
+    rtol: float, default=1e-5
+        Relative tolerance used together with ``atol`` (see ``atol``).
+        Has no effect on integer rasters.  The default matches
+        ``numpy.isclose``'s default ``rtol`` and is exported as
+        ``xrspatial.polygonize._DEFAULT_RTOL``.
+
     Returns
     -------
     Polygons and their corresponding values in a format determined by
-    return_type.
+    ``return_type``:
+
+    - ``"numpy"`` (default): ``(column, polygon_points)`` where ``column``
+      is a list of pixel values and ``polygon_points`` is a list of polygons,
+      each polygon a list of ``Nx2`` ``np.ndarray`` rings (exterior first,
+      then holes).
+    - ``"awkward"``: ``(column, ak.Array)`` of polygon coordinates.
+    - ``"geopandas"``: ``geopandas.GeoDataFrame`` with ``column_name`` and
+      ``geometry`` columns.
+    - ``"spatialpandas"``: ``spatialpandas.GeoDataFrame``.
+    - ``"geojson"``: ``dict`` representing a GeoJSON ``FeatureCollection``.
 
     Notes
     -----
@@ -1624,6 +1882,14 @@ def polygonize(
 
     For Dask+CuPy, each chunk is transferred independently, keeping peak
     CPU memory proportional to chunk size rather than full raster size.
+
+    When ``return_type="geopandas"``, the raster's CRS is propagated to
+    the output ``GeoDataFrame``.  The resolution order is
+    ``raster.attrs['crs']``, then ``raster.attrs['crs_wkt']``, then
+    ``raster.rio.crs`` (if rioxarray is installed).  An unparseable CRS
+    value is dropped rather than raised.  The ``spatialpandas`` and
+    ``geojson`` return types do not carry CRS metadata: spatialpandas
+    has no CRS slot, and GeoJSON (RFC 7946) is WGS84 only.
     """
     _validate_raster(raster, func_name='polygonize', name='raster', ndim=2)
     if raster.shape[0] < 1 or raster.shape[1] < 1:
@@ -1668,6 +1934,26 @@ def polygonize(
             f"simplify_method must be 'douglas-peucker' or "
             f"'visvalingam-whyatt', got '{simplify_method}'")
 
+    # Validate tolerance parameters.  Negative tolerances would silently
+    # turn every comparison false (or true for a perfectly equal pair),
+    # which is never what a caller wants.  NaN tolerances would also
+    # silently fail closed (abs(x) <= nan + ... is always False), so reject
+    # them up front rather than producing a raster of singletons.
+    if not np.isfinite(atol) or atol < 0:
+        raise ValueError(
+            f"atol must be a non-negative finite number, got {atol}")
+    if not np.isfinite(rtol) or rtol < 0:
+        raise ValueError(
+            f"rtol must be a non-negative finite number, got {rtol}")
+    # Cast to float so a Python int literal like ``0`` doesn't get inferred
+    # as int by Numba and pick the int-typed lambda specialization in
+    # _is_close (which would ignore tolerance entirely for float rasters).
+    # _is_close still dispatches on the dtype of ``reference`` / ``value``,
+    # not on these tolerances, so the cast only fixes the type of the
+    # tolerance arguments themselves.
+    atol = float(atol)
+    rtol = float(rtol)
+
     mapper = ArrayTypeFunctionMapping(
         numpy_func=_polygonize_numpy,
         cupy_func=_polygonize_cupy,
@@ -1675,7 +1961,8 @@ def polygonize(
         dask_cupy_func=_polygonize_dask,
     )
     column, polygon_points = mapper(raster)(
-        raster.data, mask_data, connectivity_8, transform)
+        raster.data, mask_data, connectivity_8, transform,
+        atol=atol, rtol=rtol)
 
     # Apply simplification if requested.
     if simplify_tolerance is not None and simplify_tolerance > 0:
@@ -1689,7 +1976,12 @@ def polygonize(
     elif return_type == "awkward":
         return _to_awkward(column, polygon_points)
     elif return_type == "geopandas":
-        return _to_geopandas(column, polygon_points, column_name)
+        # Propagate the raster's CRS to the GeoDataFrame so downstream
+        # spatial joins / reprojections / file writes keep their
+        # georeferencing.  spatialpandas has no CRS slot and GeoJSON
+        # RFC 7946 is WGS84-only, so the propagation lives only here.
+        crs = _detect_raster_crs(raster)
+        return _to_geopandas(column, polygon_points, column_name, crs=crs)
     elif return_type == "spatialpandas":
         return _to_spatialpandas(column, polygon_points, column_name)
     elif return_type == "geojson":

@@ -23,7 +23,50 @@ from .helpers import (
     raise_tool_error,
     register_tool_methods,
 )
-from .util_helpers import coerce_bool_param, parse_json_param, wait_for_state_change
+from .util_helpers import (
+    coerce_bool_param,
+    compact_service_result,
+    parse_json_param,
+    parse_string_list_param,
+    project_entity_record,
+    wait_for_state_change,
+)
+
+
+def _parse_json_dict_param(
+    data: str | dict[str, Any] | None,
+    *,
+    type_error_message: str,
+) -> dict[str, Any] | None:
+    if data is None:
+        return None
+    raw: Any = None
+    try:
+        raw = parse_json_param(data, "data")
+    except ValueError as e:
+        raise_tool_error(
+            create_validation_error(
+                f"Invalid data parameter: {e}",
+                parameter="data",
+                invalid_json=True,
+            )
+        )
+    if raw is not None and not isinstance(raw, dict):
+        raise_tool_error(
+            create_validation_error(
+                type_error_message,
+                parameter="data",
+                details=f"Received type: {type(raw).__name__}",
+            )
+        )
+    return raw if isinstance(raw, dict) else None
+
+
+def _parse_event_data(data: str | dict[str, Any] | None) -> dict[str, Any] | None:
+    return _parse_json_dict_param(
+        data, type_error_message="Event data must be a JSON object (dict)"
+    )
+
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +125,7 @@ def _build_service_suggestions(
         f"Verify {entity_id} exists using ha_get_state()"
         if entity_id
         else "Specify an entity_id for targeted service calls",
-        f"Check available services for {domain} domain using ha_get_skill_home_assistant_best_practices",
+        f"Check available services for {domain} domain using ha_get_skill_guide",
         "Use ha_search_entities() to find correct entity IDs",
     ]
 
@@ -96,41 +139,26 @@ class ServiceTools:
 
     @staticmethod
     def _parse_service_data(
-        data: str | dict[str, Any] | None, entity_id: str | None,
+        data: str | dict[str, Any] | None,
+        entity_id: str | None,
     ) -> dict[str, Any]:
         """Parse and validate the data parameter into a service_data dict."""
-        try:
-            parsed_data = parse_json_param(data, "data")
-        except ValueError as e:
-            raise_tool_error(
-                create_validation_error(
-                    f"Invalid data parameter: {e}",
-                    parameter="data",
-                    invalid_json=True,
-                )
+        service_data: dict[str, Any] = (
+            _parse_json_dict_param(
+                data, type_error_message="Data parameter must be a JSON object"
             )
-
-        service_data: dict[str, Any] = {}
-        if parsed_data is not None:
-            if isinstance(parsed_data, dict):
-                service_data = parsed_data
-            else:
-                raise_tool_error(
-                    create_validation_error(
-                        "Data parameter must be a JSON object",
-                        parameter="data",
-                        details=f"Received type: {type(parsed_data).__name__}",
-                    )
-                )
-
+            or {}
+        )
         if entity_id:
             service_data["entity_id"] = entity_id
-
         return service_data
 
     @staticmethod
     def _build_timeout_response(
-        domain: str, service: str, entity_id: str | None, data: str | dict[str, Any] | None,
+        domain: str,
+        service: str,
+        entity_id: str | None,
+        data: str | dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Build a partial-success response for service call timeouts."""
         return {
@@ -145,14 +173,14 @@ class ServiceTools:
                 f"did not respond within the timeout period. The operation is likely "
                 f"still running in the background."
             ),
-            "warning": (
+            "warnings": [
                 "Response timed out. This is normal for long-running services "
                 f"like updates or firmware installs. Use ha_get_state('{entity_id}') "
                 "to check the current status."
                 if entity_id
                 else "Response timed out. This is normal for long-running services. "
                 "The service was dispatched and may still be executing."
-            ),
+            ],
         }
 
     async def _capture_initial_state(self, entity_id: str | None) -> str | None:
@@ -186,15 +214,75 @@ class ServiceTools:
             if new_state:
                 response["verified_state"] = new_state.get("state")
             else:
-                response["warning"] = (
+                response.setdefault("warnings", []).append(
                     "Service executed but state change could not be verified within timeout."
                 )
         except Exception as e:
-            response["warning"] = (
+            response.setdefault("warnings", []).append(
                 f"Service executed but state verification failed: {e}"
             )
 
-    @tool(name="ha_call_service", tags={"Service & Device Control"}, annotations={"destructiveHint": True, "title": "Call Service"})
+    @staticmethod
+    def _project_service_result(
+        result: Any,
+        *,
+        entity_id: str | None,
+        verbose: bool,
+        fields: list[str] | None,
+        attribute_keys: list[str] | None,
+    ) -> tuple[Any, list[str]]:
+        """Apply compact / explicit projection to a service-call ``result``.
+
+        Issue #1446. Precedence:
+
+        - ``verbose=True``: bypass every transformation; return ``result`` as-is.
+        - Explicit ``fields`` or ``attribute_keys``: apply per-record projection
+          via ``project_entity_record`` to every record. No compaction; this is
+          the power-user path.
+        - Default: apply ``compact_service_result`` (filter to ``entity_id``
+          record when single string, drop top-level metadata + heavy lists).
+
+        Returns ``(projected, warnings)``. ``warnings`` collects per-record
+        typo-guard diagnostics from ``project_entity_record`` (e.g. all-empty
+        ``attribute_keys`` filter) — deduplicated so an N-record list with the
+        same typo doesn't emit N copies of the same warning.
+        """
+        if verbose:
+            return result, []
+        if fields is None and attribute_keys is None:
+            return compact_service_result(result, entity_id), []
+        if not isinstance(result, list):
+            return result, []
+        warnings: list[str] = []
+        # ``result_attribute_keys`` only takes effect when ``attributes`` is in
+        # the projected ``result_fields`` (or ``result_fields`` is None). Surface
+        # a warning rather than silently ignoring the parameter — mirrors
+        # ha_get_state's attribute_keys_no_effect handling.
+        if (
+            attribute_keys is not None
+            and fields is not None
+            and "attributes" not in fields
+        ):
+            warnings.append(
+                "result_attribute_keys was ignored because 'attributes' is not "
+                "in result_fields. Add 'attributes' to result_fields (or omit "
+                "result_fields) to apply result_attribute_keys."
+            )
+        projected: list[Any] = []
+        seen_warnings: set[str] = set()
+        for record in result:
+            new_record, warn = project_entity_record(record, fields, attribute_keys)
+            projected.append(new_record)
+            if warn and warn not in seen_warnings:
+                seen_warnings.add(warn)
+                warnings.append(warn)
+        return projected, warnings
+
+    @tool(
+        name="ha_call_service",
+        tags={"Service & Device Control"},
+        annotations={"destructiveHint": True, "title": "Call Service"},
+    )
     @log_tool_usage
     async def ha_call_service(
         self,
@@ -204,6 +292,43 @@ class ServiceTools:
         data: str | dict[str, Any] | None = None,
         return_response: bool | str = False,
         wait: bool | str = True,
+        verbose: Annotated[
+            bool | str,
+            Field(
+                description=(
+                    "Return HA's raw service response unchanged (default: False). "
+                    "Use as an escape hatch when you need the full propagation "
+                    "chain or raw attribute payload (debug / inspection). "
+                    "WARNING: brings back token-bloat for nested-group targets — "
+                    "prefer result_fields / result_attribute_keys for targeted control."
+                ),
+            ),
+        ] = False,
+        result_fields: Annotated[
+            str | list[str] | None,
+            Field(
+                default=None,
+                description=(
+                    "Project each record in 'result' to only these top-level keys "
+                    "(e.g. ['entity_id', 'state']). Mirrors ha_get_state's fields=. "
+                    "Setting this DISABLES default compaction — no entity-id filter, "
+                    "no metadata strip — and applies the explicit projection instead."
+                ),
+            ),
+        ] = None,
+        result_attribute_keys: Annotated[
+            str | list[str] | None,
+            Field(
+                default=None,
+                description=(
+                    "Project each record's 'attributes' dict to only these keys "
+                    "(e.g. ['brightness', 'rgb_color']). Mirrors ha_get_state's "
+                    "attribute_keys=. Setting this DISABLES default compaction. "
+                    "Requires 'attributes' to be present in result_fields (or "
+                    "result_fields=None)."
+                ),
+            ),
+        ] = None,
     ) -> dict[str, Any]:
         """
         Execute Home Assistant services to control entities and trigger automations.
@@ -227,17 +352,17 @@ class ServiceTools:
         ha_call_service("homeassistant", "toggle", entity_id="switch.porch_light")
         ```
 
-        **Parameters:**
-        - **domain**: Service domain (light, climate, automation, etc.)
-        - **service**: Service name (turn_on, set_temperature, trigger, etc.)
-        - **entity_id**: Optional target entity. For some services (e.g., light.turn_off), omitting this targets all entities in the domain
-        - **data**: Optional dict of service-specific parameters
-        - **return_response**: Set to True for services that return data
-        - **wait**: Wait for the entity state to change after the service call (default: True).
-          Only applies to state-changing services on a single entity. Set to False for
-          fire-and-forget calls, bulk operations, or services without observable state changes.
+        **Key behavior:**
+        - **wait** (default True): wait for the entity state to change before
+          returning. Only applies to state-changing services on a single entity.
+        - **Result compaction (issue #1446, default ON)**: ``result`` is trimmed
+          to the targeted entity's record (drops parent-group propagation) and
+          stripped of ``context`` / ``last_*`` metadata and heavy attribute
+          lists (``effect_list``, ``hue_scenes``). Escape hatches: ``verbose=True``
+          for the raw HA response, or ``result_fields`` / ``result_attribute_keys``
+          for explicit per-record projection (mirrors ``ha_get_state``).
 
-        **For detailed service documentation, use ha_get_skill_home_assistant_best_practices.**
+        **For detailed service documentation, use ha_get_skill_guide.**
 
         Common patterns: Use ha_get_state() to check current values before making changes.
         Use ha_search_entities() to find correct entity IDs.
@@ -246,11 +371,30 @@ class ServiceTools:
             service_data = self._parse_service_data(data, entity_id)
 
             # Coerce return_response boolean parameter
-            return_response_bool = (
-                coerce_bool_param(return_response, "return_response", default=False)
-                or False
+            return_response_bool = coerce_bool_param(
+                return_response, "return_response", default=False
             )
             wait_bool = coerce_bool_param(wait, "wait", default=True)
+            try:
+                verbose_bool = coerce_bool_param(verbose, "verbose", default=False)
+            except ValueError as e:
+                raise_tool_error(create_validation_error(str(e), parameter="verbose"))
+            try:
+                parsed_result_fields = parse_string_list_param(
+                    result_fields, "result_fields", allow_csv=True
+                )
+            except ValueError as e:
+                raise_tool_error(
+                    create_validation_error(str(e), parameter="result_fields")
+                )
+            try:
+                parsed_result_attribute_keys = parse_string_list_param(
+                    result_attribute_keys, "result_attribute_keys", allow_csv=True
+                )
+            except ValueError as e:
+                raise_tool_error(
+                    create_validation_error(str(e), parameter="result_attribute_keys")
+                )
 
             # Determine if we should wait for state change:
             # Only for state-changing services on a single entity, not for
@@ -271,15 +415,25 @@ class ServiceTools:
                 domain, service, service_data, return_response=return_response_bool
             )
 
+            projected_result, projection_warnings = self._project_service_result(
+                result,
+                entity_id=entity_id,
+                verbose=verbose_bool,
+                fields=parsed_result_fields,
+                attribute_keys=parsed_result_attribute_keys,
+            )
+
             response: dict[str, Any] = {
                 "success": True,
                 "domain": domain,
                 "service": service,
                 "entity_id": entity_id,
                 "parameters": data,
-                "result": result,
+                "result": projected_result,
                 "message": f"Successfully executed {domain}.{service}",
             }
+            if projection_warnings:
+                response.setdefault("warnings", []).extend(projection_warnings)
 
             # If return_response was requested, include the service_response key prominently
             if return_response_bool and isinstance(result, dict):
@@ -288,7 +442,10 @@ class ServiceTools:
             # Wait for entity state to change
             if should_wait and entity_id is not None:
                 await self._verify_state_change(
-                    entity_id, service, initial_state, response,
+                    entity_id,
+                    service,
+                    initial_state,
+                    response,
                 )
 
             return response
@@ -330,7 +487,11 @@ class ServiceTools:
                 suggestions=suggestions,
             )
 
-    @tool(name="ha_get_operation_status", tags={"Service & Device Control"}, annotations={"readOnlyHint": True, "title": "Get Operation Status"})
+    @tool(
+        name="ha_get_operation_status",
+        tags={"Service & Device Control"},
+        annotations={"readOnlyHint": True, "title": "Get Operation Status"},
+    )
     @log_tool_usage
     async def ha_get_operation_status(
         self,
@@ -390,7 +551,11 @@ class ServiceTools:
                 ],
             )
 
-    @tool(name="ha_bulk_control", tags={"Service & Device Control"}, annotations={"destructiveHint": True, "title": "Bulk Control"})
+    @tool(
+        name="ha_bulk_control",
+        tags={"Service & Device Control"},
+        annotations={"destructiveHint": True, "title": "Bulk Control"},
+    )
     @log_tool_usage
     async def ha_bulk_control(
         self,
@@ -476,29 +641,7 @@ class ServiceTools:
                 )
             )
 
-        parsed_data: dict[str, Any] | None = None
-        if data is not None:
-            raw: Any = None
-            try:
-                raw = parse_json_param(data, "data")
-            except ValueError as e:
-                raise_tool_error(
-                    create_validation_error(
-                        f"Invalid data parameter: {e}",
-                        parameter="data",
-                        invalid_json=True,
-                    )
-                )
-            if raw is not None:
-                if not isinstance(raw, dict):
-                    raise_tool_error(
-                        create_validation_error(
-                            "Event data must be a JSON object (dict)",
-                            parameter="data",
-                            details=f"Received type: {type(raw).__name__}",
-                        )
-                    )
-                parsed_data = raw
+        parsed_data = _parse_event_data(data)
 
         try:
             response = await self._client.fire_event(event_type, parsed_data)
@@ -512,10 +655,10 @@ class ServiceTools:
                         f"Event {event_type} was dispatched but Home Assistant "
                         "did not respond within the timeout period."
                     ),
-                    "warning": (
+                    "warnings": [
                         "Response timed out. The event was dispatched and may still "
                         "have been delivered to subscribers."
-                    ),
+                    ],
                 }
             exception_to_structured_error(
                 error,

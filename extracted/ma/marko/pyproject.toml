@@ -26,7 +26,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-version = "2.2.2"
+version = "2.2.3"
 
 [project.license]
 text = "MIT"
@@ -70,6 +70,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "mypy>=0.950",
+    "types-Pygments>=2.19.0.20251121",
 ]
 doc = [
     "marko[toc]",
@@ -86,3 +87,9 @@ without-hashes = true
 
 [tool.isort]
 profile = "black"
+
+[[tool.mypy.overrides]]
+module = [
+    "objprint.*",
+]
+follow_untyped_imports = true

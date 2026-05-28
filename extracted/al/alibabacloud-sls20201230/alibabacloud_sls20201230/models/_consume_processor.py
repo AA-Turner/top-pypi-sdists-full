@@ -21,6 +21,8 @@ class ConsumeProcessor(DaraModel):
         self.description = description
         # This parameter is required.
         self.display_name = display_name
+        # Processor ID
+        # 
         # This parameter is required.
         self.processor_name = processor_name
         self.update_time = update_time

@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.branches_pb2 import (
+    GetBranchVenvInstalledPackagesRequest,
+    GetBranchVenvInstalledPackagesResponse,
     GetBranchWithLatestDeploymentRequest,
     GetBranchWithLatestDeploymentResponse,
     ListBranchWithLatestDeploymentsRequest,
@@ -30,6 +32,10 @@ class BranchServiceStub:
         ListBranchWithLatestDeploymentsRequest,
         ListBranchWithLatestDeploymentsResponse,
     ]
+    GetBranchVenvInstalledPackages: UnaryUnaryMultiCallable[
+        GetBranchVenvInstalledPackagesRequest,
+        GetBranchVenvInstalledPackagesResponse,
+    ]
 
 class BranchServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -44,5 +50,11 @@ class BranchServiceServicer(metaclass=ABCMeta):
         request: ListBranchWithLatestDeploymentsRequest,
         context: ServicerContext,
     ) -> ListBranchWithLatestDeploymentsResponse: ...
+    @abstractmethod
+    def GetBranchVenvInstalledPackages(
+        self,
+        request: GetBranchVenvInstalledPackagesRequest,
+        context: ServicerContext,
+    ) -> GetBranchVenvInstalledPackagesResponse: ...
 
 def add_BranchServiceServicer_to_server(servicer: BranchServiceServicer, server: Server) -> None: ...

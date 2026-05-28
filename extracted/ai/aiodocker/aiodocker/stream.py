@@ -3,13 +3,15 @@ from __future__ import annotations
 import socket
 import struct
 import warnings
+from collections.abc import Awaitable, Callable
 from types import TracebackType
-from typing import TYPE_CHECKING, Awaitable, Callable, NamedTuple, Optional, Tuple, Type
+from typing import TYPE_CHECKING, NamedTuple
 
 import aiohttp
 import attrs
 from yarl import URL
 
+from ._flow_control_queue import FlowControlDataQueue
 from .exceptions import DockerError
 
 
@@ -28,15 +30,15 @@ class Stream:
     def __init__(
         self,
         docker: "Docker",
-        setup: Callable[[], Awaitable[Tuple[URL, Optional[bytes], bool]]],
-        timeout: Optional[aiohttp.ClientTimeout] = None,
+        setup: Callable[[], Awaitable[tuple[URL, bytes | None, bool]]],
+        timeout: aiohttp.ClientTimeout | None = None,
     ) -> None:
         self._setup = setup
         self.docker = docker
         self._resp = None
         self._closed = False
         self._timeout = timeout
-        self._queue: Optional[aiohttp.FlowControlDataQueue[Message]] = None
+        self._queue: FlowControlDataQueue[Message] | None = None
 
     async def _init(self) -> None:
         if self._resp is not None:
@@ -83,7 +85,6 @@ class Stream:
                     msg = msg + f" Body: [{body!r}]"
             raise DockerError(500, msg)
         protocol = conn.protocol
-        loop = resp._loop
         assert protocol is not None
         assert protocol.transport is not None
         sock = protocol.transport.get_extra_info("socket")
@@ -92,14 +93,14 @@ class Stream:
             # the socket can be closed in the case of error
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
-        queue: aiohttp.FlowControlDataQueue[Message] = aiohttp.FlowControlDataQueue(
-            protocol, limit=2**16, loop=loop
+        queue: FlowControlDataQueue[Message] = FlowControlDataQueue(
+            protocol, limit=2**16
         )
         protocol.set_parser(_ExecParser(queue, tty=tty), queue)
         protocol.force_close()
         self._queue = queue
 
-    async def read_out(self) -> Optional[Message]:
+    async def read_out(self) -> Message | None:
         """Read from stdout or stderr."""
         await self._init()
         try:
@@ -141,15 +142,15 @@ class Stream:
 
     async def __aexit__(
         self,
-        exc_typ: Type[BaseException],
+        exc_typ: type[BaseException],
         exc_val: BaseException,
         exc_tb: TracebackType,
-    ) -> Optional[bool]:
+    ) -> bool | None:
         await self.close()
         return None
 
     def __del__(self, _warnings=warnings) -> None:
-        if self._resp is not None:
+        if self._resp is None:
             return
         if not self._closed:
             warnings.warn("Unclosed ExecStream", ResourceWarning)
@@ -168,7 +169,7 @@ class _ExecParser:
     def feed_eof(self) -> None:
         self.queue.feed_eof()
 
-    def feed_data(self, data: bytes) -> Tuple[bool, bytes]:
+    def feed_data(self, data: bytes) -> tuple[bool, bytes]:
         if self.tty:
             msg = Message(1, data)  # stdout
             self.queue.feed_data(msg, len(data))

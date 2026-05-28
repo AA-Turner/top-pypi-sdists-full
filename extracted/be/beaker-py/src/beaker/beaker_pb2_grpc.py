@@ -86,6 +86,11 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.ListOrganizationsRequest.SerializeToString,
                 response_deserializer=beaker__pb2.ListOrganizationsResponse.FromString,
                 _registered_method=True)
+        self.UpdateOrganizationMetadata = channel.unary_unary(
+                '/allenai.beaker.Beaker/UpdateOrganizationMetadata',
+                request_serializer=beaker__pb2.UpdateOrganizationMetadataRequest.SerializeToString,
+                response_deserializer=beaker__pb2.UpdateOrganizationMetadataResponse.FromString,
+                _registered_method=True)
         self.GetWorkspace = channel.unary_unary(
                 '/allenai.beaker.Beaker/GetWorkspace',
                 request_serializer=beaker__pb2.GetWorkspaceRequest.SerializeToString,
@@ -180,6 +185,11 @@ class BeakerStub(object):
                 '/allenai.beaker.Beaker/UpdateClusterName',
                 request_serializer=beaker__pb2.UpdateClusterNameRequest.SerializeToString,
                 response_deserializer=beaker__pb2.UpdateClusterNameResponse.FromString,
+                _registered_method=True)
+        self.UpdateClusterNodeShape = channel.unary_unary(
+                '/allenai.beaker.Beaker/UpdateClusterNodeShape',
+                request_serializer=beaker__pb2.UpdateClusterNodeShapeRequest.SerializeToString,
+                response_deserializer=beaker__pb2.UpdateClusterNodeShapeResponse.FromString,
                 _registered_method=True)
         self.CreateClusterAlias = channel.unary_unary(
                 '/allenai.beaker.Beaker/CreateClusterAlias',
@@ -340,6 +350,11 @@ class BeakerStub(object):
                 '/allenai.beaker.Beaker/CreateJobEvents',
                 request_serializer=beaker__pb2.CreateJobEventsRequest.SerializeToString,
                 response_deserializer=beaker__pb2.CreateJobEventsResponse.FromString,
+                _registered_method=True)
+        self.ListJobEvents = channel.unary_unary(
+                '/allenai.beaker.Beaker/ListJobEvents',
+                request_serializer=beaker__pb2.ListJobEventsRequest.SerializeToString,
+                response_deserializer=beaker__pb2.ListJobEventsResponse.FromString,
                 _registered_method=True)
         self.ListSummarizedJobEvents = channel.unary_unary(
                 '/allenai.beaker.Beaker/ListSummarizedJobEvents',
@@ -566,10 +581,20 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.ListAllocationHistoryRequest.SerializeToString,
                 response_deserializer=beaker__pb2.ListAllocationHistoryResponse.FromString,
                 _registered_method=True)
-        self.GetChildAllocations = channel.unary_unary(
-                '/allenai.beaker.Beaker/GetChildAllocations',
-                request_serializer=beaker__pb2.GetChildAllocationsRequest.SerializeToString,
-                response_deserializer=beaker__pb2.GetChildAllocationsResponse.FromString,
+        self.GetEffectiveChildAllocations = channel.unary_unary(
+                '/allenai.beaker.Beaker/GetEffectiveChildAllocations',
+                request_serializer=beaker__pb2.GetEffectiveChildAllocationsRequest.SerializeToString,
+                response_deserializer=beaker__pb2.GetEffectiveChildAllocationsResponse.FromString,
+                _registered_method=True)
+        self.GetEffectiveEntityAllocation = channel.unary_unary(
+                '/allenai.beaker.Beaker/GetEffectiveEntityAllocation',
+                request_serializer=beaker__pb2.GetEffectiveEntityAllocationRequest.SerializeToString,
+                response_deserializer=beaker__pb2.GetEffectiveEntityAllocationResponse.FromString,
+                _registered_method=True)
+        self.ListEffectiveAllocations = channel.unary_unary(
+                '/allenai.beaker.Beaker/ListEffectiveAllocations',
+                request_serializer=beaker__pb2.ListEffectiveAllocationsRequest.SerializeToString,
+                response_deserializer=beaker__pb2.ListEffectiveAllocationsResponse.FromString,
                 _registered_method=True)
         self.CreateQueue = channel.unary_unary(
                 '/allenai.beaker.Beaker/CreateQueue',
@@ -703,6 +728,12 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpdateOrganizationMetadata(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetWorkspace(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -812,6 +843,12 @@ class BeakerServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def UpdateClusterName(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateClusterNodeShape(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1015,6 +1052,12 @@ class BeakerServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def CreateJobEvents(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListJobEvents(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1290,7 +1333,19 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetChildAllocations(self, request, context):
+    def GetEffectiveChildAllocations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetEffectiveEntityAllocation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListEffectiveAllocations(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1427,6 +1482,11 @@ def add_BeakerServicer_to_server(servicer, server):
                     request_deserializer=beaker__pb2.ListOrganizationsRequest.FromString,
                     response_serializer=beaker__pb2.ListOrganizationsResponse.SerializeToString,
             ),
+            'UpdateOrganizationMetadata': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateOrganizationMetadata,
+                    request_deserializer=beaker__pb2.UpdateOrganizationMetadataRequest.FromString,
+                    response_serializer=beaker__pb2.UpdateOrganizationMetadataResponse.SerializeToString,
+            ),
             'GetWorkspace': grpc.unary_unary_rpc_method_handler(
                     servicer.GetWorkspace,
                     request_deserializer=beaker__pb2.GetWorkspaceRequest.FromString,
@@ -1521,6 +1581,11 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.UpdateClusterName,
                     request_deserializer=beaker__pb2.UpdateClusterNameRequest.FromString,
                     response_serializer=beaker__pb2.UpdateClusterNameResponse.SerializeToString,
+            ),
+            'UpdateClusterNodeShape': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateClusterNodeShape,
+                    request_deserializer=beaker__pb2.UpdateClusterNodeShapeRequest.FromString,
+                    response_serializer=beaker__pb2.UpdateClusterNodeShapeResponse.SerializeToString,
             ),
             'CreateClusterAlias': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateClusterAlias,
@@ -1681,6 +1746,11 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.CreateJobEvents,
                     request_deserializer=beaker__pb2.CreateJobEventsRequest.FromString,
                     response_serializer=beaker__pb2.CreateJobEventsResponse.SerializeToString,
+            ),
+            'ListJobEvents': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListJobEvents,
+                    request_deserializer=beaker__pb2.ListJobEventsRequest.FromString,
+                    response_serializer=beaker__pb2.ListJobEventsResponse.SerializeToString,
             ),
             'ListSummarizedJobEvents': grpc.unary_unary_rpc_method_handler(
                     servicer.ListSummarizedJobEvents,
@@ -1907,10 +1977,20 @@ def add_BeakerServicer_to_server(servicer, server):
                     request_deserializer=beaker__pb2.ListAllocationHistoryRequest.FromString,
                     response_serializer=beaker__pb2.ListAllocationHistoryResponse.SerializeToString,
             ),
-            'GetChildAllocations': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetChildAllocations,
-                    request_deserializer=beaker__pb2.GetChildAllocationsRequest.FromString,
-                    response_serializer=beaker__pb2.GetChildAllocationsResponse.SerializeToString,
+            'GetEffectiveChildAllocations': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetEffectiveChildAllocations,
+                    request_deserializer=beaker__pb2.GetEffectiveChildAllocationsRequest.FromString,
+                    response_serializer=beaker__pb2.GetEffectiveChildAllocationsResponse.SerializeToString,
+            ),
+            'GetEffectiveEntityAllocation': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetEffectiveEntityAllocation,
+                    request_deserializer=beaker__pb2.GetEffectiveEntityAllocationRequest.FromString,
+                    response_serializer=beaker__pb2.GetEffectiveEntityAllocationResponse.SerializeToString,
+            ),
+            'ListEffectiveAllocations': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListEffectiveAllocations,
+                    request_deserializer=beaker__pb2.ListEffectiveAllocationsRequest.FromString,
+                    response_serializer=beaker__pb2.ListEffectiveAllocationsResponse.SerializeToString,
             ),
             'CreateQueue': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateQueue,
@@ -2250,6 +2330,33 @@ class Beaker(object):
             '/allenai.beaker.Beaker/ListOrganizations',
             beaker__pb2.ListOrganizationsRequest.SerializeToString,
             beaker__pb2.ListOrganizationsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateOrganizationMetadata(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/UpdateOrganizationMetadata',
+            beaker__pb2.UpdateOrganizationMetadataRequest.SerializeToString,
+            beaker__pb2.UpdateOrganizationMetadataResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2763,6 +2870,33 @@ class Beaker(object):
             '/allenai.beaker.Beaker/UpdateClusterName',
             beaker__pb2.UpdateClusterNameRequest.SerializeToString,
             beaker__pb2.UpdateClusterNameResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateClusterNodeShape(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/UpdateClusterNodeShape',
+            beaker__pb2.UpdateClusterNodeShapeRequest.SerializeToString,
+            beaker__pb2.UpdateClusterNodeShapeResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3627,6 +3761,33 @@ class Beaker(object):
             '/allenai.beaker.Beaker/CreateJobEvents',
             beaker__pb2.CreateJobEventsRequest.SerializeToString,
             beaker__pb2.CreateJobEventsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListJobEvents(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/ListJobEvents',
+            beaker__pb2.ListJobEventsRequest.SerializeToString,
+            beaker__pb2.ListJobEventsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -4853,7 +5014,7 @@ class Beaker(object):
             _registered_method=True)
 
     @staticmethod
-    def GetChildAllocations(request,
+    def GetEffectiveChildAllocations(request,
             target,
             options=(),
             channel_credentials=None,
@@ -4866,9 +5027,63 @@ class Beaker(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/allenai.beaker.Beaker/GetChildAllocations',
-            beaker__pb2.GetChildAllocationsRequest.SerializeToString,
-            beaker__pb2.GetChildAllocationsResponse.FromString,
+            '/allenai.beaker.Beaker/GetEffectiveChildAllocations',
+            beaker__pb2.GetEffectiveChildAllocationsRequest.SerializeToString,
+            beaker__pb2.GetEffectiveChildAllocationsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetEffectiveEntityAllocation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/GetEffectiveEntityAllocation',
+            beaker__pb2.GetEffectiveEntityAllocationRequest.SerializeToString,
+            beaker__pb2.GetEffectiveEntityAllocationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListEffectiveAllocations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/ListEffectiveAllocations',
+            beaker__pb2.ListEffectiveAllocationsRequest.SerializeToString,
+            beaker__pb2.ListEffectiveAllocationsResponse.FromString,
             options,
             channel_credentials,
             insecure,

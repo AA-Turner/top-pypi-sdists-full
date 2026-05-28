@@ -18,8 +18,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional, Union
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional
 from fireblocks.models.audit_log_data import AuditLogData
 from typing import Optional, Set
 from typing_extensions import Self
@@ -29,9 +29,9 @@ class GetAuditLogsResponse(BaseModel):
     GetAuditLogsResponse
     """ # noqa: E501
     data: Optional[List[AuditLogData]] = None
-    cursor: Optional[StrictStr] = Field(default=None, description="The next id to start fetch audit logs from")
-    total: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The total number of audit logs")
-    __properties: ClassVar[List[str]] = ["data", "cursor", "total"]
+    next: Optional[StrictStr] = Field(default=None, description="Cursor to pass as pageCursor in the next request. Null when no further pages exist.")
+    cursor: Optional[StrictStr] = Field(default=None, description="Deprecated. Use next instead.")
+    __properties: ClassVar[List[str]] = ["data", "next", "cursor"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -79,6 +79,11 @@ class GetAuditLogsResponse(BaseModel):
                 if _item_data:
                     _items.append(_item_data.to_dict())
             _dict['data'] = _items
+        # set to None if next (nullable) is None
+        # and model_fields_set contains the field
+        if self.next is None and "next" in self.model_fields_set:
+            _dict['next'] = None
+
         # set to None if cursor (nullable) is None
         # and model_fields_set contains the field
         if self.cursor is None and "cursor" in self.model_fields_set:
@@ -97,8 +102,8 @@ class GetAuditLogsResponse(BaseModel):
 
         _obj = cls.model_validate({
             "data": [AuditLogData.from_dict(_item) for _item in obj["data"]] if obj.get("data") is not None else None,
-            "cursor": obj.get("cursor"),
-            "total": obj.get("total")
+            "next": obj.get("next"),
+            "cursor": obj.get("cursor")
         })
         return _obj
 

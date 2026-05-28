@@ -16,7 +16,12 @@ def add_lemma_args(parser):
                         help='Model type to use.  {}'.format(", ".join(x.name for x in ModelType)))
 
 def build_model_filename(paths, short_name, command_args, extra_args):
-    return os.path.join("saved_models", "lemma_classifier", short_name + "_lemma_classifier.pt")
+    if not command_args.save_dir:
+        save_dir = os.path.join("saved_models", "lemma_classifier")
+    else:
+        save_dir = command_args.save_dir
+
+    return os.path.join(save_dir, short_name + "_lemma_classifier.pt")
 
 def run_treebank(mode, paths, treebank, short_name, command_args, extra_args):
     short_language, dataset = short_name.split("_", 1)
@@ -41,14 +46,15 @@ def run_treebank(mode, paths, treebank, short_name, command_args, extra_args):
     extra_train_args = []
     if command_args.force:
         extra_train_args.append('--force')
+    lemma_classifier_dir = paths["LEMMA_CLASSIFIER_DATA_DIR"]
 
     if mode == Mode.TRAIN:
         train_args = []
         if "--train_file" not in extra_args:
-            train_file = os.path.join("data", "lemma_classifier", "%s.train.lemma" % short_name)
+            train_file = os.path.join(lemma_classifier_dir, "%s.train.lemma" % short_name)
             train_args += ['--train_file', train_file]
         if "--eval_file" not in extra_args:
-            eval_file = os.path.join("data", "lemma_classifier", "%s.dev.lemma" % short_name)
+            eval_file = os.path.join(lemma_classifier_dir, "%s.dev.lemma" % short_name)
             train_args += ['--eval_file', eval_file]
         train_args = base_args + train_args + extra_args + extra_train_args
 
@@ -63,7 +69,7 @@ def run_treebank(mode, paths, treebank, short_name, command_args, extra_args):
     if mode == Mode.SCORE_DEV or mode == Mode.TRAIN:
         eval_args = []
         if "--eval_file" not in extra_args:
-            eval_file = os.path.join("data", "lemma_classifier", "%s.dev.lemma" % short_name)
+            eval_file = os.path.join(lemma_classifier_dir, "%s.dev.lemma" % short_name)
             eval_args += ['--eval_file', eval_file]
         model_type_args = ["--model_type", command_args.model_type.name.lower()]
         eval_args = bert_args + model_type_args + base_args + eval_args + embedding_args + extra_args
@@ -72,14 +78,14 @@ def run_treebank(mode, paths, treebank, short_name, command_args, extra_args):
     if mode == Mode.SCORE_TEST or mode == Mode.TRAIN:
         eval_args = []
         if "--eval_file" not in extra_args:
-            eval_file = os.path.join("data", "lemma_classifier", "%s.test.lemma" % short_name)
+            eval_file = os.path.join(lemma_classifier_dir, "%s.test.lemma" % short_name)
             eval_args += ['--eval_file', eval_file]
         model_type_args = ["--model_type", command_args.model_type.name.lower()]
         eval_args = bert_args + model_type_args + base_args + eval_args + embedding_args + extra_args
         evaluate_models.main(eval_args)
 
-def main(args=None):
-    common.main(run_treebank, "lemma_classifier", "lemma_classifier", add_lemma_args, sub_argparse=train_lstm_model.build_argparse(), build_model_filename=build_model_filename, choose_charlm_method=choose_lemma_charlm, args=args)
+def main(args=None, paths=None):
+    common.main(run_treebank, "lemma_classifier", "lemma_classifier", add_lemma_args, sub_argparse=train_lstm_model.build_argparse(), build_model_filename=build_model_filename, choose_charlm_method=choose_lemma_charlm, args=args, paths=paths)
 
 
 if __name__ == '__main__':

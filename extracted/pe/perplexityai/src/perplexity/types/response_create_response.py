@@ -25,8 +25,11 @@ class ResponseCreateResponse(BaseModel):
 
     output: List[OutputItem]
 
-    status: Literal["completed", "failed", "in_progress", "requires_action"]
+    status: Literal["completed", "failed", "in_progress", "queued", "cancelled", "requires_action"]
     """Status of a response or output item"""
+
+    background: Optional[bool] = None
+    """Whether the response was created in background mode."""
 
     error: Optional[ErrorInfo] = None
 

@@ -425,7 +425,7 @@ class CLIGitRelease:
 
     def is_dirty_to_release(self, use_include_dir: bool = True) -> bool:
         if use_include_dir:
-            return any([self.repo.is_dirty(path=p) for p in self.paths]) or self.has_untracked_files()
+            return any(self.repo.is_dirty(path=p) for p in self.paths) or self.has_untracked_files()
         else:
             return self.repo.is_dirty(path=self.path) or self.has_untracked_files()
 
@@ -1235,6 +1235,10 @@ def parse(
         "kafka_key_avro_deserialization": assign_var("kafka_key_avro_deserialization"),
         "kafka_ssl_ca_pem": assign_var("kafka_ssl_ca_pem"),
         "kafka_sasl_mechanism": assign_var("kafka_sasl_mechanism"),
+        "kafka_sasl_oauthbearer_method": assign_var("kafka_sasl_oauthbearer_method"),
+        "kafka_sasl_oauthbearer_aws_region": assign_var("kafka_sasl_oauthbearer_aws_region"),
+        "kafka_sasl_oauthbearer_aws_role_arn": assign_var("kafka_sasl_oauthbearer_aws_role_arn"),
+        "kafka_sasl_oauthbearer_aws_external_id": assign_var("kafka_sasl_oauthbearer_aws_external_id"),
         "import_service": assign_var("import_service"),
         "import_connection_name": assign_var("import_connection_name"),
         "import_schedule": assign_var("import_schedule"),
@@ -1368,6 +1372,7 @@ async def process_file(
 
         if not skip_connectors:
             try:
+                is_oauthbearer = params.get("kafka_sasl_mechanism") == "OAUTHBEARER"
                 connector_params = {
                     "kafka_bootstrap_servers": params.get("kafka_bootstrap_servers", None),
                     "kafka_key": params.get("kafka_key", None),
@@ -1377,6 +1382,12 @@ async def process_file(
                     "kafka_schema_registry_url": params.get("kafka_schema_registry_url", None),
                     "kafka_ssl_ca_pem": get_ca_pem_content(params.get("kafka_ssl_ca_pem", None), filename),
                     "kafka_sasl_mechanism": params.get("kafka_sasl_mechanism", None),
+                    "kafka_sasl_oauthbearer_method": params.get("kafka_sasl_oauthbearer_method", None),
+                    "kafka_sasl_oauthbearer_aws_region": params.get("kafka_sasl_oauthbearer_aws_region", None),
+                    "kafka_sasl_oauthbearer_aws_role_arn": params.get("kafka_sasl_oauthbearer_aws_role_arn", None),
+                    "kafka_sasl_oauthbearer_aws_external_id": params.get(
+                        "kafka_sasl_oauthbearer_aws_external_id", None
+                    ),
                 }
 
                 connector = await tb_client.get_connection(**connector_params)
@@ -1384,11 +1395,19 @@ async def process_file(
                     click.echo(
                         FeedbackManager.info_creating_kafka_connection(connection_name=params["kafka_connection_name"])
                     )
-                    required_params = [
-                        connector_params["kafka_bootstrap_servers"],
-                        connector_params["kafka_key"],
-                        connector_params["kafka_secret"],
-                    ]
+                    if is_oauthbearer:
+                        required_params = [
+                            connector_params["kafka_bootstrap_servers"],
+                            connector_params["kafka_sasl_oauthbearer_method"],
+                            connector_params["kafka_sasl_oauthbearer_aws_region"],
+                            connector_params["kafka_sasl_oauthbearer_aws_role_arn"],
+                        ]
+                    else:
+                        required_params = [
+                            connector_params["kafka_bootstrap_servers"],
+                            connector_params["kafka_key"],
+                            connector_params["kafka_secret"],
+                        ]
 
                     if not all(required_params):
                         raise click.ClickException(FeedbackManager.error_unknown_kafka_connection(datasource=name))
@@ -1549,10 +1568,7 @@ async def process_file(
                     period: int = DEFAULT_CRON_PERIOD
 
                     if current_ws:
-                        workspaces = (await tb_client.user_workspaces()).get("workspaces", [])
-                        workspace_rate_limits: Dict[str, Dict[str, int]] = next(
-                            (w.get("rate_limits", {}) for w in workspaces if w["id"] == current_ws["id"]), {}
-                        )
+                        workspace_rate_limits: Dict[str, Dict[str, int]] = current_ws.get("rate_limits", {})
                         period = workspace_rate_limits.get("api_datasources_create_append_replace", {}).get(
                             "period", DEFAULT_CRON_PERIOD
                         )
@@ -1632,7 +1648,7 @@ async def process_file(
         deps = []
         nodes: List[Dict[str, Any]] = []
 
-        is_copy = any([node for node in doc.nodes if node.get("type", "standard").lower() == PipeNodeTypes.COPY])
+        is_copy = any(node for node in doc.nodes if node.get("type", "standard").lower() == PipeNodeTypes.COPY)
         for node in doc.nodes:
             sql = node["sql"]
             node_type = node.get("type", "standard").lower()
@@ -2912,7 +2928,7 @@ async def new_pipe(
     current_pipe = r.json() if r.status_code == 200 else None
     pipe_exists = current_pipe is not None
 
-    is_materialized = any([node.get("params", {}).get("type", None) == "materialized" for node in p["nodes"]])
+    is_materialized = any(node.get("params", {}).get("type", None) == "materialized" for node in p["nodes"])
     copy_node = next((node for node in p["nodes"] if node.get("params", {}).get("type", None) == "copy"), None)
     sink_node = next((node for node in p["nodes"] if node.get("params", {}).get("type", None) == "sink"), None)
     stream_node = next((node for node in p["nodes"] if node.get("params", {}).get("type", None) == "stream"), None)
@@ -3139,7 +3155,7 @@ async def new_pipe(
 async def share_and_unshare_datasource(
     client: TinyB,
     datasource: Dict[str, Any],
-    user_token: str,
+    user_token: Optional[str],
     workspaces_current_shared_with: List[str],
     workspaces_to_share: List[str],
     current_ws: Optional[Dict[str, Any]],
@@ -3147,19 +3163,56 @@ async def share_and_unshare_datasource(
     datasource_name = datasource.get("name", "")
     datasource_id = datasource.get("id", "")
     workspaces: List[Dict[str, Any]]
-    # We duplicate the client to use the user_token in workspace discovery and sharing operations.
-    user_client: TinyB = deepcopy(client)
-    user_client.token = user_token
+    user_client: TinyB = deepcopy(client) if user_token else client
+    if user_token:
+        # We duplicate the client to use the user_token in workspace discovery and sharing operations.
+        user_client.token = user_token
 
     # In case we are pushing to a branch, we don't share the datasource
     # FIXME: Have only once way to get the current workspace
     if current_ws:
         workspace = current_ws
-    else:
+    elif user_token:
         workspace = await client.user_workspace_branches()
+    else:
+        workspace = await client.workspace_info()
 
     if workspace.get("is_branch", False):
         click.echo(FeedbackManager.info_skipping_sharing_datasources_branch(datasource=datasource["name"]))
+        return
+
+    if not user_token:
+        workspaces_current_shared_with = [
+            shared_workspace["name"] for shared_workspace in datasource.get("shared_with_workspaces", [])
+        ]
+        workspace_names_need_to_share = [
+            workspace_name
+            for workspace_name in workspaces_to_share
+            if workspace_name not in workspaces_current_shared_with
+        ]
+        workspace_names_need_to_unshare = [
+            workspace_name
+            for workspace_name in workspaces_current_shared_with
+            if workspace_name not in workspaces_to_share
+        ]
+
+        for workspace_name in workspace_names_need_to_share:
+            await user_client.datasource_share(
+                datasource_id=datasource_id,
+                current_workspace_id=workspace.get("id", ""),
+                destination_workspace_name=workspace_name,
+            )
+            click.echo(FeedbackManager.success_datasource_shared(datasource=datasource_name, workspace=workspace_name))
+
+        for workspace_name in workspace_names_need_to_unshare:
+            await user_client.datasource_unshare(
+                datasource_id=datasource_id,
+                current_workspace_id=workspace.get("id", ""),
+                destination_workspace_name=workspace_name,
+            )
+            click.echo(
+                FeedbackManager.success_datasource_unshared(datasource=datasource_name, workspace=workspace_name)
+            )
         return
 
     # Use the user token for workspace discovery, as workspace/admin tokens may not list all targets.
@@ -3245,8 +3298,12 @@ async def new_ds(
                     scopes.append(sc)
                 await client.alter_tokens(token_name, scopes)
 
+    can_manage_shared_with = bool(user_token or (current_ws and current_ws.get("can_manage_datasources")))
+
     try:
-        existing_ds = await client.get_datasource(ds_name)
+        existing_ds = await client.get_datasource(
+            ds_name, include_workspace_names=can_manage_shared_with and not user_token
+        )
         datasource_exists = True
     except DoesNotExistException:
         datasource_exists = False
@@ -3304,7 +3361,7 @@ async def new_ds(
                 await manage_tokens()
 
             if ds.get("shared_with"):
-                if not user_token:
+                if not can_manage_shared_with:
                     click.echo(FeedbackManager.info_skipping_shared_with_entry())
                 else:
                     await share_and_unshare_datasource(
@@ -3324,7 +3381,7 @@ async def new_ds(
         raise click.ClickException(FeedbackManager.error_datasource_already_exists(datasource=ds_name))
 
     if ds.get("shared_with", []) or existing_ds.get("shared_with", []):
-        if not user_token:
+        if not can_manage_shared_with:
             click.echo(FeedbackManager.info_skipping_shared_with_entry())
         else:
             await share_and_unshare_datasource(
@@ -3361,7 +3418,7 @@ async def new_ds(
             existing = existing_ds.get("indexes", [])
             new.sort(key=lambda x: x["name"])
             existing.sort(key=lambda x: x["name"])
-            if len(existing) != len(new) or any([(d, d2) for d, d2 in zip(new, existing) if d != d2]):
+            if len(existing) != len(new) or any((d, d2) for d, d2 in zip(new, existing) if d != d2):
                 new_indices = ds.get("params", {}).get("indexes") or "0"
         if (
             new_description
@@ -3561,7 +3618,7 @@ async def new_token(token: Dict[str, Any], client: TinyB, force: bool = False):
 
     if force:
         ADMIN_SCOPES = ["ADMIN", "ADMIN_USER"]
-        if any([scope["type"] in ADMIN_SCOPES for scope in existing_token["scopes"]]):
+        if any(scope["type"] in ADMIN_SCOPES for scope in existing_token["scopes"]):
             raise click.ClickException(FeedbackManager.error_token_cannot_be_overriden(token=token["name"]))
 
         await client.token_update(token)
@@ -4004,7 +4061,7 @@ async def build_graph(
             if (
                 fork_downstream
                 and r.get("resource", "") == "pipes"
-                and any(["engine" in x.get("params", {}) for x in r.get("nodes", [])])
+                and any("engine" in x.get("params", {}) for x in r.get("nodes", []))
             ):
                 raise click.ClickException(FeedbackManager.error_forkdownstream_pipes_with_engine(pipe=fn))
 
@@ -4036,13 +4093,10 @@ async def build_graph(
 
             # In case the datasource is to be shared and we have mapping, let's replace the name
             if "shared_with" in r and workspace_map:
-                mapped_workspaces: List[str] = []
-                for shared_with in r["shared_with"]:
-                    mapped_workspaces.append(
-                        workspace_map.get(shared_with)
-                        if workspace_map.get(shared_with, None) is not None
-                        else shared_with  # type: ignore
-                    )
+                mapped_workspaces: List[str] = [
+                    workspace_map.get(shared_with) if workspace_map.get(shared_with, None) is not None else shared_with  # type: ignore
+                    for shared_with in r["shared_with"]
+                ]
                 r["shared_with"] = mapped_workspaces
 
             dep_map[fn] = set(dep_list)
@@ -4243,10 +4297,13 @@ async def folder_push(
     hide_folders: bool = False,
     on_demand_compute: bool = False,
 ):
-    workspaces: List[Dict[str, Any]] = (await tb_client.user_workspaces_and_branches()).get("workspaces", [])
-    current_ws: Dict[str, Any] = next(
-        (workspace for workspace in workspaces if config and workspace.get("id", ".") == config.get("id", "..")), {}
-    )
+    if tb_client.semver:
+        workspaces: List[Dict[str, Any]] = (await tb_client.user_workspaces_and_branches()).get("workspaces", [])
+        current_ws: Dict[str, Any] = next(
+            (workspace for workspace in workspaces if config and workspace.get("id", ".") == config.get("id", "..")), {}
+        )
+    else:
+        current_ws = await tb_client.workspace_info()
     is_branch = current_ws.get("is_branch", False)
     has_semver: bool = release_created or False
 
@@ -5557,7 +5614,7 @@ def is_materialized(resource: Optional[Dict[str, Any]]) -> bool:
         return False
 
     is_materialized = any(
-        [node.get("params", {}).get("type", None) == "materialized" for node in resource.get("nodes", []) or []]
+        node.get("params", {}).get("type", None) == "materialized" for node in resource.get("nodes", []) or []
     )
     return is_materialized
 
@@ -5636,7 +5693,7 @@ async def create_release(
 def has_internal_datafiles(folder: str) -> bool:
     folder = folder or "."
     filenames = get_project_filenames(folder)
-    return any([f for f in filenames if "spans" in str(f) and "vendor" not in str(f)])
+    return any(f for f in filenames if "spans" in str(f) and "vendor" not in str(f))
 
 
 def is_file_a_datasource(filename: str) -> bool:

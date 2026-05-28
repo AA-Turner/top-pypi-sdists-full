@@ -9,17 +9,11 @@ import re
 import ssl
 import sys
 import warnings
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pathlib import Path
 from types import TracebackType
-from typing import (
-    Any,
-    AsyncIterator,
-    Optional,
-    Type,
-    Union,
-)
+from typing import Any
 
 import aiohttp
 import attrs
@@ -91,11 +85,11 @@ class DockerContextEndpoint:
     """
 
     host: str
-    context_name: Optional[str] = None
+    context_name: str | None = None
     skip_tls_verify: bool = False
-    tls_ca: Optional[bytes] = None
-    tls_cert: Optional[bytes] = None
-    tls_key: Optional[bytes] = None
+    tls_ca: bytes | None = None
+    tls_cert: bytes | None = None
+    tls_key: bytes | None = None
 
     @property
     def has_tls(self) -> bool:
@@ -140,9 +134,11 @@ class Docker:
             Refer to :doc:`ssh` for more details about SSH transports in the URL.
         connector: Custom :class:`aiohttp.BaseConnector` implementation to establish new connections to the docker host.
             If provided, it will be used instead of creating a connector based on the **url** value.
+            A caller-supplied connector is owned by the caller and is *not* closed by :meth:`close`.
         session: Custom :class:`aiohttp.ClientSession`. If None, a new session will be
             created with the connector and timeout settings.
             The timeout configuration in this object is *ignored* by the **timeout** argument.
+            A caller-supplied session is owned by the caller and is *not* closed by :meth:`close`.
         timeout: :class:`aiohttp.ClientTimeout` configuration for API requests.
             If None, there is no timeout at all.
         ssl_context: SSL context for HTTPS connections. If None and ``DOCKER_TLS_VERIFY``
@@ -163,16 +159,21 @@ class Docker:
 
     def __init__(
         self,
-        url: Optional[str] = None,
-        connector: Optional[aiohttp.BaseConnector] = None,
-        session: Optional[aiohttp.ClientSession] = None,
-        timeout: Optional[aiohttp.ClientTimeout] = None,
-        ssl_context: Optional[ssl.SSLContext] = None,
+        url: str | None = None,
+        connector: aiohttp.BaseConnector | None = None,
+        session: aiohttp.ClientSession | None = None,
+        timeout: aiohttp.ClientTimeout | None = None,
+        ssl_context: ssl.SSLContext | None = None,
         api_version: str = "auto",
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> None:
+        # Track ownership so close() only tears down what we created here.
+        # Capture the original caller intent before any defaults are filled in.
+        self._owns_connector = connector is None
+        self._owns_session = session is None
+
         docker_host = url  # rename
-        context_endpoint: Optional[DockerContextEndpoint] = None
+        context_endpoint: DockerContextEndpoint | None = None
 
         if docker_host is None:
             context_endpoint = self._get_docker_context_endpoint(context)
@@ -262,6 +263,9 @@ class Docker:
             session = aiohttp.ClientSession(
                 connector=self.connector,
                 timeout=self._timeout,
+                # If the caller owns the connector but not the session, make sure
+                # closing our session does not also close their connector.
+                connector_owner=self._owns_connector,
             )
         self.session = session
 
@@ -287,9 +291,9 @@ class Docker:
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         await self.close()
 
@@ -298,9 +302,22 @@ class Docker:
 
         Stops the event monitoring and closes the underlying aiohttp session,
         releasing all associated resources including connections.
+
+        Only the session and/or connector that this :class:`Docker` instance
+        created itself are closed; caller-supplied ``session`` or ``connector``
+        objects are left untouched. Calling this method multiple times is safe.
         """
         await self.events.stop()
-        await self.session.close()
+        if self._owns_session:
+            await self.session.close()
+            self._owns_session = False
+            # The wrapping session owns the connector we made, so it has
+            # already been closed by session.close().
+            self._owns_connector = False
+        elif self._owns_connector:
+            # Unusual: caller provided a session but we created the connector.
+            await self.connector.close()
+            self._owns_connector = False
 
     async def auth(self, **credentials: Any) -> dict[str, Any]:
         """Authenticate with Docker registry.
@@ -355,9 +372,7 @@ class Docker:
         data = await self._query_json("version")
         return data
 
-    def _canonicalize_url(
-        self, path: Union[str, URL], *, versioned_api: bool = True
-    ) -> URL:
+    def _canonicalize_url(self, path: str | URL, *, versioned_api: bool = True) -> URL:
         if isinstance(path, URL):
             assert not path.is_absolute()
         if versioned_api:
@@ -417,11 +432,11 @@ class Docker:
         path: str | URL,
         method: str = "GET",
         *,
-        params: Optional[JSONObject] = None,
-        data: Optional[Any] = None,
-        headers: Optional[Mapping[str, str | int | bool]] = None,
+        params: JSONObject | None = None,
+        data: Any | None = None,
+        headers: Mapping[str, str | int | bool] | None = None,
         timeout: float | aiohttp.ClientTimeout | None | Sentinel = SENTINEL,
-        chunked: Optional[bool] = None,
+        chunked: bool | None = None,
         read_until_eof: bool = True,
         versioned_api: bool = True,
     ) -> AsyncIterator[aiohttp.ClientResponse]:
@@ -447,11 +462,11 @@ class Docker:
         path: str | URL,
         method: str,
         *,
-        params: Optional[JSONObject] = None,
+        params: JSONObject | None = None,
         data: Any = None,
-        headers: Optional[Mapping[str, str | int | bool]] = None,
+        headers: Mapping[str, str | int | bool] | None = None,
         timeout: float | aiohttp.ClientTimeout | None | Sentinel = SENTINEL,
-        chunked: Optional[bool] = None,
+        chunked: bool | None = None,
         read_until_eof: bool = True,
         versioned_api: bool = True,
     ) -> aiohttp.ClientResponse:
@@ -521,9 +536,9 @@ class Docker:
         path: str | URL,
         method: str = "GET",
         *,
-        params: Optional[JSONObject] = None,
-        data: Optional[Any] = None,
-        headers: Optional[Mapping[str, str | int | bool]] = None,
+        params: JSONObject | None = None,
+        data: Any | None = None,
+        headers: Mapping[str, str | int | bool] | None = None,
         timeout: float | aiohttp.ClientTimeout | None | Sentinel = SENTINEL,
         read_until_eof: bool = True,
         versioned_api: bool = True,
@@ -556,9 +571,9 @@ class Docker:
         path: str | URL,
         method: str = "POST",
         *,
-        params: Optional[JSONObject] = None,
-        data: Optional[Any] = None,
-        headers: Optional[Mapping[str, str | int | bool]] = None,
+        params: JSONObject | None = None,
+        data: Any | None = None,
+        headers: Mapping[str, str | int | bool] | None = None,
         timeout: float | aiohttp.ClientTimeout | None | Sentinel = SENTINEL,
         read_until_eof: bool = True,
         versioned_api: bool = True,
@@ -583,7 +598,7 @@ class Docker:
         )
 
     async def _websocket(
-        self, path: Union[str, URL], **params: Any
+        self, path: str | URL, **params: Any
     ) -> aiohttp.ClientWebSocketResponse:
         if not params:
             params = {"stdin": True, "stdout": True, "stderr": True, "stream": True}
@@ -627,8 +642,8 @@ class Docker:
 
     @staticmethod
     def _get_docker_context_endpoint(
-        context_name: Optional[str] = None,
-    ) -> Optional[DockerContextEndpoint]:
+        context_name: str | None = None,
+    ) -> DockerContextEndpoint | None:
         """Get the Docker endpoint configuration from the current Docker context.
 
         Resolution order:
@@ -731,8 +746,8 @@ class Docker:
     def _load_context_tls(
         tls_dir: Path,
         *,
-        context_name: Optional[str] = None,
-    ) -> tuple[Optional[bytes], Optional[bytes], Optional[bytes]]:
+        context_name: str | None = None,
+    ) -> tuple[bytes | None, bytes | None, bytes | None]:
         """Load TLS certificate files from a context's TLS directory.
 
         Args:
@@ -746,9 +761,9 @@ class Docker:
         Raises:
             DockerContextTLSError: If a TLS file exists but cannot be read.
         """
-        ca_data: Optional[bytes] = None
-        cert_data: Optional[bytes] = None
-        key_data: Optional[bytes] = None
+        ca_data: bytes | None = None
+        cert_data: bytes | None = None
+        key_data: bytes | None = None
 
         ca_path = tls_dir / "ca.pem"
         if ca_path.exists():
@@ -786,8 +801,8 @@ class Docker:
     def _create_context_ssl_context(
         endpoint: DockerContextEndpoint,
         *,
-        context_name: Optional[str] = None,
-    ) -> Optional[ssl.SSLContext]:
+        context_name: str | None = None,
+    ) -> ssl.SSLContext | None:
         """Create an SSL context from Docker context endpoint TLS data.
 
         Args:
@@ -819,9 +834,9 @@ class Docker:
 
         # SSL context methods require file paths, so we need to write temp files
         # for the in-memory certificate data
-        ca_path: Optional[str] = None
-        cert_path: Optional[str] = None
-        key_path: Optional[str] = None
+        ca_path: str | None = None
+        cert_path: str | None = None
+        key_path: str | None = None
         try:
             if endpoint.tls_ca is not None:
                 with tempfile.NamedTemporaryFile(

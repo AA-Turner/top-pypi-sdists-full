@@ -178,8 +178,26 @@ class CustomAuthBackend(AuthenticationBackend):
         if self.fn is None:
             return None
         try:
+            # ``starlette.requests.Request`` asserts ``scope["type"] ==
+            # "http"`` in its constructor, so constructing one from a
+            # WebSocket scope raises ``AssertionError``. Only build it
+            # when the handler actually declared a ``request`` parameter
+            # AND the scope is HTTP; reject WebSocket scopes with a
+            # clear auth-layer error when the handler asks for one.
+            request_obj: Request | None = None
+            if self._param_names and "request" in self._param_names:
+                if conn.scope.get("type") == "http":
+                    request_obj = Request(conn.scope)
+                else:
+                    raise AuthError(
+                        "Custom auth handler declares `request: Request`, "
+                        "which is not supported for WebSocket connections. "
+                        "Use `headers`, `authorization`, `scope`, or "
+                        "`scopes` parameters instead.",
+                        status_code=403,
+                    )
             args = _extract_arguments_from_scope(
-                conn.scope, self._param_names, request=Request(conn.scope)
+                conn.scope, self._param_names, request=request_obj
             )
             response = await self.fn(**args)
             return _normalize_auth_response(response)

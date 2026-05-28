@@ -19,7 +19,6 @@ requisite to a pkg.installed state for the package which provides pip
 """
 
 import logging
-import re
 import sys
 import types
 
@@ -141,14 +140,32 @@ def _fulfills_version_spec(version, version_spec):
     boolean value based on whether or not the version number meets the
     specified version.
     """
-    for oper, spec in version_spec:
-        if oper is None:
-            continue
-        if not salt.utils.versions.compare(
-            ver1=version, oper=oper, ver2=spec, cmp_func=_pep440_version_cmp
-        ):
-            return False
-    return True
+    try:
+        from packaging.specifiers import InvalidSpecifier, SpecifierSet
+        from packaging.version import InvalidVersion
+
+        # Build a SpecifierSet string from the version_spec list of tuples
+        specs = []
+        for oper, spec in version_spec:
+            if oper is not None:
+                specs.append(f"{oper}{spec}")
+
+        if not specs:
+            return True
+
+        spec_set = SpecifierSet(",".join(specs))
+        return spec_set.contains(version)
+    except (ImportError, InvalidVersion, InvalidSpecifier):
+        # Fallback to the old logic if packaging is not available
+        # or if the version/spec is not PEP 440 compliant
+        for oper, spec in version_spec:
+            if oper is None:
+                continue
+            if not salt.utils.versions.compare(
+                ver1=version, oper=oper, ver2=spec, cmp_func=_pep440_version_cmp
+            ):
+                return False
+        return True
 
 
 def _check_pkg_version_format(pkg):
@@ -210,11 +227,12 @@ def _check_pkg_version_format(pkg):
         ret["version_spec"] = []
     else:
         ret["result"] = True
+        normalize = __salt__["pip.normalize"]
         try:
-            ret["prefix"] = install_req.req.project_name
+            ret["prefix"] = normalize(install_req.req.project_name)
             ret["version_spec"] = install_req.req.specs
         except Exception:  # pylint: disable=broad-except
-            ret["prefix"] = re.sub("[^A-Za-z0-9.]+", "-", install_req.name)
+            ret["prefix"] = normalize(install_req.name)
             if hasattr(install_req, "specifier"):
                 specifier = install_req.specifier
             else:
@@ -352,7 +370,7 @@ def _pep440_version_cmp(pkg1, pkg2, ignore_epoch=False):
         if salt.utils.versions.Version(pkg1) > salt.utils.versions.Version(pkg2):
             return 1
     except Exception as exc:  # pylint: disable=broad-except
-        logger.exception(
+        logger.debug(
             'Comparison of package versions "%s" and "%s" failed: %s', pkg1, pkg2, exc
         )
     return None
@@ -867,9 +885,10 @@ def installed(
             )
         # If we fail, then just send False, and we'll try again in the next function call
         except Exception as exc:  # pylint: disable=broad-except
-            logger.exception(
+            logger.warning(
                 "Pre-caching of PIP packages during states.pip.installed failed by exception from pip.list: %s",
                 exc,
+                exc_info=True,
             )
             pip_list = False
 

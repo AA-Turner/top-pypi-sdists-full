@@ -12,6 +12,8 @@ from chalk._gen.chalk.streaming.v1.debug_service_pb2 import (
     DisableDebugModeResponse,
     EnableDebugModeRequest,
     EnableDebugModeResponse,
+    GetAggregateMessagesRequest,
+    GetAggregateMessagesResponse,
     GetDebugMessagesRequest,
     GetDebugMessagesResponse,
     GetDebugMessagesV2Request,
@@ -87,6 +89,11 @@ class StreamingDebugServiceStub:
         WatchDebugStreamResponse,
     ]
     """Watch for new debug files in cloud storage and stream them back"""
+    GetAggregateMessages: UnaryUnaryMultiCallable[
+        GetAggregateMessagesRequest,
+        GetAggregateMessagesResponse,
+    ]
+    """Get recent aggregate debug messages as a single concatenated parquet blob."""
     PushTopic: UnaryUnaryMultiCallable[
         PushTopicRequest,
         PushTopicResponse,
@@ -157,6 +164,13 @@ class StreamingDebugServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> Iterator[WatchDebugStreamResponse]:
         """Watch for new debug files in cloud storage and stream them back"""
+    @abstractmethod
+    def GetAggregateMessages(
+        self,
+        request: GetAggregateMessagesRequest,
+        context: ServicerContext,
+    ) -> GetAggregateMessagesResponse:
+        """Get recent aggregate debug messages as a single concatenated parquet blob."""
     @abstractmethod
     def PushTopic(
         self,

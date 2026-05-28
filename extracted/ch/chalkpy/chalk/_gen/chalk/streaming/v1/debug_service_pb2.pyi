@@ -155,6 +155,32 @@ class GetDebugMessagesV2Response(_message.Message):
         feature_expressions: _Optional[_Mapping[str, StreamingFeatureExpression]] = ...,
     ) -> None: ...
 
+class GetAggregateMessagesRequest(_message.Message):
+    __slots__ = ("resolver_fqn", "start_timestamp_inclusive", "end_timestamp_exclusive", "max_messages")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    START_TIMESTAMP_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    END_TIMESTAMP_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    MAX_MESSAGES_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    start_timestamp_inclusive: _timestamp_pb2.Timestamp
+    end_timestamp_exclusive: _timestamp_pb2.Timestamp
+    max_messages: int
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        start_timestamp_inclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_timestamp_exclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        max_messages: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetAggregateMessagesResponse(_message.Message):
+    __slots__ = ("parquet", "error")
+    PARQUET_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    parquet: bytes
+    error: str
+    def __init__(self, parquet: _Optional[bytes] = ..., error: _Optional[str] = ...) -> None: ...
+
 class StreamingDebugMessage(_message.Message):
     __slots__ = (
         "message_id",

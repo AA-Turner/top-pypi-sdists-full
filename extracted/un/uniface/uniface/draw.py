@@ -24,6 +24,7 @@ __all__ = [
     'draw_head_pose',
     'draw_head_pose_axis',
     'draw_head_pose_cube',
+    'draw_quality_score',
     'draw_text_label',
     'draw_tracks',
     'vis_parsing_maps',
@@ -52,26 +53,28 @@ FACE_PARSING_LABELS = [
     'hat',
 ]
 
-# Color palette for face parsing visualization
+# Color palette for face parsing visualization (BGR).
+# Element-reversed from the standard CelebAMask-HQ RGB palette so the visual
+# class→color mapping matches what users saw with the original implementation.
 FACE_PARSING_COLORS = [
     [0, 0, 0],
-    [255, 85, 0],
-    [255, 170, 0],
-    [255, 0, 85],
-    [255, 0, 170],
-    [0, 255, 0],
-    [85, 255, 0],
-    [170, 255, 0],
-    [0, 255, 85],
-    [0, 255, 170],
-    [0, 0, 255],
-    [85, 0, 255],
-    [170, 0, 255],
     [0, 85, 255],
     [0, 170, 255],
-    [255, 255, 0],
-    [255, 255, 85],
-    [255, 255, 170],
+    [85, 0, 255],
+    [170, 0, 255],
+    [0, 255, 0],
+    [0, 255, 85],
+    [0, 255, 170],
+    [85, 255, 0],
+    [170, 255, 0],
+    [255, 0, 0],
+    [255, 0, 85],
+    [255, 0, 170],
+    [255, 85, 0],
+    [255, 170, 0],
+    [0, 255, 255],
+    [85, 255, 255],
+    [170, 255, 255],
     [255, 0, 255],
 ]
 
@@ -577,6 +580,67 @@ def draw_head_pose(
         )
 
 
+def draw_quality_score(
+    image: np.ndarray,
+    bbox: list[int] | np.ndarray,
+    score: float,
+    *,
+    draw_bbox: bool = True,
+    corner_bbox: bool = True,
+    low_threshold: float = 0.3,
+    high_threshold: float = 0.6,
+) -> None:
+    """Draw a face image quality score with a color-coded label.
+
+    Color encoding (BGR):
+    - Red    if score < low_threshold
+    - Orange if low_threshold <= score < high_threshold
+    - Green  if score >= high_threshold
+
+    Modifies the image in-place.
+
+    Args:
+        image: Input image to draw on (modified in-place).
+        bbox: Face bounding box in xyxy format ``[x1, y1, x2, y2]``.
+        score: Quality score in [0, 1]. Higher = better quality.
+        draw_bbox: Whether to draw the bounding box. Defaults to True.
+        corner_bbox: Use corner-style bounding box. Defaults to True.
+        low_threshold: Below this, the label is drawn in red. Defaults to 0.3.
+        high_threshold: At/above this, the label is drawn in green. Defaults to 0.6.
+
+    Example:
+        >>> from uniface.draw import draw_quality_score
+        >>> draw_quality_score(image, face.bbox, result.score)
+    """
+    x_min, y_min, x_max, y_max = map(int, bbox[:4])
+
+    if score < low_threshold:
+        color = (0, 0, 255)  # red
+    elif score < high_threshold:
+        color = (0, 165, 255)  # orange
+    else:
+        color = (0, 255, 0)  # green
+
+    line_thickness = max(round(sum(image.shape[:2]) / 2 * 0.003), 2)
+
+    if draw_bbox:
+        if corner_bbox:
+            draw_corner_bbox(image, bbox, color=color, thickness=line_thickness)
+        else:
+            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color, line_thickness)
+
+    font_scale = max(0.4, min(0.7, (y_max - y_min) / 200))
+    draw_text_label(
+        image,
+        f'Q:{score:.2f}',
+        x_min,
+        y_min,
+        bg_color=color,
+        text_color=(255, 255, 255),
+        font_scale=font_scale,
+    )
+
+
 def draw_tracks(
     *,
     image: np.ndarray,
@@ -653,7 +717,7 @@ def vis_parsing_maps(
     """Visualize face parsing segmentation mask by overlaying colored regions.
 
     Args:
-        image: Input face image in RGB format with shape ``(H, W, 3)``.
+        image: Input face image in BGR format with shape ``(H, W, 3)``.
         segmentation_mask: Segmentation mask with shape ``(H, W)`` where each
             pixel value represents a facial component class (0-18).
         save_image: Whether to save the visualization to disk. Defaults to False.
@@ -669,22 +733,20 @@ def vis_parsing_maps(
         >>> parser = BiSeNet()
         >>> face_image = cv2.imread('face.jpg')
         >>> mask = parser.parse(face_image)
-        >>> face_rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
-        >>> result = vis_parsing_maps(face_rgb, mask)
+        >>> result = vis_parsing_maps(face_image, mask)
         >>> cv2.imwrite('parsed_face.jpg', result)
     """
     image = np.array(image).copy().astype(np.uint8)
     segmentation_mask = segmentation_mask.copy().astype(np.uint8)
 
-    # Create a color mask
+    # Create a color mask in BGR format
     max_class = int(segmentation_mask.max())
     palette = np.zeros((max(max_class + 1, len(FACE_PARSING_COLORS)), 3), dtype=np.uint8)
     palette[: len(FACE_PARSING_COLORS)] = FACE_PARSING_COLORS
     segmentation_mask_color = palette[segmentation_mask]
 
-    # Convert image to BGR format for blending
-    bgr_image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    blended_image = cv2.addWeighted(bgr_image, 0.6, segmentation_mask_color, 0.4, 0)
+    # Blend image and color mask directly (both in BGR format)
+    blended_image = cv2.addWeighted(image, 0.6, segmentation_mask_color, 0.4, 0)
 
     if save_image:
         cv2.imwrite(save_path, blended_image, [int(cv2.IMWRITE_JPEG_QUALITY), 100])

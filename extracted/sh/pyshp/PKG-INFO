@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyshp
-Version: 3.0.8
+Version: 3.0.9
 Summary: Pure Python read/write support for ESRI Shapefile format
 Project-URL: Repository, https://github.com/GeospatialPython/pyshp
 Author-email: Joel Lawhead <jlawhead@geospatialpython.com>
@@ -30,8 +30,8 @@ The Python Shapefile Library (PyShp) reads and writes ESRI Shapefiles in pure Py
 
 - **Author**: [Joel Lawhead](https://github.com/GeospatialPython)
 - **Maintainers**: [James Parrott](https://github.com/JamesParrott) & [Karim Bahgat](https://github.com/karimbahgat)
-- **Version**: 3.0.8
-- **Date**: 20th May 2026
+- **Version**: 3.0.9
+- **Date**: 27th May 2026
 - **License**: [MIT](https://github.com/GeospatialPython/pyshp/blob/master/LICENSE.TXT)
 
 ## Contents
@@ -115,6 +115,31 @@ part of your geospatial project.
 
 # Version Changes
 
+## 3.0.9
+### Testing
+ - Try to make tests not rely on downloads from Github repo URLs, to avoid 404s & 426s due to rate limits.
+
+### Testability / separation of concerns:
+ - Separate shx and shp only methods into new ShpWriter, ShxWriter, ShpReader, and ShxReader classes
+(instances of each pair is owned by the regular Shapefile Writer and Reader classes respectively).
+
+
+### Bug fixes
+ - Remove ambiguity in API (BREAKING CHANGE). Reader and Writer now both raise TypeError
+    when passed a supported Shapefile target
+	as the positional-only, non-keyword arg, but also passed kwargs for shp, dbf or shx (instead
+	of silently dropping or overwriting those kwargs, with the user being none the wiser).
+ - Bug fix (BREAKING CHANGE).  Reader and Writer now raise TypeError instead of continuing silently
+   as if given no args (e.g. in anticipation of a subsequent call to Reader.load), when passed an unsupported
+	truthy Python object (not a str or a Path) as its first arg (the positional-only, non-keyword arg).
+
+ - BREAKING CHANGE. Correct NODATA lower threshold to -1e38 (as per [spec](https://www.esri.com/content/dam/esrisites/sitecore-archive/Files/Pdfs/library/whitepapers/pdfs/shapefile.pdf) 2, Numeric Types). This is 10% of
+ PyShp's previous threshold -10e38, so it is possible large negative values x (-1e39 < x < -1e38 will now be NODATA.
+
+
+### Security
+ - Add python_version >= 3.10 to pre-commit dev & lint groups' 'dependency' (due to CVE in filelock 3.19).
+
 ## 3.0.8
 
 ### Testability / separation of concerns.
@@ -130,7 +155,7 @@ part of your geospatial project.
 
 ### URL Downloading
  - Unify tempfile creation and shapefile download logic.
- - Check "Content-Type" header and sniff initial bytes 
+ - Check "Content-Type" header and sniff initial bytes
    of response in order to possibly reject html responses, before parsing as a shapefile, to give a more useful error to users.
  - Special case shapefiles hosted in Github repos to suggest appending the query string `?raw=true`.
 
@@ -445,10 +470,10 @@ Finally, you can use all of the above methods to read shapefiles directly from t
 
 
 	>>> # from a zipped shapefile on website
-	>>> sf = shapefile.Reader("https://github.com/JamesParrott/PyShp_test_shapefile/raw/main/gis_osm_natural_a_free_1.zip")
+	>>> sf = shapefile.Reader("https://geodata.ucdavis.edu/gadm/gadm4.1/shp/gadm41_ATA_shp.zip")
 
 	>>> # from a shapefile collection of files in a github repository
-	>>> sf = shapefile.Reader("https://github.com/nvkelso/natural-earth-vector/blob/master/110m_cultural/ne_110m_admin_0_tiny_countries.shp?raw=true")
+	>>> sf = shapefile.Reader("https://pubs.usgs.gov/of/2000/of00-006/gisdata/coverage/airports.shp")
 
 This will automatically download the file(s) to a temporary location before reading, saving you a lot of time and repetitive boilerplate code when you just want quick access to some external data.
 
@@ -532,7 +557,7 @@ and the bounding box area the shapefile covers:
 	>>> len(sf)
 	663
 	>>> sf.bbox
-	(-122.515048, 37.652916, -122.327622, 37.863433)
+	BBox(xmin=-122.515048, ymin=37.652916, xmax=-122.327622, ymax=37.863433)
 
 Finally, if you would prefer to work with the entire shapefile in a different
 format, you can convert all of it to a GeoJSON dictionary, although you may lose
@@ -945,6 +970,7 @@ length of text values to save space:
 
 	>>> r = shapefile.Reader('shapefiles/test/dtype')
 	>>> assert r.record(0) == ['Hello', 'World', 'World'*50]
+	>>> r.close()
 
 Date fields are created using the 'D' type, and can be created using either
 date objects, lists, or a YYYYMMDD formatted string.
@@ -969,6 +995,7 @@ Field length or decimal have no impact on this type:
 	>>> assert r.record(1) == [date(1998,1,30)]
 	>>> assert r.record(2) == [date(1998,1,30)]
 	>>> assert r.record(3) == [None]
+	>>> r.close()
 
 Numeric fields are created using the 'N' type (or the 'F' type, which is exactly the same).
 By default the fourth decimal argument is set to zero, essentially creating an integer field.
@@ -994,6 +1021,7 @@ To store very large numbers you must increase the field length size to the total
 	>>> r = shapefile.Reader('shapefiles/test/dtype')
 	>>> assert r.record(0) == [1, 1.32, 1.3217328, -3.2302e-25, 1.3217328, 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000]
 	>>> assert r.record(1) == [None, None, None, None, None, None]
+	>>> r.close()
 
 
 Finally, we can create boolean fields by setting the type to 'L'.
@@ -1030,6 +1058,7 @@ None is interpreted as missing.
 	Record #4: [None]
 	>>> r.record(5)
 	Record #5: [None]
+	>>> r.close()
 
 You can also add attributes using keyword arguments where the keys are field names.
 
@@ -1155,6 +1184,7 @@ This can be particularly useful for copying from one file to another:
 	...     w.record(*shaperec.record)
 	...     w.shape(shaperec.shape.__geo_interface__)
 
+	>>> r.close()
 	>>> w.close()
 
 
@@ -1261,7 +1291,7 @@ For reading shapefiles in any non-utf8 encoding, such as Latin-1, just
 supply the encoding option when creating the Reader class.
 
 
-	>>> r = shapefile.Reader("shapefiles/test/latin1.shp", encoding="latin1")
+	>>> r = shapefile.Reader("shapefiles/latin1.shp", encoding="latin1")
 	>>> r.record(0) == [2, u'Ñandú']
 	True
 
@@ -1274,11 +1304,13 @@ should give you the same unicode string you started with.
 	>>> w.fields = r.fields[1:]
 	>>> w.record(*r.record(0))
 	>>> w.null()
+	>>> r.close()
 	>>> w.close()
 
 	>>> r = shapefile.Reader("shapefiles/test/latin_as_utf8.shp", encoding="utf8")
 	>>> r.record(0) == [2, u'Ñandú']
 	True
+	>>> r.close()
 
 If you supply the wrong encoding and the string is unable to be decoded, PyShp will by default raise an
 exception. If however, on rare occasion, you are unable to find the correct encoding and want to ignore
@@ -1286,9 +1318,10 @@ or replace encoding errors, you can specify the "encodingErrors" to be used by t
 applies to both reading and writing.
 
 
-	>>> r = shapefile.Reader("shapefiles/test/latin1.shp", encoding="ascii", encodingErrors="replace")
+	>>> r = shapefile.Reader("shapefiles/latin1.shp", encoding="ascii", encodingErrors="replace")
 	>>> r.record(0) == [2, u'�and�']
 	True
+	>>> r.close()
 
 
 
@@ -1302,7 +1335,7 @@ of records and complex geometries.
 As an example, let's load this Natural Earth shapefile of more than 4000 global administrative boundary polygons:
 
 
-	>>> sf = shapefile.Reader("https://github.com/nvkelso/natural-earth-vector/blob/master/10m_cultural/ne_10m_admin_1_states_provinces?raw=true")
+	>>> sf = shapefile.Reader("https://archive.org/download/ne_10m_admin_1_states_provinces/ne_10m_admin_1_states_provinces.zip")
 
 When first creating the Reader class, the library only reads the header information
 and leaves the rest of the file contents alone. Once you call the records() and shapes()
@@ -1491,10 +1524,12 @@ Shapefiles containing M-values can be examined in several ways:
 	>>> r = shapefile.Reader('shapefiles/test/linem')
 
 	>>> r.mbox # the lower and upper bound of M-values in the shapefile
-	(0.0, 3.0)
+	MBox(mmin=0.0, mmax=3.0)
 
 	>>> r.shape(0).m # flat list of M-values
 	[0.0, None, 3.0, None, 0.0, None, None]
+
+	>>> r.close()
 
 
 ### Shapefiles with elevation (Z) values
@@ -1524,10 +1559,12 @@ To examine a Z-type shapefile you can do:
 	>>> r = shapefile.Reader('shapefiles/test/linez')
 
 	>>> r.zbox # the lower and upper bound of Z-values in the shapefile
-	(0.0, 22.0)
+	ZBox(zmin=0.0, zmax=22.0)
 
 	>>> r.shape(0).z # flat list of Z-values
 	[18.0, 20.0, 22.0, 0.0, 0.0, 0.0, 0.0, 15.0, 13.0, 14.0]
+
+	>>> r.close()
 
 ### 3D MultiPatch Shapefiles
 
@@ -1588,8 +1625,6 @@ installed) from the test file:
 python test_shapefile.py
 ```
 
-Linux/Mac and similar platforms may need to run `$ dos2unix README.md` in order
-to correct line endings in README.md, if Git has not automatically changed them.
 
 ## Network tests
 
@@ -1603,7 +1638,7 @@ pytest -m "not network"
 ```
 or the doctests via:
 ```shell
-python shapefile.py -m "not network"
+python test_shapefile.py -m "not network"
 ```
 or ii) by cloning a repo of the files they download, serving these on localhost in a separate process,
 and running the network tests with the environment variable REPLACE_REMOTE_URLS_WITH_LOCALHOST to `yes`:
@@ -1619,7 +1654,7 @@ REPLACE_REMOTE_URLS_WITH_LOCALHOST=yes && pytest
 ```
 or the doctests via:
 ```bash
-REPLACE_REMOTE_URLS_WITH_LOCALHOST=yes && python shapefile.py
+REPLACE_REMOTE_URLS_WITH_LOCALHOST=yes && python test_shapefile.py
 ```
 The network tests alone can also be run (without also running all the tests that don't
 make network requests) using: `pytest -m network` (or the doctests using: `python shapefile.py -m network`).

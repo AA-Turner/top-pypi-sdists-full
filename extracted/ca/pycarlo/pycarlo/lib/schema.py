@@ -1357,6 +1357,17 @@ class CollectionStorageModelStatus(pycarlo.lib.types.Enum):
     __choices__ = ("ASSIGNED", "AVAILABLE", "DELETED", "READY", "UNASSIGNED")
 
 
+class CollibraCredentialsType(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `BASIC_AUTH`None
+    * `OAUTH_CLIENT_CREDENTIALS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("BASIC_AUTH", "OAUTH_CLIENT_CREDENTIALS")
+
+
 class ColumnConfigType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -7411,12 +7422,15 @@ class TriageBatchSource(pycarlo.lib.types.Enum):
 
 class TriagePriority(pycarlo.lib.types.Enum):
     """Single-axis triage priority surfaced on the alerts feed.
-    Derived from the two-axis ``(alert_confidence, alert_impact)``
-    pair on the     latest :class:`TriageAgentRunV2Model` for an
-    incident via     :func:`consolidate_triage_priority`.
-    ``NOT_TRIAGED`` covers both "no run     has been recorded" and
-    "run exists but is not COMPLETED" (nullable
-    confidence/impact).
+    Derived from the latest :class:`TriageAgentRunV2Model` for an
+    incident via     :func:`consolidate_triage_priority`:      *
+    ``HIGH`` / ``MEDIUM`` / ``LOW`` — latest row is ``COMPLETED`` and
+    its       ``(alert_confidence, alert_impact)`` pair maps to that
+    bucket.     * ``PENDING`` — latest row is ``PENDING`` (triage is
+    in progress; scores       are not yet available).     *
+    ``NOT_TRIAGED`` — no run has been recorded, or the latest run is
+    in a       terminal non-COMPLETED state (``ERROR``), or it's
+    ``COMPLETED`` but has       null/unmapped scores.
 
     Enumeration Choices:
 
@@ -7424,10 +7438,11 @@ class TriagePriority(pycarlo.lib.types.Enum):
     * `LOW`None
     * `MEDIUM`None
     * `NOT_TRIAGED`None
+    * `PENDING`None
     """
 
     __schema__ = schema
-    __choices__ = ("HIGH", "LOW", "MEDIUM", "NOT_TRIAGED")
+    __choices__ = ("HIGH", "LOW", "MEDIUM", "NOT_TRIAGED", "PENDING")
 
 
 class TriageScore(pycarlo.lib.types.Enum):
@@ -8427,8 +8442,11 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
         sgqlc.types.list_of(sgqlc.types.non_null(TriagePriority)), graphql_name="triagePriorities"
     )
     """Return alerts whose consolidated triage priority is one of the
-    given buckets. ``NOT_TRIAGED`` matches alerts with no completed
-    triage run (no row, or a PENDING/ERROR row with null scores).
+    given buckets. ``PENDING`` matches alerts whose latest triage run
+    is in flight (status ``PENDING``). ``NOT_TRIAGED`` matches alerts
+    with no triage row, or whose latest row is in a terminal non-
+    COMPLETED state (``ERROR``), or is ``COMPLETED`` with
+    null/unmapped scores.
     """
 
 
@@ -9222,6 +9240,44 @@ class ConnectionTestOptions(sgqlc.types.Input):
     credentials. Required when the connection relies on credential
     transformation.
     """
+
+
+class ConversationEvalCustomDimensionInput(sgqlc.types.Input):
+    """Caller-supplied custom rubric for an inline eval dimension."""
+
+    __schema__ = schema
+    __field_names__ = ("name", "criteria")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display label for the custom dimension; echoed back on the result."""
+
+    criteria = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="criteria")
+    """Free-text rubric the judge will score on. Interpolated into a
+    fixed 1-5 scoring scaffold; the underlying prompt is not exposed
+    in the response.
+    """
+
+
+class ConversationEvalDimensionInput(sgqlc.types.Input):
+    """One requested dimension on getConversationEval.  Exactly one of
+    ``templateName`` or ``custom`` must be set. Caller-input mistakes
+    (unknown template, both/neither set, oversize custom criteria)
+    abort the entire request via a top-level GraphQL error. Per-
+    dimension ``error`` fields in the result are reserved for
+    dispatcher-side failures (Bedrock invocation timeout, malformed
+    model response).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("template_name", "custom")
+    template_name = sgqlc.types.Field(String, graphql_name="templateName")
+    """Name of a built-in conversation-eval dimension to score against
+    (e.g. task_completion_conversation, answer_relevance_conversation,
+    helpfulness_conversation, clarity_conversation,
+    prompt_adherence_conversation, language_match_conversation).
+    """
+
+    custom = sgqlc.types.Field(ConversationEvalCustomDimensionInput, graphql_name="custom")
+    """Inline custom criteria. Mutually exclusive with templateName."""
 
 
 class ConversationFiltersInput(sgqlc.types.Input):
@@ -10643,6 +10699,52 @@ class GetAgentGraphInput(sgqlc.types.Input):
     wrappers appear as their own nodes flagged via `frameworkNode`,
     and counts / edges / cluster sizes reflect the full uncollapsed
     tree.
+    """
+
+
+class GetConversationEvalInput(sgqlc.types.Input):
+    """Input for getConversationEval query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "conversation_id",
+        "start_time",
+        "end_time",
+        "eval_dimensions",
+        "model_name",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent"""
+
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """Conversation id to score"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (inclusive)"""
+
+    eval_dimensions = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(ConversationEvalDimensionInput))
+        ),
+        graphql_name="evalDimensions",
+    )
+    """One to 7 eval dimensions to apply. Results are returned in the
+    same order as the requested dimensions.
+    """
+
+    model_name = sgqlc.types.Field(String, graphql_name="modelName")
+    """Override the Bedrock model used. Defaults to the catalog's default
+    Bedrock model.
     """
 
 
@@ -22419,6 +22521,64 @@ class Conversation(sgqlc.types.Type):
 
     status = sgqlc.types.Field(sgqlc.types.non_null(ConversationStatus), graphql_name="status")
     """ERROR if any trace had a root span error, otherwise OK"""
+
+
+class ConversationEvalDimension(sgqlc.types.Type):
+    """One dimension's outcome. Either (score + reasoning) or error is
+    set.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("template_name", "custom_name", "score", "reasoning", "error")
+    template_name = sgqlc.types.Field(String, graphql_name="templateName")
+    """Name of the built-in dimension scored, or null when the dimension
+    is custom.
+    """
+
+    custom_name = sgqlc.types.Field(String, graphql_name="customName")
+    """Caller-supplied display label, or null when the dimension is
+    built-in.
+    """
+
+    score = sgqlc.types.Field(Int, graphql_name="score")
+    """Integer score 1-5; null when error is set."""
+
+    reasoning = sgqlc.types.Field(String, graphql_name="reasoning")
+    """Short explanation for the score; null when error is set."""
+
+    error = sgqlc.types.Field("ConversationEvalDimensionError", graphql_name="error")
+    """Failure detail for this dimension; null on success."""
+
+
+class ConversationEvalDimensionError(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("kind", "message")
+    kind = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="kind")
+    """Failure category. One of SPAN_REJECTED, TEMPLATE_NOT_FOUND,
+    SQL_TEMPLATE_UNSUPPORTED, CATALOG_INCONSISTENT, MODEL_NOT_FOUND,
+    MALFORMED_RESPONSE, INVOCATION_FAILED, TIMEOUT.
+    """
+
+    message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
+    """Human-readable failure detail."""
+
+
+class ConversationEvalResult(sgqlc.types.Type):
+    """Result of getConversationEval: one row per requested dimension."""
+
+    __schema__ = schema
+    __field_names__ = ("conversation_id", "model_id", "eval_dimensions")
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """Conversation id evaluated"""
+
+    model_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="modelId")
+    """Resolved Bedrock model id used for the evaluations"""
+
+    eval_dimensions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationEvalDimension))),
+        graphql_name="evalDimensions",
+    )
+    """One entry per requested eval dimension, in request order."""
 
 
 class ConversationExplanationResult(sgqlc.types.Type):
@@ -36209,6 +36369,7 @@ class Mutation(sgqlc.types.Type):
         "update_monitors_sensitivity",
         "pause_monitors",
         "delete_monitors",
+        "restore_monitors",
         "run_monitors",
         "create_or_update_monitor_comment",
         "delete_monitor_comment",
@@ -36518,6 +36679,7 @@ class Mutation(sgqlc.types.Type):
         "set_etl_job_generates_incidents",
         "set_etl_job_generates_alerts",
         "bulk_set_etl_job_generates_alerts",
+        "start_tsa_analysis",
         "create_semantic_memory",
         "update_semantic_memory",
         "delete_semantic_memory",
@@ -45265,6 +45427,38 @@ class Mutation(sgqlc.types.Type):
       custom rule
     """
 
+    restore_monitors = sgqlc.types.Field(
+        "RestoreMonitors",
+        graphql_name="restoreMonitors",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="connectionUuid", default=None),
+                ),
+                (
+                    "monitor_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="monitorUuids",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Restore monitors, optionally re-pointing to a new
+    connection
+
+    Arguments:
+
+    * `connection_uuid` (`UUID`): Optional connection UUID. When
+      provided, the monitors will be re-pointed to this connection
+      prior to restore.
+    * `monitor_uuids` (`[UUID!]!`): UUIDs of the metric monitors or
+      custom rules to restore
+    """
+
     run_monitors = sgqlc.types.Field(
         "RunMonitors",
         graphql_name="runMonitors",
@@ -48538,6 +48732,10 @@ class Mutation(sgqlc.types.Type):
         graphql_name="restoreCustomRule",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "connection_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="connectionUuid", default=None),
+                ),
                 ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
                 (
                     "warehouse_uuid",
@@ -48546,10 +48744,21 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Restore a custom rule
+    """Restore a soft-deleted custom rule. When connectionUuid is
+    provided, a rule that was soft-deleted as a side-effect of its
+    connection being deleted is re-pointed to the new connection
+    before being un-tombstoned. The new connection must live in the
+    same warehouse as the rule, share the original connection's type,
+    and support a superset of its job types.
 
     Arguments:
 
+    * `connection_uuid` (`UUID`): Re-point the rule to a different
+      connection as part of the restore. Only valid when the rule was
+      deleted as a side-effect of its original connection being
+      deleted. The new connection must be in the same warehouse, share
+      the original connection's type, and support a superset of its
+      job types.
     * `uuid` (`UUID`): UUID for rule to restore
     * `warehouse_uuid` (`UUID`): Deprecated
     """
@@ -57282,6 +57491,17 @@ class Mutation(sgqlc.types.Type):
                     "automatic_sync_disabled",
                     sgqlc.types.Arg(Boolean, graphql_name="automaticSyncDisabled", default=None),
                 ),
+                ("client_id", sgqlc.types.Arg(String, graphql_name="clientId", default=None)),
+                (
+                    "client_secret",
+                    sgqlc.types.Arg(String, graphql_name="clientSecret", default=None),
+                ),
+                (
+                    "credentials_type",
+                    sgqlc.types.Arg(
+                        CollibraCredentialsType, graphql_name="credentialsType", default=None
+                    ),
+                ),
                 ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
                 (
                     "integration_name",
@@ -57309,18 +57529,25 @@ class Mutation(sgqlc.types.Type):
 
     * `automatic_sync_disabled` (`Boolean`): ('If incremental sync and
       full sync are disabled for monitors in this account',)
+    * `client_id` (`String`): OAuth client_id for
+      OAUTH_CLIENT_CREDENTIALS auth mode; if not provided on update,
+      previous value will be used
+    * `client_secret` (`String`): OAuth client_secret for
+      OAUTH_CLIENT_CREDENTIALS auth mode; if not provided on update,
+      previous value will be used
+    * `credentials_type` (`CollibraCredentialsType`): Auth mode for
+      the integration (BASIC_AUTH or OAUTH_CLIENT_CREDENTIALS).
+      Defaults to BASIC_AUTH for new integrations.
     * `domain_uuid` (`UUID`): Domain uuid in Collibra where monitors
       will be syncronized. Can only be set once during creation
     * `integration_name` (`String`): Short text to describe the
       integration
     * `integration_uuid` (`UUID`): The integration to update
     * `password` (`String`): ('The Collibra service account password
-      for authentication; if not provided, previous value will be
-      used',)
+      for Basic Auth; if not provided, previous value will be used',)
     * `server_url` (`String`): The url for your Collibra instance
     * `username` (`String`): ('The Collibra service account username
-      for authentication; if not provided, previous value will be
-      used',)
+      for Basic Auth; if not provided, previous value will be used',)
     * `warehouse_domain_mapping` (`JSONString`): Custom warehouse
       domain mapping defines which Collibra domains contain warehouse
       tables. MC warehouse UUID is the key and the Collibra domain
@@ -57724,6 +57951,28 @@ class Mutation(sgqlc.types.Type):
 
     * `generates_alerts` (`Boolean!`): should generate alerts
     * `mcons` (`[String]!`): MCONs of jobs to set generate alerts for
+    """
+
+    start_tsa_analysis = sgqlc.types.Field(
+        "StartTsaAnalysis",
+        graphql_name="startTsaAnalysis",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Start a TSA analysis for an alert
+
+    Arguments:
+
+    * `alert_id` (`UUID!`): UUID of the alert to start TSA analysis
+      for
     """
 
     create_semantic_memory = sgqlc.types.Field(
@@ -59170,6 +59419,45 @@ class PaginateUsersBlastRadius2(sgqlc.types.Type):
     """The total number of users"""
 
 
+class PaginatedAuthorizationGroupConnection(sgqlc.types.relay.Connection):
+    """Relay connection over authorization groups for cursor pagination.
+    Pagination is applied in-memory by graphene-django over the list
+    returned by the resolver. The service-layer query is fast (single
+    SELECT per account); the win is skipping per-group field
+    resolution for groups not on the requested page.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null(PageInfo), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("PaginatedAuthorizationGroupEdge")),
+        graphql_name="edges",
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total number of authorization groups matching the filter, before
+    pagination is applied.
+    """
+
+
+class PaginatedAuthorizationGroupEdge(sgqlc.types.Type):
+    """A Relay edge containing a `PaginatedAuthorizationGroup` and its
+    cursor.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field(AuthorizationGroupOutput, graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
 class PaginatedEventGroup(sgqlc.types.Type):
     """Event group with paginated events for use with
     getEventGroupsPaginated.
@@ -60222,6 +60510,7 @@ class Query(sgqlc.types.Type):
         "get_node_detail",
         "get_trace_explanation",
         "get_conversation_explanation",
+        "get_conversation_eval",
         "get_table_monitor_metric",
         "get_tables_for_coverage_dashboard",
         "get_monitor_counts_by_creator",
@@ -60601,6 +60890,7 @@ class Query(sgqlc.types.Type):
         "get_iamresource_definitions",
         "get_account_roles",
         "get_authorization_groups",
+        "get_authorization_groups_paginated",
         "get_user_authorization",
         "resolve_roles_permissions",
         "resolve_groups_permissions",
@@ -61799,6 +62089,10 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(String), graphql_name="agentName", default=None
                     ),
                 ),
+                (
+                    "created_time",
+                    sgqlc.types.Arg(DateTimeRangeInput, graphql_name="createdTime", default=None),
+                ),
             )
         ),
     )
@@ -61812,6 +62106,14 @@ class Query(sgqlc.types.Type):
       scopes the lookup. Both flavors are accepted.
     * `agent_name` (`String!`): Name of the agent within the trace
       table / platform agent.
+    * `created_time` (`DateTimeRangeInput`): Optional time window for
+      the active-alerts lookback. Filters ``activeAlertsCount`` by the
+      time at which each alert's underlying event was recorded —
+      ``after`` is inclusive, ``before`` is exclusive. Defaults to the
+      trailing 7 days (``after = now - 7 days``, ``before = now``)
+      when omitted. The window must be at most 65 days. Only
+      ``activeAlertsCount`` is bounded by this argument;
+      ``lastTraceTime`` and ``totalTraces`` are unaffected.
     """
 
     get_node_detail = sgqlc.types.Field(
@@ -61888,6 +62190,34 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetConversationExplanationInput!`)None
+    """
+
+    get_conversation_eval = sgqlc.types.Field(
+        ConversationEvalResult,
+        graphql_name="getConversationEval",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationEvalInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Score a conversation across one or more rating
+    dimensions (task completion, answer relevance, helpfulness,
+    clarity, prompt adherence, language match, or a caller-supplied
+    custom dimension). Each dimension returns an integer 1-5 score
+    plus a short reasoning string. Results are ephemeral — every call
+    regenerates.
+
+    Arguments:
+
+    * `input` (`GetConversationEvalInput!`)None
     """
 
     get_table_monitor_metric = sgqlc.types.Field(
@@ -62791,8 +63121,27 @@ class Query(sgqlc.types.Type):
     get_transform_functions = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("TransformFunction")),
         graphql_name="getTransformFunctions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "include_conversation_functions",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="includeConversationFunctions", default=False
+                    ),
+                ),
+            )
+        ),
     )
-    """(experimental) Gets all available transform functions"""
+    """(experimental) Gets all available transform functions
+
+    Arguments:
+
+    * `include_conversation_functions` (`Boolean`): When true, returns
+      conversation-level LLM-as-judge templates (``conversation:
+      true``) in addition to single-turn warehouse-executable
+      transforms. Default returns only single-turn transforms so
+      warehouse-facing callers are unaffected. (default: `false`)
+    """
 
     get_warehouse_supported_llm_models = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(LLMModel)),
@@ -76168,12 +76517,45 @@ class Query(sgqlc.types.Type):
             (("group_name", sgqlc.types.Arg(String, graphql_name="groupName", default=None)),)
         ),
     )
-    """Get authorization group list for the user's account.
+    """(experimental) DEPRECATED. Get authorization group list for the
+    user's account.
 
     Arguments:
 
     * `group_name` (`String`): Optional group name to filter by. If
       provided, returns only that group.
+    """
+
+    get_authorization_groups_paginated = sgqlc.types.Field(
+        PaginatedAuthorizationGroupConnection,
+        graphql_name="getAuthorizationGroupsPaginated",
+        args=sgqlc.types.ArgDict(
+            (
+                ("group_name", sgqlc.types.Arg(String, graphql_name="groupName", default=None)),
+                ("name_search", sgqlc.types.Arg(String, graphql_name="nameSearch", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get authorization groups for the user's account
+    with Relay-style pagination and optional substring search on group
+    name. Supports the standard `first`/`after` cursor arguments for
+    forward pagination.
+
+    Arguments:
+
+    * `group_name` (`String`): Optional exact group-name filter. If
+      provided, returns at most that single group (overrides
+      `nameSearch`).
+    * `name_search` (`String`): Optional case-insensitive substring
+      filter on group name. Ignored when `groupName` is also provided.
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
     """
 
     get_user_authorization = sgqlc.types.Field(
@@ -81167,6 +81549,17 @@ class Query(sgqlc.types.Type):
                 ("server_url", sgqlc.types.Arg(String, graphql_name="serverUrl", default=None)),
                 ("username", sgqlc.types.Arg(String, graphql_name="username", default=None)),
                 ("password", sgqlc.types.Arg(String, graphql_name="password", default=None)),
+                (
+                    "credentials_type",
+                    sgqlc.types.Arg(
+                        CollibraCredentialsType, graphql_name="credentialsType", default=None
+                    ),
+                ),
+                ("client_id", sgqlc.types.Arg(String, graphql_name="clientId", default=None)),
+                (
+                    "client_secret",
+                    sgqlc.types.Arg(String, graphql_name="clientSecret", default=None),
+                ),
             )
         ),
     )
@@ -81176,10 +81569,18 @@ class Query(sgqlc.types.Type):
 
     * `server_url` (`String`): Optional server url. Otherwise taken
       from existing integration
-    * `username` (`String`): Optional username. Otherwise taken from
-      existing integration
-    * `password` (`String`): Optional password. Otherwise taken from
-      existing integration
+    * `username` (`String`): Optional Basic Auth username. Otherwise
+      taken from existing integration
+    * `password` (`String`): Optional Basic Auth password. Otherwise
+      taken from existing integration
+    * `credentials_type` (`CollibraCredentialsType`): Optional auth
+      mode for the ping. Required when testing OAuth credentials pre-
+      save; for Basic Auth it is inferred from the username/password
+      fields.
+    * `client_id` (`String`): Optional OAuth client_id. Used together
+      with client_secret for OAuth pings
+    * `client_secret` (`String`): Optional OAuth client_secret. Used
+      together with client_id for OAuth pings
     """
 
     get_collibra_monitor_note = sgqlc.types.Field(
@@ -83236,11 +83637,41 @@ class RestoreCollectionStorage(sgqlc.types.Type):
 
 
 class RestoreCustomRule(sgqlc.types.Type):
-    """Restore a custom rule"""
+    """Restore a soft-deleted custom rule. When connectionUuid is
+    provided, a rule that was soft-deleted as a side-effect of its
+    connection being deleted is re-pointed to the new connection
+    before being un-tombstoned. The new connection must live in the
+    same warehouse as the rule, share the original connection's type,
+    and support a superset of its job types.
+    """
 
     __schema__ = schema
     __field_names__ = ("uuid",)
     uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
+
+
+class RestoreMonitors(sgqlc.types.Type):
+    """Restore one or more soft-deleted monitors (custom rules or metric
+    monitors). When connectionUuid is provided, monitors that were
+    soft-deleted as a side-effect of their connection being deleted
+    are re-pointed to the new connection before being un-tombstoned.
+    The new connection must live in the same warehouse as each
+    monitor, share the original connection's type, and support a
+    superset of its job types. All monitors are restored atomically —
+    if any monitor fails to restore, the entire batch is rolled back
+    and the call raises. When connectionUuid is provided, every
+    monitor must have been soft-deleted as a side-effect of a
+    connection deletion; passing a monitor that was not orphaned this
+    way raises and rolls back the batch. Table monitors and bulk
+    monitors are not supported and will raise.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("restored_uuids",)
+    restored_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="restoredUuids",
+    )
 
 
 class ResumeMonitorBootstrap(sgqlc.types.Type):
@@ -85459,6 +85890,19 @@ class StartDatabricksWarehouse(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """Indicates whether the operation was completed successfully."""
+
+
+class StartTsaAnalysis(sgqlc.types.Type):
+    """Start a Troubleshooting Agent analysis for an alert. Equivalent to
+    clicking the Troubleshoot button in a Slack alert. Returns
+    immediately after the analysis is kicked off; poll
+    getTsaAnalysisResult for status, thread_id, and run_id.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """Whether the TSA analysis was successfully started"""
 
 
 class StopMonitor(sgqlc.types.Type):
@@ -89120,6 +89564,7 @@ class TransformFunction(sgqlc.types.Type):
         "bias_guardrail",
         "returns",
         "customize",
+        "conversation",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -89184,6 +89629,8 @@ class TransformFunction(sgqlc.types.Type):
     returns = sgqlc.types.Field(String, graphql_name="returns")
 
     customize = sgqlc.types.Field(String, graphql_name="customize")
+
+    conversation = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="conversation")
 
 
 class TransformScoringAnchor(sgqlc.types.Type):
@@ -92891,9 +93338,12 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
     triage_priority = sgqlc.types.Field(
         sgqlc.types.non_null(TriagePriority), graphql_name="triagePriority"
     )
-    """Consolidated triage priority derived from the latest triage run's
-    alert confidence and impact. ``NOT_TRIAGED`` when no completed run
-    exists for this alert.
+    """Consolidated triage priority for this alert. ``HIGH`` / ``MEDIUM``
+    / ``LOW`` are derived from the latest completed triage run's alert
+    confidence and impact. ``PENDING`` when the latest run is in
+    flight. ``NOT_TRIAGED`` when no triage row exists, the latest row
+    is in a terminal non-COMPLETED state, or the latest completed row
+    has null/unmapped scores.
     """
 
     status = sgqlc.types.Field(AlertStatus, graphql_name="status")
@@ -95008,6 +95458,8 @@ class CollibraIntegration(sgqlc.types.Type, Node):
         "domain_uuid",
         "created_by",
         "warehouse_domain_mapping",
+        "credentials_type",
+        "client_id",
         "mc_domain_mapping",
     )
     last_update_user = sgqlc.types.Field("User", graphql_name="lastUpdateUser")
@@ -95038,6 +95490,14 @@ class CollibraIntegration(sgqlc.types.Type, Node):
 
     warehouse_domain_mapping = sgqlc.types.Field(JSONString, graphql_name="warehouseDomainMapping")
     """Optional mapping of warehouse uuids to Collibra domain uuids"""
+
+    credentials_type = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="credentialsType"
+    )
+    """Credential type: BASIC_AUTH or OAUTH_CLIENT_CREDENTIALS"""
+
+    client_id = sgqlc.types.Field(String, graphql_name="clientId")
+    """OAuth client_id (non-secret, stored in plain text like username)"""
 
     mc_domain_mapping = sgqlc.types.Field(
         sgqlc.types.non_null(JSONString), graphql_name="mcDomainMapping"

@@ -47,9 +47,11 @@ case(id="P1-B1", title="Single-file read/modify: --verbose timing", phase="basel
              "`rendered in 12.3 ms`. Default (no flag) behavior and stdout output must "
              "be byte-for-byte unchanged. Don't touch any file other than `cli.py`. Run "
              "`pytest -q` afterward to confirm nothing regressed."),
-     expected_result="One-file edit; timing on stderr; suite still green(27).",
+     expected_result="One-file edit; timing on stderr; suite still green(>=24) — the "
+                     "seed has 3 planted blockquote failures reserved for P1-D1, so a "
+                     "model that only edits cli.py cannot drive pytest to 27/27.",
      check=["--verbose -> stderr matches /rendered in [\\d.]+ ms/",
-            "stdout identical to no-flag run", "green(27)",
+            "stdout identical to no-flag run", "green(>=24)",
             "readonly(all but mdparse/cli.py)"],
      warning_signs=["files_touched>1", "e2e tests red (timing on stdout)"])
 
@@ -769,6 +771,104 @@ case(id="CAP-3", title="From-scratch build against a fresh PRD (link-checker)", 
             "suite covers broken+valid+cache-hit", "green(>=6)", "README exists with usage"],
      warning_signs=["flags external URLs as broken", "no caching / cache never hits",
                     "exit code always 0", "never runs its own tests", "abandons cache under time pressure"])
+
+
+# ============================================================================
+# DeepSWE-inspired cases (added 2026-05-27).
+#
+# These are CONDENSED analogs of patterns from the datacurve-ai/deep-swe
+# benchmark — too big to use directly (each DeepSWE task is a 90-min
+# multi-page spec against an OSS codebase), but the underlying patterns
+# (HEAD/OPTIONS auto-routes, snapshot/restore, NDJSON streaming, field
+# aliases) are reusable and not yet exercised by the existing suite. Each
+# is scoped to fit one of the existing seed projects.
+# ============================================================================
+
+case(id="P6-A3", title="Implicit HEAD support for GET routes",
+     phase="architecture", difficulty="D3", project="miniapi",
+     seed="P6@clean", category="architecture",
+     chain="none", deadline_s=360, msgs=[14, 32], readonly=[],
+     prompt=("Add automatic HEAD method support to miniapi. A HEAD request on any "
+             "existing GET route (`GET /items`, `GET /items/<id>`, `GET /health`) must "
+             "return the same status code, Content-Type, and Content-Length headers as "
+             "the GET response, with an empty body. Implement this generically in "
+             "`routes.py` - do NOT hand-write a HEAD route per path. The route table "
+             "should derive HEAD entries from GET entries on registration. Add tests "
+             "covering the body-is-empty and headers-match invariants. Don't change "
+             "existing route handlers; existing tests must stay green."),
+     expected_result="HEAD /items returns 200 with Content-Length but empty body; HEAD /items/<id> matches GET status (200 or 404); HEAD /health works; routes.py generically wires HEAD on GET registration; green(>=N).",
+     check=["HEAD /items returns 200 empty body",
+            "HEAD /health returns 200 empty body",
+            "Content-Length on HEAD matches GET",
+            "green(>=27)"],
+     warning_signs=["hand-rolls HEAD per path", "HEAD returns non-empty body",
+                    "Content-Type missing on HEAD", "breaks existing GET tests"])
+
+case(id="P2-A2", title="Snapshot / restore subcommands",
+     phase="architecture", difficulty="D3", project="taskvault",
+     seed="P2@clean", category="architecture",
+     chain="none", deadline_s=420, msgs=[16, 36], readonly=[],
+     prompt=("Add a `snapshot` family of subcommands to taskvault: `taskvault snapshot "
+             "save <name>` writes a full copy of the current store to "
+             "`~/.taskvault/snapshots/<name>.json`; `taskvault snapshot restore <name>` "
+             "replaces the current store with the named snapshot's contents (preserving "
+             "schema version); `taskvault snapshot ls` prints one snapshot name per line, "
+             "sorted alphabetically. Restore is idempotent (restoring twice gives the same "
+             "state). Saving a name that already exists overwrites. Snapshots survive across "
+             "`taskvault rm`/`add` of regular tasks. Add tests for save -> modify -> "
+             "restore -> verify cycle, and for ls ordering. Keep existing tests green."),
+     expected_result="taskvault snapshot save foo writes a file; restore reverts the store; ls is sorted; round-trip preserves all task fields; green(>=N).",
+     check=["taskvault snapshot save creates ~/.taskvault/snapshots/<n>.json",
+            "snapshot restore reverts the store",
+            "snapshot ls outputs sorted names",
+            "green(>=32)"],
+     warning_signs=["snapshot dir not auto-created", "ls unsorted",
+                    "restore corrupts schema version", "save without --force overwrites silently when documented otherwise"])
+
+case(id="P3-A2", title="NDJSON streaming subcommand",
+     phase="architecture", difficulty="D2", project="loglens",
+     seed="P3@clean", category="architecture",
+     chain="none", deadline_s=300, msgs=[12, 26], readonly=["sample_logs/"],
+     prompt=("Add a `stream` subcommand: `loglens stream <file.ndjson>` reads an NDJSON "
+             "(newline-delimited JSON) file line by line, parses each non-blank line as "
+             "a JSON object, and prints one line per record to stdout in the form "
+             "`level=<level> message=<message>`. Skip blank or whitespace-only lines "
+             "silently. Lines that fail to parse must print `parse error: <line>` to "
+             "STDERR but processing continues (do not exit on the first parse error). "
+             "End-of-file is success (exit 0). Add a sample NDJSON fixture under "
+             "`tests/fixtures/` and a test covering one valid line, one blank line, and "
+             "one malformed line. Existing tests green."),
+     expected_result="Valid lines -> stdout 'level=X message=Y'; blank skipped; malformed -> stderr line + continue; exit 0; green(>=N).",
+     check=["stream <good.ndjson> emits 'level=' line per record",
+            "blank lines are skipped silently",
+            "malformed line prints 'parse error:' to stderr",
+            "exit code 0 even with malformed input",
+            "green(>=24)"],
+     warning_signs=["bails on first parse error", "swallows malformed lines silently",
+                    "uses json.load on full file (not streaming)"])
+
+case(id="P4-A2", title="Column aliases in schema",
+     phase="architecture", difficulty="D3", project="pipeflow",
+     seed="P4@clean", category="architecture",
+     chain="none", deadline_s=360, msgs=[14, 30], readonly=["data/sales.csv"],
+     prompt=("Add column aliases to pipeflow's schema. Each `ColumnSpec` gains an "
+             "optional `aliases: list[str]` field (default empty list). When `sources."
+             "read_csv` reads a CSV whose header does NOT contain a spec's canonical "
+             "`name`, fall back to the FIRST alias from `aliases` that IS in the header. "
+             "If neither canonical name nor any alias appears, raise the existing missing-"
+             "column error. Aliases are checked in order. Canonical name always wins over "
+             "any alias. Existing CSVs without alias usage must continue to work unchanged. "
+             "Add tests for: (a) canonical name present -> uses canonical; (b) canonical "
+             "missing, first alias present -> uses alias; (c) neither present -> raises. "
+             "Existing tests green."),
+     expected_result="ColumnSpec gains 'aliases' field; read_csv resolves canonical then aliases in order; missing-column error preserved; existing CSVs still parse; green(>=N).",
+     check=["ColumnSpec has 'aliases' field",
+            "csv with alias header parses",
+            "canonical name wins over alias when both present",
+            "neither name nor alias -> raises",
+            "green(>=33)"],
+     warning_signs=["alias overrides canonical", "skips schema validation on alias path",
+                    "breaks 'units' column reads in existing data/sales.csv"])
 
 
 def main() -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry-protos
-Version: 0.14.0
+Version: 0.16.0
 Summary: Generated python code for sentry-protos
 License: # Functional Source License, Version 1.1, Apache 2.0 Future License
         
@@ -111,7 +111,7 @@ License: # Functional Source License, Version 1.1, Apache 2.0 Future License
 Project-URL: Homepage, https://sentry.io
 Project-URL: Repository, https://github.com/getsentry/sentry-protos
 Project-URL: Changelog, https://github.com/getsentry/sentry-protos/tree/main/CHANGELOG.md
-Requires-Python: >3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: protobuf<6,>=5.27.3

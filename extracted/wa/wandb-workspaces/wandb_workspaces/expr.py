@@ -404,6 +404,7 @@ def _parse_node(node) -> Filters:
                 # Construct the Filters object
                 op = _map_op(node.ops[0])
                 right_operand = _extract_value(node.comparators[0])
+                right_operand = _normalize_filter_value(key, right_operand)
                 return Filters(op=op, key=key, value=right_operand, disabled=False)
             # If func_call_data is falsy, fall back to standard comparison handling
             return _handle_comparison(node)
@@ -453,9 +454,13 @@ def _handle_comparison(node) -> Filters:
     if left_operand:
         left_operand = _convert_fe_to_be_metric_name(left_operand)
 
+    key = _server_path_to_key(left_operand) if left_operand else None
+    if key is not None:
+        right_operand = _normalize_filter_value(key, right_operand)
+
     return Filters(
         op=op_map.get(operation),
-        key=_server_path_to_key(left_operand) if left_operand else None,
+        key=key,
         value=right_operand,
         disabled=False,
     )
@@ -615,12 +620,11 @@ def _handle_logical_op(node) -> Filters:
     return Filters(op=op, filters=filters)
 
 
-def filters_to_expr(filter_obj: Any, is_root=True) -> str:
+def filters_to_expr(filter_obj: Any) -> str:
     """Convert an internal Filters tree back to a string expression.
 
     Args:
         filter_obj: An internal Filters tree structure
-        is_root: Whether this is the root of the tree (used internally)
 
     Returns:
         A Python-like filter expression string
@@ -639,10 +643,10 @@ def filters_to_expr(filter_obj: Any, is_root=True) -> str:
         "OR": "or",
     }
 
-    def _convert_filter(filter: Any, is_root: bool) -> str:
+    def _convert_filter(filter: Any) -> str:
         if hasattr(filter, "filters") and filter.filters is not None:
             sub_expressions = [
-                _convert_filter(f, False)
+                _convert_filter(f)
                 for f in filter.filters
                 if f.filters is not None or (f.key and f.key.name)
             ]
@@ -650,8 +654,7 @@ def filters_to_expr(filter_obj: Any, is_root=True) -> str:
                 return ""
 
             joint = " and " if filter.op == "AND" else " or "
-            expr = joint.join(sub_expressions)
-            return f"({expr})" if not is_root and sub_expressions else expr
+            return joint.join(sub_expressions)
         else:
             if not filter.key or not filter.key.name:
                 # Skip filters with empty key names
@@ -711,7 +714,7 @@ def filters_to_expr(filter_obj: Any, is_root=True) -> str:
 
             return f"{key_name} {op_map[filter.op]} {value}"
 
-    return _convert_filter(filter_obj, is_root)
+    return _convert_filter(filter_obj)
 
 
 def _key_to_server_path(key: Key):
@@ -741,6 +744,15 @@ def _server_path_to_key(path):
         return Key(section="tags", name=path.split("tags.", 1)[1])
     else:
         return Key(section="run", name=path)
+
+
+def _normalize_filter_value(key: Key, value: Any) -> Any:
+    if key.section == "run" and key.name == "state":
+        if isinstance(value, str):
+            return value.lower()
+        if isinstance(value, list):
+            return [v.lower() if isinstance(v, str) else v for v in value]
+    return value
 
 
 class CustomNodeVisitor(ast.NodeVisitor):
@@ -1074,11 +1086,13 @@ class FilterExpr:
     def to_model(self) -> Filters:
         section = self.key.section
         name = _convert_fe_to_be_metric_name(self.key.name)
+        key = Key(section=section, name=name)
+        value = _normalize_filter_value(key, self.value)
 
         return Filters(
             op=self.op,
-            key=Key(section=section, name=name),
-            value=self.value,
+            key=key,
+            value=value,
             disabled=False,
         )
 
@@ -1112,7 +1126,8 @@ def filter_expr_to_filters_tree(filters: List[FilterExpr]) -> Filters:
 
     def parse_filter(filter: FilterExpr) -> Filters:
         key = parse_key(filter.key)
-        return Filters(op=filter.op, key=key, value=filter.value, disabled=False)
+        value = _normalize_filter_value(key, filter.value)
+        return Filters(op=filter.op, key=key, value=value, disabled=False)
 
     return Filters(
         op="OR",

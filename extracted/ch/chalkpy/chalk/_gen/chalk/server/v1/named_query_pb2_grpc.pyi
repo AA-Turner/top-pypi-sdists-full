@@ -14,6 +14,10 @@ from chalk._gen.chalk.server.v1.named_query_pb2 import (
     GetAllNamedQueriesResponse,
     GetNamedQueryByNameRequest,
     GetNamedQueryByNameResponse,
+    ListAllNamedQueriesRequest,
+    ListAllNamedQueriesResponse,
+    ListNamedQueryVersionsRequest,
+    ListNamedQueryVersionsResponse,
 )
 from grpc import (
     Channel,
@@ -36,6 +40,24 @@ class NamedQueryServiceStub:
         GetNamedQueryByNameRequest,
         GetNamedQueryByNameResponse,
     ]
+    ListAllNamedQueries: UnaryUnaryMultiCallable[
+        ListAllNamedQueriesRequest,
+        ListAllNamedQueriesResponse,
+    ]
+    """Returns one NamedQuerySummary per distinct query_name across both
+    code-defined NamedQuery declarations in the active deployment and
+    runtime-observed meta_queries rows. Drives the unified named-queries
+    index page.
+    """
+    ListNamedQueryVersions: UnaryUnaryMultiCallable[
+        ListNamedQueryVersionsRequest,
+        ListNamedQueryVersionsResponse,
+    ]
+    """Returns one NamedQueryVersionSummary per distinct
+    (query_name, query_name_version) slot for a single named query name.
+    Drives the versions table on the code-defined branch of the
+    named-queries detail page.
+    """
 
 class NamedQueryServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -56,5 +78,27 @@ class NamedQueryServiceServicer(metaclass=ABCMeta):
         request: GetNamedQueryByNameRequest,
         context: ServicerContext,
     ) -> GetNamedQueryByNameResponse: ...
+    @abstractmethod
+    def ListAllNamedQueries(
+        self,
+        request: ListAllNamedQueriesRequest,
+        context: ServicerContext,
+    ) -> ListAllNamedQueriesResponse:
+        """Returns one NamedQuerySummary per distinct query_name across both
+        code-defined NamedQuery declarations in the active deployment and
+        runtime-observed meta_queries rows. Drives the unified named-queries
+        index page.
+        """
+    @abstractmethod
+    def ListNamedQueryVersions(
+        self,
+        request: ListNamedQueryVersionsRequest,
+        context: ServicerContext,
+    ) -> ListNamedQueryVersionsResponse:
+        """Returns one NamedQueryVersionSummary per distinct
+        (query_name, query_name_version) slot for a single named query name.
+        Drives the versions table on the code-defined branch of the
+        named-queries detail page.
+        """
 
 def add_NamedQueryServiceServicer_to_server(servicer: NamedQueryServiceServicer, server: Server) -> None: ...

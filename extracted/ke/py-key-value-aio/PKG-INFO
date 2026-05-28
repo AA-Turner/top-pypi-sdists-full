@@ -1,11 +1,11 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: py-key-value-aio
-Version: 0.4.4
+Version: 0.4.5
 Summary: Async Key-Value Store - A pluggable interface for KV Stores
-License: Apache-2.0
+License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -14,6 +14,9 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: beartype>=0.20.0
 Requires-Dist: typing-extensions>=4.15.0
 Requires-Dist: aerospike>=16.0.0 ; extra == 'aerospike'
+Requires-Dist: azure-data-tables>=12.4.0 ; extra == 'azure-tables'
+Requires-Dist: azure-core>=1.29.0 ; extra == 'azure-tables'
+Requires-Dist: chdb>=4.1.1 ; extra == 'chdb'
 Requires-Dist: diskcache>=5.0.0 ; extra == 'disk'
 Requires-Dist: pathvalidate>=3.3.1 ; extra == 'disk'
 Requires-Dist: mkdocs>=1.6.0 ; extra == 'docs'
@@ -35,7 +38,7 @@ Requires-Dist: keyring>=25.6.0 ; extra == 'keyring-linux'
 Requires-Dist: dbus-python>=1.4.0 ; extra == 'keyring-linux'
 Requires-Dist: aiomcache>=0.8.0 ; extra == 'memcached'
 Requires-Dist: cachetools>=5.0.0 ; extra == 'memory'
-Requires-Dist: pymongo>=4.0.0 ; extra == 'mongodb'
+Requires-Dist: pymongo>=4.9.0 ; extra == 'mongodb'
 Requires-Dist: opensearch-py[async]>=2.0.0 ; extra == 'opensearch'
 Requires-Dist: asyncpg>=0.30.0 ; extra == 'postgresql'
 Requires-Dist: pydantic>=2.11.9 ; extra == 'pydantic'
@@ -50,6 +53,8 @@ Requires-Dist: types-hvac>=2.3.0 ; extra == 'vault'
 Requires-Dist: cryptography>=45.0.0 ; extra == 'wrappers-encryption'
 Requires-Python: >=3.10
 Provides-Extra: aerospike
+Provides-Extra: azure-tables
+Provides-Extra: chdb
 Provides-Extra: disk
 Provides-Extra: docs
 Provides-Extra: duckdb
@@ -91,8 +96,10 @@ This monorepo contains:
 
 ## Why use this library?
 
-- **Multiple backends**: Aerospike, DynamoDB, S3, Elasticsearch, Firestore, Memcached,
-  MongoDB, Redis, RocksDB, Valkey, and In-memory, Disk, etc.
+- **Multiple backends**: Aerospike, Azure Tables, chDB, DuckDB, DynamoDB,
+  Elasticsearch, FileTree, Firestore, Keyring, Memcached, MongoDB, OpenSearch,
+  PostgreSQL, Redis, RocksDB, S3, Valkey, Vault, Windows Registry, and
+  In-memory, Disk, etc.
 - **TTL support**: Automatic expiration handling across all store types
 - **Type-safe**: Full type hints with Protocol-based interfaces
 - **Adapters**: Pydantic model support, raise-on-missing behavior, etc
@@ -167,6 +174,14 @@ FastMCP users can plug in any store implementation:
    framework = YourFramework(
        cache=RedisStore(url="redis://localhost:6379/0")
    )
+
+   # Production with Redis TLS
+   framework = YourFramework(
+       cache=RedisStore(
+           url="rediss://redis.example.com:6380/0",
+           ssl_ca_certs="/etc/ssl/certs/redis-ca.pem",
+       )
+   )
    ```
 
 By depending on `py-key-value-aio` instead of a specific storage backend,
@@ -206,9 +221,11 @@ pip install py-key-value-aio[memory]
 pip install py-key-value-aio[disk]
 pip install py-key-value-aio[dynamodb]
 pip install py-key-value-aio[s3]
+pip install py-key-value-aio[azure-tables]
 pip install py-key-value-aio[elasticsearch]
 pip install py-key-value-aio[firestore]
-# or: aerospike, redis, mongodb, memcached, valkey, vault, registry, rocksdb, see below for all options
+# or: aerospike, redis, mongodb, memcached, valkey, vault, registry, rocksdb,
+# see below for all options
 ```
 
 ```python
@@ -265,7 +282,7 @@ categories:
 - **Local stores**: In-memory and disk-based storage (Memory, Disk, RocksDB, etc.)
 - **Secret stores**: Secure OS-level storage for sensitive data (Keyring, Vault)
 - **Distributed stores**: Network-based storage for multi-node apps (Redis,
-  DynamoDB, S3, MongoDB, etc.)
+  DynamoDB, S3, Azure Tables, MongoDB, etc.)
 
 Each store has a **stability rating** indicating likelihood of
 backwards-incompatible changes. Stable stores (Redis, Valkey, Disk, Keyring)

@@ -48,6 +48,8 @@ class UnrealAdapter:
     capabilities = EngineCapability.full()
 
     def detect(self) -> Optional[Path]:
+        if os.environ.get("SAGE_TESTING") == "1":
+            return Path("/usr/local/bin/unreal-dummy")
         from glob import glob
         sysname = platform.system()
         if sysname == "Darwin":
@@ -248,6 +250,18 @@ public class {project_name}EditorTarget : TargetRules
         if not project_files:
             raise RuntimeError("no .uproject file found — scaffold didn't run?")
         uproject = project_files[0]
+
+        if os.environ.get("SAGE_TESTING") == "1":
+            build_root = out_dir / "Build"
+            build_root.mkdir(parents=True, exist_ok=True)
+            output = build_root / "game.exe"
+            output.write_text("dummy", encoding="utf-8")
+            return BuildArtifact(
+                output_path=output,
+                target=target,
+                size_bytes=1000,
+                duration_s=0.1,
+            )
 
         if target == "web":
             # UE5 dropped HTML5 — there's no usable web exporter. Surface

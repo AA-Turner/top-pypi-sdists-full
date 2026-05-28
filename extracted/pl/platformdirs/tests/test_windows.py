@@ -3,7 +3,9 @@ from __future__ import annotations
 import ctypes
 import importlib
 import os
+import pathlib
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
@@ -90,6 +92,15 @@ def test_windows(params: dict[str, Any], func: str) -> None:
         "user_videos_dir": os.path.normpath(_WIN_FOLDERS["CSIDL_MYVIDEO"]),
         "user_music_dir": os.path.normpath(_WIN_FOLDERS["CSIDL_MYMUSIC"]),
         "user_desktop_dir": os.path.normpath(_WIN_FOLDERS["CSIDL_DESKTOPDIRECTORY"]),
+        "user_projects_dir": os.path.normpath(pathlib.Path("~/Projects").expanduser()),
+        "user_publicshare_dir": os.path.normpath(
+            os.environ.get("PUBLIC", str(Path("~").expanduser().parent / "Public"))
+        ),
+        "user_templates_dir": os.path.normpath(
+            str(Path(_WIN_FOLDERS["CSIDL_APPDATA"]) / "Microsoft" / "Windows" / "Templates")
+        ),
+        "user_fonts_dir": os.path.normpath(str(Path(_LOCAL) / "Microsoft" / "Windows" / "Fonts")),
+        "user_preference_dir": local,
         "user_bin_dir": os.path.join(_LOCAL, "Programs"),  # noqa: PTH118
         "site_bin_dir": os.path.join(_COMMON, "bin"),  # noqa: PTH118
         "user_applications_dir": os.path.normpath(_WIN_FOLDERS["CSIDL_PROGRAMS"]),
@@ -246,13 +257,13 @@ def test_get_win_folder_via_ctypes_passes_dont_verify_flag(mocker: MockerFixture
         from platformdirs.windows import get_win_folder_via_ctypes as fresh_fn  # noqa: PLC0415
 
         result = fresh_fn("CSIDL_LOCAL_APPDATA")
-
-        assert result == r"C:\Users\Test\AppData\Local"
-        mock_shell32.SHGetKnownFolderPath.assert_called_once()
-        flags_arg = mock_shell32.SHGetKnownFolderPath.call_args[0][1]
-        assert flags_arg == _KF_FLAG_DONT_VERIFY
     finally:
         _cleanup_ctypes_mocks()
+
+    assert result == r"C:\Users\Test\AppData\Local"
+    mock_shell32.SHGetKnownFolderPath.assert_called_once()
+    flags_arg = mock_shell32.SHGetKnownFolderPath.call_args[0][1]
+    assert flags_arg == _KF_FLAG_DONT_VERIFY
 
 
 def test_get_win_folder_via_ctypes_unknown_csidl(mocker: MockerFixture) -> None:

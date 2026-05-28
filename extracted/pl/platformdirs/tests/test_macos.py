@@ -83,6 +83,11 @@ def test_macos(mocker: MockerFixture, params: dict[str, Any], func: str) -> None
         "user_videos_dir": f"{home}/Movies",
         "user_music_dir": f"{home}/Music",
         "user_desktop_dir": f"{home}/Desktop",
+        "user_projects_dir": f"{home}/Projects",
+        "user_publicshare_dir": f"{home}/Public",
+        "user_templates_dir": f"{home}/Templates",
+        "user_fonts_dir": f"{home}/Library/Fonts",
+        "user_preference_dir": f"{home}/Library/Preferences{suffix}",
         "user_bin_dir": f"{home}/.local/bin",
         "site_bin_dir": "/usr/local/bin",
         "user_applications_dir": f"{home}/Applications",
@@ -112,6 +117,7 @@ def test_macos(mocker: MockerFixture, params: dict[str, Any], func: str) -> None
         "site_runtime_dir",
         "site_cache_path",
         "site_data_path",
+        "site_config_path",
     ],
 )
 @pytest.mark.parametrize("multipath", [pytest.param(True, id="multipath"), pytest.param(False, id="singlepath")])
@@ -143,6 +149,7 @@ def test_macos_homebrew(mocker: MockerFixture, params: dict[str, Any], multipath
         expected_path_map = {
             "site_cache_path": Path(f"{prefix['homebrew_prefix']}/var/cache{suffix}"),
             "site_data_path": Path(f"{prefix['homebrew_prefix']}/share{suffix}"),
+            "site_config_path": Path(f"{prefix['homebrew_prefix']}/share{suffix}"),
         }
         expected_map = {
             "site_data_dir": f"{prefix['homebrew_prefix']}/share{suffix}",
@@ -270,6 +277,11 @@ def test_macos_xdg_empty_falls_back(
         "user_videos_dir": f"{home}/Movies",
         "user_music_dir": f"{home}/Music",
         "user_desktop_dir": f"{home}/Desktop",
+        "user_projects_dir": f"{home}/Projects",
+        "user_publicshare_dir": f"{home}/Public",
+        "user_templates_dir": f"{home}/Templates",
+        "user_fonts_dir": f"{home}/Library/Fonts",
+        "user_preference_dir": f"{home}/Library/Preferences",
         "user_bin_dir": f"{home}/.local/bin",
         "site_bin_dir": "/usr/local/bin",
         "user_applications_dir": f"{home}/Applications",
@@ -376,3 +388,33 @@ def test_no_xdg_site_dirs_leak(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config_value in config_dirs
     assert config_value not in data_dirs
     assert data_value not in config_dirs
+
+
+@pytest.mark.usefixtures("_clear_xdg_env")
+def test_macos_site_runtime_path(mocker: MockerFixture) -> None:
+    py_version = sys.version_info
+    builtin_py_prefix = (
+        "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework"
+        f"/Versions/{py_version.major}.{py_version.minor}"
+    )
+    mocker.patch("sys.prefix", builtin_py_prefix)
+    result = MacOS(appname="foo").site_runtime_path
+    home = str(Path("~").expanduser())
+    assert result == Path(f"{home}/Library/Caches/TemporaryItems/foo")
+
+
+@pytest.mark.usefixtures("_clear_xdg_env")
+def test_macos_ensure_exists_preexisting_dir(mocker: MockerFixture, tmp_path: Path) -> None:
+    py_version = sys.version_info
+    builtin_py_prefix = (
+        "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework"
+        f"/Versions/{py_version.major}.{py_version.minor}"
+    )
+    mocker.patch("sys.prefix", builtin_py_prefix)
+    mocker.patch("platformdirs.macos.os.path.expanduser", lambda p: str(tmp_path / p.lstrip("~/")))
+    dirs = MacOS(appname="foo", ensure_exists=True)
+    first = dirs.user_data_dir
+    assert Path(first).exists()
+    # Calling again with an already-existing directory must not raise.
+    second = dirs.user_data_dir
+    assert first == second

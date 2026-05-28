@@ -1829,7 +1829,7 @@ struct mj_versionString {
 struct mj_ray {
   static constexpr char name[] = "mj_ray";
   static constexpr char doc[] = "Intersect ray (pnt+x*vec, x>=0) with visible geoms, except geoms in bodyexclude. Return distance (x) to nearest surface, or -1 if no intersection. geomgroup, flg_static are as in mjvOption; geomgroup==NULL skips group exclusion.";
-  using type = mjtNum (const mjModel *, const mjData *, const mjtNum (*)[3], const mjtNum (*)[3], const mjtByte *, mjtByte, int, int (*)[1], mjtNum (*)[3]);
+  using type = mjtNum (const mjModel *, const mjData *, const mjtNum (*)[3], const mjtNum (*)[3], const mjtByte *, mjtBool, int, int (*)[1], mjtNum (*)[3]);
   static constexpr auto param_names = std::make_tuple("m", "d", "pnt", "vec", "geomgroup", "flg_static", "bodyexclude", "geomid", "normal");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -1840,7 +1840,7 @@ struct mj_ray {
 struct mj_multiRay {
   static constexpr char name[] = "mj_multiRay";
   static constexpr char doc[] = "Intersect multiple rays emanating from a single point, compute normals if given. Similar semantics to mj_ray, but vec, normal and dist are arrays. Geoms further than cutoff are ignored.";
-  using type = void (const mjModel *, mjData *, const mjtNum (*)[3], const mjtNum *, const mjtByte *, mjtByte, int, int *, mjtNum *, mjtNum *, int, mjtNum);
+  using type = void (const mjModel *, mjData *, const mjtNum (*)[3], const mjtNum *, const mjtByte *, mjtBool, int, int *, mjtNum *, mjtNum *, int, mjtNum);
   static constexpr auto param_names = std::make_tuple("m", "d", "pnt", "vec", "geomgroup", "flg_static", "bodyexclude", "geomid", "dist", "normal", "nray", "cutoff");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -1884,7 +1884,7 @@ struct mju_rayGeom {
 struct mj_rayFlex {
   static constexpr char name[] = "mj_rayFlex";
   static constexpr char doc[] = "Intersect ray with flex; return nearest distance or -1 if no intersection, and also output nearest vertex id and surface normal.";
-  using type = mjtNum (const mjModel *, const mjData *, int, mjtByte, mjtByte, mjtByte, mjtByte, int, const mjtNum (*)[3], const mjtNum (*)[3], int (*)[1], mjtNum (*)[3]);
+  using type = mjtNum (const mjModel *, const mjData *, int, mjtBool, mjtBool, mjtBool, mjtBool, int, const mjtNum (*)[3], const mjtNum (*)[3], int (*)[1], mjtNum (*)[3]);
   static constexpr auto param_names = std::make_tuple("m", "d", "flex_layer", "flg_vert", "flg_edge", "flg_face", "flg_skin", "flexid", "pnt", "vec", "vertid", "normal");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -2717,6 +2717,17 @@ struct mjs_getError {
   }
 };
 
+struct mjs_getTimer {
+  static constexpr char name[] = "mjs_getTimer";
+  static constexpr char doc[] = "Get compiler timing diagnostics from spec, returns pointer to array of size mjNCTIMER.";
+  using type = const double * (mjSpec *);
+  static constexpr auto param_names = std::make_tuple("s");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getTimer;
+  }
+};
+
 struct mjs_isWarning {
   static constexpr char name[] = "mjs_isWarning";
   static constexpr char doc[] = "Return 1 if compiler error is a warning.";
@@ -3512,7 +3523,7 @@ struct mju_cholSolveBand {
 struct mju_band2Dense {
   static constexpr char name[] = "mju_band2Dense";
   static constexpr char doc[] = "Convert banded matrix to dense matrix, fill upper triangle if flg_sym>0.";
-  using type = void (mjtNum *, const mjtNum *, int, int, int, mjtByte);
+  using type = void (mjtNum *, const mjtNum *, int, int, int, mjtBool);
   static constexpr auto param_names = std::make_tuple("res", "mat", "ntotal", "nband", "ndense", "flg_sym");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -3534,7 +3545,7 @@ struct mju_dense2Band {
 struct mju_bandMulMatVec {
   static constexpr char name[] = "mju_bandMulMatVec";
   static constexpr char doc[] = "Multiply band-diagonal matrix with nvec vectors, include upper triangle if flg_sym>0.";
-  using type = void (mjtNum *, const mjtNum *, const mjtNum *, int, int, int, int, mjtByte);
+  using type = void (mjtNum *, const mjtNum *, const mjtNum *, int, int, int, int, mjtBool);
   static constexpr auto param_names = std::make_tuple("res", "mat", "vec", "ntotal", "nband", "ndense", "nvec", "flg_sym");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -3919,7 +3930,7 @@ struct mjc_gradient {
 struct mjd_transitionFD {
   static constexpr char name[] = "mjd_transitionFD";
   static constexpr char doc[] = "Finite differenced transition matrices (control theory notation)   d(x_next) = A*dx + B*du   d(sensor) = C*dx + D*du   required output matrix dimensions:      A: (2*nv+na x 2*nv+na)      B: (2*nv+na x nu)      D: (nsensordata x 2*nv+na)      C: (nsensordata x nu)";
-  using type = void (const mjModel *, mjData *, mjtNum, mjtByte, mjtNum *, mjtNum *, mjtNum *, mjtNum *);
+  using type = void (const mjModel *, mjData *, mjtNum, mjtBool, mjtNum *, mjtNum *, mjtNum *, mjtNum *);
   static constexpr auto param_names = std::make_tuple("m", "d", "eps", "flg_centered", "A", "B", "C", "D");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -3930,7 +3941,7 @@ struct mjd_transitionFD {
 struct mjd_inverseFD {
   static constexpr char name[] = "mjd_inverseFD";
   static constexpr char doc[] = "Finite differenced Jacobians of (force, sensors) = mj_inverse(state, acceleration)   All outputs are optional. Output dimensions (transposed w.r.t Control Theory convention):     DfDq: (nv x nv)     DfDv: (nv x nv)     DfDa: (nv x nv)     DsDq: (nv x nsensordata)     DsDv: (nv x nsensordata)     DsDa: (nv x nsensordata)     DmDq: (nv x nM)   single-letter shortcuts:     inputs: q=qpos, v=qvel, a=qacc     outputs: f=qfrc_inverse, s=sensordata, m=qM   notes:     optionally computes mass matrix Jacobian DmDq     flg_actuation specifies whether to subtract qfrc_actuator from qfrc_inverse";
-  using type = void (const mjModel *, mjData *, mjtNum, mjtByte, mjtNum *, mjtNum *, mjtNum *, mjtNum *, mjtNum *, mjtNum *, mjtNum *);
+  using type = void (const mjModel *, mjData *, mjtNum, mjtBool, mjtNum *, mjtNum *, mjtNum *, mjtNum *, mjtNum *, mjtNum *, mjtNum *);
   static constexpr auto param_names = std::make_tuple("m", "d", "eps", "flg_actuation", "DfDq", "DfDv", "DfDa", "DsDq", "DsDv", "DsDa", "DmDq");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -5019,7 +5030,7 @@ struct mjs_setStringVec {
 struct mjs_setInStringVec {
   static constexpr char name[] = "mjs_setInStringVec";
   static constexpr char doc[] = "Set entry in string vector.";
-  using type = mjtByte (mjStringVec *, int, const char *);
+  using type = mjtBool (mjStringVec *, int, const char *);
   static constexpr auto param_names = std::make_tuple("dest", "i", "text");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {

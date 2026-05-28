@@ -15,11 +15,12 @@ _sym_db = _symbol_database.Default()
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as chalk_dot_common_dot_v1_dot_chalk__error__pb2
+from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n#chalk/protosql/v1/sql_service.proto\x12\x11\x63halk.protosql.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/common/v1/chalk_error.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xd2\x01\n\x0cSqlQueryInfo\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId\x12>\n\ncreated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tcreatedAt\x88\x01\x01\x12@\n\x0b\x66inished_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\nfinishedAt\x88\x01\x01\x42\r\n\x0b_created_atB\x0e\n\x0c_finished_at"b\n!ExecuteSqlSyncQueryRequestOptions\x12*\n\x0eresource_group\x18\x01 \x01(\tH\x00R\rresourceGroup\x88\x01\x01\x42\x11\n\x0f_resource_group"\xbb\x01\n"ExecuteSqlAsyncQueryRequestOptions\x12V\n\x0e\x65xecution_mode\x18\x01 \x01(\x0e\x32/.chalk.protosql.v1.ExecuteSqlAsyncExecutionModeR\rexecutionMode\x12*\n\x0eresource_group\x18\x02 \x01(\tH\x00R\rresourceGroup\x88\x01\x01\x42\x11\n\x0f_resource_group"?\n#ExecuteSqlResultPersistenceSettings\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled"\xe0\x03\n\x16\x45xecuteSqlQueryRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query\x12*\n\x0e\x63orrelation_id\x18\x02 \x01(\tH\x01R\rcorrelationId\x88\x01\x01\x12i\n\x14persistence_settings\x18\x03 \x01(\x0b\x32\x36.chalk.protosql.v1.ExecuteSqlResultPersistenceSettingsR\x13persistenceSettings\x12-\n\x10max_memory_bytes\x18\x04 \x01(\x03H\x02R\x0emaxMemoryBytes\x88\x01\x01\x12Y\n\x0csync_options\x18\n \x01(\x0b\x32\x34.chalk.protosql.v1.ExecuteSqlSyncQueryRequestOptionsH\x00R\x0bsyncOptions\x12\\\n\rasync_options\x18\x0b \x01(\x0b\x32\x35.chalk.protosql.v1.ExecuteSqlAsyncQueryRequestOptionsH\x00R\x0c\x61syncOptionsB\t\n\x07optionsB\x11\n\x0f_correlation_idB\x13\n\x11_max_memory_bytes"&\n\x10SignedOutputUris\x12\x12\n\x04uris\x18\x01 \x03(\tR\x04uris"\xb1\x01\n"ExecuteSqlSyncQueryResponsePayload\x12+\n\x10parquet_response\x18\x01 \x01(\x0cH\x00R\x0fparquetResponse\x12S\n\x12signed_output_uris\x18\n \x01(\x0b\x32#.chalk.protosql.v1.SignedOutputUrisH\x00R\x10signedOutputUrisB\t\n\x07payload"\xa0\x01\n#ExecuteSqlAsyncQueryResponsePayload\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId\x12V\n\x0e\x65xecution_mode\x18\x02 \x01(\x0e\x32/.chalk.protosql.v1.ExecuteSqlAsyncExecutionModeR\rexecutionMode"\xcb\x02\n\x17\x45xecuteSqlQueryResponse\x12\x19\n\x08query_id\x18\x01 \x01(\tR\x07queryId\x12\x1a\n\x07parquet\x18\x02 \x01(\x0cH\x00R\x07parquet\x12Z\n\x0csync_payload\x18\n \x01(\x0b\x32\x35.chalk.protosql.v1.ExecuteSqlSyncQueryResponsePayloadH\x00R\x0bsyncPayload\x12]\n\rasync_payload\x18\x0b \x01(\x0b\x32\x36.chalk.protosql.v1.ExecuteSqlAsyncQueryResponsePayloadH\x00R\x0c\x61syncPayload\x12\x33\n\x06\x65rrors\x18\x03 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrorsB\t\n\x07payload"+\n\x13PlanSqlQueryRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query"n\n\x14PlanSqlQueryResponse\x12!\n\x0clogical_plan\x18\x01 \x01(\tR\x0blogicalPlan\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\x16\n\x14GetDbCatalogsRequest"q\n\x15GetDbCatalogsResponse\x12#\n\rcatalog_names\x18\x01 \x03(\tR\x0c\x63\x61talogNames\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\xd0\x01\n\x13GetDbSchemasRequest\x12\x1d\n\x07\x63\x61talog\x18\x01 \x01(\tH\x00R\x07\x63\x61talog\x88\x01\x01\x12<\n\x18\x64\x62_schema_filter_pattern\x18\x02 \x01(\tH\x01R\x15\x64\x62SchemaFilterPattern\x88\x01\x01\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrorsB\n\n\x08_catalogB\x1b\n\x19_db_schema_filter_pattern"W\n\x0c\x44\x62SchemaInfo\x12!\n\x0c\x63\x61talog_name\x18\x01 \x01(\tR\x0b\x63\x61talogName\x12$\n\x0e\x64\x62_schema_name\x18\x02 \x01(\tR\x0c\x64\x62SchemaName"\x86\x01\n\x14GetDbSchemasResponse\x12\x39\n\x07schemas\x18\x01 \x03(\x0b\x32\x1f.chalk.protosql.v1.DbSchemaInfoR\x07schemas\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\x9f\x02\n\x10GetTablesRequest\x12\x1d\n\x07\x63\x61talog\x18\x01 \x01(\tH\x00R\x07\x63\x61talog\x88\x01\x01\x12<\n\x18\x64\x62_schema_filter_pattern\x18\x02 \x01(\tH\x01R\x15\x64\x62SchemaFilterPattern\x88\x01\x01\x12>\n\x19table_name_filter_pattern\x18\x03 \x01(\tH\x02R\x16tableNameFilterPattern\x88\x01\x01\x12\'\n\x0finclude_schemas\x18\n \x01(\x08R\x0eincludeSchemasB\n\n\x08_catalogB\x1b\n\x19_db_schema_filter_patternB\x1c\n\x1a_table_name_filter_pattern"\xbd\x01\n\tTableInfo\x12!\n\x0c\x63\x61talog_name\x18\x01 \x01(\tR\x0b\x63\x61talogName\x12$\n\x0e\x64\x62_schema_name\x18\x02 \x01(\tR\x0c\x64\x62SchemaName\x12\x1d\n\ntable_name\x18\x03 \x01(\tR\ttableName\x12\x31\n\x12table_arrow_schema\x18\x04 \x01(\x0cH\x00R\x10tableArrowSchema\x88\x01\x01\x42\x15\n\x13_table_arrow_schema"~\n\x11GetTablesResponse\x12\x34\n\x06tables\x18\x01 \x03(\x0b\x32\x1c.chalk.protosql.v1.TableInfoR\x06tables\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\x16\n\x14SqlQueryProgressInfo"I\n\x12SqlQueryFailedInfo\x12\x33\n\x06\x65rrors\x18\x01 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"8\n\x13PollSqlQueryRequest\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId"\xb2\x02\n\x14PollSqlQueryResponse\x12\x33\n\x04info\x18\x01 \x01(\x0b\x32\x1f.chalk.protosql.v1.SqlQueryInfoR\x04info\x12\x45\n\x08progress\x18\n \x01(\x0b\x32\'.chalk.protosql.v1.SqlQueryProgressInfoH\x00R\x08progress\x12S\n\x08response\x18\x0b \x01(\x0b\x32\x35.chalk.protosql.v1.ExecuteSqlSyncQueryResponsePayloadH\x00R\x08response\x12?\n\x06\x66\x61iled\x18\x0c \x01(\x0b\x32%.chalk.protosql.v1.SqlQueryFailedInfoH\x00R\x06\x66\x61iledB\x08\n\x06result*\xad\x01\n\x1c\x45xecuteSqlAsyncExecutionMode\x12\x30\n,EXECUTE_SQL_ASYNC_EXECUTION_MODE_UNSPECIFIED\x10\x00\x12/\n+EXECUTE_SQL_ASYNC_EXECUTION_MODE_IN_PROCESS\x10\x01\x12*\n&EXECUTE_SQL_ASYNC_EXECUTION_MODE_ASYNC\x10\x02\x32\xf3\x04\n\nSqlService\x12m\n\x0f\x45xecuteSqlQuery\x12).chalk.protosql.v1.ExecuteSqlQueryRequest\x1a*.chalk.protosql.v1.ExecuteSqlQueryResponse"\x03\x80}\x03\x12\x64\n\x0cPlanSqlQuery\x12&.chalk.protosql.v1.PlanSqlQueryRequest\x1a\'.chalk.protosql.v1.PlanSqlQueryResponse"\x03\x80}\x03\x12\x64\n\x0cPollSqlQuery\x12&.chalk.protosql.v1.PollSqlQueryRequest\x1a\'.chalk.protosql.v1.PollSqlQueryResponse"\x03\x80}\x03\x12g\n\rGetDbCatalogs\x12\'.chalk.protosql.v1.GetDbCatalogsRequest\x1a(.chalk.protosql.v1.GetDbCatalogsResponse"\x03\x80}\x0b\x12\x64\n\x0cGetDbSchemas\x12&.chalk.protosql.v1.GetDbSchemasRequest\x1a\'.chalk.protosql.v1.GetDbSchemasResponse"\x03\x80}\x0b\x12[\n\tGetTables\x12#.chalk.protosql.v1.GetTablesRequest\x1a$.chalk.protosql.v1.GetTablesResponse"\x03\x80}\x0b\x42\x8e\x01\n\x15\x63om.chalk.protosql.v1B\x0fSqlServiceProtoP\x01\xa2\x02\x03\x43PX\xaa\x02\x11\x43halk.Protosql.V1\xca\x02\x11\x43halk\\Protosql\\V1\xe2\x02\x1d\x43halk\\Protosql\\V1\\GPBMetadata\xea\x02\x13\x43halk::Protosql::V1b\x06proto3'
+    b'\n#chalk/protosql/v1/sql_service.proto\x12\x11\x63halk.protosql.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/common/v1/chalk_error.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xd2\x01\n\x0cSqlQueryInfo\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId\x12>\n\ncreated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tcreatedAt\x88\x01\x01\x12@\n\x0b\x66inished_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\nfinishedAt\x88\x01\x01\x42\r\n\x0b_created_atB\x0e\n\x0c_finished_at"b\n!ExecuteSqlSyncQueryRequestOptions\x12*\n\x0eresource_group\x18\x01 \x01(\tH\x00R\rresourceGroup\x88\x01\x01\x42\x11\n\x0f_resource_group"\xbb\x01\n"ExecuteSqlAsyncQueryRequestOptions\x12V\n\x0e\x65xecution_mode\x18\x01 \x01(\x0e\x32/.chalk.protosql.v1.ExecuteSqlAsyncExecutionModeR\rexecutionMode\x12*\n\x0eresource_group\x18\x02 \x01(\tH\x00R\rresourceGroup\x88\x01\x01\x42\x11\n\x0f_resource_group"?\n#ExecuteSqlResultPersistenceSettings\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled"\xb3\x05\n\x16\x45xecuteSqlQueryRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query\x12*\n\x0e\x63orrelation_id\x18\x02 \x01(\tH\x01R\rcorrelationId\x88\x01\x01\x12i\n\x14persistence_settings\x18\x03 \x01(\x0b\x32\x36.chalk.protosql.v1.ExecuteSqlResultPersistenceSettingsR\x13persistenceSettings\x12-\n\x10max_memory_bytes\x18\x04 \x01(\x03H\x02R\x0emaxMemoryBytes\x88\x01\x01\x12Y\n\x0csync_options\x18\n \x01(\x0b\x32\x34.chalk.protosql.v1.ExecuteSqlSyncQueryRequestOptionsH\x00R\x0bsyncOptions\x12\\\n\rasync_options\x18\x0b \x01(\x0b\x32\x35.chalk.protosql.v1.ExecuteSqlAsyncQueryRequestOptionsH\x00R\x0c\x61syncOptions\x12r\n\x13\x63ompilation_options\x18\x0c \x03(\x0b\x32\x41.chalk.protosql.v1.ExecuteSqlQueryRequest.CompilationOptionsEntryR\x12\x63ompilationOptions\x1a]\n\x17\x43ompilationOptionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\t\n\x07optionsB\x11\n\x0f_correlation_idB\x13\n\x11_max_memory_bytes"&\n\x10SignedOutputUris\x12\x12\n\x04uris\x18\x01 \x03(\tR\x04uris"\xb1\x01\n"ExecuteSqlSyncQueryResponsePayload\x12+\n\x10parquet_response\x18\x01 \x01(\x0cH\x00R\x0fparquetResponse\x12S\n\x12signed_output_uris\x18\n \x01(\x0b\x32#.chalk.protosql.v1.SignedOutputUrisH\x00R\x10signedOutputUrisB\t\n\x07payload"\xa0\x01\n#ExecuteSqlAsyncQueryResponsePayload\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId\x12V\n\x0e\x65xecution_mode\x18\x02 \x01(\x0e\x32/.chalk.protosql.v1.ExecuteSqlAsyncExecutionModeR\rexecutionMode"\x99\x03\n\x17\x45xecuteSqlQueryResponse\x12\x19\n\x08query_id\x18\x01 \x01(\tR\x07queryId\x12\x1a\n\x07parquet\x18\x02 \x01(\x0cH\x00R\x07parquet\x12Z\n\x0csync_payload\x18\n \x01(\x0b\x32\x35.chalk.protosql.v1.ExecuteSqlSyncQueryResponsePayloadH\x00R\x0bsyncPayload\x12]\n\rasync_payload\x18\x0b \x01(\x0b\x32\x36.chalk.protosql.v1.ExecuteSqlAsyncQueryResponsePayloadH\x00R\x0c\x61syncPayload\x12\x33\n\x06\x65rrors\x18\x03 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors\x12\x34\n\x13performance_summary\x18\x04 \x01(\tH\x01R\x12performanceSummary\x88\x01\x01\x42\t\n\x07payloadB\x16\n\x14_performance_summary"+\n\x13PlanSqlQueryRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query"n\n\x14PlanSqlQueryResponse\x12!\n\x0clogical_plan\x18\x01 \x01(\tR\x0blogicalPlan\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\x16\n\x14GetDbCatalogsRequest"q\n\x15GetDbCatalogsResponse\x12#\n\rcatalog_names\x18\x01 \x03(\tR\x0c\x63\x61talogNames\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\xd0\x01\n\x13GetDbSchemasRequest\x12\x1d\n\x07\x63\x61talog\x18\x01 \x01(\tH\x00R\x07\x63\x61talog\x88\x01\x01\x12<\n\x18\x64\x62_schema_filter_pattern\x18\x02 \x01(\tH\x01R\x15\x64\x62SchemaFilterPattern\x88\x01\x01\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrorsB\n\n\x08_catalogB\x1b\n\x19_db_schema_filter_pattern"W\n\x0c\x44\x62SchemaInfo\x12!\n\x0c\x63\x61talog_name\x18\x01 \x01(\tR\x0b\x63\x61talogName\x12$\n\x0e\x64\x62_schema_name\x18\x02 \x01(\tR\x0c\x64\x62SchemaName"\x86\x01\n\x14GetDbSchemasResponse\x12\x39\n\x07schemas\x18\x01 \x03(\x0b\x32\x1f.chalk.protosql.v1.DbSchemaInfoR\x07schemas\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\x9f\x02\n\x10GetTablesRequest\x12\x1d\n\x07\x63\x61talog\x18\x01 \x01(\tH\x00R\x07\x63\x61talog\x88\x01\x01\x12<\n\x18\x64\x62_schema_filter_pattern\x18\x02 \x01(\tH\x01R\x15\x64\x62SchemaFilterPattern\x88\x01\x01\x12>\n\x19table_name_filter_pattern\x18\x03 \x01(\tH\x02R\x16tableNameFilterPattern\x88\x01\x01\x12\'\n\x0finclude_schemas\x18\n \x01(\x08R\x0eincludeSchemasB\n\n\x08_catalogB\x1b\n\x19_db_schema_filter_patternB\x1c\n\x1a_table_name_filter_pattern"\xbd\x01\n\tTableInfo\x12!\n\x0c\x63\x61talog_name\x18\x01 \x01(\tR\x0b\x63\x61talogName\x12$\n\x0e\x64\x62_schema_name\x18\x02 \x01(\tR\x0c\x64\x62SchemaName\x12\x1d\n\ntable_name\x18\x03 \x01(\tR\ttableName\x12\x31\n\x12table_arrow_schema\x18\x04 \x01(\x0cH\x00R\x10tableArrowSchema\x88\x01\x01\x42\x15\n\x13_table_arrow_schema"~\n\x11GetTablesResponse\x12\x34\n\x06tables\x18\x01 \x03(\x0b\x32\x1c.chalk.protosql.v1.TableInfoR\x06tables\x12\x33\n\x06\x65rrors\x18\x05 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\x16\n\x14SqlQueryProgressInfo"I\n\x12SqlQueryFailedInfo\x12\x33\n\x06\x65rrors\x18\x01 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"8\n\x13PollSqlQueryRequest\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId"\x8b\x03\n\x14PollSqlQueryResponse\x12\x33\n\x04info\x18\x01 \x01(\x0b\x32\x1f.chalk.protosql.v1.SqlQueryInfoR\x04info\x12\x45\n\x08progress\x18\n \x01(\x0b\x32\'.chalk.protosql.v1.SqlQueryProgressInfoH\x00R\x08progress\x12S\n\x08response\x18\x0b \x01(\x0b\x32\x35.chalk.protosql.v1.ExecuteSqlSyncQueryResponsePayloadH\x00R\x08response\x12?\n\x06\x66\x61iled\x18\x0c \x01(\x0b\x32%.chalk.protosql.v1.SqlQueryFailedInfoH\x00R\x06\x66\x61iled\x12;\n\x17performance_summary_uri\x18\r \x01(\tH\x01R\x15performanceSummaryUri\x88\x01\x01\x42\x08\n\x06resultB\x1a\n\x18_performance_summary_uri*\xad\x01\n\x1c\x45xecuteSqlAsyncExecutionMode\x12\x30\n,EXECUTE_SQL_ASYNC_EXECUTION_MODE_UNSPECIFIED\x10\x00\x12/\n+EXECUTE_SQL_ASYNC_EXECUTION_MODE_IN_PROCESS\x10\x01\x12*\n&EXECUTE_SQL_ASYNC_EXECUTION_MODE_ASYNC\x10\x02\x32\xf3\x04\n\nSqlService\x12m\n\x0f\x45xecuteSqlQuery\x12).chalk.protosql.v1.ExecuteSqlQueryRequest\x1a*.chalk.protosql.v1.ExecuteSqlQueryResponse"\x03\x80}\x03\x12\x64\n\x0cPlanSqlQuery\x12&.chalk.protosql.v1.PlanSqlQueryRequest\x1a\'.chalk.protosql.v1.PlanSqlQueryResponse"\x03\x80}\x03\x12\x64\n\x0cPollSqlQuery\x12&.chalk.protosql.v1.PollSqlQueryRequest\x1a\'.chalk.protosql.v1.PollSqlQueryResponse"\x03\x80}\x03\x12g\n\rGetDbCatalogs\x12\'.chalk.protosql.v1.GetDbCatalogsRequest\x1a(.chalk.protosql.v1.GetDbCatalogsResponse"\x03\x80}\x0b\x12\x64\n\x0cGetDbSchemas\x12&.chalk.protosql.v1.GetDbSchemasRequest\x1a\'.chalk.protosql.v1.GetDbSchemasResponse"\x03\x80}\x0b\x12[\n\tGetTables\x12#.chalk.protosql.v1.GetTablesRequest\x1a$.chalk.protosql.v1.GetTablesResponse"\x03\x80}\x0b\x42\x8e\x01\n\x15\x63om.chalk.protosql.v1B\x0fSqlServiceProtoP\x01\xa2\x02\x03\x43PX\xaa\x02\x11\x43halk.Protosql.V1\xca\x02\x11\x43halk\\Protosql\\V1\xe2\x02\x1d\x43halk\\Protosql\\V1\\GPBMetadata\xea\x02\x13\x43halk::Protosql::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -30,6 +31,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\025com.chalk.protosql.v1B\017SqlServiceProtoP\001\242\002\003CPX\252\002\021Chalk.Protosql.V1\312\002\021Chalk\\Protosql\\V1\342\002\035Chalk\\Protosql\\V1\\GPBMetadata\352\002\023Chalk::Protosql::V1"
+    _globals["_EXECUTESQLQUERYREQUEST_COMPILATIONOPTIONSENTRY"]._options = None
+    _globals["_EXECUTESQLQUERYREQUEST_COMPILATIONOPTIONSENTRY"]._serialized_options = b"8\001"
     _globals["_SQLSERVICE"].methods_by_name["ExecuteSqlQuery"]._options = None
     _globals["_SQLSERVICE"].methods_by_name["ExecuteSqlQuery"]._serialized_options = b"\200}\003"
     _globals["_SQLSERVICE"].methods_by_name["PlanSqlQuery"]._options = None
@@ -42,54 +45,56 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_SQLSERVICE"].methods_by_name["GetDbSchemas"]._serialized_options = b"\200}\013"
     _globals["_SQLSERVICE"].methods_by_name["GetTables"]._options = None
     _globals["_SQLSERVICE"].methods_by_name["GetTables"]._serialized_options = b"\200}\013"
-    _globals["_EXECUTESQLASYNCEXECUTIONMODE"]._serialized_start = 3737
-    _globals["_EXECUTESQLASYNCEXECUTIONMODE"]._serialized_end = 3910
-    _globals["_SQLQUERYINFO"]._serialized_start = 160
-    _globals["_SQLQUERYINFO"]._serialized_end = 370
-    _globals["_EXECUTESQLSYNCQUERYREQUESTOPTIONS"]._serialized_start = 372
-    _globals["_EXECUTESQLSYNCQUERYREQUESTOPTIONS"]._serialized_end = 470
-    _globals["_EXECUTESQLASYNCQUERYREQUESTOPTIONS"]._serialized_start = 473
-    _globals["_EXECUTESQLASYNCQUERYREQUESTOPTIONS"]._serialized_end = 660
-    _globals["_EXECUTESQLRESULTPERSISTENCESETTINGS"]._serialized_start = 662
-    _globals["_EXECUTESQLRESULTPERSISTENCESETTINGS"]._serialized_end = 725
-    _globals["_EXECUTESQLQUERYREQUEST"]._serialized_start = 728
-    _globals["_EXECUTESQLQUERYREQUEST"]._serialized_end = 1208
-    _globals["_SIGNEDOUTPUTURIS"]._serialized_start = 1210
-    _globals["_SIGNEDOUTPUTURIS"]._serialized_end = 1248
-    _globals["_EXECUTESQLSYNCQUERYRESPONSEPAYLOAD"]._serialized_start = 1251
-    _globals["_EXECUTESQLSYNCQUERYRESPONSEPAYLOAD"]._serialized_end = 1428
-    _globals["_EXECUTESQLASYNCQUERYRESPONSEPAYLOAD"]._serialized_start = 1431
-    _globals["_EXECUTESQLASYNCQUERYRESPONSEPAYLOAD"]._serialized_end = 1591
-    _globals["_EXECUTESQLQUERYRESPONSE"]._serialized_start = 1594
-    _globals["_EXECUTESQLQUERYRESPONSE"]._serialized_end = 1925
-    _globals["_PLANSQLQUERYREQUEST"]._serialized_start = 1927
-    _globals["_PLANSQLQUERYREQUEST"]._serialized_end = 1970
-    _globals["_PLANSQLQUERYRESPONSE"]._serialized_start = 1972
-    _globals["_PLANSQLQUERYRESPONSE"]._serialized_end = 2082
-    _globals["_GETDBCATALOGSREQUEST"]._serialized_start = 2084
-    _globals["_GETDBCATALOGSREQUEST"]._serialized_end = 2106
-    _globals["_GETDBCATALOGSRESPONSE"]._serialized_start = 2108
-    _globals["_GETDBCATALOGSRESPONSE"]._serialized_end = 2221
-    _globals["_GETDBSCHEMASREQUEST"]._serialized_start = 2224
-    _globals["_GETDBSCHEMASREQUEST"]._serialized_end = 2432
-    _globals["_DBSCHEMAINFO"]._serialized_start = 2434
-    _globals["_DBSCHEMAINFO"]._serialized_end = 2521
-    _globals["_GETDBSCHEMASRESPONSE"]._serialized_start = 2524
-    _globals["_GETDBSCHEMASRESPONSE"]._serialized_end = 2658
-    _globals["_GETTABLESREQUEST"]._serialized_start = 2661
-    _globals["_GETTABLESREQUEST"]._serialized_end = 2948
-    _globals["_TABLEINFO"]._serialized_start = 2951
-    _globals["_TABLEINFO"]._serialized_end = 3140
-    _globals["_GETTABLESRESPONSE"]._serialized_start = 3142
-    _globals["_GETTABLESRESPONSE"]._serialized_end = 3268
-    _globals["_SQLQUERYPROGRESSINFO"]._serialized_start = 3270
-    _globals["_SQLQUERYPROGRESSINFO"]._serialized_end = 3292
-    _globals["_SQLQUERYFAILEDINFO"]._serialized_start = 3294
-    _globals["_SQLQUERYFAILEDINFO"]._serialized_end = 3367
-    _globals["_POLLSQLQUERYREQUEST"]._serialized_start = 3369
-    _globals["_POLLSQLQUERYREQUEST"]._serialized_end = 3425
-    _globals["_POLLSQLQUERYRESPONSE"]._serialized_start = 3428
-    _globals["_POLLSQLQUERYRESPONSE"]._serialized_end = 3734
-    _globals["_SQLSERVICE"]._serialized_start = 3913
-    _globals["_SQLSERVICE"]._serialized_end = 4540
+    _globals["_EXECUTESQLASYNCEXECUTIONMODE"]._serialized_start = 4145
+    _globals["_EXECUTESQLASYNCEXECUTIONMODE"]._serialized_end = 4318
+    _globals["_SQLQUERYINFO"]._serialized_start = 190
+    _globals["_SQLQUERYINFO"]._serialized_end = 400
+    _globals["_EXECUTESQLSYNCQUERYREQUESTOPTIONS"]._serialized_start = 402
+    _globals["_EXECUTESQLSYNCQUERYREQUESTOPTIONS"]._serialized_end = 500
+    _globals["_EXECUTESQLASYNCQUERYREQUESTOPTIONS"]._serialized_start = 503
+    _globals["_EXECUTESQLASYNCQUERYREQUESTOPTIONS"]._serialized_end = 690
+    _globals["_EXECUTESQLRESULTPERSISTENCESETTINGS"]._serialized_start = 692
+    _globals["_EXECUTESQLRESULTPERSISTENCESETTINGS"]._serialized_end = 755
+    _globals["_EXECUTESQLQUERYREQUEST"]._serialized_start = 758
+    _globals["_EXECUTESQLQUERYREQUEST"]._serialized_end = 1449
+    _globals["_EXECUTESQLQUERYREQUEST_COMPILATIONOPTIONSENTRY"]._serialized_start = 1305
+    _globals["_EXECUTESQLQUERYREQUEST_COMPILATIONOPTIONSENTRY"]._serialized_end = 1398
+    _globals["_SIGNEDOUTPUTURIS"]._serialized_start = 1451
+    _globals["_SIGNEDOUTPUTURIS"]._serialized_end = 1489
+    _globals["_EXECUTESQLSYNCQUERYRESPONSEPAYLOAD"]._serialized_start = 1492
+    _globals["_EXECUTESQLSYNCQUERYRESPONSEPAYLOAD"]._serialized_end = 1669
+    _globals["_EXECUTESQLASYNCQUERYRESPONSEPAYLOAD"]._serialized_start = 1672
+    _globals["_EXECUTESQLASYNCQUERYRESPONSEPAYLOAD"]._serialized_end = 1832
+    _globals["_EXECUTESQLQUERYRESPONSE"]._serialized_start = 1835
+    _globals["_EXECUTESQLQUERYRESPONSE"]._serialized_end = 2244
+    _globals["_PLANSQLQUERYREQUEST"]._serialized_start = 2246
+    _globals["_PLANSQLQUERYREQUEST"]._serialized_end = 2289
+    _globals["_PLANSQLQUERYRESPONSE"]._serialized_start = 2291
+    _globals["_PLANSQLQUERYRESPONSE"]._serialized_end = 2401
+    _globals["_GETDBCATALOGSREQUEST"]._serialized_start = 2403
+    _globals["_GETDBCATALOGSREQUEST"]._serialized_end = 2425
+    _globals["_GETDBCATALOGSRESPONSE"]._serialized_start = 2427
+    _globals["_GETDBCATALOGSRESPONSE"]._serialized_end = 2540
+    _globals["_GETDBSCHEMASREQUEST"]._serialized_start = 2543
+    _globals["_GETDBSCHEMASREQUEST"]._serialized_end = 2751
+    _globals["_DBSCHEMAINFO"]._serialized_start = 2753
+    _globals["_DBSCHEMAINFO"]._serialized_end = 2840
+    _globals["_GETDBSCHEMASRESPONSE"]._serialized_start = 2843
+    _globals["_GETDBSCHEMASRESPONSE"]._serialized_end = 2977
+    _globals["_GETTABLESREQUEST"]._serialized_start = 2980
+    _globals["_GETTABLESREQUEST"]._serialized_end = 3267
+    _globals["_TABLEINFO"]._serialized_start = 3270
+    _globals["_TABLEINFO"]._serialized_end = 3459
+    _globals["_GETTABLESRESPONSE"]._serialized_start = 3461
+    _globals["_GETTABLESRESPONSE"]._serialized_end = 3587
+    _globals["_SQLQUERYPROGRESSINFO"]._serialized_start = 3589
+    _globals["_SQLQUERYPROGRESSINFO"]._serialized_end = 3611
+    _globals["_SQLQUERYFAILEDINFO"]._serialized_start = 3613
+    _globals["_SQLQUERYFAILEDINFO"]._serialized_end = 3686
+    _globals["_POLLSQLQUERYREQUEST"]._serialized_start = 3688
+    _globals["_POLLSQLQUERYREQUEST"]._serialized_end = 3744
+    _globals["_POLLSQLQUERYRESPONSE"]._serialized_start = 3747
+    _globals["_POLLSQLQUERYRESPONSE"]._serialized_end = 4142
+    _globals["_SQLSERVICE"]._serialized_start = 4321
+    _globals["_SQLSERVICE"]._serialized_end = 4948
 # @@protoc_insertion_point(module_scope)

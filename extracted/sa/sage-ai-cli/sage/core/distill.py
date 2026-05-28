@@ -49,8 +49,20 @@ class DistillLogger:
         self.path = self.root / f"{self.session_id}.jsonl"
 
     def log(self, event: DistillEvent) -> None:
+        import re
+        def _clean(val: str) -> str:
+            if not val:
+                return ""
+            val = re.sub(r'\x1b\[[0-9;]*[mGKHFABCDEJst]', '', val)
+            val = re.sub(r'\x1b\].*?\x07', '', val)
+            return val.replace('\x1b', '')
+
+        d = asdict(event)
+        d["final_response"] = _clean(d.get("final_response", ""))
+        d["user_prompt"] = _clean(d.get("user_prompt", ""))
+
         with self.path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(asdict(event), ensure_ascii=False) + "\n")
+            fh.write(json.dumps(d, ensure_ascii=False) + "\n")
 
     def events(self) -> list[DistillEvent]:
         if not self.path.exists():

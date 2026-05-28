@@ -16,6 +16,7 @@ from subprocess import PIPE, CalledProcessError
 from packaging.version import Version
 from PIL import Image, UnidentifiedImageError
 
+from ocrmypdf._exec._probe import ToolProbe
 from ocrmypdf.exceptions import (
     ColorConversionNeededError,
     InputFileError,
@@ -23,7 +24,7 @@ from ocrmypdf.exceptions import (
 )
 from ocrmypdf.helpers import Resolution
 from ocrmypdf.pluginspec import GhostscriptRasterDevice
-from ocrmypdf.subprocess import get_version, run, run_polling_stderr
+from ocrmypdf.subprocess import run, run_polling_stderr
 
 COLOR_CONVERSION_STRATEGIES = frozenset(
     [
@@ -69,11 +70,19 @@ class DuplicateFilter(logging.Filter):
             return True
 
 
-log.addFilter(DuplicateFilter(log))
+PROBE = ToolProbe(program=GS)
+version = PROBE.version
+available = PROBE.available
 
 
-def version() -> Version:
-    return Version(get_version(GS))
+def _ensure_log_filter_installed() -> None:
+    """Idempotently attach the duplicate-suppressing filter to the GS logger.
+
+    Called at the top of each work function so the filter is present in the
+    main process *and* in any subprocess worker that calls Ghostscript.
+    """
+    if not any(isinstance(f, DuplicateFilter) for f in log.filters):
+        log.addFilter(DuplicateFilter(log))
 
 
 def _gs_error_reported(stream) -> bool:
@@ -123,6 +132,7 @@ def rasterize_pdf(
         use_cropbox: If True, rasterize the CropBox instead of MediaBox.
             Default is False (use MediaBox).
     """
+    _ensure_log_filter_installed()
     raster_dpi = raster_dpi.round(6)
     if not page_dpi:
         page_dpi = raster_dpi
@@ -268,11 +278,14 @@ def generate_pdfa(
     *,
     compression: str,
     color_conversion_strategy: str,
+    jpeg_quality: int | None = None,
+    jpeg_maxdpi: int | None = None,
     pdf_version: str = '1.5',
     pdfa_part: str = '2',
     progressbar_class=None,
     stop_on_error: bool = False,
 ):
+    _ensure_log_filter_installed()
     # Ghostscript's compression is all or nothing. We can either force all images
     # to JPEG, force all to Flate/PNG, or let it decide how to encode the images.
     # In most case it's best to let it decide.
@@ -307,6 +320,35 @@ def generate_pdfa(
         # Windows has lots of fatal "permission denied" errors
         stop_on_error = False
 
+    # `-dJPEGQ=N` tells Ghostscript to use a JPEG quality of N, IF it decides
+    # to transcode an image to JPEG. When there are existing JPEG images,
+    # Ghostscript uses passthrough mode, so the quality level is not changed.
+    # OCRmyPDF's optimizer separately uses the `--jpeg-quality` command line
+    # option to potentially re-encode JPEG images, regardless of whether
+    # Ghostscript decided to transcode them to JPEG or not.
+    # `jpeg_quality=0` is meaningful to Ghostscript (maximum compression), so
+    # only fall back to the default when the value is None.
+    effective_jpeg_quality = jpeg_quality if jpeg_quality is not None else 95
+
+    # Downsampling images is a blunt-force way to reduce file size and almost
+    # always degrades quality more than lowering JPEG quality at the original
+    # resolution. We expose this for users with very specific needs (e.g.
+    # producing very small files for screen-only viewing); the optimizer is
+    # usually a better choice.
+    downsample_args: list[str] = []
+    if jpeg_maxdpi is not None:
+        downsample_args = [
+            "-dDownsampleColorImages=true",
+            "-dColorImageDownsampleThreshold=1.0",
+            "-dDownsampleGrayImages=true",
+            "-dGrayImageDownsampleThreshold=1.0",
+            "-dDownsampleMonoImages=true",
+            "-dMonoImageDownsampleThreshold=1.0",
+            f"-dColorImageResolution={jpeg_maxdpi}",
+            f"-dGrayImageResolution={jpeg_maxdpi}",
+            f"-dMonoImageResolution={jpeg_maxdpi}",
+        ]
+
     # nb no need to specify ProcessColorModel when ColorConversionStrategy
     # is set; see:
     # https://bugs.ghostscript.com/show_bug.cgi?id=699392
@@ -323,8 +365,9 @@ def generate_pdfa(
         ]
         + (['-dPDFSTOPONERROR'] if stop_on_error else [])
         + compression_args
+        + downsample_args
         + [
-            "-dJPEGQ=95",
+            f"-dJPEGQ={effective_jpeg_quality}",  # See note above on JPEG quality
             "-dSubsetFonts=false",  # Prevents GS from messing up some encodings
             f"-dPDFA={pdfa_part}",
             "-dPDFACompatibilityPolicy=1",

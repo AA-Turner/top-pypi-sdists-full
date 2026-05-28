@@ -9,6 +9,7 @@ from darabonba.model import DaraModel
 class OSSIngestionConfigurationSource(DaraModel):
     def __init__(
         self,
+        advanced_parameters: Dict[str, Any] = None,
         bucket: str = None,
         compression_codec: str = None,
         encoding: str = None,
@@ -29,30 +30,55 @@ class OSSIngestionConfigurationSource(DaraModel):
         time_zone: str = None,
         use_meta_index: bool = None,
     ):
+        self.advanced_parameters = advanced_parameters
+        # The OSS bucket.
+        # 
         # This parameter is required.
         self.bucket = bucket
+        # The compression type.
+        # 
         # This parameter is required.
         self.compression_codec = compression_codec
+        # The encoding type.
+        # 
         # This parameter is required.
         self.encoding = encoding
+        # The point in time before which modified OSS objects are imported.
         self.end_time = end_time
+        # The OSS endpoint.
+        # 
         # This parameter is required.
         self.endpoint = endpoint
+        # The format.
+        # 
         # This parameter is required.
         self.format = format
+        # The interval at which the system checks for new files.
+        # 
         # This parameter is required.
         self.interval = interval
+        # The regular expression that is used to filter OSS objects by directory.
         self.pattern = pattern
+        # The directory of the OSS objects.
         self.prefix = prefix
         self.processor_id = processor_id
+        # Specifies whether to import OSS objects of the Archive class.
         self.restore_object_enabled = restore_object_enabled
+        # The Alibaba Cloud Resource Name (ARN) of the role.
         self.role_arn = role_arn
+        # The point in time after which modified OSS objects are imported.
         self.start_time = start_time
         self.tag_pack_id = tag_pack_id
+        # The time field to extract.
         self.time_field = time_field
+        # The format of the time field.
         self.time_format = time_format
+        # The regular expression that is used to extract time.
         self.time_pattern = time_pattern
+        # The time zone of the time field.
         self.time_zone = time_zone
+        # Specifies whether to enable OSS metadata indexing.
+        # 
         # This parameter is required.
         self.use_meta_index = use_meta_index
 
@@ -64,6 +90,9 @@ class OSSIngestionConfigurationSource(DaraModel):
         _map = super().to_map()
         if _map is not None:
             result = _map
+        if self.advanced_parameters is not None:
+            result['advancedParameters'] = self.advanced_parameters
+
         if self.bucket is not None:
             result['bucket'] = self.bucket
 
@@ -125,6 +154,9 @@ class OSSIngestionConfigurationSource(DaraModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('advancedParameters') is not None:
+            self.advanced_parameters = m.get('advancedParameters')
+
         if m.get('bucket') is not None:
             self.bucket = m.get('bucket')
 

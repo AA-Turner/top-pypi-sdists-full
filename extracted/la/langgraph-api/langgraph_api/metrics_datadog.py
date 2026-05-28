@@ -130,6 +130,18 @@ COUNTER_SERVER_REQUESTED_TO_STOP = def_counter(
     "server_requested_to_stop_counter", METRIC_TIER_INFO
 )
 COUNTER_SERVER_STOPPED = def_counter("server_stopped_counter", METRIC_TIER_INFO)
+COUNTER_PROTOCOL_V2_BUFFER_EVICTED = def_counter(
+    "protocol_v2_buffer_evicted_counter", METRIC_TIER_INFO
+)
+COUNTER_PROTOCOL_V2_EVENT_EMITTED = def_counter(
+    "protocol_v2_event_emitted_counter", METRIC_TIER_DEBUG
+)
+COUNTER_PROTOCOL_V2_RESUME_GAP = def_counter(
+    "protocol_v2_resume_gap_counter", METRIC_TIER_INFO
+)
+COUNTER_PROTOCOL_V2_TRANSPORT_SEND_FAILURE = def_counter(
+    "protocol_v2_transport_send_failure_counter", METRIC_TIER_INFO
+)
 
 # Pre-defined latency metrics.
 LATENCY_RUN_EXECUTION = def_latency("run_execution_latency", METRIC_TIER_INFO)
@@ -147,10 +159,17 @@ GAUGE_WORKERS_AVAILABLE = def_gauge("workers_available", METRIC_TIER_CRITICAL)
 GAUGE_PUBLISH_QUEUE_AVAILABILITY = def_gauge(
     "publish_queue_availability", METRIC_TIER_CRITICAL
 )
+# Protocol v2 sessions retain a bounded replay buffer per run. Track the
+# observed occupancy so operators can tune LSD_PROTOCOL_V2_BUFFER_SIZE before
+# reconnects start seeing resume gaps.
+GAUGE_PROTOCOL_V2_BUFFER_SIZE = def_gauge("protocol_v2_buffer_size", METRIC_TIER_DEBUG)
 
 
 # Pre-defined histogram metrics.
 HISTOGRAM_STREAM_DATA_SIZE = def_histogram("stream_data_size_bytes", METRIC_TIER_DEBUG)
+HISTOGRAM_PROTOCOL_V2_REPLAYED_EVENTS = def_histogram(
+    "protocol_v2_replayed_events", METRIC_TIER_DEBUG
+)
 
 
 def _normalize_emitting_tier(value: int) -> int:

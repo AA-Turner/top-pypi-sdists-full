@@ -24,7 +24,6 @@ Development services startup script
 from __future__ import annotations
 
 import argparse
-from collections.abc import Iterator
 import os
 from pathlib import Path
 import platform
@@ -36,7 +35,7 @@ import sys
 import threading
 import time
 import traceback
-from typing import Any
+from typing import Any, Dict, Iterator, List
 
 import psutil
 import yaml
@@ -292,7 +291,7 @@ class DevService:
         return f"{self.name}:{self.port}"
 
 
-def load_config_file(config_path: Path) -> dict[str, Any]:
+def load_config_file(config_path: Path) -> Dict[str, Any]:
     """Load the .taskfile-data.yaml configuration file."""
     if not config_path.exists():
         print(f"❌ Configuration file not found: {config_path}")
@@ -310,9 +309,9 @@ def load_config_file(config_path: Path) -> dict[str, Any]:
         sys.exit(1)
 
 
-def get_services_from_config(config: dict[str, Any]) -> list[DevService]:
+def get_services_from_config(config: Dict[str, Any]) -> List[DevService]:
     """Extract services from configuration in the specified order."""
-    services: list[DevService] = []
+    services: List[DevService] = []
     ports_config = config.get('ports', [])
 
     if not ports_config:
@@ -341,9 +340,9 @@ def get_services_from_config(config: dict[str, Any]) -> list[DevService]:
     return services
 
 
-def parse_service_args(args: list[str]) -> list[DevService]:
+def parse_service_args(args: List[str]) -> List[DevService]:
     """Parse service:port arguments into tuples."""
-    services: list[DevService] = []
+    services: List[DevService] = []
     for arg in args:
         try:
             service, port_str = arg.split(':')
@@ -356,7 +355,7 @@ def parse_service_args(args: list[str]) -> list[DevService]:
     return services
 
 
-def stop_services(services: list[DevService]) -> None:
+def stop_services(services: List[DevService]) -> None:
     """Stop all services."""
     print("\n\n🛑 Stopping all services..")
     for service in services:
@@ -366,7 +365,7 @@ def stop_services(services: list[DevService]) -> None:
 def main(args: argparse.Namespace) -> None:
     """Main function to start and manage development services."""
 
-    services: list[DevService]
+    services: List[DevService]
 
     # Determine services to start
     if args.manual:

@@ -1,5 +1,6 @@
 import ctypes
 import multiprocessing
+import time
 import uuid
 
 import pytest
@@ -13,6 +14,7 @@ import salt.utils.event
 import salt.utils.files
 import salt.utils.stringutils
 from salt.master import SMaster
+from tests.support.mock import AsyncMock, MagicMock, patch
 
 
 @pytest.fixture
@@ -55,6 +57,74 @@ def test_compare_keys_newline_tgt(key_data, linesep):
     assert server.ReqServerChannel.compare_keys(src_key, tgt_key) is True
 
 
+class TestClusterPubFingerprint:
+    """
+    Tests for ``cluster_pub_matches_fingerprint`` -- the helper that lets a
+    joining master pin the expected cluster public key by its SHA-256 hex
+    digest in ``opts["cluster_pub_fingerprint"]``.
+    """
+
+    PUB = (
+        "-----BEGIN PUBLIC KEY-----\n"
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoe5QSDYRWKyknbVyRrIj\n"
+        "-----END PUBLIC KEY-----\n"
+    )
+
+    def _digest(self, data):
+        import hashlib
+
+        return hashlib.sha256(data.encode()).hexdigest()
+
+    def test_no_fingerprint_configured_accepts(self):
+        # Unset option: TOFU behavior, accept whatever was received.
+        assert server.cluster_pub_matches_fingerprint({}, self.PUB) is True
+        assert (
+            server.cluster_pub_matches_fingerprint(
+                {"cluster_pub_fingerprint": None}, self.PUB
+            )
+            is True
+        )
+        assert (
+            server.cluster_pub_matches_fingerprint(
+                {"cluster_pub_fingerprint": ""}, self.PUB
+            )
+            is True
+        )
+
+    def test_matching_fingerprint_accepts(self):
+        opts = {"cluster_pub_fingerprint": self._digest(self.PUB)}
+        assert server.cluster_pub_matches_fingerprint(opts, self.PUB) is True
+
+    def test_matching_fingerprint_case_insensitive(self):
+        opts = {"cluster_pub_fingerprint": self._digest(self.PUB).upper()}
+        assert server.cluster_pub_matches_fingerprint(opts, self.PUB) is True
+
+    def test_mismatched_fingerprint_rejects(self):
+        opts = {"cluster_pub_fingerprint": self._digest(self.PUB + "tampered")}
+        assert server.cluster_pub_matches_fingerprint(opts, self.PUB) is False
+
+    def test_bytes_pub_is_accepted(self):
+        opts = {"cluster_pub_fingerprint": self._digest(self.PUB)}
+        assert server.cluster_pub_matches_fingerprint(opts, self.PUB.encode()) is True
+
+    def test_not_sha1_digest(self):
+        # The previous (broken) implementation used SHA-1. A caller that
+        # supplies a SHA-1 digest as the pinned value must now be rejected:
+        # the helper compares against SHA-256 exclusively.
+        import hashlib
+
+        sha1 = hashlib.sha1(self.PUB.encode()).hexdigest()
+        opts = {"cluster_pub_fingerprint": sha1}
+        assert server.cluster_pub_matches_fingerprint(opts, self.PUB) is False
+
+    def test_truncated_fingerprint_rejected(self):
+        # Pinning must require a full hex digest. Accepting a prefix would
+        # silently reduce the pin's strength to whatever length the operator
+        # happened to paste.
+        opts = {"cluster_pub_fingerprint": self._digest(self.PUB)[:16]}
+        assert server.cluster_pub_matches_fingerprint(opts, self.PUB) is False
+
+
 @pytest.fixture
 def root_dir(tmp_path):
     (tmp_path / "var").mkdir()
@@ -69,6 +139,8 @@ def root_dir(tmp_path):
 
 def test_req_server_validate_token_removes_token(root_dir):
     opts = {
+        "id": "minion",
+        "__role": "minion",
         "master_uri": "tcp://127.0.0.1:4505",
         "cachedir": str(root_dir / "var" / "cache"),
         "pki_dir": str(root_dir / "etc" / "salt" / "pki"),
@@ -76,6 +148,11 @@ def test_req_server_validate_token_removes_token(root_dir):
         "key_pass": "",
         "keysize": 2048,
         "master_sign_pubkey": False,
+        "keys.cache_driver": "localfs_key",
+        "optimization_order": (0, 1, 2),
+        "permissive_pki_access": False,
+        "cluster_id": "",
+        "worker_pools_enabled": False,
     }
     reqsrv = server.ReqServerChannel.factory(opts)
     payload = {
@@ -90,6 +167,8 @@ def test_req_server_validate_token_removes_token(root_dir):
 
 def test_req_server_validate_token_removes_token_id_traversal(root_dir):
     opts = {
+        "id": "minion",
+        "__role": "minion",
         "master_uri": "tcp://127.0.0.1:4505",
         "cachedir": str(root_dir / "var" / "cache"),
         "pki_dir": str(root_dir / "etc" / "salt" / "pki"),
@@ -97,6 +176,11 @@ def test_req_server_validate_token_removes_token_id_traversal(root_dir):
         "key_pass": "",
         "keysize": 2048,
         "master_sign_pubkey": False,
+        "keys.cache_driver": "localfs_key",
+        "optimization_order": (0, 1, 2),
+        "permissive_pki_access": False,
+        "cluster_id": "",
+        "worker_pools_enabled": False,
     }
     reqsrv = server.ReqServerChannel.factory(opts)
     payload = {
@@ -128,10 +212,14 @@ def pki_dir(tmp_path):
     (master_pki / "minions_denied").mkdir()
 
     # Generate master keys
-    salt.crypt.gen_keys(str(master_pki), "master", 4096)
+    master_priv, master_pub = salt.crypt.gen_keys(4096)
+    (master_pki / "master.pem").write_text(master_priv)
+    (master_pki / "master.pub").write_text(master_pub)
 
     # Generate minion keys
-    salt.crypt.gen_keys(str(minion_pki), "minion", 4096)
+    minion_priv, minion_pub = salt.crypt.gen_keys(4096)
+    (minion_pki / "minion.pem").write_text(minion_priv)
+    (minion_pki / "minion.pub").write_text(minion_pub)
 
     return tmp_path
 
@@ -139,32 +227,44 @@ def pki_dir(tmp_path):
 @pytest.fixture
 def auth_master_opts(pki_dir, tmp_path):
     """Master configuration for auth tests."""
-    opts = {
-        "master_uri": "tcp://127.0.0.1:4506",
-        "interface": "127.0.0.1",
-        "ret_port": 4506,
-        "ipv6": False,
-        "sock_dir": str(tmp_path / "sock"),
-        "cachedir": str(tmp_path / "cache"),
-        "pki_dir": str(pki_dir / "master"),
-        "id": "master",
-        "__role": "master",
-        "keysize": 4096,
-        "max_minions": 0,
-        "auto_accept": False,
-        "open_mode": False,
-        "key_pass": None,
-        "publish_port": 4505,
-        "auth_mode": 1,
-        "auth_events": True,
-        "publish_session": 86400,
-        "request_server_ttl": 300,  # 5 minutes
-        "master_sign_pubkey": False,
-        "sign_pub_messages": False,
-        "cluster_id": None,
-        "transport": "zeromq",
-        "minimum_auth_version": 3,  # Enforce version 3+ for security
-    }
+    import salt.config
+
+    # Start with default master opts to get all necessary loader paths
+    opts = salt.config.DEFAULT_MASTER_OPTS.copy()
+
+    # Override with test-specific configuration
+    opts.update(
+        {
+            "master_uri": "tcp://127.0.0.1:4506",
+            "interface": "127.0.0.1",
+            "ret_port": 4506,
+            "ipv6": False,
+            "sock_dir": str(tmp_path / "sock"),
+            "cachedir": str(tmp_path / "cache"),
+            "pki_dir": str(pki_dir / "master"),
+            "id": "master",
+            "__role": "master",
+            "keysize": 4096,
+            "max_minions": 0,
+            "auto_accept": False,
+            "open_mode": False,
+            "key_pass": None,
+            "publish_port": 4505,
+            "auth_mode": 1,
+            "auth_events": True,
+            "publish_session": 86400,
+            "request_server_ttl": 300,  # 5 minutes
+            "master_sign_pubkey": False,
+            "sign_pub_messages": False,
+            "cluster_id": None,
+            "transport": "zeromq",
+            "minimum_auth_version": 3,  # Enforce version 3+ for security
+            "keys.cache_driver": "localfs_key",
+            "extension_modules": str(tmp_path / "extmods"),
+            "file_roots": {"base": [str(tmp_path / "file_roots")]},
+            "pillar_roots": {"base": [str(tmp_path / "pillar_roots")]},
+        }
+    )
     (tmp_path / "sock").mkdir(exist_ok=True)
     (tmp_path / "cache").mkdir(exist_ok=True)
     (tmp_path / "cache" / "sessions").mkdir(exist_ok=True)
@@ -351,6 +451,214 @@ def test_handle_message_version_extraction(auth_master_opts):
     ), "Expected minimum auth version to be at least 3"
 
 
+async def test_auth_version_downgrade_warning_includes_minion_id(
+    pki_dir, auth_minion_opts, req_server, setup_accepted_minion, caplog
+):
+    """
+    Test that the rejected authentication warning includes the minion ID.
+
+    When minimum_auth_version rejects a connection, the warning message should
+    include the minion's ID so administrators can identify which minion needs
+    to be upgraded.
+    """
+    with salt.utils.files.fopen(str(pki_dir / "minion" / "minion.pub"), "r") as fp:
+        pub_key = fp.read()
+
+    load = {
+        "cmd": "_auth",
+        "id": "my-outdated-minion",
+        "pub": pub_key,
+        "enc_algo": auth_minion_opts["encryption_algorithm"],
+        "sig_algo": auth_minion_opts["signing_algorithm"],
+    }
+
+    payload = {"enc": "clear", "load": load, "version": 0}
+
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="salt.channel.server"):
+        ret = await req_server.handle_message(payload)
+
+    assert ret == "bad load"
+    assert any(
+        "my-outdated-minion" in record.message
+        for record in caplog.records
+        if record.levelno == logging.WARNING
+    ), "Expected minion ID 'my-outdated-minion' in the rejection warning message"
+
+
+async def test_auth_version_downgrade_warning_encrypted_load(req_server, caplog):
+    """
+    Test that the rejected authentication warning shows 'unknown minion' when
+    the load is not a dict (e.g., encrypted payload).
+    """
+    payload = {"enc": "aes", "load": b"encrypted-blob", "version": 0}
+
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="salt.channel.server"):
+        ret = await req_server.handle_message(payload)
+
+    assert ret == "bad load"
+    assert any(
+        "unknown minion" in record.message
+        for record in caplog.records
+        if record.levelno == logging.WARNING
+    ), "Expected 'unknown minion' in the rejection warning for encrypted payloads"
+
+
 # Note: The remaining security bypasses (token, TTL, ID mismatch, session keys)
 # are already tested via the parametrized downgrade tests above and the
 # functional tests. The key regression test is ensuring old versions are rejected.
+async def test_handle_message_exceptions(temp_salt_master):
+    """
+    test exceptions are handled cleanly in handle_message
+    """
+    opts = dict(temp_salt_master.config.copy())
+    req = server.ReqServerChannel(opts, None)
+
+    with patch(
+        "salt.channel.server.ReqServerChannel._decode_payload",
+        MagicMock(side_effect=OSError()),
+    ):
+        ret = await req.handle_message({})
+        assert ret == "bad load"
+
+    with patch(
+        "salt.channel.server.ReqServerChannel._decode_payload",
+        MagicMock(return_value="foobar"),
+    ):
+        ret = await req.handle_message({})
+        assert ret == "bad load"
+
+    with patch(
+        "salt.channel.server.ReqServerChannel._decode_payload",
+        MagicMock(return_value={"load": {"id": "foo\0"}}),
+    ):
+        ret = await req.handle_message({"version": 3, "enc": "clear", "load": {}})
+        assert ret == "bad load: id contains a null byte"
+
+    with patch(
+        "salt.channel.server.ReqServerChannel._decode_payload",
+        MagicMock(return_value={"load": {"id": None}}),
+    ):
+        ret = await req.handle_message({"version": 3, "enc": "clear", "load": {}})
+        assert ret == "bad load: id None is not a string"
+
+    with patch(
+        "salt.channel.server.ReqServerChannel._decode_payload",
+        MagicMock(
+            return_value={"version": 3, "enc": "clear", "load": {"cmd": "_auth"}}
+        ),
+    ):
+        with patch(
+            "salt.channel.server.ReqServerChannel._auth",
+            MagicMock(side_effect=OSError()),
+        ):
+            ret = await req.handle_message({"version": 3, "enc": "clear", "load": {}})
+            assert ret == "Some exception handling minion payload"
+
+    with patch(
+        "salt.channel.server.ReqServerChannel._decode_payload",
+        MagicMock(
+            return_value={"version": 3, "enc": "clear", "load": {"cmd": "not_auth"}}
+        ),
+    ):
+        with patch(
+            "salt.channel.server.ReqServerChannel.payload_handler",
+            MagicMock(side_effect=OSError()),
+            create=True,
+        ):
+            ret = await req.handle_message({"version": 3, "enc": "clear", "load": {}})
+            assert ret == "Some exception handling minion payload"
+
+    with patch(
+        "salt.channel.server.ReqServerChannel._decode_payload",
+        MagicMock(return_value={"enc": "clear", "load": {"cmd": "not_auth"}}),
+    ):
+        with patch(
+            "salt.channel.server.ReqServerChannel.payload_handler",
+            AsyncMock(return_value=(None, {"fun": "send"})),
+            create=True,
+        ):
+            crypticle = MagicMock()
+            with patch.object(req, "crypticle", crypticle, create=True):
+                crypticle.dumps = MagicMock(side_effect=OSError())
+                ret = await req.handle_message(
+                    {"version": 3, "enc": "clear", "load": {}}
+                )
+                assert ret == "Some exception handling minion payload"
+
+    with patch(
+        "salt.channel.server.ReqServerChannel._decode_payload",
+        MagicMock(return_value={"enc": "clear", "load": {"cmd": "not_auth"}}),
+    ):
+        with patch(
+            "salt.channel.server.ReqServerChannel.payload_handler",
+            AsyncMock(
+                return_value=(None, {"fun": "send_private", "key": None, "tgt": None})
+            ),
+            create=True,
+        ):
+            with patch.object(
+                req, "_encrypt_private", MagicMock(side_effect=OSError()), create=True
+            ):
+                ret = await req.handle_message(
+                    {"version": 3, "enc": "clear", "load": {}}
+                )
+                assert ret == "Some exception handling minion payload"
+
+    with patch(
+        "salt.channel.server.ReqServerChannel._decode_payload",
+        MagicMock(return_value={"enc": "clear", "load": {"cmd": "not_auth"}}),
+    ):
+        with patch(
+            "salt.channel.server.ReqServerChannel.payload_handler",
+            AsyncMock(return_value=(None, {"fun": "foobar", "key": None, "tgt": None})),
+            create=True,
+        ):
+            with patch.object(
+                req, "_encrypt_private", MagicMock(side_effect=OSError()), create=True
+            ):
+                ret = await req.handle_message(
+                    {"version": 3, "enc": "clear", "load": {}}
+                )
+                assert ret == "Server-side exception handling payload"
+
+
+async def test__auth_cmd_stats_passing(auth_master_opts):
+    opts = auth_master_opts.copy()
+    opts.update(
+        {
+            "master_stats": True,
+        }
+    )
+    req = server.ReqServerChannel(opts, None)
+
+    fake_ret = {"enc": "clear", "load": b"FAKELOAD"}
+
+    def _auth_mock(*_, **__):
+        time.sleep(0.03)
+        return fake_ret
+
+    with patch.object(req, "_auth", _auth_mock), patch(
+        "salt.channel.server.ReqServerChannel.payload_handler",
+        AsyncMock(return_value=(None, {"fun": "send"})),
+        create=True,
+    ) as payload_handler:
+        ret = await req.handle_message(
+            {
+                "enc": "clear",
+                "version": 3,
+                "load": {
+                    "cmd": "_auth",
+                    "id": "minion",
+                },
+            }
+        )
+        cur_time = time.time()
+        payload_handler.assert_called_once()
+        assert payload_handler.call_args[0][0]["cmd"] == "_auth"
+        auth_call_duration = cur_time - payload_handler.call_args[0][0]["_start"]
+        assert auth_call_duration >= 0.03
+        assert auth_call_duration < 0.05

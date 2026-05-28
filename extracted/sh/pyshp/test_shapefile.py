@@ -479,25 +479,25 @@ def test_shaperecord_geo_interface():
             assert json.dumps(shaperec.__geo_interface__)
 
 
+@pytest.mark.skipif(
+    not shapefile.REPLACE_REMOTE_URLS_WITH_LOCALHOST,
+    reason="Flakey test, fails due to Github rate limit",
+)
 @pytest.mark.network
-def test_reader_url():
+def test_reader_nvkelso_files_from_localhost_url():
     """
     Assert that Reader can open shapefiles from a url.
     """
 
-    # Allow testing loading of shapefiles from a url on localhost (to avoid
-    # overloading external servers, and associated spurious test failures).
+    # Only test these shapefiles from localhost,
+    # https://github.com/nvkelso/natural-earth-vector urls throws 426 errors ("too many downloads").
     # A suitable repo of test files, and a localhost server setup is
     # defined in ./.github/actions/test/actions.yml
-    if shapefile.REPLACE_REMOTE_URLS_WITH_LOCALHOST:
 
-        def Reader(url):
-            new_url = shapefile._replace_remote_url(url)
-            print(f"repr(new_url): {repr(new_url)}")
-            return shapefile.Reader(new_url)
-    else:
-        print("Using plain Reader")
-        Reader = shapefile.Reader
+    def Reader(url):
+        new_url = shapefile._replace_remote_url_with_localhost(url)
+        print(f"repr(new_url): {repr(new_url)}")
+        return shapefile.Reader(new_url)
 
     # test with extension
     url = "https://github.com/nvkelso/natural-earth-vector/blob/master/110m_cultural/ne_110m_admin_0_tiny_countries.shp?raw=true"
@@ -518,6 +518,27 @@ def test_reader_url():
     assert sf._shx is None or sf.shx.closed
     assert sf.dbf.closed
 
+
+@pytest.mark.network
+def test_reader_urls():
+    """
+    Assert that Reader can open shapefiles from a few different urls.
+    """
+
+    # Allow testing loading of shapefiles from a url on localhost (to avoid
+    # overloading external servers, and associated spurious test failures).
+    # A suitable repo of test files, and a localhost server setup is
+    # defined in ./.github/actions/test/actions.yml
+    if shapefile.REPLACE_REMOTE_URLS_WITH_LOCALHOST:
+
+        def Reader(url):
+            new_url = shapefile._replace_remote_url_with_localhost(url)
+            print(f"repr(new_url): {repr(new_url)}")
+            return shapefile.Reader(new_url)
+    else:
+        print("Using plain Reader")
+        Reader = shapefile.Reader
+
     # test no files found
     url = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/README.md"
     with pytest.raises(shapefile.ShapefileException):
@@ -525,12 +546,29 @@ def test_reader_url():
             pass
 
     # test reading zipfile from url
-    url = "https://github.com/JamesParrott/PyShp_test_shapefile/raw/main/gis_osm_natural_a_free_1.zip"
-    with Reader(url) as sf:
-        for __recShape in sf.iterShapeRecords():
+    urls = [
+        "https://github.com/JamesParrott/PyShp_test_shapefile/raw/main/gis_osm_natural_a_free_1.zip",
+        "http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/ne_10m_admin_0_boundary_lines_land.zip",
+    ]
+    for url in urls:
+        try:
+            with Reader(url) as sf:
+                for __recShape in sf.iterShapeRecords():
+                    pass
+                assert len(sf) > 0
+        except shapefile.HTTPError:
             pass
-        assert len(sf) > 0
-    assert sf.shp.closed is sf.shx.closed is sf.dbf.closed is True
+        else:
+            assert sf.shp.closed is sf.shx.closed is sf.dbf.closed is True
+            break
+    else:
+        raise shapefile.HTTPError(
+            "\n".join(urls),
+            "Could not download .zipped shapefiles from any of the test urls",
+            404,
+            {},
+            None,
+        )
 
 
 def test_reader_zip():
@@ -1117,7 +1155,9 @@ def test_shape_oid_no_shx():
                 shape = sf.shape(i)
                 assert shape.oid == i
                 shape_expected = sf_expected.shape(i)
-                assert shape.__geo_interface__ == shape_expected.__geo_interface__
+                assert shape.__geo_interface__ == shape_expected.__geo_interface__, (
+                    f"{i=}"
+                )
 
             for i, shape in enumerate(sf.shapes()):
                 assert shape.oid == i
@@ -1145,10 +1185,10 @@ def test_reader_offsets():
     basename = "shapefiles/blockgroups"
     with shapefile.Reader(basename) as sf:
         # shx offsets should not be read during loading
-        assert not sf._offsets
-        # reading a shape index should trigger reading offsets from shx file
+        assert sf.shx_reader._shxRecords_16bw is None
+        # reading a shape index should trigger reading all offsets from shx file
         sf.shape(3)
-        assert len(sf._offsets) == len(sf.shapes())
+        assert len(sf.shx_reader.offsets) == len(sf.shapes())
 
 
 def test_reader_offsets_no_shx():
@@ -1161,14 +1201,16 @@ def test_reader_offsets_no_shx():
     dbf = open(basename + ".dbf", "rb")
     with shapefile.Reader(shp=shp, dbf=dbf) as sf:
         # offsets should not be built during loading
-        assert not sf._offsets
+        with pytest.raises(shapefile.ShapefileException):
+            sf.shx_reader
         # reading a shape index should iterate to the shape
         # but the list of offsets should remain empty
         sf.shape(3)
-        assert not sf._offsets
-        # reading all the shapes should build the list of offsets
+        with pytest.raises(shapefile.ShapefileException):
+            sf.shx_reader
+        # reading all the shapes should build the list of shape headers
         shapes = sf.shapes()
-        assert len(sf._offsets) == len(shapes)
+        assert len(sf.shp_reader.headers_cache) == len(shapes)
 
 
 def test_reader_numshapes():
@@ -1195,7 +1237,7 @@ def test_reader_numshapes_no_shx():
     dbf = open(basename + ".dbf", "rb")
     with shapefile.Reader(shp=shp, dbf=dbf) as sf:
         # numShapes should be unknown due to missing shx file
-        assert sf.numShapes is None
+        assert not sf.numShapes
         # numShapes should be set after reading all the shapes
         shapes = sf.shapes()
         assert sf.numShapes == len(shapes)
@@ -1254,12 +1296,12 @@ def test_reader_len_no_dbf_shx():
         assert len(sf) == len(sf.shapes())
 
 
-def test_reader_corrupt_files():
+def test_reader_corrupt_files(tmp_path):
     """
     Assert that reader is able to handle corrupt files by
     strictly going off the header information.
     """
-    basename = "shapefiles/test/corrupt_too_long"
+    basename = str(tmp_path / "corrupt_too_long")
 
     # write a shapefile with junk byte data at end of files
     with shapefile.Writer(basename) as w:
@@ -1269,27 +1311,30 @@ def test_reader_corrupt_files():
             w.record("value")
             w.line([[(1, 1), (1, 2), (2, 2)]])
         # add junk byte data to end of dbf and shp files
-        w.dbf.write(b"12345")
+        w.dbf_writer.file.write(b"12345")
         w.shp.write(b"12345")
 
     # read the corrupt shapefile and assert that it reads correctly
-    with shapefile.Reader(basename) as sf:
-        # assert correct shapefile length metadata
-        assert len(sf) == sf.numRecords == sf.numShapes == 10
-        # assert that records are read without error
-        assert len(sf.records()) == 10
-        # assert that didn't read the extra junk data
-        stopped = sf.dbf.tell()
-        sf.dbf.seek(0, 2)
-        end = sf.dbf.tell()
-        assert (end - stopped) == 5
-        # assert that shapes are read without error
-        assert len(sf.shapes()) == 10
-        # assert that didn't read the extra junk data
-        stopped = sf.shp.tell()
-        sf.shp.seek(0, 2)
-        end = sf.shp.tell()
-        assert (end - stopped) == 5
+    with pytest.warns(shapefile.PossiblyCorruptFileHeader):
+        with shapefile.Reader(basename) as sf:
+            # assert correct shapefile length metadata
+            assert len(sf) == 10
+            assert sf.numRecords == 10
+            assert sf.numShapes == 10
+            # assert that records are read without error
+            assert len(sf.records()) == 10
+            # assert that didn't read the extra junk data
+            stopped = sf.dbf.tell()
+            sf.dbf.seek(0, 2)
+            end = sf.dbf.tell()
+            assert (end - stopped) == 5
+            # assert that shapes are read without error
+            assert len(sf.shapes()) == 10
+            # assert that didn't read the extra junk data
+            stopped = sf.shp.tell()
+            sf.shp.seek(0, 2)
+            end = sf.shp.tell()
+            assert (end - stopped) == 5
 
 
 def test_bboxfilter_shape():
@@ -1483,7 +1528,7 @@ def test_shaperecord_record():
 def test_reader_zip_polyylinez_no_m_itershaperecords():
     """
     Make sure the M field is initialised to None (so the
-    fix from the bgu in 3.0.2 isn't regressed)!
+    fix from the bug in 3.0.2 isn't regressed)!
 
     Test Polygonz Shapes can be read, even if the m field is missing
     (all the points in this file are 2D only, so this could also be
@@ -1495,7 +1540,7 @@ def test_reader_zip_polyylinez_no_m_itershaperecords():
     Original source:  https://github.com/OpenNHM/AvaFrameData/blob/main/avaPopeletzbach/
     License CC-BY-4.0
     """
-    with shapefile.Reader("shapefiles/test/REL.zip") as sf:
+    with shapefile.Reader("shapefiles/REL.zip/REL/releaseArea20090407") as sf:
         for _shaperec in sf.iterShapeRecords():
             pass
 
@@ -1541,10 +1586,8 @@ def test_write_shp_only(tmpdir):
     # test that can read shapes
     with shapefile.Reader(shp=filename + ".shp") as reader:
         assert reader._shp and not reader._shx and not reader._dbf
-        assert (reader.numRecords, reader.numShapes) == (
-            None,
-            None,
-        )  # numShapes is unknown in the absence of shx file
+        assert (reader.numRecords, reader.numShapes) == (None, 0)
+        # numShapes is unknown in the absence of shx file
         assert len(reader.shapes()) == 1
 
     # assert test.shx does not exist
@@ -1579,7 +1622,7 @@ def test_write_shp_shx_only(tmpdir):
         assert reader.shp and reader.shx and not reader._dbf
         assert (reader.numRecords, reader.numShapes) == (None, 1)
         reader.shape(0)  # trigger reading of shx offsets
-        assert len(reader._offsets) == 1
+        assert len(reader.shx_reader.offsets) == 1
         assert len(reader.shapes()) == 1
 
     # assert test.dbf does not exist
@@ -1611,10 +1654,8 @@ def test_write_shp_dbf_only(tmpdir):
     # test that can read records and shapes
     with shapefile.Reader(shp=filename + ".shp", dbf=filename + ".dbf") as reader:
         assert reader.shp and not reader._shx and reader.dbf
-        assert (reader.numRecords, reader.numShapes) == (
-            1,
-            None,
-        )  # numShapes is unknown in the absence of shx file
+        assert (reader.numRecords, reader.numShapes) == (1, 0)
+        # numShapes is unknown in the absence of shx file
         assert len(reader.records()) == 1
         assert len(reader.shapes()) == 1
 
@@ -1643,7 +1684,7 @@ def test_write_dbf_only(tmpdir):
     # test that can read records
     with shapefile.Reader(dbf=filename + ".dbf") as reader:
         assert not reader._shp and not reader._shx and reader.dbf
-        assert (reader.numRecords, reader.numShapes) == (1, None)
+        assert (reader.numRecords, reader.numShapes) == (1, 0)
         assert len(reader.records()) == 1
 
     # assert test.shp does not exist
@@ -1923,9 +1964,47 @@ def test_write_empty_shapefile(tmpdir, shape_type):
         # test length 0
         assert len(r) == r.numRecords == r.numShapes == 0
         # test records are empty
+        for record in r.iterRecords():
+            pass
         assert len(r.records()) == 0
         # test shapes are empty
         assert len(r.shapes()) == 0
+
+
+def test_write_multipatch(tmpdir):
+    """Duplicates one of the doctests that gets filtered out"""
+    w = shapefile.Writer(tmpdir / "multipatch")
+    w.field("name", "C")
+
+    w.multipatch(
+        [
+            [
+                [0, 0, 0],
+                [0, 0, 3],
+                [5, 0, 0],
+                [5, 0, 3],
+                [5, 5, 0],
+                [5, 5, 3],
+                [0, 5, 0],
+                [0, 5, 3],
+                [0, 0, 0],
+                [0, 0, 3],
+            ],  # TRIANGLE_STRIP for house walls
+            [
+                [2.5, 2.5, 5],
+                [0, 0, 3],
+                [5, 0, 3],
+                [5, 5, 3],
+                [0, 5, 3],
+                [0, 0, 3],
+            ],  # TRIANGLE_FAN for pointed house roof
+        ],
+        partTypes=[shapefile.TRIANGLE_STRIP, shapefile.TRIANGLE_FAN],
+    )  # one type for each part
+
+    w.record("house1")
+
+    w.close()
 
 
 # This allows a PyShp wheel installed in the env to be tested

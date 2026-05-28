@@ -9,7 +9,6 @@ import attr
 import pytest
 import tornado
 import tornado.concurrent
-import tornado.gen
 import tornado.ioloop
 import tornado.iostream
 from pytestshellutils.utils import ports
@@ -39,16 +38,15 @@ def fake_crypto():
 
 @pytest.fixture
 def _fake_authd(io_loop):
-    @tornado.gen.coroutine
-    def return_nothing():
-        raise tornado.gen.Return()
+    async def return_nothing(*args, **kwargs):
+        return None
 
     with patch(
         "salt.crypt.AsyncAuth.authenticated", new_callable=PropertyMock
     ) as mock_authed, patch(
         "salt.crypt.AsyncAuth.authenticate",
         autospec=True,
-        return_value=return_nothing(),
+        side_effect=return_nothing,
     ), patch(
         "salt.crypt.AsyncAuth.gen_token", autospec=True, return_value=42
     ):
@@ -117,6 +115,92 @@ def test_get_bind_addr():
     opts = {"interface": "192.168.0.1", "tcp": 1}
     res = salt.transport.tcp._get_bind_addr(opts=opts, port_type="tcp")
     assert res == ("192.168.0.1", 1)
+
+
+def test_tcppuller_start_ipv4():
+    """TCPPuller uses AF_INET when host is an IPv4 address."""
+    puller = salt.transport.tcp.TCPPuller(host="127.0.0.1", port=4511)
+    created_sockets = []
+
+    def fake_socket(family, *args, **kwargs):
+        sock = MagicMock()
+        sock.family = family
+        created_sockets.append(sock)
+        return sock
+
+    with patch("salt.transport.tcp.socket.socket", side_effect=fake_socket):
+        with patch("tornado.netutil.add_accept_handler"):
+            puller.start()
+
+    assert len(created_sockets) == 1
+    assert created_sockets[0].family == socket.AF_INET
+
+
+def test_tcppuller_start_ipv6():
+    """TCPPuller uses AF_INET6 when host is an IPv6 address."""
+    puller = salt.transport.tcp.TCPPuller(host="::1", port=4511)
+    created_sockets = []
+
+    def fake_socket(family, *args, **kwargs):
+        sock = MagicMock()
+        sock.family = family
+        created_sockets.append(sock)
+        return sock
+
+    with patch("salt.transport.tcp.socket.socket", side_effect=fake_socket):
+        with patch("tornado.netutil.add_accept_handler"):
+            puller.start()
+
+    assert len(created_sockets) == 1
+    assert created_sockets[0].family == socket.AF_INET6
+
+
+def test_tcppubserverpublisher_connect_ipv4():
+    """_TCPPubServerPublisher uses AF_INET when connecting to an IPv4 address."""
+    io_loop = tornado.ioloop.IOLoop()
+    publisher = salt.transport.tcp._TCPPubServerPublisher(
+        host="127.0.0.1", port=4511, path=None, io_loop=io_loop
+    )
+    captured_family = []
+
+    def fake_socket(family, *args, **kwargs):
+        captured_family.append(family)
+        raise OSError("test abort")
+
+    publisher._connecting_future = tornado.concurrent.Future()
+
+    with patch("salt.transport.tcp.socket.socket", fake_socket):
+        try:
+            io_loop.run_sync(publisher._connect, timeout=3)
+        except OSError:
+            pass
+
+    io_loop.close()
+    assert captured_family == [socket.AF_INET]
+
+
+def test_tcppubserverpublisher_connect_ipv6():
+    """_TCPPubServerPublisher uses AF_INET6 when connecting to an IPv6 address."""
+    io_loop = tornado.ioloop.IOLoop()
+    publisher = salt.transport.tcp._TCPPubServerPublisher(
+        host="::1", port=4511, path=None, io_loop=io_loop
+    )
+    captured_family = []
+
+    def fake_socket(family, *args, **kwargs):
+        captured_family.append(family)
+        raise OSError("test abort")
+
+    publisher._connecting_future = tornado.concurrent.Future()
+
+    with patch("salt.transport.tcp.socket.socket", fake_socket):
+        try:
+            io_loop.run_sync(publisher._connect, timeout=3)
+        except OSError:
+            pass
+
+    io_loop.close()
+    assert captured_family == [socket.AF_INET6]
 
 
 @pytest.mark.usefixtures("_squash_exepected_message_client_warning")
@@ -271,13 +355,9 @@ def test_tcp_pub_server_channel_publish_filtering_str_list(temp_salt_master):
 
 
 @pytest.fixture(scope="function")
-def salt_message_client():
-    io_loop_mock = MagicMock(spec=tornado.ioloop.IOLoop)
-    io_loop_mock.asyncio_loop = None
-    io_loop_mock.call_later.side_effect = lambda *args, **kwargs: (args, kwargs)
-
+def salt_message_client(io_loop):
     client = salt.transport.tcp.MessageClient(
-        {}, "127.0.0.1", ports.get_unused_localhost_port(), io_loop=io_loop_mock
+        {}, "127.0.0.1", ports.get_unused_localhost_port(), io_loop=io_loop
     )
 
     try:
@@ -397,20 +477,19 @@ def xtest_client_reconnect_backoff(client_socket):
         opts, client_socket.listen_on, client_socket.port
     )
 
-    def _sleep(t):
+    async def _sleep(t):
         client.close()
         assert t == 5
         return
-        # return tornado.gen.sleep()
+        # return asyncio.sleep()
 
-    @tornado.gen.coroutine
-    def connect(*args, **kwargs):
+    async def connect(*args, **kwargs):
         raise Exception("err")
 
     client._tcp_client.connect = connect
 
     try:
-        with patch("tornado.gen.sleep", side_effect=_sleep):
+        with patch("asyncio.sleep", side_effect=_sleep):
             client.io_loop.run_sync(client.connect)
     finally:
         client.close()
@@ -439,17 +518,18 @@ async def test_when_async_req_channel_with_syndic_role_should_use_syndic_master_
         "acceptance_wait_time": 30,
         "acceptance_wait_time_max": 30,
         "signing_algorithm": "MOCK",
+        "keys.cache_driver": "localfs_key",
     }
     client = salt.channel.client.ReqChannel.factory(opts, io_loop=mockloop)
     assert client.master_pubkey_path == expected_pubkey_path
-    with patch("salt.crypt.PublicKey", return_value=MagicMock()) as mock:
+    with patch("salt.crypt.PublicKey.from_file", return_value=MagicMock()) as mock:
         client.verify_signature("mockdata", "mocksig")
         assert mock.call_args_list[0][0][0] == expected_pubkey_path
 
 
 @pytest.mark.usefixtures("_fake_authd", "_fake_crypticle", "_fake_keys")
 async def test_mixin_should_use_correct_path_when_syndic():
-    mockloop = MagicMock()
+    mockloop = asyncio.get_running_loop()
     expected_pubkey_path = os.path.join("/etc/salt/pki/minion", "syndic_master.pub")
     opts = {
         "master_uri": "tcp://127.0.0.1:4506",
@@ -463,6 +543,7 @@ async def test_mixin_should_use_correct_path_when_syndic():
         "keysize": 4096,
         "sign_pub_messages": True,
         "transport": "tcp",
+        "keys.cache_driver": "localfs_key",
     }
     client = salt.channel.client.AsyncPubChannel.factory(opts, io_loop=mockloop)
     client.master_pubkey_path = expected_pubkey_path
@@ -490,6 +571,8 @@ def test_presence_events_callback_passed(temp_salt_master, salt_message_client):
             channel.publish_payload,
             channel.presence_callback,
             channel.remove_presence_callback,
+            secrets=None,
+            started=None,
         )
 
 
@@ -497,6 +580,8 @@ async def test_presence_removed_on_stream_closed():
     opts = {"presence_events": True}
 
     io_loop_mock = MagicMock(spec=tornado.ioloop.IOLoop)
+    # Add asyncio_loop attribute for aioloop() compatibility
+    io_loop_mock.asyncio_loop = MagicMock()
 
     with patch("salt.master.AESFuncs.__init__", return_value=None):
         server = salt.transport.tcp.PubServer(opts, io_loop=io_loop_mock)
@@ -620,7 +705,7 @@ async def test_salt_message_server(master_opts):
     await server.handle_stream(stream, address)
 
     # Let loop iterate so callback gets called
-    await tornado.gen.sleep(0.01)
+    await asyncio.sleep(0.01)
 
     assert received
     assert [msg] == received
@@ -819,9 +904,9 @@ async def test_message_client_stream_return_exception(minion_opts, io_loop):
     ]
     try:
         io_loop.add_callback(client._stream_return)
-        await tornado.gen.sleep(0.01)
+        await asyncio.sleep(0.01)
         client.close()
-        await tornado.gen.sleep(0.01)
+        await asyncio.sleep(0.01)
         assert client._stream is None
     finally:
         client.close()

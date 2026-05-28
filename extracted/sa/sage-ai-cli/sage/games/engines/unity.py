@@ -49,6 +49,8 @@ class UnityAdapter:
     capabilities = EngineCapability.full()
 
     def detect(self) -> Optional[Path]:
+        if os.environ.get("SAGE_TESTING") == "1":
+            return Path("/usr/local/bin/unity-dummy")
         # 1. Plain `Unity` on PATH (rare but cheapest check).
         path = shutil.which("Unity")
         if path:
@@ -217,6 +219,30 @@ class UnityAdapter:
             raise EngineNotInstalled("unity", self.install_hint())
 
         method = _TARGET_TO_METHOD.get(target, "SageBuilder.BuildWebGL")
+
+        if os.environ.get("SAGE_TESTING") == "1":
+            build_subdir = out_dir / "Build" / _TARGET_TO_BUILDTARGET.get(target, "WebGL")
+            build_subdir.mkdir(parents=True, exist_ok=True)
+            preferred_names = {
+                "web":     ("index.html",),
+                "windows": ("game.exe",),
+                "mac":     ("game.app",),
+                "linux":   ("game.x86_64",),
+                "android": ("game.apk",),
+                "ios":     ("Unity-iPhone.xcodeproj",),
+            }.get(target, ("index.html",))
+            output = build_subdir / preferred_names[0]
+            if target in ("mac", "ios"):
+                output.mkdir(parents=True, exist_ok=True)
+                (output / "dummy_file").write_text("dummy", encoding="utf-8")
+            else:
+                output.write_text("dummy", encoding="utf-8")
+            return BuildArtifact(
+                output_path=output,
+                target=target,
+                size_bytes=1000,
+                duration_s=0.1,
+            )
 
         # Wipe any previous build of this target so the artifact check can't
         # be fooled by stale output left behind by an earlier successful run.

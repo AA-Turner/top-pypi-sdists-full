@@ -70,17 +70,19 @@ UPLOADED_OBJECT_KIND_CHUNK: UploadedObjectKind
 UPLOADED_OBJECT_KIND_PACK: UploadedObjectKind
 
 class VolumeInfo(_message.Message):
-    __slots__ = ("volume_id", "name", "created_at", "access_mode", "ref")
+    __slots__ = ("volume_id", "name", "created_at", "access_mode", "ref", "object_store_uri")
     VOLUME_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     ACCESS_MODE_FIELD_NUMBER: _ClassVar[int]
     REF_FIELD_NUMBER: _ClassVar[int]
+    OBJECT_STORE_URI_FIELD_NUMBER: _ClassVar[int]
     volume_id: str
     name: str
     created_at: _timestamp_pb2.Timestamp
     access_mode: VolumeAccessMode
     ref: str
+    object_store_uri: str
     def __init__(
         self,
         volume_id: _Optional[str] = ...,
@@ -88,6 +90,7 @@ class VolumeInfo(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         access_mode: _Optional[_Union[VolumeAccessMode, str]] = ...,
         ref: _Optional[str] = ...,
+        object_store_uri: _Optional[str] = ...,
     ) -> None: ...
 
 class VolumeRef(_message.Message):
@@ -99,19 +102,19 @@ class VolumeRef(_message.Message):
     def __init__(self, volume_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class VersionInfo(_message.Message):
-    __slots__ = ("version_id", "sequence_number", "parent_id", "created_at", "ref", "index_id")
+    __slots__ = ("version_id", "sequence_number", "parent_id", "created_at", "ref", "primary_pack_id")
     VERSION_ID_FIELD_NUMBER: _ClassVar[int]
     SEQUENCE_NUMBER_FIELD_NUMBER: _ClassVar[int]
     PARENT_ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     REF_FIELD_NUMBER: _ClassVar[int]
-    INDEX_ID_FIELD_NUMBER: _ClassVar[int]
+    PRIMARY_PACK_ID_FIELD_NUMBER: _ClassVar[int]
     version_id: int
     sequence_number: int
     parent_id: int
     created_at: _timestamp_pb2.Timestamp
     ref: str
-    index_id: str
+    primary_pack_id: str
     def __init__(
         self,
         version_id: _Optional[int] = ...,
@@ -119,7 +122,7 @@ class VersionInfo(_message.Message):
         parent_id: _Optional[int] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         ref: _Optional[str] = ...,
-        index_id: _Optional[str] = ...,
+        primary_pack_id: _Optional[str] = ...,
     ) -> None: ...
 
 class VersionSelector(_message.Message):

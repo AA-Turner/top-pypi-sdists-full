@@ -1175,6 +1175,7 @@ class SearchReplace(
             # This avoids the retry loop where the model gets "is a directory"
             # and keeps passing the same directory path. Only attempt when we have
             # SEARCH content — otherwise fall through to the "Path is not a file" handler.
+            dir_scan_file_list: list[Path] = []
             if file_path.is_dir() and content:
                 blocks_for_infer = self._parse_search_replace_blocks(content)
                 if blocks_for_infer:
@@ -1194,6 +1195,8 @@ class SearchReplace(
                                 if f in candidates:
                                     continue
                                 files_checked += 1
+                                if scan_dir == file_path:
+                                    dir_scan_file_list.append(f)
                                 try:
                                     text = f.read_text(encoding="utf-8", errors="replace")
                                     if len(text) > 100_000:
@@ -1210,6 +1213,16 @@ class SearchReplace(
                             candidates.sort(key=lambda p: len(str(p)))
                             file_path = candidates[0]
             if not file_path.is_file():
+                if dir_scan_file_list:
+                    listing = "\n".join(
+                        f"  {f.relative_to(file_path)}" for f in sorted(dir_scan_file_list)[:20]
+                    )
+                    raise ToolError(
+                        f"Path is not a file: {file_path}\n"
+                        f"Your SEARCH text was not found in any .py file in that directory. "
+                        f"Files in {file_path.name}/:\n{listing}\n"
+                        f"Specify one of those file paths explicitly."
+                    )
                 raise ToolError(f"Path is not a file: {file_path}")
 
         search_replace_blocks = self._parse_search_replace_blocks(content)

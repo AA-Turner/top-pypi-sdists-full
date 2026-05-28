@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tensorrt_cu13
-Version: 10.16.1.11
+Version: 11.0.0.114
 Summary: A high performance deep learning inference library
 Author: NVIDIA Corporation
 License: Proprietary
@@ -13,9 +13,10 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: tensorrt_cu13_libs==10.16.1.11
-Requires-Dist: tensorrt_cu13_bindings==10.16.1.11
+Requires-Dist: tensorrt_cu13_libs==11.0.0.114
+Requires-Dist: tensorrt_cu13_bindings==11.0.0.114
 Provides-Extra: numpy
 Requires-Dist: numpy; extra == "numpy"
+Dynamic: license-file
 
 NVIDIA TensorRT is an SDK that facilitates high-performance machine learning inference. It is designed to work in a complementary fashion with training frameworks such as PyTorch. It focuses specifically on running an already-trained network quickly and efficiently on NVIDIA hardware.

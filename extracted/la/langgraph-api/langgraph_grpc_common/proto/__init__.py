@@ -6,7 +6,6 @@ from . import enum_cron_on_run_completed_pb2
 from . import enum_durability_pb2
 from . import enum_multitask_strategy_pb2
 from . import enum_run_status_pb2
-from . import enum_store_operation_entry_type_pb2
 from . import enum_stream_mode_pb2
 from . import enum_thread_status_pb2
 from . import enum_thread_stream_mode_pb2
@@ -38,7 +37,6 @@ __all__ = [
     "enum_durability_pb2",
     "enum_multitask_strategy_pb2",
     "enum_run_status_pb2",
-    "enum_store_operation_entry_type_pb2",
     "enum_stream_mode_pb2",
     "enum_thread_status_pb2",
     "enum_thread_stream_mode_pb2",

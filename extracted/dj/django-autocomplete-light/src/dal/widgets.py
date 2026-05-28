@@ -43,9 +43,14 @@ class WidgetMixin(object):
     def __init__(self, url=None, forward=None, *args, **kwargs):
         """Instanciate a widget with a URL and a list of fields to forward."""
         self.url = url
-        self.forward = forward or []
+        self.forward = list(forward) if forward else []
         self.placeholder = (kwargs.get("attrs") or {}).get("data-placeholder")
         super(WidgetMixin, self).__init__(*args, **kwargs)
+
+    def __deepcopy__(self, memo):
+        clone = super().__deepcopy__(memo)
+        clone.forward = self.forward.copy()
+        return clone
 
     def build_attrs(self, *args, **kwargs):
         """Build HTML attributes for the widget."""
@@ -61,9 +66,10 @@ class WidgetMixin(object):
         return attrs
 
     def filter_choices_to_render(self, selected_choices):
-        """Replace self.choices with selected_choices."""
-        self.choices = [c for c in self.choices if
-                        str(c[0]) in selected_choices]
+        """Filter choices to selected ones; inject values absent from the list."""
+        existing_keys = {str(c[0]) for c in self.choices}
+        self.choices = [c for c in self.choices if str(c[0]) in selected_choices]
+        self.choices += [(v, v) for v in selected_choices if v not in existing_keys]
 
     @staticmethod
     def _make_forward_dict(f):

@@ -6,17 +6,15 @@ import contextvars
 import json
 import tarfile
 import tempfile
+from collections.abc import (
+    Iterable,
+    Mapping,
+    Sequence,
+)
 from io import BytesIO
 from typing import (
     IO,
     Any,
-    Dict,
-    Iterable,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
     cast,
     overload,
 )
@@ -68,7 +66,7 @@ async def parse_result(response, response_type=None, *, encoding="utf-8"):
     return data
 
 
-def parse_content_type(ct: str) -> Tuple[str, str, Mapping[str, str]]:
+def parse_content_type(ct: str) -> tuple[str, str, Mapping[str, str]]:
     """
     Decompose the value of HTTP "Content-Type" header into
     the main/sub MIME types and other extra options as a dictionary.
@@ -136,19 +134,19 @@ def human_bool(s) -> bool:
 
 @overload
 def httpize(
-    d: Optional[CIMultiDict[str | int | bool]],
-) -> Optional[CIMultiDict[str]]: ...
+    d: CIMultiDict[str | int | bool] | None,
+) -> CIMultiDict[str] | None: ...
 
 
 @overload
 def httpize(
-    d: Optional[JSONObject],
-) -> Optional[Mapping[str, str]]: ...
+    d: JSONObject | None,
+) -> Mapping[str, str] | None: ...
 
 
 def httpize(
-    d: Optional[JSONObject | CIMultiDict[str | int | bool]],
-) -> Optional[Mapping[str, str] | CIMultiDict[str | int | bool]]:
+    d: JSONObject | CIMultiDict[str | int | bool] | None,
+) -> Mapping[str, str] | CIMultiDict[str | int | bool] | None:
     if d is None:
         return None
     converted = {}
@@ -201,7 +199,7 @@ def clean_map(obj: Mapping[Any, Any]) -> Mapping[Any, Any]:
     return {k: v for k, v in obj.items() if v is not None}
 
 
-def format_env(key, value: Union[None, bytes, str]) -> str:
+def format_env(key, value: None | bytes | str) -> str:
     """
     Formats envs from {key:value} to ['key=value']
     """
@@ -214,8 +212,8 @@ def format_env(key, value: Union[None, bytes, str]) -> str:
 
 
 def clean_networks(
-    networks: Optional[Iterable[str]] = None,
-) -> Optional[Sequence[Dict[str, Any]]]:
+    networks: Iterable[str] | None = None,
+) -> Sequence[dict[str, Any]] | None:
     """
     Cleans the values inside `networks`
     Returns a new list
@@ -233,7 +231,7 @@ def clean_networks(
     return result
 
 
-def clean_filters(filters: Optional[Mapping[str, Any] | Sequence[str]] = None) -> str:
+def clean_filters(filters: Mapping[str, Any] | Sequence[str] | None = None) -> str:
     """
     Ensures that the values inside `filters` are lists of string values, by
     wrapping scalar values as a single-item lists.  Returns the result as the
@@ -242,17 +240,18 @@ def clean_filters(filters: Optional[Mapping[str, Any] | Sequence[str]] = None) -
     """
     if filters is None:
         return "{}"
-    if isinstance(filters, dict):
+    if isinstance(filters, Mapping):
+        normalized: dict[str, list[Any]] = {}
         for k, v in filters.items():
             if not isinstance(v, list):
                 v = [v]
-            filters[k] = v
+            normalized[k] = v
     else:
         raise TypeError("filters must be a mapping")
-    return json.dumps(filters)
+    return json.dumps(normalized)
 
 
-def mktar_from_dockerfile(fileobj: Union[BytesIO, IO[bytes]]) -> IO[bytes]:
+def mktar_from_dockerfile(fileobj: BytesIO | IO[bytes]) -> IO[bytes]:
     """
     Create a zipped tar archive from a Dockerfile
     **Remember to close the file object**
@@ -279,7 +278,7 @@ def mktar_from_dockerfile(fileobj: Union[BytesIO, IO[bytes]]) -> IO[bytes]:
 
 
 def compose_auth_header(
-    auth: Union[JSONObject, str, bytes], registry_addr: Optional[str] = None
+    auth: JSONObject | str | bytes, registry_addr: str | None = None
 ) -> str:
     """
     Validate and compose base64-encoded authentication header

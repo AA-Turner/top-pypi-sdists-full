@@ -5,6 +5,7 @@ from uuid import UUID
 import httpx
 import threading
 from deprecated import deprecated
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 from langwatch.attributes import AttributeKey
 from langwatch.utils.auth import build_auth_headers
 from langwatch.utils.exceptions import better_raise_for_status
@@ -59,6 +60,13 @@ if TYPE_CHECKING:
 __all__ = ["trace", "LangWatchTrace"]
 
 T = TypeVar("T", bound=Callable[..., Any])
+
+_retry_on_transient = retry(
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    reraise=True,
+)
 
 
 class LangWatchTrace:
@@ -122,14 +130,18 @@ class LangWatchTrace:
             )
             self.metadata["deprecated.trace_id"] = str(trace_id)
 
-        if disable_sending:
-            client = get_instance()
-            if client:
-                client.disable_sending = True
+        # Per-trace request. Refcounted on the client during __enter__ and
+        # released during _cleanup so a `disable_sending=True` block cannot
+        # poison subsequent traces (issue #3981 — silent span loss for offline
+        # experiment cells when worker processes are reused across event
+        # types) AND remains correct under overlapping concurrent traces.
+        self._disable_sending_request = disable_sending
+        self._disable_sending_acquired = False
 
-        # Use the global tracer provider
-        self._tracer_provider = tracer_provider
-        self.tracer = (tracer_provider or trace_api).get_tracer(
+        from langwatch.client import Client
+
+        self._tracer_provider = tracer_provider or Client._tracer_provider
+        self.tracer = (self._tracer_provider or trace_api).get_tracer(
             instrumenting_module_name="langwatch",
             instrumenting_library_version=__version__,
         )
@@ -178,7 +190,7 @@ class LangWatchTrace:
             metadata=self.metadata,
             expected_output=self._expected_output,
             api_key=self.api_key,
-            disable_sending=self.disable_sending,
+            disable_sending=self._disable_sending_request,
             max_string_length=self.max_string_length,
             tracer_provider=self._tracer_provider,
             span_id=root_span_params.get("span_id", None),
@@ -242,6 +254,36 @@ class LangWatchTrace:
                 self._trace_id = context.trace_id
             return self.root_span
 
+    def _apply_disable_sending(self) -> None:
+        """Acquire a refcount on the client's disable_sending gate if this
+        trace requested it. Idempotent: the matching `_release_disable_sending`
+        in `_cleanup` will only release if we actually acquired.
+        """
+        if not self._disable_sending_request or self._disable_sending_acquired:
+            return
+        client = get_instance()
+        if client is None or not hasattr(client, "acquire_disable_sending"):
+            return
+        client.acquire_disable_sending()
+        self._disable_sending_acquired = True
+
+    def _release_disable_sending(self) -> None:
+        """Release the refcount acquired by `_apply_disable_sending`, if any.
+
+        Concurrency-safe (issue #3981): the refcount on the client means an
+        overlapping default-sending trace cannot flip the flag back on while
+        another trace still holds the disable refcount, and a `disable_sending`
+        block restores the user-set baseline only when the last holder exits.
+        """
+        if not self._disable_sending_acquired:
+            return
+        client = get_instance()
+        try:
+            if client is not None and hasattr(client, "release_disable_sending"):
+                client.release_disable_sending()
+        finally:
+            self._disable_sending_acquired = False
+
     def _cleanup(
         self,
         exc_type: Optional[type],
@@ -262,6 +304,8 @@ class LangWatchTrace:
             if self._context_token is not None:
                 langwatch.telemetry.context._reset_current_trace(self._context_token)
                 self._context_token = None
+
+            self._release_disable_sending()
 
             self._cleaned_up = True
 
@@ -301,15 +345,20 @@ class LangWatchTrace:
         trace_id = self.trace_id
         if trace_id is None:
             raise ValueError("Trace ID is not available from trace object")
-        with httpx.Client() as client:
-            response = client.post(
-                f"{endpoint}/api/trace/{trace_id}/share",
-                headers=build_auth_headers(get_api_key()),
-                timeout=15,
-            )
-            better_raise_for_status(response)
-            path = response.json()["path"]
-            return f"{endpoint}{path}"
+
+        @_retry_on_transient
+        def _do_share() -> str:
+            with httpx.Client() as client:
+                response = client.post(
+                    f"{endpoint}/api/trace/{trace_id}/share",
+                    headers=build_auth_headers(get_api_key()),
+                    timeout=30,
+                )
+                better_raise_for_status(response)
+                return response.json()["path"]
+
+        path = _do_share()
+        return f"{endpoint}{path}"
 
     def unshare(self):
         """Make this trace private again."""
@@ -318,13 +367,18 @@ class LangWatchTrace:
         trace_id = self.trace_id
         if trace_id is None:
             raise ValueError("Trace ID is not available from trace object")
-        with httpx.Client() as client:
-            response = client.post(
-                f"{endpoint}/api/trace/{trace_id}/unshare",
-                headers=build_auth_headers(get_api_key()),
-                timeout=15,
-            )
-            better_raise_for_status(response)
+
+        @_retry_on_transient
+        def _do_unshare() -> None:
+            with httpx.Client() as client:
+                response = client.post(
+                    f"{endpoint}/api/trace/{trace_id}/unshare",
+                    headers=build_auth_headers(get_api_key()),
+                    timeout=30,
+                )
+                better_raise_for_status(response)
+
+        _do_unshare()
 
     def update(
         self,
@@ -562,6 +616,7 @@ class LangWatchTrace:
     def __enter__(self) -> "LangWatchTrace":
         """Makes the trace usable as a context manager."""
         self._reset()
+        self._apply_disable_sending()
 
         # Store the old token and set the new one
         self._context_token = langwatch.telemetry.context._set_current_trace(self)
@@ -590,6 +645,7 @@ class LangWatchTrace:
     async def __aenter__(self) -> "LangWatchTrace":
         """Makes the trace usable as an async context manager."""
         self._reset()
+        self._apply_disable_sending()
 
         # Store the old token and set the new one
         self._context_token = langwatch.telemetry.context._set_current_trace(self)

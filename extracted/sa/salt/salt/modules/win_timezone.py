@@ -3,8 +3,8 @@ Module for managing timezone on Windows systems.
 """
 
 import logging
-from datetime import datetime
 
+import salt.utils.timeutil
 from salt.exceptions import CommandExecutionError
 
 try:
@@ -134,6 +134,7 @@ mapper = TzMapper(
         "Pacific Standard Time (Mexico)": "America/Tijuana",
         "Pakistan Standard Time": "Asia/Karachi",
         "Paraguay Standard Time": "America/Asuncion",
+        "Qyzylorda Standard Time": "Asia/Qyzylorda",
         "Romance Standard Time": "Europe/Paris",
         "Russia Time Zone 10": "Asia/Srednekolymsk",
         "Russia Time Zone 11": "Asia/Kamchatka",
@@ -241,7 +242,7 @@ def get_offset():
     """
     # http://craigglennie.com/programming/python/2013/07/21/working-with-timezones-using-Python-and-pytz-localize-vs-normalize/
     tz_object = pytz.timezone(get_zone())
-    utc_time = pytz.utc.localize(datetime.utcnow())
+    utc_time = pytz.utc.localize(salt.utils.timeutil.utcnow())
     loc_time = utc_time.astimezone(tz_object)
     norm_time = tz_object.normalize(loc_time)
     return norm_time.strftime("%z")
@@ -261,7 +262,7 @@ def get_zonecode():
         salt '*' timezone.get_zonecode
     """
     tz_object = pytz.timezone(get_zone())
-    loc_time = tz_object.localize(datetime.utcnow())
+    loc_time = tz_object.localize(salt.utils.timeutil.utcnow())
     return loc_time.tzname()
 
 

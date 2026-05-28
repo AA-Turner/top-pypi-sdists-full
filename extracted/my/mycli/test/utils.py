@@ -9,6 +9,11 @@ import time
 from types import SimpleNamespace
 from typing import Any, Callable, Literal, cast
 
+from packaging.version import Version
+from prompt_toolkit.formatted_text import (
+    ANSI,
+)
+import pygments
 import pymysql
 import pytest
 
@@ -33,6 +38,12 @@ SSH_USER = os.getenv("PYTEST_SSH_USER", None)
 SSH_HOST = os.getenv("PYTEST_SSH_HOST", None)
 SSH_PORT = int(os.getenv("PYTEST_SSH_PORT", "22"))
 TEMPFILE_PREFIX = 'mycli_test_suite_'
+
+PYGMENTS_VERSION = Version(pygments.__version__)
+
+
+def pygments_below(version: str) -> bool:
+    return PYGMENTS_VERSION < Version(version)
 
 
 class DummyLogger:
@@ -137,8 +148,8 @@ def make_bare_mycli() -> Any:
     cli.query_history = []
     cli.toolbar_error_message = None
     cli.prompt_session = None
-    cli.last_prompt_message = main.ANSI('')
-    cli.last_custom_toolbar_message = main.ANSI('')
+    cli.last_prompt_message = ANSI('')
+    cli.last_custom_toolbar_message = ANSI('')
     cli.prompt_lines = 0
     cli.prompt_format = main.MyCli.default_prompt
     cli.multiline_continuation_char = '>'
@@ -178,7 +189,7 @@ def make_bare_mycli() -> Any:
     cli.emacs_ttimeoutlen = 1.0
     cli.vi_ttimeoutlen = 1.0
     cli.beep_after_seconds = 0.0
-    cli.config = {'history_file': '~/.mycli-history-testing'}
+    cli.config = {'main': {'history_file': '~/.mycli-history-testing'}}
     cli.output = lambda *args, **kwargs: None  # type: ignore[assignment]
     cli.echo = lambda *args, **kwargs: None  # type: ignore[assignment]
     cli.log_query = lambda *args, **kwargs: None  # type: ignore[assignment]

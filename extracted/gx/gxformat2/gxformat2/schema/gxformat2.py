@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from enum import Enum
 from pathlib import Path
-from typing import Any, Annotated, Literal
+from typing import Any, Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, Discriminator, Tag
 
@@ -38,12 +38,15 @@ string: Unicode character sequence"""
 
 
 class GalaxyType(str, Enum):
-    """Extends primitive types with the native Galaxy concepts such datasets and collections.
-integer: an alias for int type - matches syntax used by Galaxy tools
-text: an alias for string type - matches syntax used by Galaxy tools
-File: an alias for data - there are subtle differences between a plain file, the CWL concept of 'File', and the Galaxy concept of a dataset - this may have subtly difference semantics in the future
-data: a Galaxy dataset
-collection: a Galaxy dataset collection"""
+    """Extends primitive types with the native Galaxy concepts such as datasets and collections.
+Normalized gxformat2 workflow input declaration spellings are ``data``, ``collection``, ``string``, ``int``, ``float``, and ``boolean``. Other spellings are accepted as compatibility aliases on import but normalized gxformat2 output emits the normalized spellings.
+data: one Galaxy dataset input. Native Galaxy ``data_input`` converts to this spelling.
+File: accepted alias for ``data``, but normalized gxformat2 output emits ``data``. Note: workflow **test job** YAML uses ``type: File`` to mean 'stage this file as test input data', which is a separate concept from workflow input declaration.
+collection: one Galaxy dataset collection input. Native Galaxy ``data_collection_input`` converts to this spelling.
+string: normalized gxformat2 spelling for native Galaxy text workflow parameters.
+text: accepted alias for ``string`` because native Galaxy parameter state and Galaxy tool XML terminology use ``text``.
+int: normalized gxformat2 spelling for native Galaxy integer workflow parameters.
+integer: accepted alias for ``int`` because native Galaxy parameter state and Galaxy tool XML terminology use ``integer``."""
 
     null = "null"
     boolean = "boolean"
@@ -75,21 +78,7 @@ pick_value: Select the first non-null value from multiple inputs. Used to merge 
 
 
 def _discriminate_inputs(v: Any) -> str:
-    disc_map: dict[str, str] = {
-        "data": "WorkflowDataParameter",
-        "File": "WorkflowDataParameter",
-        "data_input": "WorkflowDataParameter",
-        "collection": "WorkflowCollectionParameter",
-        "data_collection": "WorkflowCollectionParameter",
-        "data_collection_input": "WorkflowCollectionParameter",
-        "integer": "WorkflowIntegerParameter",
-        "int": "WorkflowIntegerParameter",
-        "text": "WorkflowTextParameter",
-        "string": "WorkflowTextParameter",
-        "float": "WorkflowFloatParameter",
-        "boolean": "WorkflowBooleanParameter",
-        "color": "WorkflowTextParameter",
-    }
+    disc_map: dict[str, str] = {"data": "WorkflowDataParameter", "File": "WorkflowDataParameter", "data_input": "WorkflowDataParameter", "collection": "WorkflowCollectionParameter", "data_collection": "WorkflowCollectionParameter", "data_collection_input": "WorkflowCollectionParameter", "integer": "WorkflowIntegerParameter", "int": "WorkflowIntegerParameter", "text": "WorkflowTextParameter", "string": "WorkflowTextParameter", "float": "WorkflowFloatParameter", "boolean": "WorkflowBooleanParameter", "color": "WorkflowTextParameter"}
     if isinstance(v, dict):
         disc_val: str = str(v.get("type", ""))
     else:
@@ -169,20 +158,7 @@ directly executed."""
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
     # Discriminated union on 'type'
-    inputs: (
-        list[Annotated[
-            Annotated[WorkflowDataParameter, Tag("WorkflowDataParameter")]
-            | Annotated[WorkflowCollectionParameter, Tag("WorkflowCollectionParameter")]
-            | Annotated[WorkflowIntegerParameter, Tag("WorkflowIntegerParameter")]
-            | Annotated[WorkflowFloatParameter, Tag("WorkflowFloatParameter")]
-            | Annotated[WorkflowTextParameter, Tag("WorkflowTextParameter")]
-            | Annotated[WorkflowBooleanParameter, Tag("WorkflowBooleanParameter")],
-            Discriminator(_discriminate_inputs),
-        ]]
-        | dict[str, WorkflowDataParameter | WorkflowCollectionParameter | WorkflowIntegerParameter
-               | WorkflowFloatParameter | WorkflowTextParameter | WorkflowBooleanParameter | str]
-        | dict[str, Any]
-    )
+    inputs: list[Annotated[Annotated[WorkflowDataParameter, Tag("WorkflowDataParameter")] | Annotated[WorkflowCollectionParameter, Tag("WorkflowCollectionParameter")] | Annotated[WorkflowIntegerParameter, Tag("WorkflowIntegerParameter")] | Annotated[WorkflowFloatParameter, Tag("WorkflowFloatParameter")] | Annotated[WorkflowTextParameter, Tag("WorkflowTextParameter")] | Annotated[WorkflowBooleanParameter, Tag("WorkflowBooleanParameter")], Discriminator(_discriminate_inputs)]] | dict[str, WorkflowDataParameter | WorkflowCollectionParameter | WorkflowIntegerParameter | WorkflowFloatParameter | WorkflowTextParameter | WorkflowBooleanParameter | str] | dict[str, Any]
     outputs: list[WorkflowOutputParameter] | dict[str, WorkflowOutputParameter | str] | dict[str, Any] = Field(description="Defines the parameters representing the output of the process.  May be used to generate and/or validate the output object.")
 
 class HasUUID(BaseModel):
@@ -215,6 +191,45 @@ class ReferencesTool(BaseModel):
     tool_shed_repository: None | ToolShedRepository = Field(default=None, description="The Galaxy Tool Shed repository that should be installed in order to use this tool.")
     tool_version: None | str = Field(default=None, description="The tool version corresponding used to run this step of the workflow. For tool shed installed tools, the ID generally uniquely specifies a version and this field is optional.")
 
+class SampleSheetColumnDefinition(BaseModel):
+    """Describes one column of a sample-sheet collection input.
+Used in `column_definitions` on a `collection_type: sample_sheet[:<type>]`
+workflow input."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    name: str = Field(description="Column name. Must not contain special characters (matches `^[\\w\\-_ \\?]*$`).")
+    description: None | str = Field(default=None, description="Optional human-readable column description.")
+    type_: Literal["string", "int", "float", "boolean", "element_identifier"] = Field(default="string", alias="type", description="Value type for this column. One of `string`, `int`, `float`, `boolean`, or `element_identifier`. Mirrors Galaxy's runtime `SampleSheetColumnType`.")
+    optional: bool = Field(description="If true, rows may omit a value for this column.")
+    default_value: None | str | int | float | bool = Field(default=None, description="Default value used when a row omits this column. Type must be compatible with `type` - validated by the pydantic post-validator.")
+    validators: None | list[Any] = Field(default=None, description="Galaxy-style parameter validators. Modelled as opaque records here - full validator schema lives in galaxy.tool_util_models.")
+    restrictions: None | list[str | int | float | bool] = Field(default=None, description="Closed set of permitted values for this column. Item type must be compatible with the column `type` (post-validated).")
+    suggestions: None | list[str | int | float | bool] = Field(default=None, description="Open suggestion list for this column.")
+
+class RecordFieldDefinition(BaseModel):
+    """Describes one field of a `record` collection input.
+Used in `fields` on a `collection_type` containing `record` (e.g.
+`record`, `list:record`, `sample_sheet:record`). Mirrors a subset of
+the CWL `InputRecordSchema` shape that Galaxy persists on
+`DatasetCollection.fields`."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    name: str = Field(description="Field name. Must equal the corresponding element identifier in the materialized record collection.")
+    type_: Literal["File", "null", "boolean", "int", "float", "string"] | list[Literal["File", "null", "boolean", "int", "float", "string"]] = Field(default="File", alias="type", description="Field value type. A subset of the CWL primitive types: `File`, `null`, `boolean`, `int`, `float`, `string`. May be a list to express a union (e.g. `[\"File\", \"null\"]` for an optional file).")
+    format: None | str = Field(default=None, description="Optional Galaxy datatype hint for `File`-typed fields.")
+
+class WorkflowTextOption(BaseModel):
+    """A `{value, label}` option used in `restrictions` or `suggestions` on a
+text workflow parameter. Plain strings are also accepted in those
+arrays as shorthand for `{value: <str>, label: <str>}`."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    value: str = Field(description="Machine value submitted to the connected tool input.")
+    label: None | str = Field(default=None, description="Human label shown in Galaxy. Defaults to `value` when omitted.")
+
 class ToolShedRepository(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
@@ -229,18 +244,32 @@ class BaseInputParameter(InputParameter, HasStepPosition):
     id: None | str = Field(default=None, description="The unique identifier for this object.")
     label: None | str = Field(default=None, description="A short, human-readable label of this object.")
     doc: None | str | list[str] = Field(default=None, description="A documentation string for this object, or an array of strings which should be concatenated.")
-    optional: bool | None = Field(default=None, description="If set to true, `WorkflowInputParameter` is not required to submit the workflow.")
+    optional: bool | None = Field(default=None, description="Controls whether Galaxy allows invocation of the workflow without a user-supplied value for this input. If ``true``, the input may be omitted at invocation time. ``optional`` and ``default`` are in...")
 
 class BaseDataParameter(BaseInputParameter):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
+    id: None | str = Field(default=None, description="The unique identifier for this object.")
+    label: None | str = Field(default=None, description="A short, human-readable label of this object.")
+    doc: None | str | list[str] = Field(default=None, description="A documentation string for this object, or an array of strings which should be concatenated.")
+    default: None | Any = Field(default=None, description="The default value to use for this parameter if the parameter is missing from the input object, or if the value of the parameter in the input object is `null`.  Default values are applied before eva...")
+    position: None | StepPosition = Field(default=None)
     format: None | list[str] = Field(default=None, description="Specify datatype extensions for valid input datasets.")
 
 class WorkflowDataParameter(BaseDataParameter):
-    """A data input parameter for a Galaxy workflow - represents a dataset."""
+    """A data input parameter for a Galaxy workflow. Represents one Galaxy dataset.
+Normalized gxformat2 output uses ``type: data``. ``type: File`` is accepted as
+an alias, but should not be confused with workflow test job syntax where
+``type: File`` means stage a file as test input data."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
+    id: None | str = Field(default=None, description="The unique identifier for this object.")
+    label: None | str = Field(default=None, description="A short, human-readable label of this object.")
+    doc: None | str | list[str] = Field(default=None, description="A documentation string for this object, or an array of strings which should be concatenated.")
+    default: None | Any = Field(default=None, description="The default value to use for this parameter if the parameter is missing from the input object, or if the value of the parameter in the input object is `null`.  Default values are applied before eva...")
+    position: None | StepPosition = Field(default=None)
+    optional: bool | None = Field(default=None, description="Controls whether Galaxy allows invocation of the workflow without a user-supplied value for this input. If ``true``, the input may be omitted at invocation time. ``optional`` and ``default`` are in...")
     type_: Literal["data", "File"] | None = Field(default=None, alias="type", description="Specify valid types of data that may be assigned to this parameter.")
 
 class WorkflowCollectionParameter(BaseDataParameter):
@@ -248,8 +277,16 @@ class WorkflowCollectionParameter(BaseDataParameter):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
+    id: None | str = Field(default=None, description="The unique identifier for this object.")
+    label: None | str = Field(default=None, description="A short, human-readable label of this object.")
+    doc: None | str | list[str] = Field(default=None, description="A documentation string for this object, or an array of strings which should be concatenated.")
+    default: None | Any = Field(default=None, description="The default value to use for this parameter if the parameter is missing from the input object, or if the value of the parameter in the input object is `null`.  Default values are applied before eva...")
+    position: None | StepPosition = Field(default=None)
+    optional: bool | None = Field(default=None, description="Controls whether Galaxy allows invocation of the workflow without a user-supplied value for this input. If ``true``, the input may be omitted at invocation time. ``optional`` and ``default`` are in...")
     type_: Literal["collection"] = Field(default="collection", alias="type", description="Must be ``collection``.")
     collection_type: None | str = Field(default=None, description="Collection type (defaults to `list` if `type` is `collection`). Nested collection types are separated with colons, e.g. `list:list:paired`.")
+    column_definitions: None | list[SampleSheetColumnDefinition] = Field(default=None, description="Column schema for sample-sheet collection inputs. Only meaningful when `collection_type` begins with `sample_sheet` - cross-field validation is applied in the pydantic post-validator.")
+    fields: None | list[RecordFieldDefinition] = Field(default=None, description="Field schema for `record` collection inputs. Only meaningful when `collection_type` contains `record` (e.g. `record`, `list:record`, `sample_sheet:record`).")
 
 class MinMax(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
@@ -258,10 +295,17 @@ class MinMax(BaseModel):
     max: int | float | None = Field(default=None, description="Maximum allowed value (inclusive).")
 
 class WorkflowIntegerParameter(BaseInputParameter, MinMax):
-    """An integer input parameter for a Galaxy workflow."""
+    """A scalar integer workflow parameter. Normalized gxformat2 output uses
+``type: int``. ``type: integer`` is accepted for compatibility with native
+Galaxy parameter state and Galaxy tool XML terminology."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
+    id: None | str = Field(default=None, description="The unique identifier for this object.")
+    label: None | str = Field(default=None, description="A short, human-readable label of this object.")
+    doc: None | str | list[str] = Field(default=None, description="A documentation string for this object, or an array of strings which should be concatenated.")
+    default: None | Any = Field(default=None, description="The default value to use for this parameter if the parameter is missing from the input object, or if the value of the parameter in the input object is `null`.  Default values are applied before eva...")
+    position: None | StepPosition = Field(default=None)
     type_: Literal["integer", "int"] = Field(default="integer", alias="type", description="Must be ``integer`` or ``int``.")
 
 class WorkflowFloatParameter(BaseInputParameter, MinMax):
@@ -269,20 +313,40 @@ class WorkflowFloatParameter(BaseInputParameter, MinMax):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
+    id: None | str = Field(default=None, description="The unique identifier for this object.")
+    label: None | str = Field(default=None, description="A short, human-readable label of this object.")
+    doc: None | str | list[str] = Field(default=None, description="A documentation string for this object, or an array of strings which should be concatenated.")
+    default: None | Any = Field(default=None, description="The default value to use for this parameter if the parameter is missing from the input object, or if the value of the parameter in the input object is `null`.  Default values are applied before eva...")
+    position: None | StepPosition = Field(default=None)
     type_: Literal["float"] = Field(default="float", alias="type", description="Must be ``float``.")
 
 class WorkflowTextParameter(BaseInputParameter):
-    """A text input parameter for a Galaxy workflow."""
+    """A scalar text workflow parameter. Normalized gxformat2 output uses
+``type: string``. ``type: text`` is accepted for compatibility with native
+Galaxy parameter state and Galaxy tool XML terminology."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
+    id: None | str = Field(default=None, description="The unique identifier for this object.")
+    label: None | str = Field(default=None, description="A short, human-readable label of this object.")
+    doc: None | str | list[str] = Field(default=None, description="A documentation string for this object, or an array of strings which should be concatenated.")
+    default: None | Any = Field(default=None, description="The default value to use for this parameter if the parameter is missing from the input object, or if the value of the parameter in the input object is `null`.  Default values are applied before eva...")
+    position: None | StepPosition = Field(default=None)
     type_: Literal["text", "string"] = Field(default="text", alias="type", description="Must be ``text`` or ``string``.")
+    restrictions: None | list[str | WorkflowTextOption] = Field(default=None, description="Closed set of permitted values. When present, Galaxy renders the runtime input as a select. Items may be plain strings or `{value, label}` records.")
+    suggestions: None | list[str | WorkflowTextOption] = Field(default=None, description="Open suggestion list. Galaxy still treats the input as text but offers these as suggestions.")
+    restrictOnConnections: None | bool = Field(default=None, description="Ask Galaxy to derive valid choices from connected tool or subworkflow select inputs at runtime. Falls back to free text when derivation fails.")
 
 class WorkflowBooleanParameter(BaseInputParameter):
     """A boolean input parameter for a Galaxy workflow."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
+    id: None | str = Field(default=None, description="The unique identifier for this object.")
+    label: None | str = Field(default=None, description="A short, human-readable label of this object.")
+    doc: None | str | list[str] = Field(default=None, description="A documentation string for this object, or an array of strings which should be concatenated.")
+    default: None | Any = Field(default=None, description="The default value to use for this parameter if the parameter is missing from the input object, or if the value of the parameter in the input object is `null`.  Default values are applied before eva...")
+    position: None | StepPosition = Field(default=None)
     type_: Literal["boolean"] = Field(default="boolean", alias="type", description="Must be ``boolean``.")
 
 class WorkflowInputParameter(BaseDataParameter, MinMax):
@@ -292,8 +356,19 @@ of the specific parameter types instead."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
+    id: None | str = Field(default=None, description="The unique identifier for this object.")
+    label: None | str = Field(default=None, description="A short, human-readable label of this object.")
+    doc: None | str | list[str] = Field(default=None, description="A documentation string for this object, or an array of strings which should be concatenated.")
+    default: None | Any = Field(default=None, description="The default value to use for this parameter if the parameter is missing from the input object, or if the value of the parameter in the input object is `null`.  Default values are applied before eva...")
+    position: None | StepPosition = Field(default=None)
+    optional: bool | None = Field(default=None, description="Controls whether Galaxy allows invocation of the workflow without a user-supplied value for this input. If ``true``, the input may be omitted at invocation time. ``optional`` and ``default`` are in...")
     type_: GalaxyType | None | list[GalaxyType] = Field(default=None, alias="type", description="Specify valid types of data that may be assigned to this parameter.")
     collection_type: None | str = Field(default=None, description="Collection type (defaults to `list` if `type` is `collection`). Nested collection types are separated with colons, e.g. `list:list:paired`.")
+    column_definitions: None | list[SampleSheetColumnDefinition] = Field(default=None, description="Column schema for sample-sheet collection inputs. Only meaningful when `collection_type` begins with `sample_sheet`.")
+    fields: None | list[RecordFieldDefinition] = Field(default=None, description="Field schema for `record` collection inputs. Only meaningful when `collection_type` contains `record`.")
+    restrictions: None | list[str | WorkflowTextOption] = Field(default=None, description="Closed set of permitted values for text-typed inputs. See `WorkflowTextParameter.restrictions`.")
+    suggestions: None | list[str | WorkflowTextOption] = Field(default=None, description="Open suggestion list for text-typed inputs.")
+    restrictOnConnections: None | bool = Field(default=None, description="For text-typed inputs - derive runtime choices from connected tool/subworkflow select inputs.")
 
 class WorkflowOutputParameter(OutputParameter):
     """Describe an output parameter of a workflow.  The parameter must be
@@ -328,10 +403,11 @@ to representing `state` this way is defining inputs with default values."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
-    in_: list[WorkflowStepInput] | dict[str, WorkflowStepInput | str] | None = Field(default=None, alias="in", description="Defines the input parameters of the workflow step.  The process is ready to run when all required input parameters are associated with concrete values.  Input parameters include a schema for each p...")
+    in_: list[WorkflowStepInput] | dict[str, WorkflowStepInput | str | list[str]] | None = Field(default=None, alias="in", description="Defines the input parameters of the workflow step.  The process is ready to run when all required input parameters are associated with concrete values.  Input parameters include a schema for each p...")
     out: list[WorkflowStepOutput | str] | dict[str, WorkflowStepOutput | str] | None = Field(default=None, description="Defines the parameters representing the output of the process.  May be used to generate and/or validate the output object.  This can also be called 'outputs' for legacy reasons - but the resulting ...")
     state: dict[str, Any] | None = Field(default=None, description="Structured tool state.")
     tool_state: str | dict[str, Any] | None = Field(default=None, description="Unstructured tool state.")
+    post_job_actions: dict[str, Any] | None = Field(default=None, description="Optional dict of post-job actions keyed by ``{ActionType}{OutputName}`` compound strings.  Same shape as the native ``post_job_actions`` field; each value is a record with ``action_type``, ``output...")
     type_: None | WorkflowStepType = Field(default=None, alias="type", description="Workflow step module's type (defaults to 'tool').")
     run: GalaxyWorkflow | str | dict[str, Any] | None = Field(default=None, description="Specifies a subworkflow to run. May be an inline workflow definition, a URL string, or an @import reference dict.")
     runtime_inputs: None | list[str] = Field(default=None)
@@ -507,6 +583,9 @@ HasStepErrors.model_rebuild()
 HasStepPosition.model_rebuild()
 StepPosition.model_rebuild()
 ReferencesTool.model_rebuild()
+SampleSheetColumnDefinition.model_rebuild()
+RecordFieldDefinition.model_rebuild()
+WorkflowTextOption.model_rebuild()
 ToolShedRepository.model_rebuild()
 BaseInputParameter.model_rebuild()
 BaseDataParameter.model_rebuild()

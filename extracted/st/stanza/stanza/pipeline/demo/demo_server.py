@@ -1,4 +1,5 @@
-from flask import Flask, request, abort
+from flask import Flask, request, abort, render_template_string
+import datetime
 import json
 import stanza
 import os
@@ -19,7 +20,11 @@ def static_file(path):
                 'Astloch-Bold.ttf', 'Liberation_Sans-Regular.ttf', 'PT_Sans-Caption-Web-Regular.ttf']:
         return app.send_static_file(path)
     elif path in 'index.html':
-        return app.send_static_file('stanza-brat.html')
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stanza-brat.html.j2')) as f:
+            template = f.read()
+            return render_template_string(template,
+                                          version=stanza.__version__,
+                                          date=datetime.date.today().strftime('%B %Y'))
     else:
         abort(403)
 
@@ -33,7 +38,10 @@ def annotate():
 
     properties = request.args.get('properties', '')
     lang = request.args.get('pipelineLanguage', '')
-    text = list(request.form.keys())[0]
+    keys = list(request.form.keys())
+    if not keys:
+        return ('No text provided', 400)
+    text = keys[0]
 
     if lang not in pipelineCache:
         pipelineCache[lang] = stanza.Pipeline(lang=lang, use_gpu=False)

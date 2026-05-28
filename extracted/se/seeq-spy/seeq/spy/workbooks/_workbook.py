@@ -1299,9 +1299,17 @@ class Workbook(ItemWithOwnerAndAcl):
             if folders is not None:
                 for content in folders.content:  # type: WorkbenchSearchResultPreviewV1
                     if content.type == 'Folder' and content_name == content.name:
-                        if (parent_id is not None and content.ancestors is not None and len(content.ancestors) >= 1
-                                and content.ancestors[-1].id != parent_id):
-                            continue
+                        if parent_id is not None:
+                            # When parent_id is specified, ensure the folder's parent matches
+                            if content.ancestors is not None and len(content.ancestors) >= 1 and content.ancestors[-1].id != parent_id:
+                                continue
+                        else:
+                            # When parent_id is None (root level), ensure the folder is at the root level by checking
+                            # it has minimal nesting (typically just the user home folder as ancestor).
+                            # Skip folders that are nested deeper (e.g., within other user-created folders).
+                            if content.ancestors is not None and len(content.ancestors) > 1:
+                                # This folder is nested deeper than the root level. Skip it.
+                                continue
 
                         status.log(f'Found existing Folder "{content.name}" ({content.id}) under parent ID '
                                    f'{parent_id} for owner ID {owner_id}')

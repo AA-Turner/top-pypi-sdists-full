@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wandb-workspaces
-Version: 0.3.9
+Version: 0.3.10
 Summary: A library for programatically working with the Weights & Biases UI.
 Project-URL: Homepage, https://github.com/wandb/wandb-workspaces
 Project-URL: Repository, https://github.com/wandb/wandb-workspaces

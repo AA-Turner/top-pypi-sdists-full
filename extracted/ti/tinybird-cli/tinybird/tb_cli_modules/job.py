@@ -36,9 +36,7 @@ async def jobs_ls(ctx: Context, status: str) -> None:
     jobs = await client.jobs(status=status)
     columns = ["id", "kind", "status", "created at", "updated at", "job url"]
     click.echo(FeedbackManager.info_jobs())
-    table = []
-    for j in jobs:
-        table.append([j[c.replace(" ", "_")] for c in columns])
+    table = [[j[c.replace(" ", "_")] for c in columns] for j in jobs]
     echo_safe_humanfriendly_tables_format_smart_table(table, column_names=columns)
     click.echo("\n")
 

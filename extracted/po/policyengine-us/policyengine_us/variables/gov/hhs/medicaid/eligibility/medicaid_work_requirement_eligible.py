@@ -42,6 +42,9 @@ class medicaid_work_requirement_eligible(Variable):
             age < p.former_foster_care_age_limit
         )
         # American Indian or Alaska Native / IHS eligibility exclusion.
+        is_aian_exempt = person(
+            "is_american_indian_or_alaska_native_for_medicaid_ce", period
+        )
         has_ihs_coverage = person(
             "has_indian_health_service_coverage_at_interview", period
         )
@@ -61,7 +64,11 @@ class medicaid_work_requirement_eligible(Variable):
         is_blind = person("is_blind", period)
         is_incapable_of_self_care = person("is_incapable_of_self_care", period)
         eligible_disabled = is_blind | is_disabled | is_incapable_of_self_care
+        # Current and recent incarceration exclusions/exceptions.
         is_incarcerated = person("is_incarcerated", period)
+        was_recently_incarcerated = person(
+            "was_recently_incarcerated_for_medicaid_ce", period
+        )
         # parent, guardian, caretaker of a dependent child 13 years of age or under  p.694 (III)
         child_age_eligible = age <= p.dependent_age_limit
         has_eligible_dependent_child = person.tax_unit.any(
@@ -72,12 +79,14 @@ class medicaid_work_requirement_eligible(Variable):
             | pass_through_eligible
             | is_pregnant_or_postpartum
             | former_foster_care_youth
+            | is_aian_exempt
             | has_ihs_coverage
             | medicare_eligible
             | has_disabled
             | eligible_veteran
             | eligible_disabled
             | is_incarcerated
+            | was_recently_incarcerated
         )
         meets_base_requirement = (
             meets_monthly_work_hours | meets_monthly_income | exempted_from_work

@@ -497,7 +497,7 @@ class Companion(Recommender):
                 progress.set_postfix({
                     "loss": "%.2f" % (loss / 3 / self.n_element_samples),
                     "bpr_loss": "%.2f" % (bpr_loss / self.n_bpr_samples),
-                    "correct": "%.2f%%" % (100.0 * correct / (self.n_bpr_samples - skipped)),
+                    "correct": "%.2f%%" % (100.0 * correct / (self.n_bpr_samples - skipped + 1e-8)),
                     "skipped": "%.2f%%" % (100.0 * skipped / self.n_bpr_samples),
                 })
 
@@ -855,7 +855,7 @@ class Companion(Recommender):
                 s = 1
                 if user_item_aspect_neg_opinion_dict.my_map.find(get_key3(get_key(u_idx, i_idx), a_idx, o_jdx)) != user_item_aspect_neg_opinion_dict.my_map.end():
                     i_score = YN[idx]
-                    j_score = user_item_aspect_pos_opinion_dict.my_map[get_key3(get_key(u_idx, i_idx), a_idx, o_jdx)]
+                    j_score = user_item_aspect_neg_opinion_dict.my_map[get_key3(get_key(u_idx, i_idx), a_idx, o_jdx)]
                     if i_score == j_score:
                         skipped_uiaon += 1
                         continue
@@ -879,10 +879,10 @@ class Companion(Recommender):
                     for j in range(n_aspect_factors):
                         for i in range(n_user_factors):
                             del_g3[i, j, k] -= del_bpr_uiaon * U[u_idx, i] * A[a_idx, j] * uiaon_ij
-                            del_u[u_idx, i] -= del_bpr_uiaon * G2[i, j, k] * A[a_idx, j] * uiaon_ij
-                            del_a[a_idx, j] -= del_bpr_uiaon * G2[i, j, k] * U[u_idx, i] * uiaon_ij
-                            del_o[o_idx, k] -= del_bpr_uiaon * G2[i, j, k] * U[u_idx, i] * A[a_idx, j]
-                            del_o[o_jdx, k] += del_bpr_uiaon * G2[i, j, k] * U[u_idx, i] * A[a_idx, j]
+                            del_u[u_idx, i] -= del_bpr_uiaon * G3[i, j, k] * A[a_idx, j] * uiaon_ij
+                            del_a[a_idx, j] -= del_bpr_uiaon * G3[i, j, k] * U[u_idx, i] * uiaon_ij
+                            del_o[o_idx, k] -= del_bpr_uiaon * G3[i, j, k] * U[u_idx, i] * A[a_idx, j]
+                            del_o[o_jdx, k] += del_bpr_uiaon * G3[i, j, k] * U[u_idx, i] * A[a_idx, j]
                         for i in range(n_item_factors):
                             del_g3[n_user_factors + i, j, k] -= del_bpr_uiaon * I[i_idx, i] * A[a_idx, j] * uiaon_ij
                             del_i[i_idx, i] -= del_bpr_uiaon * G3[n_user_factors + i, j, k] * A[a_idx, j] * uiaon_ij
@@ -1026,7 +1026,7 @@ class Companion(Recommender):
                 np.repeat(range(n_items), n_top_aspects).reshape(
                     n_items, n_top_aspects
                 ),
-                ts3[:, :-1].argsort(axis=1)[::-1][:, :n_top_aspects],
+                ts3[:, :-1].argsort(axis=1)[:, ::-1][:, :n_top_aspects],
             ]
             item_scores = (
                 self.alpha * top_aspect_scores.mean(axis=1) + (1 - self.alpha) * ts3[:, -1]

@@ -1,21 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-skip-slow
-Version: 0.0.5
+Version: 1.1.0
 Summary: A pytest plugin to skip `@pytest.mark.slow` tests by default. 
-Author-email: Brian Okken <brian+pypi@pythontest.com>
-Requires-Python: >=3.7
+Author: Brian Okken
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Classifier: License :: OSI Approved :: MIT License
+License-Expression: MIT
 Classifier: Framework :: Pytest
+License-File: LICENSE
 Requires-Dist: pytest>=6.2.0
-Requires-Dist: tox ; extra == "test"
 Project-URL: Home, https://github.com/okken/pytest-skip-slow
-Provides-Extra: test
 
 # pytest-skip-slow
 
-A pytest plugin to skip `@pytest.mark.slow` tests by default. 
-Include the slow tests with `--slow`.
+A pytest plugin to skip tests marked as `@pytest.mark.slow` or `@pytest.mark.hugemem` by default. 
+Include the slow tests with `--slow/--run-slow`, or memory-intensive tests with `--hugemem/--run-hugemem`.
 
 ## Installation
 

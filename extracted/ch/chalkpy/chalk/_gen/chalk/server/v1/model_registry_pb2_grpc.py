@@ -90,6 +90,11 @@ class ModelRegistryServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.ListModelArtifactsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.ListModelArtifactsResponse.FromString,
         )
+        self.GetModelArtifact = channel.unary_unary(
+            "/chalk.server.v1.ModelRegistryService/GetModelArtifact",
+            request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactResponse.FromString,
+        )
 
 
 class ModelRegistryServiceServicer(object):
@@ -185,6 +190,12 @@ class ModelRegistryServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetModelArtifact(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ModelRegistryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -262,6 +273,11 @@ def add_ModelRegistryServiceServicer_to_server(servicer, server):
             servicer.ListModelArtifacts,
             request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.ListModelArtifactsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.ListModelArtifactsResponse.SerializeToString,
+        ),
+        "GetModelArtifact": grpc.unary_unary_rpc_method_handler(
+            servicer.GetModelArtifact,
+            request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ModelRegistryService", rpc_method_handlers)
@@ -697,6 +713,35 @@ class ModelRegistryService(object):
             "/chalk.server.v1.ModelRegistryService/ListModelArtifacts",
             chalk_dot_server_dot_v1_dot_model__registry__pb2.ListModelArtifactsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_model__registry__pb2.ListModelArtifactsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetModelArtifact(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ModelRegistryService/GetModelArtifact",
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.GetModelArtifactResponse.FromString,
             options,
             channel_credentials,
             insecure,

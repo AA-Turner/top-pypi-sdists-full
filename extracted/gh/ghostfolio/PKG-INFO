@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ghostfolio
-Version: 0.8.1
+Version: 0.9.0
 Summary: Python API client for Ghostfolio
 Author-email: Marcin Szymanski <ms32035@gmail.com>
 Project-URL: Homepage, https://github.com/ms32035/ghostfolio-py

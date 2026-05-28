@@ -497,6 +497,14 @@ from .porting_orders import (
     PortingOrdersResourceWithStreamingResponse,
     AsyncPortingOrdersResourceWithStreamingResponse,
 )
+from .speech_to_text import (
+    SpeechToTextResource,
+    AsyncSpeechToTextResource,
+    SpeechToTextResourceWithRawResponse,
+    AsyncSpeechToTextResourceWithRawResponse,
+    SpeechToTextResourceWithStreamingResponse,
+    AsyncSpeechToTextResourceWithStreamingResponse,
+)
 from .text_to_speech import (
     TextToSpeechResource,
     AsyncTextToSpeechResource,
@@ -1000,6 +1008,14 @@ from .virtual_cross_connects import (
     AsyncVirtualCrossConnectsResourceWithRawResponse,
     VirtualCrossConnectsResourceWithStreamingResponse,
     AsyncVirtualCrossConnectsResourceWithStreamingResponse,
+)
+from .voice_sdk_call_reports import (
+    VoiceSDKCallReportsResource,
+    AsyncVoiceSDKCallReportsResource,
+    VoiceSDKCallReportsResourceWithRawResponse,
+    AsyncVoiceSDKCallReportsResourceWithRawResponse,
+    VoiceSDKCallReportsResourceWithStreamingResponse,
+    AsyncVoiceSDKCallReportsResourceWithStreamingResponse,
 )
 from .alphanumeric_sender_ids import (
     AlphanumericSenderIDsResource,
@@ -2273,4 +2289,16 @@ __all__ = [
     "AsyncUacConnectionsResourceWithRawResponse",
     "UacConnectionsResourceWithStreamingResponse",
     "AsyncUacConnectionsResourceWithStreamingResponse",
+    "SpeechToTextResource",
+    "AsyncSpeechToTextResource",
+    "SpeechToTextResourceWithRawResponse",
+    "AsyncSpeechToTextResourceWithRawResponse",
+    "SpeechToTextResourceWithStreamingResponse",
+    "AsyncSpeechToTextResourceWithStreamingResponse",
+    "VoiceSDKCallReportsResource",
+    "AsyncVoiceSDKCallReportsResource",
+    "VoiceSDKCallReportsResourceWithRawResponse",
+    "AsyncVoiceSDKCallReportsResourceWithRawResponse",
+    "VoiceSDKCallReportsResourceWithStreamingResponse",
+    "AsyncVoiceSDKCallReportsResourceWithStreamingResponse",
 ]

@@ -64,6 +64,16 @@ class MemorySpace(APIObject):
         Optional. A human-readable description.
     llm_model_name : str or None
        Optional. An LLM model name associated with the memory space (maximum 200 characters).
+       Non-reasoning models such as ``gpt-4o`` are recommended. Reasoning-capable models are
+       significantly slower for fact extraction without producing meaningfully better results.
+    llm_base_url : str or None
+        Optional. The chat API URL used for memory extraction.
+        The memory service uses the DataRobot LLM gateway by default; set this only when
+        the default does not work — for example, in air-gapped environments or when the
+        required LLM model is not provided by the gateway and cannot be added.
+    custom_instructions : str or None
+        Optional. Custom prompt instructions for fact extraction (maximum 10,000 characters).
+        ``None`` means the default memory extraction prompt is used.
     created_at : datetime.datetime
         The timestamp when the memory space was created.
     """
@@ -75,8 +85,10 @@ class MemorySpace(APIObject):
         t.Key("memory_space_id", to_name="id"): String(),
         t.Key("user_id"): String(),
         t.Key("tenant_id"): String(),
-        t.Key("description", optional=True, default=None): t.Or(String(), t.Null),
-        t.Key("llm_model_name", optional=True, default=None): t.Or(String(), t.Null),
+        t.Key("description", optional=True, default=None): t.Or(String(allow_blank=True), t.Null),
+        t.Key("llm_model_name", optional=True, default=None): t.Or(String(allow_blank=True), t.Null),
+        t.Key("llm_base_url", optional=True, default=None): t.Or(String(max_length=2083, allow_blank=True), t.Null),
+        t.Key("custom_instructions", optional=True, default=None): t.Or(String(allow_blank=True), t.Null),
         t.Key("created_at"): parse_time,
     }).ignore_extra("*")
 
@@ -87,6 +99,8 @@ class MemorySpace(APIObject):
         tenant_id: Optional[str] = None,
         description: Optional[str] = None,
         llm_model_name: Optional[str] = None,
+        llm_base_url: Optional[str] = None,
+        custom_instructions: Optional[str] = None,
         created_at: Optional[datetime] = None,
     ) -> None:
         self.id = id
@@ -94,6 +108,8 @@ class MemorySpace(APIObject):
         self.tenant_id = tenant_id
         self.description = description
         self.llm_model_name = llm_model_name
+        self.llm_base_url = llm_base_url
+        self.custom_instructions = custom_instructions
         self.created_at = created_at
 
     def __repr__(self) -> str:
@@ -108,6 +124,8 @@ class MemorySpace(APIObject):
         cls,
         description: Optional[str] = None,
         llm_model_name: Optional[str] = None,
+        llm_base_url: Optional[str] = None,
+        custom_instructions: Optional[str] = None,
     ) -> MemorySpace:
         """
         Create a new memory space.
@@ -120,6 +138,15 @@ class MemorySpace(APIObject):
             Optional. A human-readable description for the memory space.
         llm_model_name : str or None
             Optional. An LLM model name to associate with the memory space (maximum 200 characters).
+            Non-reasoning models such as ``gpt-4o`` are recommended. Reasoning-capable models are
+            significantly slower for fact extraction without producing meaningfully better results.
+        llm_base_url : str or None
+            Optional. Chat API URL used for memory extraction.
+            The memory service uses the DataRobot LLM gateway by default; set this only when
+            the default does not work — for example, in air-gapped environments or when the
+            required LLM model is not provided by the gateway and cannot be added.
+        custom_instructions : str or None
+            Optional. Custom prompt instructions for fact extraction (maximum 10 000 characters).
 
         Returns
         -------
@@ -131,6 +158,10 @@ class MemorySpace(APIObject):
             payload["description"] = description
         if llm_model_name is not None:
             payload["llm_model_name"] = llm_model_name
+        if llm_base_url is not None:
+            payload["llm_base_url"] = llm_base_url
+        if custom_instructions is not None:
+            payload["custom_instructions"] = custom_instructions
         return cls.from_server_data(cls._client.post(cls._create_path, data=payload).json())
 
     @classmethod
@@ -174,7 +205,13 @@ class MemorySpace(APIObject):
         """
         return cls.from_location(cls._url(memory_space_id))
 
-    def update(self, description: object = _UNSET, llm_model_name: object = _UNSET) -> None:
+    def update(
+        self,
+        description: object = _UNSET,
+        llm_model_name: object = _UNSET,
+        llm_base_url: object = _UNSET,
+        custom_instructions: object = _UNSET,
+    ) -> None:
         """
         Update the memory space.
 
@@ -188,8 +225,23 @@ class MemorySpace(APIObject):
             The new description. Pass ``None`` to clear the existing description.
         llm_model_name : str or None
             The new LLM model name (maximum 200 characters). Pass ``None`` to clear an existing LLM.
+            Non-reasoning models such as ``gpt-4o`` are recommended. Reasoning-capable models are
+            significantly slower for fact extraction without producing meaningfully better results.
+        llm_base_url : str or None
+            The new chat API URL used for memory extraction.
+            Pass ``None`` to clear and fall back to the DataRobot LLM gateway (the default).
+            Set this only when the gateway does not work — for example, in air-gapped
+            environments or when the required LLM model is not provided by the gateway and cannot be added.
+        custom_instructions : str or None
+            The new custom instructions (maximum 10 000 characters). Pass ``None`` to revert to
+            the default memory extraction prompt.
         """
-        payload, keep_attrs = _build_patch_payload(description=description, llm_model_name=llm_model_name)
+        payload, keep_attrs = _build_patch_payload(
+            description=description,
+            llm_model_name=llm_model_name,
+            llm_base_url=llm_base_url,
+            custom_instructions=custom_instructions,
+        )
 
         if not payload:
             return
@@ -198,7 +250,7 @@ class MemorySpace(APIObject):
             self._client.patch(self._url(self.id), data=payload, keep_attrs=keep_attrs).json()
         )
 
-        _update_attrs(self, updated, ("description", "llm_model_name"))
+        _update_attrs(self, updated, ("description", "llm_model_name", "llm_base_url", "custom_instructions"))
 
     def delete(self) -> None:
         """
@@ -236,9 +288,9 @@ class Event(APIObject):
 
     _converter = t.Dict({
         t.Key("body", optional=True, default=None): t.Or(t.Dict({}).allow_extra("*"), t.Null),
-        t.Key("event_type", optional=True, default=None): t.Or(String(), t.Null),
-        t.Key("emitter_type", optional=True, default=None): t.Or(String(), t.Null),
-        t.Key("emitter_id", optional=True, default=None): t.Or(String(), t.Null),
+        t.Key("event_type", optional=True, default=None): t.Or(String(allow_blank=True), t.Null),
+        t.Key("emitter_type", optional=True, default=None): t.Or(String(allow_blank=True), t.Null),
+        t.Key("emitter_id", optional=True, default=None): t.Or(String(allow_blank=True), t.Null),
         t.Key("sequence_id", optional=True, default=None): t.Or(Int(), t.Null),
         t.Key("created_at", optional=True, default=None): t.Or(t.Null, t.Call(parse_time)),
     }).ignore_extra("*")
@@ -286,6 +338,11 @@ class Session(APIObject):
         The timestamp when the session was created.
     lifecycle_strategies : list of dict
         The lifecycle strategy configurations attached to this session.
+    version : int or None
+        A monotonic counter incremented by the server on every successful update.
+        Populated when the session is loaded from the server; ``None`` for
+        manually constructed instances or older servers that do not return it.
+        Used as the default ``If-Match`` precondition on :meth:`update`.
     memory_space_id : str or None
         The ID of the parent memory space. This value is set automatically.
     """
@@ -296,10 +353,11 @@ class Session(APIObject):
     _converter = t.Dict({
         t.Key("id"): String(),
         t.Key("participants"): t.List(String()),
-        t.Key("description", optional=True, default=None): t.Or(String(), t.Null),
+        t.Key("description", optional=True, default=None): t.Or(String(allow_blank=True), t.Null),
         t.Key("metadata", optional=True, default=None): t.Or(t.Dict({}).allow_extra("*"), t.Null),
         t.Key("created_at"): parse_time,
         t.Key("lifecycle_strategies"): t.List(t.Dict({}).allow_extra("*")),
+        t.Key("version", optional=True, default=None): t.Or(Int(), t.Null),
     }).ignore_extra("*")
 
     def __init__(
@@ -310,6 +368,7 @@ class Session(APIObject):
         metadata: Optional[Dict[str, Any]] = None,
         created_at: Optional[datetime] = None,
         lifecycle_strategies: Optional[List[Dict[str, Any]]] = None,
+        version: Optional[int] = None,
     ) -> None:
         self.id = id
         self.participants = participants
@@ -317,6 +376,7 @@ class Session(APIObject):
         self.metadata = metadata
         self.created_at = created_at
         self.lifecycle_strategies = lifecycle_strategies
+        self.version = version
         self.memory_space_id: Optional[str] = None
 
     def __repr__(self) -> str:
@@ -457,11 +517,22 @@ class Session(APIObject):
         """
         return cls.from_location(cls._url(memory_space_id, session_id))._set_context(memory_space_id)
 
-    def update(self, description: object = _UNSET, metadata: object = _UNSET) -> None:
+    def update(
+        self,
+        description: object = _UNSET,
+        metadata: object = _UNSET,
+        if_match: object = _UNSET,
+    ) -> None:
         """
         Update the session.
 
         If called without arguments, there is no effect. Pass ``None`` to clear a field.
+
+        By default the SDK uses ``version`` (set by a prior load) as an
+        optimistic-concurrency precondition. If the server's stored version no
+        longer matches, it returns ``409`` (surfaced as
+        :class:`datarobot.errors.ClientError`). The caller is expected to reload
+        the session via :meth:`get` and retry.
 
         .. versionadded:: v3.15
 
@@ -471,17 +542,25 @@ class Session(APIObject):
             The new description. Pass ``None`` to clear.
         metadata : dict or None
             The new metadata. Pass ``None`` to clear.
+        if_match : int or None
+            Optimistic-concurrency precondition. When omitted, the SDK uses
+            ``version`` automatically. Pass ``None`` to opt out (legacy
+            last-writer-wins). Pass an integer to override the version.
         """
         payload, keep_attrs = _build_patch_payload(description=description, metadata=metadata)
 
         if not payload:
             return
 
-        updated = self.from_server_data(
-            self._client.patch(self._self_url(), data=payload, keep_attrs=keep_attrs).json()
-        )
+        effective_if_match = self.version if if_match is _UNSET else if_match
 
-        _update_attrs(self, updated, ("description", "metadata"))
+        kwargs: Dict[str, Any] = {"data": payload, "keep_attrs": keep_attrs}
+        if effective_if_match is not None:
+            kwargs["headers"] = {"If-Match": f'"{effective_if_match}"'}
+
+        updated = self.from_server_data(self._client.patch(self._self_url(), **kwargs).json())
+
+        _update_attrs(self, updated, ("description", "metadata", "version"))
 
     def delete(self) -> None:
         """

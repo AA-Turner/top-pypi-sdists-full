@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kaggle-environments
-Version: 1.30.0
+Version: 1.30.1
 Summary: Kaggle Environments
 Author-email: Kaggle <support@kaggle.com>
 Requires-Python: >=3.11
@@ -10,9 +10,9 @@ Requires-Dist: gymnasium == 1.2.0
 Requires-Dist: gymnax==0.0.8
 Requires-Dist: jax
 Requires-Dist: jsonschema >= 3.0.1
-Requires-Dist: litellm == 1.86.1
+Requires-Dist: litellm >= 1.86.1
 Requires-Dist: numpy >= 2.0
-Requires-Dist: open_spiel >= 1.6.14
+Requires-Dist: open_spiel >= 1.6.15
 Requires-Dist: pettingzoo == 1.24.0
 Requires-Dist: pokerkit==0.6.3
 Requires-Dist: pydantic >= 2.11.4

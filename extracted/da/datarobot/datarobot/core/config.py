@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Mapping, Optional, Type
+from typing import Any, Dict, Mapping, Optional, Tuple, Type, Union, cast
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.sources import EnvSettingsSource, PydanticBaseSettingsSource
@@ -27,8 +27,10 @@ except ImportError:
     # Newer versions have it in pydantic_settings.sources.utils
     from pydantic_settings.sources.utils import parse_env_vars  # type: ignore[no-redef,unused-ignore]
 
+_RuntimeParamPayload = Union[str, float, bool, None]
 
-def getenv(name: str, default: Optional[str] = None) -> Optional[str]:
+
+def getenv(name: str, default: Optional[str] = None) -> _RuntimeParamPayload:
     """
     Custom getenv function that checks for Runtime Parameters first.
     """
@@ -46,13 +48,13 @@ def getenv(name: str, default: Optional[str] = None) -> Optional[str]:
         return raw
 
     if isinstance(value, dict):
-        if value.get("type") == "string":
-            return str(value["payload"])
+        if value.get("type") in ("string", "boolean", "numeric", "deployment"):
+            return cast(_RuntimeParamPayload, value["payload"])
         if len(value) == 1:
             return str(list(value.values())[0])
         elif "payload" in value:
             payload = value["payload"]
-            if "apiToken" in payload:
+            if isinstance(payload, dict) and "apiToken" in payload:
                 return str(payload["apiToken"])
 
     return raw
@@ -142,7 +144,7 @@ class GetenvSettingsSource(EnvSettingsSource):  # type: ignore[misc,unused-ignor
     def _load_env_vars(self) -> Mapping[str, Optional[str]]:
         """Load environment variables using the custom getenv function."""
         # Start with normal environment variables
-        env_vars = dict(super()._load_env_vars())
+        env_vars: Dict[str, _RuntimeParamPayload] = dict(super()._load_env_vars())
 
         # Override with custom getenv for each field
         for field_name in self.settings_cls.model_fields.keys():
@@ -191,7 +193,7 @@ class DataRobotAppFrameworkBaseSettings(BaseSettings):  # type: ignore[misc,unus
         env_settings: PydanticBaseSettingsSource,
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
+    ) -> Tuple[PydanticBaseSettingsSource, ...]:
         return (
             init_settings,
             env_settings,

@@ -443,7 +443,13 @@ class APIToolFormatHandler:
                         "__drydock_compacted_args__", ""
                     )
                     if isinstance(note, str):
-                        import re as _re
+                        # Use the module-level `_re` (line 5). A local
+                        # `import re as _re` here shadows it across the
+                        # whole function and causes UnboundLocalError on
+                        # later `_re` references when this branch is not
+                        # taken — observed 2026-05-27 in a slides session
+                        # after the placeholder-loop terse cutoff (95d333f)
+                        # added a `continue` that skipped this branch.
                         m = _re.search(r"path=([^,\]\s]+)", note)
                         if m:
                             path_hint = m.group(1)
@@ -452,6 +458,30 @@ class APIToolFormatHandler:
                 hit_count = self._truncated_hit_count.get(hit_key, 0) + 1
                 self._truncated_hit_count[hit_key] = hit_count
                 escalate = hit_count >= 2
+                # 2026-05-27: At 4+ hits the model has demonstrably ignored
+                # the file content we keep embedding. Switch to a terse
+                # force-end-turn directive — no file content, no project
+                # listing, nothing the model can copy back as fake args.
+                # Observed on operator's slides session: write_file looped
+                # to 8th attempt with full file_embed each time; the model
+                # never re-emitted real content.
+                if hit_count >= 4:
+                    failed_calls.append(
+                        FailedToolCall(
+                            tool_name=parsed_call.tool_name,
+                            call_id=parsed_call.call_id,
+                            error=(
+                                f"DRYDOCK PAUSE: `{parsed_call.tool_name}` "
+                                f"on `{path_hint or '?'}` has failed with "
+                                f"placeholder args {hit_count} times in a row. "
+                                f"You are stuck in a loop. STOP calling tools. "
+                                f"End your turn NOW with a short plain-text "
+                                f"description of the change you intended. "
+                                f"The user will guide the next step."
+                            ),
+                        )
+                    )
+                    continue
 
                 # Auto-embed the current file content so the model can
                 # rewrite immediately without an extra read_file round-trip.

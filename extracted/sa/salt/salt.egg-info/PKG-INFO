@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: salt
-Version: 3007.14
+Version: 3008.0
 Summary: Portable, distributed, remote execution and configuration management system
-Home-page: https://saltproject.io
-Author: Thomas S Hatch
-Author-email: thatch45@gmail.com
+Author-email: Thomas S Hatch <thatch45@gmail.com>
 License: Apache Software License 2.0
+Project-URL: Homepage, https://saltproject.io
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python :: 3
@@ -27,16 +26,79 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: NOTICE
 License-File: AUTHORS
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: aiohttp>=3.13.3
+Requires-Dist: apache-libcloud>=3.8.0
+Requires-Dist: cffi>=2.0.0
+Requires-Dist: cheroot>=10.0.1
+Requires-Dist: cherrypy>=18.6.1
+Requires-Dist: contextvars; python_version < "3.7"
+Requires-Dist: croniter!=0.3.22,>=0.3.0; sys_platform != "win32"
+Requires-Dist: cryptography>=46.0.7
+Requires-Dist: distro>=1.0.1
+Requires-Dist: frozenlist>=1.3.0; python_version < "3.11"
+Requires-Dist: frozenlist>=1.5.0; python_version >= "3.11"
+Requires-Dist: gitpython>=3.1.50
+Requires-Dist: idna>=2.8
+Requires-Dist: immutables>=0.21; python_version < "3.7"
+Requires-Dist: importlib-metadata>=3.3.0; python_version < "3.11"
+Requires-Dist: importlib-metadata>=8.7.0; python_version >= "3.11"
+Requires-Dist: jaraco.functools>=4.1.0
+Requires-Dist: jaraco.context>=6.1.0
+Requires-Dist: jaraco.text>=4.0.0
+Requires-Dist: Jinja2>=3.1.5
+Requires-Dist: jmespath>=1.1.0
+Requires-Dist: looseversion
+Requires-Dist: lxml>=6.1.0; sys_platform == "win32"
+Requires-Dist: MarkupSafe>=3.0.0
+Requires-Dist: more-itertools>=9.1.0
+Requires-Dist: msgpack>=1.0.0; python_version < "3.13"
+Requires-Dist: msgpack>=1.1.0; python_version >= "3.13"
+Requires-Dist: opentelemetry-api>=1.30.0
+Requires-Dist: opentelemetry-sdk>=1.30.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0
+Requires-Dist: opentelemetry-exporter-prometheus>=0.51b0
+Requires-Dist: xxhash>=3.0.0
+Requires-Dist: packaging>=21.3; python_version < "3.11"
+Requires-Dist: packaging==24.0; python_version >= "3.11"
+Requires-Dist: psutil<6.0.0; python_version <= "3.9"
+Requires-Dist: psutil>=5.0.0; python_version >= "3.10"
+Requires-Dist: pyasn1>=0.6.3
+Requires-Dist: pycparser>=2.21
+Requires-Dist: pymssql>=2.2.1; sys_platform == "win32" and python_version < "3.11"
+Requires-Dist: pymssql==2.3.11; sys_platform == "win32" and python_version >= "3.11"
+Requires-Dist: pyopenssl>=26.0.0
+Requires-Dist: python-dateutil>=2.8.1
+Requires-Dist: python-gnupg>=0.4.7
+Requires-Dist: pythonnet>=3.0.1; sys_platform == "win32" and python_version < "3.11"
+Requires-Dist: pythonnet>=3.0.4; sys_platform == "win32" and python_version >= "3.11" and python_version < "3.13"
+Requires-Dist: pythonnet>=3.1.0rc0; sys_platform == "win32" and python_version >= "3.13"
+Requires-Dist: pywin32>=305; sys_platform == "win32"
+Requires-Dist: pycryptodomex>=3.9.8
+Requires-Dist: PyYAML
+Requires-Dist: requests>=2.25.1; python_version < "3.10"
+Requires-Dist: requests<2.32.0; python_version >= "3.10" and python_version < "3.11"
+Requires-Dist: requests>=2.32.5; python_version >= "3.11"
+Requires-Dist: rpm-vercmp; sys_platform == "linux"
+Requires-Dist: setproctitle>=1.2.3
+Requires-Dist: timelib>=0.2.5; python_version < "3.11"
+Requires-Dist: timelib>=0.3.0; python_version >= "3.11"
+Requires-Dist: tornado>=6.5.5
+Requires-Dist: truststore>=0.10.0; python_version >= "3.10"
+Requires-Dist: urllib3<2.0.0,>=1.26.20; python_version < "3.10"
+Requires-Dist: urllib3>=2.7.0; python_version >= "3.10"
+Requires-Dist: virtualenv
+Requires-Dist: vultr>=1.0.1
+Requires-Dist: wmi>=1.5.1; sys_platform == "win32"
+Requires-Dist: xmltodict>=0.13.0; sys_platform == "win32"
+Requires-Dist: zipp>=3.19.1
+Requires-Dist: pyzmq>=25.1.2; python_version < "3.13"
+Requires-Dist: pyzmq>=26.2.0; python_version >= "3.13"
+Requires-Dist: pycryptodomex>=3.9.8
+Provides-Extra: crypto
+Requires-Dist: pycryptodomex>=3.9.8; extra == "crypto"
 Dynamic: license-file
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: provides-extra
+Dynamic: requires-dist
 
 .. image:: https://img.shields.io/github/license/saltstack/salt
    :alt: Salt Project License: Apache v2.0

@@ -68,6 +68,9 @@ def _system_up_to_date(
             "DPkg::Options::=--force-confdef",
             "-o",
             "DPkg::Options::=--force-confold",
+            # Downgrade jobs can leave ``salt-dbg`` newer than pinned mains; apt
+            # then proposes downgrading it and refuses without this flag.
+            "--allow-downgrades",
             env=env,
         )
         assert ret.returncode == 0
@@ -113,11 +116,13 @@ def pytest_addoption(parser):
     )
     test_selection_group.addoption(
         "--prev-version",
+        dest="prev_version",
         action="store",
         help="Test an upgrade from the version specified.",
     )
     test_selection_group.addoption(
         "--use-prev-version",
+        dest="use_prev_version",
         action="store_true",
         help="Tells the test suite to validate the version using the previous version (for downgrades)",
     )
@@ -256,8 +261,8 @@ def install_salt(request, salt_factories_root_dir):
         downgrade=request.config.getoption("--downgrade"),
         no_uninstall=request.config.getoption("--no-uninstall"),
         no_install=request.config.getoption("--no-install"),
-        prev_version=request.config.getoption("--prev-version"),
-        use_prev_version=request.config.getoption("--use-prev-version"),
+        prev_version=request.config.getoption("prev_version"),
+        use_prev_version=request.config.getoption("use_prev_version"),
     ) as fixture:
         yield fixture
 

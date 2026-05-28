@@ -273,7 +273,7 @@ class UploadFeatures:
     """Mapping of feature → value (scalar) or list of values (bulk)."""
 
 
-def _struct_col_to_table(col: pa.Array) -> pa.Table:
+def struct_col_to_table(col: pa.Array) -> pa.Table:
     if isinstance(col.type, pa.StructType):
         return pa.Table.from_arrays(
             [col.field(i) for i in range(col.type.num_fields)],
@@ -299,6 +299,50 @@ def _uses_chalk_now(expr: Any) -> bool:
                 if isinstance(item, Underscore) and _uses_chalk_now(item):
                     return True
     return False
+
+
+def _replace_root_underscores(expr: Underscore, root_replacement: Underscore) -> Underscore:
+    """
+    Return a deepcopy of the given Underscore expr, replacing every UnderscoreRoot with <root_replacement>.
+
+    For example:
+    _replace_root_underscores(_.a, _.message) produces _.message.a
+    _replace_root_underscores(F.json_value(_, "$.x"), _.message) produces F.json_value(_.message, "$.x")
+    """
+    if isinstance(expr, UnderscoreRoot):
+        return root_replacement
+    expr = copy.deepcopy(expr)
+    _visited: OrderedSet[int] = OrderedSet({id(root_replacement)})
+    _replace_root_underscores_recursive(expr, root_replacement, _visited)
+    return expr
+
+
+def _replace_root_underscores_recursive(expr: Underscore, root_replacement: Underscore, visited: OrderedSet[int]):
+    if id(expr) in visited:
+        return
+    visited.add(id(expr))
+    for attr, val in vars(expr).items():
+        if isinstance(val, UnderscoreRoot):
+            setattr(expr, attr, root_replacement)
+        elif isinstance(val, Underscore):
+            _replace_root_underscores_recursive(val, root_replacement, visited)
+        elif isinstance(val, (list, tuple)):
+            new_seq: list[Any] = []
+            for item in val:
+                if isinstance(item, UnderscoreRoot):
+                    new_seq.append(root_replacement)
+                elif isinstance(item, Underscore):
+                    _replace_root_underscores_recursive(item, root_replacement, visited)
+                    new_seq.append(item)
+                else:
+                    new_seq.append(item)
+            setattr(expr, attr, type(val)(new_seq))
+        elif isinstance(val, dict):
+            for k, v in val.items():
+                if isinstance(v, UnderscoreRoot):
+                    val[k] = root_replacement
+                elif isinstance(v, Underscore):
+                    _replace_root_underscores_recursive(v, root_replacement, visited)
 
 
 def _parse_stream_messages(
@@ -340,41 +384,6 @@ def _parse_stream_messages(
         else:
             os.environ["LIBCHALK_LOG_LEVEL"] = old_log_level
 
-    _replacement = UnderscoreAttr(UnderscoreRoot(), "message")
-    _visited: OrderedSet[int] = OrderedSet({id(_replacement)})
-
-    def _rebind_inplace(node: Underscore) -> None:
-        """Mutate a deepcopy of the AST in-place, replacing every UnderscoreRoot with _.message.
-
-        Uses a visited set to handle shared references (deepcopy preserves sharing,
-        so a node referenced multiple times in the tree must only be mutated once).
-        """
-        if id(node) in _visited:
-            return
-        _visited.add(id(node))
-        for attr, val in vars(node).items():
-            if isinstance(val, UnderscoreRoot):
-                setattr(node, attr, _replacement)
-            elif isinstance(val, Underscore):
-                _rebind_inplace(val)
-            elif isinstance(val, (list, tuple)):
-                new_seq: list[Any] = []
-                for item in val:
-                    if isinstance(item, UnderscoreRoot):
-                        new_seq.append(_replacement)
-                    elif isinstance(item, Underscore):
-                        _rebind_inplace(item)
-                        new_seq.append(item)
-                    else:
-                        new_seq.append(item)
-                setattr(node, attr, type(val)(new_seq))
-            elif isinstance(val, dict):
-                for k, v in val.items():
-                    if isinstance(v, UnderscoreRoot):
-                        val[k] = _replacement
-                    elif isinstance(v, Underscore):
-                        _rebind_inplace(v)
-
     if resolver.parse is None:
         message_type = resolver.message
         if message_type is None:
@@ -389,15 +398,17 @@ def _parse_stream_messages(
             .column("__parsed__")
             .combine_chunks()
         )
-        flat_table = _struct_col_to_table(struct_col)
     elif resolver.parse.parse_expression is not None:
+        message_type = resolver.message
+        if message_type is None:
+            raise ValueError(f"Stream resolver '{resolver.fqn}' has no message type.")
         parse_df = DF({"message": pa.array(messages, type=pa.large_binary())})
         rebound_parse = copy.deepcopy(resolver.parse.parse_expression)
-        _rebind_inplace(rebound_parse)
+        rebound_parse = _replace_root_underscores(rebound_parse, _.message)
+        rebound_parse = rebound_parse.cast(message_type)
         struct_col = (
             parse_df.with_columns({"__parsed__": rebound_parse}).run().to_arrow().column("__parsed__").combine_chunks()
         )
-        flat_table = _struct_col_to_table(struct_col)
     else:
         raise ValueError(
             f"Stream resolver '{resolver.fqn}' has a parse function with no parse_expression; "
@@ -411,7 +422,9 @@ def _parse_stream_messages(
     feature_projections: dict[str, Any] = {
         feat.name: expr for feat, expr in resolver.feature_expressions.items() if feat not in skipped_features
     }
-    expression_result = DF(flat_table).project(feature_projections).run()
+    for k, v in feature_projections.items():
+        feature_projections[k] = _replace_root_underscores(v, _.message)
+    expression_result = DF({"message": struct_col}).project(feature_projections).run()
 
     result_arrow = _to_arrow(expression_result)
 

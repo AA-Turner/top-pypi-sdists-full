@@ -747,10 +747,12 @@ async def create_workspace_branch(
 async def print_data_branch_summary(client, job_id, response=None):
     response = await client.job(job_id) if job_id else response or {"partitions": []}
     columns = ["Data Source", "Partition", "Status", "Error"]
-    table = []
+    table: list[list] = []
     for partition in response["partitions"]:
-        for p in partition["partitions"]:
-            table.append([partition["datasource"]["name"], p["partition"], p["status"], p.get("error", "")])
+        table.extend(
+            [partition["datasource"]["name"], p["partition"], p["status"], p.get("error", "")]
+            for p in partition["partitions"]
+        )
     echo_safe_humanfriendly_tables_format_smart_table(table, column_names=columns)
 
 

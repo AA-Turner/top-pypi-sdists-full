@@ -3447,25 +3447,9 @@ def review_env(
                 console.print(f"\n[green]✅ Review submitted: {outcome}[/green]")
                 console.print(f"[cyan]Status:[/cyan] {current_status} → {new_status}")
 
-                # If passed, automatically tag artifact as prod-latest
-                if outcome == "pass" and artifact_id:
-                    console.print("\n[cyan]Tagging artifact as prod-latest...[/cyan]")
-                    try:
-                        # simulator_name and artifact_id are guaranteed to be set at this point
-                        assert simulator_name is not None
-                        await update_tag.asyncio(
-                            client=api_client,
-                            body=UpdateTagRequest(
-                                simulator_name=simulator_name,
-                                artifact_id=artifact_id,
-                                tag_name="prod-latest",
-                                dataset="base",
-                            ),
-                            x_api_key=api_key,
-                        )
-                        console.print(f"[green]✅ Tagged {artifact_id[:8]}... as prod-latest[/green]")
-                    except Exception as e:
-                        console.print(f"[yellow]⚠️  Could not tag as prod-latest: {e}[/yellow]")
+                # prod-latest is synced backend-side on the transition to
+                # `ready` (POST /api/v1/simulator/{id}/status), so the client
+                # no longer moves the tag here.
 
                 # If passed + auto-start datagen
                 if outcome == "pass" and pass_start_datagen and artifact_id:

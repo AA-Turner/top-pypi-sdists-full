@@ -933,6 +933,28 @@ class Threads(Authenticated):
             Yields:
                 Tuples of (event_bytes, message_bytes, stream_id_bytes|None)
             """
+            async for (
+                event_bytes,
+                message_bytes,
+                stream_id_bytes,
+                _run_id,
+            ) in Threads.Stream.join_event_streaming(
+                thread_id,
+                stream_modes=stream_modes,
+                last_event_id=last_event_id,
+                ctx=ctx,
+            ):
+                yield (event_bytes, message_bytes, stream_id_bytes)
+
+        @staticmethod
+        async def join_event_streaming(
+            thread_id: UUID | str,
+            *,
+            stream_modes: list[str] | None = None,
+            last_event_id: str | None = None,
+            ctx: Any = None,
+        ):
+            """Stream thread events with their run id for protocol demux."""
             auth_filters = await Threads.Stream.handle_event(
                 ctx,
                 "read",
@@ -961,12 +983,13 @@ class Threads(Authenticated):
                         if event.HasField("stream_id")
                         else None
                     )
+                    run_id = event.run_id if event.HasField("run_id") else None
 
                     # Transform error events from gRPC format to older Python format
                     if event.event_type == "error":
                         message_bytes = transform_grpc_error_event(message_bytes)
 
-                    yield (event_bytes, message_bytes, stream_id_bytes)
+                    yield (event_bytes, message_bytes, stream_id_bytes, run_id)
             except Exception as e:
                 if isinstance(e, AioRpcError):
                     _handle_grpc_error(e)

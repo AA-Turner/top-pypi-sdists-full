@@ -549,6 +549,12 @@ class Schema(BaseSchema, ABC):
                 should raise upon failure. If `False`, the returned lazy frame will
                 fail to collect if the validation does not pass.
 
+                Note:
+                    If running on the streaming engine, lazy validation will potentially
+                    not surface *all* validation issues as the validation is aborted
+                    once the first failure is encountered. Likewise, the reported
+                    validation failure can be non-deterministic.
+
         Returns:
             The input eager or lazy frame, wrapped in a generic version of the
             input's data frame type to reflect schema adherence. Columns not defined
@@ -570,8 +576,15 @@ class Schema(BaseSchema, ABC):
         if eager:
             out, failure = cls.filter(df, cast=cast, eager=True)
             if len(failure) > 0:
+                counts = failure.counts()
                 raise ValidationError(
-                    format_rule_failures(list(failure.counts().items()))
+                    format_rule_failures(
+                        list(counts.items()),
+                        failures_from=failure._df.select(counts.keys()),
+                        examples_from=failure.invalid(),
+                        primary_key_columns=cls.primary_key(),
+                        max_examples=Config.options["max_failure_examples"],
+                    )
                 )
             return out
         else:
@@ -581,7 +594,14 @@ class Schema(BaseSchema, ABC):
             if rules := cls._validation_rules(with_cast=False):
                 lf = (
                     lf.pipe(with_evaluation_rules, rules)
-                    .filter(all_rules_required(rules.keys(), schema_name=cls.__name__))
+                    .filter(
+                        all_rules_required(
+                            rules.keys(),
+                            schema_name=cls.__name__,
+                            data_columns=cls.column_names(),
+                            primary_key_columns=cls.primary_key(),
+                        )
+                    )
                     .drop(rules.keys())
                 )
             return lf  # type: ignore

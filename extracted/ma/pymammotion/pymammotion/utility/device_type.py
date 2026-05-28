@@ -435,9 +435,9 @@ class DeviceType(Enum):
 
     @staticmethod
     def is_yuka_mini(device_name: str) -> bool:
-        """Return True if the device name identifies a Yuka Mini or Yuka Mini 2 device."""
+        """Return True if the device name identifies a Yuka Mini, Yuka Mini 2, or Yuka ML device."""
         dt = DeviceType.value_of_str(device_name)
-        return dt in (DeviceType.YUKA_MINI, DeviceType.YUKA_MINI2)
+        return dt in (DeviceType.YUKA_MINI, DeviceType.YUKA_MINI2, DeviceType.YUKA_ML)
 
     @staticmethod
     def is_mini_or_x_series(device_name: str) -> bool:
@@ -631,7 +631,6 @@ _VALUE_OF_STR_RULES: tuple[tuple["DeviceType", int, Callable[[str], bool] | None
     (DeviceType.YUKA_VP, 7, None),
     (DeviceType.YUKA_MINI, 7, None),
     (DeviceType.YUKA_MINI2, 7, None),
-    (DeviceType.LUBA_YUKA, 7, None),
     (DeviceType.RTK3A1, 7, None),
     (DeviceType.RTK3A0, 7, None),
     (DeviceType.RTK3A2, 7, None),
@@ -640,6 +639,7 @@ _VALUE_OF_STR_RULES: tuple[tuple["DeviceType", int, Callable[[str], bool] | None
     (DeviceType.YUKA_ML, 7, None),
     (DeviceType.LUBA_MD, 7, None),
     (DeviceType.LUBA_LA, 7, None),
+    (DeviceType.LUBA_YUKA, 7, None),
     (DeviceType.SWIMMINGPOOL_S1, 8, None),
     (DeviceType.SWIMMINGPOOL_E1, 8, None),
     (DeviceType.SWIMMINGPOOL_SP, 8, None),

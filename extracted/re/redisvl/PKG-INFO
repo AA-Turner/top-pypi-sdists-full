@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: redisvl
-Version: 0.18.2
+Version: 0.19.0
 Summary: Python client library and CLI for using Redis as a vector database
 Project-URL: Homepage, https://github.com/redis/redis-vl-python
 Project-URL: Repository, https://github.com/redis/redis-vl-python
@@ -29,13 +29,14 @@ Requires-Dist: boto3<2,>=1.36.0; extra == 'all'
 Requires-Dist: cohere>=4.44; extra == 'all'
 Requires-Dist: google-cloud-aiplatform<2.0.0,>=1.26; extra == 'all'
 Requires-Dist: langcache>=0.11.0; extra == 'all'
-Requires-Dist: mistralai>=1.0.0; extra == 'all'
+Requires-Dist: mistralai<2,>=1.0.0; extra == 'all'
 Requires-Dist: nltk<4,>=3.8.1; extra == 'all'
+Requires-Dist: ollama>=0.5.4; extra == 'all'
 Requires-Dist: openai>=1.1.0; extra == 'all'
 Requires-Dist: pillow>=11.3.0; extra == 'all'
 Requires-Dist: protobuf<6.0.0,>=5.28.0; extra == 'all'
 Requires-Dist: sentence-transformers<4,>=3.4.0; extra == 'all'
-Requires-Dist: sql-redis>=0.5.0; extra == 'all'
+Requires-Dist: sql-redis>=0.6.0; extra == 'all'
 Requires-Dist: urllib3<2.2.0; extra == 'all'
 Requires-Dist: voyageai>=0.2.2; extra == 'all'
 Provides-Extra: bedrock
@@ -49,9 +50,11 @@ Provides-Extra: mcp
 Requires-Dist: fastmcp>=2.0.0; extra == 'mcp'
 Requires-Dist: pydantic-settings>=2.0; extra == 'mcp'
 Provides-Extra: mistralai
-Requires-Dist: mistralai>=1.0.0; extra == 'mistralai'
+Requires-Dist: mistralai<2,>=1.0.0; extra == 'mistralai'
 Provides-Extra: nltk
 Requires-Dist: nltk<4,>=3.8.1; extra == 'nltk'
+Provides-Extra: ollama
+Requires-Dist: ollama>=0.5.4; extra == 'ollama'
 Provides-Extra: openai
 Requires-Dist: openai>=1.1.0; extra == 'openai'
 Provides-Extra: pillow
@@ -59,7 +62,7 @@ Requires-Dist: pillow>=11.3.0; extra == 'pillow'
 Provides-Extra: sentence-transformers
 Requires-Dist: sentence-transformers<4,>=3.4.0; extra == 'sentence-transformers'
 Provides-Extra: sql-redis
-Requires-Dist: sql-redis>=0.5.0; extra == 'sql-redis'
+Requires-Dist: sql-redis>=0.6.0; extra == 'sql-redis'
 Provides-Extra: vertexai
 Requires-Dist: google-cloud-aiplatform<2.0.0,>=1.26; extra == 'vertexai'
 Requires-Dist: protobuf<6.0.0,>=5.28.0; extra == 'vertexai'

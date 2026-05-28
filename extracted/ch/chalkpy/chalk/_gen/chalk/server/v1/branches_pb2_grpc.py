@@ -25,6 +25,11 @@ class BranchServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.ListBranchWithLatestDeploymentsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.ListBranchWithLatestDeploymentsResponse.FromString,
         )
+        self.GetBranchVenvInstalledPackages = channel.unary_unary(
+            "/chalk.server.v1.BranchService/GetBranchVenvInstalledPackages",
+            request_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchVenvInstalledPackagesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchVenvInstalledPackagesResponse.FromString,
+        )
 
 
 class BranchServiceServicer(object):
@@ -42,6 +47,12 @@ class BranchServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetBranchVenvInstalledPackages(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_BranchServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -54,6 +65,11 @@ def add_BranchServiceServicer_to_server(servicer, server):
             servicer.ListBranchWithLatestDeployments,
             request_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.ListBranchWithLatestDeploymentsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.ListBranchWithLatestDeploymentsResponse.SerializeToString,
+        ),
+        "GetBranchVenvInstalledPackages": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBranchVenvInstalledPackages,
+            request_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchVenvInstalledPackagesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchVenvInstalledPackagesResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.BranchService", rpc_method_handlers)
@@ -112,6 +128,35 @@ class BranchService(object):
             "/chalk.server.v1.BranchService/ListBranchWithLatestDeployments",
             chalk_dot_server_dot_v1_dot_branches__pb2.ListBranchWithLatestDeploymentsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_branches__pb2.ListBranchWithLatestDeploymentsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBranchVenvInstalledPackages(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BranchService/GetBranchVenvInstalledPackages",
+            chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchVenvInstalledPackagesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchVenvInstalledPackagesResponse.FromString,
             options,
             channel_credentials,
             insecure,

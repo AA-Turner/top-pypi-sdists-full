@@ -61,7 +61,7 @@ confidence_scores_trafaret = t.Dict({
 
 metric_metadata_trafaret = t.Dict({
     t.Key("name"): t.String,
-    t.Key("value"): t.Any,
+    t.Key("value", optional=True): t.Or(t.Any, t.Null),
     t.Key("formatted_value", optional=True): t.Or(t.String, t.Null),
     t.Key("sidecar_model_metric_validation_id", optional=True): t.Or(t.String, t.Null),
     t.Key("custom_model_id", optional=True): t.Or(t.String, t.Null),
@@ -133,7 +133,7 @@ class FeedbackMetadataDict(TypedDict):
 
 class MetricMetadataDict(TypedDict):
     name: str
-    value: Any
+    value: Optional[Any]
     formatted_value: Optional[str]
     sidecar_model_metric_validation_id: Optional[str]
     custom_model_id: Optional[str]
@@ -313,7 +313,7 @@ class MetricMetadata(APIObject):
     def __init__(
         self,
         name: str,
-        value: Any,
+        value: Optional[Any] = None,
         formatted_value: Optional[str] = None,
         sidecar_model_metric_validation_id: Optional[str] = None,
         custom_model_id: Optional[str] = None,

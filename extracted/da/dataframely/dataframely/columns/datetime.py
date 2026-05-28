@@ -37,6 +37,7 @@ class Date(OrdinalMixin[dt.date], Column):
         *,
         nullable: bool = False,
         primary_key: bool = False,
+        unique: bool = False,
         min: dt.date | None = None,
         min_exclusive: dt.date | None = None,
         max: dt.date | None = None,
@@ -45,6 +46,7 @@ class Date(OrdinalMixin[dt.date], Column):
         check: Check | None = None,
         alias: str | None = None,
         metadata: dict[str, Any] | None = None,
+        description: str | None = None,
     ):
         """
         Args:
@@ -54,6 +56,9 @@ class Date(OrdinalMixin[dt.date], Column):
                 is not specified.
             primary_key: Whether this column is part of the primary key of the schema.
                 If `True`, `nullable` is automatically set to `False`.
+            unique: Whether this column must contain unique values. Unlike `primary_key`,
+                this checks uniqueness for this column independently. Multiple columns
+                can each have `unique=True` without forming a composite constraint.
             min: The minimum date for dates in this column (inclusive).
             min_exclusive: Like `min` but exclusive. May not be specified if `min`
                 is specified and vice versa.
@@ -65,21 +70,26 @@ class Date(OrdinalMixin[dt.date], Column):
                 For example, a value `1mo` expects all dates to be on the first of the
                 month. Note that this setting does *not* affect the storage resolution.
             check: A custom rule or multiple rules to run for this column. This can be:
+
                 - A single callable that returns a non-aggregated boolean expression.
-                The name of the rule is derived from the callable name, or defaults to
-                "check" for lambdas.
+                  The name of the rule is derived from the callable name, or defaults to
+                  "check" for lambdas.
+
                 - A list of callables, where each callable returns a non-aggregated
-                boolean expression. The name of the rule is derived from the callable
-                name, or defaults to "check" for lambdas. Where multiple rules result
-                in the same name, the suffix __i is appended to the name.
+                  boolean expression. The name of the rule is derived from the callable
+                  name, or defaults to "check" for lambdas. Where multiple rules result
+                  in the same name, the suffix __i is appended to the name.
+
                 - A dictionary mapping rule names to callables, where each callable
-                returns a non-aggregated boolean expression.
+                  returns a non-aggregated boolean expression.
+
                 All rule names provided here are given the prefix `"check_"`.
             alias: An overwrite for this column's name which allows for using a column
                 name that is not a valid Python identifier. Especially note that setting
                 this option does _not_ allow to refer to the column with two different
                 names, the specified alias is the only valid name.
             metadata: A dictionary of metadata to attach to the column.
+            description: A human-readable description of the column.
         """
         if resolution is not None:
             offset_time = pl.Series([EPOCH_DATETIME]).dt.offset_by(resolution).dt.time()
@@ -101,6 +111,7 @@ class Date(OrdinalMixin[dt.date], Column):
         super().__init__(
             nullable=nullable,
             primary_key=primary_key,
+            unique=unique,
             min=min,
             min_exclusive=min_exclusive,
             max=max,
@@ -108,6 +119,7 @@ class Date(OrdinalMixin[dt.date], Column):
             check=check,
             alias=alias,
             metadata=metadata,
+            description=description,
         )
         self.resolution = resolution
 
@@ -170,6 +182,7 @@ class Time(OrdinalMixin[dt.time], Column):
         *,
         nullable: bool = False,
         primary_key: bool = False,
+        unique: bool = False,
         min: dt.time | None = None,
         min_exclusive: dt.time | None = None,
         max: dt.time | None = None,
@@ -178,6 +191,7 @@ class Time(OrdinalMixin[dt.time], Column):
         check: Check | None = None,
         alias: str | None = None,
         metadata: dict[str, Any] | None = None,
+        description: str | None = None,
     ):
         """
         Args:
@@ -187,6 +201,9 @@ class Time(OrdinalMixin[dt.time], Column):
                 is not specified.
             primary_key: Whether this column is part of the primary key of the schema.
                 If `True`, `nullable` is automatically set to `False`.
+            unique: Whether this column must contain unique values. Unlike `primary_key`,
+                this checks uniqueness for this column independently. Multiple columns
+                can each have `unique=True` without forming a composite constraint.
             min: The minimum time for times in this column (inclusive).
             min_exclusive: Like `min` but exclusive. May not be specified if `min`
                 is specified and vice versa.
@@ -198,21 +215,26 @@ class Time(OrdinalMixin[dt.time], Column):
                 For example, a value `1h` expects all times to be full hours. Note
                 that this setting does *not* affect the storage resolution.
             check: A custom rule or multiple rules to run for this column. This can be:
+
                 - A single callable that returns a non-aggregated boolean expression.
-                The name of the rule is derived from the callable name, or defaults to
-                "check" for lambdas.
+                  The name of the rule is derived from the callable name, or defaults to
+                  "check" for lambdas.
+
                 - A list of callables, where each callable returns a non-aggregated
-                boolean expression. The name of the rule is derived from the callable
-                name, or defaults to "check" for lambdas. Where multiple rules result
-                in the same name, the suffix __i is appended to the name.
+                  boolean expression. The name of the rule is derived from the callable
+                  name, or defaults to "check" for lambdas. Where multiple rules result
+                  in the same name, the suffix __i is appended to the name.
+
                 - A dictionary mapping rule names to callables, where each callable
-                returns a non-aggregated boolean expression.
+                  returns a non-aggregated boolean expression.
+
                 All rule names provided here are given the prefix `"check_"`.
             alias: An overwrite for this column's name which allows for using a column
                 name that is not a valid Python identifier. Especially note that setting
                 this option does _not_ allow to refer to the column with two different
                 names, the specified alias is the only valid name.
             metadata: A dictionary of metadata to attach to the column.
+            description: A human-readable description of the column.
         """
         if resolution is not None:
             offset_date = pl.Series([EPOCH_DATETIME]).dt.offset_by(resolution).dt.date()
@@ -234,6 +256,7 @@ class Time(OrdinalMixin[dt.time], Column):
         super().__init__(
             nullable=nullable,
             primary_key=primary_key,
+            unique=unique,
             min=min,
             min_exclusive=min_exclusive,
             max=max,
@@ -241,6 +264,7 @@ class Time(OrdinalMixin[dt.time], Column):
             check=check,
             alias=alias,
             metadata=metadata,
+            description=description,
         )
         self.resolution = resolution
 
@@ -309,6 +333,7 @@ class Datetime(OrdinalMixin[dt.datetime], Column):
         *,
         nullable: bool = False,
         primary_key: bool = False,
+        unique: bool = False,
         min: dt.datetime | None = None,
         min_exclusive: dt.datetime | None = None,
         max: dt.datetime | None = None,
@@ -319,6 +344,7 @@ class Datetime(OrdinalMixin[dt.datetime], Column):
         check: Check | None = None,
         alias: str | None = None,
         metadata: dict[str, Any] | None = None,
+        description: str | None = None,
     ):
         """
         Args:
@@ -328,6 +354,9 @@ class Datetime(OrdinalMixin[dt.datetime], Column):
                 is not specified.
             primary_key: Whether this column is part of the primary key of the schema.
                 If `True`, `nullable` is automatically set to `False`.
+            unique: Whether this column must contain unique values. Unlike `primary_key`,
+                this checks uniqueness for this column independently. Multiple columns
+                can each have `unique=True` without forming a composite constraint.
             min: The minimum datetime for datetimes in this column (inclusive).
             min_exclusive: Like `min` but exclusive. May not be specified if `min`
                 is specified and vice versa.
@@ -343,21 +372,26 @@ class Datetime(OrdinalMixin[dt.datetime], Column):
                 `America/New_York`.
             time_unit: Unit of time. Defaults to `us` (microseconds).
             check: A custom rule or multiple rules to run for this column. This can be:
+
                 - A single callable that returns a non-aggregated boolean expression.
-                The name of the rule is derived from the callable name, or defaults to
-                "check" for lambdas.
+                  The name of the rule is derived from the callable name, or defaults to
+                  "check" for lambdas.
+
                 - A list of callables, where each callable returns a non-aggregated
-                boolean expression. The name of the rule is derived from the callable
-                name, or defaults to "check" for lambdas. Where multiple rules result
-                in the same name, the suffix __i is appended to the name.
+                  boolean expression. The name of the rule is derived from the callable
+                  name, or defaults to "check" for lambdas. Where multiple rules result
+                  in the same name, the suffix __i is appended to the name.
+
                 - A dictionary mapping rule names to callables, where each callable
-                returns a non-aggregated boolean expression.
+                  returns a non-aggregated boolean expression.
+
                 All rule names provided here are given the prefix `"check_"`.
             alias: An overwrite for this column's name which allows for using a column
                 name that is not a valid Python identifier. Especially note that setting
                 this option does _not_ allow to refer to the column with two different
                 names, the specified alias is the only valid name.
             metadata: A dictionary of metadata to attach to the column.
+            description: A human-readable description of the column.
         """
         if resolution is not None and min is not None:
             if not datetime_matches_resolution(min, resolution):
@@ -375,6 +409,7 @@ class Datetime(OrdinalMixin[dt.datetime], Column):
         super().__init__(
             nullable=nullable,
             primary_key=primary_key,
+            unique=unique,
             min=min,
             min_exclusive=min_exclusive,
             max=max,
@@ -382,6 +417,7 @@ class Datetime(OrdinalMixin[dt.datetime], Column):
             check=check,
             alias=alias,
             metadata=metadata,
+            description=description,
         )
         self.resolution = resolution
         self.time_zone = time_zone
@@ -472,6 +508,7 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
         *,
         nullable: bool = False,
         primary_key: bool = False,
+        unique: bool = False,
         min: dt.timedelta | None = None,
         min_exclusive: dt.timedelta | None = None,
         max: dt.timedelta | None = None,
@@ -481,6 +518,7 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
         check: Check | None = None,
         alias: str | None = None,
         metadata: dict[str, Any] | None = None,
+        description: str | None = None,
     ):
         """
         Args:
@@ -490,6 +528,9 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
                 is not specified.
             primary_key: Whether this column is part of the primary key of the schema.
                 If `True`, `nullable` is automatically set to `False`.
+            unique: Whether this column must contain unique values. Unlike `primary_key`,
+                this checks uniqueness for this column independently. Multiple columns
+                can each have `unique=True` without forming a composite constraint.
             min: The minimum duration for durations in this column (inclusive).
             min_exclusive: Like `min` but exclusive. May not be specified if `min`
                 is specified and vice versa.
@@ -502,21 +543,26 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
                 that this setting does *not* affect the storage resolution.
             time_unit: Unit of time. Defaults to `us` (microseconds).
             check: A custom rule or multiple rules to run for this column. This can be:
+
                 - A single callable that returns a non-aggregated boolean expression.
-                The name of the rule is derived from the callable name, or defaults to
-                "check" for lambdas.
+                  The name of the rule is derived from the callable name, or defaults to
+                  "check" for lambdas.
+
                 - A list of callables, where each callable returns a non-aggregated
-                boolean expression. The name of the rule is derived from the callable
-                name, or defaults to "check" for lambdas. Where multiple rules result
-                in the same name, the suffix __i is appended to the name.
+                  boolean expression. The name of the rule is derived from the callable
+                  name, or defaults to "check" for lambdas. Where multiple rules result
+                  in the same name, the suffix __i is appended to the name.
+
                 - A dictionary mapping rule names to callables, where each callable
-                returns a non-aggregated boolean expression.
+                  returns a non-aggregated boolean expression.
+
                 All rule names provided here are given the prefix `"check_"`.
             alias: An overwrite for this column's name which allows for using a column
                 name that is not a valid Python identifier. Especially note that setting
                 this option does _not_ allow to refer to the column with two different
                 names, the specified alias is the only valid name.
             metadata: A dictionary of metadata to attach to the column.
+            description: A human-readable description of the column.
         """
         if resolution is not None and min is not None:
             if not timedelta_matches_resolution(min, resolution):
@@ -534,6 +580,7 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
         super().__init__(
             nullable=nullable,
             primary_key=primary_key,
+            unique=unique,
             min=min,
             min_exclusive=min_exclusive,
             max=max,
@@ -541,6 +588,7 @@ class Duration(OrdinalMixin[dt.timedelta], Column):
             check=check,
             alias=alias,
             metadata=metadata,
+            description=description,
         )
         self.resolution = resolution
         self.time_unit = time_unit

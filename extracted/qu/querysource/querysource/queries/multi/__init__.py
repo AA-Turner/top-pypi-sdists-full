@@ -14,8 +14,11 @@ from ..base import BaseQuery
 from .transformations import (
     GoogleMaps,
 )
+from ... import conf
 from .operators.filter import Filter
 from .sources import ThreadQuery, FileSource
+from .sources.executors import RemoteConfig
+from ...conf import QWORKER_HOST, QWORKER_PORT, QWORKER_TIMEOUT, QWORKER_WORKERS
 
 
 def get_operator_module(clsname: str):
@@ -104,6 +107,8 @@ class MultiQS(BaseQuery):
             )
         # PBAC: store user session for downstream driver credential resolution (TASK-637).
         self._user_session = user_session
+        # FEAT-101: track names of queries dispatched to remote qworker.
+        self._remote_queries: list = []
 
     async def query(self):
         """
@@ -143,28 +148,84 @@ class MultiQS(BaseQuery):
                 if isinstance(self._conditions, dict):
                     self._conditions.clear()
                 self._options = {}
+        total_sources = (
+            len(self._queries or {})
+            + len(self._files or {})
+            + len(self._sources or [])
+        )
+        if total_sources > conf.MULTIQS_MAX_SOURCES_PER_REQUEST:
+            raise self.Error(
+                message=(
+                    "Too many MultiQS sources in a single request "
+                    f"({total_sources}). Maximum allowed is "
+                    f"{conf.MULTIQS_MAX_SOURCES_PER_REQUEST}."
+                ),
+            )
+
         if self._queries:
             for name, query in self._queries.items():
                 conditions = self._conditions.pop(name, {})
                 # those conditions be applied to the query
                 query = {**conditions, **query}
+                # FEAT-101: detect remote execution directive and resolve worker.
+                # Pop remote/worker keys BEFORE passing to ThreadQuery so they
+                # never reach QueryObject or any database driver.
+                is_remote = query.pop("remote", False)
+                worker_addr = query.pop("worker", None)
+                remote_config = None
+                if is_remote:
+                    if worker_addr:
+                        # Parse "host:port" string.
+                        # rsplit handles IPv6 addresses or hostnames with colons.
+                        parts = worker_addr.rsplit(":", 1)
+                        host = parts[0]
+                        if len(parts) > 1:
+                            try:
+                                port = int(parts[1])
+                            except ValueError:
+                                raise DriverError(
+                                    f"Query {name!r}: invalid 'worker' address "
+                                    f"{worker_addr!r} — port must be an integer."
+                                )
+                        else:
+                            port = QWORKER_PORT
+                        remote_config = RemoteConfig(
+                            host=host,
+                            port=port,
+                            timeout=QWORKER_TIMEOUT,
+                        )
+                    elif QWORKER_HOST:
+                        host = QWORKER_HOST
+                        port = QWORKER_PORT
+                        remote_config = RemoteConfig(
+                            host=host,
+                            port=port,
+                            timeout=QWORKER_TIMEOUT,
+                            workers=QWORKER_WORKERS,
+                        )
+                    else:
+                        raise DriverError(
+                            f"Query {name!r} has remote=true but no worker address "
+                            f"configured. Set 'worker' on the query or configure "
+                            f"QWORKER_HOST/QWORKER_PORT."
+                        )
+                    self._remote_queries.append(name)
                 try:
                     t = ThreadQuery(
-                        name, query, self._request, self._queue
+                        name, query, self._request, self._queue,
+                        remote_config=remote_config,
                     )
                 except Exception as ex:
                     raise self.Error(
                         message=f"Error Starting Query {name}: {ex}",
                         exception=ex
                     ) from ex
-                t.start()
                 tasks[name] = t
         if self._files:
             for name, file in self._files.items():
                 t = FileSource(
                     name, file, self._request, self._queue
                 )
-                t.start()
                 tasks[name] = t
         if self._sources:
             from .sources import SOURCE_REGISTRY  # noqa: PLC0415
@@ -182,42 +243,53 @@ class MultiQS(BaseQuery):
                     )
                     name = source_type if idx == 0 else f"{source_type}_{idx}"
                     t = cls(name, config, self._request, self._queue)
-                    t.start()
                     tasks[name] = t
 
         ## then, run all jobs:
         try:
-            for t in tasks.values():
-                t.join(timeout=30)
-                if t.is_alive():
-                    raise self.Error(
-                        message=f"Source {t.slug!r} timed out after 30 seconds.",
-                    )
-                if t.exc:
-                    ## raise exception for this Query
-                    if isinstance(t.exc, ParserError):
+            max_concurrent = max(1, conf.MULTIQS_MAX_CONCURRENT_THREADS)
+            timeout = conf.MULTIQS_SOURCE_TIMEOUT_SECONDS
+            pending = list(tasks.values())
+            active = []
+
+            while pending or active:
+                while pending and len(active) < max_concurrent:
+                    t = pending.pop(0)
+                    if not t.is_alive():
+                        t.start()
+                    active.append(t)
+                for t in list(active):
+                    t.join(timeout=timeout)
+                    if t.is_alive():
                         raise self.Error(
-                            f"Error parsing Query Slug {t.slug}",
-                            exception=t.exc
+                            message=f"Source {t.slug!r} timed out after {timeout} seconds.",
                         )
-                    if isinstance(t.exc, SlugNotFound):
-                        raise SlugNotFound(
-                            f"Slug Not Found: {t.slug}"
-                        )
-                    if isinstance(t.exc, DataNotFound):
-                        raise DataNotFound(
-                            f"No Data was Found on Query {t.slug}"
-                        )
-                    if isinstance(t.exc, (QueryException, DriverError)):
-                        raise self.Error(
-                            f"Query Error: {str(t.exc)}",
-                            exception=t.exc
-                        )
-                    else:
-                        raise self.Error(
-                            f"Error on Query: {t!s}",
-                            exception=t.exc
-                        )
+                    active.remove(t)
+                    if t.exc:
+                        ## raise exception for this Query
+                        if isinstance(t.exc, ParserError):
+                            raise self.Error(
+                                f"Error parsing Query Slug {t.slug}",
+                                exception=t.exc
+                            )
+                        if isinstance(t.exc, SlugNotFound):
+                            raise SlugNotFound(
+                                f"Slug Not Found: {t.slug}"
+                            )
+                        if isinstance(t.exc, DataNotFound):
+                            raise DataNotFound(
+                                f"No Data was Found on Query {t.slug}"
+                            )
+                        if isinstance(t.exc, (QueryException, DriverError)):
+                            raise self.Error(
+                                f"Query Error: {str(t.exc)}",
+                                exception=t.exc
+                            )
+                        else:
+                            raise self.Error(
+                                f"Error on Query: {t!s}",
+                                exception=t.exc
+                            )
             result = {}
         except (QueryException, DriverError):
             raise

@@ -164,6 +164,7 @@ class AggregateBackfillJob(_message.Message):
         "plan_hash",
         "status",
         "query_tags",
+        "cron_aggregate_backfill_name",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -178,6 +179,7 @@ class AggregateBackfillJob(_message.Message):
     PLAN_HASH_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     QUERY_TAGS_FIELD_NUMBER: _ClassVar[int]
+    CRON_AGGREGATE_BACKFILL_NAME_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     resolver: str
@@ -191,6 +193,7 @@ class AggregateBackfillJob(_message.Message):
     plan_hash: str
     status: AggregateBackfillStatus
     query_tags: _containers.RepeatedScalarFieldContainer[str]
+    cron_aggregate_backfill_name: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -206,6 +209,7 @@ class AggregateBackfillJob(_message.Message):
         plan_hash: _Optional[str] = ...,
         status: _Optional[_Union[AggregateBackfillStatus, str]] = ...,
         query_tags: _Optional[_Iterable[str]] = ...,
+        cron_aggregate_backfill_name: _Optional[str] = ...,
     ) -> None: ...
 
 class CronAggregateBackfill(_message.Message):
@@ -222,6 +226,7 @@ class CronAggregateBackfill(_message.Message):
         "query_tags",
         "target",
         "resource_group",
+        "targets",
         "created_at",
         "updated_at",
     )
@@ -237,6 +242,7 @@ class CronAggregateBackfill(_message.Message):
     QUERY_TAGS_FIELD_NUMBER: _ClassVar[int]
     TARGET_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    TARGETS_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
@@ -251,6 +257,7 @@ class CronAggregateBackfill(_message.Message):
     query_tags: _containers.RepeatedScalarFieldContainer[str]
     target: AggregateBackfillTarget
     resource_group: str
+    targets: _containers.RepeatedScalarFieldContainer[AggregateBackfillTarget]
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
     def __init__(
@@ -267,6 +274,7 @@ class CronAggregateBackfill(_message.Message):
         query_tags: _Optional[_Iterable[str]] = ...,
         target: _Optional[_Union[AggregateBackfillTarget, str]] = ...,
         resource_group: _Optional[str] = ...,
+        targets: _Optional[_Iterable[_Union[AggregateBackfillTarget, str]]] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...

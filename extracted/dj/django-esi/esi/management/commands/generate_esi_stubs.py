@@ -511,6 +511,31 @@ class Command(BaseCommand):
                 """Check whether an operation supports page-based pagination."""
                 return any(getattr(p, "name", None) in ("before", "after", "page") for p in getattr(op_obj, "parameters", []))
 
+            def _write_method_stubs(
+                method_name: str,
+                value_type: str,
+                docstring: str,
+            ) -> None:
+                f.write("    @overload\n")
+                f.write(
+                    f"    def {method_name}(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> {value_type}:\n"
+                )  # noqa: E501
+                f.write(f"        \"\"\"{docstring}\"\"\"\n") if docstring else None
+                f.write("        ...\n\n")
+
+                f.write("    @overload\n")
+                f.write(
+                    f"    def {method_name}(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[{value_type}, Response]:\n"
+                )  # noqa: E501
+                f.write(f"        \"\"\"{docstring}\"\"\"\n") if docstring else None
+                f.write("        ...\n\n")
+
+                f.write(
+                    f"    def {method_name}(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> {value_type} | tuple[{value_type}, Response]:\n"
+                )  # noqa: E501
+                f.write(f"        \"\"\"{docstring}\"\"\"\n") if docstring else None
+                f.write("        ...\n\n")
+
             # File headers
             f.write("# flake8: noqa=E501\n")
             f.write("# cSpell: disable\n")
@@ -518,7 +543,8 @@ class Command(BaseCommand):
             # Python Imports
             f.write("from datetime import date, datetime\n")
             f.write("from enum import Enum\n")
-            f.write("from typing import Annotated, Any, Literal\n")
+            f.write("from httpx import Response\n")
+            f.write("from typing import Annotated, Any, Literal, overload\n")
             f.write("from uuid import UUID\n\n")
             f.write("from pydantic import BaseModel, Field\n\n")
             f.write("from esi.models import Token\n")
@@ -560,44 +586,40 @@ class Command(BaseCommand):
                     docstring = _clean_doc(op_obj)
                     op_class_name = sanitize_operation_class(nm)
 
-                    response_type = "Any"
+                    result_type = "Any"
                     schema = _get_response_json_schema(op_obj, op_type)
                     if op_type in ("put", "delete"):
-                        response_type = "None"
+                        result_type = "None"
                     elif schema is not None:
-                        response_type = model_gen.schema_to_type(schema, f"{op_class_name}Response")
+                        result_type = model_gen.schema_to_type(schema, f"{op_class_name}Response")
 
                     # If the response is an alias to a list type (e.g. Foo = list[Bar]) we want
                     # results() to return the flattened list[Bar], not list[list[Bar]]
-                    if response_type.startswith("list["):
-                        inner_list_type = response_type
-                        # response_type already a list[...] so results() should also be list[...] (same type)
+                    if result_type.startswith("list["):
+                        inner_list_type = result_type
+                        # result_type already a list[...] so results() should also be list[...] (same type)
                         results_type = inner_list_type
                     else:
                         # Maybe it's an alias to list[...] recorded earlier
-                        alias_rhs = getattr(model_gen, "_aliases", {}).get(response_type)
+                        alias_rhs = getattr(model_gen, "_aliases", {}).get(result_type)
                         if isinstance(alias_rhs, str) and alias_rhs.startswith("list["):
                             results_type = alias_rhs
                         else:
-                            results_type = f"list[{response_type}]"
+                            results_type = f"list[{result_type}]"
 
                     if op_class_name not in operation_classes:
                         f.write(f"class {op_class_name}(EsiOperation):\n")
-                        if response_type != "None" and _is_paginated(op_obj):
+                        if result_type != "None" and _is_paginated(op_obj):
                             f.write("    \"\"\"EsiOperation, use result(), results() or results_localized()\"\"\"\n")
                         else:
                             f.write("    \"\"\"EsiOperation, use result()\"\"\"\n")
 
                         # result()
-                        f.write(f"    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> {response_type}:\n")  # noqa: E501
-                        f.write(f"        \"\"\"{docstring}\"\"\"\n") if docstring else None
-                        f.write("        ...\n\n")
-                        if response_type != "None" and _is_paginated(op_obj):
+                        _write_method_stubs("result", result_type, docstring)
+                        if result_type != "None" and _is_paginated(op_obj):
                             # We only need the extra utility functions if its actually an endpoint that returns data
                             # results()
-                            f.write(f"    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, **extra) -> {results_type}:\n")  # noqa: E501
-                            f.write(f"        \"\"\"{docstring}\"\"\"\n") if docstring else None
-                            f.write("        ...\n\n")
+                            _write_method_stubs("results", results_type, docstring)
 
                             # results_localized()
                             f.write(f"    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, {results_type}]:\n")  # noqa: E501

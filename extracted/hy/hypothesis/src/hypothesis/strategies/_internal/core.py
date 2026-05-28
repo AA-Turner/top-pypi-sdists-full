@@ -87,6 +87,7 @@ from hypothesis.internal.conjecture.utils import (
     calc_label_from_name,
     check_sample,
     combine_labels,
+    fisher_yates_shuffle,
     identity,
 )
 from hypothesis.internal.entropy import get_seeder_and_restorer
@@ -1303,6 +1304,7 @@ def _from_type_deferred(thing: type[Ex]) -> SearchStrategy[Ex]:
 
 
 _recurse_guard: ContextVar = ContextVar("recurse_guard")
+_abstract_recurse_guard: ContextVar = ContextVar("abstract_recurse_guard")
 
 
 def _from_type(thing: type[Ex]) -> SearchStrategy[Ex]:
@@ -1552,16 +1554,20 @@ def _from_type(thing: type[Ex]) -> SearchStrategy[Ex]:
     # a subclass of `thing` and are not themselves a subtype of any other such
     # type.  For example, `Number -> integers() | floats()`, but bools() is
     # not included because bool is a subclass of int as well as Number.
+    # Filter to matching subtypes *before* sorting, because computing the repr
+    # of every registered strategy (just to establish a deterministic order) is
+    # surprisingly expensive and usually wasted - the matching set is typically
+    # empty for user-defined types.
+    matching = [
+        (k, v)
+        for k, v in types._global_type_lookup.items()
+        if isinstance(k, type)
+        and issubclass(k, thing)
+        and sum(types.try_issubclass(k, typ) for typ in types._global_type_lookup) == 1
+    ]
     strategies = [
         s
-        for s in (
-            as_strategy(v, thing)
-            for k, v in sorted(types._global_type_lookup.items(), key=repr)
-            if isinstance(k, type)
-            and issubclass(k, thing)
-            and sum(types.try_issubclass(k, typ) for typ in types._global_type_lookup)
-            == 1
-        )
+        for s in (as_strategy(v, thing) for _, v in sorted(matching, key=repr))
         if s is not NotImplemented
     ]
     if any(not s.is_empty for s in strategies):
@@ -1644,12 +1650,35 @@ def _from_type(thing: type[Ex]) -> SearchStrategy[Ex]:
             "type without any subclasses. Consider using register_type_strategy"
         )
 
-    subclass_strategies: SearchStrategy = nothing()
-    for sc in subclasses:
-        try:
-            subclass_strategies |= _from_type(sc)
-        except Exception:
-            pass
+    # When subclasses reference `thing` (directly, or via a sibling subclass)
+    # in their own annotations, naively resolving each subclass would re-resolve
+    # the entire hierarchy once per reference - which is combinatorially
+    # expensive for mutually-recursive types.  We track the abstract types we're
+    # currently resolving and defer any recursive reference back to them (by
+    # returning the cached strategy, so the references share one object - which
+    # lets recursion in e.g. is_empty checks terminate), so each type is resolved
+    # only once per pass.  We use a guard separate from `_recurse_guard` because
+    # this catches references regardless of how they reach `_from_type` (e.g. as a
+    # union arg), and because it must not make `from_type_guarded` treat a
+    # subclass's required field of type `thing` as unresolvable.
+    try:
+        abstract_guard = _abstract_recurse_guard.get()
+    except LookupError:
+        _abstract_recurse_guard.set(abstract_guard := set())
+    if thing in abstract_guard:
+        return from_type(thing)
+
+    abstract_guard.add(thing)
+    try:
+        substrategies = []
+        for sc in subclasses:
+            try:
+                substrategies.append(_from_type(sc))
+            except Exception:
+                pass
+    finally:
+        abstract_guard.discard(thing)
+    subclass_strategies = one_of(substrategies)
     if subclass_strategies.is_empty:
         # We're unable to resolve subclasses now, but we might be able to later -
         # so we'll just go back to the mixed distribution.
@@ -1840,10 +1869,13 @@ def decimals(
 
         factor = Decimal(10) ** -places
         min_num, max_num = None, None
+        # Work out the integer bounds exactly: limited-precision division can
+        # round when the bounds have more than `places` fractional digits,
+        # which would make ceil/floor over- or undershoot the true bound.
         if min_value is not None:
-            min_num = ceil(ctx(min_value).divide(min_value, factor))
+            min_num = ceil(Fraction(min_value) / Fraction(factor))
         if max_value is not None:
-            max_num = floor(ctx(max_value).divide(max_value, factor))
+            max_num = floor(Fraction(max_value) / Fraction(factor))
         if min_num is not None and max_num is not None and min_num > max_num:
             raise InvalidArgument(
                 f"There are no decimals with {places} places between "
@@ -1911,13 +1943,8 @@ class PermutationStrategy(SearchStrategy):
         self.values = values
 
     def do_draw(self, data):
-        # Reversed Fisher-Yates shuffle: swap each element with itself or with
-        # a later element.  This shrinks i==j for each element, i.e. to no
-        # change.  We don't consider the last element as it's always a no-op.
         result = list(self.values)
-        for i in range(len(result) - 1):
-            j = data.draw_integer(i, len(result) - 1)
-            result[i], result[j] = result[j], result[i]
+        fisher_yates_shuffle(data, result)
         return result
 
 

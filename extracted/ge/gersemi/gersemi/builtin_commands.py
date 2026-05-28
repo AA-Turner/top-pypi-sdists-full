@@ -133,6 +133,41 @@ _VERSION_Any = ("VERSION", AnyMatcher())
 _REGEX_QUOTE = ("REGEX", "QUOTE")
 _CUSTOM_CONTENT_Any = ("CUSTOM_CONTENT", AnyMatcher())
 
+_find_package_keywords = {
+    "options": [
+        "EXACT",
+        "QUIET",
+        "MODULE",
+        "CONFIG",
+        "NO_MODULE",
+        "NO_POLICY_SCOPE",
+        "NO_DEFAULT_PATH",
+        "NO_PACKAGE_ROOT_PATH",
+        "NO_CMAKE_PATH",
+        "NO_CMAKE_ENVIRONMENT_PATH",
+        "NO_SYSTEM_ENVIRONMENT_PATH",
+        "NO_CMAKE_PACKAGE_REGISTRY",
+        "NO_CMAKE_BUILDS_PATH",
+        "NO_CMAKE_SYSTEM_PATH",
+        "NO_CMAKE_SYSTEM_PACKAGE_REGISTRY",
+        "CMAKE_FIND_ROOT_PATH_BOTH",
+        "ONLY_CMAKE_FIND_ROOT_PATH",
+        "NO_CMAKE_FIND_ROOT_PATH",
+        "NO_CMAKE_INSTALL_PREFIX",
+        "GLOBAL",
+    ],
+    "multi_value_keywords": [
+        "COMPONENTS",
+        "OPTIONAL_COMPONENTS",
+        "NAMES",
+        "CONFIGS",
+        "HINTS",
+        "PATHS",
+        "PATH_SUFFIXES",
+        "REQUIRED",
+    ],
+}
+
 builtin_commands = {
     #### Legend
     #### (&): canonical name used different than in the documentation
@@ -858,38 +893,7 @@ builtin_commands = {
     },
     "find_package": {
         "front_positional_arguments": ["<PackageName>", "<version>"],
-        "options": [
-            "EXACT",
-            "QUIET",
-            "MODULE",
-            "CONFIG",
-            "NO_MODULE",
-            "NO_POLICY_SCOPE",
-            "NO_DEFAULT_PATH",
-            "NO_PACKAGE_ROOT_PATH",
-            "NO_CMAKE_PATH",
-            "NO_CMAKE_ENVIRONMENT_PATH",
-            "NO_SYSTEM_ENVIRONMENT_PATH",
-            "NO_CMAKE_PACKAGE_REGISTRY",
-            "NO_CMAKE_BUILDS_PATH",
-            "NO_CMAKE_SYSTEM_PATH",
-            "NO_CMAKE_SYSTEM_PACKAGE_REGISTRY",
-            "CMAKE_FIND_ROOT_PATH_BOTH",
-            "ONLY_CMAKE_FIND_ROOT_PATH",
-            "NO_CMAKE_FIND_ROOT_PATH",
-            "NO_CMAKE_INSTALL_PREFIX",
-            "GLOBAL",
-        ],
-        "multi_value_keywords": [
-            "COMPONENTS",
-            "OPTIONAL_COMPONENTS",
-            "NAMES",
-            "CONFIGS",
-            "HINTS",
-            "PATHS",
-            "PATH_SUFFIXES",
-            "REQUIRED",
-        ],
+        **_find_package_keywords,
     },
     "find_path": {
         "front_positional_arguments": ["<VAR>", "name"],
@@ -2627,16 +2631,20 @@ builtin_commands = {
             "CMAKE_GENERATOR_INSTANCE",
             "SOURCE_SUBDIR",
             "CONFIGURE_HANDLED_BY_BUILD",
+            "CONFIGURE_ENVIRONMENT_MODIFICATION",
             # Build Step
             "BUILD_IN_SOURCE",
             "BUILD_ALWAYS",
             "BUILD_JOB_SERVER_AWARE",
+            "BUILD_ENVIRONMENT_MODIFICATION",
             # Install Step
             "INSTALL_JOB_SERVER_AWARE",
+            "INSTALL_ENVIRONMENT_MODIFICATION",
             # Test Step
             "TEST_BEFORE_INSTALL",
             "TEST_AFTER_INSTALL",
             "TEST_EXCLUDE_FROM_MAIN",
+            "TEST_ENVIRONMENT_MODIFICATION",
             # Output Logging
             "LOG_DOWNLOAD",
             "LOG_UPDATE",
@@ -2710,7 +2718,9 @@ builtin_commands = {
     "ExternalProject_Add_Step": {
         "one_value_keywords": [
             "COMMENT",
+            "INDEPENDENT",
             "ALWAYS",
+            "JOB_SERVER_AWARE",
             "EXCLUDE_FROM_MAIN",
             "WORKING_DIRECTORY",
             "LOG",
@@ -2722,6 +2732,7 @@ builtin_commands = {
             "DEPENDERS",
             "DEPENDS",
             "BYPRODUCTS",
+            "ENVIRONMENT_MODIFICATION",
         ],
         "keyword_formatters": {"COMMAND": KeywordFormatter.CommandLine},
     },
@@ -2739,7 +2750,8 @@ builtin_commands = {
             "QUIET_ON_EMPTY",
             "DEFAULT_DESCRIPTION",
         ],
-        "one_value_keywords": ["FILENAME", "VAR", "DESCRIPTION", "WHAT"],
+        "one_value_keywords": ["FILENAME", "VAR", "DESCRIPTION"],
+        "multi_value_keywords": ["WHAT"],
     },
     "print_disabled_features": {},
     "print_enabled_features": {},
@@ -2754,6 +2766,10 @@ builtin_commands = {
     "FetchContent_Declare": {
         "options": ["SYSTEM", "OVERRIDE_FIND_PACKAGE", "EXCLUDE_FROM_ALL"],
         "one_value_keywords": [
+            "SOURCE_DIR",
+            "BINARY_DIR",
+            "INSTALL_DIR",
+            "SOURCE_SUBDIR",
             # Download Step
             *_ExternalProject_Add_DownloadStep["one_value_keywords"],
             # Update Step
@@ -2774,6 +2790,7 @@ builtin_commands = {
             key: KeywordFormatter.CommandLine
             for key in ["DOWNLOAD_COMMAND", "UPDATE_COMMAND", "PATCH_COMMAND"]
         },
+        "sections": {"FIND_PACKAGE_ARGS": _find_package_keywords},
     },
     "FetchContent_GetProperties": {
         "one_value_keywords": ["SOURCE_DIR", "BINARY_DIR", "POPULATED"],

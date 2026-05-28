@@ -867,9 +867,7 @@ async def sql(
         if format_ == "json":
             click.echo(json.dumps(res, indent=8))
         else:
-            dd = []
-            for d in res["data"]:
-                dd.append(d.values())
+            dd = [d.values() for d in res["data"]]
             echo_safe_humanfriendly_tables_format_smart_table(dd, column_names=res["data"][0].keys())
     else:
         click.echo(FeedbackManager.info_no_rows())

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyzotero
-Version: 1.12.0
+Version: 1.13.0
 Summary: Python wrapper for the Zotero API
 Keywords: Zotero,DH
 Author: Stephan Hügel
@@ -41,11 +41,11 @@ License: # Blue Oak Model License
          
          ***As far as the law allows, this software comes as is, without any warranty or condition, and no contributor will be liable to anyone for any damages related to this software or this license, under any kind of legal claim.***
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -61,7 +61,7 @@ Requires-Dist: click>=8.0.0 ; extra == 'cli'
 Requires-Dist: mcp[cli]>=1.0.0 ; python_full_version >= '3.10' and extra == 'mcp'
 Maintainer: Stephan Hügel
 Maintainer-email: urschrei@gmail.com
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Project-URL: Repository, https://github.com/urschrei/pyzotero
 Project-URL: Tracker, https://github.com/urschrei/pyzotero/issues
 Project-URL: documentation, https://pyzotero.readthedocs.org

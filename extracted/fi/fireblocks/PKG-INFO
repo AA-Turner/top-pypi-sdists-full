@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 19.0.0
+Version: 19.1.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -1496,6 +1496,7 @@ Class | Method | HTTP request | Description
  - [StEthBlockchainData](https://github.com/fireblocks/py-sdk/tree/master/docs/StEthBlockchainData.md)
  - [StakeRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/StakeRequest.md)
  - [StakeResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/StakeResponse.md)
+ - [StakingErrorSchema](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingErrorSchema.md)
  - [StakingPositionsPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingPositionsPaginatedResponse.md)
  - [StakingProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingProvider.md)
  - [Status](https://github.com/fireblocks/py-sdk/tree/master/docs/Status.md)
@@ -1597,6 +1598,7 @@ Class | Method | HTTP request | Description
  - [TRLinkVerdictEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkVerdictEnum.md)
  - [Tag](https://github.com/fireblocks/py-sdk/tree/master/docs/Tag.md)
  - [TagAttachmentOperationAction](https://github.com/fireblocks/py-sdk/tree/master/docs/TagAttachmentOperationAction.md)
+ - [TagType](https://github.com/fireblocks/py-sdk/tree/master/docs/TagType.md)
  - [TagsPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TagsPagedResponse.md)
  - [TemplatesPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TemplatesPaginatedResponse.md)
  - [ThirdPartyRouting](https://github.com/fireblocks/py-sdk/tree/master/docs/ThirdPartyRouting.md)
@@ -1724,6 +1726,7 @@ Class | Method | HTTP request | Description
  - [UpdateVaultAccountRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateVaultAccountRequest.md)
  - [UpdateWebhookRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateWebhookRequest.md)
  - [UsWirePaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/UsWirePaymentInfo.md)
+ - [UsdcGatewayWalletAsset](https://github.com/fireblocks/py-sdk/tree/master/docs/UsdcGatewayWalletAsset.md)
  - [UsdcGatewayWalletInfoResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/UsdcGatewayWalletInfoResponse.md)
  - [UsdcGatewayWalletStatusResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/UsdcGatewayWalletStatusResponse.md)
  - [UserGroupCreateRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UserGroupCreateRequest.md)

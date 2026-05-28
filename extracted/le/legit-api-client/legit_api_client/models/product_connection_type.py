@@ -50,6 +50,8 @@ class ProductConnectionType(str, Enum):
     CIWORKFLOWSQUERY = 'CiWorkflowsQuery'
     CONTAINERIMAGE = 'ContainerImage'
     HOST = 'Host'
+    CONTAINERVERSION = 'ContainerVersion'
+    CONTAINERVERSIONQUERY = 'ContainerVersionQuery'
     NESTEDPRODUCTREPOSITORY = 'NestedProductRepository'
 
     @classmethod

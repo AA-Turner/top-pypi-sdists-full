@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rsl-rl-lib
-Version: 5.3.0
+Version: 5.4.0
 Summary: Fast and simple RL algorithms implemented in PyTorch
 Author-email: Clemens Schwarke <cschwarke@ethz.ch>, Mayank Mittal <mittalma@ethz.ch>, Nikita Rudin <rudinn@ethz.ch>, David Hoeller <holler.david78@gmail.com>
 Maintainer-email: Clemens Schwarke <cschwarke@ethz.ch>, Mayank Mittal <mittalma@ethz.ch>
@@ -25,6 +25,7 @@ License-File: licenses/dependencies/pyright-license.txt
 License-File: licenses/dependencies/ruff-license.txt
 License-File: licenses/dependencies/setuptools-license.txt
 License-File: licenses/dependencies/sphinx-license.txt
+License-File: licenses/dependencies/tensorboard-license.txt
 License-File: licenses/dependencies/tensordict-license.txt
 License-File: licenses/dependencies/torch-license.txt
 License-File: licenses/dependencies/torchvision-license.txt
@@ -32,6 +33,7 @@ Requires-Dist: torch>=2.6.0
 Requires-Dist: torchvision>=0.5.0
 Requires-Dist: tensordict>=0.7.0
 Requires-Dist: numpy>=1.16.4
+Requires-Dist: tensorboard
 Requires-Dist: GitPython
 Requires-Dist: onnx
 Requires-Dist: onnxscript>=0.5.4

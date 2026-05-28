@@ -230,15 +230,20 @@ def _run_pytest(cwd: Path, timeout: int = 120) -> tuple[int, str, int, int]:
 def _check_green(spec: str, cwd: Path) -> CheckResult:
     m = re.match(r"^green(?:\((\d+|>=\d+)\))?$", spec.strip())
     expected_n: int | None = None
+    allow_failures = False  # `>=N` means "≥N pass, don't care about pre-existing failures"
     if m and m.group(1):
         g = m.group(1)
+        allow_failures = g.startswith(">=")
         expected_n = int(g.lstrip(">="))
     rc, last, n_pass, n_fail = _run_pytest(cwd)
-    if rc != 0:
+    # `green(>=N)` is permissive: pre-existing failures (planted seed bugs
+    # reserved for debug cases) are OK as long as we still see ≥N passes.
+    # `green(N)` (no `>=`) requires a fully-green suite.
+    if rc != 0 and not allow_failures:
         return CheckResult(spec, False, f"pytest rc={rc} {last} (passed={n_pass} failed={n_fail})")
     if expected_n is not None and n_pass < expected_n:
         return CheckResult(spec, False, f"pytest green but only {n_pass}/{expected_n} passed")
-    return CheckResult(spec, True, f"pytest green: {n_pass} passed")
+    return CheckResult(spec, True, f"pytest green: {n_pass} passed (failed={n_fail})")
 
 
 def _check_cmd_stdout(spec: str, cwd: Path) -> CheckResult | None:

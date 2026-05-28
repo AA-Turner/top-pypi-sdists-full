@@ -11,7 +11,7 @@ import os
 import subprocess
 import sys
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 
 # pylint: disable=no-name-in-module
 from distutils import log
@@ -27,6 +27,12 @@ from setuptools.command.bdist_egg import bdist_egg
 from setuptools.command.develop import develop
 from setuptools.command.install import install
 from setuptools.command.sdist import sdist
+
+sys.path.append(
+    os.path.join(os.path.abspath(os.path.dirname(__file__)), "tools", "pkg")
+)
+
+import salt_build_backend
 
 # pylint: enable=no-name-in-module
 
@@ -52,9 +58,11 @@ except ImportError:
     HAS_ZMQ = False
 
 try:
-    DATE = datetime.utcfromtimestamp(int(os.environ["SOURCE_DATE_EPOCH"]))
+    DATE = datetime.fromtimestamp(
+        int(os.environ["SOURCE_DATE_EPOCH"]), tz=timezone.utc
+    ).replace(tzinfo=None)
 except (KeyError, ValueError):
-    DATE = datetime.utcnow()
+    DATE = datetime.now(timezone.utc).replace(tzinfo=None)
 
 # Change to salt source's directory prior to running any command
 try:
@@ -112,10 +120,9 @@ SALT_SYSPATHS_HARDCODED = os.path.join(
     os.path.abspath(SETUP_DIRNAME), "salt", "_syspaths.py"
 )
 SALT_BASE_REQUIREMENTS = [
-    os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "base.txt"),
+    os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "base.in"),
     # pyzmq needs to be installed regardless of the salt transport
-    os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "zeromq.txt"),
-    os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "crypto.txt"),
+    os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "zeromq.in"),
 ]
 SALT_LINUX_LOCKED_REQS = [
     # Linux packages defined locked requirements
@@ -125,11 +132,11 @@ SALT_LINUX_LOCKED_REQS = [
         "static",
         "pkg",
         "py{}.{}".format(*sys.version_info),
-        "linux.txt",
+        "linux.lock",
     )
 ]
 SALT_OSX_REQS = SALT_BASE_REQUIREMENTS + [
-    os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "darwin.txt")
+    os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "darwin.lock")
 ]
 SALT_OSX_LOCKED_REQS = [
     # OSX packages already defined locked requirements
@@ -139,11 +146,11 @@ SALT_OSX_LOCKED_REQS = [
         "static",
         "pkg",
         "py{}.{}".format(*sys.version_info),
-        "darwin.txt",
+        "darwin.lock",
     )
 ]
 SALT_WINDOWS_REQS = SALT_BASE_REQUIREMENTS + [
-    os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "windows.txt")
+    os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "windows.lock")
 ]
 SALT_WINDOWS_LOCKED_REQS = [
     # Windows packages already defined locked requirements
@@ -153,7 +160,7 @@ SALT_WINDOWS_LOCKED_REQS = [
         "static",
         "pkg",
         "py{}.{}".format(*sys.version_info),
-        "windows.txt",
+        "windows.lock",
     )
 ]
 SALT_LONG_DESCRIPTION_FILE = os.path.join(os.path.abspath(SETUP_DIRNAME), "README.rst")
@@ -601,6 +608,10 @@ HOME_DIR = {home_dir!r}
 
 class Build(build):
     def run(self):
+        if getattr(self.distribution, "with_salt_version", False):
+            self.distribution.salt_version_hardcoded_path = SALT_VERSION_HARDCODED
+            self.run_command("write_salt_version")
+
         # Run build.run function
         build.run(self)
         salt_build_ver_file = os.path.join(self.build_lib, "salt", "_version.txt")
@@ -852,37 +863,7 @@ class SaltDistribution(distutils.dist.Distribution):
         # Salt version
         self.with_salt_version = None
 
-        self.name = "salt-ssh" if PACKAGED_FOR_SALT_SSH else "salt"
         self.salt_version = SALT_VERSION
-        self.description = (
-            "Portable, distributed, remote execution and configuration management"
-            " system"
-        )
-        with open(SALT_LONG_DESCRIPTION_FILE, encoding="utf-8") as f:
-            self.long_description = f.read()
-        self.long_description_content_type = "text/x-rst"
-        self.python_requires = ">=3.8"
-        self.classifiers = [
-            "Programming Language :: Python",
-            "Programming Language :: Cython",
-            "Programming Language :: Python :: 3",
-            "Programming Language :: Python :: 3 :: Only",
-            "Programming Language :: Python :: 3.8",
-            "Programming Language :: Python :: 3.9",
-            "Programming Language :: Python :: 3.10",
-            "Development Status :: 5 - Production/Stable",
-            "Environment :: Console",
-            "Intended Audience :: Developers",
-            "Intended Audience :: Information Technology",
-            "Intended Audience :: System Administrators",
-            "License :: OSI Approved :: Apache Software License",
-            "Operating System :: POSIX :: Linux",
-            "Topic :: System :: Clustering",
-            "Topic :: System :: Distributed Computing",
-        ]
-        self.author = "Thomas S Hatch"
-        self.author_email = "thatch45@gmail.com"
-        self.url = "https://saltproject.io"
         self.cmdclass.update(
             {
                 "test": TestCommand,
@@ -902,12 +883,21 @@ class SaltDistribution(distutils.dist.Distribution):
         if HAS_BDIST_WHEEL:
             self.cmdclass["bdist_wheel"] = BDistWheel
 
-        self.license = "Apache Software License 2.0"
         self.packages = self.discover_packages()
         self.zip_safe = False
 
         if HAS_ESKY:
             self.setup_esky()
+
+        # Setup our property functions after class initialization and
+        # after parsing the command line since most are set to None
+        # ATTENTION: This should be the last step before returning the args or
+        # some of the requirements won't be correctly set
+        for funcname in dir(self):
+            if not funcname.startswith("_property_"):
+                continue
+            property_name = funcname.split("_property_", 1)[-1]
+            setattr(self, property_name, getattr(self, funcname))
 
         self.update_metadata()
 
@@ -1024,95 +1014,24 @@ class SaltDistribution(distutils.dist.Distribution):
         return data_files
 
     @property
-    def _property_install_requires(self):
-        install_requires = []
-        if USE_STATIC_REQUIREMENTS is True:
-            # We've been explicitly asked to use static requirements
-            if IS_OSX_PLATFORM:
-                for reqfile in SALT_OSX_LOCKED_REQS:
-                    install_requires += _parse_requirements_file(reqfile)
+    def _property_version(self):
+        return salt_build_backend.get_salt_version(self)
 
-            elif IS_WINDOWS_PLATFORM:
-                for reqfile in SALT_WINDOWS_LOCKED_REQS:
-                    install_requires += _parse_requirements_file(reqfile)
-            else:
-                for reqfile in SALT_LINUX_LOCKED_REQS:
-                    install_requires += _parse_requirements_file(reqfile)
-            return install_requires
-        elif USE_STATIC_REQUIREMENTS is False:
-            # We've been explicitly asked NOT to use static requirements
-            if IS_OSX_PLATFORM:
-                for reqfile in SALT_OSX_REQS:
-                    install_requires += _parse_requirements_file(reqfile)
-            elif IS_WINDOWS_PLATFORM:
-                for reqfile in SALT_WINDOWS_REQS:
-                    install_requires += _parse_requirements_file(reqfile)
-            else:
-                for reqfile in SALT_BASE_REQUIREMENTS:
-                    install_requires += _parse_requirements_file(reqfile)
-        else:
-            # This is the old and default behavior
-            if IS_OSX_PLATFORM:
-                for reqfile in SALT_OSX_LOCKED_REQS:
-                    install_requires += _parse_requirements_file(reqfile)
-            elif IS_WINDOWS_PLATFORM:
-                for reqfile in SALT_WINDOWS_LOCKED_REQS:
-                    install_requires += _parse_requirements_file(reqfile)
-            else:
-                for reqfile in SALT_BASE_REQUIREMENTS:
-                    install_requires += _parse_requirements_file(reqfile)
-        return install_requires
+    @property
+    def _property_scripts(self):
+        return salt_build_backend.get_scripts(self)
+
+    @property
+    def _property_install_requires(self):
+        return salt_build_backend.get_install_requires(self)
+
+    @property
+    def _property_extras_require(self):
+        return salt_build_backend.get_extras_require(self)
 
     @property
     def _property_entry_points(self):
-        entrypoints = {
-            "pyinstaller40": [
-                "hook-dirs = salt.utils.pyinstaller:get_hook_dirs",
-            ],
-        }
-        # console scripts common to all scenarios
-        scripts = [
-            "salt-call = salt.scripts:salt_call",
-        ]
-        if self.ssh_packaging or PACKAGED_FOR_SALT_SSH:
-            scripts.append("salt-ssh = salt.scripts:salt_ssh")
-            if IS_WINDOWS_PLATFORM and not os.environ.get("SALT_BUILD_ALL_BINS"):
-                return {"console_scripts": scripts}
-            scripts.append("salt-cloud = salt.scripts:salt_cloud")
-            entrypoints["console_scripts"] = scripts
-            return entrypoints
-
-        if IS_WINDOWS_PLATFORM and not os.environ.get("SALT_BUILD_ALL_BINS"):
-            scripts.extend(
-                [
-                    "salt-cp = salt.scripts:salt_cp",
-                    "salt-minion = salt.scripts:salt_minion",
-                    "salt-pip = salt.scripts:salt_pip",
-                ]
-            )
-            entrypoints["console_scripts"] = scripts
-            return entrypoints
-
-        # *nix, so, we need all scripts
-        scripts.extend(
-            [
-                "salt = salt.scripts:salt_main",
-                "salt-api = salt.scripts:salt_api",
-                "salt-cloud = salt.scripts:salt_cloud",
-                "salt-cp = salt.scripts:salt_cp",
-                "salt-key = salt.scripts:salt_key",
-                "salt-master = salt.scripts:salt_master",
-                "salt-minion = salt.scripts:salt_minion",
-                "salt-run = salt.scripts:salt_run",
-                "salt-ssh = salt.scripts:salt_ssh",
-                "salt-syndic = salt.scripts:salt_syndic",
-                "spm = salt.scripts:salt_spm",
-                "salt-proxy = salt.scripts:salt_proxy",
-                "salt-pip = salt.scripts:salt_pip",
-            ]
-        )
-        entrypoints["console_scripts"] = scripts
-        return entrypoints
+        return salt_build_backend.get_entry_points(self)
 
     # <---- Dynamic Data ---------------------------------------------------------------------------------------------
 
@@ -1237,16 +1156,6 @@ class SaltDistribution(distutils.dist.Distribution):
                 "The value of --salt-transport needs be 'zeromq', "
                 "'both', 'ssh', or 'none' not '{}'".format(self.salt_transport)
             )
-
-        # Setup our property functions after class initialization and
-        # after parsing the command line since most are set to None
-        # ATTENTION: This should be the last step before returning the args or
-        # some of the requirements won't be correctly set
-        for funcname in dir(self):
-            if not funcname.startswith("_property_"):
-                continue
-            property_name = funcname.split("_property_", 1)[-1]
-            setattr(self, property_name, getattr(self, funcname))
 
         return args
 

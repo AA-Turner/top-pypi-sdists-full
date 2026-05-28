@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_transitions.py 10128 2025-05-13 20:49:24Z milde $
+# $Id: test_transitions.py 10308 2026-03-28 18:54:25Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -31,6 +31,7 @@ class TransformTestCase(unittest.TestCase):
     def test_transforms(self):
         parser = rst.Parser()
         settings = get_default_settings(rst.Parser)
+        settings.legacy_ids = False
         settings.warning_stream = ''
         for name, (transforms, cases) in totest.items():
             for casenum, (case_input, case_expected) in enumerate(cases):
@@ -87,16 +88,16 @@ Some text.
 """,
 """\
 <document source="test data">
-    <section ids="section-1" names="section\\ 1">
+    <section names="section\\ 1">
         <title>
             Section 1
-        <section ids="subsection-1" names="subsection\\ 1">
+        <section names="subsection\\ 1">
             <title>
                 Subsection 1
             <paragraph>
                 A transition at the end of a section is moved behind the section.
     <transition>
-    <section ids="section-2" names="section\\ 2">
+    <section names="section\\ 2">
         <title>
             Section 2
         <paragraph>
@@ -117,7 +118,7 @@ Paragraph.
     <paragraph>
         A paragraph.
     <transition>
-    <section ids="section-1" names="section\\ 1">
+    <section names="section\\ 1">
         <title>
             Section 1
         <paragraph>
@@ -133,33 +134,33 @@ A system message warns about invalid placement of transitions.
     <transition>
     <system_message level="2" line="1" source="test data" type="WARNING">
         <paragraph>
-            Document or section may not begin with a transition.
+            Transition at the start of the document.
     <paragraph>
         A system message warns about invalid placement of transitions.
 """],
 ["""\
-The DTD specifies ...
+rST and Doctree specifications say ...
 
 --------
 
 --------
 
-... that two transitions may not be adjacent:
+... that two transitions should not be adjacent.
 """,
 """\
 <document source="test data">
     <paragraph>
-        The DTD specifies ...
+        rST and Doctree specifications say ...
     <transition>
     <transition>
     <system_message level="2" line="5" source="test data" type="WARNING">
         <paragraph>
-            At least one body element must separate transitions; adjacent transitions are not allowed.
+            At least one body element should separate transitions.
     <paragraph>
-        ... that two transitions may not be adjacent:
+        ... that two transitions should not be adjacent.
 """],
 ["""\
-The DTD also specifies that a section or document
+The specs also say that a section or document
 may not end with a transition.
 
 --------
@@ -167,12 +168,39 @@ may not end with a transition.
 """\
 <document source="test data">
     <paragraph>
-        The DTD also specifies that a section or document
+        The specs also say that a section or document
         may not end with a transition.
     <transition>
     <system_message level="2" line="4" source="test data" type="WARNING">
         <paragraph>
-            Document may not end with a transition.
+            Transition at the end of the document.
+"""],
+["""\
+Moving and invisible elements don't count.
+
+----------
+
+.. meta:: :keywords: transition test
+.. footer:: will move away
+.. _anchor:
+.. |substitution reference| replace:: is invisible
+""",
+"""\
+<document source="test data">
+    <meta content="transition test" name="keywords">
+    <decoration>
+        <footer>
+            <paragraph>
+                will move away
+    <paragraph>
+        Moving and invisible elements don't count.
+    <transition>
+    <system_message level="2" line="3" source="test data" type="WARNING">
+        <paragraph>
+            Transition at the end of the document.
+    <target ids="anchor" names="anchor">
+    <substitution_definition names="substitution\\ reference">
+        is invisible
 """],
 ["""\
 Sections with transitions at beginning and end.
@@ -182,7 +210,7 @@ Section 1
 
 ----------
 
-Some text after transition.
+.. Comment after transition.
 
 Section 2
 =========
@@ -195,16 +223,16 @@ Some text before the transition.
 <document source="test data">
     <paragraph>
         Sections with transitions at beginning and end.
-    <section ids="section-1" names="section\\ 1">
+    <section names="section\\ 1">
         <title>
             Section 1
         <transition>
         <system_message level="2" line="6" source="test data" type="WARNING">
             <paragraph>
-                Document or section may not begin with a transition.
-        <paragraph>
-            Some text after transition.
-    <section ids="section-2" names="section\\ 2">
+                Transition at the start of the section.
+        <comment xml:space="preserve">
+            Comment after transition.
+    <section names="section\\ 2">
         <title>
             Section 2
         <paragraph>
@@ -212,7 +240,7 @@ Some text before the transition.
         <transition>
         <system_message level="2" line="15" source="test data" type="WARNING">
             <paragraph>
-                Document may not end with a transition.
+                Transition at the end of the document.
 """],
 ["""\
 A paragraph and two transitions.
@@ -229,10 +257,10 @@ A paragraph and two transitions.
     <transition>
     <system_message level="2" line="5" source="test data" type="WARNING">
         <paragraph>
-            At least one body element must separate transitions; adjacent transitions are not allowed.
+            At least one body element should separate transitions.
     <system_message level="2" line="5" source="test data" type="WARNING">
         <paragraph>
-            Document may not end with a transition.
+            Transition at the end of the document.
 """],
 ["""\
 A paragraph, two transitions, and a blank line.
@@ -250,10 +278,10 @@ A paragraph, two transitions, and a blank line.
     <transition>
     <system_message level="2" line="5" source="test data" type="WARNING">
         <paragraph>
-            At least one body element must separate transitions; adjacent transitions are not allowed.
+            At least one body element should separate transitions.
     <system_message level="2" line="5" source="test data" type="WARNING">
         <paragraph>
-            Document may not end with a transition.
+            Transition at the end of the document.
 """],
 ["""\
 ----------
@@ -265,46 +293,39 @@ Document beginning with a transition.
     <transition>
     <system_message level="2" line="1" source="test data" type="WARNING">
         <paragraph>
-            Document or section may not begin with a transition.
+            Transition at the start of the document.
     <paragraph>
         Document beginning with a transition.
 """],
 ["""\
+.. class:: classy
 .. meta:: :keywords: transition test
+.. footer:: will move away
+.. _anchor:
+.. |substitution reference| replace:: is invisible
 
 ----------
 
-Document beginning with a transition (meta elements don't count).
+Document beginning with a transition (title, moving elements,
+and invisible elements don't count).
 """,
 """\
 <document source="test data">
     <meta content="transition test" name="keywords">
-    <transition>
-    <system_message level="2" line="3" source="test data" type="WARNING">
-        <paragraph>
-            Document or section may not begin with a transition.
-    <paragraph>
-        Document beginning with a transition (meta elements don't count).
-"""],
-["""\
-.. header:: a header
-
-----------
-
-Document beginning with a transition (decoration elements don't count).
-""",
-"""\
-<document source="test data">
     <decoration>
-        <header>
+        <footer>
             <paragraph>
-                a header
-    <transition>
-    <system_message level="2" line="3" source="test data" type="WARNING">
+                will move away
+    <target ids="anchor" names="anchor">
+    <substitution_definition names="substitution\\ reference">
+        is invisible
+    <transition classes="classy">
+    <system_message level="2" line="7" source="test data" type="WARNING">
         <paragraph>
-            Document or section may not begin with a transition.
+            Transition at the start of the document.
     <paragraph>
-        Document beginning with a transition (decoration elements don't count).
+        Document beginning with a transition (title, moving elements,
+        and invisible elements don't count).
 """],
 ["""\
 Section 1
@@ -316,41 +337,26 @@ Section 1
 
 ----------
 
-Implementation Detail
-=====================
-
-If the element containing the transition is invalid after replacing the
-transition with a body element, the system_message is appended at the end
-of the document (by the "universal.Messages" transform).
-This check can lead to overcautious behaviour if there are other
-validity violations (here: several misplaced transitions).
+Section 2
+=========
 """,
 """\
 <document source="test data">
-    <section ids="section-1" names="section\\ 1">
+    <section names="section\\ 1">
         <title>
             Section 1
         <transition>
+        <system_message level="2" line="4" source="test data" type="WARNING">
+            <paragraph>
+                Transition at the start of the section.
         <transition>
     <transition>
-    <section ids="implementation-detail" names="implementation\\ detail">
-        <title>
-            Implementation Detail
-        <paragraph>
-            If the element containing the transition is invalid after replacing the
-            transition with a body element, the system_message is appended at the end
-            of the document (by the "universal.Messages" transform).
-            This check can lead to overcautious behaviour if there are other
-            validity violations (here: several misplaced transitions).
-    <system_message level="2" line="4" source="test data" type="WARNING">
-        <paragraph>
-            Document or section may not begin with a transition.
-    <system_message level="2" line="6" source="test data" type="WARNING">
-        <paragraph>
-            At least one body element must separate transitions; adjacent transitions are not allowed.
     <system_message level="2" line="8" source="test data" type="WARNING">
         <paragraph>
-            At least one body element must separate transitions; adjacent transitions are not allowed.
+            At least one body element should separate transitions.
+    <section names="section\\ 2">
+        <title>
+            Section 2
 """],
 ["""\
 ----------
@@ -364,35 +370,17 @@ validity violations (here: several misplaced transitions).
 """\
 <document source="test data">
     <transition>
-    <transition>
-    <transition>
-    <system_message level="2" line="5" source="test data" type="WARNING">
-        <paragraph>
-            Document may not end with a transition.
     <system_message level="2" line="1" source="test data" type="WARNING">
         <paragraph>
-            Document or section may not begin with a transition.
-    <system_message level="2" line="3" source="test data" type="WARNING">
-        <paragraph>
-            At least one body element must separate transitions; adjacent transitions are not allowed.
+            Transition at the start of the document.
+    <transition>
+    <transition>
     <system_message level="2" line="5" source="test data" type="WARNING">
         <paragraph>
-            At least one body element must separate transitions; adjacent transitions are not allowed.
-"""],
-["""\
-A paragraph.
-
-----------
-
-""",
-"""\
-<document source="test data">
-    <paragraph>
-        A paragraph.
-    <transition>
-    <system_message level="2" line="3" source="test data" type="WARNING">
+            At least one body element should separate transitions.
+    <system_message level="2" line="5" source="test data" type="WARNING">
         <paragraph>
-            Document may not end with a transition.
+            Transition at the end of the document.
 """],
 ])
 
@@ -425,7 +413,7 @@ totest_x['transitions extra'] = ((Transitions,), [
         <transition>
         <system_message level="2" line="7" source="test data" type="WARNING">
             <paragraph>
-                Transition must be child of <document> or <section>.
+                Transition only valid as child of <document> or <section>.
         <paragraph>
             Some text.
     <paragraph>
@@ -434,7 +422,7 @@ totest_x['transitions extra'] = ((Transitions,), [
          in a paragraph.
     <system_message level="2" line="10" source="test data" type="WARNING">
         <paragraph>
-            Transition must be child of <document> or <section>.
+            Transition only valid as child of <document> or <section>.
 """],
 ])
 

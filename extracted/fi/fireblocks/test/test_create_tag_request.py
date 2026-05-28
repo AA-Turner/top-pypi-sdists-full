@@ -40,7 +40,8 @@ class TestCreateTagRequest(unittest.TestCase):
                 label = 'VIP',
                 description = 'Tag for VIP customers',
                 color = '#FF5733',
-                is_protected = True
+                is_protected = True,
+                type = 'WALLET_POOL'
             )
         else:
             return CreateTagRequest(

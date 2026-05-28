@@ -178,7 +178,6 @@ export class ReactiveESMView extends HTMLBoxView {
     accessed_children = [];
     compiled_module = null;
     model_proxy;
-    _changing = false;
     _child_callbacks;
     _child_rendered = new Map();
     _event_handlers = [];
@@ -457,7 +456,7 @@ export class ReactiveESMView extends HTMLBoxView {
         this._mounted.clear();
     }
     after_resize() {
-        if (this._rendered && !this._changing) {
+        if (this._rendered) {
             super.after_resize();
             for (const cb of (this._lifecycle_handlers.get("resize") || [])) {
                 cb();
@@ -466,7 +465,7 @@ export class ReactiveESMView extends HTMLBoxView {
     }
     after_layout() {
         super.after_layout();
-        if (this._rendered && !this._changing) {
+        if (this._rendered) {
             for (const cb of (this._lifecycle_handlers.get("after_layout") || [])) {
                 cb();
             }

@@ -1,4 +1,13 @@
-"""Module with methods used to trace Google Gemini LLMs."""
+"""Module with methods used to trace Google Gemini LLMs.
+
+NOTE: This targets the LEGACY Google Generative AI SDK only — package
+``google-generativeai``, module ``google.generativeai``, client
+``genai.GenerativeModel``. That SDK is in maintenance mode. The new Google
+Gen AI SDK (package ``google-genai``, module ``google.genai``, client
+``genai.Client()`` with ``client.models.generate_content``) is NOT handled
+here and is not auto-instrumented; supporting it needs a separate tracer +
+registry entry (see the TODO in ``_auto.py``).
+"""
 
 import json
 import logging
@@ -73,6 +82,9 @@ def trace_gemini(
             "Google Generative AI library is not installed. Please install it with: pip install google-generativeai"
         )
 
+    if getattr(client, "_openlayer_patched", False) is True:
+        return client
+
     # Store original methods
     original_generate_content = client.generate_content
     original_generate_content_async = client.generate_content_async
@@ -125,7 +137,28 @@ def trace_gemini(
     client.generate_content = traced_generate_content
     client.generate_content_async = traced_generate_content_async
 
+    client._openlayer_patched = True
     return client
+
+
+def _patch_gemini() -> None:
+    """Patch ``google.generativeai.GenerativeModel.__init__`` so every newly-
+    constructed model is auto-traced. Idempotent."""
+    if not HAVE_GEMINI:
+        return
+    # pylint: disable=import-outside-toplevel
+    from ._auto import _patch_class_init
+
+    _patch_class_init(genai.GenerativeModel, trace_gemini)
+
+
+def _unpatch_gemini() -> None:
+    if not HAVE_GEMINI:
+        return
+    # pylint: disable=import-outside-toplevel
+    from ._auto import _unpatch_class_init
+
+    _unpatch_class_init(genai.GenerativeModel)
 
 
 def handle_streaming_generate(

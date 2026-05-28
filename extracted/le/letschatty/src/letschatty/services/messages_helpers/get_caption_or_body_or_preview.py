@@ -21,7 +21,9 @@ class MessageTextOrCaptionOrPreview:
         elif isinstance(message_content, ChattyContentSticker):
             return "😀 Mensaje de tipo sticker"
         elif isinstance(message_content, ChattyContentReaction):
-            return "❤️ Mensaje de tipo reacción"
+            if message_content.emoji:
+                return f"❤️ Reaccionó con {message_content.emoji}"
+            return "❌ Quitó su reacción"
         elif isinstance(message_content, ChattyContentButton):
             return "🔗 Botón: " + message_content.payload
         else:

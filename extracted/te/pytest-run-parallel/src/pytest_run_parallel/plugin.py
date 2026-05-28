@@ -254,7 +254,13 @@ class RunParallelPlugin:
             self._handle_collected_item(item)
 
     def _handle_collected_item(self, item):
-        if not hasattr(item, "obj"):
+        if isinstance(item, _pytest.doctest.DoctestItem):
+            self._mark_test_thread_unsafe(
+                item, "is a doctest (pytest-run-parallel does not support doctests)"
+            )
+            return
+
+        if getattr(item, "obj", None) is None:
             if not hasattr(item, "_parallel_custom_item"):
                 warnings.warn(
                     f"Encountered pytest item with type {type(item)} with no 'obj' "
@@ -270,12 +276,6 @@ class RunParallelPlugin:
                 )
             self._mark_test_thread_unsafe(
                 item, "is incompatible with pytest-run-parallel"
-            )
-            return
-
-        if isinstance(item, _pytest.doctest.DoctestItem):
-            self._mark_test_thread_unsafe(
-                item, "is a doctest (pytest-run-parallel does not support doctests)"
             )
             return
 
@@ -436,15 +436,21 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers",
         "parallel_threads(n): run the given test function in parallel "
-        "using `n` threads. Note that if n is greater than 1, the test "
-        "run with this many threads even if the --parallel-threads "
-        "command-line argument is not passed. Use parallel_threads_limit "
-        "instead if you want to avoid this pitfall.",
+        "using `n` threads. Deprecated if `n` is greater than 1. Use either "
+        "the parallel_threads_limit or force_parallel_threads marker to make "
+        "your intention clearer.",
     )
     config.addinivalue_line(
         "markers",
         "parallel_threads_limit(n): run the given test function in parallel "
         "using a maximum of `n` threads.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "force_parallel_threads(n): force the given test function to run in "
+        "parallel using `n` threads, overriding the --parallel-threads "
+        "command-line argument and any parallel_threads_limit marker. Use "
+        "this to ensure a test always runs with a specific number of threads.",
     )
     config.addinivalue_line(
         "markers",

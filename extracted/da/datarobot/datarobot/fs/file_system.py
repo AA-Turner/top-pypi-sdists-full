@@ -28,6 +28,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    Match,
     Optional,
     Set,
     Tuple,
@@ -40,10 +41,10 @@ from typing import (
 
 from fsspec import AbstractFileSystem
 from fsspec.callbacks import DEFAULT_CALLBACK, Callback
-from fsspec.implementations.local import trailing_sep
+from fsspec.implementations.local import LocalFileSystem, make_path_posix, trailing_sep
 from fsspec.mapping import FSMap, maybe_convert
 from fsspec.spec import AbstractBufferedFile
-from fsspec.utils import common_prefix, glob_translate, stringify_path
+from fsspec.utils import common_prefix, glob_translate, other_paths, stringify_path
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
@@ -506,15 +507,18 @@ class DataRobotFileSystem(AbstractFileSystem):  # type: ignore[misc]
         raise FileNotFoundError(f"No file or directory found at {path}")
 
     def created(self, path: str) -> datetime | None:
-        """Return the created timestamp of a file as a datetime.datetime
+        """
+        Return the created timestamp of a file as a :class:`datetime.datetime` object.
+
         Parameters
         ----------
         path:
             Path in the DataRobot file system to get information about.
+
         Returns
         -------
-        created: A datetime.datetime timestamp of when the file was created or None
-            if a directory.
+        datetime.datetime or None
+            The timestamp of when the file was created or None if a directory.
 
         Raises
         ------
@@ -902,7 +906,7 @@ class DataRobotFileSystem(AbstractFileSystem):  # type: ignore[misc]
         pattern = glob_translate(path + ("/" if ends_with_sep else ""))
         pattern = re.compile(pattern)
 
-        def _has_pattern_match(path: str, info: FileInfo) -> Optional[re.Match[str]]:
+        def _has_pattern_match(path: str, info: FileInfo) -> Optional[Match[str]]:
             """
             Check whether the given path matches the glob pattern.
             Accounts for directory paths modifications required.
@@ -2658,6 +2662,9 @@ class DataRobotFileSystem(AbstractFileSystem):  # type: ignore[misc]
                         segment_len = len(data)
                     callback.relative_update(segment_len)
 
+    # SPDX-FileCopyrightText: 2018 Martin Durant
+    # SPDX-License-Identifier: BSD-3-Clause
+    # The following method is derived from fsspec (https://github.com/fsspec/filesystem_spec)
     def put(
         self,
         lpath: Union[str, List[str]],
@@ -2672,9 +2679,12 @@ class DataRobotFileSystem(AbstractFileSystem):  # type: ignore[misc]
 
         Copies a specific file or tree of files (if `recursive=True`). If `rpath`
         ends with a "/", it will be assumed to be a directory, and target files
-        will go within. Calls
+        will go within. If `lpath` ends with a "/", it will be assumed to be a directory
+        and will target files inside the directory. Calls
         :meth:`put_file() <datarobot.fs.file_system.DataRobotFileSystem.put_file>`
-        for each source path.
+        for each source path or uses
+        :class:`FilesStage <datarobot.models.files.FilesStage>` to upload multiple files at once
+        if upload can be optimized.
 
         Parameters
         ----------
@@ -2700,6 +2710,9 @@ class DataRobotFileSystem(AbstractFileSystem):  # type: ignore[misc]
             empty directories. Defaults to False so invocations of
             :meth:`put_file() <datarobot.fs.file_system.DataRobotFileSystem.put_file>` for local
             directory paths do nothing and return silently.
+        overwrite_strategy:
+            How to handle name conflicts with existing files. Defaults to
+            :meth:`FilesOverwriteStrategy.RENAME <datarobot.enums.FilesOverwriteStrategy.RENAME>`.
 
         Examples
         --------
@@ -2740,15 +2753,83 @@ class DataRobotFileSystem(AbstractFileSystem):  # type: ignore[misc]
             ...     ["dr://696935d6d5a04a752419cf6d/my/new/file1.txt", "dr://696935d6d5a04a752419cf6d/my/new/file2.txt"],
             ... )
         """
-        super().put(
-            lpath,
-            rpath,
-            recursive=recursive,
-            callback=callback,
-            maxdepth=maxdepth,
-            raise_error_on_directory=kwargs.pop("raise_error_on_directory", False),
-            **kwargs,
-        )
+        if isinstance(lpath, list) and isinstance(rpath, list):
+            # No need to expand paths when both source and destination
+            # are provided as lists
+            rpaths = rpath
+            lpaths = lpath
+        else:
+            source_is_str = isinstance(lpath, str)
+            if source_is_str:
+                lpath = make_path_posix(lpath)
+            fs = LocalFileSystem()
+            lpaths = fs.expand_path(lpath, recursive=recursive, maxdepth=maxdepth)
+            if source_is_str and (not recursive or maxdepth is not None):
+                # Non-recursive glob does not copy directories
+                lpaths = [p for p in lpaths if not (trailing_sep(p) or fs.isdir(p))]
+                if not lpaths:
+                    return
+
+            source_is_file = len(lpaths) == 1
+            dest_is_dir = isinstance(rpath, str) and (trailing_sep(rpath) or self.isdir(rpath))
+
+            rpath = self._strip_protocol(rpath) if isinstance(rpath, str) else [self._strip_protocol(p) for p in rpath]
+            exists = source_is_str and (
+                (has_magic(lpath) and source_is_file)  # type: ignore[arg-type]
+                or (not has_magic(lpath) and dest_is_dir and not trailing_sep(lpath))  # type: ignore[arg-type]
+            )
+            rpaths = other_paths(
+                lpaths,
+                rpath,
+                exists=exists,
+                flatten=not source_is_str,
+            )
+
+        paths = list(zip(lpaths, rpaths))
+        callback.set_size(len(paths))
+
+        raise_error_on_directory = kwargs.pop("raise_error_on_directory", False)
+        overwrite_strategy = kwargs.pop("overwrite_strategy", FilesOverwriteStrategy.RENAME)
+
+        use_stage_optimization = False
+        if isinstance(rpath, list) and len(paths) > 1:
+            first_catalog_id = self._split_path(rpath[0])[0]
+            use_stage_optimization = all(self._split_path(p)[0] == first_catalog_id for p in rpath)
+        elif isinstance(rpath, str) and dest_is_dir and len(paths) > 1:
+            use_stage_optimization = True
+
+        if use_stage_optimization:
+            catalog_id = self._split_path(rpaths[0])[0]
+            with self._try_convert_to_fsspec_exception():
+                stage = self._get_files_wrapper_for_folder_id(catalog_id=catalog_id).create_stage()
+
+            for local_path, remote_path in callback.wrap(paths):
+                if os.path.isdir(local_path):
+                    if raise_error_on_directory:
+                        raise NotImplementedError("Uploading directories is not supported for DataRobotFileSystem.")
+                    continue
+
+                with callback.branched(local_path, remote_path) as child:
+                    file_size = os.path.getsize(local_path)
+                    child.set_size(file_size)
+                    _, internal_path = self._split_path(remote_path)
+                    with self._try_convert_to_fsspec_exception():
+                        stage.upload(source=local_path, file_name=internal_path)
+                    child.relative_update(file_size)
+
+            stage.apply(overwrite=overwrite_strategy)
+            return
+
+        for local_path, remote_path in callback.wrap(paths):
+            with callback.branched(local_path, remote_path) as child:
+                self.put_file(
+                    local_path,
+                    remote_path,
+                    callback=child,
+                    raise_error_on_directory=raise_error_on_directory,
+                    overwrite_strategy=overwrite_strategy,
+                    **kwargs,
+                )
 
     def get_mapper(
         self,
@@ -2833,6 +2914,285 @@ class DataRobotFileSystem(AbstractFileSystem):  # type: ignore[misc]
             0
         """
         return DataRobotFSMap(root, self, missing_exceptions)
+
+    def pipe_file(self, path: str, value: bytes, mode: str = "overwrite", **kwargs: Any) -> None:
+        """
+        Set the bytes of a given file.
+
+        Parameters
+        ----------
+        path:
+            Path to the file to set the bytes of.
+        value:
+            Bytes to set the file to.
+        mode:
+            Mode to use when writing to the file. Defaults to "overwrite". Use create to only write if the file does not
+            exist.
+        kwargs:
+            Additional keyword arguments passed to
+            :meth:`open() <datarobot.fs.file_system.DataRobotFileSystem.open>`.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            >>> from datarobot.fs import DataRobotFileSystem
+            >>> fs = DataRobotFileSystem()
+            >>> fs.pipe_file("dr://696935d6d5a04a752419cf6d/my/new/file.txt", b"Hello, world!")
+        """
+        open_mode = "xb" if mode == "create" else "wb"
+        with self.open(path, open_mode, **kwargs) as f:
+            f.write(value)
+
+    def pipe(self, path: Union[str, Dict[str, bytes]], value: Optional[bytes] = None, **kwargs: Any) -> None:
+        """
+        Put value into path.
+
+        Counterpart to :meth:`cat() <datarobot.fs.file_system.DataRobotFileSystem.cat>`.
+        Calls :meth:`put_file() <datarobot.fs.file_system.DataRobotFileSystem.put_file>`.
+
+        Parameters
+        ----------
+        path:
+            Path to write the value to. If a string, a single remote location to put ``value`` bytes. If a dict,
+            a mapping of ``{path: bytesvalue}``.
+        value:
+            Value to put into the path. If using a single path, these are bytes to put there. Ignored if path is a dict.
+        kwargs:
+            Additional keyword arguments passed to
+            :meth:`put_file() <datarobot.fs.file_system.DataRobotFileSystem.put_file>`.
+
+        Raises
+        ------
+        ValueError
+            If path is not a string or dict.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            >>> from datarobot.fs import DataRobotFileSystem
+            >>> fs = DataRobotFileSystem()
+            >>> fs.pipe("dr://696935d6d5a04a752419cf6d/my/new/file.txt", b"Hello, world!")
+            >>> fs.pipe({"dr://696935d6d5a04a752419cf6d/my/new/file.txt": b"Hello, world!"})
+            >>> fs.pipe({
+            ...     "dr://696935d6d5a04a752419cf6d/my/new/file.txt": b"Hello, world!",
+            ...     "dr://696935d6d5a04a752419cf6d/my/new/file2.txt": b"Hello, world2!",
+            ... })
+        """
+        super().pipe(path, value=value, **kwargs)
+
+    def checksum(self, path: str) -> int:
+        """
+        Unique value for the content of a file at the given path.
+
+        If the checksum is the same from one moment to another, the contents
+        are guaranteed to be the same. If the checksum changes, the contents
+        *might* have changed.
+
+        Parameters
+        ----------
+        path
+            Path in the DataRobot file system to get the checksum of.
+
+        Returns
+        -------
+        int
+            The checksum of the file at the given path.
+        """
+        return cast(int, super().checksum(path))
+
+    def expand_path(
+        self, path: Union[str, List[str]], recursive: bool = False, maxdepth: Optional[int] = None, **kwargs: Any
+    ) -> List[str]:
+        """
+        Turn one or more paths (can be globs or directory paths) into a list of all matching paths to files
+        and directories.
+
+        Parameters
+        ----------
+        path:
+            Path or list of paths to expand.
+        recursive:
+            Whether to search recursively when expanding paths.
+        maxdepth:
+            Maximum depth to search when expanding paths.
+        kwargs:
+            Additional keyword arguments passed to :meth:`find() <datarobot.fs.file_system.DataRobotFileSystem.find>`
+            or :meth:`glob() <datarobot.fs.file_system.DataRobotFileSystem.glob>`, which may in turn call
+            :meth:`ls() <datarobot.fs.file_system.DataRobotFileSystem.ls>`.
+
+        Returns
+        -------
+        List[str]
+            List of all matching paths.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            >>> from datarobot.fs import DataRobotFileSystem
+            >>> fs = DataRobotFileSystem()
+            >>> fs.expand_path("dr://696935d6d5a04a752419cf6d/finance/", recursive=True, maxdepth=1)
+            [
+                'dr://696935d6d5a04a752419cf6d/finance/',
+                'dr://696935d6d5a04a752419cf6d/finance/budgets/',
+                'dr://696935d6d5a04a752419cf6d/finance/employee-list.csv',
+            ]
+
+        Expand a glob pattern with no max depth:
+
+        .. code-block:: python
+
+            >>> fs.expand_path("dr://696935d6d5a04a752419cf6d/finance/**/*.csv", recursive=True)
+            [
+                'dr://696935d6d5a04a752419cf6d/finance/employee-list.csv',
+                'dr://696935d6d5a04a752419cf6d/finance/budgets/Q2_budget_2024.csv',
+                'dr://696935d6d5a04a752419cf6d/finance/budgets/archive/Q3_budget_2000.csv',
+            ]
+
+        Expand a list of paths:
+
+        .. code-block:: python
+
+            >>> fs.expand_path([
+            ...    "dr://696935d6d5a04a752419cf6d/finance/budgets/*.csv",
+            ...    "dr://696935d6d5a04a752419cf6d/finance/employee-list.csv",
+            ... ])
+            [
+                'dr://696935d6d5a04a752419cf6d/finance/budgets/Q2_budget_2024.csv',
+                'dr://696935d6d5a04a752419cf6d/finance/employee-list.csv',
+            ]
+        """
+        return cast(List[str], super().expand_path(path, recursive=recursive, maxdepth=maxdepth, **kwargs))
+
+    def get(
+        self,
+        rpath: Union[str, List[str]],
+        lpath: Union[str, List[str]],
+        recursive: bool = False,
+        callback: Callback = DEFAULT_CALLBACK,
+        maxdepth: Optional[int] = None,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Download file(s) from the DataRobot file system to the local file system.
+
+        Copies a specific file or tree of files (if ``recursive``=True). If ``lpath``
+        ends with a "/", it will be assumed to be a directory, and target files
+        will go within. Can submit a list of paths, which may be glob-patterns
+        and will be expanded.
+
+        Calls :meth:`get_file() <datarobot.fs.file_system.DataRobotFileSystem.get_file>` for each file.
+
+        Parameters
+        ----------
+        rpath:
+            Path or list of paths to download from the DataRobot file system.
+        lpath:
+            Path or list of paths to download to the local file system.
+        recursive:
+            Whether to recursively target files to download inside directories.
+        callback:
+            Callback to track progress of the file transfer.
+        maxdepth:
+            Maximum depth to recurse when targeting files to download inside directories.
+        kwargs:
+            Additional keyword arguments passed to
+            :meth:`get_file() <datarobot.fs.file_system.DataRobotFileSystem.get_file>`.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            >>> from datarobot.fs import DataRobotFileSystem
+            >>> fs = DataRobotFileSystem()
+            >>> fs.get(
+            ...     "dr://696935d6d5a04a752419cf6d/finance/budgets/Q2_budget_2024.csv",
+            ...     "/Users/username/local/path/to/download/Q2_budget_2024.csv",
+            ... )
+
+        Download a directory recursively:
+
+        .. code-block:: python
+
+            >>> fs.get(
+            ...     "dr://696935d6d5a04a752419cf6d/finance/budgets/",
+            ...     "/Users/username/local/path/to/download/budgets/",
+            ...     recursive=True,
+            ... )
+
+        Download all PDF files in a directory:
+
+        .. code-block:: python
+
+            >>> fs.get(
+            ...     "dr://696935d6d5a04a752419cf6d/finance/budgets/**/*.pdf",
+            ...     "/Users/username/local/path/to/download/budgets/",
+            ...     recursive=True,
+            ... )
+
+        Download multiple files at once:
+
+        .. code-block:: python
+
+            >>> fs.get(
+            ...     [
+            ...         "dr://696935d6d5a04a752419cf6d/finance/budgets/Q2_budget_2024.csv",
+            ...         "dr://696935d6d5a04a752419cf6d/finance/employee-list.csv"
+            ...     ],
+            ...     [
+            ...         "/Users/username/local/path/to/download/Q2_budget_2024.csv",
+            ...         "/Users/username/local/path/to/download/employee-list.csv"
+            ...     ],
+            ... )
+        """
+        super().get(rpath, lpath, recursive=recursive, callback=callback, maxdepth=maxdepth, **kwargs)
+
+    def get_file(
+        self,
+        rpath: str,
+        lpath: str,
+        callback: Callback = DEFAULT_CALLBACK,
+        outfile: Optional[io.IOBase] = None,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Download a single file from the DataRobot file system to the local file system.
+
+        Parameters
+        ----------
+        rpath:
+            Path to download from the DataRobot file system.
+        lpath:
+            Path to download to the local file system.
+        callback:
+            Callback to track progress of the file transfer.
+        outfile:
+            File-like object to write to. The user is responsible for closing it when they are done.
+        kwargs:
+            Additional keyword arguments passed to
+            :meth:`open() <datarobot.fs.file_system.DataRobotFileSystem.open>`.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            >>> from datarobot.fs import DataRobotFileSystem
+            >>> fs = DataRobotFileSystem()
+            >>> fs.get_file(
+            ...     "dr://696935d6d5a04a752419cf6d/finance/budgets/Q2_budget_2024.csv",
+            ...     "/Users/username/local/path/to/download/Q2_budget_2024.csv",
+            ... )
+
+        .. code-block:: python
+
+            >>> from datarobot.fs import DataRobotFileSystem
+            >>> fs = DataRobotFileSystem()
+            >>> with open("/Users/username/local/path/to/download/Q2_budget_2024.csv", "wb") as f:
+            ...     fs.get_file("dr://696935d6d5a04a752419cf6d/finance/budgets/Q2_budget_2024.csv", f)
+        """
+        super().get_file(rpath, lpath, callback=callback, outfile=outfile, **kwargs)
 
     def mkdir(self, *args: Iterable[Any], **kwargs: Any) -> None:
         """Not supported as DataRobotFileSystem does not support empty directories."""

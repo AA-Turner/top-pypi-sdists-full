@@ -1,1 +1,0 @@
-"use strict";(self.rspackChunkhome_assistant_frontend=self.rspackChunkhome_assistant_frontend||[]).push([[97216],{92707:function(n,t,r){r.d(t,{DIRECTION_LEFT:function(){return e.wc},DIRECTION_RIGHT:function(){return e.Hy},Manager:function(){return e.mS},Swipe:function(){return e.Hp}});var e=r(26183)}}]);
