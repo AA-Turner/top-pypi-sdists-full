@@ -275,6 +275,10 @@ class SeleniumService(ABC):
         if self.disable_images:
             self.prefs["profile.managed_default_content_settings.images"] = 2
 
+        # Suppress automation indicators detected by Akamai/PerimeterX
+        options.add_experimental_option('excludeSwitches', ['enable-automation'])
+        options.add_experimental_option('useAutomationExtension', False)
+
         if self.prefs:
             options.add_experimental_option("prefs", self.prefs)
 

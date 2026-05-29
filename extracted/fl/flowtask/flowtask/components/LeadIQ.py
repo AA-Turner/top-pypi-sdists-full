@@ -6,7 +6,7 @@ import json
 from urllib.parse import urlencode
 from ..exceptions import ComponentError, DataNotFound, NotSupported
 from ..interfaces.http import HTTPService
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..conf import LEADIQ_API_KEY
 
 

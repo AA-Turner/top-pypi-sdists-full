@@ -67,7 +67,7 @@ jobs:
           pip install -r dev-requirements.txt
       - name: Build wheels (Unix, Linux)
         if: matrix.os != 'windows-latest'
-        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad  # v1.50.1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
         env:
           UNSAFE_PYO3_SKIP_VERSION_CHECK: 1
         with:
@@ -76,11 +76,11 @@ jobs:
           docker-options: -e UNSAFE_PYO3_SKIP_VERSION_CHECK=1
       - name: Build wheels (NT)
         if: matrix.os == 'windows-latest'
-        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad  # v1.50.1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
         env:
           UNSAFE_PYO3_SKIP_VERSION_CHECK: 1
         with:
-          args: --release --out dist
+          args: --release --out dist --interpreter ${{ matrix.python_version }}
           target: x64
       - run: pip install --find-links=./dist jh2
         name: Install built package
@@ -166,7 +166,7 @@ jobs:
           python-version: ${{ matrix.python_version }}
           allow-prereleases: true
       - name: Build wheels
-        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad  # v1.50.1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
         env:
           UNSAFE_PYO3_SKIP_VERSION_CHECK: 1
         with:
@@ -175,7 +175,7 @@ jobs:
           manylinux: ${{ matrix.manylinux }}
           docker-options: -e UNSAFE_PYO3_SKIP_VERSION_CHECK=1
       - name: Upload wheels
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: wheels-linux-${{ matrix.manylinux }}-${{ matrix.target }}-${{ matrix.python_version }}
           path: dist/*.whl
@@ -202,15 +202,15 @@ jobs:
           architecture: ${{ matrix.target }}
           allow-prereleases: true
       - name: Build wheels (normal)
-        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad  # v1.50.1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
         if: matrix.target != 'aarch64'
         env:
           UNSAFE_PYO3_SKIP_VERSION_CHECK: 1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist
+          args: --release --out dist -i ${{ matrix.python_version }}
       - name: Build wheels (workaround arm64)
-        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad  # v1.50.1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
         if: matrix.target == 'aarch64'
         env:
           PYO3_CROSS: 1
@@ -218,7 +218,7 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist -i ${{ matrix.python_version }}
       - name: Upload wheels
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: wheels-windows-${{ matrix.target }}-${{ matrix.python_version }}
           path: dist/*.whl
@@ -246,14 +246,14 @@ jobs:
           python-version: ${{ matrix.python_version }}
           allow-prereleases: true
       - name: Build wheels
-        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad  # v1.50.1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
         env:
           UNSAFE_PYO3_SKIP_VERSION_CHECK: 1
         with:
           target: ${{ matrix.target }}
           args: --release --out dist --interpreter ${{ matrix.python_version }}
       - name: Upload wheels
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: wheels-macos-${{ matrix.target }}-${{ matrix.python_version }}
           path: dist/*.whl
@@ -270,12 +270,12 @@ jobs:
           persist-credentials: false
           submodules: true
       - name: Build sdist
-        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad  # v1.50.1
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1.51.0
         with:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: wheels-sdist
           path: dist/*.tar.gz
@@ -300,7 +300,7 @@ jobs:
       - name: Build fallback wheel
         run: python -m build
       - name: Upload sdist
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: wheels-universal
           path: dist/*.whl
@@ -316,7 +316,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Download distributions
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: wheels-*
           path: dist
@@ -353,7 +353,7 @@ jobs:
       contents: write
     steps:
       - name: Download distributions
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: wheels-*
           path: dist
@@ -366,6 +366,6 @@ jobs:
         run: |
           gh release upload "$REF_NAME" dist/* --repo "$REPOSITORY"
       - name: Publish to PyPI
-        uses: "pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e" # v1.13.0
+        uses: "pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b" # v1.14.0
         with:
           attestations: true

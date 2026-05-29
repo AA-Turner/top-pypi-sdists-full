@@ -36,7 +36,10 @@ SCIENCE_STYLE = ["science", "no-latex"]
 
 
 def _load_raw_and_results(cfg):
-    df = _common.load_filtered_hvstat(cfg.input_csv)
+    if cfg.input_format == "amis":
+        df = _common.load_filtered_amis(cfg.dir_production_statistics, cfg.parser)
+    else:
+        df = _common.load_filtered_hvstat(cfg.input_csv)
     res = pd.read_csv(cfg.output_dir / "beast_results.csv")
     cps = pd.read_csv(cfg.output_dir / "beast_top_cps.csv")
     return df, res, cps

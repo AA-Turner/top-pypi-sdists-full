@@ -25,11 +25,14 @@ class LineItemConfig(google.protobuf.message.Message):
     IS_UNLIMITED_FIELD_NUMBER: builtins.int
     NUM_RESERVED_UNITS_FIELD_NUMBER: builtins.int
     LINE_ITEM_FIELD_NUMBER: builtins.int
+    IS_OPTIONAL_ADD_ON_FIELD_NUMBER: builtins.int
     base_price_cents: builtins.int
     """Base price for the line item (upgraded reserved volumes or add-on activation fees)"""
     is_unlimited: builtins.bool
     num_reserved_units: builtins.int
     """the type communicates whether the line item is unlimited or not, additionally reserved budget line items have a non-zero reserved_rate in addition to 0 reserved_units"""
+    is_optional_add_on: builtins.bool
+    """Whether this LineItem is included in the base package or not (ie Seer)"""
     @property
     def payg_rate(self) -> sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate: ...
     @property
@@ -47,9 +50,10 @@ class LineItemConfig(google.protobuf.message.Message):
         is_unlimited: builtins.bool = ...,
         num_reserved_units: builtins.int = ...,
         line_item: sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails | None = ...,
+        is_optional_add_on: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["included_reserved_units", b"included_reserved_units", "is_unlimited", b"is_unlimited", "line_item", b"line_item", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "included_reserved_units", b"included_reserved_units", "is_unlimited", b"is_unlimited", "line_item", b"line_item", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "included_reserved_units", b"included_reserved_units", "is_optional_add_on", b"is_optional_add_on", "is_unlimited", b"is_unlimited", "line_item", b"line_item", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["included_reserved_units", b"included_reserved_units"]) -> typing.Literal["is_unlimited", "num_reserved_units"] | None: ...
 
 global___LineItemConfig = LineItemConfig
@@ -64,11 +68,14 @@ class SharedLineItemPool(google.protobuf.message.Message):
 
     RESERVED_POOL_CENTS_FIELD_NUMBER: builtins.int
     LINE_ITEMS_FIELD_NUMBER: builtins.int
+    IS_OPTIONAL_ADD_ON_FIELD_NUMBER: builtins.int
     reserved_pool_cents: builtins.int
     """how much money this shared pool has. For example, if logs costs $1.00 per GB and metrics
     costs $1.00 per GB and we wanted to give metrics and logs a shared 5GB pool, the reserved_pool_cents
     would be 500 ($5)
     """
+    is_optional_add_on: builtins.bool
+    """Whether this LineItem is included in the base package or not (ie Seer)"""
     @property
     def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails]: ...
     def __init__(
@@ -76,8 +83,9 @@ class SharedLineItemPool(google.protobuf.message.Message):
         *,
         reserved_pool_cents: builtins.int = ...,
         line_items: collections.abc.Iterable[sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails] | None = ...,
+        is_optional_add_on: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["line_items", b"line_items", "reserved_pool_cents", b"reserved_pool_cents"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["is_optional_add_on", b"is_optional_add_on", "line_items", b"line_items", "reserved_pool_cents", b"reserved_pool_cents"]) -> None: ...
 
 global___SharedLineItemPool = SharedLineItemPool
 

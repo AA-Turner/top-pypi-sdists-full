@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flowtask
-Version: 5.11.11
+Version: 5.12.0
 Summary: Framework for Task orchestration
 Author-email: Jesus Lara <jesuslarag@gmail.com>
 License: Apache-2.0
@@ -29,7 +29,7 @@ Requires-Dist: borax==3.5.0
 Requires-Dist: PyDrive==1.3.1
 Requires-Dist: chardet==5.2.0
 Requires-Dist: aiohttp-jinja2==1.6
-Requires-Dist: asyncssh[bcrypt,fido2,libnacl,pkcs11,pyOpenSSL]>=2.18.0
+Requires-Dist: asyncssh[bcrypt,fido2,pkcs11,pyopenssl]==2.23.0
 Requires-Dist: pyxlsb==1.0.10
 Requires-Dist: python-calamine==0.2.3
 Requires-Dist: pyecharts==2.0.8
@@ -44,7 +44,7 @@ Requires-Dist: webdriver-manager==4.0.2
 Requires-Dist: aioimaplib==1.1.0
 Requires-Dist: adal==1.2.7
 Requires-Dist: xlrd>=2.0.2
-Requires-Dist: xmltodict==1.0.2
+Requires-Dist: xmltodict<1.0.0,>=0.14.2
 Requires-Dist: zeep[async]==4.3.2
 Requires-Dist: nltk>=3.9.3
 Requires-Dist: jdcal==1.4.1
@@ -56,7 +56,6 @@ Requires-Dist: python-magic==0.4.27
 Requires-Dist: pytomlpp==1.0.13
 Requires-Dist: psutil==6.0.0
 Requires-Dist: networkx>=3.4.1
-Requires-Dist: gitpython==3.1.43
 Requires-Dist: watchdog>=6.0.0
 Requires-Dist: hachiko==0.4.0
 Requires-Dist: paramiko>=4.0.0
@@ -120,6 +119,13 @@ Requires-Dist: azure-identity==1.20.0
 Requires-Dist: microsoft-kiota-authentication-azure==1.9.6
 Requires-Dist: msgraph-sdk==1.22.0
 Requires-Dist: zendriver>=0.15.2
+Requires-Dist: pyarrow>=14.0
+Provides-Extra: docker
+Requires-Dist: aiodocker>=0.21.0; extra == "docker"
+Provides-Extra: k8s
+Requires-Dist: kr8s>=0.16.0; extra == "k8s"
+Provides-Extra: git
+Requires-Dist: gitpython>=3.1.50; extra == "git"
 Provides-Extra: ai
 Requires-Dist: ai-parrot[agents,embeddings,images,integrations,llms,scheduler]>=0.20.4; extra == "ai"
 Requires-Dist: ai-parrot-loaders[audio,document,ebook,ml,pdf,scraping,video,web,youtube]>=0.1.0; extra == "ai"
@@ -132,6 +138,7 @@ Requires-Dist: pytest-asyncio==0.23.8; extra == "dev"
 Requires-Dist: pytest-xdist==3.3.1; extra == "dev"
 Requires-Dist: pytest-assume==2.4.3; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
+Requires-Dist: aioresponses>=0.7.8; extra == "dev"
 Dynamic: license-file
 
 # FlowTask #

@@ -8444,6 +8444,7 @@ components:
         - google_cloud
         - google_drive
         - aws
+        - aws_role
     SignOnMode:
       type: string
       enum:
@@ -8571,7 +8572,7 @@ components:
         target_account_id:
           type: string
           description: The unique identifier for the account in the third-party system that should be transferred to
-          x-semantic: account-id
+          x-semantic: auxiliary-account-id
       description: Request payload for transferring data between accounts
       x-capability-level: write
     TransferDataResponse:

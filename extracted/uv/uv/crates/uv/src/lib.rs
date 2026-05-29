@@ -11,7 +11,6 @@ use std::process::ExitCode;
 use std::str::FromStr;
 use std::sync::atomic::Ordering;
 
-use anstream::eprintln;
 use anyhow::{Result, anyhow, bail};
 use clap::error::{ContextKind, ContextValue};
 use clap::{CommandFactory, Parser};
@@ -1284,6 +1283,13 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.allow_existing,
                 args.clear,
                 args.no_clear,
+                if args.force {
+                    uv_virtualenv::ClearNonVirtualenv::Allow
+                } else if globals.preview.is_enabled(PreviewFeature::VenvSafeClear) {
+                    uv_virtualenv::ClearNonVirtualenv::Error
+                } else {
+                    uv_virtualenv::ClearNonVirtualenv::Warn
+                },
             );
 
             Box::pin(commands::venv(
@@ -1954,8 +1960,10 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                     args.frozen,
                     args.dry_run,
                     args.refresh,
+                    args.sync,
                     args.python,
                     args.install_mirrors,
+                    args.malware_settings,
                     args.settings,
                     client_builder.subcommand(vec!["workspace".to_owned(), "metadata".to_owned()]),
                     globals.python_preference,
@@ -2839,21 +2847,12 @@ where
         Err(err) => {
             trace!("Error trace: {err:?}");
 
-            // Collect hints before rendering the error chain.
             let hints = commands::diagnostics::hints_for_error(&err);
-
-            let mut causes = err.chain();
-            eprintln!(
-                "{}: {}",
-                "error".red().bold(),
-                causes.next().unwrap().to_string().trim()
-            );
-            for err in causes {
-                eprintln!("  {}: {}", "Caused by".red().bold(), err.to_string().trim());
-            }
-
-            // Render hints after the error chain.
-            anstream::eprint!("{hints}");
+            uv_errors::write_error_chain_with_options(
+                err.as_ref(),
+                uv_errors::ErrorOptions::default().with_hints(hints),
+            )
+            .expect("writing to stderr should not fail");
 
             ExitStatus::Error.into()
         }

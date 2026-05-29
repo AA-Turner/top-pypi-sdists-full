@@ -14,7 +14,7 @@ from ...exceptions import ComponentError
 from ...parsers.maps import open_map, open_model
 from ..TransformRows import functions as tfunctions
 from ...utils.executor import getFunction
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from . import functions as tmapfn
 
 

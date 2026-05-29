@@ -11,7 +11,7 @@
 # under the License.
 
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 from openstack import exceptions
 from openstack.orchestration.util import template_utils
@@ -75,15 +75,14 @@ class Proxy(proxy.Proxy):
         """Read templates and environment content and prepares
         corresponding stack attributes
 
-        :param string template_file: Path to the template.
-        :param string template_url: URL of template.
-        :param string template_object: URL to retrieve template object.
-        :param dict files: dict of additional file content to include.
+        :param template_file: Path to the template.
+        :param template_url: URL of template.
+        :param template_object: URL to retrieve template object.
+        :param files: Dict of additional file content to include.
         :param environment_files: Paths to environment files to apply.
 
         :returns: Attributes dict to be set on the
             :class:`~openstack.orchestration.v1.stack.Stack`
-        :rtype: dict
         """
         stack_attrs = dict()
         envfiles = dict()
@@ -115,15 +114,14 @@ class Proxy(proxy.Proxy):
     ) -> _stack.Stack:
         """Create a new stack from attributes
 
-        :param bool preview: When ``True``, a preview endpoint will be used to
+        :param preview: When ``True``, a preview endpoint will be used to
             verify the template
             *Default: ``False``*
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.orchestration.v1.stack.Stack`,
             comprised of the properties on the Stack class.
 
         :returns: The results of stack creation
-        :rtype: :class:`~openstack.orchestration.v1.stack.Stack`
         """
 
         base_path = None if not preview else '/stacks/preview'
@@ -154,7 +152,7 @@ class Proxy(proxy.Proxy):
         """Find a single stack
 
         :param name_or_id: The name or ID of a stack.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -168,18 +166,21 @@ class Proxy(proxy.Proxy):
             resolve_outputs=resolve_outputs,
         )
 
-    def stacks(self, **query):
+    def stacks(self, **query: Any) -> Generator[_stack.Stack, None, None]:
         """Return a generator of stacks
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of stack objects
-        :rtype: :class:`~openstack.orchestration.v1.stack.Stack`
         """
         return self._list(_stack.Stack, **query)
 
-    def get_stack(self, stack, resolve_outputs=True):
+    def get_stack(
+        self,
+        stack: str | _stack.Stack,
+        resolve_outputs: bool = True,
+    ) -> _stack.Stack:
         """Get a single stack
 
         :param stack: The value can be the ID of a stack or a
@@ -192,29 +193,32 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_stack.Stack, stack, resolve_outputs=resolve_outputs)
 
-    def update_stack(self, stack, *, preview=False, **attrs):
+    def update_stack(
+        self, stack: str | _stack.Stack, *, preview: bool = False, **attrs: Any
+    ) -> _stack.Stack:
         """Update a stack
 
         :param stack: The value can be the ID of a stack or a
             :class:`~openstack.orchestration.v1.stack.Stack` instance.
-        :param kwargs attrs: The attributes to update on the stack
+        :param attrs: The attributes to update on the stack
             represented by ``value``.
 
         :returns: The updated stack
-        :rtype: :class:`~openstack.orchestration.v1.stack.Stack`
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
         res = self._get_resource(_stack.Stack, stack, **attrs)
         return res.commit(self, preview)
 
-    def delete_stack(self, stack, ignore_missing=True):
+    def delete_stack(
+        self, stack: str | _stack.Stack, ignore_missing: bool = True
+    ) -> None:
         """Delete a stack
 
         :param stack: The value can be either the ID of a stack or a
             :class:`~openstack.orchestration.v1.stack.Stack`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the stack does not exist.
             When set to ``True``, no exception will be set when
@@ -286,7 +290,9 @@ class Proxy(proxy.Proxy):
         res = self._get_resource(_stack.Stack, stack)
         res.resume(self)
 
-    def get_stack_template(self, stack):
+    def get_stack_template(
+        self, stack: str | _stack.Stack
+    ) -> _stack_template.StackTemplate:
         """Get template used by a stack
 
         :param stack: The value can be the ID of a stack or an instance of
@@ -309,7 +315,9 @@ class Proxy(proxy.Proxy):
             stack_id=obj.id,
         )
 
-    def get_stack_environment(self, stack):
+    def get_stack_environment(
+        self, stack: str | _stack.Stack
+    ) -> _stack_environment.StackEnvironment:
         """Get environment used by a stack
 
         :param stack: The value can be the ID of a stack or an instance of
@@ -332,7 +340,7 @@ class Proxy(proxy.Proxy):
             stack_id=obj.id,
         )
 
-    def get_stack_files(self, stack):
+    def get_stack_files(self, stack: str | _stack.Stack) -> dict[str, Any]:
         """Get files used by a stack
 
         :param stack: The value can be the ID of a stack or an instance of
@@ -351,18 +359,21 @@ class Proxy(proxy.Proxy):
         obj = _stack_files.StackFiles(stack_name=stk.name, stack_id=stk.id)
         return obj.fetch(self)
 
-    def resources(self, stack, **query):
+    def resources(
+        self,
+        stack: str | _stack.Stack,
+        **query: Any,
+    ) -> Generator[_resource.Resource, None, None]:
         """Return a generator of resources
 
         :param stack: This can be a stack object, or the name of a stack
             for which the resources are to be listed.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of resource objects if the stack exists and
             there are resources in it. If the stack cannot be found,
             an exception is thrown.
-        :rtype: A generator of
             :class:`~openstack.orchestration.v1.resource.Resource`
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when the stack cannot be found.
@@ -380,28 +391,31 @@ class Proxy(proxy.Proxy):
     def create_software_config(self, **attrs: Any) -> _sc.SoftwareConfig:
         """Create a new software config from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.orchestration.v1.software_config.SoftwareConfig`,
             comprised of the properties on the SoftwareConfig class.
 
         :returns: The results of software config creation
-        :rtype:
             :class:`~openstack.orchestration.v1.software_config.SoftwareConfig`
         """
         return self._create(_sc.SoftwareConfig, **attrs)
 
-    def software_configs(self, **query):
+    def software_configs(
+        self,
+        **query: Any,
+    ) -> Generator[_sc.SoftwareConfig, None, None]:
         """Returns a generator of software configs
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             software configs returned.
         :returns: A generator of software config objects.
-        :rtype:
             :class:`~openstack.orchestration.v1.software_config.SoftwareConfig`
         """
         return self._list(_sc.SoftwareConfig, **query)
 
-    def get_software_config(self, software_config):
+    def get_software_config(
+        self, software_config: str | _sc.SoftwareConfig
+    ) -> _sc.SoftwareConfig:
         """Get details about a specific software config.
 
         :param software_config: The value can be the ID of a software config
@@ -413,13 +427,17 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_sc.SoftwareConfig, software_config)
 
-    def delete_software_config(self, software_config, ignore_missing=True):
+    def delete_software_config(
+        self,
+        software_config: str | _sc.SoftwareConfig,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a software config
 
         :param software_config: The value can be either the ID of a software
             config or an instance of
             :class:`~openstack.orchestration.v1.software_config.SoftwareConfig`
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the software config does not exist.
             When set to ``True``, no exception will be set when
@@ -435,28 +453,30 @@ class Proxy(proxy.Proxy):
     ) -> _sd.SoftwareDeployment:
         """Create a new software deployment from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.orchestration.v1.software_deployment.SoftwareDeployment`,
             comprised of the properties on the SoftwareDeployment class.
 
         :returns: The results of software deployment creation
-        :rtype:
-            :class:`~openstack.orchestration.v1.software_deployment.SoftwareDeployment`
         """
         return self._create(_sd.SoftwareDeployment, **attrs)
 
-    def software_deployments(self, **query):
+    def software_deployments(
+        self,
+        **query: Any,
+    ) -> Generator[_sd.SoftwareDeployment, None, None]:
         """Returns a generator of software deployments
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             software deployments returned.
         :returns: A generator of software deployment objects.
-        :rtype:
             :class:`~openstack.orchestration.v1.software_deployment.SoftwareDeployment`
         """
         return self._list(_sd.SoftwareDeployment, **query)
 
-    def get_software_deployment(self, software_deployment):
+    def get_software_deployment(
+        self, software_deployment: str | _sd.SoftwareDeployment
+    ) -> _sd.SoftwareDeployment:
         """Get details about a specific software deployment resource
 
         :param software_deployment: The value can be the ID of a software
@@ -469,14 +489,16 @@ class Proxy(proxy.Proxy):
         return self._get(_sd.SoftwareDeployment, software_deployment)
 
     def delete_software_deployment(
-        self, software_deployment, ignore_missing=True
-    ):
+        self,
+        software_deployment: str | _sd.SoftwareDeployment,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a software deployment
 
         :param software_deployment: The value can be either the ID of a
             software deployment or an instance of
             :class:`~openstack.orchestration.v1.software_deployment.SoftwareDeployment`
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the software deployment does not exist.
             When set to ``True``, no exception will be set when
@@ -489,17 +511,17 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def update_software_deployment(self, software_deployment, **attrs):
+    def update_software_deployment(
+        self, software_deployment: str | _sd.SoftwareDeployment, **attrs: Any
+    ) -> _sd.SoftwareDeployment:
         """Update a software deployment
 
         :param server: Either the ID of a software deployment or an instance of
             :class:`~openstack.orchestration.v1.software_deployment.SoftwareDeployment`
-        :param dict attrs: The attributes to update on the software deployment
+        :param attrs: The attributes to update on the software deployment
             represented by ``software_deployment``.
 
         :returns: The updated software deployment
-        :rtype:
-            :class:`~openstack.orchestration.v1.software_deployment.SoftwareDeployment`
         """
         return self._update(
             _sd.SoftwareDeployment, software_deployment, **attrs
@@ -543,11 +565,11 @@ class Proxy(proxy.Proxy):
 
     def get_template_contents(
         self,
-        template_file=None,
-        template_url=None,
-        template_object=None,
-        files=None,
-    ):
+        template_file: str | None = None,
+        template_url: str | None = None,
+        template_object: str | None = None,
+        files: dict[str, Any] | None = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         try:
             return template_utils.get_template_contents(
                 template_file=template_file,
@@ -562,7 +584,12 @@ class Proxy(proxy.Proxy):
 
     # ========== Stack events ==========
 
-    def stack_events(self, stack, resource_name=None, **attr):
+    def stack_events(
+        self,
+        stack: str | _stack.Stack,
+        resource_name: str | None = None,
+        **attr: Any,
+    ) -> Generator[_stack_event.StackEvent, None, None]:
         """Get a stack events
 
         :param stack: The value can be the ID of a stack or an instance of
@@ -571,7 +598,6 @@ class Proxy(proxy.Proxy):
             None, the base_path changes.
 
         :returns: A generator of stack_events objects
-        :rtype: :class:`~openstack.orchestration.v1.stack_event.StackEvent`
         """
 
         if isinstance(stack, _stack.Stack):
@@ -628,7 +654,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -643,8 +669,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

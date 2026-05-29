@@ -24,7 +24,7 @@ import lxml.etree as ET
 
 from .attachment import AttachmentCatalog, EmbeddedFileData, ImageData, attachment_name
 from .coalesce import coalesce_dataclass
-from .collection import ConfluencePageCollection
+from .collection import ConfluencePageCollection, ConfluenceUserCollection
 from .compatibility import override, path_relative_to
 from .csf import AC_ATTR, AC_ELEM, HTML, RI_ATTR, RI_ELEM, ElementType, ParseError, elements_from_strings, elements_to_string, normalize_inline
 from .drawio.extension import DrawioExtension
@@ -349,6 +349,16 @@ def child_count(node: ElementType) -> int:
     return len(node) - sum(1 for _ in node.iterchildren("line-number"))
 
 
+def has_meaningful_content(node: ElementType) -> bool:
+    """
+    True if an element contains visible non-whitespace text or an image.
+
+    Images are treated as visible content even if they lack alt text or title.
+    """
+
+    return any(text and not text.isspace() for text in node.itertext(with_tail=False)) or any(True for _ in node.iterchildren("img"))
+
+
 def is_top_level(node: ElementType) -> bool:
     "True if the element is a top-level element, i.e. it is not nested within another element except the root."
 
@@ -485,6 +495,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
     attachments: AttachmentCatalog
     site_metadata: ConfluenceSiteMetadata
     page_metadata: ConfluencePageCollection
+    user_metadata: ConfluenceUserCollection
 
     image_generator: ImageGenerator
     extensions: Sequence[MarketplaceExtension]
@@ -496,6 +507,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         root_dir: Path,
         site_metadata: ConfluenceSiteMetadata,
         page_metadata: ConfluencePageCollection,
+        user_metadata: ConfluenceUserCollection,
     ) -> None:
         super().__init__()
 
@@ -511,6 +523,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         self.attachments = AttachmentCatalog()
         self.site_metadata = site_metadata
         self.page_metadata = page_metadata
+        self.user_metadata = user_metadata
 
         self.image_generator = ImageGenerator(
             self.base_dir,
@@ -604,7 +617,15 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         anchor.attrib.pop("title", None)
 
         url = anchor.get("href")
-        if url is None or is_absolute_url(url):
+        if url is None:
+            return None
+
+        if url.startswith("mailto:"):
+            link_mention = self._transform_mention(url)
+            if link_mention is not None:
+                return link_mention
+
+        if is_absolute_url(url):
             return None
 
         LOGGER.debug("Found link %s relative to %s", url, self.path)
@@ -745,10 +766,29 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         anchor = paragraph[0]
         url = anchor.get("href")
-        if url is not None and is_absolute_url(url):
-            return HTML("a", {"href": url, "data-card-appearance": "block"}, anchor.text or url)
-        else:
+        if url is None:
             return None
+
+        if url.startswith("mailto:"):
+            link_mention = self._transform_mention(url)
+            if link_mention is not None:
+                return link_mention
+
+        if is_absolute_url(url):
+            return HTML("a", {"href": url, "data-card-appearance": "block"}, anchor.text or url)
+
+        return None
+
+    def _transform_mention(self, url: str) -> ElementType | None:
+        "Inserts a user mention."
+
+        if url.startswith("mailto:"):
+            email = url[len("mailto:") :]
+            account_id = self.user_metadata.get(email)
+            if account_id is not None:
+                # <ac:link><ri:user ri:account-id="012345:6789abcd-ef01-2345-6789-abcdef012345" /></ac:link>
+                return AC_ELEM("link", {}, RI_ELEM("user", {RI_ATTR("account-id"): account_id}))
+        return None
 
     def _transform_image(self, context: FormattingContext, image: ElementType) -> ElementType:
         "Inserts an attached or external image."
@@ -1697,7 +1737,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                 # remove <thead> if it doesn't contain any text
                 for thead in list(child.iterchildren("thead")):
                     for th in thead.iterdescendants("td", "th"):
-                        if any(text and not text.isspace() for text in th.itertext()):
+                        if has_meaningful_content(th):
                             break
                     else:
                         child.remove(thead)
@@ -1706,8 +1746,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                 for tr in child.iterdescendants("tr"):
                     if len(tr) < 2:
                         break
-                    column_text = tr[1].text
-                    if column_text and not column_text.isspace():
+                    if has_meaningful_content(tr[1]):
                         break
                 else:
                     for tr in child.iterdescendants("tr"):
@@ -1817,6 +1856,7 @@ class ConfluenceDocument:
         root_dir: Path,
         site_metadata: ConfluenceSiteMetadata,
         page_metadata: ConfluencePageCollection,
+        user_metadata: ConfluenceUserCollection,
     ) -> tuple[ConfluencePageID, "ConfluenceDocument"]:
         path = path.resolve(True)
 
@@ -1833,7 +1873,7 @@ class ConfluenceDocument:
             else:
                 raise PageError("missing Confluence page ID")
 
-        return page_id, ConfluenceDocument(path, document, options, root_dir, site_metadata, page_metadata)
+        return page_id, ConfluenceDocument(path, document, options, root_dir, site_metadata, page_metadata, user_metadata)
 
     def __init__(
         self,
@@ -1843,6 +1883,7 @@ class ConfluenceDocument:
         root_dir: Path,
         site_metadata: ConfluenceSiteMetadata,
         page_metadata: ConfluencePageCollection,
+        user_metadata: ConfluenceUserCollection,
     ) -> None:
         "Converts a single Markdown document to Confluence Storage Format."
 
@@ -1897,7 +1938,7 @@ class ConfluenceDocument:
         converter_options = copy.deepcopy(self.options.converter)
         if props.layout is not None:
             converter_options.layout = coalesce_dataclass(props.layout, converter_options.layout)
-        converter = ConfluenceStorageFormatConverter(converter_options, path, root_dir, site_metadata, page_metadata)
+        converter = ConfluenceStorageFormatConverter(converter_options, path, root_dir, site_metadata, page_metadata, user_metadata)
 
         # execute HTML-to-Confluence converter
         try:

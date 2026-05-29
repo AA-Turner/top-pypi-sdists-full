@@ -195,10 +195,18 @@ Note: Only Linux-based distros supported as "Production" execution environment f
 
 macOS
 -----
- 1. Due to limitations in Apple's libraries not every process might 'fork' safe.
-    One of the general error is unable to query the macOS system configuration for network proxies.
-    If your are not using a proxy you could disable it by set environment variable 'no_proxy' to '*'.
-    See: https://github.com/python/cpython/issues/58037 and https://bugs.python.org/issue30385#msg293958
+ Apple's Objective-C runtime and system frameworks (Security.framework,
+ CoreFoundation, libdispatch) are not safe to use after fork() without exec().
+ Airflow's task supervisor uses fork+exec on macOS to avoid this, but other
+ code paths (DAG processor, triggerer) still use bare fork.  If you see
+ crashes mentioning "+[NSNumber initialize]" or "_scproxy", the most likely
+ cause is a bare fork touching Apple frameworks.
+
+ Common triggers: socket.getaddrinfo (DNS resolver), urllib proxy lookup,
+ SSL context initialization via Security.framework.
+
+ See: https://github.com/python/cpython/issues/105912
+      https://github.com/python/cpython/issues/58037
 ********************************************************************************************************"""
 
 
@@ -441,6 +449,55 @@ def _fork_main(
             exit(125)
 
 
+_FORK_EXEC_PLATFORMS = {"darwin"}
+"""Platforms where we fork+exec instead of bare ``os.fork`` for task execution.
+
+macOS system libraries (Security.framework, CoreFoundation, ``_scproxy``) use
+Objective-C, which is not fork-safe.  A bare ``os.fork()`` copies the parent's
+ObjC runtime state; if the child then triggers ObjC class initialization
+(e.g. via ``socket.getaddrinfo`` -> system DNS resolver -> proxy lookup), the
+runtime detects the corrupted state and crashes with SIGABRT.
+
+Calling ``os.execv`` immediately after ``os.fork`` replaces the child's address
+space, giving it clean ObjC state.  Before exec, the supervisor ``dup2``s the
+socketpairs onto FDs 0 (requests/stdin), 1 (stdout), 2 (stderr).  The duplicated
+FDs survive the upcoming exec because ``os.dup2(inheritable=True)`` (the default)
+clears ``FD_CLOEXEC`` on the destination FDs.  The log channel is obtained after
+startup via the existing ``ResendLoggingFD`` mechanism.
+
+Currently only task execution opts in (via ``ActivitySubprocess.start``).  DAG
+processor and triggerer can also hit this crash and will need the same treatment
+as a follow-up (see https://github.com/apache/airflow/issues/65691).
+
+See: https://github.com/python/cpython/issues/105912
+     https://github.com/apache/airflow/discussions/24463
+"""
+
+
+def _child_exec_main():
+    """
+    Entry point for the child process when using fork+exec (macOS).
+
+    After exec, FDs 0/1/2 are already the requests/stdout/stderr sockets
+    (dup2'd by the parent before exec).  The log channel is NOT inherited;
+    instead, the task runner requests it from the supervisor via the existing
+    ``ResendLoggingFD`` mechanism after startup.
+    """
+    # FDs 0, 1, 2 were dup2'd onto the socketpairs before exec.
+    child_requests = socket(fileno=0)
+    child_stdout = socket(fileno=1)
+    child_stderr = socket(fileno=2)
+
+    # _fork_main always exits via os._exit(), so the socket objects above are
+    # never GC'd (which would close their underlying FDs). This is safe but
+    # depends on that invariant -- do not refactor _fork_main to return.
+    #
+    # log_fd=0 tells _fork_main to skip structured log channel setup.
+    # Signal to the task runner to request it via ResendLoggingFD after startup.
+    os.environ["_AIRFLOW_FORK_EXEC"] = "1"
+    _fork_main(child_requests, child_stdout, child_stderr, 0, _subprocess_main)
+
+
 @attrs.define(kw_only=True)
 class WatchedSubprocess:
     """
@@ -488,9 +545,24 @@ class WatchedSubprocess:
         *,
         target: Callable[[], None] = _subprocess_main,
         logger: FilteringBoundLogger | None = None,
+        use_exec: bool = False,
         **constructor_kwargs,
     ) -> Self:
-        """Fork and start a new subprocess with the specified target function."""
+        """
+        Fork and start a new subprocess with the specified target function.
+
+        :param use_exec: If True, on platforms that need it (currently macOS),
+            immediately ``os.execv`` a fresh Python interpreter after ``os.fork``.
+            This avoids macOS fork-safety issues with Objective-C frameworks.
+            Task execution opts in; DAG processor and triggerer do not.
+
+        The exec'd child always runs ``_subprocess_main``, so ``use_exec=True``
+        is only valid when ``target is _subprocess_main``.
+        """
+        if use_exec and target is not _subprocess_main:
+            raise ValueError(
+                f"use_exec=True is only supported with target=_subprocess_main; got target={target!r}"
+            )
         # Create socketpairs/"pipes" to connect to the stdin and out from the subprocess
         child_stdout, read_stdout = socketpair()
         child_stderr, read_stderr = socketpair()
@@ -512,14 +584,34 @@ class WatchedSubprocess:
             del logger
 
             try:
-                # Run the child entrypoint
-                _fork_main(child_requests, child_stdout, child_stderr, child_logs.fileno(), target)
+                if use_exec:
+                    # macOS: exec a fresh Python interpreter to replace the
+                    # inherited ObjC/CoreFoundation state that is not fork-safe.
+                    # dup2 copies the socketpairs onto FDs 0/1/2; os.dup2 clears
+                    # FD_CLOEXEC on the destination FDs, so they survive exec.
+                    # The log channel is requested later via ResendLoggingFD.
+                    os.dup2(child_requests.fileno(), 0)
+                    os.dup2(child_stdout.fileno(), 1)
+                    os.dup2(child_stderr.fileno(), 2)
+                    os.execv(
+                        sys.executable,
+                        [
+                            sys.executable,
+                            "-c",
+                            "from airflow.sdk.execution_time.supervisor import _child_exec_main;"
+                            " _child_exec_main()",
+                        ],
+                    )
+                    # execv replaces the process -- unreachable on success
+                else:
+                    # Run the child entrypoint
+                    _fork_main(child_requests, child_stdout, child_stderr, child_logs.fileno(), target)
             except BaseException as e:
                 import traceback
 
                 with suppress(BaseException):
-                    # We can't use log here, as if we except out of _fork_main something _weird_ went on.
-                    print("Exception in _fork_main, exiting with code 124", file=sys.stderr)
+                    # We can't use log here, as if we except out of the child something _weird_ went on.
+                    print("Exception in child process, exiting with code 124", file=sys.stderr)
                     traceback.print_exception(type(e), e, e.__traceback__, file=sys.stderr)
 
             # It's really super super important we never exit this block. We are in the forked child, and if we
@@ -566,10 +658,7 @@ class WatchedSubprocess:
             )
         )
 
-        target_loggers: tuple[FilteringBoundLogger, ...] = (self.process_log,)
-
-        if self.subprocess_logs_to_stdout:
-            target_loggers += (log,)
+        target_loggers = self._get_target_loggers()
 
         self.selector.register(
             stdout, selectors.EVENT_READ, self._create_log_forwarder(target_loggers, "task.stdout")
@@ -591,6 +680,13 @@ class WatchedSubprocess:
             selectors.EVENT_READ,
             length_prefixed_frame_reader(self.handle_requests(log), on_close=self._on_socket_closed),
         )
+
+    def _get_target_loggers(self) -> tuple[FilteringBoundLogger, ...]:
+        """Return the loggers that child process output should be forwarded to."""
+        target_loggers: tuple[FilteringBoundLogger, ...] = (self.process_log,)
+        if self.subprocess_logs_to_stdout:
+            target_loggers += (log,)
+        return target_loggers
 
     def _create_log_forwarder(self, loggers, name, log_level=logging.INFO) -> Callable[[socket], bool]:
         """Create a socket handler that forwards logs to a logger."""
@@ -664,6 +760,28 @@ class WatchedSubprocess:
                     ),
                     request_id=request.id,
                 )
+            except Exception as e:
+                # Generic exception handling so a transient network error (httpx.ConnectError /
+                # httpx.TimeoutException) or any other exception
+                # doesn't crash this generator and crash the IPC communication between supervisor and task.
+                log.exception(
+                    "Unhandled exception while handling task request",
+                    request_id=request.id,
+                    exc_info=e,
+                )
+                with suppress(Exception):
+                    self.send_msg(
+                        msg=None,
+                        error=ErrorResponse(
+                            error=ErrorType.API_SERVER_ERROR,
+                            detail={
+                                "status_code": None,
+                                "message": str(e),
+                                "exception_type": type(e).__name__,
+                            },
+                        ),
+                        request_id=request.id,
+                    )
 
     def _handle_request(self, msg, log: FilteringBoundLogger, req_id: int) -> None:
         raise NotImplementedError()
@@ -691,6 +809,7 @@ class WatchedSubprocess:
         if stuck_sockets:
             log.warning("Force-closed stuck sockets", pid=self.pid, sockets=stuck_sockets)
 
+        self._open_sockets.clear()
         self.selector.close()
         self.stdin.close()
 
@@ -970,6 +1089,18 @@ class ActivitySubprocess(WatchedSubprocess):
 
     _terminal_state: str | None = attrs.field(default=None, init=False)
     _final_state: str | None = attrs.field(default=None, init=False)
+    # The terminal-state message currently being processed by `_handle_request`,
+    # captured BEFORE the dedicated API call (succeed / retry / defer /
+    # reschedule). If the API call raises (network blip, server 5xx, etc.),
+    # this attribute stays set and the dispatcher in
+    # `update_task_state_if_needed` re-issues the matching API call on
+    # subprocess exit — re-attempting the original transition rather than
+    # falling back to `finish()`, which doesn't accept SUCCESS / DEFERRED /
+    # SERVER_TERMINATED on the server side. Cleared (and `_terminal_state`
+    # set) only after the API call returns successfully.
+    _pending_terminal_state_msg: SucceedTask | RetryTask | DeferTask | RescheduleTask | None = attrs.field(
+        default=None, init=False
+    )
 
     _last_successful_heartbeat: float = attrs.field(default=0, init=False)
     _last_heartbeat_attempt: float = attrs.field(default=0, init=False)
@@ -1003,7 +1134,13 @@ class ActivitySubprocess(WatchedSubprocess):
         **kwargs,
     ) -> Self:
         """Fork and start a new subprocess to execute the given task."""
-        proc: Self = super().start(id=what.id, client=client, target=target, logger=logger, **kwargs)
+        # Opt in to fork+exec on platforms that need it (currently macOS).
+        # Tests override `target` with a local stub to exercise the base
+        # infrastructure; keep bare fork for those.
+        use_exec = target is _subprocess_main and sys.platform in _FORK_EXEC_PLATFORMS
+        proc: Self = super().start(
+            id=what.id, client=client, target=target, logger=logger, use_exec=use_exec, **kwargs
+        )
         # Tell the task process what it needs to do!
         proc._on_child_started(
             ti=what,
@@ -1023,18 +1160,23 @@ class ActivitySubprocess(WatchedSubprocess):
     ) -> None:
         """Send startup message to the subprocess."""
         self.ti = ti  # type: ignore[assignment]
-        start_date = datetime.now(tz=timezone.utc)
         try:
             # We've forked, but the task won't start doing anything until we send it the StartupDetails
             # message. But before we do that, we need to tell the server it's started (so it has the chance to
             # tell us "no, stop!" for any reason)
-            ti_context = self.client.task_instances.start(ti.id, self.pid, start_date)
+            ti_context = self.client.task_instances.start(ti.id, self.pid, datetime.now(tz=timezone.utc))
             self._should_retry = ti_context.should_retry
             self._last_successful_heartbeat = time.monotonic()
         except Exception:
             # On any error kill that subprocess!
             self.kill(signal.SIGKILL)
             raise
+
+        # ti_context.start_date is only populated by the server when resuming from a deferral (to preserve the
+        # original start_date rather than using the resume time). We fall back to now() otherwise. This ensures
+        # that `context["ti"].start_date` always reflects the *first* start time. See TIRunContext.start_date
+        # for more context. Do not remove this without updating related comments and deferral handling.
+        start_date = ti_context.start_date or datetime.now(tz=timezone.utc)
 
         msg = StartupDetails.model_construct(
             ti=ti,
@@ -1076,16 +1218,79 @@ class ActivitySubprocess(WatchedSubprocess):
         return self._exit_code
 
     def update_task_state_if_needed(self):
-        # If the process has finished non-directly patched state (directly means deferred, reschedule, etc.),
-        # update the state of the TaskInstance to reflect the final state of the process.
-        # For states like `deferred`, `up_for_reschedule`, the process will exit with 0, but the state will be updated
-        # by the subprocess in the `handle_requests` method.
+        # If a direct-state API call (succeed / retry / defer / reschedule)
+        # was attempted but raised, `_pending_terminal_state_msg` still holds
+        # the original request. Re-issue the matching dedicated API call so
+        # the server learns the terminal state we couldn't deliver earlier.
+        # Without this recovery, a transient API failure during the direct
+        # call would leave the TI stuck RUNNING on the server — `finish()`
+        # cannot substitute because the server-side `finish` endpoint does
+        # not accept SUCCESS / DEFERRED / SERVER_TERMINATED transitions.
+        if self._pending_terminal_state_msg is not None:
+            self._replay_pending_terminal_state_msg()
+            return
+
+        # If the process has finished a non-directly-patched state (e.g.
+        # FAILED, UP_FOR_RETRY without RetryTask), `finish()` is the
+        # dedicated endpoint for those transitions. For states already in
+        # STATES_SENT_DIRECTLY whose direct API call succeeded, no further
+        # action is needed.
         if self.final_state not in STATES_SENT_DIRECTLY:
             self.client.task_instances.finish(
                 id=self.id,
                 state=self.final_state,
                 when=datetime.now(tz=timezone.utc),
                 rendered_map_index=self._rendered_map_index,
+            )
+
+    def _send_terminal_state_msg(self, msg: SucceedTask | RetryTask | DeferTask | RescheduleTask) -> None:
+        # Capture the message BEFORE the API call so the recovery dispatcher
+        # in `update_task_state_if_needed` can re-issue it if the call raises
+        # (network blip, transient server 5xx). Clear the pending slot and
+        # record the resulting state only after the call returns successfully.
+        self._pending_terminal_state_msg = msg
+        if isinstance(msg, SucceedTask):
+            self.client.task_instances.succeed(
+                id=self.id,
+                when=msg.end_date,
+                task_outlets=msg.task_outlets,
+                outlet_events=msg.outlet_events,
+                rendered_map_index=self._rendered_map_index,
+            )
+            self._terminal_state = msg.state
+        elif isinstance(msg, RetryTask):
+            self.client.task_instances.retry(
+                id=self.id,
+                end_date=msg.end_date,
+                rendered_map_index=self._rendered_map_index,
+            )
+            self._terminal_state = msg.state
+        elif isinstance(msg, DeferTask):
+            self.client.task_instances.defer(self.id, msg)
+            self._terminal_state = TaskInstanceState.DEFERRED
+        elif isinstance(msg, RescheduleTask):
+            self.client.task_instances.reschedule(self.id, msg)
+            self._terminal_state = TaskInstanceState.UP_FOR_RESCHEDULE
+        self._pending_terminal_state_msg = None
+
+    def _replay_pending_terminal_state_msg(self) -> None:
+        """
+        Re-issue the dedicated API call for an unsynced terminal-state msg.
+
+        Best-effort — if the second attempt also fails the exception is
+        logged and we move on; the supervisor's overall failure handling
+        (heartbeat, exit-code reporting) will eventually surface the issue.
+        """
+        msg = self._pending_terminal_state_msg
+        if msg is None:
+            return
+        try:
+            self._send_terminal_state_msg(msg)
+        except Exception:
+            log.exception(
+                "Recovery retry of terminal-state API call failed; TI may be stuck on the server",
+                ti_id=self.id,
+                msg_type=type(msg).__name__,
             )
 
     def _upload_logs(self):
@@ -1097,8 +1302,11 @@ class ActivitySubprocess(WatchedSubprocess):
         """
         from airflow.sdk.log import upload_to_remote
 
-        with _remote_logging_conn(self.client):
-            upload_to_remote(self.process_log, self.ti)
+        try:
+            with _remote_logging_conn(self.client):
+                upload_to_remote(self.process_log, self.ti)
+        except Exception:
+            self.process_log.exception("Failed to upload remote logs", ti_id=self.id, pid=self.pid)
 
     def _monitor_subprocess(self):
         """
@@ -1139,6 +1347,7 @@ class ActivitySubprocess(WatchedSubprocess):
                         timeout_seconds=SOCKET_CLEANUP_TIMEOUT,
                     )
                     self._cleanup_open_sockets()
+                    break
 
             if alive:
                 # We don't need to heartbeat if the process has shutdown, as we are just finishing of reading the
@@ -1255,29 +1464,20 @@ class ActivitySubprocess(WatchedSubprocess):
         resp: BaseModel | None = None
         dump_opts = {}
         if isinstance(msg, TaskState):
+            # No direct API call here — the recovery path in
+            # `update_task_state_if_needed` will call `finish()` for
+            # non-direct states (FAILED, etc.) once the subprocess exits.
             self._terminal_state = msg.state
             self._task_end_time_monotonic = time.monotonic()
             self._rendered_map_index = msg.rendered_map_index
         elif isinstance(msg, SucceedTask):
-            self._terminal_state = msg.state
             self._task_end_time_monotonic = time.monotonic()
             self._rendered_map_index = msg.rendered_map_index
-            self.client.task_instances.succeed(
-                id=self.id,
-                when=msg.end_date,
-                task_outlets=msg.task_outlets,
-                outlet_events=msg.outlet_events,
-                rendered_map_index=self._rendered_map_index,
-            )
+            self._send_terminal_state_msg(msg)
         elif isinstance(msg, RetryTask):
-            self._terminal_state = msg.state
             self._task_end_time_monotonic = time.monotonic()
             self._rendered_map_index = msg.rendered_map_index
-            self.client.task_instances.retry(
-                id=self.id,
-                end_date=msg.end_date,
-                rendered_map_index=self._rendered_map_index,
-            )
+            self._send_terminal_state_msg(msg)
         elif isinstance(msg, GetConnection):
             conn = self.client.connections.get(msg.conn_id)
             if isinstance(conn, ConnectionResponse):
@@ -1329,12 +1529,10 @@ class ActivitySubprocess(WatchedSubprocess):
             )
             resp = XComSequenceSliceResult.from_response(xcoms)
         elif isinstance(msg, DeferTask):
-            self._terminal_state = TaskInstanceState.DEFERRED
             self._rendered_map_index = msg.rendered_map_index
-            self.client.task_instances.defer(self.id, msg)
+            self._send_terminal_state_msg(msg)
         elif isinstance(msg, RescheduleTask):
-            self._terminal_state = TaskInstanceState.UP_FOR_RESCHEDULE
-            self.client.task_instances.reschedule(self.id, msg)
+            self._send_terminal_state_msg(msg)
         elif isinstance(msg, SkipDownstreamTasks):
             self.client.task_instances.skip_downstream_tasks(self.id, msg)
         elif isinstance(msg, SetXCom):

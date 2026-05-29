@@ -11,9 +11,10 @@
 # under the License.
 
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 import warnings
 
+from openstack._utils import renamed_param
 import openstack.exceptions as exception
 from openstack.identity.v3 import (
     application_credential as _application_credential,
@@ -102,21 +103,24 @@ class Proxy(proxy.Proxy):
     def create_credential(self, **attrs: Any) -> _credential.Credential:
         """Create a new credential from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.credential.Credential`,
             comprised of the properties on the Credential class.
 
         :returns: The results of credential creation
-        :rtype: :class:`~openstack.identity.v3.credential.Credential`
         """
         return self._create(_credential.Credential, **attrs)
 
-    def delete_credential(self, credential, ignore_missing=True):
+    def delete_credential(
+        self,
+        credential: str | _credential.Credential,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a credential
 
         :param credential: The value can be either the ID of a credential or a
             :class:`~openstack.identity.v3.credential.Credential` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the credential does not exist.
             When set to ``True``, no exception will be set when
@@ -150,7 +154,7 @@ class Proxy(proxy.Proxy):
         """Find a single credential
 
         :param name_or_id: The name or ID of a credential.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -162,7 +166,9 @@ class Proxy(proxy.Proxy):
             _credential.Credential, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_credential(self, credential):
+    def get_credential(
+        self, credential: str | _credential.Credential
+    ) -> _credential.Credential:
         """Get a single credential
 
         :param credential: The value can be the ID of a credential or a
@@ -174,19 +180,25 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_credential.Credential, credential)
 
-    def credentials(self, **query):
+    def credentials(
+        self,
+        **query: Any,
+    ) -> Generator[_credential.Credential, None, None]:
         """Retrieve a generator of credentials
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of credentials instances.
-        :rtype: :class:`~openstack.identity.v3.credential.Credential`
         """
         # TODO(briancurtin): This is paginated but requires base list changes.
         return self._list(_credential.Credential, **query)
 
-    def update_credential(self, credential, **attrs):
+    def update_credential(
+        self,
+        credential: str | _credential.Credential,
+        **attrs: Any,
+    ) -> _credential.Credential:
         """Update a credential
 
         :param credential: Either the ID of a credential or a
@@ -195,7 +207,6 @@ class Proxy(proxy.Proxy):
             by ``credential``.
 
         :returns: The updated credential
-        :rtype: :class:`~openstack.identity.v3.credential.Credential`
         """
         return self._update(_credential.Credential, credential, **attrs)
 
@@ -204,21 +215,22 @@ class Proxy(proxy.Proxy):
     def create_domain(self, **attrs: Any) -> _domain.Domain:
         """Create a new domain from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.domain.Domain`,
             comprised of the properties on the Domain class.
 
         :returns: The results of domain creation
-        :rtype: :class:`~openstack.identity.v3.domain.Domain`
         """
         return self._create(_domain.Domain, **attrs)
 
-    def delete_domain(self, domain, ignore_missing=True):
+    def delete_domain(
+        self, domain: str | _domain.Domain, ignore_missing: bool = True
+    ) -> None:
         """Delete a domain
 
         :param domain: The value can be either the ID of a domain or a
             :class:`~openstack.identity.v3.domain.Domain` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the domain does not exist.
             When set to ``True``, no exception will be set when
@@ -250,7 +262,7 @@ class Proxy(proxy.Proxy):
         """Find a single domain
 
         :param name_or_id: The name or ID of a domain.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -261,7 +273,7 @@ class Proxy(proxy.Proxy):
             _domain.Domain, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_domain(self, domain):
+    def get_domain(self, domain: str | _domain.Domain) -> _domain.Domain:
         """Get a single domain
 
         :param domain: The value can be the ID of a domain or a
@@ -273,19 +285,20 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_domain.Domain, domain)
 
-    def domains(self, **query):
+    def domains(self, **query: Any) -> Generator[_domain.Domain, None, None]:
         """Retrieve a generator of domains
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of domain instances.
-        :rtype: :class:`~openstack.identity.v3.domain.Domain`
         """
         # TODO(briancurtin): This is paginated but requires base list changes.
         return self._list(_domain.Domain, **query)
 
-    def update_domain(self, domain, **attrs):
+    def update_domain(
+        self, domain: str | _domain.Domain, **attrs: Any
+    ) -> _domain.Domain:
         """Update a domain
 
         :param domain: Either the ID of a domain or a
@@ -294,7 +307,6 @@ class Proxy(proxy.Proxy):
             by ``domain``.
 
         :returns: The updated domain
-        :rtype: :class:`~openstack.identity.v3.domain.Domain`
         """
         return self._update(_domain.Domain, domain, **attrs)
 
@@ -309,12 +321,11 @@ class Proxy(proxy.Proxy):
 
         :param domain: The value can be the ID of a domain or
             a :class:`~openstack.identity.v3.domain.Domain` instance.
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.identity.v3.domain_config.DomainConfig`
             comprised of the properties on the DomainConfig class.
 
         :returns: The results of domain config creation
-        :rtype: :class:`~openstack.identity.v3.domain_config.DomainConfig`
         """
         domain_id = resource.Resource._get_id(domain)
         return self._create(
@@ -323,12 +334,14 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    def delete_domain_config(self, domain, ignore_missing=True):
+    def delete_domain_config(
+        self, domain: str | _domain.Domain, ignore_missing: bool = True
+    ) -> None:
         """Delete a config for a domain
 
         :param domain: The value can be the ID of a domain or a
             a :class:`~openstack.identity.v3.domain.Domain` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the identity provider does not exist.
             When set to ``True``, no exception will be set when
@@ -344,7 +357,9 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_domain_config(self, domain):
+    def get_domain_config(
+        self, domain: str | _domain.Domain
+    ) -> _domain_config.DomainConfig:
         """Get a single config for a domain
 
         :param domain_id: The value can be the ID of a domain or a
@@ -362,7 +377,9 @@ class Proxy(proxy.Proxy):
             requires_id=False,
         )
 
-    def update_domain_config(self, domain, **attrs):
+    def update_domain_config(
+        self, domain: str | _domain.Domain, **attrs: Any
+    ) -> _domain_config.DomainConfig:
         """Update a config for a domain
 
         :param domain_id: The value can be the ID of a domain or a
@@ -371,7 +388,6 @@ class Proxy(proxy.Proxy):
             represented by ``domain_id``.
 
         :returns: The updated config for a domain
-        :rtype: :class:`~openstack.identity.v3.domain_config.DomainConfig`
         """
         domain_id = resource.Resource._get_id(domain)
         return self._update(
@@ -386,21 +402,22 @@ class Proxy(proxy.Proxy):
     def create_endpoint(self, **attrs: Any) -> _endpoint.Endpoint:
         """Create a new endpoint from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.endpoint.Endpoint`,
             comprised of the properties on the Endpoint class.
 
         :returns: The results of endpoint creation
-        :rtype: :class:`~openstack.identity.v3.endpoint.Endpoint`
         """
         return self._create(_endpoint.Endpoint, **attrs)
 
-    def delete_endpoint(self, endpoint, ignore_missing=True):
+    def delete_endpoint(
+        self, endpoint: str | _endpoint.Endpoint, ignore_missing: bool = True
+    ) -> None:
         """Delete an endpoint
 
         :param endpoint: The value can be either the ID of an endpoint or a
             :class:`~openstack.identity.v3.endpoint.Endpoint` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the endpoint does not exist.
             When set to ``True``, no exception will be set when
@@ -434,7 +451,7 @@ class Proxy(proxy.Proxy):
         """Find a single endpoint
 
         :param name_or_id: The name or ID of a endpoint.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -446,7 +463,9 @@ class Proxy(proxy.Proxy):
         )
 
     # TODO(stephenfin): This conflicts with Adapter.get_endpoint
-    def get_endpoint(self, endpoint):  # type: ignore[override]
+    def get_endpoint(  # type: ignore[override]
+        self, endpoint: str | _endpoint.Endpoint
+    ) -> _endpoint.Endpoint:
         """Get a single endpoint
 
         :param endpoint: The value can be the ID of an endpoint or a
@@ -459,19 +478,23 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_endpoint.Endpoint, endpoint)
 
-    def endpoints(self, **query):
+    def endpoints(
+        self,
+        **query: Any,
+    ) -> Generator[_endpoint.Endpoint, None, None]:
         """Retrieve a generator of endpoints
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of endpoint instances.
-        :rtype: :class:`~openstack.identity.v3.endpoint.Endpoint`
         """
         # TODO(briancurtin): This is paginated but requires base list changes.
         return self._list(_endpoint.Endpoint, **query)
 
-    def update_endpoint(self, endpoint, **attrs):
+    def update_endpoint(
+        self, endpoint: str | _endpoint.Endpoint, **attrs: Any
+    ) -> _endpoint.Endpoint:
         """Update a endpoint
 
         :param endpoint: Either the ID of an endpoint or a
@@ -480,23 +503,25 @@ class Proxy(proxy.Proxy):
             by ``endpoint``.
 
         :returns: The updated endpoint
-        :rtype: :class:`~openstack.identity.v3.endpoint.Endpoint`
         """
         return self._update(_endpoint.Endpoint, endpoint, **attrs)
 
     # ========== Project endpoints ==========
 
-    def project_endpoints(self, project, **query):
+    def project_endpoints(
+        self,
+        project: str | _project.Project,
+        **query: Any,
+    ) -> Generator[_endpoint.ProjectEndpoint, None, None]:
         """Retrieve a generator of endpoints which are associated with the
         project.
 
         :param project: Either the project ID or an instance of
             :class:`~openstack.identity.v3.project.Project`
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of endpoint instances.
-        :rtype: :class:`~openstack.identity.v3.endpoint.ProjectEndpoint`
         """
         project_id = self._get_resource(_project.Project, project).id
         return self._list(
@@ -534,21 +559,22 @@ class Proxy(proxy.Proxy):
     def create_group(self, **attrs: Any) -> _group.Group:
         """Create a new group from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.group.Group`,
             comprised of the properties on the Group class.
 
         :returns: The results of group creation
-        :rtype: :class:`~openstack.identity.v3.group.Group`
         """
         return self._create(_group.Group, **attrs)
 
-    def delete_group(self, group, ignore_missing=True):
+    def delete_group(
+        self, group: str | _group.Group, ignore_missing: bool = True
+    ) -> None:
         """Delete a group
 
         :param group: The value can be either the ID of a group or a
             :class:`~openstack.identity.v3.group.Group` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the group does not exist.
             When set to ``True``, no exception will be set when
@@ -583,7 +609,7 @@ class Proxy(proxy.Proxy):
         """Find a single group
 
         :param name_or_id: The name or ID of a group.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -597,7 +623,7 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def get_group(self, group):
+    def get_group(self, group: str | _group.Group) -> _group.Group:
         """Get a single group
 
         :param group: The value can be the ID of a group or a
@@ -610,19 +636,20 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_group.Group, group)
 
-    def groups(self, **query):
+    def groups(self, **query: Any) -> Generator[_group.Group, None, None]:
         """Retrieve a generator of groups
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of group instances.
-        :rtype: :class:`~openstack.identity.v3.group.Group`
         """
         # TODO(briancurtin): This is paginated but requires base list changes.
         return self._list(_group.Group, **query)
 
-    def update_group(self, group, **attrs):
+    def update_group(
+        self, group: str | _group.Group, **attrs: Any
+    ) -> _group.Group:
         """Update a group
 
         :param group: Either the ID of a group or a
@@ -631,7 +658,6 @@ class Proxy(proxy.Proxy):
             by ``group``.
 
         :returns: The updated group
-        :rtype: :class:`~openstack.identity.v3.group.Group`
         """
         return self._update(_group.Group, group, **attrs)
 
@@ -642,7 +668,7 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.user.User` instance.
         :param group: Either the ID of a group or a
             :class:`~openstack.identity.v3.group.Group` instance.
-        :return: ``None``
+        :returns: ``None``
         """
         user = self._get_resource(_user.User, user)
         group = self._get_resource(_group.Group, group)
@@ -655,7 +681,7 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.user.User` instance.
         :param group: Either the ID of a group or a
             :class:`~openstack.identity.v3.group.Group` instance.
-        :return: ``None``
+        :returns: ``None``
         """
         user = self._get_resource(_user.User, user)
         group = self._get_resource(_group.Group, group)
@@ -668,20 +694,24 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.user.User` instance.
         :param group: Either the ID of a group or a
             :class:`~openstack.identity.v3.group.Group` instance.
-        :return: A boolean representing current relation
+        :returns: A boolean representing current relation
         """
         user = self._get_resource(_user.User, user)
         group = self._get_resource(_group.Group, group)
         return group.check_user(self, user)
 
-    def group_users(self, group, **attrs):
+    def group_users(
+        self,
+        group: str | _group.Group,
+        **attrs: Any,
+    ) -> Generator[_user.User, None, None]:
         """List users in a group
 
         :param group: Either the ID of a group or a
             :class:`~openstack.identity.v3.group.Group` instance.
         :param attrs: Only password_expires_at can be filter for result.
 
-        :return: List of :class:`~openstack.identity.v3.user.User`
+        :returns: List of :class:`~openstack.identity.v3.user.User`
         """
         group = self._get_resource(_group.Group, group)
         base_path = utils.urljoin(group.base_path, group.id, 'users')
@@ -693,21 +723,22 @@ class Proxy(proxy.Proxy):
     def create_policy(self, **attrs: Any) -> _policy.Policy:
         """Create a new policy from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.policy.Policy`,
             comprised of the properties on the Policy class.
 
         :returns: The results of policy creation
-        :rtype: :class:`~openstack.identity.v3.policy.Policy`
         """
         return self._create(_policy.Policy, **attrs)
 
-    def delete_policy(self, policy, ignore_missing=True):
+    def delete_policy(
+        self, policy: str | _policy.Policy, ignore_missing: bool = True
+    ) -> None:
         """Delete a policy
 
         :param policy: The value can be either the ID of a policy or a
             :class:`~openstack.identity.v3.policy.Policy` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the policy does not exist.
             When set to ``True``, no exception will be set when
@@ -739,7 +770,7 @@ class Proxy(proxy.Proxy):
         """Find a single policy
 
         :param name_or_id: The name or ID of a policy.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -750,7 +781,7 @@ class Proxy(proxy.Proxy):
             _policy.Policy, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_policy(self, policy):
+    def get_policy(self, policy: str | _policy.Policy) -> _policy.Policy:
         """Get a single policy
 
         :param policy: The value can be the ID of a policy or a
@@ -762,19 +793,20 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_policy.Policy, policy)
 
-    def policies(self, **query):
+    def policies(self, **query: Any) -> Generator[_policy.Policy, None, None]:
         """Retrieve a generator of policies
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of policy instances.
-        :rtype: :class:`~openstack.identity.v3.policy.Policy`
         """
         # TODO(briancurtin): This is paginated but requires base list changes.
         return self._list(_policy.Policy, **query)
 
-    def update_policy(self, policy, **attrs):
+    def update_policy(
+        self, policy: str | _policy.Policy, **attrs: Any
+    ) -> _policy.Policy:
         """Update a policy
 
         :param policy: Either the ID of a policy or a
@@ -783,7 +815,6 @@ class Proxy(proxy.Proxy):
             by ``policy``.
 
         :returns: The updated policy
-        :rtype: :class:`~openstack.identity.v3.policy.Policy`
         """
         return self._update(_policy.Policy, policy, **attrs)
 
@@ -792,21 +823,22 @@ class Proxy(proxy.Proxy):
     def create_project(self, **attrs: Any) -> _project.Project:
         """Create a new project from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.project.Project`,
             comprised of the properties on the Project class.
 
         :returns: The results of project creation
-        :rtype: :class:`~openstack.identity.v3.project.Project`
         """
         return self._create(_project.Project, **attrs)
 
-    def delete_project(self, project, ignore_missing=True):
+    def delete_project(
+        self, project: str | _project.Project, ignore_missing: bool = True
+    ) -> None:
         """Delete a project
 
         :param project: The value can be either the ID of a project or a
             :class:`~openstack.identity.v3.project.Project` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the project does not exist.
             When set to ``True``, no exception will be set when
@@ -841,7 +873,7 @@ class Proxy(proxy.Proxy):
         """Find a single project
 
         :param name_or_id: The name or ID of a project.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -855,7 +887,7 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def get_project(self, project):
+    def get_project(self, project: str | _project.Project) -> _project.Project:
         """Get a single project
 
         :param project: The value can be the ID of a project or a
@@ -867,51 +899,61 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_project.Project, project)
 
-    def projects(self, **query):
+    def projects(
+        self,
+        **query: Any,
+    ) -> Generator[_project.Project, None, None]:
         """Retrieve a generator of projects
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of project instances.
-        :rtype: :class:`~openstack.identity.v3.project.Project`
         """
         # TODO(briancurtin): This is paginated but requires base list changes.
         return self._list(_project.Project, **query)
 
-    def user_projects(self, user, **query):
+    def user_projects(
+        self,
+        user: str | _user.User,
+        **query: Any,
+    ) -> Generator[_project.UserProject, None, None]:
         """Retrieve a generator of projects to which the user has authorization
            to access.
 
         :param user: Either the user id or an instance of
             :class:`~openstack.identity.v3.user.User`
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of project instances.
-        :rtype: :class:`~openstack.identity.v3.project.UserProject`
         """
         user = self._get_resource(_user.User, user)
         return self._list(_project.UserProject, user_id=user.id, **query)
 
-    def endpoint_projects(self, endpoint, **query):
+    def endpoint_projects(
+        self,
+        endpoint: str | _endpoint.Endpoint,
+        **query: Any,
+    ) -> Generator[_project.EndpointProject, None, None]:
         """Retrieve a generator of projects which are associated with the
         endpoint.
 
         :param endpoint: Either the endpoint ID or an instance of
             :class:`~openstack.identity.v3.endpoint.Endpoint`
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of project instances.
-        :rtype: :class:`~openstack.identity.v3.project.EndpointProject`
         """
         endpoint_id = self._get_resource(_endpoint.Endpoint, endpoint).id
         return self._list(
             _project.EndpointProject, endpoint_id=endpoint_id, **query
         )
 
-    def update_project(self, project, **attrs):
+    def update_project(
+        self, project: str | _project.Project, **attrs: Any
+    ) -> _project.Project:
         """Update a project
 
         :param project: Either the ID of a project or a
@@ -920,7 +962,6 @@ class Proxy(proxy.Proxy):
             by ``project``.
 
         :returns: The updated project
-        :rtype: :class:`~openstack.identity.v3.project.Project`
         """
         return self._update(_project.Project, project, **attrs)
 
@@ -929,21 +970,22 @@ class Proxy(proxy.Proxy):
     def create_service(self, **attrs: Any) -> _service.Service:
         """Create a new service from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.service.Service`,
             comprised of the properties on the Service class.
 
         :returns: The results of service creation
-        :rtype: :class:`~openstack.identity.v3.service.Service`
         """
         return self._create(_service.Service, **attrs)
 
-    def delete_service(self, service, ignore_missing=True):
+    def delete_service(
+        self, service: str | _service.Service, ignore_missing: bool = True
+    ) -> None:
         """Delete a service
 
         :param service: The value can be either the ID of a service or a
             :class:`~openstack.identity.v3.service.Service` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the service does not exist.
             When set to ``True``, no exception will be set when
@@ -975,7 +1017,7 @@ class Proxy(proxy.Proxy):
         """Find a single service
 
         :param name_or_id: The name or ID of a service.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -986,7 +1028,7 @@ class Proxy(proxy.Proxy):
             _service.Service, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_service(self, service):
+    def get_service(self, service: str | _service.Service) -> _service.Service:
         """Get a single service
 
         :param service: The value can be the ID of a service or a
@@ -998,19 +1040,23 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_service.Service, service)
 
-    def services(self, **query):
+    def services(
+        self,
+        **query: Any,
+    ) -> Generator[_service.Service, None, None]:
         """Retrieve a generator of services
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of service instances.
-        :rtype: :class:`~openstack.identity.v3.service.Service`
         """
         # TODO(briancurtin): This is paginated but requires base list changes.
         return self._list(_service.Service, **query)
 
-    def update_service(self, service, **attrs):
+    def update_service(
+        self, service: str | _service.Service, **attrs: Any
+    ) -> _service.Service:
         """Update a service
 
         :param service: Either the ID of a service or a
@@ -1019,7 +1065,6 @@ class Proxy(proxy.Proxy):
             by ``service``.
 
         :returns: The updated service
-        :rtype: :class:`~openstack.identity.v3.service.Service`
         """
         return self._update(_service.Service, service, **attrs)
 
@@ -1028,21 +1073,22 @@ class Proxy(proxy.Proxy):
     def create_user(self, **attrs: Any) -> _user.User:
         """Create a new user from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.user.User`,
             comprised of the properties on the User class.
 
         :returns: The results of user creation
-        :rtype: :class:`~openstack.identity.v3.user.User`
         """
         return self._create(_user.User, **attrs)
 
-    def delete_user(self, user, ignore_missing=True):
+    def delete_user(
+        self, user: str | _user.User, ignore_missing: bool = True
+    ) -> None:
         """Delete a user
 
         :param user: The value can be either the ID of a user or a
             :class:`~openstack.identity.v3.user.User` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the user does not exist.
             When set to ``True``, no exception will be set when
@@ -1077,7 +1123,7 @@ class Proxy(proxy.Proxy):
         """Find a single user
 
         :param name_or_id: The name or ID of a user.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -1091,7 +1137,7 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def get_user(self, user):
+    def get_user(self, user: str | _user.User) -> _user.User:
         """Get a single user
 
         :param user: The value can be the ID of a user or a
@@ -1103,31 +1149,33 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_user.User, user)
 
-    def user_groups(self, user):
+    def user_groups(
+        self,
+        user: str | _user.User,
+    ) -> Generator[_group.UserGroup, None, None]:
         """List groups a user is in
 
         :param user: Either the ID of a user or a
             :class:`~openstack.identity.v3.user.User` instance
 
-        :return: List of :class:`~openstack.identity.v3.group.group`
+        :returns: List of :class:`~openstack.identity.v3.group.group`
         """
         user_id = self._get_resource(_user.User, user).id
         groups = self._list(_group.UserGroup, user_id=user_id)
         return groups
 
-    def users(self, **query):
+    def users(self, **query: Any) -> Generator[_user.User, None, None]:
         """Retrieve a generator of users
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of user instances.
-        :rtype: :class:`~openstack.identity.v3.user.User`
         """
         # TODO(briancurtin): This is paginated but requires base list changes.
         return self._list(_user.User, **query)
 
-    def update_user(self, user, **attrs):
+    def update_user(self, user: str | _user.User, **attrs: Any) -> _user.User:
         """Update a user
 
         :param user: Either the ID of a user or a
@@ -1136,17 +1184,21 @@ class Proxy(proxy.Proxy):
             by ``attrs``.
 
         :returns: The updated user
-        :rtype: :class:`~openstack.identity.v3.user.User`
         """
         return self._update(_user.User, user, **attrs)
 
-    def update_password(self, user, current_password, password):
+    def update_password(
+        self,
+        user: str | _user.User,
+        current_password: str,
+        password: str,
+    ) -> None:
         """Update the password for the user the token belongs to.
 
         :param user: Either the ID of a user or a
             :class:`~openstack.identity.v3.user.User` instance.
-        :param str current_password: The user's current password.
-        :param str password: The user's new password.
+        :param current_password: The user's current password.
+        :param password: The user's new password.
         :returns: ``None``
         """
         user_obj = self._get_resource(_user.User, user)
@@ -1194,21 +1246,22 @@ class Proxy(proxy.Proxy):
     def create_trust(self, **attrs: Any) -> _trust.Trust:
         """Create a new trust from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.trust.Trust`,
             comprised of the properties on the Trust class.
 
         :returns: The results of trust creation
-        :rtype: :class:`~openstack.identity.v3.trust.Trust`
         """
         return self._create(_trust.Trust, **attrs)
 
-    def delete_trust(self, trust, ignore_missing=True):
+    def delete_trust(
+        self, trust: str | _trust.Trust, ignore_missing: bool = True
+    ) -> None:
         """Delete a trust
 
         :param trust: The value can be either the ID of a trust or a
             :class:`~openstack.identity.v3.trust.Trust` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the credential does not exist.
             When set to ``True``, no exception will be set when
@@ -1240,7 +1293,7 @@ class Proxy(proxy.Proxy):
         """Find a single trust
 
         :param name_or_id: The name or ID of a trust.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -1251,7 +1304,7 @@ class Proxy(proxy.Proxy):
             _trust.Trust, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_trust(self, trust):
+    def get_trust(self, trust: str | _trust.Trust) -> _trust.Trust:
         """Get a single trust
 
         :param trust: The value can be the ID of a trust or a
@@ -1263,14 +1316,13 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_trust.Trust, trust)
 
-    def trusts(self, **query):
+    def trusts(self, **query: Any) -> Generator[_trust.Trust, None, None]:
         """Retrieve a generator of trusts
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of trust instances.
-        :rtype: :class:`~openstack.identity.v3.trust.Trust`
         """
         # TODO(briancurtin): This is paginated but requires base list changes.
         return self._list(_trust.Trust, **query)
@@ -1280,21 +1332,22 @@ class Proxy(proxy.Proxy):
     def create_region(self, **attrs: Any) -> _region.Region:
         """Create a new region from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.region.Region`,
             comprised of the properties on the Region class.
 
         :returns: The results of region creation.
-        :rtype: :class:`~openstack.identity.v3.region.Region`
         """
         return self._create(_region.Region, **attrs)
 
-    def delete_region(self, region, ignore_missing=True):
+    def delete_region(
+        self, region: str | _region.Region, ignore_missing: bool = True
+    ) -> None:
         """Delete a region
 
         :param region: The value can be either the ID of a region or a
             :class:`~openstack.identity.v3.region.Region` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the region does not exist.
             When set to ``True``, no exception will be thrown when
@@ -1326,7 +1379,7 @@ class Proxy(proxy.Proxy):
         """Find a single region
 
         :param name_or_id: The name or ID of a region.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the region does not exist.
             When set to ``True``, None will be returned when
@@ -1342,7 +1395,7 @@ class Proxy(proxy.Proxy):
             _region.Region, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_region(self, region):
+    def get_region(self, region: str | _region.Region) -> _region.Region:
         """Get a single region
 
         :param region: The value can be the ID of a region or a
@@ -1354,19 +1407,20 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_region.Region, region)
 
-    def regions(self, **query):
+    def regions(self, **query: Any) -> Generator[_region.Region, None, None]:
         """Retrieve a generator of regions
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the regions being returned.
 
         :returns: A generator of region instances.
-        :rtype: :class:`~openstack.identity.v3.region.Region`
         """
         # TODO(briancurtin): This is paginated but requires base list changes.
         return self._list(_region.Region, **query)
 
-    def update_region(self, region, **attrs):
+    def update_region(
+        self, region: str | _region.Region, **attrs: Any
+    ) -> _region.Region:
         """Update a region
 
         :param region: Either the ID of a region or a
@@ -1375,7 +1429,6 @@ class Proxy(proxy.Proxy):
             by ``region``.
 
         :returns: The updated region.
-        :rtype: :class:`~openstack.identity.v3.region.Region`
         """
         return self._update(_region.Region, region, **attrs)
 
@@ -1384,21 +1437,22 @@ class Proxy(proxy.Proxy):
     def create_role(self, **attrs: Any) -> _role.Role:
         """Create a new role from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.role.Role`,
             comprised of the properties on the Role class.
 
         :returns: The results of role creation.
-        :rtype: :class:`~openstack.identity.v3.role.Role`
         """
         return self._create(_role.Role, **attrs)
 
-    def delete_role(self, role, ignore_missing=True):
+    def delete_role(
+        self, role: str | _role.Role, ignore_missing: bool = True
+    ) -> None:
         """Delete a role
 
         :param role: The value can be either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the role does not exist.
             When set to ``True``, no exception will be thrown when
@@ -1433,7 +1487,7 @@ class Proxy(proxy.Proxy):
         """Find a single role
 
         :param name_or_id: The name or ID of a role.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the role does not exist.
             When set to ``True``, None will be returned when
@@ -1447,7 +1501,7 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def get_role(self, role):
+    def get_role(self, role: str | _role.Role) -> _role.Role:
         """Get a single role
 
         :param role: The value can be the ID of a role or a
@@ -1459,35 +1513,38 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_role.Role, role)
 
-    def roles(self, **query):
+    def roles(self, **query: Any) -> Generator[_role.Role, None, None]:
         """Retrieve a generator of roles
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned. The options
             are: domain_id, name.
-        :return: A generator of role instances.
-        :rtype: :class:`~openstack.identity.v3.role.Role`
+        :returns: A generator of role instances.
         """
         return self._list(_role.Role, **query)
 
-    def update_role(self, role, **attrs):
+    def update_role(self, role: str | _role.Role, **attrs: Any) -> _role.Role:
         """Update a role
 
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
-        :param dict kwargs: The attributes to update on the role represented
+        :param kwargs: The attributes to update on the role represented
             by ``value``. Only name can be updated
 
         :returns: The updated role.
-        :rtype: :class:`~openstack.identity.v3.role.Role`
         """
         return self._update(_role.Role, role, **attrs)
 
     # ========== Role assignments ==========
 
     def role_assignments_filter(
-        self, domain=None, project=None, system=None, group=None, user=None
-    ):
+        self,
+        domain: str | _domain.Domain | None = None,
+        project: str | _project.Project | None = None,
+        system: str | None = None,
+        group: str | _group.Group | None = None,
+        user: str | _user.User | None = None,
+    ) -> Generator[resource.Resource, None, None]:
         """Retrieve a generator of roles assigned to user/group
 
         :param domain: Either the ID of a domain or a
@@ -1502,8 +1559,7 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.group.Group` instance.
         :param user: Either the ID of a user or a
             :class:`~openstack.identity.v3.user.User` instance.
-        :return: A generator of role instances.
-        :rtype: :class:`~openstack.identity.v3.role.Role`
+        :returns: A generator of role instances.
         """
         if domain and project and system:
             raise exception.InvalidRequest(
@@ -1535,6 +1591,7 @@ class Proxy(proxy.Proxy):
                     group_id=group_id,
                 )
             else:
+                assert user is not None
                 user_id = resource.Resource._get_id(user)
                 return self._list(
                     _role_domain_user_assignment.RoleDomainUserAssignment,
@@ -1551,6 +1608,7 @@ class Proxy(proxy.Proxy):
                     group_id=group_id,
                 )
             else:
+                assert user is not None
                 user_id = resource.Resource._get_id(user)
                 return self._list(
                     _role_project_user_assignment.RoleProjectUserAssignment,
@@ -1558,6 +1616,7 @@ class Proxy(proxy.Proxy):
                     user_id=user_id,
                 )
         else:
+            assert system is not None
             system_id = resource.Resource._get_id(system)
             if group:
                 group_id = resource.Resource._get_id(group)
@@ -1567,6 +1626,7 @@ class Proxy(proxy.Proxy):
                     group_id=group_id,
                 )
             else:
+                assert user is not None
                 user_id = resource.Resource._get_id(user)
                 return self._list(
                     _role_system_user_assignment.RoleSystemUserAssignment,
@@ -1574,15 +1634,18 @@ class Proxy(proxy.Proxy):
                     user_id=user_id,
                 )
 
-    def role_assignments(self, **query):
+    def role_assignments(
+        self,
+        **query: Any,
+    ) -> Generator[_role_assignment.RoleAssignment, None, None]:
         """Retrieve a generator of role assignments
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned. The options
             are: group_id, role_id, scope_domain_id,
             scope_project_id, inherited_to, user_id, include_names,
             include_subtree.
-        :return:
+        :returns:
             :class:`~openstack.identity.v3.role_assignment.RoleAssignment`
         """
         return self._list(_role_assignment.RoleAssignment, **query)
@@ -1598,8 +1661,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.user.User` instance.
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
-        :param bool inherited: Whether the role assignment is inherited.
-        :return: ``None``
+        :param inherited: Whether the role assignment is inherited.
+        :returns: ``None``
         """
         domain = self._get_resource(_domain.Domain, domain)
         user = self._get_resource(_user.User, user)
@@ -1617,8 +1680,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.user.User` instance.
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
-        :param bool inherited: Whether the role assignment is inherited.
-        :return: ``None``
+        :param inherited: Whether the role assignment is inherited.
+        :returns: ``None``
         """
         domain = self._get_resource(_domain.Domain, domain)
         user = self._get_resource(_user.User, user)
@@ -1654,8 +1717,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.group.Group` instance.
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
-        :param bool inherited: Whether the role assignment is inherited.
-        :return: ``None``
+        :param inherited: Whether the role assignment is inherited.
+        :returns: ``None``
         """
         domain = self._get_resource(_domain.Domain, domain)
         group = self._get_resource(_group.Group, group)
@@ -1673,8 +1736,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.group.Group` instance.
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
-        :param bool inherited: Whether the role assignment is inherited.
-        :return: ``None``
+        :param inherited: Whether the role assignment is inherited.
+        :returns: ``None``
         """
         domain = self._get_resource(_domain.Domain, domain)
         group = self._get_resource(_group.Group, group)
@@ -1711,8 +1774,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.user.User` instance.
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
-        :param bool inherited: Whether the role assignment is inherited.
-        :return: ``None``
+        :param inherited: Whether the role assignment is inherited.
+        :returns: ``None``
         """
         project = self._get_resource(_project.Project, project)
         user = self._get_resource(_user.User, user)
@@ -1731,8 +1794,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.user.User` instance.
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
-        :param bool inherited: Whether the role assignment is inherited.
-        :return: ``None``
+        :param inherited: Whether the role assignment is inherited.
+        :returns: ``None``
         """
         project = self._get_resource(_project.Project, project)
         user = self._get_resource(_user.User, user)
@@ -1770,8 +1833,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.group.Group` instance.
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
-        :param bool inherited: Whether the role assignment is inherited.
-        :return: ``None``
+        :param inherited: Whether the role assignment is inherited.
+        :returns: ``None``
         """
         project = self._get_resource(_project.Project, project)
         group = self._get_resource(_group.Group, group)
@@ -1790,8 +1853,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.group.Group` instance.
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
-        :param bool inherited: Whether the role assignment is inherited.
-        :return: ``None``
+        :param inherited: Whether the role assignment is inherited.
+        :returns: ``None``
         """
         project = self._get_resource(_project.Project, project)
         group = self._get_resource(_group.Group, group)
@@ -1825,7 +1888,7 @@ class Proxy(proxy.Proxy):
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
         :param system: The system name
-        :return: ``None``
+        :returns: ``None``
         """
         user = self._get_resource(_user.User, user)
         role = self._get_resource(_role.Role, role)
@@ -1840,7 +1903,7 @@ class Proxy(proxy.Proxy):
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
         :param system: The system name
-        :return: ``None``
+        :returns: ``None``
         """
         user = self._get_resource(_user.User, user)
         role = self._get_resource(_role.Role, role)
@@ -1870,7 +1933,7 @@ class Proxy(proxy.Proxy):
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
         :param system: The system name
-        :return: ``None``
+        :returns: ``None``
         """
         group = self._get_resource(_group.Group, group)
         role = self._get_resource(_role.Role, role)
@@ -1885,7 +1948,7 @@ class Proxy(proxy.Proxy):
         :param role: Either the ID of a role or a
             :class:`~openstack.identity.v3.role.Role` instance.
         :param system: The system name
-        :return: ``None``
+        :returns: ``None``
         """
         group = self._get_resource(_group.Group, group)
         role = self._get_resource(_role.Role, role)
@@ -1909,19 +1972,23 @@ class Proxy(proxy.Proxy):
 
     # ========== Registered limits ==========
 
-    def registered_limits(self, **query):
+    def registered_limits(
+        self,
+        **query: Any,
+    ) -> Generator[_registered_limit.RegisteredLimit, None, None]:
         """Retrieve a generator of registered_limits
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the registered_limits being returned.
 
         :returns: A generator of registered_limits instances.
-        :rtype:
             :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
         """
         return self._list(_registered_limit.RegisteredLimit, **query)
 
-    def get_registered_limit(self, registered_limit):
+    def get_registered_limit(
+        self, registered_limit: str | _registered_limit.RegisteredLimit
+    ) -> _registered_limit.RegisteredLimit:
         """Get a single registered_limit
 
         :param registered_limit: The value can be the ID of a registered_limit
@@ -1941,41 +2008,45 @@ class Proxy(proxy.Proxy):
     ) -> _registered_limit.RegisteredLimit:
         """Create a new registered_limit from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`,
             comprised of the properties on the RegisteredLimit class.
 
         :returns: The results of registered_limit creation.
-        :rtype:
-            :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
         """
         return self._create(_registered_limit.RegisteredLimit, **attrs)
 
-    def update_registered_limit(self, registered_limit, **attrs):
+    def update_registered_limit(
+        self,
+        registered_limit: str | _registered_limit.RegisteredLimit,
+        **attrs: Any,
+    ) -> _registered_limit.RegisteredLimit:
         """Update a registered_limit
 
         :param registered_limit: Either the ID of a registered_limit. or a
             :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
             instance.
-        :param dict kwargs: The attributes to update on the registered_limit
+        :param kwargs: The attributes to update on the registered_limit
             represented by ``value``.
 
         :returns: The updated registered_limit.
-        :rtype:
-            :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
         """
         return self._update(
             _registered_limit.RegisteredLimit, registered_limit, **attrs
         )
 
-    def delete_registered_limit(self, registered_limit, ignore_missing=True):
+    def delete_registered_limit(
+        self,
+        registered_limit: str | _registered_limit.RegisteredLimit,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a registered_limit
 
         :param registered_limit: The value can be either the ID of a
             registered_limit or a
             :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the registered_limit does not exist. When set to ``True``, no
             exception will be thrown when attempting to delete a nonexistent
@@ -1991,18 +2062,17 @@ class Proxy(proxy.Proxy):
 
     # ========== Limits ==========
 
-    def limits(self, **query):
+    def limits(self, **query: Any) -> Generator[_limit.Limit, None, None]:
         """Retrieve a generator of limits
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the limits being returned.
 
         :returns: A generator of limits instances.
-        :rtype: :class:`~openstack.identity.v3.limit.Limit`
         """
         return self._list(_limit.Limit, **query)
 
-    def get_limit(self, limit):
+    def get_limit(self, limit: str | _limit.Limit) -> _limit.Limit:
         """Get a single limit
 
         :param limit: The value can be the ID of a limit
@@ -2017,34 +2087,36 @@ class Proxy(proxy.Proxy):
     def create_limit(self, **attrs: Any) -> _limit.Limit:
         """Create a new limit from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.limit.Limit`, comprised of the
             properties on the Limit class.
 
         :returns: The results of limit creation.
-        :rtype: :class:`~openstack.identity.v3.limit.Limit`
         """
         return self._create(_limit.Limit, **attrs)
 
-    def update_limit(self, limit, **attrs):
+    def update_limit(
+        self, limit: str | _limit.Limit, **attrs: Any
+    ) -> _limit.Limit:
         """Update a limit
 
         :param limit: Either the ID of a limit. or a
             :class:`~openstack.identity.v3.limit.Limit` instance.
-        :param dict kwargs: The attributes to update on the limit represented
+        :param kwargs: The attributes to update on the limit represented
             by ``value``.
 
         :returns: The updated limit.
-        :rtype: :class:`~openstack.identity.v3.limit.Limit`
         """
         return self._update(_limit.Limit, limit, **attrs)
 
-    def delete_limit(self, limit, ignore_missing=True):
+    def delete_limit(
+        self, limit: str | _limit.Limit, ignore_missing: bool = True
+    ) -> None:
         """Delete a limit
 
         :param limit: The value can be either the ID of a limit or a
             :class:`~openstack.identity.v3.limit.Limit` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the limit does not exist. When set to ``True``, no exception
             will be thrown when attempting to delete a nonexistent limit.
@@ -2055,17 +2127,20 @@ class Proxy(proxy.Proxy):
 
     # ========== Application credentials ==========
 
-    def application_credentials(self, user, **query):
+    def application_credentials(
+        self,
+        user: str | _user.User,
+        **query: Any,
+    ) -> Generator[_application_credential.ApplicationCredential, None, None]:
         """Retrieve a generator of application credentials
 
         :param user: Either the ID of a user or a
             :class:`~openstack.identity.v3.user.User` instance.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             limit the resources being returned.
 
         :returns: A generator of application credentials instances.
-        :rtype:
             :class:`~openstack.identity.v3.application_credential.ApplicationCredential`
         """
         user = self._get_resource(_user.User, user)
@@ -2075,7 +2150,12 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def get_application_credential(self, user, application_credential):
+    def get_application_credential(
+        self,
+        user: str | _user.User,
+        application_credential: str
+        | _application_credential.ApplicationCredential,
+    ) -> _application_credential.ApplicationCredential:
         """Get a single application credential
 
         :param user: Either the ID of a user or a
@@ -2110,14 +2190,12 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.user.User` instance.
         :param name: The name of the application credential which is
             unique to the user.
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.identity.v3.application_credential.ApplicationCredential`,
             comprised of the properties on the ApplicationCredential class.
 
 
         :returns: The results of application credential creation.
-        :rtype:
-            :class:`~openstack.identity.v3.application_credential.ApplicationCredential`
         """
 
         user = self._get_resource(_user.User, user)
@@ -2158,7 +2236,7 @@ class Proxy(proxy.Proxy):
         :param user: Either the ID of a user or a
             :class:`~openstack.identity.v3.user.User` instance.
         :param name_or_id: The name or ID of an application credential.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -2178,17 +2256,21 @@ class Proxy(proxy.Proxy):
         )
 
     def delete_application_credential(
-        self, user, application_credential, ignore_missing=True
-    ):
+        self,
+        user: str | _user.User,
+        application_credential: str
+        | _application_credential.ApplicationCredential,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete an application credential
 
         :param user: Either the ID of a user or a
             :class:`~openstack.identity.v3.user.User` instance.
-        :param application credential: The value can be either the ID of an
+        :param application_credential: The value can be either the ID of an
             application credential or a
             :class:`~openstack.identity.v3.application_credential.ApplicationCredential`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the application credential does not exist. When set to
             ``True``, no exception will be thrown when attempting to delete
@@ -2206,49 +2288,48 @@ class Proxy(proxy.Proxy):
 
     # ========== Federation protocols ==========
 
+    @renamed_param('idp_id', 'idp')
     def create_federation_protocol(
-        self,
-        idp_id: str | _identity_provider.IdentityProvider,
-        **attrs: Any,
+        self, idp: str | _identity_provider.IdentityProvider, **attrs: Any
     ) -> _federation_protocol.FederationProtocol:
         """Create a new federation protocol from attributes
 
-        :param idp_id: The ID of the identity provider or a
+        :param idp: The ID or a
             :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
-            representing the identity provider the protocol is to be
-            attached to.
-        :param dict attrs: Keyword arguments which will be used to create a
+            instance of the identity provider the protocol is to be attached
+            to.
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`,
             comprised of the properties on the
             FederationProtocol class.
 
         :returns: The results of federation protocol creation
-        :rtype:
-            :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
         """
-
-        idp_cls = _identity_provider.IdentityProvider
-        if isinstance(idp_id, idp_cls):
-            idp_id = idp_id.id
         return self._create(
-            _federation_protocol.FederationProtocol, idp_id=idp_id, **attrs
+            _federation_protocol.FederationProtocol,
+            idp_id=resource.Resource._get_id(idp),
+            **attrs,
         )
 
+    @renamed_param('idp_id', 'idp')
     def delete_federation_protocol(
-        self, idp_id, protocol, ignore_missing=True
-    ):
+        self,
+        idp: str | _identity_provider.IdentityProvider | None,
+        protocol: str | _federation_protocol.FederationProtocol,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a federation protocol
 
-        :param idp_id: The ID of the identity provider or a
+        :param idp: The ID or a
             :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
-            representing the identity provider the protocol is attached to.
-            Can be None if protocol is a
+            instance of the identity provider the protocol is attached to. Can
+            be None if protocol is a
             :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
             instance.
         :param protocol: The ID of a federation protocol or a
             :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the federation protocol does not exist.  When set to
             ``True``, no exception will be set when attempting to delete a
@@ -2257,11 +2338,10 @@ class Proxy(proxy.Proxy):
         :returns: ``None``
         """
         cls = _federation_protocol.FederationProtocol
-        if idp_id is None and isinstance(protocol, cls):
+        if idp:
+            idp_id = resource.Resource._get_id(idp)
+        elif isinstance(protocol, cls):
             idp_id = protocol.idp_id
-        idp_cls = _identity_provider.IdentityProvider
-        if isinstance(idp_id, idp_cls):
-            idp_id = idp_id.id
         self._delete(
             cls, protocol, ignore_missing=ignore_missing, idp_id=idp_id
         )
@@ -2269,7 +2349,7 @@ class Proxy(proxy.Proxy):
     @overload
     def find_federation_protocol(
         self,
-        idp_id: str | _identity_provider.IdentityProvider,
+        idp: str | _identity_provider.IdentityProvider,
         protocol: str,
         ignore_missing: Literal[False],
     ) -> _federation_protocol.FederationProtocol: ...
@@ -2277,95 +2357,104 @@ class Proxy(proxy.Proxy):
     @overload
     def find_federation_protocol(
         self,
-        idp_id: str | _identity_provider.IdentityProvider,
+        idp: str | _identity_provider.IdentityProvider,
         protocol: str,
         ignore_missing: bool = True,
     ) -> _federation_protocol.FederationProtocol | None: ...
 
+    @renamed_param('idp_id', 'idp')
     def find_federation_protocol(
         self,
-        idp_id: str | _identity_provider.IdentityProvider,
+        idp: str | _identity_provider.IdentityProvider,
         protocol: str,
         ignore_missing: bool = True,
     ) -> _federation_protocol.FederationProtocol | None:
         """Find a single federation protocol
 
-        :param idp_id: The ID of the identity provider or a
+        :param idp: The ID or a
             :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
-            representing the identity provider the protocol is attached to.
+            instance of the identity provider the protocol is attached to.
         :param protocol: The name or ID of a federation protocol.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist.  When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
         :returns: One federation protocol or None
-        :rtype:
-            :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
         """
-        idp_cls = _identity_provider.IdentityProvider
-        if isinstance(idp_id, idp_cls):
-            idp_id = idp_id.id
         return self._find(
             _federation_protocol.FederationProtocol,
             protocol,
             ignore_missing=ignore_missing,
-            idp_id=idp_id,
+            idp_id=resource.Resource._get_id(idp),
         )
 
-    def get_federation_protocol(self, idp_id, protocol):
+    @renamed_param('idp_id', 'idp')
+    def get_federation_protocol(
+        self,
+        idp: str | _identity_provider.IdentityProvider | None,
+        protocol: str | _federation_protocol.FederationProtocol,
+    ) -> _federation_protocol.FederationProtocol:
         """Get a single federation protocol
 
-        :param idp_id: The ID of the identity provider or a
+        :param idp: The ID or a
             :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
-            representing the identity provider the protocol is attached to.
-            Can be None if protocol is a
+            instance of the identity provider the protocol is attached to. Can
+            be None if protocol is a
             :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
+            instance.
         :param protocol: The value can be the ID of a federation protocol or a
             :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
             instance.
 
         :returns: One federation protocol
-        :rtype:
-            :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
-        cls = _federation_protocol.FederationProtocol
-        if idp_id is None and isinstance(protocol, cls):
+        if idp:
+            idp_id = resource.Resource._get_id(idp)
+        elif isinstance(protocol, _federation_protocol.FederationProtocol):
             idp_id = protocol.idp_id
-        idp_cls = _identity_provider.IdentityProvider
-        if isinstance(idp_id, idp_cls):
-            idp_id = idp_id.id
-        return self._get(cls, protocol, idp_id=idp_id)
+        return self._get(
+            _federation_protocol.FederationProtocol, protocol, idp_id=idp_id
+        )
 
-    def federation_protocols(self, idp_id, **query):
+    @renamed_param('idp_id', 'idp')
+    def federation_protocols(
+        self,
+        idp: str,
+        **query: Any,
+    ) -> Generator[_federation_protocol.FederationProtocol, None, None]:
         """Retrieve a generator of federation protocols
 
-        :param idp_id: The ID of the identity provider or a
+        :param idp: The ID or a
             :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
-            representing the identity provider the protocol is attached to.
-        :param kwargs query: Optional query parameters to be sent to limit
+            instance of the identity provider the protocol is attached to.
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of federation protocol instances.
-        :rtype:
-            :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
         """
-        idp_cls = _identity_provider.IdentityProvider
-        if isinstance(idp_id, idp_cls):
-            idp_id = idp_id.id
         return self._list(
-            _federation_protocol.FederationProtocol, idp_id=idp_id, **query
+            _federation_protocol.FederationProtocol,
+            idp_id=resource.Resource._get_id(idp),
+            **query,
         )
 
-    def update_federation_protocol(self, idp_id, protocol, **attrs):
+    @renamed_param('idp_id', 'idp')
+    def update_federation_protocol(
+        self,
+        idp: str | _identity_provider.IdentityProvider | None,
+        protocol: str | _federation_protocol.FederationProtocol,
+        **attrs: Any,
+    ) -> _federation_protocol.FederationProtocol:
         """Update a federation protocol
 
-        :param idp_id: The ID of the identity provider or a
+        :param idp: The ID or a
             :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
-            representing the identity provider the protocol is attached to.
-            Can be None if protocol is a
+            instance of the identity provider the protocol is attached to. Can
+            be None if protocol is a
             :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
+            instance.
         :param protocol: Either the ID of a federation protocol or a
             :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
             instance.
@@ -2373,38 +2462,40 @@ class Proxy(proxy.Proxy):
             represented by ``protocol``.
 
         :returns: The updated federation protocol
-        :rtype:
-            :class:`~openstack.identity.v3.federation_protocol.FederationProtocol`
         """
-        cls = _federation_protocol.FederationProtocol
-        if (idp_id is None) and (isinstance(protocol, cls)):
+        if idp:
+            idp_id = resource.Resource._get_id(idp)
+        elif isinstance(protocol, _federation_protocol.FederationProtocol):
             idp_id = protocol.idp_id
-        idp_cls = _identity_provider.IdentityProvider
-        if isinstance(idp_id, idp_cls):
-            idp_id = idp_id.id
-        return self._update(cls, protocol, idp_id=idp_id, **attrs)
+        return self._update(
+            _federation_protocol.FederationProtocol,
+            protocol,
+            idp_id=idp_id,
+            **attrs,
+        )
 
     # ========== Mappings ==========
 
     def create_mapping(self, **attrs: Any) -> _mapping.Mapping:
         """Create a new mapping from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v3.mapping.Mapping`,
             comprised of the properties on the Mapping class.
 
         :returns: The results of mapping creation
-        :rtype: :class:`~openstack.identity.v3.mapping.Mapping`
         """
         return self._create(_mapping.Mapping, **attrs)
 
-    def delete_mapping(self, mapping, ignore_missing=True):
+    def delete_mapping(
+        self, mapping: str | _mapping.Mapping, ignore_missing: bool = True
+    ) -> None:
         """Delete a mapping
 
         :param mapping: The ID of a mapping or a
             :class:`~openstack.identity.v3.mapping.Mapping`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the mapping does not exist.
             When set to ``True``, no exception will be set when
@@ -2436,7 +2527,7 @@ class Proxy(proxy.Proxy):
         """Find a single mapping
 
         :param name_or_id: The name or ID of a mapping.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -2452,7 +2543,7 @@ class Proxy(proxy.Proxy):
             _mapping.Mapping, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_mapping(self, mapping):
+    def get_mapping(self, mapping: str | _mapping.Mapping) -> _mapping.Mapping:
         """Get a single mapping
 
         :param mapping: The value can be the ID of a mapping or a
@@ -2465,18 +2556,22 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_mapping.Mapping, mapping)
 
-    def mappings(self, **query):
+    def mappings(
+        self,
+        **query: Any,
+    ) -> Generator[_mapping.Mapping, None, None]:
         """Retrieve a generator of mappings
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of mapping instances.
-        :rtype: :class:`~openstack.identity.v3.mapping.Mapping`
         """
         return self._list(_mapping.Mapping, **query)
 
-    def update_mapping(self, mapping, **attrs):
+    def update_mapping(
+        self, mapping: str | _mapping.Mapping, **attrs: Any
+    ) -> _mapping.Mapping:
         """Update a mapping
 
         :param mapping: Either the ID of a mapping or a
@@ -2485,7 +2580,6 @@ class Proxy(proxy.Proxy):
             by ``mapping``.
 
         :returns: The updated mapping
-        :rtype: :class:`~openstack.identity.v3.mapping.Mapping`
         """
         return self._update(_mapping.Mapping, mapping, **attrs)
 
@@ -2496,23 +2590,25 @@ class Proxy(proxy.Proxy):
     ) -> _identity_provider.IdentityProvider:
         """Create a new identity provider from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
             comprised of the properties on the IdentityProvider class.
 
         :returns: The results of identity provider creation
-        :rtype:
-            :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
         """
         return self._create(_identity_provider.IdentityProvider, **attrs)
 
-    def delete_identity_provider(self, identity_provider, ignore_missing=True):
+    def delete_identity_provider(
+        self,
+        identity_provider: str | _identity_provider.IdentityProvider,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete an identity provider
 
-        :param mapping: The ID of an identity provoder or a
+        :param identity_provider: The ID of an identity provider or a
             :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the identity provider does not exist.
             When set to ``True``, no exception will be set when
@@ -2548,14 +2644,12 @@ class Proxy(proxy.Proxy):
         """Find a single identity provider
 
         :param name_or_id: The name or ID of an identity provider
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
             attempting to find a nonexistent resource.
         :returns: The details of an identity provider or None.
-        :rtype:
-            :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
         """
         warnings.warn(
             "find_identity_provider is deprecated and will be removed in a "
@@ -2568,7 +2662,9 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_identity_provider(self, identity_provider):
+    def get_identity_provider(
+        self, identity_provider: str | _identity_provider.IdentityProvider
+    ) -> _identity_provider.IdentityProvider:
         """Get a single mapping
 
         :param mapping: The value can be the ID of an identity provider or a
@@ -2576,8 +2672,6 @@ class Proxy(proxy.Proxy):
             instance.
 
         :returns: The details of an identity provider.
-        :rtype:
-            :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
@@ -2585,19 +2679,25 @@ class Proxy(proxy.Proxy):
             _identity_provider.IdentityProvider, identity_provider
         )
 
-    def identity_providers(self, **query):
+    def identity_providers(
+        self,
+        **query: Any,
+    ) -> Generator[_identity_provider.IdentityProvider, None, None]:
         """Retrieve a generator of identity providers
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of identity provider instances.
-        :rtype:
             :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
         """
         return self._list(_identity_provider.IdentityProvider, **query)
 
-    def update_identity_provider(self, identity_provider, **attrs):
+    def update_identity_provider(
+        self,
+        identity_provider: str | _identity_provider.IdentityProvider,
+        **attrs: Any,
+    ) -> _identity_provider.IdentityProvider:
         """Update a mapping
 
         :param mapping: Either the ID of an identity provider or a
@@ -2607,8 +2707,6 @@ class Proxy(proxy.Proxy):
             represented by ``identity_provider``.
 
         :returns: The updated identity provider.
-        :rtype:
-            :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
         """
         return self._update(
             _identity_provider.IdentityProvider, identity_provider, **attrs
@@ -2616,26 +2714,33 @@ class Proxy(proxy.Proxy):
 
     # ========== Access rules ==========
 
-    def access_rules(self, user, **query):
+    def access_rules(
+        self,
+        user: str | _user.User,
+        **query: Any,
+    ) -> Generator[_access_rule.AccessRule, None, None]:
         """Retrieve a generator of access rules
 
         :param user: Either the ID of a user or a
             :class:`~openstack.identity.v3.user.User` instance.
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             limit the resources being returned.
 
         :returns: A generator of access rules instances.
-        :rtype: :class:`~openstack.identity.v3.access_rule.AccessRule`
         """
         user = self._get_resource(_user.User, user)
         return self._list(_access_rule.AccessRule, user_id=user.id, **query)
 
-    def get_access_rule(self, user, access_rule):
+    def get_access_rule(
+        self,
+        user: str | _user.User,
+        access_rule: str | _access_rule.AccessRule,
+    ) -> _access_rule.AccessRule:
         """Get a single access rule
 
         :param user: Either the ID of a user or a
             :class:`~openstack.identity.v3.user.User` instance.
-        :param access rule: The value can be the ID of an access rule or a
+        :param access_rule: The value can be the ID of an access rule or a
             :class:`~.access_rule.AccessRule` instance.
 
         :returns: One :class:`~.access_rule.AccessRule`
@@ -2645,14 +2750,20 @@ class Proxy(proxy.Proxy):
         user = self._get_resource(_user.User, user)
         return self._get(_access_rule.AccessRule, access_rule, user_id=user.id)
 
-    def delete_access_rule(self, user, access_rule, ignore_missing=True):
+    def delete_access_rule(
+        self,
+        user: str | _user.User,
+        access_rule: str | _access_rule.AccessRule,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete an access rule
 
         :param user: Either the ID of a user or a
             :class:`~openstack.identity.v3.user.User` instance.
-        :param access rule: The value can be either the ID of an
-            access rule or a :class:`~.access_rule.AccessRule` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param access_rule: The value can be either the ID of an access rule
+            or a :class:`~openstack.identity.v3.access_rule.AccessRule`
+            instance.
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the access rule does not exist. When set to ``True``, no
             exception will be thrown when attempting to delete a nonexistent
@@ -2675,23 +2786,25 @@ class Proxy(proxy.Proxy):
     ) -> _service_provider.ServiceProvider:
         """Create a new service provider from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.identity.v3.service_provider.ServiceProvider`,
             comprised of the properties on the ServiceProvider class.
 
         :returns: The results of service provider creation
-        :rtype:
-            :class:`~openstack.identity.v3.service_provider.ServiceProvider`
         """
         return self._create(_service_provider.ServiceProvider, **attrs)
 
-    def delete_service_provider(self, service_provider, ignore_missing=True):
+    def delete_service_provider(
+        self,
+        service_provider: str | _service_provider.ServiceProvider,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a service provider
 
         :param service_provider: The ID of a service provider or a
             :class:`~openstack.identity.v3.service_provider.ServiceProvider`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the service provider does not exist.
             When set to ``True``, no exception will be set when
@@ -2727,14 +2840,12 @@ class Proxy(proxy.Proxy):
         """Find a single service provider
 
         :param name_or_id: The name or ID of a service provider
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist. When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
 
         :returns: The details of an service provider or None.
-        :rtype:
-            :class:`~openstack.identity.v3.service_provider.ServiceProvider`
         """
         return self._find(
             _service_provider.ServiceProvider,
@@ -2742,7 +2853,9 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_service_provider(self, service_provider):
+    def get_service_provider(
+        self, service_provider: str | _service_provider.ServiceProvider
+    ) -> _service_provider.ServiceProvider:
         """Get a single service provider
 
         :param service_provider: The value can be the ID of a service provider
@@ -2751,26 +2864,30 @@ class Proxy(proxy.Proxy):
             instance.
 
         :returns: The details of an service provider.
-        :rtype:
-            :class:`~openstack.identity.v3.service_provider.ServiceProvider`
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
         return self._get(_service_provider.ServiceProvider, service_provider)
 
-    def service_providers(self, **query):
+    def service_providers(
+        self,
+        **query: Any,
+    ) -> Generator[_service_provider.ServiceProvider, None, None]:
         """Retrieve a generator of service providers
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of service provider instances.
-        :rtype:
             :class:`~openstack.identity.v3.service_provider.ServiceProvider`
         """
         return self._list(_service_provider.ServiceProvider, **query)
 
-    def update_service_provider(self, service_provider, **attrs):
+    def update_service_provider(
+        self,
+        service_provider: str | _service_provider.ServiceProvider,
+        **attrs: Any,
+    ) -> _service_provider.ServiceProvider:
         """Update a service provider
 
         :param service_provider: Either the ID of an service provider or a
@@ -2780,8 +2897,6 @@ class Proxy(proxy.Proxy):
             represented by ``service_provider``.
 
         :returns: The updated service provider.
-        :rtype:
-            :class:`~openstack.identity.v3.service_provider.ServiceProvider`
         """
         return self._update(
             _service_provider.ServiceProvider, service_provider, **attrs
@@ -2816,7 +2931,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -2831,8 +2946,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

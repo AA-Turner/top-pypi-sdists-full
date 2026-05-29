@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: uiautomator2
-Version: 3.5.0
+Version: 3.5.2
 Summary: uiautomator for android device
 Home-page: https://github.com/openatx/uiautomator2
 License: MIT
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: Pillow
-Requires-Dist: adbutils (>=2.9.3,<3)
+Requires-Dist: adbutils (>=2.11.0,<3)
 Requires-Dist: importlib-resources ; python_version < "3.9"
 Requires-Dist: lxml
 Requires-Dist: requests
@@ -34,7 +34,7 @@ Description-Content-Type: text/markdown
 
 A simple, easy-to-use, and stable Android automation library.
 
-- QQ Group: Group 1: 815453846, Group 2: 943964182
+- QQ Group: 815453846
 - Discord: <https://discord.gg/PbJhnZJKDd>
 
 > Users still on version 2.x.x, please check [2to3](docs/2to3.md) before deciding to upgrade to 3.x.x (Upgrade is highly recommended).
@@ -193,6 +193,12 @@ sl.set_text("hello world") # Input "hello world" into input field
 ```
 
 For more usage, refer to [XPath Interface Document](XPATH.md)
+
+## Plugins
+
+- webview: https://github.com/YuYoungG/uiautomator2-webview
+
+To maintain the project's simplicity and extensibility, future plugins will be integrated as third-party libraries.
 
 ## Operating Elements with UiAutomator API
 
@@ -499,6 +505,15 @@ Note: click, swipe, drag operations support percentage position values. Example:
     ```python
     d.open_notification()
     d.open_quick_settings()
+    ```
+
+* Show touch trace on device screen
+
+    ```python
+    # show touch trace on device screen
+    d.show_touch_trace()
+    # hide touch trace
+    d.show_touch_trace(pointer_location=False, show_touches=False)
     ```
 
 ### Selector

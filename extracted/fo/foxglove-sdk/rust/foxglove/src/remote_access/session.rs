@@ -6,7 +6,7 @@ use bytes::Bytes;
 use futures_util::StreamExt;
 use indexmap::IndexSet;
 use libwebrtc::video_source::{RtcVideoSource, native::NativeVideoSource};
-use livekit::options::{TrackPublishOptions, VideoCodec};
+use livekit::options::{PacketTrailerFeatures, TrackPublishOptions, VideoCodec};
 use livekit::{
     ByteStreamReader, Room, StreamByteOptions,
     id::{ParticipantIdentity, ParticipantSid},
@@ -24,7 +24,9 @@ use crate::protocol::v2::parameter::Parameter;
 use crate::protocol::v2::server::ParameterValues;
 use crate::remote_common::connection_graph::ConnectionGraph;
 use crate::remote_common::{
+    AnyClient,
     fetch_asset::AssetResponder,
+    parameters::{GetParametersResponder, ParameterHandler, SetParametersResponder},
     service::{CallId, Service, ServiceId, ServiceMap},
 };
 use crate::time::millis_since_epoch;
@@ -160,7 +162,8 @@ pub(super) struct RemoteAccessSession {
     qos_classifier: Option<Arc<dyn QosClassifier>>,
     listener: Option<Arc<dyn Listener>>,
     capabilities: Vec<Capability>,
-    fetch_asset_handler: Option<Arc<dyn AssetHandler<Client>>>,
+    fetch_asset_handler: Option<Arc<dyn AssetHandler>>,
+    parameter_handler: Option<Arc<dyn ParameterHandler>>,
     runtime: Handle,
     cancellation_token: CancellationToken,
     services: Arc<parking_lot::RwLock<ServiceMap>>,
@@ -200,21 +203,12 @@ impl Sink for RemoteAccessSession {
     ) -> std::result::Result<(), FoxgloveError> {
         let channel_id = channel.id();
 
-        // Collect subscriber identities under the session-state lock and
-        // release it before broadcasting. Two races are possible between the
-        // collect and the registry resolve, both benign:
-        //   1. The participant has been removed and not replaced — the resolve
-        //      misses and the message is dropped (their control queue has
-        //      already been drained anyway).
-        //   2. The participant has been removed and a same-identity reconnect
-        //      has registered in their place. The resolve returns the new
-        //      attempt, which receives a MessageData for a channel it never
-        //      subscribed to. The channel ID is session-scoped (already
-        //      advertised on this session), so the viewer drops the unknown
-        //      subscription and continues. Resolution is keyed on
-        //      ParticipantIdentity, so this can never deliver data across
-        //      identities — only the same logical user across a reconnect.
-        let reliable_subscribers = {
+        // Snapshot subscriber SIDs under the channel-registry read lock and
+        // release it before resolving against the participant registry. A
+        // same-identity reconnect arrives with a *different* `ParticipantSid`,
+        // so a stale snapshotted SID resolves to `None` in the participant
+        // registry rather than the new attempt.
+        let reliable_sids = {
             let state = self.channel_registry.read();
 
             // Video track publisher: stays inside the state lock since the
@@ -224,26 +218,26 @@ impl Sink for RemoteAccessSession {
             }
 
             if !state.has_data_subscribers(&channel_id) {
-                None
+                SmallVec::new()
             } else if state.qos_profile(&channel_id).reliability == Reliability::Reliable {
-                Some(state.data_subscriber_identities(&channel_id))
+                state.data_subscriber_sids(&channel_id)
             } else {
                 // Lossy channels: send via the eagerly-published data track
                 // inline, while we still hold the state read lock.
                 if let Some(track) = state.get_subscribed_data_track(&channel_id) {
                     track.log(channel_id, msg, metadata);
                 }
-                None
+                SmallVec::new()
             }
         };
 
         // Reliable channels: send MessageData via the control bytestream.
-        // Batch-resolve identities so we take the registry lock once rather
-        // than per-subscriber.
-        if let Some(subscribers) = reliable_subscribers {
+        // Batch-resolve SIDs so we take the registry lock once rather than
+        // per-subscriber.
+        if !reliable_sids.is_empty() {
             let message = MessageData::new(u64::from(channel_id), metadata.log_time, msg);
             let encoded = encode_binary_message(&message);
-            for participant in self.participant_registry.resolve_identities(subscribers) {
+            for participant in self.participant_registry.resolve_sids(reliable_sids) {
                 participant.send_control(encoded.clone());
             }
         }
@@ -322,12 +316,12 @@ impl Sink for RemoteAccessSession {
         let _guard = self.subscription_lock.lock();
         let channel_id = channel.id();
 
-        // Collect subscriber identities before removal; we'll resolve them to
+        // Snapshot subscriber SIDs before removal; we'll resolve them to
         // `Client`s after via the registry.
-        let subscriber_identities = self
+        let subscriber_sids = self
             .channel_registry
             .read()
-            .channel_subscriber_identities(&channel_id);
+            .channel_subscriber_sids(&channel_id);
 
         if !self.channel_registry.write().remove_channel(channel_id) {
             return;
@@ -345,10 +339,7 @@ impl Sink for RemoteAccessSession {
         // Fire on_unsubscribe callbacks for subscribers of the removed channel.
         if let Some(listener) = &self.listener {
             let descriptor = channel.descriptor();
-            for participant in self
-                .participant_registry
-                .resolve_identities(subscriber_identities)
-            {
+            for participant in self.participant_registry.resolve_sids(subscriber_sids) {
                 let client = Client::new(
                     participant.client_id(),
                     participant.participant_id().clone(),
@@ -377,16 +368,17 @@ pub(super) struct SessionParams {
     pub(super) services: Arc<parking_lot::RwLock<ServiceMap>>,
     pub(super) connection_graph: Arc<parking_lot::Mutex<ConnectionGraph>>,
     pub(super) remote_access_session_id: Option<String>,
-    pub(super) fetch_asset_handler: Option<Arc<dyn AssetHandler<Client>>>,
+    pub(super) fetch_asset_handler: Option<Arc<dyn AssetHandler>>,
+    pub(super) parameter_handler: Option<Arc<dyn ParameterHandler>>,
     pub(super) server_info: ServerInfo,
     pub(super) device_wait_for_viewer: Option<Duration>,
 }
 
 impl RemoteAccessSession {
-    pub(super) fn new(params: SessionParams) -> Self {
+    pub(super) fn new(params: SessionParams) -> Arc<Self> {
         let (video_metadata_tx, video_metadata_rx) = tokio::sync::watch::channel(());
         let participant_registry = ParticipantRegistry::new(params.message_backlog_size);
-        Self {
+        Arc::new(Self {
             sink_id: SinkId::next(),
             room: params.room,
             context: params.context,
@@ -398,6 +390,7 @@ impl RemoteAccessSession {
             listener: params.listener,
             capabilities: params.capabilities,
             fetch_asset_handler: params.fetch_asset_handler,
+            parameter_handler: params.parameter_handler,
             runtime: params.runtime,
             cancellation_token: params.cancellation_token,
             subscription_lock: parking_lot::Mutex::new(()),
@@ -411,7 +404,7 @@ impl RemoteAccessSession {
             server_info: params.server_info,
             participant_registry,
             device_wait_for_viewer: params.device_wait_for_viewer,
-        }
+        })
     }
 
     /// Returns true if the given capability is enabled for this session.
@@ -681,6 +674,16 @@ impl RemoteAccessSession {
         true
     }
 
+    /// Returns true if this participant's SID is still in the registry. The SID may have been
+    /// removed if the participant has disconnected, or reconnected as a new session.
+    ///
+    /// Handlers that insert subscriptions and client advertisements (which are scoped to the
+    /// participant session) must perform this check after acquiring [`Self::subscription_lock`].
+    fn is_participant_registered(&self, participant: &Participant) -> bool {
+        self.participant_registry
+            .is_sid_registered(participant.participant_sid())
+    }
+
     /// Subscribes the participant to the requested channels and notifies the listener.
     ///
     /// Channels the participant is already subscribed to are silently skipped.
@@ -691,6 +694,9 @@ impl RemoteAccessSession {
         msg: client::Subscribe,
     ) {
         let _guard = self.subscription_lock.lock();
+        if !self.is_participant_registered(participant) {
+            return;
+        }
 
         // Collect new & modified subscriptions.
         //
@@ -721,11 +727,11 @@ impl RemoteAccessSession {
         drop(state);
 
         let mut state = self.channel_registry.write();
-        let subscribe_result = state.subscribe(participant.participant_id(), &channel_ids);
+        let subscribe_result = state.subscribe(participant.participant_sid(), &channel_ids);
         let first_video_subscribed =
-            state.subscribe_video(participant.participant_id(), &video_channel_ids);
+            state.subscribe_video(participant.participant_sid(), &video_channel_ids);
         let last_video_unsubscribed =
-            state.unsubscribe_video(participant.participant_id(), &data_channel_ids);
+            state.unsubscribe_video(participant.participant_sid(), &data_channel_ids);
         drop(state);
 
         if !subscribe_result.first_subscribed.is_empty() {
@@ -767,9 +773,9 @@ impl RemoteAccessSession {
             .collect();
 
         let mut state = self.channel_registry.write();
-        let unsubscribe_result = state.unsubscribe(participant.participant_id(), &channel_ids);
+        let unsubscribe_result = state.unsubscribe(participant.participant_sid(), &channel_ids);
         let last_video_unsubscribed =
-            state.unsubscribe_video(participant.participant_id(), &channel_ids);
+            state.unsubscribe_video(participant.participant_sid(), &channel_ids);
         drop(state);
 
         if !unsubscribe_result.last_unsubscribed.is_empty() {
@@ -806,6 +812,9 @@ impl RemoteAccessSession {
         // handle_client_message resolves the participant and the point where
         // insert_client_channel asserts its presence, causing a panic.
         let _guard = self.subscription_lock.lock();
+        if !self.is_participant_registered(participant) {
+            return;
+        }
 
         if !self.has_capability(Capability::ClientPublish) {
             self.send_error(
@@ -862,7 +871,7 @@ impl RemoteAccessSession {
             let inserted = self
                 .channel_registry
                 .write()
-                .insert_client_channel(participant.participant_id(), descriptor.clone());
+                .insert_client_channel(participant.participant_sid(), descriptor.clone());
 
             if !inserted {
                 self.send_warning(
@@ -897,7 +906,7 @@ impl RemoteAccessSession {
             let removed = self
                 .channel_registry
                 .write()
-                .remove_client_channel(participant.participant_id(), channel_id);
+                .remove_client_channel(participant.participant_sid(), channel_id);
 
             match removed {
                 None => debug!(
@@ -972,14 +981,19 @@ impl RemoteAccessSession {
             );
             return;
         }
+
         let channel_id = ChannelId::new(msg.channel_id.into());
         let descriptor = {
             let state = self.channel_registry.read();
             state
-                .get_client_channel(participant.participant_id(), channel_id)
+                .get_client_channel(participant.participant_sid(), channel_id)
                 .cloned()
         };
         let Some(descriptor) = descriptor else {
+            // If the participant was removed concurrently, don't send an error.
+            if !self.is_participant_registered(participant) {
+                return;
+            }
             self.send_error(
                 participant,
                 format!("Client has not advertised channel: {}", msg.channel_id),
@@ -1140,14 +1154,15 @@ impl RemoteAccessSession {
     fn run_participant_removal_cleanup(self: &Arc<Self>, participant: &Arc<Participant>) {
         let client_id = participant.client_id();
         let participant_id = participant.participant_id();
+        let participant_sid = participant.participant_sid();
         let removed = self
             .channel_registry
             .write()
-            .cleanup_for_removed_identity(participant_id);
+            .cleanup_for_removed_participant(participant_sid);
         let last_param_unsubscribed = self
             .parameter_subscriptions
             .write()
-            .cleanup_for_removed_identity(participant_id);
+            .cleanup_for_removed_participant(participant_sid);
 
         // Listener / context / video-track / connection-graph aftercare.
         if !removed.last_unsubscribed.is_empty() {
@@ -1777,11 +1792,11 @@ impl RemoteAccessSession {
             "Gateway advertised the Assets capability without providing a handler; \
              this should have been caught in Gateway::start()",
         );
-        let client = Client::with_sender(
+        let client = AnyClient::from_remote_access(Client::with_sender(
             participant.client_id(),
             participant.participant_id().clone(),
             participant,
-        );
+        ));
         let responder = AssetResponder::new(client, request_id, guard);
         handler.fetch(uri, responder);
     }
@@ -1801,6 +1816,23 @@ impl RemoteAccessSession {
             return;
         }
 
+        // ParameterHandler takes precedence over the deprecated Listener parameter callbacks.
+        if let Some(handler) = self.parameter_handler.as_ref() {
+            let Some(guard) = participant.parameter_sem().try_acquire() else {
+                self.send_error(participant, "Too many concurrent parameter requests".into());
+                return;
+            };
+            let client = AnyClient::from_remote_access(Client::with_sender(
+                participant.client_id(),
+                participant.participant_id().clone(),
+                participant,
+            ));
+            let responder = GetParametersResponder::new(client.clone(), request_id.clone(), guard);
+            handler.get(client, param_names, request_id, responder);
+            return;
+        }
+
+        #[allow(deprecated)]
         if let Some(listener) = self.listener.as_ref() {
             let client = Client::new(
                 participant.client_id(),
@@ -1827,6 +1859,23 @@ impl RemoteAccessSession {
             return;
         }
 
+        // ParameterHandler takes precedence over the deprecated Listener parameter callbacks.
+        if let Some(handler) = self.parameter_handler.as_ref() {
+            let Some(guard) = participant.parameter_sem().try_acquire() else {
+                self.send_error(participant, "Too many concurrent parameter requests".into());
+                return;
+            };
+            let client = AnyClient::from_remote_access(Client::with_sender(
+                participant.client_id(),
+                participant.participant_id().clone(),
+                participant,
+            ));
+            let responder = SetParametersResponder::new(client.clone(), request_id.clone(), guard);
+            handler.set(client, parameters, request_id, responder);
+            return;
+        }
+
+        #[allow(deprecated)]
         let updated_parameters = if let Some(listener) = self.listener.as_ref() {
             let client = Client::new(
                 participant.client_id(),
@@ -1859,10 +1908,14 @@ impl RemoteAccessSession {
             return;
         }
         let _guard = self.subscription_lock.lock();
+        if !self.is_participant_registered(participant) {
+            return;
+        }
+
         let new_names = self
             .parameter_subscriptions
             .write()
-            .subscribe(participant.participant_id(), names);
+            .subscribe(participant.participant_sid(), names);
         if !new_names.is_empty() {
             if let Some(listener) = &self.listener {
                 listener.on_parameters_subscribe(new_names);
@@ -1887,7 +1940,7 @@ impl RemoteAccessSession {
         let old_names = self
             .parameter_subscriptions
             .write()
-            .unsubscribe(participant.participant_id(), names);
+            .unsubscribe(participant.participant_sid(), names);
         if !old_names.is_empty() {
             if let Some(listener) = &self.listener {
                 listener.on_parameters_unsubscribe(old_names);
@@ -1928,7 +1981,7 @@ impl RemoteAccessSession {
                         .iter()
                         .filter(|p| {
                             subs.subscribers(&p.name)
-                                .is_some_and(|ids| ids.contains(participant.participant_id()))
+                                .is_some_and(|sids| sids.contains(participant.participant_sid()))
                         })
                         .cloned()
                         .collect();
@@ -2125,11 +2178,24 @@ impl RemoteAccessSession {
             let session = self.clone();
             tokio::spawn(async move {
                 let local_track = LocalTrack::Video(track);
-                // Prefer H.264 so that the libwebrtc VAAPI encoder (H.264-only) can be used
-                // on Linux hosts that have libva + a VA driver available. VP8/VP9/AV1 paths
+                // Enable the `user_timestamp` packet-trailer feature so the original image
+                // capture timestamp (set on each `VideoFrame::frame_metadata`) is carried
+                // in-band end-to-end, where it can be recovered on the receiving side.
+                // `PacketTrailerFeatures` is `#[non_exhaustive]`, so we build it
+                // explicitly rather than with a struct literal.
+                let mut packet_trailer_features = PacketTrailerFeatures::default();
+                packet_trailer_features.user_timestamp = true;
+                // Prefer H.264 so that the libwebrtc nvenc encoder (H.264-only) can be used
+                // on Linux hosts that have nvenc available. VP8/VP9/AV1 paths
                 // are software-only in our builds, so H.264 is at worst parity elsewhere.
+                // Disable simulcast. We expect viewers will be mostly homogenous, and
+                // simulcast is a lot of work for the robot without much to gain.
+                // We observed that nvenc aggressively enforces the target bitrate,
+                // and combined with simulcast results in very low quality video with compression artifacts.
                 let publish_options = TrackPublishOptions {
                     video_codec: VideoCodec::H264,
+                    packet_trailer_features,
+                    simulcast: false,
                     ..Default::default()
                 };
                 match local_participant
@@ -2261,12 +2327,12 @@ mod tests {
         (participant, rx)
     }
 
-    fn test_client(participant: &Arc<Participant>) -> Client {
-        Client::with_sender(
+    fn test_client(participant: &Arc<Participant>) -> AnyClient {
+        AnyClient::from_remote_access(Client::with_sender(
             participant.client_id(),
             participant.participant_id().clone(),
             participant,
-        )
+        ))
     }
 
     // ---- fetch asset tests ----
@@ -2395,7 +2461,7 @@ mod tests {
         let responder = AssetResponder::new(test_client(&participant), 7, guard);
 
         let handler = BlockingAssetHandlerFn(Arc::new(
-            |_client: Client, _uri: String| -> Result<&[u8], &str> { Ok(b"<robot/>") },
+            |_client: AnyClient, _uri: String| -> Result<&[u8], &str> { Ok(b"<robot/>") },
         ));
         handler.fetch("package://test/model.urdf".to_string(), responder);
 
@@ -2416,7 +2482,7 @@ mod tests {
         let responder = AssetResponder::new(test_client(&participant), 9, guard);
 
         let handler = BlockingAssetHandlerFn(Arc::new(
-            |_client: Client, _uri: String| -> Result<&[u8], &str> { Err("not found") },
+            |_client: AnyClient, _uri: String| -> Result<&[u8], &str> { Err("not found") },
         ));
         handler.fetch("package://missing".to_string(), responder);
 
@@ -2436,9 +2502,10 @@ mod tests {
         let guard = participant.fetch_asset_sem().try_acquire().unwrap();
         let responder = AssetResponder::new(test_client(&participant), 8, guard);
 
-        let handler = AsyncAssetHandlerFn(Arc::new(|_client: Client, _uri: String| async move {
-            Ok::<_, String>(b"PNG data".to_vec())
-        }));
+        let handler =
+            AsyncAssetHandlerFn(Arc::new(|_client: AnyClient, _uri: String| async move {
+                Ok::<_, String>(b"PNG data".to_vec())
+            }));
         handler.fetch("https://example.com/asset.png".to_string(), responder);
 
         let msg = tokio::time::timeout(Duration::from_secs(1), rx.recv_async())
@@ -2587,5 +2654,97 @@ mod tests {
         drop(rx);
         // Disconnected returns true (no reset needed).
         assert!(participant.try_queue_control(Bytes::from_static(b"msg")));
+    }
+
+    // ---- parameter handler responder tests ----
+
+    use crate::protocol::common::parameter::Parameter as CommonParameter;
+    use crate::protocol::common::server::ParameterValues;
+    use crate::protocol::common::server::status::{Level as StatusLevel, Status};
+    use crate::remote_common::parameters::{GetParametersResponder, SetParametersResponder};
+
+    /// Decode the next control message — which is framed as 1 byte opcode + 4 byte LE length +
+    /// JSON payload — as a `T`.
+    fn recv_json<T: serde::de::DeserializeOwned>(rx: &flume::Receiver<Bytes>) -> T {
+        let bytes = rx.try_recv().expect("expected control message");
+        assert!(
+            bytes.len() >= 5,
+            "control msg too short: {} bytes",
+            bytes.len()
+        );
+        assert_eq!(bytes[0], 1, "expected JSON opcode (1), got {}", bytes[0]);
+        let len = u32::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as usize;
+        let payload = &bytes[5..5 + len];
+        serde_json::from_slice(payload).expect("failed to decode control msg payload")
+    }
+
+    #[test]
+    fn get_parameters_responder_sends_values() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let client = test_client(&participant);
+        let guard = participant.parameter_sem().try_acquire().unwrap();
+        let responder = GetParametersResponder::new(client, Some("req-1".to_string()), guard);
+
+        responder.respond(vec![CommonParameter::float64("foo", 1.0)]);
+
+        let msg: ParameterValues = recv_json(&rx);
+        assert_eq!(msg.id.as_deref(), Some("req-1"));
+        assert_eq!(msg.parameters, vec![CommonParameter::float64("foo", 1.0)]);
+    }
+
+    #[test]
+    fn get_parameters_responder_drop_sends_error() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let client = test_client(&participant);
+        let guard = participant.parameter_sem().try_acquire().unwrap();
+        let responder = GetParametersResponder::new(client, Some("req-1".to_string()), guard);
+
+        drop(responder);
+
+        let status: Status = recv_json(&rx);
+        assert_eq!(status.level, StatusLevel::Error);
+        assert!(status.message.contains("failed to send a response"));
+    }
+
+    #[test]
+    fn set_parameters_responder_echoes_when_request_id_set() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let client = test_client(&participant);
+        let guard = participant.parameter_sem().try_acquire().unwrap();
+        let responder = SetParametersResponder::new(client, Some("set-1".to_string()), guard);
+
+        responder.respond(vec![CommonParameter::float64("foo", 2.0)]);
+
+        let msg: ParameterValues = recv_json(&rx);
+        assert_eq!(msg.id.as_deref(), Some("set-1"));
+        assert_eq!(msg.parameters, vec![CommonParameter::float64("foo", 2.0)]);
+    }
+
+    #[test]
+    fn set_parameters_responder_no_echo_without_request_id() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let client = test_client(&participant);
+        let guard = participant.parameter_sem().try_acquire().unwrap();
+        let responder = SetParametersResponder::new(client, None, guard);
+
+        responder.respond(vec![CommonParameter::float64("foo", 2.0)]);
+
+        // No echo without a request_id.
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn set_parameters_responder_drop_sends_error() {
+        let (participant, rx) = make_participant_with_rx("alice");
+        let client = test_client(&participant);
+        let guard = participant.parameter_sem().try_acquire().unwrap();
+        let responder = SetParametersResponder::new(client, Some("set-1".to_string()), guard);
+
+        drop(responder);
+
+        let status: Status = recv_json(&rx);
+        assert_eq!(status.level, StatusLevel::Error);
+        assert!(status.message.contains("failed to send a response"));
+        assert!(rx.try_recv().is_err());
     }
 }

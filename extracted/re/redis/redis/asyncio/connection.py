@@ -1,13 +1,12 @@
 import asyncio
 import copy
-import enum
 import inspect
 import socket
 import sys
 import time
 import warnings
 import weakref
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from itertools import chain
 from types import MappingProxyType
 from typing import (
@@ -34,7 +33,7 @@ from ..observability.attributes import (
     ConnectionState,
     get_pool_name,
 )
-from ..utils import SSL_AVAILABLE
+from ..utils import SSL_AVAILABLE, deprecated_function
 
 if SSL_AVAILABLE:
     import ssl
@@ -66,7 +65,6 @@ from redis.asyncio.observability.recorder import (
 )
 from redis.asyncio.retry import Retry
 from redis.backoff import NoBackoff
-from redis.connection import DEFAULT_RESP_VERSION
 from redis.credentials import CredentialProvider, UsernamePasswordCredentialProvider
 from redis.exceptions import (
     AuthenticationError,
@@ -80,8 +78,19 @@ from redis.exceptions import (
 )
 from redis.observability.metrics import CloseReason
 from redis.typing import EncodableT
-from redis.utils import HIREDIS_AVAILABLE, str_if_bytes
+from redis.utils import (
+    DEFAULT_RESP_VERSION,
+    HIREDIS_AVAILABLE,
+    SENTINEL,
+    str_if_bytes,
+)
 
+from .._defaults import (
+    DEFAULT_SOCKET_CONNECT_TIMEOUT,
+    DEFAULT_SOCKET_READ_SIZE,
+    DEFAULT_SOCKET_TIMEOUT,
+    get_default_socket_keepalive_options,
+)
 from .._parsers import (
     BaseParser,
     Encoder,
@@ -97,18 +106,11 @@ SYM_LF = b"\n"
 SYM_EMPTY = b""
 
 
-class _Sentinel(enum.Enum):
-    sentinel = object()
-
-
-SENTINEL = _Sentinel.sentinel
-
-
 DefaultParser: Type[Union[_AsyncRESP2Parser, _AsyncRESP3Parser, _AsyncHiredisParser]]
 if HIREDIS_AVAILABLE:
     DefaultParser = _AsyncHiredisParser
 else:
-    DefaultParser = _AsyncRESP2Parser
+    DefaultParser = _AsyncRESP3Parser
 
 
 class ConnectCallbackProtocol(Protocol):
@@ -162,29 +164,30 @@ class AbstractConnection:
     def __init__(
         self,
         *,
-        db: Union[str, int] = 0,
-        password: Optional[str] = None,
-        socket_timeout: Optional[float] = None,
-        socket_connect_timeout: Optional[float] = None,
+        db: str | int = 0,
+        password: str | None = None,
+        socket_timeout: float | None = DEFAULT_SOCKET_TIMEOUT,
+        socket_connect_timeout: float | None = DEFAULT_SOCKET_CONNECT_TIMEOUT,
         retry_on_timeout: bool = False,
-        retry_on_error: Union[list, _Sentinel] = SENTINEL,
+        retry_on_error: list | object = SENTINEL,
         encoding: str = "utf-8",
         encoding_errors: str = "strict",
         decode_responses: bool = False,
         parser_class: Type[BaseParser] = DefaultParser,
-        socket_read_size: int = 65536,
+        socket_read_size: int = DEFAULT_SOCKET_READ_SIZE,
         health_check_interval: float = 0,
-        client_name: Optional[str] = None,
-        lib_name: Optional[str] = None,
-        lib_version: Optional[str] = None,
-        driver_info: Optional[DriverInfo] = None,
-        username: Optional[str] = None,
-        retry: Optional[Retry] = None,
-        redis_connect_func: Optional[ConnectCallbackT] = None,
+        client_name: str | None = None,
+        lib_name: str | object | None = SENTINEL,
+        lib_version: str | object | None = SENTINEL,
+        driver_info: DriverInfo | object | None = SENTINEL,
+        username: str | None = None,
+        retry: Retry | None = None,
+        redis_connect_func: ConnectCallbackT | None = None,
         encoder_class: Type[Encoder] = Encoder,
-        credential_provider: Optional[CredentialProvider] = None,
-        protocol: Optional[int] = 2,
-        event_dispatcher: Optional[EventDispatcher] = None,
+        credential_provider: CredentialProvider | None = None,
+        protocol: int | None = None,
+        legacy_responses: bool = True,
+        event_dispatcher: EventDispatcher | None = None,
     ):
         """
         Initialize a new async Connection.
@@ -194,7 +197,7 @@ class AbstractConnection:
         driver_info : DriverInfo, optional
             Driver metadata for CLIENT SETINFO. If provided, lib_name and lib_version
             are ignored. If not provided, a DriverInfo will be created from lib_name
-            and lib_version (or defaults if those are also None).
+            and lib_version. Explicit None disables CLIENT SETINFO.
         lib_name : str, optional
             **Deprecated.** Use driver_info instead. Library name for CLIENT SETINFO.
         lib_version : str, optional
@@ -214,7 +217,7 @@ class AbstractConnection:
         self.db = db
         self.client_name = client_name
 
-        # Handle driver_info: if provided, use it; otherwise create from lib_name/lib_version
+        # Handle driver_info: if provided, use it; otherwise create from lib_name/lib_version.
         self.driver_info = resolve_driver_info(driver_info, lib_name, lib_version)
 
         self.credential_provider = credential_provider
@@ -249,7 +252,6 @@ class AbstractConnection:
         self._reader: Optional[asyncio.StreamReader] = None
         self._writer: Optional[asyncio.StreamWriter] = None
         self._socket_read_size = socket_read_size
-        self.set_parser(parser_class)
         self._connect_callbacks: List[weakref.WeakMethod[ConnectCallbackT]] = []
         self._buffer_cutoff = 6000
         self._re_auth_token: Optional[TokenInterface] = None
@@ -265,6 +267,14 @@ class AbstractConnection:
             if p < 2 or p > 3:
                 raise ConnectionError("protocol must be either 2 or 3")
         self.protocol = p
+        self.legacy_responses = legacy_responses
+        if parser_class != _AsyncHiredisParser:
+            # The Python parsers are protocol-specific; hiredis supports both.
+            if self.protocol == 3 and parser_class == _AsyncRESP2Parser:
+                parser_class = _AsyncRESP3Parser
+            elif self.protocol == 2 and parser_class == _AsyncRESP3Parser:
+                parser_class = _AsyncRESP2Parser
+        self.set_parser(parser_class)
 
     def __del__(self, _warnings: Any = warnings):
         # For some reason, the individual streams don't get properly garbage
@@ -574,6 +584,16 @@ class AbstractConnection:
         health_check_failed: bool = False,
     ) -> None:
         """Disconnects from the Redis server"""
+        # On Python 3.13+, asyncio.timeout() raises RuntimeError when called
+        # outside a running Task (e.g. during GC finalization or event-loop
+        # callbacks).  In that context we fall back to a synchronous close.
+        # See https://github.com/redis/redis-py/issues/3856
+        if asyncio.current_task() is None:
+            self._parser.on_disconnect()
+            self.reset_should_reconnect()
+            self._close()
+            return
+
         try:
             async with async_timeout(self.socket_connect_timeout):
                 self._parser.on_disconnect()
@@ -695,10 +715,24 @@ class AbstractConnection:
             self.pack_command(*args), check_health=kwargs.get("check_health", True)
         )
 
-    async def can_read_destructive(self):
-        """Poll the socket to see if there's data that can be read."""
+    @deprecated_function(
+        version="8.0.0", reason="Use can_read() instead", name="can_read_destructive"
+    )
+    async def can_read_destructive(self) -> bool:
+        """Check the socket to see if there's data loaded in the buffer."""
         try:
-            return await self._parser.can_read_destructive()
+            return await self._parser.can_read()
+        except OSError as e:
+            await self.disconnect(nowait=True)
+            host_error = self._host_error()
+            raise ConnectionError(f"Error while reading from {host_error}: {e.args}")
+
+    async def can_read(self) -> bool:
+        """Check the socket to see if there's data loaded in the buffer."""
+        # TODO: Rename this API; it detects pending data or dirty/closed
+        # connection state, not only whether application data can be read.
+        try:
+            return await self._parser.can_read()
         except OSError as e:
             await self.disconnect(nowait=True)
             host_error = self._host_error()
@@ -867,15 +901,32 @@ class Connection(AbstractConnection):
         self,
         *,
         host: str = "localhost",
-        port: Union[str, int] = 6379,
-        socket_keepalive: bool = False,
-        socket_keepalive_options: Optional[Mapping[int, Union[int, bytes]]] = None,
+        port: str | int = 6379,
+        socket_keepalive: bool = True,
+        socket_keepalive_options: Mapping[int, int | bytes] | object | None = SENTINEL,
         socket_type: int = 0,
         **kwargs,
     ):
+        """
+        Initialize a TCP connection.
+
+        Parameters
+        ----------
+        socket_keepalive : bool
+            If `True`, TCP keepalive is enabled for TCP socket connections.
+        socket_keepalive_options : Mapping[int, int | bytes] | object | None
+            Mapping of TCP keepalive socket option constants to values, for
+            example `{socket.TCP_KEEPIDLE: 30}`. If left unspecified, redis-py
+            uses TCP keepalive defaults when `socket_keepalive` is enabled:
+            idle 30 seconds, interval 5 seconds, and 3 probes. Platform-specific
+            options that are not available are skipped. Pass `None` or `{}` to
+            avoid setting additional TCP keepalive options.
+        """
         self.host = host
         self.port = int(port)
         self.socket_keepalive = socket_keepalive
+        if socket_keepalive_options is SENTINEL:
+            socket_keepalive_options = get_default_socket_keepalive_options()
         self.socket_keepalive_options = socket_keepalive_options or {}
         self.socket_type = socket_type
         super().__init__(**kwargs)
@@ -1147,6 +1198,7 @@ URL_QUERY_ARGUMENT_PARSERS: Mapping[str, Callable[..., object]] = MappingProxyTy
         "db": int,
         "socket_timeout": float,
         "socket_connect_timeout": float,
+        "socket_read_size": int,
         "socket_keepalive": to_bool,
         "retry_on_timeout": to_bool,
         "max_connections": int,
@@ -1155,6 +1207,8 @@ URL_QUERY_ARGUMENT_PARSERS: Mapping[str, Callable[..., object]] = MappingProxyTy
         "ssl_include_verify_flags": parse_ssl_verify_flags,
         "ssl_exclude_verify_flags": parse_ssl_verify_flags,
         "timeout": float,
+        "protocol": int,
+        "legacy_responses": to_bool,
     }
 )
 
@@ -1225,7 +1279,59 @@ def parse_url(url: str) -> ConnectKwargs:
 _CP = TypeVar("_CP", bound="ConnectionPool")
 
 
-class ConnectionPool:
+class ConnectionPoolInterface(ABC):
+    @abstractmethod
+    def get_protocol(self):
+        pass
+
+    @abstractmethod
+    def reset(self) -> None:
+        pass
+
+    @abstractmethod
+    @deprecated_args(
+        args_to_warn=["*"],
+        reason="Use get_connection() without args instead",
+        version="5.3.0",
+    )
+    async def get_connection(
+        self, command_name: Optional[str] = None, *keys: Any, **options: Any
+    ) -> "AbstractConnection":
+        pass
+
+    @abstractmethod
+    def get_encoder(self) -> "Encoder":
+        pass
+
+    @abstractmethod
+    async def release(self, connection: "AbstractConnection") -> None:
+        pass
+
+    @abstractmethod
+    async def disconnect(self, inuse_connections: bool = True) -> None:
+        pass
+
+    @abstractmethod
+    async def aclose(self) -> None:
+        pass
+
+    @abstractmethod
+    def set_retry(self, retry: "Retry") -> None:
+        pass
+
+    @abstractmethod
+    async def re_auth_callback(self, token: TokenInterface) -> None:
+        pass
+
+    @abstractmethod
+    def get_connection_count(self) -> List[Tuple[int, dict]]:
+        """
+        Returns a connection count (both idle and in use).
+        """
+        pass
+
+
+class ConnectionPool(ConnectionPoolInterface):
     """
     Create a connection pool. ``If max_connections`` is set, then this
     object raises :py:class:`~redis.ConnectionError` when the pool's
@@ -1293,7 +1399,7 @@ class ConnectionPool:
         max_connections: Optional[int] = None,
         **connection_kwargs,
     ):
-        max_connections = max_connections or 2**31
+        max_connections = max_connections or 100
         if not isinstance(max_connections, int) or max_connections < 0:
             raise ValueError('"max_connections" must be a positive integer')
 
@@ -1331,6 +1437,14 @@ class ConnectionPool:
             f"(<{self.connection_class.__module__}.{self.connection_class.__name__}"
             f"({conn_kwargs})>)>"
         )
+
+    def get_protocol(self):
+        """
+        Returns:
+            The RESP protocol version, or ``None`` if the protocol is not specified,
+            in which case the server default will be used.
+        """
+        return self.connection_kwargs.get("protocol", None)
 
     def reset(self):
         # Record metrics for connections being removed before clearing
@@ -1492,12 +1606,12 @@ class ConnectionPool:
         # pool before all data has been read or the socket has been
         # closed. either way, reconnect and verify everything is good.
         try:
-            if await connection.can_read_destructive():
+            if await connection.can_read():
                 raise ConnectionError("Connection has data") from None
         except (ConnectionError, TimeoutError, OSError):
             await connection.disconnect()
             await connection.connect()
-            if await connection.can_read_destructive():
+            if await connection.can_read():
                 raise ConnectionError("Connection not ready") from None
 
     async def release(self, connection: AbstractConnection):

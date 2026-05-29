@@ -10,6 +10,10 @@ class DummyConnection(ConnectionInterface):
     def __init__(self, *args, **kwargs):
         self.connected = False
 
+    @property
+    def is_connected(self) -> bool:
+        return self.connected
+
     def connect(self):
         self.connected = True
 
@@ -40,7 +44,7 @@ class DummyConnection(ConnectionInterface):
     def send_command(self, *args, **kwargs):
         pass
 
-    def can_read(self, timeout=0):
+    def can_read(self, timeout: float = 0) -> bool:
         return False
 
     def read_response(self, disable_decoding=False, **kwargs):

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Callable, Tuple
 from asyncdb import AsyncDB
 from querysource.datasources.drivers.bigquery import bigquery_default
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import ComponentError
 
 class CSVToGCS(FlowComponent):

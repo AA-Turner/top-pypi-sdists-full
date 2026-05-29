@@ -22,14 +22,225 @@ import System.Collections
 import System.Collections.Generic
 
 QuantConnect_Lean_Engine_DataFeeds_Enumerators_EnqueueableEnumerator_T = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_EnqueueableEnumerator_T")
+QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T")
+QuantConnect_Lean_Engine_DataFeeds_Enumerators_SortEnumerator_TKey = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_SortEnumerator_TKey")
+QuantConnect_Lean_Engine_DataFeeds_Enumerators_SynchronizingEnumerator_T = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_SynchronizingEnumerator_T")
+QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T")
 QuantConnect_Lean_Engine_DataFeeds_Enumerators_RefreshEnumerator_T = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_RefreshEnumerator_T")
 QuantConnect_Lean_Engine_DataFeeds_Enumerators_ScannableEnumerator_T = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_ScannableEnumerator_T")
-QuantConnect_Lean_Engine_DataFeeds_Enumerators_SortEnumerator_TKey = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_SortEnumerator_TKey")
-QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T")
-QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T")
-QuantConnect_Lean_Engine_DataFeeds_Enumerators_SynchronizingEnumerator_T = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators_SynchronizingEnumerator_T")
 QuantConnect_Lean_Engine_DataFeeds_Enumerators__EventContainer_Callable = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators__EventContainer_Callable")
 QuantConnect_Lean_Engine_DataFeeds_Enumerators__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds_Enumerators__EventContainer_ReturnType")
+
+
+class PriceScaleFactorEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
+    """
+    This enumerator will update the SubscriptionDataConfig.price_scale_factor when required
+    and adjust the raw BaseData prices based on the provided SubscriptionDataConfig.
+    Assumes the prices of the provided IEnumerator are in raw mode.
+    """
+
+    @property
+    def current(self) -> QuantConnect.Data.BaseData:
+        """Last read BaseData object from this type and source"""
+        ...
+
+    def __init__(self, raw_data_enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, live_mode: bool = False, end_date: typing.Optional[datetime.datetime] = None) -> None:
+        """
+        Creates a new instance of the PriceScaleFactorEnumerator.
+        
+        :param raw_data_enumerator: The underlying raw data enumerator
+        :param config: The SubscriptionDataConfig to enumerate for.
+        Will determine the DataNormalizationMode to use.
+        :param factor_file_provider: The IFactorFileProvider instance to use
+        :param live_mode: True, is this is a live mode data stream
+        :param end_date: The enumerator end date
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Dispose of the underlying enumerator."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: True if the enumerator was successfully advanced to the next element;
+        False if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Reset the IEnumeration"""
+        ...
+
+
+class SubscriptionDataEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Lean.Engine.DataFeeds.SubscriptionData]):
+    """An IEnumerator{SubscriptionData} which wraps an existing IEnumerator{BaseData}."""
+
+    @property
+    def current(self) -> QuantConnect.Lean.Engine.DataFeeds.SubscriptionData:
+        """Gets the element in the collection at the current position of the enumerator."""
+        ...
+
+    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, offset_provider: QuantConnect.TimeZoneOffsetProvider, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], is_universe: bool, daily_strict_end_time_enabled: bool) -> None:
+        """
+        Creates a new instance
+        
+        :param configuration: The subscription's configuration
+        :param exchange_hours: The security's exchange hours
+        :param offset_provider: The subscription's time zone offset provider
+        :param enumerator: The underlying data enumerator
+        :param is_universe: The subscription is a universe subscription
+        :returns: A subscription data enumerator.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: True if the enumerator was successfully advanced to the next element;
+        False if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+        ...
+
+
+class StrictDailyEndTimesEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
+    """Enumerator that will handle adjusting daily strict end times if appropriate"""
+
+    @property
+    def current(self) -> QuantConnect.Data.BaseData:
+        """Current value of the enumerator"""
+        ...
+
+    def __init__(self, underlying: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], security_exchange_hours: QuantConnect.Securities.SecurityExchangeHours, local_start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """Creates a new instance"""
+        ...
+
+    def dispose(self) -> None:
+        """Dispose the enumerator"""
+        ...
+
+    def move_next(self) -> bool:
+        """Move to the next date"""
+        ...
+
+    def reset(self) -> None:
+        """Reset the enumerator"""
+        ...
+
+
+class ITradableDateEventProvider(metaclass=abc.ABCMeta):
+    """Interface for event providers for new tradable dates"""
+
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
+        """
+        Called each time there is a new tradable day
+        
+        :param event_args: The new tradable day event arguments
+        :returns: New corporate event if any.
+        """
+        ...
+
+    def initialize(self, config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes the event provider instance
+        
+        :param config: The SubscriptionDataConfig
+        :param factor_file_provider: The factor file provider to use
+        :param map_file_provider: The MapFile provider to use
+        :param start_time: Start date for the data request
+        """
+        ...
+
+
+class DelistingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDateEventProvider):
+    """Event provider who will emit Delisting events"""
+
+    @property
+    def delisting_date(self) -> QuantConnect.Util.ReferenceWrapper[datetime.datetime]:
+        """
+        The delisting date
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @delisting_date.setter
+    def delisting_date(self, value: QuantConnect.Util.ReferenceWrapper[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def map_file(self) -> QuantConnect.Data.Auxiliary.MapFile:
+        """
+        The current instance being used
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def config(self) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        The associated configuration
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
+        """
+        Check for delistings
+        
+        :param event_args: The new tradable day event arguments
+        :returns: New delisting event if any.
+        """
+        ...
+
+    def initialize(self, config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes this instance
+        
+        :param config: The SubscriptionDataConfig
+        :param factor_file_provider: The factor file provider to use
+        :param map_file_provider: The Data.Auxiliary.MapFile provider to use
+        :param start_time: Start date for the data request
+        """
+        ...
+
+    def initialize_map_file(self) -> None:
+        """
+        Initializes the factor file to use
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class LiveDelistingEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.DelistingEventProvider):
+    """Delisting event provider implementation which will source the delisting date based on new map files"""
+
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
+        """
+        Check for delistings
+        
+        :param event_args: The new tradable day event arguments
+        :returns: New delisting event if any.
+        """
+        ...
 
 
 class LastPointTracker(System.Object):
@@ -178,33 +389,135 @@ class LiveFillForwardEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.F
         ...
 
 
-class SubscriptionFilterEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
-    """Implements a wrapper around a base data enumerator to provide a final filtering step"""
+class MappingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDateEventProvider):
+    """Event provider who will emit SymbolChangedEvent events"""
 
     @property
-    def data_filter_error(self) -> _EventContainer[typing.Callable[[System.Object, System.Exception], typing.Any], typing.Any]:
-        """Fired when there's an error executing a user's data filter"""
+    def config(self) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        The associated configuration
+        
+        
+        This Property is protected.
+        """
         ...
 
-    @data_filter_error.setter
-    def data_filter_error(self, value: _EventContainer[typing.Callable[[System.Object, System.Exception], typing.Any], typing.Any]) -> None:
+    @property
+    def map_file(self) -> QuantConnect.Data.Auxiliary.MapFile:
+        """
+        The current instance being used
+        
+        
+        This Property is protected.
+        """
         ...
+
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
+        """
+        Check for new mappings
+        
+        :param event_args: The new tradable day event arguments
+        :returns: New mapping event if any.
+        """
+        ...
+
+    def initialize(self, config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes this instance
+        
+        :param config: The SubscriptionDataConfig
+        :param factor_file_provider: The factor file provider to use
+        :param map_file_provider: The Data.Auxiliary.MapFile provider to use
+        :param start_time: Start date for the data request
+        """
+        ...
+
+    def initialize_map_file(self) -> None:
+        """
+        Initializes the map file to use
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class LiveMappingEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.MappingEventProvider):
+    """Event provider who will emit SymbolChangedEvent events"""
+
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
+        """Check for new mappings"""
+        ...
+
+
+class ConcatEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
+    """Enumerator that will concatenate enumerators together sequentially enumerating them in the provided order"""
+
+    @property
+    def current(self) -> QuantConnect.Data.BaseData:
+        """The current BaseData object"""
+        ...
+
+    @current.setter
+    def current(self, value: QuantConnect.Data.BaseData) -> None:
+        ...
+
+    @property
+    def can_emit_null(self) -> bool:
+        """True if emitting a null data point is expected"""
+        ...
+
+    @can_emit_null.setter
+    def can_emit_null(self, value: bool) -> None:
+        ...
+
+    def __init__(self, skip_duplicate_end_times: bool, *enumerators: typing.Union[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], typing.Iterable[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]]]) -> None:
+        """
+        Creates a new instance
+        
+        :param skip_duplicate_end_times: True will skip data points from enumerators if before or at the last end time
+        :param enumerators: The sequence of enumerators to concatenate. Note that the order here matters, it will consume enumerators
+        and dispose of them, even if they return true and their current is null, except for the last which will be kept!
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: True if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+        ...
+
+
+class FrontierAwareEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
+    """
+    Provides an implementation of IEnumerator{BaseData} that will not emit
+    data ahead of the frontier as specified by an instance of ITimeProvider.
+    An instance of TimeZoneOffsetProvider is used to convert between UTC
+    and the data's native time zone
+    """
 
     @property
     def current(self) -> QuantConnect.Data.BaseData:
         """Gets the element in the collection at the current position of the enumerator."""
         ...
 
-    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], security: QuantConnect.Securities.Security, end_time: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool, live_mode: bool, security_exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], time_provider: QuantConnect.ITimeProvider, offset_provider: QuantConnect.TimeZoneOffsetProvider) -> None:
         """
-        Initializes a new instance of the SubscriptionFilterEnumerator class
+        Initializes a new instance of the FrontierAwareEnumerator class
         
-        :param enumerator: The source enumerator to be wrapped
-        :param security: The security containing an exchange and data filter
-        :param end_time: The end time of the subscription
-        :param extended_market_hours: True if extended market hours are enabled
-        :param live_mode: True if live mode
-        :param security_exchange_hours: The security exchange hours instance to use
+        :param enumerator: The underlying enumerator to make frontier aware
+        :param time_provider: The time provider used for resolving the current frontier time
+        :param offset_provider: An offset provider used for converting the frontier UTC time into the data's native time zone
         """
         ...
 
@@ -222,23 +535,6 @@ class SubscriptionFilterEnumerator(System.Object, System.Collections.Generic.IEn
 
     def reset(self) -> None:
         """Sets the enumerator to its initial position, which is before the first element in the collection."""
-        ...
-
-    @staticmethod
-    def wrap_for_data_feed(result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], security: QuantConnect.Securities.Security, end_time: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool, live_mode: bool, security_exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Lean.Engine.DataFeeds.Enumerators.SubscriptionFilterEnumerator:
-        """
-        Convenience method to wrap the enumerator and attach the data filter event to log and alery users of errors
-        
-        :param result_handler: Result handler reference used to send errors
-        :param enumerator: The source enumerator to be wrapped
-        :param security: The security who's data is being enumerated
-        :param end_time: The end time of the subscription
-        :param extended_market_hours: True if extended market hours are enabled
-        :param live_mode: True if live mode
-        :param security_exchange_hours: The security exchange hours instance to use
-        :returns: A new instance of the SubscriptionFilterEnumerator class that has had it's data_filter_error
-        event subscribed to to send errors to the result handler.
-        """
         ...
 
 
@@ -304,6 +600,45 @@ class EnqueueableEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_En
         ...
 
 
+class RateLimitEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T]):
+    """
+    Provides augmentation of how often an enumerator can be called. Time is measured using
+    an ITimeProvider instance and calls to the underlying enumerator are limited
+    to a minimum time between each call.
+    """
+
+    @property
+    def current(self) -> QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T:
+        """Gets the element in the collection at the current position of the enumerator."""
+        ...
+
+    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T], time_provider: QuantConnect.ITimeProvider, minimum_time_between_calls: datetime.timedelta) -> None:
+        """
+        Initializes a new instance of the RateLimitEnumerator{T} class
+        
+        :param enumerator: The underlying enumerator to place rate limits on
+        :param time_provider: Time provider used for determing the time between calls
+        :param minimum_time_between_calls: The minimum time allowed between calls to the underlying enumerator
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+        ...
+
+
 class LiveSubscriptionEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
     """Enumerator that will subscribe through the provided data queue handler and refresh the subscription if any mapping occurs"""
 
@@ -326,423 +661,6 @@ class LiveSubscriptionEnumerator(System.Object, System.Collections.Generic.IEnum
 
     def reset(self) -> None:
         """Reset the IEnumeration"""
-        ...
-
-
-class RefreshEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RefreshEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RefreshEnumerator_T]):
-    """
-    Provides an implementation of IEnumerator{T} that will
-    always return true via MoveNext.
-    """
-
-    @property
-    def current(self) -> QuantConnect_Lean_Engine_DataFeeds_Enumerators_RefreshEnumerator_T:
-        """Gets the element in the collection at the current position of the enumerator."""
-        ...
-
-    def __init__(self, enumerator_factory: typing.Callable[[], System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RefreshEnumerator_T]]) -> None:
-        """
-        Initializes a new instance of the RefreshEnumerator{T} class
-        
-        :param enumerator_factory: Enumerator factory used to regenerate the underlying
-        enumerator when it ends
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Sets the enumerator to its initial position, which is before the first element in the collection."""
-        ...
-
-
-class SynchronizingBaseDataEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.SynchronizingEnumerator[QuantConnect.Data.BaseData]):
-    """
-    Represents an enumerator capable of synchronizing other base data enumerators in time.
-    This assumes that all enumerators have data time stamped in the same time zone
-    """
-
-    @overload
-    def __init__(self, *enumerators: typing.Union[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], typing.Iterable[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]]]) -> None:
-        """
-        Initializes a new instance of the SynchronizingBaseDataEnumerator class
-        
-        :param enumerators: The enumerators to be synchronized. NOTE: Assumes the same time zone for all data
-        """
-        ...
-
-    @overload
-    def __init__(self, enumerators: typing.List[System.Collections.IEnumerator]) -> None:
-        """
-        Initializes a new instance of the SynchronizingBaseDataEnumerator class
-        
-        :param enumerators: The enumerators to be synchronized. NOTE: Assumes the same time zone for all data
-        """
-        ...
-
-    def get_instance_time(self, instance: QuantConnect.Data.BaseData) -> datetime.datetime:
-        """
-        Gets the Timestamp for the data
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class ITradableDateEventProvider(metaclass=abc.ABCMeta):
-    """Interface for event providers for new tradable dates"""
-
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
-        """
-        Called each time there is a new tradable day
-        
-        :param event_args: The new tradable day event arguments
-        :returns: New corporate event if any.
-        """
-        ...
-
-    def initialize(self, config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes the event provider instance
-        
-        :param config: The SubscriptionDataConfig
-        :param factor_file_provider: The factor file provider to use
-        :param map_file_provider: The MapFile provider to use
-        :param start_time: Start date for the data request
-        """
-        ...
-
-
-class SplitEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDateEventProvider):
-    """Event provider who will emit Split events"""
-
-    @property
-    def factor_file(self) -> QuantConnect.Data.Auxiliary.CorporateFactorProvider:
-        """
-        The current instance being used
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def config(self) -> QuantConnect.Data.SubscriptionDataConfig:
-        """
-        The associated configuration
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
-        """
-        Check for new splits
-        
-        :param event_args: The new tradable day event arguments
-        :returns: New split event if any.
-        """
-        ...
-
-    def initialize(self, config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes this instance
-        
-        :param config: The SubscriptionDataConfig
-        :param factor_file_provider: The factor file provider to use
-        :param map_file_provider: The Data.Auxiliary.MapFile provider to use
-        :param start_time: Start date for the data request
-        """
-        ...
-
-    def initialize_factor_file(self) -> None:
-        """
-        Initializes the factor file to use
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class LiveSplitEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.SplitEventProvider):
-    """Event provider who will emit SymbolChangedEvent events"""
-
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
-        """
-        Check for dividends and returns them
-        
-        :param event_args: The new tradable day event arguments
-        :returns: New Dividend event if any.
-        """
-        ...
-
-
-class DelistingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDateEventProvider):
-    """Event provider who will emit Delisting events"""
-
-    @property
-    def delisting_date(self) -> QuantConnect.Util.ReferenceWrapper[datetime.datetime]:
-        """
-        The delisting date
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @delisting_date.setter
-    def delisting_date(self, value: QuantConnect.Util.ReferenceWrapper[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def map_file(self) -> QuantConnect.Data.Auxiliary.MapFile:
-        """
-        The current instance being used
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def config(self) -> QuantConnect.Data.SubscriptionDataConfig:
-        """
-        The associated configuration
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
-        """
-        Check for delistings
-        
-        :param event_args: The new tradable day event arguments
-        :returns: New delisting event if any.
-        """
-        ...
-
-    def initialize(self, config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes this instance
-        
-        :param config: The SubscriptionDataConfig
-        :param factor_file_provider: The factor file provider to use
-        :param map_file_provider: The Data.Auxiliary.MapFile provider to use
-        :param start_time: Start date for the data request
-        """
-        ...
-
-    def initialize_map_file(self) -> None:
-        """
-        Initializes the factor file to use
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class ITradableDatesNotifier(metaclass=abc.ABCMeta):
-    """
-    Interface which will provide an event handler
-    who will be fired with each new tradable day
-    """
-
-    @property
-    @abc.abstractmethod
-    def new_tradable_date(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]:
-        """Event fired when there is a new tradable date"""
-        ...
-
-    @new_tradable_date.setter
-    def new_tradable_date(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-
-class FastForwardEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
-    """Provides the ability to fast forward an enumerator based on the age of the data"""
-
-    @property
-    def current(self) -> QuantConnect.Data.BaseData:
-        """Gets the element in the collection at the current position of the enumerator."""
-        ...
-
-    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], time_provider: QuantConnect.ITimeProvider, time_zone: typing.Any, maximum_data_age: datetime.timedelta) -> None:
-        """
-        Initializes a new instance of the FastForwardEnumerator class
-        
-        :param enumerator: The source enumerator
-        :param time_provider: A time provider used to determine age of data
-        :param time_zone: The data's time zone
-        :param maximum_data_age: The maximum age of data allowed
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Sets the enumerator to its initial position, which is before the first element in the collection."""
-        ...
-
-
-class NewDataAvailableEventArgs(System.EventArgs):
-    """Event args for when a new data point is ready to be emitted"""
-
-    @property
-    def data_point(self) -> QuantConnect.Data.IBaseData:
-        """The new data point"""
-        ...
-
-    @data_point.setter
-    def data_point(self, value: QuantConnect.Data.IBaseData) -> None:
-        ...
-
-
-class ScannableEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enumerators_ScannableEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_ScannableEnumerator_T]):
-    """An implementation of IEnumerator{T} that relies on "consolidated" data"""
-
-    @property
-    def current(self) -> QuantConnect_Lean_Engine_DataFeeds_Enumerators_ScannableEnumerator_T:
-        """Gets the element in the collection at the current position of the enumerator."""
-        ...
-
-    def __init__(self, consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], time_zone: typing.Any, time_provider: QuantConnect.ITimeProvider, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any], is_period_based: bool = True) -> None:
-        """
-        Initializes a new instance of the ScannableEnumerator{T} class
-        
-        :param consolidator: Consolidator taking BaseData updates and firing events containing new 'consolidated' data
-        :param time_zone: The time zone the raw data is time stamped in
-        :param time_provider: The time provider instance used to determine when bars are completed and can be emitted
-        :param new_data_available_handler: The event handler for a new available data point
-        :param is_period_based: The consolidator is period based, this will enable scanning on move_next
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Sets the enumerator to its initial position, which is before the first element in the collection."""
-        ...
-
-    def update(self, data: QuantConnect_Lean_Engine_DataFeeds_Enumerators_ScannableEnumerator_T) -> None:
-        """
-        Updates the consolidator
-        
-        :param data: The data to consolidate
-        """
-        ...
-
-
-class StrictDailyEndTimesEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
-    """Enumerator that will handle adjusting daily strict end times if appropriate"""
-
-    @property
-    def current(self) -> QuantConnect.Data.BaseData:
-        """Current value of the enumerator"""
-        ...
-
-    def __init__(self, underlying: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], security_exchange_hours: QuantConnect.Securities.SecurityExchangeHours, local_start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """Creates a new instance"""
-        ...
-
-    def dispose(self) -> None:
-        """Dispose the enumerator"""
-        ...
-
-    def move_next(self) -> bool:
-        """Move to the next date"""
-        ...
-
-    def reset(self) -> None:
-        """Reset the enumerator"""
-        ...
-
-
-class MappingEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDateEventProvider):
-    """Event provider who will emit SymbolChangedEvent events"""
-
-    @property
-    def config(self) -> QuantConnect.Data.SubscriptionDataConfig:
-        """
-        The associated configuration
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def map_file(self) -> QuantConnect.Data.Auxiliary.MapFile:
-        """
-        The current instance being used
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
-        """
-        Check for new mappings
-        
-        :param event_args: The new tradable day event arguments
-        :returns: New mapping event if any.
-        """
-        ...
-
-    def initialize(self, config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes this instance
-        
-        :param config: The SubscriptionDataConfig
-        :param factor_file_provider: The factor file provider to use
-        :param map_file_provider: The Data.Auxiliary.MapFile provider to use
-        :param start_time: Start date for the data request
-        """
-        ...
-
-    def initialize_map_file(self) -> None:
-        """
-        Initializes the map file to use
-        
-        
-        This Class is protected.
-        """
         ...
 
 
@@ -795,81 +713,20 @@ class SortEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enumerato
         ...
 
 
-class SubscriptionDataEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Lean.Engine.DataFeeds.SubscriptionData]):
-    """An IEnumerator{SubscriptionData} which wraps an existing IEnumerator{BaseData}."""
-
-    @property
-    def current(self) -> QuantConnect.Lean.Engine.DataFeeds.SubscriptionData:
-        """Gets the element in the collection at the current position of the enumerator."""
-        ...
-
-    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, offset_provider: QuantConnect.TimeZoneOffsetProvider, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], is_universe: bool, daily_strict_end_time_enabled: bool) -> None:
-        """
-        Creates a new instance
-        
-        :param configuration: The subscription's configuration
-        :param exchange_hours: The security's exchange hours
-        :param offset_provider: The subscription's time zone offset provider
-        :param enumerator: The underlying data enumerator
-        :param is_universe: The subscription is a universe subscription
-        :returns: A subscription data enumerator.
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: True if the enumerator was successfully advanced to the next element;
-        False if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Sets the enumerator to its initial position, which is before the first element in the collection."""
-        ...
-
-
-class RateLimitEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T]):
+class ITradableDatesNotifier(metaclass=abc.ABCMeta):
     """
-    Provides augmentation of how often an enumerator can be called. Time is measured using
-    an ITimeProvider instance and calls to the underlying enumerator are limited
-    to a minimum time between each call.
+    Interface which will provide an event handler
+    who will be fired with each new tradable day
     """
 
     @property
-    def current(self) -> QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T:
-        """Gets the element in the collection at the current position of the enumerator."""
+    @abc.abstractmethod
+    def new_tradable_date(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]:
+        """Event fired when there is a new tradable date"""
         ...
 
-    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RateLimitEnumerator_T], time_provider: QuantConnect.ITimeProvider, minimum_time_between_calls: datetime.timedelta) -> None:
-        """
-        Initializes a new instance of the RateLimitEnumerator{T} class
-        
-        :param enumerator: The underlying enumerator to place rate limits on
-        :param time_provider: Time provider used for determing the time between calls
-        :param minimum_time_between_calls: The minimum time allowed between calls to the underlying enumerator
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+    @new_tradable_date.setter
+    def new_tradable_date(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
 
@@ -943,111 +800,44 @@ class AuxiliaryDataEnumerator(System.Object, System.Collections.Generic.IEnumera
         ...
 
 
-class LiveAuxiliaryDataEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.AuxiliaryDataEnumerator):
-    """Auxiliary data enumerator that will trigger new tradable dates event accordingly"""
-
-    def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, tradable_date_event_providers: typing.List[QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDateEventProvider], start_time: typing.Union[datetime.datetime, datetime.date], time_provider: QuantConnect.ITimeProvider, security_cache: QuantConnect.Securities.SecurityCache) -> None:
-        """
-        Creates a new instance
-        
-        :param config: The SubscriptionDataConfig
-        :param factor_file_provider: The factor file provider to use
-        :param map_file_provider: The MapFile provider to use
-        :param tradable_date_event_providers: The tradable dates event providers
-        :param start_time: Start date for the data request
-        :param time_provider: The time provider to use
-        :param security_cache: The security cache
-        """
-        ...
-
-    def move_next(self) -> bool:
-        """Moves the LiveAuxiliaryDataEnumerator to the next item"""
-        ...
-
-    @staticmethod
-    def try_create(data_config: QuantConnect.Data.SubscriptionDataConfig, time_provider: QuantConnect.ITimeProvider, security_cache: QuantConnect.Securities.SecurityCache, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, file_provider: QuantConnect.Interfaces.IFactorFileProvider, start_time: typing.Union[datetime.datetime, datetime.date], enumerator: typing.Optional[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]]) -> typing.Tuple[bool, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]]:
-        """
-        Helper method to create a new instance.
-        Knows which security types should create one and determines the appropriate delisting event provider to use
-        """
-        ...
-
-
-class ConcatEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
-    """Enumerator that will concatenate enumerators together sequentially enumerating them in the provided order"""
+class NewDataAvailableEventArgs(System.EventArgs):
+    """Event args for when a new data point is ready to be emitted"""
 
     @property
-    def current(self) -> QuantConnect.Data.BaseData:
-        """The current BaseData object"""
+    def data_point(self) -> QuantConnect.Data.IBaseData:
+        """The new data point"""
         ...
 
-    @current.setter
-    def current(self, value: QuantConnect.Data.BaseData) -> None:
-        ...
-
-    @property
-    def can_emit_null(self) -> bool:
-        """True if emitting a null data point is expected"""
-        ...
-
-    @can_emit_null.setter
-    def can_emit_null(self, value: bool) -> None:
-        ...
-
-    def __init__(self, skip_duplicate_end_times: bool, *enumerators: typing.Union[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], typing.Iterable[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]]]) -> None:
-        """
-        Creates a new instance
-        
-        :param skip_duplicate_end_times: True will skip data points from enumerators if before or at the last end time
-        :param enumerators: The sequence of enumerators to concatenate. Note that the order here matters, it will consume enumerators
-        and dispose of them, even if they return true and their current is null, except for the last which will be kept!
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: True if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+    @data_point.setter
+    def data_point(self, value: QuantConnect.Data.IBaseData) -> None:
         ...
 
 
-class PriceScaleFactorEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
+class ScheduledEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
     """
-    This enumerator will update the SubscriptionDataConfig.price_scale_factor when required
-    and adjust the raw BaseData prices based on the provided SubscriptionDataConfig.
-    Assumes the prices of the provided IEnumerator are in raw mode.
+    This enumerator will filter out data of the underlying enumerator based on a provided schedule.
+    Will respect the schedule above the data, meaning will let older data through if the underlying provides none for the schedule date
     """
 
     @property
     def current(self) -> QuantConnect.Data.BaseData:
-        """Last read BaseData object from this type and source"""
+        """The current data point"""
         ...
 
-    def __init__(self, raw_data_enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, live_mode: bool = False, end_date: typing.Optional[datetime.datetime] = None) -> None:
+    def __init__(self, underlying_enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], scheduled_times: typing.List[datetime.datetime], frontier_time_provider: QuantConnect.ITimeProvider, schedule_time_zone: typing.Any, start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
-        Creates a new instance of the PriceScaleFactorEnumerator.
+        Creates a new instance
         
-        :param raw_data_enumerator: The underlying raw data enumerator
-        :param config: The SubscriptionDataConfig to enumerate for.
-        Will determine the DataNormalizationMode to use.
-        :param factor_file_provider: The IFactorFileProvider instance to use
-        :param live_mode: True, is this is a live mode data stream
-        :param end_date: The enumerator end date
+        :param underlying_enumerator: The underlying enumerator to filter
+        :param scheduled_times: The scheduled times to emit new data points
+        :param frontier_time_provider: 
+        :param schedule_time_zone: 
+        :param start_time: the underlying request start time
         """
         ...
 
     def dispose(self) -> None:
-        """Dispose of the underlying enumerator."""
+        """Disposes of the underlying enumerator"""
         ...
 
     def move_next(self) -> bool:
@@ -1055,82 +845,12 @@ class PriceScaleFactorEnumerator(System.Object, System.Collections.Generic.IEnum
         Advances the enumerator to the next element of the collection.
         
         :returns: True if the enumerator was successfully advanced to the next element;
-        False if the enumerator has passed the end of the collection.
+        false if the enumerator has passed the end of the collection.
         """
         ...
 
     def reset(self) -> None:
-        """Reset the IEnumeration"""
-        ...
-
-
-class FilterEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T]):
-    """Enumerator that allow applying a filtering function"""
-
-    @property
-    def current(self) -> QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T:
-        """Gets the current item in the FilterEnumerator"""
-        ...
-
-    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T], filter: typing.Callable[[QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T], bool]) -> None:
-        """
-        Creates a new instance
-        
-        :param enumerator: The underlying enumerator to filter on
-        :param filter: The filter to apply
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Disposes the FilterEnumerator"""
-        ...
-
-    def move_next(self) -> bool:
-        """Moves the FilterEnumerator to the next item"""
-        ...
-
-    def reset(self) -> None:
-        """Resets the FilterEnumerator"""
-        ...
-
-
-class FrontierAwareEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
-    """
-    Provides an implementation of IEnumerator{BaseData} that will not emit
-    data ahead of the frontier as specified by an instance of ITimeProvider.
-    An instance of TimeZoneOffsetProvider is used to convert between UTC
-    and the data's native time zone
-    """
-
-    @property
-    def current(self) -> QuantConnect.Data.BaseData:
-        """Gets the element in the collection at the current position of the enumerator."""
-        ...
-
-    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], time_provider: QuantConnect.ITimeProvider, offset_provider: QuantConnect.TimeZoneOffsetProvider) -> None:
-        """
-        Initializes a new instance of the FrontierAwareEnumerator class
-        
-        :param enumerator: The underlying enumerator to make frontier aware
-        :param time_provider: The time provider used for resolving the current frontier time
-        :param offset_provider: An offset provider used for converting the frontier UTC time into the data's native time zone
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+        """Resets the underlying enumerator"""
         ...
 
 
@@ -1195,6 +915,156 @@ class SynchronizingEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_
         ...
 
 
+class LiveAuxiliaryDataEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.AuxiliaryDataEnumerator):
+    """Auxiliary data enumerator that will trigger new tradable dates event accordingly"""
+
+    def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, tradable_date_event_providers: typing.List[QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDateEventProvider], start_time: typing.Union[datetime.datetime, datetime.date], time_provider: QuantConnect.ITimeProvider, security_cache: QuantConnect.Securities.SecurityCache) -> None:
+        """
+        Creates a new instance
+        
+        :param config: The SubscriptionDataConfig
+        :param factor_file_provider: The factor file provider to use
+        :param map_file_provider: The MapFile provider to use
+        :param tradable_date_event_providers: The tradable dates event providers
+        :param start_time: Start date for the data request
+        :param time_provider: The time provider to use
+        :param security_cache: The security cache
+        """
+        ...
+
+    def move_next(self) -> bool:
+        """Moves the LiveAuxiliaryDataEnumerator to the next item"""
+        ...
+
+    @staticmethod
+    def try_create(data_config: QuantConnect.Data.SubscriptionDataConfig, time_provider: QuantConnect.ITimeProvider, security_cache: QuantConnect.Securities.SecurityCache, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, file_provider: QuantConnect.Interfaces.IFactorFileProvider, start_time: typing.Union[datetime.datetime, datetime.date], enumerator: typing.Optional[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]]) -> typing.Tuple[bool, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]]:
+        """
+        Helper method to create a new instance.
+        Knows which security types should create one and determines the appropriate delisting event provider to use
+        """
+        ...
+
+
+class FilterEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T]):
+    """Enumerator that allow applying a filtering function"""
+
+    @property
+    def current(self) -> QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T:
+        """Gets the current item in the FilterEnumerator"""
+        ...
+
+    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T], filter: typing.Callable[[QuantConnect_Lean_Engine_DataFeeds_Enumerators_FilterEnumerator_T], bool]) -> None:
+        """
+        Creates a new instance
+        
+        :param enumerator: The underlying enumerator to filter on
+        :param filter: The filter to apply
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Disposes the FilterEnumerator"""
+        ...
+
+    def move_next(self) -> bool:
+        """Moves the FilterEnumerator to the next item"""
+        ...
+
+    def reset(self) -> None:
+        """Resets the FilterEnumerator"""
+        ...
+
+
+class RefreshEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RefreshEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RefreshEnumerator_T]):
+    """
+    Provides an implementation of IEnumerator{T} that will
+    always return true via MoveNext.
+    """
+
+    @property
+    def current(self) -> QuantConnect_Lean_Engine_DataFeeds_Enumerators_RefreshEnumerator_T:
+        """Gets the element in the collection at the current position of the enumerator."""
+        ...
+
+    def __init__(self, enumerator_factory: typing.Callable[[], System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_RefreshEnumerator_T]]) -> None:
+        """
+        Initializes a new instance of the RefreshEnumerator{T} class
+        
+        :param enumerator_factory: Enumerator factory used to regenerate the underlying
+        enumerator when it ends
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+        ...
+
+
+class SplitEventProvider(System.Object, QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDateEventProvider):
+    """Event provider who will emit Split events"""
+
+    @property
+    def factor_file(self) -> QuantConnect.Data.Auxiliary.CorporateFactorProvider:
+        """
+        The current instance being used
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def config(self) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        The associated configuration
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
+        """
+        Check for new splits
+        
+        :param event_args: The new tradable day event arguments
+        :returns: New split event if any.
+        """
+        ...
+
+    def initialize(self, config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes this instance
+        
+        :param config: The SubscriptionDataConfig
+        :param factor_file_provider: The factor file provider to use
+        :param map_file_provider: The Data.Auxiliary.MapFile provider to use
+        :param start_time: Start date for the data request
+        """
+        ...
+
+    def initialize_factor_file(self) -> None:
+        """
+        Initializes the factor file to use
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
 class LiveAuxiliaryDataSynchronizingEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
     """
     Represents an enumerator capable of synchronizing live equity data enumerators in time.
@@ -1231,6 +1101,155 @@ class LiveAuxiliaryDataSynchronizingEnumerator(System.Object, System.Collections
 
     def reset(self) -> None:
         """Sets the enumerator to its initial position, which is before the first element in the collection."""
+        ...
+
+
+class FastForwardEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
+    """Provides the ability to fast forward an enumerator based on the age of the data"""
+
+    @property
+    def current(self) -> QuantConnect.Data.BaseData:
+        """Gets the element in the collection at the current position of the enumerator."""
+        ...
+
+    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], time_provider: QuantConnect.ITimeProvider, time_zone: typing.Any, maximum_data_age: datetime.timedelta) -> None:
+        """
+        Initializes a new instance of the FastForwardEnumerator class
+        
+        :param enumerator: The source enumerator
+        :param time_provider: A time provider used to determine age of data
+        :param time_zone: The data's time zone
+        :param maximum_data_age: The maximum age of data allowed
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+        ...
+
+
+class ScannableEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enumerators_ScannableEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[QuantConnect_Lean_Engine_DataFeeds_Enumerators_ScannableEnumerator_T]):
+    """An implementation of IEnumerator{T} that relies on "consolidated" data"""
+
+    @property
+    def current(self) -> QuantConnect_Lean_Engine_DataFeeds_Enumerators_ScannableEnumerator_T:
+        """Gets the element in the collection at the current position of the enumerator."""
+        ...
+
+    def __init__(self, consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], time_zone: typing.Any, time_provider: QuantConnect.ITimeProvider, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any], is_period_based: bool = True) -> None:
+        """
+        Initializes a new instance of the ScannableEnumerator{T} class
+        
+        :param consolidator: Consolidator taking BaseData updates and firing events containing new 'consolidated' data
+        :param time_zone: The time zone the raw data is time stamped in
+        :param time_provider: The time provider instance used to determine when bars are completed and can be emitted
+        :param new_data_available_handler: The event handler for a new available data point
+        :param is_period_based: The consolidator is period based, this will enable scanning on move_next
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+        ...
+
+    def update(self, data: QuantConnect_Lean_Engine_DataFeeds_Enumerators_ScannableEnumerator_T) -> None:
+        """
+        Updates the consolidator
+        
+        :param data: The data to consolidate
+        """
+        ...
+
+
+class SynchronizingSliceEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.SynchronizingEnumerator[QuantConnect.Data.Slice]):
+    """
+    Represents an enumerator capable of synchronizing other slice enumerators in time.
+    This assumes that all enumerators have data time stamped in the same time zone
+    """
+
+    @overload
+    def __init__(self, *enumerators: typing.Union[System.Collections.Generic.IEnumerator[QuantConnect.Data.Slice], typing.Iterable[System.Collections.Generic.IEnumerator[QuantConnect.Data.Slice]]]) -> None:
+        """
+        Initializes a new instance of the SynchronizingSliceEnumerator class
+        
+        :param enumerators: The enumerators to be synchronized. NOTE: Assumes the same time zone for all data
+        """
+        ...
+
+    @overload
+    def __init__(self, enumerators: typing.List[System.Collections.IEnumerator]) -> None:
+        """
+        Initializes a new instance of the SynchronizingSliceEnumerator class
+        
+        :param enumerators: The enumerators to be synchronized. NOTE: Assumes the same time zone for all data
+        """
+        ...
+
+    def get_instance_time(self, instance: QuantConnect.Data.Slice) -> datetime.datetime:
+        """
+        Gets the Timestamp for the data
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class SynchronizingBaseDataEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.SynchronizingEnumerator[QuantConnect.Data.BaseData]):
+    """
+    Represents an enumerator capable of synchronizing other base data enumerators in time.
+    This assumes that all enumerators have data time stamped in the same time zone
+    """
+
+    @overload
+    def __init__(self, *enumerators: typing.Union[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], typing.Iterable[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]]]) -> None:
+        """
+        Initializes a new instance of the SynchronizingBaseDataEnumerator class
+        
+        :param enumerators: The enumerators to be synchronized. NOTE: Assumes the same time zone for all data
+        """
+        ...
+
+    @overload
+    def __init__(self, enumerators: typing.List[System.Collections.IEnumerator]) -> None:
+        """
+        Initializes a new instance of the SynchronizingBaseDataEnumerator class
+        
+        :param enumerators: The enumerators to be synchronized. NOTE: Assumes the same time zone for all data
+        """
+        ...
+
+    def get_instance_time(self, instance: QuantConnect.Data.BaseData) -> datetime.datetime:
+        """
+        Gets the Timestamp for the data
+        
+        
+        This Class is protected.
+        """
         ...
 
 
@@ -1332,15 +1351,79 @@ class LiveDividendEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.D
         ...
 
 
-class LiveDelistingEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.DelistingEventProvider):
-    """Delisting event provider implementation which will source the delisting date based on new map files"""
+class LiveSplitEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.SplitEventProvider):
+    """Event provider who will emit SymbolChangedEvent events"""
 
     def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
-        Check for delistings
+        Check for dividends and returns them
         
         :param event_args: The new tradable day event arguments
-        :returns: New delisting event if any.
+        :returns: New Dividend event if any.
+        """
+        ...
+
+
+class SubscriptionFilterEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
+    """Implements a wrapper around a base data enumerator to provide a final filtering step"""
+
+    @property
+    def data_filter_error(self) -> _EventContainer[typing.Callable[[System.Object, System.Exception], typing.Any], typing.Any]:
+        """Fired when there's an error executing a user's data filter"""
+        ...
+
+    @data_filter_error.setter
+    def data_filter_error(self, value: _EventContainer[typing.Callable[[System.Object, System.Exception], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def current(self) -> QuantConnect.Data.BaseData:
+        """Gets the element in the collection at the current position of the enumerator."""
+        ...
+
+    def __init__(self, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], security: QuantConnect.Securities.Security, end_time: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool, live_mode: bool, security_exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the SubscriptionFilterEnumerator class
+        
+        :param enumerator: The source enumerator to be wrapped
+        :param security: The security containing an exchange and data filter
+        :param end_time: The end time of the subscription
+        :param extended_market_hours: True if extended market hours are enabled
+        :param live_mode: True if live mode
+        :param security_exchange_hours: The security exchange hours instance to use
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+        ...
+
+    @staticmethod
+    def wrap_for_data_feed(result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], security: QuantConnect.Securities.Security, end_time: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool, live_mode: bool, security_exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Lean.Engine.DataFeeds.Enumerators.SubscriptionFilterEnumerator:
+        """
+        Convenience method to wrap the enumerator and attach the data filter event to log and alery users of errors
+        
+        :param result_handler: Result handler reference used to send errors
+        :param enumerator: The source enumerator to be wrapped
+        :param security: The security who's data is being enumerated
+        :param end_time: The end time of the subscription
+        :param extended_market_hours: True if extended market hours are enabled
+        :param live_mode: True if live mode
+        :param security_exchange_hours: The security exchange hours instance to use
+        :returns: A new instance of the SubscriptionFilterEnumerator class that has had it's data_filter_error
+        event subscribed to to send errors to the result handler.
         """
         ...
 
@@ -1383,89 +1466,6 @@ class BaseDataCollectionAggregatorEnumerator(System.Object, System.Collections.G
 
     def reset(self) -> None:
         """Sets the enumerator to its initial position, which is before the first element in the collection."""
-        ...
-
-
-class SynchronizingSliceEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.SynchronizingEnumerator[QuantConnect.Data.Slice]):
-    """
-    Represents an enumerator capable of synchronizing other slice enumerators in time.
-    This assumes that all enumerators have data time stamped in the same time zone
-    """
-
-    @overload
-    def __init__(self, *enumerators: typing.Union[System.Collections.Generic.IEnumerator[QuantConnect.Data.Slice], typing.Iterable[System.Collections.Generic.IEnumerator[QuantConnect.Data.Slice]]]) -> None:
-        """
-        Initializes a new instance of the SynchronizingSliceEnumerator class
-        
-        :param enumerators: The enumerators to be synchronized. NOTE: Assumes the same time zone for all data
-        """
-        ...
-
-    @overload
-    def __init__(self, enumerators: typing.List[System.Collections.IEnumerator]) -> None:
-        """
-        Initializes a new instance of the SynchronizingSliceEnumerator class
-        
-        :param enumerators: The enumerators to be synchronized. NOTE: Assumes the same time zone for all data
-        """
-        ...
-
-    def get_instance_time(self, instance: QuantConnect.Data.Slice) -> datetime.datetime:
-        """
-        Gets the Timestamp for the data
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class LiveMappingEventProvider(QuantConnect.Lean.Engine.DataFeeds.Enumerators.MappingEventProvider):
-    """Event provider who will emit SymbolChangedEvent events"""
-
-    def get_events(self, event_args: QuantConnect.NewTradableDateEventArgs) -> typing.Sequence[QuantConnect.Data.BaseData]:
-        """Check for new mappings"""
-        ...
-
-
-class ScheduledEnumerator(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]):
-    """
-    This enumerator will filter out data of the underlying enumerator based on a provided schedule.
-    Will respect the schedule above the data, meaning will let older data through if the underlying provides none for the schedule date
-    """
-
-    @property
-    def current(self) -> QuantConnect.Data.BaseData:
-        """The current data point"""
-        ...
-
-    def __init__(self, underlying_enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], scheduled_times: typing.List[datetime.datetime], frontier_time_provider: QuantConnect.ITimeProvider, schedule_time_zone: typing.Any, start_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Creates a new instance
-        
-        :param underlying_enumerator: The underlying enumerator to filter
-        :param scheduled_times: The scheduled times to emit new data points
-        :param frontier_time_provider: 
-        :param schedule_time_zone: 
-        :param start_time: the underlying request start time
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Disposes of the underlying enumerator"""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: True if the enumerator was successfully advanced to the next element;
-        false if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets the underlying enumerator"""
         ...
 
 

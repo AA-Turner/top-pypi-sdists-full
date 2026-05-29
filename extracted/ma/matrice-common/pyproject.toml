@@ -15,7 +15,7 @@ license = {text = "MIT"}
 requires-python = ">=3.8"
 # Dependencies removed to avoid TestPyPI backtracking issues.
 # These packages are pre-installed in Docker images via requirements.txt.
-# Runtime deps: requests, Pillow, python-dateutil, redis, aioredis,
+# Runtime deps: httpx, requests, Pillow, python-dateutil, redis, aioredis,
 # confluent-kafka, aiokafka, imagehash, kafka-python, msgpack
 keywords = ["matrice", "common", "utilities", "mypyc", "compiled"]
 classifiers = [

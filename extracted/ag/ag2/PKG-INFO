@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 0.13.1
+Version: 0.13.2
 Summary: A programming framework for agentic AI
 Project-URL: Homepage, https://ag2.ai/
 Project-URL: Documentation, https://docs.ag2.ai
@@ -81,8 +81,6 @@ Provides-Extra: crawl4ai
 Requires-Dist: crawl4ai<0.9,>=0.5.0; extra == 'crawl4ai'
 Provides-Extra: dashscope
 Requires-Dist: dashscope>=1.25.13; extra == 'dashscope'
-Provides-Extra: daytona
-Requires-Dist: daytona<1,>=0.171.0; extra == 'daytona'
 Provides-Extra: ddgs
 Requires-Dist: ddgs<10,>=9.0.0; extra == 'ddgs'
 Provides-Extra: deepseek
@@ -146,6 +144,7 @@ Requires-Dist: respx<0.24.0,>=0.23.0; extra == 'dev'
 Requires-Dist: ruff==0.14.14; extra == 'dev'
 Requires-Dist: tavily-python<0.8,>=0.7.4; extra == 'dev'
 Requires-Dist: termcolor==3.1.0; extra == 'dev'
+Requires-Dist: tinyfish>=0.2.3; (python_version >= '3.11') and extra == 'dev'
 Requires-Dist: toml==0.10.2; extra == 'dev'
 Requires-Dist: typer==0.17.4; extra == 'dev'
 Requires-Dist: types-aiofiles; extra == 'dev'
@@ -203,13 +202,12 @@ Requires-Dist: pyyaml==6.0.2; extra == 'docs'
 Requires-Dist: redis<7,>=5.0; extra == 'docs'
 Requires-Dist: tavily-python<0.8,>=0.7.4; extra == 'docs'
 Requires-Dist: termcolor==3.1.0; extra == 'docs'
+Requires-Dist: tinyfish>=0.2.3; (python_version >= '3.11') and extra == 'docs'
 Requires-Dist: typer==0.17.4; extra == 'docs'
 Requires-Dist: watchdog<7,>=4.0; extra == 'docs'
 Requires-Dist: xai-sdk<2,>=1.12.2; extra == 'docs'
 Provides-Extra: duckduckgo
 Requires-Dist: duckduckgo-search>=8.0.2; extra == 'duckduckgo'
-Provides-Extra: exa
-Requires-Dist: exa-py<3,>=2.12.1; extra == 'exa'
 Provides-Extra: flaml
 Requires-Dist: flaml; extra == 'flaml'
 Requires-Dist: numpy<2.0.0,>=1.24.0; (python_version < '3.13') and extra == 'flaml'
@@ -411,8 +409,6 @@ Requires-Dist: pytest-asyncio==1.3.0; extra == 'test-core'
 Requires-Dist: pytest-cov==6.3.0; extra == 'test-core'
 Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'test-core'
 Requires-Dist: pytest==9.0.3; extra == 'test-core'
-Provides-Extra: tinyfish
-Requires-Dist: tinyfish>=0.2.3; (python_version >= '3.11') and extra == 'tinyfish'
 Provides-Extra: together
 Requires-Dist: together>=1.2; extra == 'together'
 Provides-Extra: tracing

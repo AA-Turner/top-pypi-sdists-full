@@ -4,7 +4,7 @@ from typing import Dict, List, Union, Tuple
 from collections.abc import Callable
 import fitz  # PyMuPDF
 
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import ComponentError, DataNotFound, FileNotFound
 
 

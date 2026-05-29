@@ -11,7 +11,7 @@
 # under the License.
 
 from typing import Any, ClassVar, Literal
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 from openstack.message.v2 import claim as _claim
 from openstack.message.v2 import message as _message
@@ -34,16 +34,15 @@ class Proxy(proxy.Proxy):
     def create_queue(self, **attrs: Any) -> _queue.Queue:
         """Create a new queue from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.message.v2.queue.Queue`,
             comprised of the properties on the Queue class.
 
         :returns: The results of queue creation
-        :rtype: :class:`~openstack.message.v2.queue.Queue`
         """
         return self._create(_queue.Queue, **attrs)
 
-    def get_queue(self, queue):
+    def get_queue(self, queue: str | _queue.Queue) -> _queue.Queue:
         """Get a queue
 
         :param queue: The value can be the name of a queue or a
@@ -55,10 +54,10 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_queue.Queue, queue)
 
-    def queues(self, **query):
+    def queues(self, **query: Any) -> Generator[_queue.Queue, None, None]:
         """Retrieve a generator of queues
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the queues to be returned. Available parameters include:
 
             * limit: Requests at most the specified number of items be
@@ -72,18 +71,21 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_queue.Queue, **query)
 
-    def delete_queue(self, value, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_queue(
+        self, value: str | _queue.Queue, ignore_missing: bool = True
+    ) -> _queue.Queue | None:
         """Delete a queue
 
         :param value: The value can be either the name of a queue or a
             :class:`~openstack.message.v2.queue.Queue` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the queue does not exist.
             When set to ``True``, no exception will be set when
             attempting to delete a nonexistent queue.
 
-        :returns: ``None``
+        :returns: The deleted queue.
         """
         return self._delete(_queue.Queue, value, ignore_missing=ignore_missing)
 
@@ -101,11 +103,15 @@ class Proxy(proxy.Proxy):
         )
         return message.post(self, messages)
 
-    def messages(self, queue_name, **query):
+    def messages(
+        self,
+        queue_name: str,
+        **query: Any,
+    ) -> Generator[_message.Message, None, None]:
         """Retrieve a generator of messages
 
         :param queue_name: The name of target queue to query messages from.
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the messages to be returned. Available parameters include:
 
             * limit: Requests at most the specified number of items be
@@ -124,7 +130,9 @@ class Proxy(proxy.Proxy):
         query["queue_name"] = queue_name
         return self._list(_message.Message, **query)
 
-    def get_message(self, queue_name, message):
+    def get_message(
+        self, queue_name: str, message: str | _message.Message
+    ) -> _message.Message:
         """Get a message
 
         :param queue_name: The name of target queue to get message from.
@@ -141,8 +149,12 @@ class Proxy(proxy.Proxy):
         return self._get(_message.Message, message)
 
     def delete_message(
-        self, queue_name, value, claim=None, ignore_missing=True
-    ):
+        self,
+        queue_name: str,
+        value: str | _message.Message,
+        claim: str | None = None,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a message
 
         :param queue_name: The name of target queue to delete message from.
@@ -152,7 +164,7 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.message.v2.claim.Claim` instance of
             the claim seizing the message. If None, the message has
             not been claimed.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the message does not exist.
             When set to ``True``, no exception will be set when
@@ -163,10 +175,8 @@ class Proxy(proxy.Proxy):
         message = self._get_resource(
             _message.Message, value, queue_name=queue_name
         )
-        message.claim_id = resource.Resource._get_id(claim)
-        return self._delete(
-            _message.Message, message, ignore_missing=ignore_missing
-        )
+        message.claim_id = resource.Resource._get_id(claim)  # type: ignore[arg-type]
+        self._delete(_message.Message, message, ignore_missing=ignore_missing)
 
     def create_subscription(
         self, queue_name: str, **attrs: Any
@@ -174,22 +184,25 @@ class Proxy(proxy.Proxy):
         """Create a new subscription from attributes
 
         :param queue_name: The name of target queue to subscribe on.
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.message.v2.subscription.Subscription`,
             comprised of the properties on the Subscription class.
 
         :returns: The results of subscription creation
-        :rtype: :class:`~openstack.message.v2.subscription.Subscription`
         """
         return self._create(
             _subscription.Subscription, queue_name=queue_name, **attrs
         )
 
-    def subscriptions(self, queue_name, **query):
+    def subscriptions(
+        self,
+        queue_name: str,
+        **query: Any,
+    ) -> Generator[_subscription.Subscription, None, None]:
         """Retrieve a generator of subscriptions
 
         :param queue_name: The name of target queue to subscribe on.
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the subscriptions to be returned. Available parameters
             include:
 
@@ -205,7 +218,9 @@ class Proxy(proxy.Proxy):
         query["queue_name"] = queue_name
         return self._list(_subscription.Subscription, **query)
 
-    def get_subscription(self, queue_name, subscription):
+    def get_subscription(
+        self, queue_name: str, subscription: str | _subscription.Subscription
+    ) -> _subscription.Subscription:
         """Get a subscription
 
         :param queue_name: The name of target queue of subscription.
@@ -221,7 +236,13 @@ class Proxy(proxy.Proxy):
         )
         return self._get(_subscription.Subscription, subscription)
 
-    def delete_subscription(self, queue_name, value, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_subscription(
+        self,
+        queue_name: str,
+        value: str | _subscription.Subscription,
+        ignore_missing: bool = True,
+    ) -> _subscription.Subscription | None:
         """Delete a subscription
 
         :param queue_name: The name of target queue to delete subscription
@@ -229,13 +250,13 @@ class Proxy(proxy.Proxy):
         :param value: The value can be either the name of a subscription or a
             :class:`~openstack.message.v2.subscription.Subscription`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the subscription does not exist.
             When set to ``True``, no exception will be thrown when
             attempting to delete a nonexistent subscription.
 
-        :returns: ``None``
+        :returns: The deleted subscription.
         """
         subscription = self._get_resource(
             _subscription.Subscription, value, queue_name=queue_name
@@ -250,16 +271,17 @@ class Proxy(proxy.Proxy):
         """Create a new claim from attributes
 
         :param queue_name: The name of target queue to claim message from.
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.message.v2.claim.Claim`,
             comprised of the properties on the Claim class.
 
         :returns: The results of claim creation
-        :rtype: :class:`~openstack.message.v2.claim.Claim`
         """
         return self._create(_claim.Claim, queue_name=queue_name, **attrs)
 
-    def get_claim(self, queue_name, claim):
+    def get_claim(
+        self, queue_name: str, claim: str | _claim.Claim
+    ) -> _claim.Claim:
         """Get a claim
 
         :param queue_name: The name of target queue to claim message from.
@@ -278,30 +300,35 @@ class Proxy(proxy.Proxy):
         :param queue_name: The name of target queue to claim message from.
         :param claim: The value can be either the ID of a claim or a
             :class:`~openstack.message.v2.claim.Claim` instance.
-        :param dict attrs: Keyword arguments which will be used to update a
+        :param attrs: Keyword arguments which will be used to update a
             :class:`~openstack.message.v2.claim.Claim`,
             comprised of the properties on the Claim class.
 
         :returns: The results of claim update
-        :rtype: :class:`~openstack.message.v2.claim.Claim`
         """
         return self._update(
             _claim.Claim, claim, queue_name=queue_name, **attrs
         )
 
-    def delete_claim(self, queue_name, claim, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_claim(
+        self,
+        queue_name: str,
+        claim: str | _claim.Claim,
+        ignore_missing: bool = True,
+    ) -> _claim.Claim | None:
         """Delete a claim
 
         :param queue_name: The name of target queue to claim messages from.
         :param claim: The value can be either the ID of a claim or a
             :class:`~openstack.message.v2.claim.Claim` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the claim does not exist.
             When set to ``True``, no exception will be thrown when
             attempting to delete a nonexistent claim.
 
-        :returns: ``None``
+        :returns: The deleted claim.
         """
         return self._delete(
             _claim.Claim,
@@ -339,7 +366,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -354,8 +381,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

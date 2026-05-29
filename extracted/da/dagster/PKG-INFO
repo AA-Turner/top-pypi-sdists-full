@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.13.6
+Version: 1.13.7
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Project-URL: Homepage, https://dagster.io
 Project-URL: GitHub, https://github.com/dagster-io/dagster
@@ -28,8 +28,8 @@ Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
 Requires-Dist: antlr4-python3-runtime<4.14
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
-Requires-Dist: dagster-pipes==1.13.6
-Requires-Dist: dagster-shared==1.13.6
+Requires-Dist: dagster-pipes==1.13.7
+Requires-Dist: dagster-shared==1.13.7
 Requires-Dist: docstring-parser
 Requires-Dist: filelock
 Requires-Dist: grpcio-health-checking>=1.44.0; python_version < '3.13'
@@ -83,7 +83,6 @@ Provides-Extra: ruff
 Requires-Dist: ruff==0.15.13; extra == 'ruff'
 Provides-Extra: test
 Requires-Dist: docker; extra == 'test'
-Requires-Dist: fsspec<2024.5.0; extra == 'test'
 Requires-Dist: grpcio-tools>=1.44.0; (python_version < '3.13') and extra == 'test'
 Requires-Dist: grpcio-tools>=1.66.2; (python_version >= '3.13') and extra == 'test'
 Requires-Dist: morefs[asynclocal]; extra == 'test'
@@ -111,7 +110,7 @@ Requires-Dist: tomlkit; extra == 'test-components'
 Provides-Extra: ty
 Requires-Dist: boto3-stubs[essential]; extra == 'ty'
 Requires-Dist: pandas-stubs; extra == 'ty'
-Requires-Dist: ty==0.0.37; extra == 'ty'
+Requires-Dist: ty==0.0.39; extra == 'ty'
 Requires-Dist: types-backports; extra == 'ty'
 Requires-Dist: types-certifi; extra == 'ty'
 Requires-Dist: types-chardet; extra == 'ty'

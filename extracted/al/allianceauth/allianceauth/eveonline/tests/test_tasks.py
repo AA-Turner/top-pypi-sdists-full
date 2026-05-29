@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import patch
 
@@ -7,27 +8,26 @@ from esi.exceptions import HTTPClientError
 
 from ..models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 from ..tasks import (
-    run_model_update, update_alliance, update_character,
-    update_character_chunk, update_corp,
+    chunks, run_model_update, update_all_factions, update_alliance,
+    update_character, update_character_chunk, update_corp,
 )
 from .esi_client_stub import EsiClientStub
 
 
 class TestUpdateTasks(TestCase):
     def test_should_update_alliance(self) -> None:
-        # given
-        with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
-            my_alliance = EveAllianceInfo.objects.create(
-                alliance_id=3001,
-                alliance_name="Wayne Enterprises",
-                alliance_ticker="WYE",
-                executor_corp_id=2003
-            )
-            # when
-            update_alliance(my_alliance.alliance_id)
-            # then
-            my_alliance.refresh_from_db()
-            self.assertEqual(my_alliance.executor_corp_id, 2001)
+        with patch(
+            "allianceauth.eveonline.tasks.EveAllianceInfo.objects.update_alliance"
+        ) as mock_update_alliance, patch(
+            "allianceauth.eveonline.tasks.EveAllianceInfo.objects.get"
+        ) as mock_get_alliance:
+            mock_alliance = mock_get_alliance.return_value
+
+            update_alliance(3001)
+
+            mock_update_alliance.assert_called_once_with(3001)
+            mock_get_alliance.assert_called_once_with(3001)
+            mock_alliance.populate_alliance.assert_called_once_with()
 
     def test_should_update_character(self) -> None:
         # given
@@ -69,6 +69,14 @@ class TestUpdateTasks(TestCase):
             my_corporation.refresh_from_db()
             self.assertEqual(my_corporation.alliance.alliance_id, 3001)
 
+    def test_should_update_all_factions(self) -> None:
+        with patch(
+            "allianceauth.eveonline.tasks.EveFactionInfo.objects.update_factions"
+        ) as mock_update_factions:
+            update_all_factions()
+
+            mock_update_factions.assert_called_once_with()
+
     # @patch('allianceauth.eveonline.tasks.EveCharacter')
     # def test_update_character(self, mock_EveCharacter):
     #     update_character(42)
@@ -81,12 +89,18 @@ class TestUpdateTasks(TestCase):
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True)
-@patch('allianceauth.eveonline.tasks.providers')
+@patch('allianceauth.eveonline.tasks.update_character_chunk')
+@patch('allianceauth.eveonline.tasks.update_alliance')
+@patch('allianceauth.eveonline.tasks.update_corp')
 @patch('allianceauth.eveonline.tasks.CHARACTER_AFFILIATION_CHUNK_SIZE', 2)
 class TestRunModelUpdate(TransactionTestCase):
-    def test_should_run_updates(self, mock_providers) -> None:
+    def test_should_run_updates(
+        self,
+        spy_update_corp,
+        spy_update_alliance,
+        spy_update_character_chunk,
+    ) -> None:
         # given
-        mock_providers.open_api_provider.client = EsiClientStub()
         with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
             EveCorporationInfo.objects.create(
                 corporation_id=2001,
@@ -119,23 +133,27 @@ class TestRunModelUpdate(TransactionTestCase):
             # when
             run_model_update()
             # then
-            character_1001.refresh_from_db()
-            self.assertEqual(
-                character_1001.corporation_id, 2001  # char has new corp
+            self.assertSetEqual(
+                {x.kwargs["args"][0] for x in spy_update_corp.apply_async.call_args_list},
+                {2001, 2003},
             )
-            corporation_2003.refresh_from_db()
-            self.assertEqual(
-                corporation_2003.alliance.alliance_id, 3001  # corp has new alliance
+            self.assertSetEqual(
+                {x.kwargs["args"][0] for x in spy_update_alliance.apply_async.call_args_list},
+                {3001},
             )
-            alliance_3001.refresh_from_db()
             self.assertEqual(
-                alliance_3001.executor_corp_id, 2001  # alliance has been updated
+                [x.kwargs["args"][0] for x in spy_update_character_chunk.apply_async.call_args_list],
+                [[character_1001.character_id]],
             )
+
+
+class TestChunks(TestCase):
+    def test_should_split_list_into_remainder_chunk(self) -> None:
+        self.assertEqual(list(chunks([1, 2, 3], 2)), [[1, 2], [3]])
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True)
 @patch('allianceauth.eveonline.tasks.update_character', wraps=update_character)
-@patch('allianceauth.eveonline.tasks.providers')
 @patch('allianceauth.eveonline.tasks.CHARACTER_AFFILIATION_CHUNK_SIZE', 2)
 class TestUpdateCharacterChunk(TestCase):
     @staticmethod
@@ -146,10 +164,9 @@ class TestUpdateCharacterChunk(TestCase):
         }
 
     def test_should_update_corp_change(
-        self, mock_providers, spy_update_character
+        self, spy_update_character
     ) -> None:
         # given
-        mock_providers.open_api_provider.client = EsiClientStub()
         with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
             character_1001 = EveCharacter.objects.create(
                 character_id=1001,
@@ -176,15 +193,12 @@ class TestUpdateCharacterChunk(TestCase):
                 character_1001.character_id, character_1002.character_id
             ])
             # then
-            character_1001.refresh_from_db()
-            self.assertEqual(character_1001.corporation_id, 2001)
             self.assertSetEqual(self._updated_character_ids(spy_update_character), {1001})
 
     def test_should_update_name_change(
-        self, mock_providers, spy_update_character
+        self, spy_update_character
     ) -> None:
         # given
-        mock_providers.open_api_provider.client = EsiClientStub()
         with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
             character_1001 = EveCharacter.objects.create(
                 character_id=1001,
@@ -199,15 +213,12 @@ class TestUpdateCharacterChunk(TestCase):
             # when
             update_character_chunk([character_1001.character_id])
             # then
-            character_1001.refresh_from_db()
-            self.assertEqual(character_1001.character_name, "Bruce Wayne")
             self.assertSetEqual(self._updated_character_ids(spy_update_character), {1001})
 
     def test_should_update_alliance_change(
-        self, mock_providers, spy_update_character
+        self, spy_update_character
     ) -> None:
         # given
-        mock_providers.open_api_provider.client = EsiClientStub()
         with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
             character_1001 = EveCharacter.objects.create(
                 character_id=1001,
@@ -220,15 +231,76 @@ class TestUpdateCharacterChunk(TestCase):
             # when
             update_character_chunk([character_1001.character_id])
             # then
-            character_1001.refresh_from_db()
-            self.assertEqual(character_1001.alliance_id, 3001)
             self.assertSetEqual(self._updated_character_ids(spy_update_character), {1001})
 
+    def test_should_ignore_name_change_when_bulk_names_missing(
+        self, spy_update_character
+    ) -> None:
+        with patch(
+            "allianceauth.eveonline.tasks.open_api_provider.get_affiliations",
+            return_value=[
+                SimpleNamespace(
+                    character_id=1001,
+                    corporation_id=2001,
+                    alliance_id=3001,
+                    name=None,
+                )
+            ],
+        ), patch(
+            "allianceauth.eveonline.tasks.open_api_provider.post_names",
+            return_value=[],
+        ):
+            EveCharacter.objects.create(
+                character_id=1001,
+                character_name="Bruce Wayne",
+                corporation_id=2001,
+                corporation_name="Wayne Technologies",
+                corporation_ticker="WTE",
+                alliance_id=3001,
+                alliance_name="Wayne Enterprises",
+                alliance_ticker="WYE",
+            )
+
+            update_character_chunk([1001])
+
+            self.assertSetEqual(self._updated_character_ids(spy_update_character), set())
+
+    def test_should_ignore_unmatched_bulk_names(
+        self, spy_update_character
+    ) -> None:
+        with patch(
+            "allianceauth.eveonline.tasks.open_api_provider.get_affiliations",
+            return_value=[
+                SimpleNamespace(
+                    character_id=1001,
+                    corporation_id=2001,
+                    alliance_id=3001,
+                    name=None,
+                )
+            ],
+        ), patch(
+            "allianceauth.eveonline.tasks.open_api_provider.post_names",
+            return_value=[SimpleNamespace(id=9999, name="Not Bruce Wayne")],
+        ):
+            EveCharacter.objects.create(
+                character_id=1001,
+                character_name="Bruce Wayne",
+                corporation_id=2001,
+                corporation_name="Wayne Technologies",
+                corporation_ticker="WTE",
+                alliance_id=3001,
+                alliance_name="Wayne Enterprises",
+                alliance_ticker="WYE",
+            )
+
+            update_character_chunk([1001])
+
+            self.assertSetEqual(self._updated_character_ids(spy_update_character), set())
+
     def test_should_not_update_when_not_changed(
-        self, mock_providers, spy_update_character
+        self, spy_update_character
     ) -> None:
         # given
-        mock_providers.open_api_provider.client = EsiClientStub()
         with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
             character_1001 = EveCharacter.objects.create(
                 character_id=1001,
@@ -245,28 +317,58 @@ class TestUpdateCharacterChunk(TestCase):
             # then
             self.assertSetEqual(self._updated_character_ids(spy_update_character), set())
 
-    def test_should_fall_back_to_single_updates_when_bulk_update_failed(
-        self, mock_providers, spy_update_character
+    def test_should_not_update_when_affiliation_missing(
+        self, spy_update_character
     ) -> None:
-        # given
-        mock_providers.open_api_provider.client.Character.PostCharactersAffiliation\
-            .side_effect = HTTPClientError(
-                status_code=403,
-                headers={},
-                data=cast(Any, {}),
-            )
-        with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
-            character_1001 = EveCharacter.objects.create(
+        with patch(
+            "allianceauth.eveonline.tasks.open_api_provider.get_affiliations",
+            return_value=[],
+        ), patch(
+            "allianceauth.eveonline.tasks.open_api_provider.post_names",
+            return_value=[],
+        ):
+            EveCharacter.objects.create(
                 character_id=1001,
                 character_name="Bruce Wayne",
                 corporation_id=2001,
                 corporation_name="Wayne Technologies",
                 corporation_ticker="WTE",
                 alliance_id=3001,
-                alliance_name="Wayne Technologies",
-                alliance_ticker="WYT",
+                alliance_name="Wayne Enterprises",
+                alliance_ticker="WYE",
             )
-            # when
-            update_character_chunk([character_1001.character_id])
-            # then
-            self.assertSetEqual(self._updated_character_ids(spy_update_character), {1001})
+
+            update_character_chunk([1001])
+
+            self.assertSetEqual(self._updated_character_ids(spy_update_character), set())
+
+    def test_should_fall_back_to_single_updates_when_bulk_update_failed(
+        self, spy_update_character
+    ) -> None:
+        # given
+        with patch(
+            "allianceauth.eveonline.tasks.open_api_provider.get_affiliations",
+            side_effect=HTTPClientError(
+                status_code=403,
+                headers={},
+                data=cast(Any, {}),
+            ),
+        ), patch(
+            "allianceauth.eveonline.tasks.open_api_provider.post_names",
+            return_value=[],
+        ):
+            with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
+                character_1001 = EveCharacter.objects.create(
+                    character_id=1001,
+                    character_name="Bruce Wayne",
+                    corporation_id=2001,
+                    corporation_name="Wayne Technologies",
+                    corporation_ticker="WTE",
+                    alliance_id=3001,
+                    alliance_name="Wayne Technologies",
+                    alliance_ticker="WYT",
+                )
+                # when
+                update_character_chunk([character_1001.character_id])
+                # then
+                self.assertSetEqual(self._updated_character_ids(spy_update_character), {1001})

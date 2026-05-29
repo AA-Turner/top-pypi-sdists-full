@@ -1,21 +1,33 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.contrib.auth.models import Group, Permission as BasePermission, User as BaseUser
+from django.contrib.auth.models import (
+    Group, Permission as BasePermission, User as BaseUser,
+)
 from django.db.models import Count, Q
 from django.db.models.functions import Lower
-from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete, pre_save
+from django.db.models.signals import (
+    m2m_changed, post_delete, post_save, pre_delete, pre_save,
+)
 from django.dispatch import receiver
+from django.forms import ModelMultipleChoiceField
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.text import slugify
 
-from allianceauth.authentication.models import CharacterOwnership, OwnershipRecord, State, UserProfile, get_guest_state
-from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo
+from allianceauth.authentication.models import (
+    CharacterOwnership, OwnershipRecord, State, UserProfile, get_guest_state,
+)
+from allianceauth.eveonline.models import (
+    EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
+)
 from allianceauth.eveonline.tasks import update_character
 from allianceauth.hooks import get_hooks
 from allianceauth.services.hooks import ServicesHook
 
-from .app_settings import AUTHENTICATION_ADMIN_USERS_MAX_CHARS, AUTHENTICATION_ADMIN_USERS_MAX_GROUPS
+from .app_settings import (
+    AUTHENTICATION_ADMIN_USERS_MAX_CHARS,
+    AUTHENTICATION_ADMIN_USERS_MAX_GROUPS,
+)
 from .forms import UserChangeForm, UserProfileForm
 
 
@@ -456,7 +468,7 @@ class StateAdmin(admin.ModelAdmin):
         'permissions'
     ]
 
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
+    def formfield_for_manytomany(self, db_field, request, **kwargs) -> ModelMultipleChoiceField:
         """overriding this formfield to have sorted lists in the form"""
         if db_field.name == "member_characters":
             kwargs["queryset"] = EveCharacter.objects.all()\

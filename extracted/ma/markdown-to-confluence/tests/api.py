@@ -11,6 +11,7 @@ import json
 import logging
 import sqlite3
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 from md2conf.api_base import ConfluenceSession
@@ -28,6 +29,7 @@ from md2conf.api_types import (
     ConfluencePageStorage,
     ConfluenceRepresentation,
     ConfluenceStatus,
+    ConfluenceUser,
 )
 from md2conf.compatibility import override
 from md2conf.environment import ConfluenceError
@@ -270,6 +272,10 @@ class MockConfluenceSession(ConfluenceSession):
         return HOMEPAGE_ID
 
     @override
+    def get_users(self, expr: str) -> list[ConfluenceUser]:
+        return []
+
+    @override
     def get_attachments(self, page_id: str) -> list[ConfluenceAttachment]:
         LOGGER.debug("page_id: %s", page_id)
         rows = self._db.execute(
@@ -362,6 +368,10 @@ class MockConfluenceSession(ConfluenceSession):
         if row is None:
             return None
         return str(row["id"])
+
+    @override
+    def move_page(self, page_id: str, position: Literal["before", "after", "append"], ref_id: str) -> None:
+        pass
 
     @override
     def get_labels(self, page_id: str) -> list[ConfluenceIdentifiedLabel]:

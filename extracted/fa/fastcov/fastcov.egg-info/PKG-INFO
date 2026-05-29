@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fastcov
-Version: 1.16
+Version: 1.17
 Summary: A massively parallel gcov wrapper for generating intermediate coverage formats fast
 Home-page: https://github.com/RPGillespie6/fastcov
 Author: Bryan Gillespie
@@ -11,9 +11,7 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Utilities
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -21,9 +19,10 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: >=3.5
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 [![Build and Test](https://github.com/RPGillespie6/fastcov/workflows/build/badge.svg)](https://github.com/RPGillespie6/fastcov/actions/workflows/build.yaml)
 [![Code Coverage](https://img.shields.io/codecov/c/github/rpgillespie6/fastcov.svg)](https://codecov.io/gh/RPGillespie6/fastcov)
@@ -85,7 +84,7 @@ See the [example](example/) directory for a working CMake example.
 
 ## Installation
 
-A minimum of Python 3.5 is currently required (due to recursive `glob` usage).
+A minimum of Python 3.8 is currently required due to type hinting types such as TypedDict.
 
 Fastcov is a single source python tool. That means you can simply copy `fastcov.py` from this repository and run it directly with no other hassle.
 

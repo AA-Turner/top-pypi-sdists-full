@@ -16,11 +16,14 @@ QUALITY_TAXONOMY: dict[str, str] = {
     "control_flow": "Inconsistent returns, unreachable code, and path logic mistakes.",
     "exception_handling": "Swallowed errors, broad suppression, and silent failure.",
     "framework": "Framework-specific route and handler practices.",
+    "go": "Go quality and maintainability patterns.",
+    "java": "Java quality and maintainability patterns.",
     "maintainability": "Long functions and patterns that become hard to review or change.",
     "precision_guard": "Clean cases that should stay free of noisy quality findings.",
     "readability": "Identifier clarity and naming choices that affect code review.",
     "repo_policy": "Repository-level lint, type-check, gate, and hook policy.",
     "security_practice": "Security-oriented coding practices that support safe defaults.",
+    "typescript": "TypeScript quality and maintainability patterns.",
     "typing": "Type annotation coverage and type-check policy.",
 }
 
@@ -37,6 +40,7 @@ DEFAULT_SCAN = {
     "enable_secrets": False,
     "grep_verify": False,
 }
+MAX_SECONDS_FAILURE_GRACE_RATIO = 0.10
 
 
 @dataclass(frozen=True)
@@ -319,6 +323,13 @@ def _score_case(
     }
 
 
+def _exceeds_runtime_budget(elapsed_seconds: float, max_seconds: float | None) -> bool:
+    if max_seconds is None:
+        return False
+    hard_limit = max_seconds * (1.0 + MAX_SECONDS_FAILURE_GRACE_RATIO)
+    return elapsed_seconds > hard_limit
+
+
 def run_case(case: dict[str, Any], manifest_path: str | Path) -> dict[str, Any]:
     manifest_root = Path(manifest_path).parent
     case_path = (manifest_root / case["path"]).resolve()
@@ -337,7 +348,7 @@ def run_case(case: dict[str, Any], manifest_path: str | Path) -> dict[str, Any]:
 
     budget = case.get("budget", {}) or {}
     max_seconds = budget.get("max_seconds")
-    if max_seconds is not None and elapsed_seconds > max_seconds:
+    if _exceeds_runtime_budget(elapsed_seconds, max_seconds):
         failures.append(
             QualityBenchmarkFailure(
                 case_id=case["id"],

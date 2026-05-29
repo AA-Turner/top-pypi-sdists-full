@@ -30,7 +30,7 @@ class ScheduledAggregateBackfill:
         resource_group: str | None = None,
         lower_bound: datetime | None = None,
         upper_bound: datetime | None = None,
-        allow_empty_tiles: bool = False,
+        allow_empty_tiles: bool = True,
     ):
         super().__init__()
         self.errors = []
@@ -74,10 +74,12 @@ class ScheduledAggregateBackfill:
                     f"Scheduled aggregate backfill '{name}' was instantiated with invalid target '{target}'. Use AggregateBackfillTarget.ONLINE or AggregateBackfillTarget.OFFLINE."
                 )
 
-        if allow_empty_tiles and AggregateBackfillTarget.OFFLINE not in resolved_targets:
-            self.errors.append(
-                f"Scheduled aggregate backfill '{name}' was instantiated with allow_empty_tiles=True. Use AggregateBackfillTarget.OFFLINE when allowing empty tiles."
-            )
+        if AggregateBackfillTarget.OFFLINE not in resolved_targets:
+            # the if is added because older servers (pre 2026-05-28) were failing validation on
+            # store_offline=False and allow_empty_tiles=True combination
+            # (and now allow_empty_tiles=True is the default)
+            # TODO remove this after a reasonable grace period
+            allow_empty_tiles = False
 
         if lower_bound is not None:
             lower_bound = lower_bound.astimezone(tz=timezone.utc)

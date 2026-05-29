@@ -17,7 +17,7 @@ from navconfig.logging import logging
 from ..exceptions import ComponentError, FileError
 from ..utils import SafeDict
 # TODO: migrate to FileStore component
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces import TemplateSupport
 from ..conf import TASK_PATH
 from ..interfaces.qs import QSSupport

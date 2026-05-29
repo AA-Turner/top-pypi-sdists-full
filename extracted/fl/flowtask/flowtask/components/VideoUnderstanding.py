@@ -83,16 +83,14 @@ class VideoUnderstanding(LLMClient, FlowComponent):
         if self.prompt_text:
             prompt = self.prompt_text
         elif self.prompt_file:
-            # We use self.open_file if provided by FlowComponent/TaskStorage, else standard Path
             try:
-                if hasattr(self, 'open_file'):
-                    prompt = await self.open_file(self.prompt_file)
-                else:
-                    path = Path(self.prompt_file)
-                    if not path.exists():
-                        raise FileNotFoundError(f"Prompt file not found: {self.prompt_file}")
-                    with open(path, 'r', encoding='utf-8') as f:
-                        prompt = f.read()
+                path = Path(self.prompt_file)
+                if not path.is_absolute() and hasattr(self, '_taskstore') and hasattr(self, '_program'):
+                    path = self._taskstore.path.joinpath(self._program, 'prompts', self.prompt_file)
+                if not path.exists():
+                    raise FileNotFoundError(f"Prompt file not found: {path}")
+                with open(path, 'r', encoding='utf-8') as f:
+                    prompt = f.read()
             except Exception as e:
                 raise ConfigError(
                     f"{self.__name__}: Failed to read prompt_file: {e}"
@@ -114,3 +112,14 @@ class VideoUnderstanding(LLMClient, FlowComponent):
         
         # 4. Run the parent start to validate remaining LLMClient requirements
         return await super().start(**kwargs)
+
+    async def run(self, *args, **kwargs):
+        result = await super().run(*args, **kwargs)
+        self._result = result
+        return result
+
+    async def close(self):
+        try:
+            await super().close()
+        except Exception:
+            pass

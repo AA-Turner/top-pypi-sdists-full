@@ -46,12 +46,12 @@ from pathlib import Path
 from navconfig.logging import logging
 from notify import Notify
 from notify.models import Actor
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from ...template import getTemplateHandler
 from ...exceptions import ComponentError, FileNotFound
 from ...conf import BASE_DIR, TASK_PATH
 from .charts import loadChart
-from ..support import DBSupport
+from ...interfaces import DBSupport
 
 
 class CreateReport(FlowComponent, DBSupport):

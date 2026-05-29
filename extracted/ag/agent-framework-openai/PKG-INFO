@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-openai
-Version: 1.6.0
+Version: 1.7.0
 Summary: OpenAI integrations for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.6.0,<2
+Requires-Dist: agent-framework-core>=1.7.0,<2
 Requires-Dist: openai>=1.99.0,<3
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues

@@ -10,8 +10,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from collections.abc import Callable, Generator
 from typing import Any, ClassVar, Literal
-from collections.abc import Callable
+import warnings
 
 from openstack.accelerator.v2 import accelerator_request as _arq
 from openstack.accelerator.v2 import attribute as _attribute
@@ -20,6 +21,7 @@ from openstack.accelerator.v2 import device as _device
 from openstack.accelerator.v2 import device_profile as _device_profile
 from openstack import proxy
 from openstack import resource
+from openstack import warnings as os_warnings
 
 
 class Proxy(proxy.Proxy):
@@ -27,42 +29,79 @@ class Proxy(proxy.Proxy):
 
     # ========== Deployables ==========
 
-    def deployables(self, **query):
+    def deployables(
+        self,
+        **query: Any,
+    ) -> Generator[_deployable.Deployable, None, None]:
         """Retrieve a generator of deployables.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the deployables to be returned.
         :returns: A generator of deployable instances.
         """
         return self._list(_deployable.Deployable, **query)
 
-    def get_deployable(self, uuid, fields=None):
+    def get_deployable(
+        self,
+        deployable: str | _deployable.Deployable,
+        fields: list[str] | None = None,
+    ) -> _deployable.Deployable:
         """Get a single deployable.
 
-        :param uuid: The value can be the UUID of a deployable.
+        :param deployable: The value can be the ID of a deployable or a
+            ::class:`~openstack.accelerator.v2.deployable.Deployable` instance.
         :returns: One :class:`~openstack.accelerator.v2.deployable.Deployable`
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             deployable matching the criteria could be found.
         """
-        return self._get(_deployable.Deployable, uuid)
+        if fields is not None:
+            warnings.warn(
+                'The fields argument is a no-op and will be removed in a '
+                'future release',
+                os_warnings.RemovedInSDK50Warning,
+            )
 
-    def update_deployable(self, uuid, patch):
+        return self._get(_deployable.Deployable, deployable)
+
+    def patch_deployable(
+        self,
+        deployable: str | _deployable.Deployable,
+        patch: list[dict[str, Any]],
+    ) -> _deployable.Deployable:
+        """Apply a JSON patch to the deployable.
+
+        :param deployable: The value can be the ID of a deployable or a
+            :class:`~openstack.accelerator.v1.deployable.Deployable` instance.
+        :param patch: JSON patch to apply.
+        :returns: The updated deployable.
+        """
+        return self._patch(_deployable.Deployable, deployable, patch)
+
+    # TODO(stephenfin): Remove in 5.0
+    def update_deployable(
+        self,
+        uuid: str | _deployable.Deployable,
+        patch: list[dict[str, Any]],
+    ) -> _deployable.Deployable:
         """Reconfig the FPGA with new bitstream.
 
         :param uuid: The value can be the UUID of a deployable
         :param patch: The information to reconfig.
         :returns: The results of FPGA reconfig.
         """
-        return self._get_resource(_deployable.Deployable, uuid).patch(
-            self, patch
+        warnings.warn(
+            "The 'update_deployable' method is deprecated; use "
+            "'patch_deployable' instead.",
+            os_warnings.RemovedInSDK50Warning,
         )
+        return self.update_deployable(uuid, patch)
 
     # ========== Devices ==========
 
-    def devices(self, **query):
+    def devices(self, **query: Any) -> Generator[_device.Device, None, None]:
         """Retrieve a generator of devices.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the devices to be returned. Available parameters include:
 
             * hostname: The hostname of the device.
@@ -82,22 +121,35 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_device.Device, **query)
 
-    def get_device(self, uuid, fields=None):
+    def get_device(
+        self, device: str | _device.Device, fields: list[str] | None = None
+    ) -> _device.Device:
         """Get a single device.
 
-        :param uuid: The value can be the UUID of a device.
+        :param device: The value can be the ID of a device or a
+            :class:`~openstack.accelerator.v2.device.Device` instance.
         :returns: One :class:`~openstack.accelerator.v2.device.Device`
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             device matching the criteria could be found.
         """
-        return self._get(_device.Device, uuid)
+        if fields is not None:
+            warnings.warn(
+                'The fields argument is a no-op and will be removed in a '
+                'future release',
+                os_warnings.RemovedInSDK50Warning,
+            )
+
+        return self._get(_device.Device, device)
 
     # ========== Device profiles ==========
 
-    def device_profiles(self, **query):
+    def device_profiles(
+        self,
+        **query: Any,
+    ) -> Generator[_device_profile.DeviceProfile, None, None]:
         """Retrieve a generator of device profiles.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the device profiles to be returned.
         :returns: A generator of device profile instances.
         """
@@ -108,24 +160,29 @@ class Proxy(proxy.Proxy):
     ) -> _device_profile.DeviceProfile:
         """Create a device_profile.
 
-        :param kwargs attrs: a list of device_profiles.
+        :param attrs: a list of device_profiles.
         :returns: The list of created device profiles
         """
         return self._create(_device_profile.DeviceProfile, **attrs)
 
-    def delete_device_profile(self, device_profile, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_device_profile(
+        self,
+        device_profile: str | _device_profile.DeviceProfile,
+        ignore_missing: bool = True,
+    ) -> _device_profile.DeviceProfile | None:
         """Delete a device profile
 
         :param device_profile: The value can be either the ID of a device
             profile or a
             :class:`~openstack.accelerator.v2.device_profile.DeviceProfile`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the device profile does not exist.
             When set to ``True``, no exception will be set when
             attempting to delete a nonexistent device profile.
-        :returns: ``None``
+        :returns: The deleted device profile.
         """
         return self._delete(
             _device_profile.DeviceProfile,
@@ -133,23 +190,38 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_device_profile(self, uuid, fields=None):
+    def get_device_profile(
+        self,
+        device_profile: str | _device_profile.DeviceProfile,
+        fields: list[str] | None = None,
+    ) -> _device_profile.DeviceProfile:
         """Get a single device profile.
 
-        :param uuid: The value can be the UUID of a device profile.
+        :param device_profile: The value can be the ID of a device profile or a
+            `~openstack.accelerator.v2.device_profile.DeviceProfile` instance.
         :returns: One :class:
             `~openstack.accelerator.v2.device_profile.DeviceProfile`
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             device profile matching the criteria could be found.
         """
-        return self._get(_device_profile.DeviceProfile, uuid)
+        if fields is not None:
+            warnings.warn(
+                'The fields argument is a no-op and will be removed in a '
+                'future release',
+                os_warnings.RemovedInSDK50Warning,
+            )
+
+        return self._get(_device_profile.DeviceProfile, device_profile)
 
     # ========== Accelerator requests ==========
 
-    def accelerator_requests(self, **query):
+    def accelerator_requests(
+        self,
+        **query: Any,
+    ) -> Generator[_arq.AcceleratorRequest, None, None]:
         """Retrieve a generator of accelerator requests.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the accelerator requests to be returned.
         :returns: A generator of accelerator request instances.
         """
@@ -160,47 +232,83 @@ class Proxy(proxy.Proxy):
     ) -> _arq.AcceleratorRequest:
         """Create an ARQs for a single device profile.
 
-        :param kwargs attrs: request body.
+        :param attrs: request body.
         :returns: The created accelerator request instance.
         """
         return self._create(_arq.AcceleratorRequest, **attrs)
 
     def delete_accelerator_request(
         self,
-        accelerator_request,
-        ignore_missing=True,
-    ):
-        """Delete a device profile
+        accelerator_request: str | _arq.AcceleratorRequest,
+        ignore_missing: bool = True,
+    ) -> None:
+        """Delete an accelerator request
 
-        :param device_profile: The value can be either the ID of a device
-            profile or a
-            :class:`~openstack.accelerator.v2.device_profile.DeviceProfile`
+        :param accelerator_request: The value can be either the ID of an
+            accelerator request or a
+            :class:`~openstack.accelerator.v2.accelerator_request.AcceleratorRequest`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
-            when the device profile does not exist. When set to ``True``, no
-            exception will be set when attempting to delete a nonexistent
+            when the accelerator request does not exist. When set to ``True``,
+            no exception will be set when attempting to delete a nonexistent
             accelerator request.
         :returns: ``None``
         """
-        return self._delete(
+        self._delete(
             _arq.AcceleratorRequest,
             accelerator_request,
             ignore_missing=ignore_missing,
         )
 
-    def get_accelerator_request(self, uuid, fields=None):
+    def get_accelerator_request(
+        self,
+        accelerator_request: str | _arq.AcceleratorRequest,
+        fields: list[str] | None = None,
+    ) -> _arq.AcceleratorRequest:
         """Get a single accelerator request.
 
-        :param uuid: The value can be the UUID of a accelerator request.
+        :param accelerator_request: The value can be the ID of a accelerator
+            request or a
+            `~openstack.accelerator.v2.accelerator_request.AcceleratorRequest`
+            instance.
         :returns: One :class:
             `~openstack.accelerator.v2.accelerator_request.AcceleratorRequest`
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             accelerator request matching the criteria could be found.
         """
-        return self._get(_arq.AcceleratorRequest, uuid)
+        if fields is not None:
+            warnings.warn(
+                'The fields argument is a no-op and will be removed in a '
+                'future release',
+                os_warnings.RemovedInSDK50Warning,
+            )
 
-    def update_accelerator_request(self, uuid, properties):
+        return self._get(_arq.AcceleratorRequest, accelerator_request)
+
+    # TODO(stephenfin): Rename to patch_accelerator_request
+    def patch_accelerator_request(
+        self,
+        accelerator_request: str | _arq.AcceleratorRequest,
+        patch: list[dict[str, Any]],
+    ) -> _arq.AcceleratorRequest:
+        """Apply a JSON patch to the accelerator request.
+
+        :param accelerator_request: The value can be the ID of an accelerator
+            request or an
+            :class:`~openstack.accelerator.v1.accelerator_request.AcceleratorRequest`
+            instance.
+        :param patch: JSON patch to apply.
+        :returns: The updated accelerator request.
+        """
+        return self._patch(_arq.AcceleratorRequest, accelerator_request, patch)
+
+    # TODO(stephenfin): Remove in 5.0
+    def update_accelerator_request(
+        self,
+        uuid: str | _arq.AcceleratorRequest,
+        properties: list[dict[str, Any]],
+    ) -> _arq.AcceleratorRequest:
         """Bind/Unbind an accelerator to VM.
 
         :param uuid: The uuid of the accelerator_request to be bound/unbound.
@@ -208,16 +316,22 @@ class Proxy(proxy.Proxy):
             that will bind/unbind the accelerator.
         :returns: True if bind/unbind succeeded, False otherwise.
         """
-        return self._get_resource(_arq.AcceleratorRequest, uuid).patch(
-            self, properties
+        warnings.warn(
+            "The 'update_accelerator_request' method is deprecated; use "
+            "'patch_accelerator_request' instead.",
+            os_warnings.RemovedInSDK50Warning,
         )
+        return self.patch_accelerator_request(uuid, properties)
 
     # ========== Attributes ==========
 
-    def attributes(self, **query):
+    def attributes(
+        self,
+        **query: Any,
+    ) -> Generator[_attribute.Attribute, None, None]:
         """Retrieve a generator of attributes.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the attributes to be returned.
         :returns: A generator of attribute instances.
         """
@@ -226,23 +340,28 @@ class Proxy(proxy.Proxy):
     def create_attribute(self, **attrs: Any) -> _attribute.Attribute:
         """Create a attribute.
 
-        :param kwargs attrs: a list of attributes.
+        :param attrs: a list of attributes.
         :returns: The list of created attributes
         """
         return self._create(_attribute.Attribute, **attrs)
 
-    def delete_attribute(self, attribute, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_attribute(
+        self,
+        attribute: str | _attribute.Attribute,
+        ignore_missing: bool = True,
+    ) -> _attribute.Attribute | None:
         """Delete a attribute
 
         :param attribute: The value can be either the ID of a attributes or a
             :class:`~openstack.accelerator.v2.attribute.Attributes`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.ResourceNotFound` will be
             raised when the device profile does not exist.
             When set to ``True``, no exception will be set when
             attempting to delete a nonexistent device profile.
-        :returns: ``None``
+        :returns: The deleted attribute.
         """
         return self._delete(
             _attribute.Attribute,
@@ -250,16 +369,28 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_attribute(self, uuid, fields=None):
+    def get_attribute(
+        self,
+        attribute: str | _attribute.Attribute,
+        fields: list[str] | None = None,
+    ) -> _attribute.Attribute:
         """Get a single device profile.
 
-        :param uuid: The value can be the UUID of a attribute.
+        :param attribute: The value can be the ID of a attribute or a.
+            `~openstack.accelerator.v2.attribute.Attribute` instance.
         :returns: One :class:
             `~openstack.accelerator.v2.attribute.Attribute`
         :raises: :class:`~openstack.exceptions.ResourceNotFound` when no
             device profile matching the criteria could be found.
         """
-        return self._get(_attribute.Attribute, uuid)
+        if fields is not None:
+            warnings.warn(
+                'The fields argument is a no-op and will be removed in a '
+                'future release',
+                os_warnings.RemovedInSDK50Warning,
+            )
+
+        return self._get(_attribute.Attribute, attribute)
 
     # ========== Utilities ==========
 
@@ -290,7 +421,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -305,8 +436,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

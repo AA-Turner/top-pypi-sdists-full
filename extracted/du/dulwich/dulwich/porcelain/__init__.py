@@ -474,6 +474,8 @@ from .worktree import (
     worktree_unlock,
 )
 
+logger = logging.getLogger(__name__)
+
 # Module level tuple definition for status output
 GitStatus = namedtuple("GitStatus", "staged unstaged untracked")
 
@@ -1551,10 +1553,10 @@ def clone(
             submodule_update(repo, init=True, recursive=True)
         except FileNotFoundError as e:
             # .gitmodules file doesn't exist - no submodules to process
-            logging.debug("No .gitmodules file found: %s", e)
+            logger.debug("No .gitmodules file found: %s", e)
         except KeyError as e:
             # Submodule configuration missing
-            logging.warning("Submodule configuration error: %s", e)
+            logger.warning("Submodule configuration error: %s", e)
             if errstream:
                 errstream.write(
                     f"Warning: Submodule configuration error: {e}\n".encode()
@@ -5414,9 +5416,12 @@ def _get_worktree_update_config(
     config = repo.get_config()
     honor_filemode = config.get_boolean(b"core", b"filemode", os.name != "nt")
 
-    if config.get_boolean(b"core", b"core.protectNTFS", os.name == "nt"):
+    # core.protectNTFS defaults to True on all platforms (matching
+    # Git's PROTECT_NTFS_DEFAULT=1) because a repo authored on
+    # POSIX can still be cloned on Windows later.
+    if config.get_boolean(b"core", b"protectNTFS", True):
         validate_path_element = validate_path_element_ntfs
-    elif config.get_boolean(b"core", b"core.protectHFS", sys.platform == "darwin"):
+    elif config.get_boolean(b"core", b"protectHFS", sys.platform == "darwin"):
         validate_path_element = validate_path_element_hfs
     else:
         validate_path_element = validate_path_element_default

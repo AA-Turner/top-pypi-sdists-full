@@ -9,197 +9,756 @@ import System.Globalization
 import System.Numerics
 import System.Runtime.Intrinsics
 
-System_Numerics_Vector4 = typing.Any
+System_Numerics_Matrix4x4 = typing.Any
+System_Numerics_BFloat16 = typing.Any
 System_Numerics_Vector = typing.Any
 T = typing.Any
 System_Numerics_Matrix3x2 = typing.Any
-System_Numerics_BFloat16 = typing.Any
-System_Numerics_Matrix4x4 = typing.Any
+System_Numerics_Quaternion = typing.Any
 System_Numerics_Plane = typing.Any
+System_Numerics_Vector3 = typing.Any
 System_Numerics_TotalOrderIeee754Comparer = typing.Any
 System_Numerics_Vector2 = typing.Any
-System_Numerics_Quaternion = typing.Any
-System_Numerics_Vector3 = typing.Any
+System_Numerics_Vector4 = typing.Any
 
-System_Numerics_IBinaryNumber_TSelf = typing.TypeVar("System_Numerics_IBinaryNumber_TSelf")
-System_Numerics_INumberBase_TSelf = typing.TypeVar("System_Numerics_INumberBase_TSelf")
-System_Numerics_IExponentialFunctions_TSelf = typing.TypeVar("System_Numerics_IExponentialFunctions_TSelf")
-System_Numerics_ITrigonometricFunctions_TSelf = typing.TypeVar("System_Numerics_ITrigonometricFunctions_TSelf")
-System_Numerics_Vector_T = typing.TypeVar("System_Numerics_Vector_T")
-System_Numerics_IShiftOperators_TSelf = typing.TypeVar("System_Numerics_IShiftOperators_TSelf")
-System_Numerics_IShiftOperators_TOther = typing.TypeVar("System_Numerics_IShiftOperators_TOther")
-System_Numerics_IShiftOperators_TResult = typing.TypeVar("System_Numerics_IShiftOperators_TResult")
-System_Numerics_IFloatingPoint_TSelf = typing.TypeVar("System_Numerics_IFloatingPoint_TSelf")
-System_Numerics_IEqualityOperators_TSelf = typing.TypeVar("System_Numerics_IEqualityOperators_TSelf")
-System_Numerics_IEqualityOperators_TOther = typing.TypeVar("System_Numerics_IEqualityOperators_TOther")
-System_Numerics_IEqualityOperators_TResult = typing.TypeVar("System_Numerics_IEqualityOperators_TResult")
-System_Numerics_IDecrementOperators_TSelf = typing.TypeVar("System_Numerics_IDecrementOperators_TSelf")
-System_Numerics_IMultiplicativeIdentity_TSelf = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TSelf")
-System_Numerics_IMultiplicativeIdentity_TResult = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TResult")
-System_Numerics_IBinaryFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IBinaryFloatingPointIeee754_TSelf")
-System_Numerics_IUnaryPlusOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TSelf")
-System_Numerics_IUnaryPlusOperators_TResult = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TResult")
-System_Numerics_IFloatingPointConstants_TSelf = typing.TypeVar("System_Numerics_IFloatingPointConstants_TSelf")
-System_Numerics_INumber_TSelf = typing.TypeVar("System_Numerics_INumber_TSelf")
-System_Numerics_IDivisionOperators_TSelf = typing.TypeVar("System_Numerics_IDivisionOperators_TSelf")
-System_Numerics_IDivisionOperators_TOther = typing.TypeVar("System_Numerics_IDivisionOperators_TOther")
-System_Numerics_IDivisionOperators_TResult = typing.TypeVar("System_Numerics_IDivisionOperators_TResult")
-System_Numerics_IAdditionOperators_TSelf = typing.TypeVar("System_Numerics_IAdditionOperators_TSelf")
-System_Numerics_IAdditionOperators_TOther = typing.TypeVar("System_Numerics_IAdditionOperators_TOther")
-System_Numerics_IAdditionOperators_TResult = typing.TypeVar("System_Numerics_IAdditionOperators_TResult")
-System_Numerics_IMultiplyOperators_TSelf = typing.TypeVar("System_Numerics_IMultiplyOperators_TSelf")
-System_Numerics_IMultiplyOperators_TOther = typing.TypeVar("System_Numerics_IMultiplyOperators_TOther")
-System_Numerics_IMultiplyOperators_TResult = typing.TypeVar("System_Numerics_IMultiplyOperators_TResult")
-System_Numerics_ISignedNumber_TSelf = typing.TypeVar("System_Numerics_ISignedNumber_TSelf")
-System_Numerics_IBinaryInteger_TSelf = typing.TypeVar("System_Numerics_IBinaryInteger_TSelf")
-System_Numerics_ISubtractionOperators_TSelf = typing.TypeVar("System_Numerics_ISubtractionOperators_TSelf")
-System_Numerics_ISubtractionOperators_TOther = typing.TypeVar("System_Numerics_ISubtractionOperators_TOther")
-System_Numerics_ISubtractionOperators_TResult = typing.TypeVar("System_Numerics_ISubtractionOperators_TResult")
-System_Numerics_IBitwiseOperators_TSelf = typing.TypeVar("System_Numerics_IBitwiseOperators_TSelf")
-System_Numerics_IBitwiseOperators_TOther = typing.TypeVar("System_Numerics_IBitwiseOperators_TOther")
-System_Numerics_IBitwiseOperators_TResult = typing.TypeVar("System_Numerics_IBitwiseOperators_TResult")
-System_Numerics_IUnaryNegationOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TSelf")
-System_Numerics_IUnaryNegationOperators_TResult = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TResult")
-System_Numerics_IPowerFunctions_TSelf = typing.TypeVar("System_Numerics_IPowerFunctions_TSelf")
-System_Numerics_IHyperbolicFunctions_TSelf = typing.TypeVar("System_Numerics_IHyperbolicFunctions_TSelf")
-System_Numerics_IUnsignedNumber_TSelf = typing.TypeVar("System_Numerics_IUnsignedNumber_TSelf")
-System_Numerics_IRootFunctions_TSelf = typing.TypeVar("System_Numerics_IRootFunctions_TSelf")
+System_Numerics_IFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IFloatingPointIeee754_TSelf")
 System_Numerics_IComparisonOperators_TSelf = typing.TypeVar("System_Numerics_IComparisonOperators_TSelf")
 System_Numerics_IComparisonOperators_TOther = typing.TypeVar("System_Numerics_IComparisonOperators_TOther")
 System_Numerics_IComparisonOperators_TResult = typing.TypeVar("System_Numerics_IComparisonOperators_TResult")
-System_Numerics_TotalOrderIeee754Comparer_T = typing.TypeVar("System_Numerics_TotalOrderIeee754Comparer_T")
-System_Numerics_IFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IFloatingPointIeee754_TSelf")
+System_Numerics_IUnsignedNumber_TSelf = typing.TypeVar("System_Numerics_IUnsignedNumber_TSelf")
 System_Numerics_IAdditiveIdentity_TSelf = typing.TypeVar("System_Numerics_IAdditiveIdentity_TSelf")
 System_Numerics_IAdditiveIdentity_TResult = typing.TypeVar("System_Numerics_IAdditiveIdentity_TResult")
+System_Numerics_Vector_T = typing.TypeVar("System_Numerics_Vector_T")
+System_Numerics_IHyperbolicFunctions_TSelf = typing.TypeVar("System_Numerics_IHyperbolicFunctions_TSelf")
+System_Numerics_IEqualityOperators_TSelf = typing.TypeVar("System_Numerics_IEqualityOperators_TSelf")
+System_Numerics_IEqualityOperators_TOther = typing.TypeVar("System_Numerics_IEqualityOperators_TOther")
+System_Numerics_IEqualityOperators_TResult = typing.TypeVar("System_Numerics_IEqualityOperators_TResult")
+System_Numerics_ISubtractionOperators_TSelf = typing.TypeVar("System_Numerics_ISubtractionOperators_TSelf")
+System_Numerics_ISubtractionOperators_TOther = typing.TypeVar("System_Numerics_ISubtractionOperators_TOther")
+System_Numerics_ISubtractionOperators_TResult = typing.TypeVar("System_Numerics_ISubtractionOperators_TResult")
+System_Numerics_IRootFunctions_TSelf = typing.TypeVar("System_Numerics_IRootFunctions_TSelf")
+System_Numerics_IBinaryFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IBinaryFloatingPointIeee754_TSelf")
+System_Numerics_ILogarithmicFunctions_TSelf = typing.TypeVar("System_Numerics_ILogarithmicFunctions_TSelf")
+System_Numerics_IUnaryNegationOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TSelf")
+System_Numerics_IUnaryNegationOperators_TResult = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TResult")
+System_Numerics_IBinaryInteger_TSelf = typing.TypeVar("System_Numerics_IBinaryInteger_TSelf")
+System_Numerics_IDivisionOperators_TSelf = typing.TypeVar("System_Numerics_IDivisionOperators_TSelf")
+System_Numerics_IDivisionOperators_TOther = typing.TypeVar("System_Numerics_IDivisionOperators_TOther")
+System_Numerics_IDivisionOperators_TResult = typing.TypeVar("System_Numerics_IDivisionOperators_TResult")
+System_Numerics_IFloatingPointConstants_TSelf = typing.TypeVar("System_Numerics_IFloatingPointConstants_TSelf")
+System_Numerics_IMultiplyOperators_TSelf = typing.TypeVar("System_Numerics_IMultiplyOperators_TSelf")
+System_Numerics_IMultiplyOperators_TOther = typing.TypeVar("System_Numerics_IMultiplyOperators_TOther")
+System_Numerics_IMultiplyOperators_TResult = typing.TypeVar("System_Numerics_IMultiplyOperators_TResult")
 System_Numerics_IIncrementOperators_TSelf = typing.TypeVar("System_Numerics_IIncrementOperators_TSelf")
+System_Numerics_IBinaryNumber_TSelf = typing.TypeVar("System_Numerics_IBinaryNumber_TSelf")
+System_Numerics_IShiftOperators_TSelf = typing.TypeVar("System_Numerics_IShiftOperators_TSelf")
+System_Numerics_IShiftOperators_TOther = typing.TypeVar("System_Numerics_IShiftOperators_TOther")
+System_Numerics_IShiftOperators_TResult = typing.TypeVar("System_Numerics_IShiftOperators_TResult")
+System_Numerics_IUnaryPlusOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TSelf")
+System_Numerics_IUnaryPlusOperators_TResult = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TResult")
+System_Numerics_INumberBase_TSelf = typing.TypeVar("System_Numerics_INumberBase_TSelf")
+System_Numerics_TotalOrderIeee754Comparer_T = typing.TypeVar("System_Numerics_TotalOrderIeee754Comparer_T")
+System_Numerics_IBitwiseOperators_TSelf = typing.TypeVar("System_Numerics_IBitwiseOperators_TSelf")
+System_Numerics_IBitwiseOperators_TOther = typing.TypeVar("System_Numerics_IBitwiseOperators_TOther")
+System_Numerics_IBitwiseOperators_TResult = typing.TypeVar("System_Numerics_IBitwiseOperators_TResult")
+System_Numerics_INumber_TSelf = typing.TypeVar("System_Numerics_INumber_TSelf")
+System_Numerics_IMinMaxValue_TSelf = typing.TypeVar("System_Numerics_IMinMaxValue_TSelf")
+System_Numerics_IDecrementOperators_TSelf = typing.TypeVar("System_Numerics_IDecrementOperators_TSelf")
+System_Numerics_IAdditionOperators_TSelf = typing.TypeVar("System_Numerics_IAdditionOperators_TSelf")
+System_Numerics_IAdditionOperators_TOther = typing.TypeVar("System_Numerics_IAdditionOperators_TOther")
+System_Numerics_IAdditionOperators_TResult = typing.TypeVar("System_Numerics_IAdditionOperators_TResult")
+System_Numerics_IExponentialFunctions_TSelf = typing.TypeVar("System_Numerics_IExponentialFunctions_TSelf")
 System_Numerics_IModulusOperators_TSelf = typing.TypeVar("System_Numerics_IModulusOperators_TSelf")
 System_Numerics_IModulusOperators_TOther = typing.TypeVar("System_Numerics_IModulusOperators_TOther")
 System_Numerics_IModulusOperators_TResult = typing.TypeVar("System_Numerics_IModulusOperators_TResult")
-System_Numerics_IMinMaxValue_TSelf = typing.TypeVar("System_Numerics_IMinMaxValue_TSelf")
-System_Numerics_ILogarithmicFunctions_TSelf = typing.TypeVar("System_Numerics_ILogarithmicFunctions_TSelf")
+System_Numerics_IMultiplicativeIdentity_TSelf = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TSelf")
+System_Numerics_IMultiplicativeIdentity_TResult = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TResult")
+System_Numerics_IFloatingPoint_TSelf = typing.TypeVar("System_Numerics_IFloatingPoint_TSelf")
+System_Numerics_ISignedNumber_TSelf = typing.TypeVar("System_Numerics_ISignedNumber_TSelf")
+System_Numerics_IPowerFunctions_TSelf = typing.TypeVar("System_Numerics_IPowerFunctions_TSelf")
+System_Numerics_ITrigonometricFunctions_TSelf = typing.TypeVar("System_Numerics_ITrigonometricFunctions_TSelf")
+System_Numerics_BFloat16_CreateChecked_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateChecked_TOther")
+System_Numerics_BFloat16_CreateSaturating_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateSaturating_TOther")
+System_Numerics_BFloat16_CreateTruncating_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateTruncating_TOther")
 System_Numerics_INumberBase_TryConvertFromChecked_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertFromChecked_TOther")
 System_Numerics_INumberBase_TryConvertFromSaturating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertFromSaturating_TOther")
 System_Numerics_INumberBase_TryConvertFromTruncating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertFromTruncating_TOther")
 System_Numerics_INumberBase_TryConvertToChecked_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToChecked_TOther")
 System_Numerics_INumberBase_TryConvertToSaturating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToSaturating_TOther")
 System_Numerics_INumberBase_TryConvertToTruncating_TOther = typing.TypeVar("System_Numerics_INumberBase_TryConvertToTruncating_TOther")
-System_Numerics_BFloat16_CreateChecked_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateChecked_TOther")
-System_Numerics_BFloat16_CreateSaturating_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateSaturating_TOther")
-System_Numerics_BFloat16_CreateTruncating_TOther = typing.TypeVar("System_Numerics_BFloat16_CreateTruncating_TOther")
 
 
-class IBinaryNumber(typing.Generic[System_Numerics_IBinaryNumber_TSelf], System.Numerics.IBitwiseOperators[System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf], System.Numerics.INumber[System_Numerics_IBinaryNumber_TSelf], metaclass=abc.ABCMeta):
+class IFloatingPointIeee754(typing.Generic[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IExponentialFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IFloatingPoint[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IHyperbolicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ILogarithmicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IPowerFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IRootFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ITrigonometricFunctions[System_Numerics_IFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
-class _Typed_INumberBase_TryConvertFromChecked(typing.Generic[System_Numerics_INumberBase_TryConvertFromChecked_TOther]):
-    """"""
-
-    @overload
-    def __call__(self, value: System_Numerics_INumberBase_TryConvertFromChecked_TOther, result: typing.Optional[System_Numerics_INumberBase_TSelf]) -> typing.Tuple[bool, System_Numerics_INumberBase_TSelf]:
-        ...
-
-
-class _INumberBase_TryConvertFromChecked:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertFromChecked_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertFromChecked[System_Numerics_INumberBase_TryConvertFromChecked_TOther]:
-        ...
-
-
-class _Typed_INumberBase_TryConvertFromSaturating(typing.Generic[System_Numerics_INumberBase_TryConvertFromSaturating_TOther]):
-    """"""
-
-    @overload
-    def __call__(self, value: System_Numerics_INumberBase_TryConvertFromSaturating_TOther, result: typing.Optional[System_Numerics_INumberBase_TSelf]) -> typing.Tuple[bool, System_Numerics_INumberBase_TSelf]:
-        ...
-
-
-class _INumberBase_TryConvertFromSaturating:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertFromSaturating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertFromSaturating[System_Numerics_INumberBase_TryConvertFromSaturating_TOther]:
-        ...
-
-
-class _Typed_INumberBase_TryConvertFromTruncating(typing.Generic[System_Numerics_INumberBase_TryConvertFromTruncating_TOther]):
-    """"""
-
-    @overload
-    def __call__(self, value: System_Numerics_INumberBase_TryConvertFromTruncating_TOther, result: typing.Optional[System_Numerics_INumberBase_TSelf]) -> typing.Tuple[bool, System_Numerics_INumberBase_TSelf]:
-        ...
-
-
-class _INumberBase_TryConvertFromTruncating:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertFromTruncating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertFromTruncating[System_Numerics_INumberBase_TryConvertFromTruncating_TOther]:
-        ...
-
-
-class _Typed_INumberBase_TryConvertToChecked(typing.Generic[System_Numerics_INumberBase_TryConvertToChecked_TOther]):
-    """"""
-
-    @overload
-    def __call__(self, value: System_Numerics_INumberBase_TSelf, result: typing.Optional[System_Numerics_INumberBase_TryConvertToChecked_TOther]) -> typing.Tuple[bool, System_Numerics_INumberBase_TryConvertToChecked_TOther]:
-        ...
-
-
-class _INumberBase_TryConvertToChecked:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertToChecked_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertToChecked[System_Numerics_INumberBase_TryConvertToChecked_TOther]:
-        ...
-
-
-class _Typed_INumberBase_TryConvertToSaturating(typing.Generic[System_Numerics_INumberBase_TryConvertToSaturating_TOther]):
-    """"""
-
-    @overload
-    def __call__(self, value: System_Numerics_INumberBase_TSelf, result: typing.Optional[System_Numerics_INumberBase_TryConvertToSaturating_TOther]) -> typing.Tuple[bool, System_Numerics_INumberBase_TryConvertToSaturating_TOther]:
-        ...
-
-
-class _INumberBase_TryConvertToSaturating:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertToSaturating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertToSaturating[System_Numerics_INumberBase_TryConvertToSaturating_TOther]:
-        ...
-
-
-class _Typed_INumberBase_TryConvertToTruncating(typing.Generic[System_Numerics_INumberBase_TryConvertToTruncating_TOther]):
-    """"""
-
-    @overload
-    def __call__(self, value: System_Numerics_INumberBase_TSelf, result: typing.Optional[System_Numerics_INumberBase_TryConvertToTruncating_TOther]) -> typing.Tuple[bool, System_Numerics_INumberBase_TryConvertToTruncating_TOther]:
-        ...
-
-
-class _INumberBase_TryConvertToTruncating:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertToTruncating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertToTruncating[System_Numerics_INumberBase_TryConvertToTruncating_TOther]:
-        ...
-
-
-class INumberBase(typing.Generic[System_Numerics_INumberBase_TSelf], System.Numerics.IAdditionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IAdditiveIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IDecrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IDivisionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IEquatable[System_Numerics_INumberBase_TSelf], System.Numerics.IEqualityOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, bool], System.Numerics.IIncrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplicativeIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplyOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.ISpanFormattable, System.ISpanParsable[System_Numerics_INumberBase_TSelf], System.Numerics.ISubtractionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryPlusOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryNegationOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_INumberBase_TSelf], metaclass=abc.ABCMeta):
+class IComparisonOperators(typing.Generic[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], System.Numerics.IEqualityOperators[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    try_convert_from_checked: System.Numerics._INumberBase_TryConvertFromChecked
 
-    try_convert_from_saturating: System.Numerics._INumberBase_TryConvertFromSaturating
-
-    try_convert_from_truncating: System.Numerics._INumberBase_TryConvertFromTruncating
-
-    try_convert_to_checked: System.Numerics._INumberBase_TryConvertToChecked
-
-    try_convert_to_saturating: System.Numerics._INumberBase_TryConvertToSaturating
-
-    try_convert_to_truncating: System.Numerics._INumberBase_TryConvertToTruncating
-
-
-class IExponentialFunctions(typing.Generic[System_Numerics_IExponentialFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IExponentialFunctions_TSelf], metaclass=abc.ABCMeta):
+class IUnsignedNumber(typing.Generic[System_Numerics_IUnsignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_IUnsignedNumber_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
+
+
+class IAdditiveIdentity(typing.Generic[System_Numerics_IAdditiveIdentity_TSelf, System_Numerics_IAdditiveIdentity_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
+    """This class has no documentation."""
+
+    @property
+    def x(self) -> float:
+        ...
+
+    @x.setter
+    def x(self, value: float) -> None:
+        ...
+
+    @property
+    def y(self) -> float:
+        ...
+
+    @y.setter
+    def y(self, value: float) -> None:
+        ...
+
+    ALL_BITS_SET: System.Numerics.Vector2
+
+    E: System.Numerics.Vector2
+
+    EPSILON: System.Numerics.Vector2
+
+    NA_N: System.Numerics.Vector2
+
+    NEGATIVE_INFINITY: System.Numerics.Vector2
+
+    NEGATIVE_ZERO: System.Numerics.Vector2
+
+    ONE: System.Numerics.Vector2
+
+    PI: System.Numerics.Vector2
+
+    POSITIVE_INFINITY: System.Numerics.Vector2
+
+    TAU: System.Numerics.Vector2
+
+    UNIT_X: System.Numerics.Vector2
+
+    UNIT_Y: System.Numerics.Vector2
+
+    ZERO: System.Numerics.Vector2
+
+    def __add__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __and__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __eq__(self, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    def __getitem__(self, index: int) -> float:
+        ...
+
+    def __iadd__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __iand__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __ilshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __init__(self, value: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, x: float, y: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, values: System.ReadOnlySpan[float]) -> None:
+        ...
+
+    def __invert__(self) -> System.Numerics.Vector2:
+        ...
+
+    def __ior__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __irshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+        ...
+
+    def __isub__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __itruediv__(self, value_2: float) -> System.Numerics.Vector2:
+        ...
+
+    def __ixor__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __lshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __ne__(self, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    def __neg__(self) -> System.Numerics.Vector2:
+        ...
+
+    def __or__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __pos__(self) -> System.Numerics.Vector2:
+        ...
+
+    def __rshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+        ...
+
+    def __setitem__(self, index: int, value: float) -> None:
+        ...
+
+    def __sub__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __truediv__(self, value_2: float) -> System.Numerics.Vector2:
+        ...
+
+    def __xor__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def abs(value: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def add(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def all(vector: System.Numerics.Vector2, value: float) -> bool:
+        ...
+
+    @staticmethod
+    def all_where_all_bits_set(vector: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def and_not(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def any(vector: System.Numerics.Vector2, value: float) -> bool:
+        ...
+
+    @staticmethod
+    def any_where_all_bits_set(vector: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def bitwise_and(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def bitwise_or(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def clamp(value_1: System.Numerics.Vector2, min: System.Numerics.Vector2, max: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def clamp_native(value_1: System.Numerics.Vector2, min: System.Numerics.Vector2, max: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def conditional_select(condition: System.Numerics.Vector2, left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def copy_sign(value: System.Numerics.Vector2, sign: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def copy_to(self, array: typing.List[float]) -> None:
+        ...
+
+    @overload
+    def copy_to(self, array: typing.List[float], index: int) -> None:
+        ...
+
+    @overload
+    def copy_to(self, destination: System.Span[float]) -> None:
+        ...
+
+    @staticmethod
+    def cos(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def count(vector: System.Numerics.Vector2, value: float) -> int:
+        ...
+
+    @staticmethod
+    def count_where_all_bits_set(vector: System.Numerics.Vector2) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def create(value: float) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def create(x: float, y: float) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def create(values: System.ReadOnlySpan[float]) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def create_scalar(x: float) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def create_scalar_unsafe(x: float) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def cross(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> float:
+        ...
+
+    @staticmethod
+    def degrees_to_radians(degrees: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def distance(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> float:
+        ...
+
+    @staticmethod
+    def distance_squared(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def divide(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def divide(left: System.Numerics.Vector2, divisor: float) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def dot(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def equals(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def equals_all(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def equals_any(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def exp(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def fused_multiply_add(left: System.Numerics.Vector2, right: System.Numerics.Vector2, addend: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def greater_than(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def greater_than_all(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def greater_than_any(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def greater_than_or_equal(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def greater_than_or_equal_all(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def greater_than_or_equal_any(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def hypot(x: System.Numerics.Vector2, y: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def index_of(vector: System.Numerics.Vector2, value: float) -> int:
+        ...
+
+    @staticmethod
+    def index_of_where_all_bits_set(vector: System.Numerics.Vector2) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_finite(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_infinity(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_integer(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_na_n(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_negative(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_negative_infinity(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_normal(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_odd_integer(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_positive(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_positive_infinity(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_subnormal(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def is_zero(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def last_index_of(vector: System.Numerics.Vector2, value: float) -> int:
+        ...
+
+    @staticmethod
+    def last_index_of_where_all_bits_set(vector: System.Numerics.Vector2) -> int:
+        ...
+
+    def length(self) -> float:
+        ...
+
+    def length_squared(self) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def lerp(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2, amount: float) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def lerp(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2, amount: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def less_than(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def less_than_all(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def less_than_any(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def less_than_or_equal(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def less_than_or_equal_all(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def less_than_or_equal_any(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def load(source: typing.Any) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def load_aligned(source: typing.Any) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def load_aligned_non_temporal(source: typing.Any) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def load_unsafe(source: float) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def load_unsafe(source: float, element_offset: System.UIntPtr) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def log(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def log_2(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def max(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def max_magnitude(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def max_magnitude_number(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def max_native(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def max_number(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def min(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def min_magnitude(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def min_magnitude_number(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def min_native(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def min_number(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(left: System.Numerics.Vector2, right: float) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(left: float, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def multiply_add_estimate(left: System.Numerics.Vector2, right: System.Numerics.Vector2, addend: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def negate(value: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def none(vector: System.Numerics.Vector2, value: float) -> bool:
+        ...
+
+    @staticmethod
+    def none_where_all_bits_set(vector: System.Numerics.Vector2) -> bool:
+        ...
+
+    @staticmethod
+    def normalize(value: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def ones_complement(value: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def reflect(vector: System.Numerics.Vector2, normal: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def round(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def round(vector: System.Numerics.Vector2, mode: System.MidpointRounding) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def shuffle(vector: System.Numerics.Vector2, x_index: int, y_index: int) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def sin(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def sin_cos(vector: System.Numerics.Vector2) -> System.ValueTuple[System.Numerics.Vector2, System.Numerics.Vector2]:
+        ...
+
+    @staticmethod
+    def square_root(value: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def subtract(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def sum(value: System.Numerics.Vector2) -> float:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, format_provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def transform(position: System.Numerics.Vector2, matrix: System.Numerics.Matrix3x2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def transform(position: System.Numerics.Vector2, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def transform(value: System.Numerics.Vector2, rotation: System.Numerics.Quaternion) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def transform_normal(normal: System.Numerics.Vector2, matrix: System.Numerics.Matrix3x2) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def transform_normal(normal: System.Numerics.Vector2, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    def truncate(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def try_copy_to(self, destination: System.Span[float]) -> bool:
+        ...
+
+    @staticmethod
+    def xor(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
 
 
 class Vector3(System.IEquatable[System_Numerics_Vector3], System.IFormattable):
@@ -1064,7 +1623,7 @@ class Quaternion(System.IEquatable[System_Numerics_Quaternion]):
         ...
 
 
-class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
+class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
     """This class has no documentation."""
 
     @property
@@ -1083,63 +1642,83 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
     def y(self, value: float) -> None:
         ...
 
-    ALL_BITS_SET: System.Numerics.Vector2
-
-    E: System.Numerics.Vector2
-
-    EPSILON: System.Numerics.Vector2
-
-    NA_N: System.Numerics.Vector2
-
-    NEGATIVE_INFINITY: System.Numerics.Vector2
-
-    NEGATIVE_ZERO: System.Numerics.Vector2
-
-    ONE: System.Numerics.Vector2
-
-    PI: System.Numerics.Vector2
-
-    POSITIVE_INFINITY: System.Numerics.Vector2
-
-    TAU: System.Numerics.Vector2
-
-    UNIT_X: System.Numerics.Vector2
-
-    UNIT_Y: System.Numerics.Vector2
-
-    ZERO: System.Numerics.Vector2
-
-    def __add__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    @property
+    def z(self) -> float:
         ...
 
-    def __and__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    @z.setter
+    def z(self, value: float) -> None:
         ...
 
-    def __eq__(self, right: System.Numerics.Vector2) -> bool:
+    @property
+    def w(self) -> float:
+        ...
+
+    @w.setter
+    def w(self, value: float) -> None:
+        ...
+
+    ALL_BITS_SET: System.Numerics.Vector4
+
+    E: System.Numerics.Vector4
+
+    EPSILON: System.Numerics.Vector4
+
+    NA_N: System.Numerics.Vector4
+
+    NEGATIVE_INFINITY: System.Numerics.Vector4
+
+    NEGATIVE_ZERO: System.Numerics.Vector4
+
+    ONE: System.Numerics.Vector4
+
+    PI: System.Numerics.Vector4
+
+    POSITIVE_INFINITY: System.Numerics.Vector4
+
+    TAU: System.Numerics.Vector4
+
+    UNIT_X: System.Numerics.Vector4
+
+    UNIT_Y: System.Numerics.Vector4
+
+    UNIT_Z: System.Numerics.Vector4
+
+    UNIT_W: System.Numerics.Vector4
+
+    ZERO: System.Numerics.Vector4
+
+    def __add__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    def __and__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    def __eq__(self, right: System.Numerics.Vector4) -> bool:
         ...
 
     def __getitem__(self, index: int) -> float:
         ...
 
-    def __iadd__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __iadd__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
-    def __iand__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __iand__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
-    def __ilshift__(self, shift_amount: int) -> System.Numerics.Vector2:
-        ...
-
-    @overload
-    def __imul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __ilshift__(self, shift_amount: int) -> System.Numerics.Vector4:
         ...
 
     @overload
-    def __imul__(self, right: float) -> System.Numerics.Vector2:
+    def __imul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @overload
-    def __imul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __imul__(self, right: float) -> System.Numerics.Vector4:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @overload
@@ -1147,133 +1726,141 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
         ...
 
     @overload
-    def __init__(self, x: float, y: float) -> None:
+    def __init__(self, value: System.Numerics.Vector2, z: float, w: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: System.Numerics.Vector3, w: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, x: float, y: float, z: float, w: float) -> None:
         ...
 
     @overload
     def __init__(self, values: System.ReadOnlySpan[float]) -> None:
         ...
 
-    def __invert__(self) -> System.Numerics.Vector2:
+    def __invert__(self) -> System.Numerics.Vector4:
         ...
 
-    def __ior__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __ior__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
-    def __irshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+    def __irshift__(self, shift_amount: int) -> System.Numerics.Vector4:
         ...
 
-    def __isub__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @overload
-    def __itruediv__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __isub__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @overload
-    def __itruediv__(self, value_2: float) -> System.Numerics.Vector2:
-        ...
-
-    def __ixor__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    def __lshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+    def __itruediv__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @overload
-    def __mul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __itruediv__(self, value_2: float) -> System.Numerics.Vector4:
+        ...
+
+    def __ixor__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    def __lshift__(self, shift_amount: int) -> System.Numerics.Vector4:
         ...
 
     @overload
-    def __mul__(self, right: float) -> System.Numerics.Vector2:
+    def __mul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @overload
-    def __mul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __mul__(self, right: float) -> System.Numerics.Vector4:
         ...
 
-    def __ne__(self, right: System.Numerics.Vector2) -> bool:
+    @overload
+    def __mul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
-    def __neg__(self) -> System.Numerics.Vector2:
+    def __ne__(self, right: System.Numerics.Vector4) -> bool:
         ...
 
-    def __or__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __neg__(self) -> System.Numerics.Vector4:
         ...
 
-    def __pos__(self) -> System.Numerics.Vector2:
+    def __or__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
-    def __rshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+    def __pos__(self) -> System.Numerics.Vector4:
+        ...
+
+    def __rshift__(self, shift_amount: int) -> System.Numerics.Vector4:
         ...
 
     def __setitem__(self, index: int, value: float) -> None:
         ...
 
-    def __sub__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __sub__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @overload
-    def __truediv__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __truediv__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @overload
-    def __truediv__(self, value_2: float) -> System.Numerics.Vector2:
+    def __truediv__(self, value_2: float) -> System.Numerics.Vector4:
         ...
 
-    def __xor__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def abs(value: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def __xor__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def add(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def abs(value: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def all(vector: System.Numerics.Vector2, value: float) -> bool:
+    def add(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def all_where_all_bits_set(vector: System.Numerics.Vector2) -> bool:
+    def all(vector: System.Numerics.Vector4, value: float) -> bool:
         ...
 
     @staticmethod
-    def and_not(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def all_where_all_bits_set(vector: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def any(vector: System.Numerics.Vector2, value: float) -> bool:
+    def and_not(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def any_where_all_bits_set(vector: System.Numerics.Vector2) -> bool:
+    def any(vector: System.Numerics.Vector4, value: float) -> bool:
         ...
 
     @staticmethod
-    def bitwise_and(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def any_where_all_bits_set(vector: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def bitwise_or(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def bitwise_and(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def clamp(value_1: System.Numerics.Vector2, min: System.Numerics.Vector2, max: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def bitwise_or(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def clamp_native(value_1: System.Numerics.Vector2, min: System.Numerics.Vector2, max: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def clamp(value_1: System.Numerics.Vector4, min: System.Numerics.Vector4, max: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def conditional_select(condition: System.Numerics.Vector2, left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def clamp_native(value_1: System.Numerics.Vector4, min: System.Numerics.Vector4, max: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def copy_sign(value: System.Numerics.Vector2, sign: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def conditional_select(condition: System.Numerics.Vector4, left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def copy_sign(value: System.Numerics.Vector4, sign: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @overload
@@ -1289,196 +1876,206 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
         ...
 
     @staticmethod
-    def cos(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def cos(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def count(vector: System.Numerics.Vector2, value: float) -> int:
+    def count(vector: System.Numerics.Vector4, value: float) -> int:
         ...
 
     @staticmethod
-    def count_where_all_bits_set(vector: System.Numerics.Vector2) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def create(value: float) -> System.Numerics.Vector2:
+    def count_where_all_bits_set(vector: System.Numerics.Vector4) -> int:
         ...
 
     @staticmethod
     @overload
-    def create(x: float, y: float) -> System.Numerics.Vector2:
+    def create(value: float) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def create(values: System.ReadOnlySpan[float]) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def create_scalar(x: float) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def create_scalar_unsafe(x: float) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def cross(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> float:
-        ...
-
-    @staticmethod
-    def degrees_to_radians(degrees: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def distance(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> float:
-        ...
-
-    @staticmethod
-    def distance_squared(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> float:
+    def create(vector: System.Numerics.Vector2, z: float, w: float) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def divide(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def create(vector: System.Numerics.Vector3, w: float) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def divide(left: System.Numerics.Vector2, divisor: float) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def dot(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> float:
+    def create(x: float, y: float, z: float, w: float) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def equals(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def create(values: System.ReadOnlySpan[float]) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def create_scalar(x: float) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def create_scalar_unsafe(x: float) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def cross(vector_1: System.Numerics.Vector4, vector_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def degrees_to_radians(degrees: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def distance(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> float:
+        ...
+
+    @staticmethod
+    def distance_squared(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def divide(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    @overload
+    def divide(left: System.Numerics.Vector4, divisor: float) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def dot(vector_1: System.Numerics.Vector4, vector_2: System.Numerics.Vector4) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def equals(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Vector4) -> bool:
         ...
 
     @overload
     def equals(self, obj: typing.Any) -> bool:
         ...
 
-    @overload
-    def equals(self, other: System.Numerics.Vector2) -> bool:
+    @staticmethod
+    def equals_all(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def equals_all(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+    def equals_any(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def equals_any(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+    def exp(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def exp(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def fused_multiply_add(left: System.Numerics.Vector2, right: System.Numerics.Vector2, addend: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def fused_multiply_add(left: System.Numerics.Vector4, right: System.Numerics.Vector4, addend: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     def get_hash_code(self) -> int:
         ...
 
     @staticmethod
-    def greater_than(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def greater_than(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def greater_than_all(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+    def greater_than_all(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def greater_than_any(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+    def greater_than_any(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def greater_than_or_equal(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def greater_than_or_equal(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def greater_than_or_equal_all(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+    def greater_than_or_equal_all(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def greater_than_or_equal_any(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+    def greater_than_or_equal_any(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def hypot(x: System.Numerics.Vector2, y: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def hypot(x: System.Numerics.Vector4, y: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def index_of(vector: System.Numerics.Vector2, value: float) -> int:
+    def index_of(vector: System.Numerics.Vector4, value: float) -> int:
         ...
 
     @staticmethod
-    def index_of_where_all_bits_set(vector: System.Numerics.Vector2) -> int:
+    def index_of_where_all_bits_set(vector: System.Numerics.Vector4) -> int:
         ...
 
     @staticmethod
-    def is_even_integer(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_even_integer(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_finite(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_finite(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_infinity(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_infinity(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_integer(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_integer(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_na_n(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_na_n(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_negative(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_negative(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_negative_infinity(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_negative_infinity(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_normal(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_normal(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_odd_integer(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_odd_integer(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_positive(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_positive(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_positive_infinity(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_positive_infinity(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_subnormal(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_subnormal(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def is_zero(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def is_zero(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def last_index_of(vector: System.Numerics.Vector2, value: float) -> int:
+    def last_index_of(vector: System.Numerics.Vector4, value: float) -> int:
         ...
 
     @staticmethod
-    def last_index_of_where_all_bits_set(vector: System.Numerics.Vector2) -> int:
+    def last_index_of_where_all_bits_set(vector: System.Numerics.Vector4) -> int:
         ...
 
     def length(self) -> float:
@@ -1489,187 +2086,183 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
 
     @staticmethod
     @overload
-    def lerp(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2, amount: float) -> System.Numerics.Vector2:
+    def lerp(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4, amount: float) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def lerp(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2, amount: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def lerp(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4, amount: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def less_than(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def less_than(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def less_than_all(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+    def less_than_all(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def less_than_any(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+    def less_than_any(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def less_than_or_equal(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def less_than_or_equal(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def less_than_or_equal_all(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+    def less_than_or_equal_all(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def less_than_or_equal_any(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> bool:
+    def less_than_or_equal_any(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
         ...
 
     @staticmethod
-    def load(source: typing.Any) -> System.Numerics.Vector2:
+    def load(source: typing.Any) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def load_aligned(source: typing.Any) -> System.Numerics.Vector2:
+    def load_aligned(source: typing.Any) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def load_aligned_non_temporal(source: typing.Any) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    @overload
-    def load_unsafe(source: float) -> System.Numerics.Vector2:
+    def load_aligned_non_temporal(source: typing.Any) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def load_unsafe(source: float, element_offset: System.UIntPtr) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def log(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def log_2(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def max(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def max_magnitude(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def max_magnitude_number(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def max_native(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def max_number(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def min(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def min_magnitude(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def min_magnitude_number(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def min_native(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def min_number(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def load_unsafe(source: float) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def multiply(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def load_unsafe(source: float, element_offset: System.UIntPtr) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def log(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def log_2(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def max(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def max_magnitude(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def max_magnitude_number(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def max_native(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def max_number(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def min(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def min_magnitude(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def min_magnitude_number(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def min_native(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def min_number(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def multiply(left: System.Numerics.Vector2, right: float) -> System.Numerics.Vector2:
+    def multiply(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def multiply(left: float, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def multiply_add_estimate(left: System.Numerics.Vector2, right: System.Numerics.Vector2, addend: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def negate(value: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def none(vector: System.Numerics.Vector2, value: float) -> bool:
-        ...
-
-    @staticmethod
-    def none_where_all_bits_set(vector: System.Numerics.Vector2) -> bool:
-        ...
-
-    @staticmethod
-    def normalize(value: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def ones_complement(value: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def radians_to_degrees(radians: System.Numerics.Vector2) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    def reflect(vector: System.Numerics.Vector2, normal: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def multiply(left: System.Numerics.Vector4, right: float) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def round(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def multiply(left: float, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def multiply_add_estimate(left: System.Numerics.Vector4, right: System.Numerics.Vector4, addend: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def negate(value: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def none(vector: System.Numerics.Vector4, value: float) -> bool:
+        ...
+
+    @staticmethod
+    def none_where_all_bits_set(vector: System.Numerics.Vector4) -> bool:
+        ...
+
+    @staticmethod
+    def normalize(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def ones_complement(value: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def round(vector: System.Numerics.Vector2, mode: System.MidpointRounding) -> System.Numerics.Vector2:
+    def round(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def shuffle(vector: System.Numerics.Vector2, x_index: int, y_index: int) -> System.Numerics.Vector2:
+    @overload
+    def round(vector: System.Numerics.Vector4, mode: System.MidpointRounding) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def sin(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def shuffle(vector: System.Numerics.Vector4, x_index: int, y_index: int, z_index: int, w_index: int) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def sin_cos(vector: System.Numerics.Vector2) -> System.ValueTuple[System.Numerics.Vector2, System.Numerics.Vector2]:
+    def sin(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def square_root(value: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def sin_cos(vector: System.Numerics.Vector4) -> System.ValueTuple[System.Numerics.Vector4, System.Numerics.Vector4]:
         ...
 
     @staticmethod
-    def subtract(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def square_root(value: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def sum(value: System.Numerics.Vector2) -> float:
+    def subtract(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def sum(value: System.Numerics.Vector4) -> float:
         ...
 
     @overload
@@ -1686,38 +2279,43 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
 
     @staticmethod
     @overload
-    def transform(position: System.Numerics.Vector2, matrix: System.Numerics.Matrix3x2) -> System.Numerics.Vector2:
+    def transform(position: System.Numerics.Vector2, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def transform(position: System.Numerics.Vector2, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector2:
+    def transform(value: System.Numerics.Vector2, rotation: System.Numerics.Quaternion) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def transform(value: System.Numerics.Vector2, rotation: System.Numerics.Quaternion) -> System.Numerics.Vector2:
+    def transform(position: System.Numerics.Vector3, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def transform_normal(normal: System.Numerics.Vector2, matrix: System.Numerics.Matrix3x2) -> System.Numerics.Vector2:
+    def transform(value: System.Numerics.Vector3, rotation: System.Numerics.Quaternion) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def transform_normal(normal: System.Numerics.Vector2, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector2:
+    def transform(vector: System.Numerics.Vector4, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
-    def truncate(vector: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    @overload
+    def transform(value: System.Numerics.Vector4, rotation: System.Numerics.Quaternion) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    def truncate(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     def try_copy_to(self, destination: System.Span[float]) -> bool:
         ...
 
     @staticmethod
-    def xor(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+    def xor(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
 
@@ -2612,1218 +3210,6 @@ class Matrix4x4(System.IEquatable[System_Numerics_Matrix4x4]):
         ...
 
 
-class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
-    """This class has no documentation."""
-
-    @property
-    def x(self) -> float:
-        ...
-
-    @x.setter
-    def x(self, value: float) -> None:
-        ...
-
-    @property
-    def y(self) -> float:
-        ...
-
-    @y.setter
-    def y(self, value: float) -> None:
-        ...
-
-    @property
-    def z(self) -> float:
-        ...
-
-    @z.setter
-    def z(self, value: float) -> None:
-        ...
-
-    @property
-    def w(self) -> float:
-        ...
-
-    @w.setter
-    def w(self, value: float) -> None:
-        ...
-
-    ALL_BITS_SET: System.Numerics.Vector4
-
-    E: System.Numerics.Vector4
-
-    EPSILON: System.Numerics.Vector4
-
-    NA_N: System.Numerics.Vector4
-
-    NEGATIVE_INFINITY: System.Numerics.Vector4
-
-    NEGATIVE_ZERO: System.Numerics.Vector4
-
-    ONE: System.Numerics.Vector4
-
-    PI: System.Numerics.Vector4
-
-    POSITIVE_INFINITY: System.Numerics.Vector4
-
-    TAU: System.Numerics.Vector4
-
-    UNIT_X: System.Numerics.Vector4
-
-    UNIT_Y: System.Numerics.Vector4
-
-    UNIT_Z: System.Numerics.Vector4
-
-    UNIT_W: System.Numerics.Vector4
-
-    ZERO: System.Numerics.Vector4
-
-    def __add__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    def __and__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    def __eq__(self, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    def __getitem__(self, index: int) -> float:
-        ...
-
-    def __iadd__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    def __iand__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    def __ilshift__(self, shift_amount: int) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __imul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __imul__(self, right: float) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __imul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __init__(self, value: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: System.Numerics.Vector2, z: float, w: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: System.Numerics.Vector3, w: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, x: float, y: float, z: float, w: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, values: System.ReadOnlySpan[float]) -> None:
-        ...
-
-    def __invert__(self) -> System.Numerics.Vector4:
-        ...
-
-    def __ior__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    def __irshift__(self, shift_amount: int) -> System.Numerics.Vector4:
-        ...
-
-    def __isub__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __itruediv__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __itruediv__(self, value_2: float) -> System.Numerics.Vector4:
-        ...
-
-    def __ixor__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    def __lshift__(self, shift_amount: int) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __mul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __mul__(self, right: float) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __mul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    def __ne__(self, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    def __neg__(self) -> System.Numerics.Vector4:
-        ...
-
-    def __or__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    def __pos__(self) -> System.Numerics.Vector4:
-        ...
-
-    def __rshift__(self, shift_amount: int) -> System.Numerics.Vector4:
-        ...
-
-    def __setitem__(self, index: int, value: float) -> None:
-        ...
-
-    def __sub__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __truediv__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def __truediv__(self, value_2: float) -> System.Numerics.Vector4:
-        ...
-
-    def __xor__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def abs(value: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def add(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def all(vector: System.Numerics.Vector4, value: float) -> bool:
-        ...
-
-    @staticmethod
-    def all_where_all_bits_set(vector: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def and_not(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def any(vector: System.Numerics.Vector4, value: float) -> bool:
-        ...
-
-    @staticmethod
-    def any_where_all_bits_set(vector: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def bitwise_and(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def bitwise_or(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def clamp(value_1: System.Numerics.Vector4, min: System.Numerics.Vector4, max: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def clamp_native(value_1: System.Numerics.Vector4, min: System.Numerics.Vector4, max: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def conditional_select(condition: System.Numerics.Vector4, left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def copy_sign(value: System.Numerics.Vector4, sign: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def copy_to(self, array: typing.List[float]) -> None:
-        ...
-
-    @overload
-    def copy_to(self, array: typing.List[float], index: int) -> None:
-        ...
-
-    @overload
-    def copy_to(self, destination: System.Span[float]) -> None:
-        ...
-
-    @staticmethod
-    def cos(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def count(vector: System.Numerics.Vector4, value: float) -> int:
-        ...
-
-    @staticmethod
-    def count_where_all_bits_set(vector: System.Numerics.Vector4) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def create(value: float) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def create(vector: System.Numerics.Vector2, z: float, w: float) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def create(vector: System.Numerics.Vector3, w: float) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def create(x: float, y: float, z: float, w: float) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def create(values: System.ReadOnlySpan[float]) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def create_scalar(x: float) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def create_scalar_unsafe(x: float) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def cross(vector_1: System.Numerics.Vector4, vector_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def degrees_to_radians(degrees: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def distance(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> float:
-        ...
-
-    @staticmethod
-    def distance_squared(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def divide(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def divide(left: System.Numerics.Vector4, divisor: float) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def dot(vector_1: System.Numerics.Vector4, vector_2: System.Numerics.Vector4) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.Vector4) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    def equals_all(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def equals_any(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def exp(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def fused_multiply_add(left: System.Numerics.Vector4, right: System.Numerics.Vector4, addend: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def greater_than(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def greater_than_all(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def greater_than_any(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def greater_than_or_equal(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def greater_than_or_equal_all(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def greater_than_or_equal_any(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def hypot(x: System.Numerics.Vector4, y: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def index_of(vector: System.Numerics.Vector4, value: float) -> int:
-        ...
-
-    @staticmethod
-    def index_of_where_all_bits_set(vector: System.Numerics.Vector4) -> int:
-        ...
-
-    @staticmethod
-    def is_even_integer(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_finite(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_infinity(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_integer(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_na_n(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_negative(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_negative_infinity(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_normal(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_odd_integer(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_positive(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_positive_infinity(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_subnormal(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def is_zero(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def last_index_of(vector: System.Numerics.Vector4, value: float) -> int:
-        ...
-
-    @staticmethod
-    def last_index_of_where_all_bits_set(vector: System.Numerics.Vector4) -> int:
-        ...
-
-    def length(self) -> float:
-        ...
-
-    def length_squared(self) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def lerp(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4, amount: float) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def lerp(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4, amount: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def less_than(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def less_than_all(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def less_than_any(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def less_than_or_equal(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def less_than_or_equal_all(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def less_than_or_equal_any(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def load(source: typing.Any) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def load_aligned(source: typing.Any) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def load_aligned_non_temporal(source: typing.Any) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def load_unsafe(source: float) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def load_unsafe(source: float, element_offset: System.UIntPtr) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def log(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def log_2(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def max(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def max_magnitude(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def max_magnitude_number(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def max_native(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def max_number(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def min(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def min_magnitude(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def min_magnitude_number(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def min_native(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def min_number(value_1: System.Numerics.Vector4, value_2: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(left: System.Numerics.Vector4, right: float) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(left: float, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def multiply_add_estimate(left: System.Numerics.Vector4, right: System.Numerics.Vector4, addend: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def negate(value: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def none(vector: System.Numerics.Vector4, value: float) -> bool:
-        ...
-
-    @staticmethod
-    def none_where_all_bits_set(vector: System.Numerics.Vector4) -> bool:
-        ...
-
-    @staticmethod
-    def normalize(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def ones_complement(value: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def radians_to_degrees(radians: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def round(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def round(vector: System.Numerics.Vector4, mode: System.MidpointRounding) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def shuffle(vector: System.Numerics.Vector4, x_index: int, y_index: int, z_index: int, w_index: int) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def sin(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def sin_cos(vector: System.Numerics.Vector4) -> System.ValueTuple[System.Numerics.Vector4, System.Numerics.Vector4]:
-        ...
-
-    @staticmethod
-    def square_root(value: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def subtract(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def sum(value: System.Numerics.Vector4) -> float:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, format_provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def transform(position: System.Numerics.Vector2, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def transform(value: System.Numerics.Vector2, rotation: System.Numerics.Quaternion) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def transform(position: System.Numerics.Vector3, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def transform(value: System.Numerics.Vector3, rotation: System.Numerics.Quaternion) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def transform(vector: System.Numerics.Vector4, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def transform(value: System.Numerics.Vector4, rotation: System.Numerics.Quaternion) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    def truncate(vector: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-    def try_copy_to(self, destination: System.Span[float]) -> bool:
-        ...
-
-    @staticmethod
-    def xor(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
-        ...
-
-
-class ITrigonometricFunctions(typing.Generic[System_Numerics_ITrigonometricFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ITrigonometricFunctions_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics.ISimdVector[System_Numerics_Vector, System_Numerics_Vector_T], System.IFormattable):
-    """This class has no documentation."""
-
-    IS_HARDWARE_ACCELERATED: bool
-
-    E: System.Numerics.Vector[T]
-
-    PI: System.Numerics.Vector[T]
-
-    TAU: System.Numerics.Vector[T]
-
-    ALL_BITS_SET: System.Numerics.Vector[System_Numerics_Vector_T]
-
-    COUNT: int
-
-    INDICES: System.Numerics.Vector[System_Numerics_Vector_T]
-
-    IS_SUPPORTED: bool
-
-    ONE: System.Numerics.Vector[System_Numerics_Vector_T]
-
-    ZERO: System.Numerics.Vector[System_Numerics_Vector_T]
-
-    def __add__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __and__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __eq__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> bool:
-        ...
-
-    def __getitem__(self, index: int) -> System_Numerics_Vector_T:
-        ...
-
-    def __iadd__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __iand__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __ilshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __imul__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __imul__(self, factor: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __imul__(self, value: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __init__(self, value: System_Numerics_Vector_T) -> None:
-        ...
-
-    @overload
-    def __init__(self, values: typing.List[System_Numerics_Vector_T]) -> None:
-        ...
-
-    @overload
-    def __init__(self, values: typing.List[System_Numerics_Vector_T], index: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, values: System.ReadOnlySpan[System_Numerics_Vector_T]) -> None:
-        ...
-
-    @overload
-    def __init__(self, values: System.ReadOnlySpan[int]) -> None:
-        ...
-
-    @overload
-    def __init__(self, values: System.Span[System_Numerics_Vector_T]) -> None:
-        ...
-
-    def __invert__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __ior__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __irshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __isub__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __itruediv__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __itruediv__(self, right: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __ixor__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __lshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __mul__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __mul__(self, factor: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __mul__(self, value: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __ne__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> bool:
-        ...
-
-    def __neg__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __or__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __pos__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __rshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __sub__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __truediv__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @overload
-    def __truediv__(self, right: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    def __xor__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
-        ...
-
-    @staticmethod
-    def as_plane(value: System.Numerics.Vector4) -> System.Numerics.Plane:
-        ...
-
-    @staticmethod
-    def as_quaternion(value: System.Numerics.Vector4) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_2(value: System.Numerics.Vector3) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_2(value: System.Numerics.Vector4) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_3(value: System.Numerics.Vector2) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_3(value: System.Numerics.Vector4) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    def as_vector_3_unsafe(value: System.Numerics.Vector2) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_4(value: System.Numerics.Quaternion) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_4(value: System.Numerics.Vector3) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_4(value: System.Numerics.Plane) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_4(value: System.Numerics.Vector2) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_4_unsafe(value: System.Numerics.Vector3) -> System.Numerics.Vector4:
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_4_unsafe(value: System.Numerics.Vector2) -> System.Numerics.Vector4:
-        ...
-
-    @overload
-    def copy_to(self, destination: typing.List[System_Numerics_Vector_T]) -> None:
-        ...
-
-    @overload
-    def copy_to(self, destination: typing.List[System_Numerics_Vector_T], start_index: int) -> None:
-        ...
-
-    @overload
-    def copy_to(self, destination: System.Span[int]) -> None:
-        ...
-
-    @overload
-    def copy_to(self, destination: System.Span[System_Numerics_Vector_T]) -> None:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.Vector[System_Numerics_Vector_T]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def extract_most_significant_bits(vector: System.Numerics.Vector3) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def extract_most_significant_bits(vector: System.Numerics.Vector2) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def extract_most_significant_bits(vector: System.Numerics.Vector4) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_element(vector: System.Numerics.Vector3, index: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def get_element(vector: System.Numerics.Vector2, index: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def get_element(vector: System.Numerics.Vector4, index: int) -> float:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def store(source: System.Numerics.Vector3, destination: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store(source: System.Numerics.Vector2, destination: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store(source: System.Numerics.Vector4, destination: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_aligned(source: System.Numerics.Vector3, destination: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_aligned(source: System.Numerics.Vector2, destination: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_aligned(source: System.Numerics.Vector4, destination: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_aligned_non_temporal(source: System.Numerics.Vector3, destination: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_aligned_non_temporal(source: System.Numerics.Vector2, destination: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_aligned_non_temporal(source: System.Numerics.Vector4, destination: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_unsafe(source: System.Numerics.Vector3, destination: float) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_unsafe(source: System.Numerics.Vector3, destination: float, element_offset: System.UIntPtr) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_unsafe(source: System.Numerics.Vector2, destination: float) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_unsafe(source: System.Numerics.Vector2, destination: float, element_offset: System.UIntPtr) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_unsafe(source: System.Numerics.Vector4, destination: float) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def store_unsafe(source: System.Numerics.Vector4, destination: float, element_offset: System.UIntPtr) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def to_scalar(vector: System.Numerics.Vector3) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def to_scalar(vector: System.Numerics.Vector2) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def to_scalar(vector: System.Numerics.Vector4) -> float:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, format_provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def try_copy_to(self, destination: System.Span[int]) -> bool:
-        ...
-
-    @overload
-    def try_copy_to(self, destination: System.Span[System_Numerics_Vector_T]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def with_element(vector: System.Numerics.Vector3, index: int, value: float) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    @overload
-    def with_element(vector: System.Numerics.Vector2, index: int, value: float) -> System.Numerics.Vector2:
-        ...
-
-    @staticmethod
-    @overload
-    def with_element(vector: System.Numerics.Vector4, index: int, value: float) -> System.Numerics.Vector4:
-        ...
-
-
-class IShiftOperators(typing.Generic[System_Numerics_IShiftOperators_TSelf, System_Numerics_IShiftOperators_TOther, System_Numerics_IShiftOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IFloatingPoint(typing.Generic[System_Numerics_IFloatingPoint_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IFloatingPoint_TSelf], System.Numerics.INumber[System_Numerics_IFloatingPoint_TSelf], System.Numerics.ISignedNumber[System_Numerics_IFloatingPoint_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_exponent_byte_count(self) -> int:
-        ...
-
-    def get_exponent_shortest_bit_length(self) -> int:
-        ...
-
-    def get_significand_bit_length(self) -> int:
-        ...
-
-    def get_significand_byte_count(self) -> int:
-        ...
-
-    def try_write_exponent_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    def try_write_exponent_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    def try_write_significand_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    def try_write_significand_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def write_exponent_big_endian(self, destination: typing.List[int]) -> int:
-        ...
-
-    @overload
-    def write_exponent_big_endian(self, destination: typing.List[int], start_index: int) -> int:
-        ...
-
-    @overload
-    def write_exponent_big_endian(self, destination: System.Span[int]) -> int:
-        ...
-
-    @overload
-    def write_exponent_little_endian(self, destination: typing.List[int]) -> int:
-        ...
-
-    @overload
-    def write_exponent_little_endian(self, destination: typing.List[int], start_index: int) -> int:
-        ...
-
-    @overload
-    def write_exponent_little_endian(self, destination: System.Span[int]) -> int:
-        ...
-
-    @overload
-    def write_significand_big_endian(self, destination: typing.List[int]) -> int:
-        ...
-
-    @overload
-    def write_significand_big_endian(self, destination: typing.List[int], start_index: int) -> int:
-        ...
-
-    @overload
-    def write_significand_big_endian(self, destination: System.Span[int]) -> int:
-        ...
-
-    @overload
-    def write_significand_little_endian(self, destination: typing.List[int]) -> int:
-        ...
-
-    @overload
-    def write_significand_little_endian(self, destination: typing.List[int], start_index: int) -> int:
-        ...
-
-    @overload
-    def write_significand_little_endian(self, destination: System.Span[int]) -> int:
-        ...
-
-
-class IEqualityOperators(typing.Generic[System_Numerics_IEqualityOperators_TSelf, System_Numerics_IEqualityOperators_TOther, System_Numerics_IEqualityOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IDecrementOperators(typing.Generic[System_Numerics_IDecrementOperators_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IMultiplicativeIdentity(typing.Generic[System_Numerics_IMultiplicativeIdentity_TSelf, System_Numerics_IMultiplicativeIdentity_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IBinaryFloatingPointIeee754(typing.Generic[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IFloatingPointIeee754[System_Numerics_IBinaryFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IUnaryPlusOperators(typing.Generic[System_Numerics_IUnaryPlusOperators_TSelf, System_Numerics_IUnaryPlusOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IFloatingPointConstants(typing.Generic[System_Numerics_IFloatingPointConstants_TSelf], System.Numerics.INumberBase[System_Numerics_IFloatingPointConstants_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[System_Numerics_INumber_TSelf], System.Numerics.IComparisonOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, bool], System.Numerics.IModulusOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf], System.Numerics.INumberBase[System_Numerics_INumber_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IDivisionOperators(typing.Generic[System_Numerics_IDivisionOperators_TSelf, System_Numerics_IDivisionOperators_TOther, System_Numerics_IDivisionOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IAdditionOperators(typing.Generic[System_Numerics_IAdditionOperators_TSelf, System_Numerics_IAdditionOperators_TOther, System_Numerics_IAdditionOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IMultiplyOperators(typing.Generic[System_Numerics_IMultiplyOperators_TSelf, System_Numerics_IMultiplyOperators_TOther, System_Numerics_IMultiplyOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
 class _Typed_BFloat16_CreateChecked(typing.Generic[System_Numerics_BFloat16_CreateChecked_TOther]):
     """"""
 
@@ -4471,7 +3857,423 @@ class BFloat16(System.IComparable[System_Numerics_BFloat16], System.ISpanFormatt
         ...
 
 
-class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_ISignedNumber_TSelf], metaclass=abc.ABCMeta):
+class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics.ISimdVector[System_Numerics_Vector, System_Numerics_Vector_T], System.IFormattable):
+    """This class has no documentation."""
+
+    IS_HARDWARE_ACCELERATED: bool
+
+    E: System.Numerics.Vector[T]
+
+    PI: System.Numerics.Vector[T]
+
+    TAU: System.Numerics.Vector[T]
+
+    ALL_BITS_SET: System.Numerics.Vector[System_Numerics_Vector_T]
+
+    COUNT: int
+
+    INDICES: System.Numerics.Vector[System_Numerics_Vector_T]
+
+    IS_SUPPORTED: bool
+
+    ONE: System.Numerics.Vector[System_Numerics_Vector_T]
+
+    ZERO: System.Numerics.Vector[System_Numerics_Vector_T]
+
+    def __add__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __and__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __eq__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> bool:
+        ...
+
+    def __getitem__(self, index: int) -> System_Numerics_Vector_T:
+        ...
+
+    def __iadd__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __iand__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __ilshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __imul__(self, factor: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __imul__(self, value: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __init__(self, value: System_Numerics_Vector_T) -> None:
+        ...
+
+    @overload
+    def __init__(self, values: typing.List[System_Numerics_Vector_T]) -> None:
+        ...
+
+    @overload
+    def __init__(self, values: typing.List[System_Numerics_Vector_T], index: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, values: System.ReadOnlySpan[System_Numerics_Vector_T]) -> None:
+        ...
+
+    @overload
+    def __init__(self, values: System.ReadOnlySpan[int]) -> None:
+        ...
+
+    @overload
+    def __init__(self, values: System.Span[System_Numerics_Vector_T]) -> None:
+        ...
+
+    def __invert__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __ior__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __irshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __isub__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __ixor__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __lshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __mul__(self, factor: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __mul__(self, value: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __ne__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> bool:
+        ...
+
+    def __neg__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __or__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __pos__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __rshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __sub__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @overload
+    def __truediv__(self, right: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    def __xor__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        ...
+
+    @staticmethod
+    def as_plane(value: System.Numerics.Vector4) -> System.Numerics.Plane:
+        ...
+
+    @staticmethod
+    def as_quaternion(value: System.Numerics.Vector4) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_2(value: System.Numerics.Vector4) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_2(value: System.Numerics.Vector3) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_3(value: System.Numerics.Vector2) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_3(value: System.Numerics.Vector4) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    def as_vector_3_unsafe(value: System.Numerics.Vector2) -> System.Numerics.Vector3:
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_4(value: System.Numerics.Vector2) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_4(value: System.Numerics.Plane) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_4(value: System.Numerics.Quaternion) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_4(value: System.Numerics.Vector3) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_4_unsafe(value: System.Numerics.Vector2) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_4_unsafe(value: System.Numerics.Vector3) -> System.Numerics.Vector4:
+        ...
+
+    @overload
+    def copy_to(self, destination: typing.List[System_Numerics_Vector_T]) -> None:
+        ...
+
+    @overload
+    def copy_to(self, destination: typing.List[System_Numerics_Vector_T], start_index: int) -> None:
+        ...
+
+    @overload
+    def copy_to(self, destination: System.Span[int]) -> None:
+        ...
+
+    @overload
+    def copy_to(self, destination: System.Span[System_Numerics_Vector_T]) -> None:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Vector[System_Numerics_Vector_T]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def extract_most_significant_bits(vector: System.Numerics.Vector2) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def extract_most_significant_bits(vector: System.Numerics.Vector4) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def extract_most_significant_bits(vector: System.Numerics.Vector3) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_element(vector: System.Numerics.Vector2, index: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def get_element(vector: System.Numerics.Vector4, index: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def get_element(vector: System.Numerics.Vector3, index: int) -> float:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def store(source: System.Numerics.Vector2, destination: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store(source: System.Numerics.Vector4, destination: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store(source: System.Numerics.Vector3, destination: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_aligned(source: System.Numerics.Vector2, destination: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_aligned(source: System.Numerics.Vector4, destination: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_aligned(source: System.Numerics.Vector3, destination: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_aligned_non_temporal(source: System.Numerics.Vector2, destination: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_aligned_non_temporal(source: System.Numerics.Vector4, destination: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_aligned_non_temporal(source: System.Numerics.Vector3, destination: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_unsafe(source: System.Numerics.Vector2, destination: float) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_unsafe(source: System.Numerics.Vector2, destination: float, element_offset: System.UIntPtr) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_unsafe(source: System.Numerics.Vector4, destination: float) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_unsafe(source: System.Numerics.Vector4, destination: float, element_offset: System.UIntPtr) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_unsafe(source: System.Numerics.Vector3, destination: float) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def store_unsafe(source: System.Numerics.Vector3, destination: float, element_offset: System.UIntPtr) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def to_scalar(vector: System.Numerics.Vector2) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def to_scalar(vector: System.Numerics.Vector4) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def to_scalar(vector: System.Numerics.Vector3) -> float:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, format_provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def try_copy_to(self, destination: System.Span[int]) -> bool:
+        ...
+
+    @overload
+    def try_copy_to(self, destination: System.Span[System_Numerics_Vector_T]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def with_element(vector: System.Numerics.Vector2, index: int, value: float) -> System.Numerics.Vector2:
+        ...
+
+    @staticmethod
+    @overload
+    def with_element(vector: System.Numerics.Vector4, index: int, value: float) -> System.Numerics.Vector4:
+        ...
+
+    @staticmethod
+    @overload
+    def with_element(vector: System.Numerics.Vector3, index: int, value: float) -> System.Numerics.Vector3:
+        ...
+
+
+class IHyperbolicFunctions(typing.Generic[System_Numerics_IHyperbolicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IHyperbolicFunctions_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IEqualityOperators(typing.Generic[System_Numerics_IEqualityOperators_TSelf, System_Numerics_IEqualityOperators_TOther, System_Numerics_IEqualityOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class ISubtractionOperators(typing.Generic[System_Numerics_ISubtractionOperators_TSelf, System_Numerics_ISubtractionOperators_TOther, System_Numerics_ISubtractionOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IRootFunctions(typing.Generic[System_Numerics_IRootFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IRootFunctions_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IBinaryFloatingPointIeee754(typing.Generic[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IFloatingPointIeee754[System_Numerics_IBinaryFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class ILogarithmicFunctions(typing.Generic[System_Numerics_ILogarithmicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ILogarithmicFunctions_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IUnaryNegationOperators(typing.Generic[System_Numerics_IUnaryNegationOperators_TSelf, System_Numerics_IUnaryNegationOperators_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
@@ -4515,36 +4317,138 @@ class IBinaryInteger(typing.Generic[System_Numerics_IBinaryInteger_TSelf], Syste
         ...
 
 
-class ISubtractionOperators(typing.Generic[System_Numerics_ISubtractionOperators_TSelf, System_Numerics_ISubtractionOperators_TOther, System_Numerics_ISubtractionOperators_TResult], metaclass=abc.ABCMeta):
+class IDivisionOperators(typing.Generic[System_Numerics_IDivisionOperators_TSelf, System_Numerics_IDivisionOperators_TOther, System_Numerics_IDivisionOperators_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
-class IBitwiseOperators(typing.Generic[System_Numerics_IBitwiseOperators_TSelf, System_Numerics_IBitwiseOperators_TOther, System_Numerics_IBitwiseOperators_TResult], metaclass=abc.ABCMeta):
+class IFloatingPointConstants(typing.Generic[System_Numerics_IFloatingPointConstants_TSelf], System.Numerics.INumberBase[System_Numerics_IFloatingPointConstants_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
-class IUnaryNegationOperators(typing.Generic[System_Numerics_IUnaryNegationOperators_TSelf, System_Numerics_IUnaryNegationOperators_TResult], metaclass=abc.ABCMeta):
+class IMultiplyOperators(typing.Generic[System_Numerics_IMultiplyOperators_TSelf, System_Numerics_IMultiplyOperators_TOther, System_Numerics_IMultiplyOperators_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
-class IPowerFunctions(typing.Generic[System_Numerics_IPowerFunctions_TSelf], System.Numerics.INumberBase[System_Numerics_IPowerFunctions_TSelf], metaclass=abc.ABCMeta):
+class IIncrementOperators(typing.Generic[System_Numerics_IIncrementOperators_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
-class IHyperbolicFunctions(typing.Generic[System_Numerics_IHyperbolicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IHyperbolicFunctions_TSelf], metaclass=abc.ABCMeta):
+class IBinaryNumber(typing.Generic[System_Numerics_IBinaryNumber_TSelf], System.Numerics.IBitwiseOperators[System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf], System.Numerics.INumber[System_Numerics_IBinaryNumber_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
-class IUnsignedNumber(typing.Generic[System_Numerics_IUnsignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_IUnsignedNumber_TSelf], metaclass=abc.ABCMeta):
+class IShiftOperators(typing.Generic[System_Numerics_IShiftOperators_TSelf, System_Numerics_IShiftOperators_TOther, System_Numerics_IShiftOperators_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
-class IRootFunctions(typing.Generic[System_Numerics_IRootFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IRootFunctions_TSelf], metaclass=abc.ABCMeta):
+class IUnaryPlusOperators(typing.Generic[System_Numerics_IUnaryPlusOperators_TSelf, System_Numerics_IUnaryPlusOperators_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
-class IComparisonOperators(typing.Generic[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], System.Numerics.IEqualityOperators[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], metaclass=abc.ABCMeta):
+class _Typed_INumberBase_TryConvertFromChecked(typing.Generic[System_Numerics_INumberBase_TryConvertFromChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TryConvertFromChecked_TOther, result: typing.Optional[System_Numerics_INumberBase_TSelf]) -> typing.Tuple[bool, System_Numerics_INumberBase_TSelf]:
+        ...
+
+
+class _INumberBase_TryConvertFromChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertFromChecked_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertFromChecked[System_Numerics_INumberBase_TryConvertFromChecked_TOther]:
+        ...
+
+
+class _Typed_INumberBase_TryConvertFromSaturating(typing.Generic[System_Numerics_INumberBase_TryConvertFromSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TryConvertFromSaturating_TOther, result: typing.Optional[System_Numerics_INumberBase_TSelf]) -> typing.Tuple[bool, System_Numerics_INumberBase_TSelf]:
+        ...
+
+
+class _INumberBase_TryConvertFromSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertFromSaturating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertFromSaturating[System_Numerics_INumberBase_TryConvertFromSaturating_TOther]:
+        ...
+
+
+class _Typed_INumberBase_TryConvertFromTruncating(typing.Generic[System_Numerics_INumberBase_TryConvertFromTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TryConvertFromTruncating_TOther, result: typing.Optional[System_Numerics_INumberBase_TSelf]) -> typing.Tuple[bool, System_Numerics_INumberBase_TSelf]:
+        ...
+
+
+class _INumberBase_TryConvertFromTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertFromTruncating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertFromTruncating[System_Numerics_INumberBase_TryConvertFromTruncating_TOther]:
+        ...
+
+
+class _Typed_INumberBase_TryConvertToChecked(typing.Generic[System_Numerics_INumberBase_TryConvertToChecked_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TSelf, result: typing.Optional[System_Numerics_INumberBase_TryConvertToChecked_TOther]) -> typing.Tuple[bool, System_Numerics_INumberBase_TryConvertToChecked_TOther]:
+        ...
+
+
+class _INumberBase_TryConvertToChecked:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertToChecked_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertToChecked[System_Numerics_INumberBase_TryConvertToChecked_TOther]:
+        ...
+
+
+class _Typed_INumberBase_TryConvertToSaturating(typing.Generic[System_Numerics_INumberBase_TryConvertToSaturating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TSelf, result: typing.Optional[System_Numerics_INumberBase_TryConvertToSaturating_TOther]) -> typing.Tuple[bool, System_Numerics_INumberBase_TryConvertToSaturating_TOther]:
+        ...
+
+
+class _INumberBase_TryConvertToSaturating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertToSaturating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertToSaturating[System_Numerics_INumberBase_TryConvertToSaturating_TOther]:
+        ...
+
+
+class _Typed_INumberBase_TryConvertToTruncating(typing.Generic[System_Numerics_INumberBase_TryConvertToTruncating_TOther]):
+    """"""
+
+    @overload
+    def __call__(self, value: System_Numerics_INumberBase_TSelf, result: typing.Optional[System_Numerics_INumberBase_TryConvertToTruncating_TOther]) -> typing.Tuple[bool, System_Numerics_INumberBase_TryConvertToTruncating_TOther]:
+        ...
+
+
+class _INumberBase_TryConvertToTruncating:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Numerics_INumberBase_TryConvertToTruncating_TOther]) -> System.Numerics._Typed_INumberBase_TryConvertToTruncating[System_Numerics_INumberBase_TryConvertToTruncating_TOther]:
+        ...
+
+
+class INumberBase(typing.Generic[System_Numerics_INumberBase_TSelf], System.Numerics.IAdditionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IAdditiveIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IDecrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IDivisionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IEquatable[System_Numerics_INumberBase_TSelf], System.Numerics.IEqualityOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, bool], System.Numerics.IIncrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplicativeIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplyOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.ISpanFormattable, System.ISpanParsable[System_Numerics_INumberBase_TSelf], System.Numerics.ISubtractionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryPlusOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryNegationOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_INumberBase_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
+
+    try_convert_from_checked: System.Numerics._INumberBase_TryConvertFromChecked
+
+    try_convert_from_saturating: System.Numerics._INumberBase_TryConvertFromSaturating
+
+    try_convert_from_truncating: System.Numerics._INumberBase_TryConvertFromTruncating
+
+    try_convert_to_checked: System.Numerics._INumberBase_TryConvertToChecked
+
+    try_convert_to_saturating: System.Numerics._INumberBase_TryConvertToSaturating
+
+    try_convert_to_truncating: System.Numerics._INumberBase_TryConvertToTruncating
 
 
 class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IEqualityComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.IEquatable[System_Numerics_TotalOrderIeee754Comparer]):
@@ -4574,7 +4478,129 @@ class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754
         ...
 
 
-class IFloatingPointIeee754(typing.Generic[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IExponentialFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IFloatingPoint[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IHyperbolicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ILogarithmicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IPowerFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IRootFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ITrigonometricFunctions[System_Numerics_IFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
+class IBitwiseOperators(typing.Generic[System_Numerics_IBitwiseOperators_TSelf, System_Numerics_IBitwiseOperators_TOther, System_Numerics_IBitwiseOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[System_Numerics_INumber_TSelf], System.Numerics.IComparisonOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, bool], System.Numerics.IModulusOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf], System.Numerics.INumberBase[System_Numerics_INumber_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IMinMaxValue(typing.Generic[System_Numerics_IMinMaxValue_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IDecrementOperators(typing.Generic[System_Numerics_IDecrementOperators_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IAdditionOperators(typing.Generic[System_Numerics_IAdditionOperators_TSelf, System_Numerics_IAdditionOperators_TOther, System_Numerics_IAdditionOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IExponentialFunctions(typing.Generic[System_Numerics_IExponentialFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IExponentialFunctions_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class DivisionRounding(IntEnum):
+    """This class has no documentation."""
+
+    TRUNCATE = 0
+
+    FLOOR = 1
+
+    CEILING = 2
+
+    AWAY_FROM_ZERO = 3
+
+    EUCLIDEAN = 4
+
+
+class IModulusOperators(typing.Generic[System_Numerics_IModulusOperators_TSelf, System_Numerics_IModulusOperators_TOther, System_Numerics_IModulusOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IMultiplicativeIdentity(typing.Generic[System_Numerics_IMultiplicativeIdentity_TSelf, System_Numerics_IMultiplicativeIdentity_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IFloatingPoint(typing.Generic[System_Numerics_IFloatingPoint_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IFloatingPoint_TSelf], System.Numerics.INumber[System_Numerics_IFloatingPoint_TSelf], System.Numerics.ISignedNumber[System_Numerics_IFloatingPoint_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_exponent_byte_count(self) -> int:
+        ...
+
+    def get_exponent_shortest_bit_length(self) -> int:
+        ...
+
+    def get_significand_bit_length(self) -> int:
+        ...
+
+    def get_significand_byte_count(self) -> int:
+        ...
+
+    def try_write_exponent_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def try_write_exponent_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def try_write_significand_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def try_write_significand_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def write_exponent_big_endian(self, destination: typing.List[int]) -> int:
+        ...
+
+    @overload
+    def write_exponent_big_endian(self, destination: typing.List[int], start_index: int) -> int:
+        ...
+
+    @overload
+    def write_exponent_big_endian(self, destination: System.Span[int]) -> int:
+        ...
+
+    @overload
+    def write_exponent_little_endian(self, destination: typing.List[int]) -> int:
+        ...
+
+    @overload
+    def write_exponent_little_endian(self, destination: typing.List[int], start_index: int) -> int:
+        ...
+
+    @overload
+    def write_exponent_little_endian(self, destination: System.Span[int]) -> int:
+        ...
+
+    @overload
+    def write_significand_big_endian(self, destination: typing.List[int]) -> int:
+        ...
+
+    @overload
+    def write_significand_big_endian(self, destination: typing.List[int], start_index: int) -> int:
+        ...
+
+    @overload
+    def write_significand_big_endian(self, destination: System.Span[int]) -> int:
+        ...
+
+    @overload
+    def write_significand_little_endian(self, destination: typing.List[int]) -> int:
+        ...
+
+    @overload
+    def write_significand_little_endian(self, destination: typing.List[int], start_index: int) -> int:
+        ...
+
+    @overload
+    def write_significand_little_endian(self, destination: System.Span[int]) -> int:
+        ...
+
+
+class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_ISignedNumber_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
@@ -4676,37 +4702,11 @@ class BitOperations(System.Object):
         ...
 
 
-class DivisionRounding(IntEnum):
-    """This class has no documentation."""
-
-    TRUNCATE = 0
-
-    FLOOR = 1
-
-    CEILING = 2
-
-    AWAY_FROM_ZERO = 3
-
-    EUCLIDEAN = 4
-
-
-class IAdditiveIdentity(typing.Generic[System_Numerics_IAdditiveIdentity_TSelf, System_Numerics_IAdditiveIdentity_TResult], metaclass=abc.ABCMeta):
+class IPowerFunctions(typing.Generic[System_Numerics_IPowerFunctions_TSelf], System.Numerics.INumberBase[System_Numerics_IPowerFunctions_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
-class IIncrementOperators(typing.Generic[System_Numerics_IIncrementOperators_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IModulusOperators(typing.Generic[System_Numerics_IModulusOperators_TSelf, System_Numerics_IModulusOperators_TOther, System_Numerics_IModulusOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IMinMaxValue(typing.Generic[System_Numerics_IMinMaxValue_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class ILogarithmicFunctions(typing.Generic[System_Numerics_ILogarithmicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ILogarithmicFunctions_TSelf], metaclass=abc.ABCMeta):
+class ITrigonometricFunctions(typing.Generic[System_Numerics_ITrigonometricFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ITrigonometricFunctions_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 

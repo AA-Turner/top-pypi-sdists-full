@@ -5,13 +5,11 @@ from celery.exceptions import Retry
 from django.test import TestCase, override_settings
 
 from allianceauth.authentication.task_statistics.counters import (
-    failed_tasks,
-    retried_tasks,
-    succeeded_tasks,
+    failed_tasks, retried_tasks, succeeded_tasks,
 )
 from allianceauth.authentication.task_statistics.signals import (
-    is_enabled,
-    reset_counters,
+    is_enabled, record_task_internal_error, reset_counters,
+    reset_counters_when_celery_restarted,
 )
 from allianceauth.eveonline.tasks import update_character
 
@@ -74,6 +72,24 @@ class TestTaskSignals(TestCase):
         self.assertEqual(succeeded_tasks.count(), 0)
         self.assertEqual(retried_tasks.count(), 0)
         self.assertEqual(failed_tasks.count(), 0)
+
+    def test_should_reset_counters_when_worker_becomes_ready(self):
+        succeeded_tasks.add()
+        retried_tasks.add()
+        failed_tasks.add()
+
+        reset_counters_when_celery_restarted()
+
+        self.assertEqual(succeeded_tasks.count(), 0)
+        self.assertEqual(retried_tasks.count(), 0)
+        self.assertEqual(failed_tasks.count(), 0)
+
+    def test_should_record_internal_error_as_failed_task(self):
+        record_task_internal_error()
+
+        self.assertEqual(succeeded_tasks.count(), 0)
+        self.assertEqual(retried_tasks.count(), 0)
+        self.assertEqual(failed_tasks.count(), 1)
 
 
 class TestIsEnabled(TestCase):

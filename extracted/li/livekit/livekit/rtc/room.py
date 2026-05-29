@@ -466,9 +466,10 @@ class Room(EventEmitter[EventTypes]):
             )
 
             req.connect.options.e2ee.encryption_type = options.e2ee.encryption_type
-            req.connect.options.e2ee.key_provider_options.shared_key = (
-                options.e2ee.key_provider_options.shared_key  # type: ignore
-            )
+            if options.e2ee.key_provider_options.shared_key is not None:
+                req.connect.options.e2ee.key_provider_options.shared_key = (
+                    options.e2ee.key_provider_options.shared_key
+                )
             req.connect.options.e2ee.key_provider_options.ratchet_salt = (
                 options.e2ee.key_provider_options.ratchet_salt
             )
@@ -487,9 +488,10 @@ class Room(EventEmitter[EventTypes]):
 
         if options.encryption:
             req.connect.options.encryption.encryption_type = options.encryption.encryption_type
-            req.connect.options.encryption.key_provider_options.shared_key = (
-                options.encryption.key_provider_options.shared_key  # type: ignore
-            )
+            if options.encryption.key_provider_options.shared_key is not None:
+                req.connect.options.encryption.key_provider_options.shared_key = (
+                    options.encryption.key_provider_options.shared_key
+                )
             req.connect.options.encryption.key_provider_options.ratchet_salt = (
                 options.encryption.key_provider_options.ratchet_salt
             )
@@ -509,10 +511,10 @@ class Room(EventEmitter[EventTypes]):
         if options.rtc_config:
             req.connect.options.rtc_config.ice_transport_type = (
                 options.rtc_config.ice_transport_type
-            )  # type: ignore
+            )
             req.connect.options.rtc_config.continual_gathering_policy = (
                 options.rtc_config.continual_gathering_policy
-            )  # type: ignore
+            )
             req.connect.options.rtc_config.ice_servers.extend(options.rtc_config.ice_servers)
 
         # subscribe before connecting so we don't miss any events
@@ -555,6 +557,11 @@ class Room(EventEmitter[EventTypes]):
         # start listening to room events
         self._task = self._loop.create_task(self._listen_task())
 
+        # Unblock the FFI server once this SDK is ready to receive room events.
+        ready_req = proto_ffi.FfiRequest()
+        ready_req.ready_for_room_event.room_handle = self._ffi_handle.handle
+        FfiClient.instance.request(ready_req)
+
     async def get_rtc_stats(self) -> RtcStats:
         if not self.isconnected():
             raise RuntimeError("the room isn't connected")
@@ -579,25 +586,25 @@ class Room(EventEmitter[EventTypes]):
 
         return RtcStats(publisher_stats=publisher_stats, subscriber_stats=subscriber_stats)
 
-    def register_byte_stream_handler(self, topic: str, handler: ByteStreamHandler):
+    def register_byte_stream_handler(self, topic: str, handler: ByteStreamHandler) -> None:
         existing_handler = self._byte_stream_handlers.get(topic)
         if existing_handler is None:
             self._byte_stream_handlers[topic] = handler
         else:
             raise ValueError("byte stream handler for topic '%s' already set" % topic)
 
-    def unregister_byte_stream_handler(self, topic: str):
+    def unregister_byte_stream_handler(self, topic: str) -> None:
         if self._byte_stream_handlers.get(topic):
             self._byte_stream_handlers.pop(topic)
 
-    def register_text_stream_handler(self, topic: str, handler: TextStreamHandler):
+    def register_text_stream_handler(self, topic: str, handler: TextStreamHandler) -> None:
         existing_handler = self._text_stream_handlers.get(topic)
         if existing_handler is None:
             self._text_stream_handlers[topic] = handler
         else:
             raise ValueError("text stream handler for topic '%s' already set" % topic)
 
-    def unregister_text_stream_handler(self, topic: str):
+    def unregister_text_stream_handler(self, topic: str) -> None:
         if self._text_stream_handlers.get(topic):
             self._text_stream_handlers.pop(topic)
 
@@ -642,7 +649,7 @@ class Room(EventEmitter[EventTypes]):
 
         req = proto_ffi.FfiRequest()
         req.disconnect.room_handle = self._ffi_handle.handle  # type: ignore
-        req.disconnect.reason = reason  # type: ignore
+        req.disconnect.reason = reason
         queue = FfiClient.instance.queue.subscribe()
         try:
             resp = FfiClient.instance.request(req)
@@ -689,7 +696,7 @@ class Room(EventEmitter[EventTypes]):
         await self._drain_rpc_invocation_tasks()
         await self._drain_data_stream_tasks()
 
-    def _on_rpc_method_invocation(self, rpc_invocation: RpcMethodInvocationEvent):
+    def _on_rpc_method_invocation(self, rpc_invocation: RpcMethodInvocationEvent) -> None:
         if self._local_participant is None:
             return
 
@@ -707,7 +714,7 @@ class Room(EventEmitter[EventTypes]):
             self._rpc_invocation_tasks.add(task)
             task.add_done_callback(self._rpc_invocation_tasks.discard)
 
-    def _on_room_event(self, event: proto_room.RoomEvent):
+    def _on_room_event(self, event: proto_room.RoomEvent) -> None:
         which = event.WhichOneof("message")
         if which == "participant_connected":
             rparticipant = self._create_remote_participant(event.participant_connected.info)
@@ -878,7 +885,7 @@ class Room(EventEmitter[EventTypes]):
                 participant,
                 event.participant_encryption_status_changed.is_encrypted,
             )
-        elif which == "participant_permissions_changed":
+        elif which == "participant_permission_changed":
             identity = event.participant_permission_changed.participant_identity
             participant = self._retrieve_participant(identity)
             assert isinstance(participant, Participant)
@@ -1013,7 +1020,7 @@ class Room(EventEmitter[EventTypes]):
 
     def _handle_stream_header(
         self, header: proto_room.DataStream.Header, participant_identity: str
-    ):
+    ) -> None:
         stream_type = header.WhichOneof("content_header")
         if stream_type == "text_header":
             text_stream_handler = self._text_stream_handlers.get(header.topic)
@@ -1043,7 +1050,7 @@ class Room(EventEmitter[EventTypes]):
             logging.warning("received unknown header type, %s", stream_type)
         pass
 
-    async def _handle_stream_chunk(self, chunk: proto_room.DataStream.Chunk):
+    async def _handle_stream_chunk(self, chunk: proto_room.DataStream.Chunk) -> None:
         text_reader = self._text_stream_readers.get(chunk.stream_id)
         file_reader = self._byte_stream_readers.get(chunk.stream_id)
 
@@ -1052,7 +1059,7 @@ class Room(EventEmitter[EventTypes]):
         elif file_reader:
             await file_reader._on_chunk_update(chunk)
 
-    async def _handle_stream_trailer(self, trailer: proto_room.DataStream.Trailer):
+    async def _handle_stream_trailer(self, trailer: proto_room.DataStream.Trailer) -> None:
         text_reader = self._text_stream_readers.get(trailer.stream_id)
         file_reader = self._byte_stream_readers.get(trailer.stream_id)
 

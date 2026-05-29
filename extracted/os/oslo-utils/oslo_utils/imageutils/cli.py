@@ -43,7 +43,7 @@ def main() -> None:
       - OSLO_UTILS_VERSION (version of oslo_utils currently in use)
       - FAILURE_REASONS (reasons for failure, if failed safety check)
     """
-    logging.basicConfig(level=logging.CRITICAL)
+    logging.basicConfig(level=logging.DEBUG)
     oslo_utils_version = str(version_info)
     parser = argparse.ArgumentParser(
         prog='oslo.utils.imageutils',
@@ -67,6 +67,11 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        '--debug',
+        action='store_true',
+        help="Enable debug logging output.",
+    )
+    parser.add_argument(
         '-i',
         '--image',
         action='store',
@@ -74,15 +79,27 @@ def main() -> None:
         metavar="IMG",
         help="Path to an image you wish to inspect.",
     )
+    parser.add_argument(
+        '--param',
+        action='append',
+        metavar='KEY=VALUE',
+        help='Additional parameter to pass to the inspector.',
+        default=[],
+    )
     args = parser.parse_args()
     image = args.image
     verbose = args.verbose
+    params = {k: v for k, v in [arg.split('=', 1) for arg in args.param]}
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     if not os.path.exists(image) or not os.path.isfile(image):
         print(f'Image path {image} provided does not exist', file=sys.stderr)
         sys.exit(1)
 
-    inspector = format_inspector.detect_file_format(image)
+    inspector = format_inspector.detect_file_format(
+        image, tracing=args.debug, params=params
+    )
     if inspector is None:
         print('Could not find format inspector for image', file=sys.stderr)
         sys.exit(1)
@@ -99,6 +116,11 @@ def main() -> None:
     virtual_size = inspector.virtual_size
     actual_size = inspector.actual_size
     fmt = str(inspector)
+    inner_inspector = (
+        inspector.inner_format
+        if isinstance(inspector, format_inspector.ContainerFileInspector)
+        else None
+    )
 
     if verbose:
         print(f"SAFETY_CHECK_PASSED={safe}")
@@ -106,6 +128,9 @@ def main() -> None:
         print(f"ACTUAL_SIZE={actual_size}")
         print(f"IMAGE_FORMAT=\"{fmt}\"")
         print(f"OSLO_UTILS_VERSION=\"{oslo_utils_version}\"")
+        if inner_inspector:
+            print(f"INNER_IMAGE_FORMAT=\"{str(inner_inspector)}\"")
+
     if safe:
         sys.exit(0)
 

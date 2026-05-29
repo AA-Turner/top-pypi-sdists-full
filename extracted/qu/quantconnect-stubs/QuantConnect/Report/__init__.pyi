@@ -23,35 +23,40 @@ QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey = typing.TypeVar("Qu
 QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey = typing.TypeVar("QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey")
 
 
-class NullResultValueTypeJsonConverter(typing.Generic[QuantConnect_Report_NullResultValueTypeJsonConverter_T]):
-    """
-    Removes null values in the Result object's x,y values so that
-    deserialization can occur without exceptions.
-    """
+class Report(System.Object):
+    """Report class"""
 
-    def __init__(self) -> None:
-        """Initialize a new instance of NullResultValueTypeJsonConverter{T}"""
-        ...
+    STATISTICS_FILE_NAME: str = "report-statistics.json"
+    """File name for statistics"""
 
-    def can_convert(self, object_type: typing.Type) -> bool:
+    def __init__(self, name: str, description: str, version: str, backtest: QuantConnect.Packets.BacktestResult, live: QuantConnect.Packets.LiveResult, point_in_time_portfolio_destination: str = None, css_override: str = None, html_custom: str = None) -> None:
         """
-        Determine if this converter can convert a given type
+        Create beautiful HTML and PDF Reports based on backtest and live data.
         
-        :param object_type: Object type to convert
-        :returns: Always true.
+        :param name: Name of the strategy
+        :param description: Description of the strategy
+        :param version: Version number of the strategy
+        :param backtest: Backtest result object
+        :param live: Live result object
+        :param point_in_time_portfolio_destination: Point in time portfolio json output base filename
+        :param css_override: CSS file that overrides some of the default rules defined in report.css
+        :param html_custom: Custom HTML file to replace the default template
         """
         ...
 
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+    def compile(self, html: typing.Optional[str], report_statistics: typing.Optional[str]) -> typing.Tuple[None, str, str]:
+        """Compile the backtest data into a report"""
+        ...
+
+    @staticmethod
+    def get_regex_in_input(pattern: str, input: str) -> str:
         """
-        Read Json for conversion
+        Gets the regex pattern in the given input string
         
-        :returns: Resulting object.
+        :param pattern: Regex pattern to be find the input string
+        :param input: Input string that may contain the regex pattern
+        :returns: The regex pattern in the input string if found. Otherwise, null.
         """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Write Json; Not implemented"""
         ...
 
 
@@ -155,228 +160,144 @@ class PointInTimePortfolio(System.Object):
         ...
 
 
-class Metrics(System.Object):
-    """Strategy metrics collection such as usage of funds and asset allocations"""
-
-    @staticmethod
-    @overload
-    def asset_allocations(equity_curve: typing.Any, orders: typing.List[QuantConnect.Orders.Order]) -> typing.Any:
-        """
-        Calculates the portfolio's asset allocation percentage over time. The series used to call this extension function should
-        be the equity curve with the associated Order objects that go along with it.
-        
-        :param equity_curve: Equity curve series
-        :param orders: Orders associated with the equity curve
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def asset_allocations(portfolios: typing.List[QuantConnect.Report.PointInTimePortfolio]) -> typing.Any:
-        """
-        Calculates the asset allocation percentage over time.
-        
-        :param portfolios: Point in time portfolios
-        :returns: Series keyed by Symbol containing the percentage allocated to that asset over time.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def exposure(equity_curve: typing.Any, orders: typing.List[QuantConnect.Orders.Order], direction: QuantConnect.Orders.OrderDirection) -> typing.Any:
-        """
-        Strategy long/short exposure by asset class
-        
-        :param equity_curve: Equity curve
-        :param orders: Orders of the strategy
-        :param direction: Long or short
-        :returns: Frame keyed by SecurityType and OrderDirection.
-        Returns a Frame of exposure per asset per direction over time.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def exposure(portfolios: typing.List[QuantConnect.Report.PointInTimePortfolio], direction: QuantConnect.Orders.OrderDirection) -> typing.Any:
-        """
-        Strategy long/short exposure by asset class
-        
-        :param portfolios: Point in time portfolios
-        :param direction: Long or short
-        :returns: Frame keyed by SecurityType and OrderDirection.
-        Returns a Frame of exposure per asset per direction over time.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def leverage_utilization(equity_curve: typing.Any, orders: typing.List[QuantConnect.Orders.Order]) -> typing.Any:
-        """
-        Calculates the leverage used from trades. The series used to call this extension function should
-        be the equity curve with the associated Order objects that go along with it.
-        
-        :param equity_curve: Equity curve series
-        :param orders: Orders associated with the equity curve
-        :returns: Leverage utilization over time.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def leverage_utilization(portfolios: typing.List[QuantConnect.Report.PointInTimePortfolio]) -> typing.Any:
-        """
-        Gets the leverage utilization from a list of PointInTimePortfolio
-        
-        :param portfolios: Point in time portfolios
-        :returns: Series of leverage utilization.
-        """
-        ...
-
-
-class DrawdownPeriod(System.Object):
-    """Represents a period of time where the drawdown ranks amongst the top N drawdowns."""
-
-    @property
-    def start(self) -> datetime.datetime:
-        """Start of the drawdown period"""
-        ...
-
-    @property
-    def end(self) -> datetime.datetime:
-        """End of the drawdown period"""
-        ...
-
-    @property
-    def peak_to_trough(self) -> float:
-        """Loss in percent from peak to trough"""
-        ...
-
-    @property
-    def drawdown(self) -> float:
-        """Loss in percent from peak to trough - Alias for peak_to_trough"""
-        ...
-
-    def __init__(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], drawdown: float) -> None:
-        """
-        Creates an instance with the given start, end, and drawdown
-        
-        :param start: Start of the drawdown period
-        :param end: End of the drawdown period
-        :param drawdown: Max drawdown of the period
-        """
-        ...
-
-
-class DrawdownCollection(System.Object):
-    """Collection of drawdowns for the given period marked by start and end date"""
-
-    @property
-    def start(self) -> datetime.datetime:
-        """Starting time of the drawdown collection"""
-        ...
-
-    @property
-    def end(self) -> datetime.datetime:
-        """Ending time of the drawdown collection"""
-        ...
-
-    @property
-    def periods(self) -> int:
-        """
-        Number of periods to take into consideration for the top N drawdown periods.
-        This will be the number of items contained in the drawdowns collection.
-        """
-        ...
-
-    @property
-    def drawdowns(self) -> typing.List[QuantConnect.Report.DrawdownPeriod]:
-        """Worst drawdowns encountered"""
-        ...
+class _Typed_DeedleUtil_DropSparseColumnsAll(typing.Generic[QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey]):
+    """"""
 
     @overload
-    def __init__(self, periods: int) -> None:
+    def __call__(self, frame: typing.Any) -> typing.Any:
         """
-        Creates an instance with a default collection (no items) and the top N worst drawdowns
+        Drops sparse columns only if every value is `missing` in the column
         
-        :param periods: 
+        :param frame: Data Frame
+        :returns: new Frame with sparse columns dropped.
         """
         ...
+
+
+class _DeedleUtil_DropSparseColumnsAll:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey]) -> QuantConnect.Report._Typed_DeedleUtil_DropSparseColumnsAll[QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey]:
+        ...
+
+
+class _Typed_DeedleUtil_DropSparseRowsAll(typing.Generic[QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey]):
+    """"""
 
     @overload
-    def __init__(self, strategy_series: typing.Any, periods: int) -> None:
+    def __call__(self, frame: typing.Any) -> typing.Any:
         """
-        Creates an instance from the given drawdowns and the top N worst drawdowns
+        Drops sparse rows if and only if every value is `missing` in the Frame
         
-        :param strategy_series: Equity curve with both live and backtesting merged
-        :param periods: Periods this collection contains
+        :param frame: Data Frame
+        :returns: new Frame with sparse rows dropped.
+        """
+        ...
+
+
+class _DeedleUtil_DropSparseRowsAll:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey]) -> QuantConnect.Report._Typed_DeedleUtil_DropSparseRowsAll[QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey]:
+        ...
+
+
+class DeedleUtil(System.Object):
+    """Utility extension methods for Deedle series/frames"""
+
+    drop_sparse_columns_all: QuantConnect.Report._DeedleUtil_DropSparseColumnsAll
+
+    drop_sparse_rows_all: QuantConnect.Report._DeedleUtil_DropSparseRowsAll
+
+    @staticmethod
+    def cumulative_max(input: typing.Any) -> typing.Any:
+        """
+        Calculates the cumulative max of the series. This is equal to the python pandas method: `df.cummax()`.
+        
+        :param input: 
         """
         ...
 
     @staticmethod
-    def from_result(backtest_result: QuantConnect.Packets.BacktestResult = None, live_result: QuantConnect.Packets.LiveResult = None, periods: int = 5) -> QuantConnect.Report.DrawdownCollection:
+    def cumulative_product(input: typing.Any) -> typing.Any:
         """
-        Generate a new instance of DrawdownCollection from backtest and live Result derived instances
+        Calculates the cumulative product of the series. This is equal to the python pandas method: `df.cumprod()`
         
-        :param backtest_result: Backtest result packet
-        :param live_result: Live result packet
-        :param periods: Top N drawdown periods to get
-        :returns: DrawdownCollection instance.
+        :param input: Input series
+        :returns: Cumulative product.
         """
         ...
 
     @staticmethod
-    def get_drawdown_periods(curve: typing.Any, periods: int = 5) -> typing.Sequence[QuantConnect.Report.DrawdownPeriod]:
+    def cumulative_returns(input: typing.Any) -> typing.Any:
         """
-        Gets the given drawdown periods from the equity curve and the set periods
+        Calculates the cumulative returns series of the given input equity curve
         
-        :param curve: Equity curve
-        :param periods: Top N drawdown periods to get
-        :returns: Enumerable of DrawdownPeriod.
+        :param input: Equity curve series
+        :returns: Cumulative returns over time.
         """
         ...
 
     @staticmethod
-    def get_top_worst_drawdowns(curve: typing.Any, periods: int) -> typing.Any:
+    def cumulative_sum(input: typing.Any) -> typing.Any:
         """
-        Gets the top N worst drawdowns and associated statistics.
-        Returns a Frame with the following keys: "duration", "cumulativeMax", "drawdown"
+        Calculates the cumulative sum for the given series
         
-        :param curve: Equity curve
-        :param periods: Top N worst periods. If this is greater than the results, we retrieve all the items instead
-        :returns: Frame with the following keys: "duration", "cumulativeMax", "drawdown".
+        :param input: Series to calculate cumulative sum for
+        :returns: Cumulative sum in series form.
         """
         ...
 
     @staticmethod
-    def get_underwater(curve: typing.Any) -> typing.Any:
+    def percent_change(input: typing.Any) -> typing.Any:
         """
-        Gets the underwater plot for the provided curve.
-        Data is expected to be the concatenated output of ResultsUtil.equity_points.
+        Calculates the percentage change from the previous value to the current
         
-        :param curve: Equity curve
+        :param input: Series to calculate percentage change for
+        :returns: Percentage change in series form.
         """
         ...
 
     @staticmethod
-    def get_underwater_frame(curve: typing.Any) -> typing.Any:
+    def total_returns(input: typing.Any) -> float:
         """
-        Gets all the data associated with the underwater plot and everything used to generate it.
-        Note that you should instead use get_underwater(Series{DateTime, double}) if you
-        want to just generate an underwater plot. This is internally used to get the top N worst drawdown periods.
+        Calculates the total returns over a period of time for the given input
         
-        :param curve: Equity curve
-        :returns: Frame containing the following keys: "returns", "cumulativeMax", "drawdown".
+        :param input: Equity curve series
+        :returns: Total returns over time.
         """
         ...
 
-    @staticmethod
-    def normalize_results(backtest_result: QuantConnect.Packets.BacktestResult, live_result: QuantConnect.Packets.LiveResult) -> typing.Any:
+
+class NullResultValueTypeJsonConverter(typing.Generic[QuantConnect_Report_NullResultValueTypeJsonConverter_T]):
+    """
+    Removes null values in the Result object's x,y values so that
+    deserialization can occur without exceptions.
+    """
+
+    def __init__(self) -> None:
+        """Initialize a new instance of NullResultValueTypeJsonConverter{T}"""
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
         """
-        Normalizes the Series used to calculate the drawdown plots and charts
+        Determine if this converter can convert a given type
         
-        :param backtest_result: Backtest result packet
-        :param live_result: Live result packet
+        :param object_type: Object type to convert
+        :returns: Always true.
         """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Read Json for conversion
+        
+        :returns: Resulting object.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Write Json; Not implemented"""
         ...
 
 
@@ -405,34 +326,6 @@ class OrderTypeNormalizingJsonConverter:
 
     def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
         """Write Json; Not implemented"""
-        ...
-
-
-class Rolling(System.Object):
-    """Rolling window functions"""
-
-    @staticmethod
-    def beta(performance_points: System.Collections.Generic.SortedList[datetime.datetime, float], benchmark_points: System.Collections.Generic.SortedList[datetime.datetime, float], window_size: int = 132) -> typing.Any:
-        """
-        Calculate the rolling beta with the given window size (in days)
-        
-        :param performance_points: The performance points you want to measure beta for
-        :param benchmark_points: The benchmark/points you want to calculate beta with
-        :param window_size: Days/window to lookback
-        :returns: Rolling beta.
-        """
-        ...
-
-    @staticmethod
-    def sharpe(equity_curve: typing.Any, months: int, trading_day_per_year: int) -> typing.Any:
-        """
-        Get the rolling sharpe of the given series with a lookback of months. The risk free rate is adjustable
-        
-        :param equity_curve: Equity curve to calculate rolling sharpe for
-        :param months: Number of months to calculate the rolling period for
-        :param trading_day_per_year: The number of trading days per year to increase result of Annual statistics
-        :returns: Rolling sharpe ratio.
-        """
         ...
 
 
@@ -575,185 +468,255 @@ class Crisis(System.Object):
         ...
 
 
-class Report(System.Object):
-    """Report class"""
-
-    STATISTICS_FILE_NAME: str = "report-statistics.json"
-    """File name for statistics"""
-
-    def __init__(self, name: str, description: str, version: str, backtest: QuantConnect.Packets.BacktestResult, live: QuantConnect.Packets.LiveResult, point_in_time_portfolio_destination: str = None, css_override: str = None, html_custom: str = None) -> None:
-        """
-        Create beautiful HTML and PDF Reports based on backtest and live data.
-        
-        :param name: Name of the strategy
-        :param description: Description of the strategy
-        :param version: Version number of the strategy
-        :param backtest: Backtest result object
-        :param live: Live result object
-        :param point_in_time_portfolio_destination: Point in time portfolio json output base filename
-        :param css_override: CSS file that overrides some of the default rules defined in report.css
-        :param html_custom: Custom HTML file to replace the default template
-        """
-        ...
-
-    def compile(self, html: typing.Optional[str], report_statistics: typing.Optional[str]) -> typing.Tuple[None, str, str]:
-        """Compile the backtest data into a report"""
-        ...
-
-    @staticmethod
-    def get_regex_in_input(pattern: str, input: str) -> str:
-        """
-        Gets the regex pattern in the given input string
-        
-        :param pattern: Regex pattern to be find the input string
-        :param input: Input string that may contain the regex pattern
-        :returns: The regex pattern in the input string if found. Otherwise, null.
-        """
-        ...
-
-
-class _Typed_DeedleUtil_DropSparseColumnsAll(typing.Generic[QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey]):
-    """"""
-
-    @overload
-    def __call__(self, frame: typing.Any) -> typing.Any:
-        """
-        Drops sparse columns only if every value is `missing` in the column
-        
-        :param frame: Data Frame
-        :returns: new Frame with sparse columns dropped.
-        """
-        ...
-
-
-class _DeedleUtil_DropSparseColumnsAll:
-    """"""
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey]) -> QuantConnect.Report._Typed_DeedleUtil_DropSparseColumnsAll[QuantConnect_Report_DeedleUtil_DropSparseColumnsAll_TRowKey]:
-        ...
-
-
-class _Typed_DeedleUtil_DropSparseRowsAll(typing.Generic[QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey]):
-    """"""
-
-    @overload
-    def __call__(self, frame: typing.Any) -> typing.Any:
-        """
-        Drops sparse rows if and only if every value is `missing` in the Frame
-        
-        :param frame: Data Frame
-        :returns: new Frame with sparse rows dropped.
-        """
-        ...
-
-
-class _DeedleUtil_DropSparseRowsAll:
-    """"""
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey]) -> QuantConnect.Report._Typed_DeedleUtil_DropSparseRowsAll[QuantConnect_Report_DeedleUtil_DropSparseRowsAll_TRowKey]:
-        ...
-
-
-class DeedleUtil(System.Object):
-    """Utility extension methods for Deedle series/frames"""
-
-    drop_sparse_columns_all: QuantConnect.Report._DeedleUtil_DropSparseColumnsAll
-
-    drop_sparse_rows_all: QuantConnect.Report._DeedleUtil_DropSparseRowsAll
-
-    @staticmethod
-    def cumulative_max(input: typing.Any) -> typing.Any:
-        """
-        Calculates the cumulative max of the series. This is equal to the python pandas method: `df.cummax()`.
-        
-        :param input: 
-        """
-        ...
-
-    @staticmethod
-    def cumulative_product(input: typing.Any) -> typing.Any:
-        """
-        Calculates the cumulative product of the series. This is equal to the python pandas method: `df.cumprod()`
-        
-        :param input: Input series
-        :returns: Cumulative product.
-        """
-        ...
-
-    @staticmethod
-    def cumulative_returns(input: typing.Any) -> typing.Any:
-        """
-        Calculates the cumulative returns series of the given input equity curve
-        
-        :param input: Equity curve series
-        :returns: Cumulative returns over time.
-        """
-        ...
-
-    @staticmethod
-    def cumulative_sum(input: typing.Any) -> typing.Any:
-        """
-        Calculates the cumulative sum for the given series
-        
-        :param input: Series to calculate cumulative sum for
-        :returns: Cumulative sum in series form.
-        """
-        ...
-
-    @staticmethod
-    def percent_change(input: typing.Any) -> typing.Any:
-        """
-        Calculates the percentage change from the previous value to the current
-        
-        :param input: Series to calculate percentage change for
-        :returns: Percentage change in series form.
-        """
-        ...
-
-    @staticmethod
-    def total_returns(input: typing.Any) -> float:
-        """
-        Calculates the total returns over a period of time for the given input
-        
-        :param input: Equity curve series
-        :returns: Total returns over time.
-        """
-        ...
-
-
-class MockDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IDataFeed):
-    """Fake IDataFeed"""
+class DrawdownPeriod(System.Object):
+    """Represents a period of time where the drawdown ranks amongst the top N drawdowns."""
 
     @property
-    def is_active(self) -> bool:
-        """Bool if the feed is active"""
+    def start(self) -> datetime.datetime:
+        """Start of the drawdown period"""
         ...
 
-    def create_subscription(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> QuantConnect.Lean.Engine.DataFeeds.Subscription:
+    @property
+    def end(self) -> datetime.datetime:
+        """End of the drawdown period"""
+        ...
+
+    @property
+    def peak_to_trough(self) -> float:
+        """Loss in percent from peak to trough"""
+        ...
+
+    @property
+    def drawdown(self) -> float:
+        """Loss in percent from peak to trough - Alias for peak_to_trough"""
+        ...
+
+    def __init__(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], drawdown: float) -> None:
         """
-        Create Subscription
+        Creates an instance with the given start, end, and drawdown
         
-        :param request: Subscription request to use
-        :returns: Always null.
+        :param start: Start of the drawdown period
+        :param end: End of the drawdown period
+        :param drawdown: Max drawdown of the period
         """
         ...
 
-    def exit(self) -> None:
-        """DataFeed Exit"""
-        ...
 
-    def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm, job: QuantConnect.Packets.AlgorithmNodePacket, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider, subscription_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager, data_feed_time_provider: QuantConnect.Lean.Engine.DataFeeds.IDataFeedTimeProvider, data_channel_provider: QuantConnect.Interfaces.IDataChannelProvider) -> None:
-        """
-        Initialize the data feed
-        This implementation does nothing
-        """
-        ...
+class Metrics(System.Object):
+    """Strategy metrics collection such as usage of funds and asset allocations"""
 
-    def remove_subscription(self, subscription: QuantConnect.Lean.Engine.DataFeeds.Subscription) -> None:
+    @staticmethod
+    @overload
+    def asset_allocations(equity_curve: typing.Any, orders: typing.List[QuantConnect.Orders.Order]) -> typing.Any:
         """
-        Remove Subscription; Not implemented
+        Calculates the portfolio's asset allocation percentage over time. The series used to call this extension function should
+        be the equity curve with the associated Order objects that go along with it.
         
-        :param subscription: Subscription to remove
+        :param equity_curve: Equity curve series
+        :param orders: Orders associated with the equity curve
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def asset_allocations(portfolios: typing.List[QuantConnect.Report.PointInTimePortfolio]) -> typing.Any:
+        """
+        Calculates the asset allocation percentage over time.
+        
+        :param portfolios: Point in time portfolios
+        :returns: Series keyed by Symbol containing the percentage allocated to that asset over time.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def exposure(equity_curve: typing.Any, orders: typing.List[QuantConnect.Orders.Order], direction: QuantConnect.Orders.OrderDirection) -> typing.Any:
+        """
+        Strategy long/short exposure by asset class
+        
+        :param equity_curve: Equity curve
+        :param orders: Orders of the strategy
+        :param direction: Long or short
+        :returns: Frame keyed by SecurityType and OrderDirection.
+        Returns a Frame of exposure per asset per direction over time.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def exposure(portfolios: typing.List[QuantConnect.Report.PointInTimePortfolio], direction: QuantConnect.Orders.OrderDirection) -> typing.Any:
+        """
+        Strategy long/short exposure by asset class
+        
+        :param portfolios: Point in time portfolios
+        :param direction: Long or short
+        :returns: Frame keyed by SecurityType and OrderDirection.
+        Returns a Frame of exposure per asset per direction over time.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def leverage_utilization(equity_curve: typing.Any, orders: typing.List[QuantConnect.Orders.Order]) -> typing.Any:
+        """
+        Calculates the leverage used from trades. The series used to call this extension function should
+        be the equity curve with the associated Order objects that go along with it.
+        
+        :param equity_curve: Equity curve series
+        :param orders: Orders associated with the equity curve
+        :returns: Leverage utilization over time.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def leverage_utilization(portfolios: typing.List[QuantConnect.Report.PointInTimePortfolio]) -> typing.Any:
+        """
+        Gets the leverage utilization from a list of PointInTimePortfolio
+        
+        :param portfolios: Point in time portfolios
+        :returns: Series of leverage utilization.
+        """
+        ...
+
+
+class DrawdownCollection(System.Object):
+    """Collection of drawdowns for the given period marked by start and end date"""
+
+    @property
+    def start(self) -> datetime.datetime:
+        """Starting time of the drawdown collection"""
+        ...
+
+    @property
+    def end(self) -> datetime.datetime:
+        """Ending time of the drawdown collection"""
+        ...
+
+    @property
+    def periods(self) -> int:
+        """
+        Number of periods to take into consideration for the top N drawdown periods.
+        This will be the number of items contained in the drawdowns collection.
+        """
+        ...
+
+    @property
+    def drawdowns(self) -> typing.List[QuantConnect.Report.DrawdownPeriod]:
+        """Worst drawdowns encountered"""
+        ...
+
+    @overload
+    def __init__(self, periods: int) -> None:
+        """
+        Creates an instance with a default collection (no items) and the top N worst drawdowns
+        
+        :param periods: 
+        """
+        ...
+
+    @overload
+    def __init__(self, strategy_series: typing.Any, periods: int) -> None:
+        """
+        Creates an instance from the given drawdowns and the top N worst drawdowns
+        
+        :param strategy_series: Equity curve with both live and backtesting merged
+        :param periods: Periods this collection contains
+        """
+        ...
+
+    @staticmethod
+    def from_result(backtest_result: QuantConnect.Packets.BacktestResult = None, live_result: QuantConnect.Packets.LiveResult = None, periods: int = 5) -> QuantConnect.Report.DrawdownCollection:
+        """
+        Generate a new instance of DrawdownCollection from backtest and live Result derived instances
+        
+        :param backtest_result: Backtest result packet
+        :param live_result: Live result packet
+        :param periods: Top N drawdown periods to get
+        :returns: DrawdownCollection instance.
+        """
+        ...
+
+    @staticmethod
+    def get_drawdown_periods(curve: typing.Any, periods: int = 5) -> typing.Sequence[QuantConnect.Report.DrawdownPeriod]:
+        """
+        Gets the given drawdown periods from the equity curve and the set periods
+        
+        :param curve: Equity curve
+        :param periods: Top N drawdown periods to get
+        :returns: Enumerable of DrawdownPeriod.
+        """
+        ...
+
+    @staticmethod
+    def get_top_worst_drawdowns(curve: typing.Any, periods: int) -> typing.Any:
+        """
+        Gets the top N worst drawdowns and associated statistics.
+        Returns a Frame with the following keys: "duration", "cumulativeMax", "drawdown"
+        
+        :param curve: Equity curve
+        :param periods: Top N worst periods. If this is greater than the results, we retrieve all the items instead
+        :returns: Frame with the following keys: "duration", "cumulativeMax", "drawdown".
+        """
+        ...
+
+    @staticmethod
+    def get_underwater(curve: typing.Any) -> typing.Any:
+        """
+        Gets the underwater plot for the provided curve.
+        Data is expected to be the concatenated output of ResultsUtil.equity_points.
+        
+        :param curve: Equity curve
+        """
+        ...
+
+    @staticmethod
+    def get_underwater_frame(curve: typing.Any) -> typing.Any:
+        """
+        Gets all the data associated with the underwater plot and everything used to generate it.
+        Note that you should instead use get_underwater(Series{DateTime, double}) if you
+        want to just generate an underwater plot. This is internally used to get the top N worst drawdown periods.
+        
+        :param curve: Equity curve
+        :returns: Frame containing the following keys: "returns", "cumulativeMax", "drawdown".
+        """
+        ...
+
+    @staticmethod
+    def normalize_results(backtest_result: QuantConnect.Packets.BacktestResult, live_result: QuantConnect.Packets.LiveResult) -> typing.Any:
+        """
+        Normalizes the Series used to calculate the drawdown plots and charts
+        
+        :param backtest_result: Backtest result packet
+        :param live_result: Live result packet
+        """
+        ...
+
+
+class Rolling(System.Object):
+    """Rolling window functions"""
+
+    @staticmethod
+    def beta(performance_points: System.Collections.Generic.SortedList[datetime.datetime, float], benchmark_points: System.Collections.Generic.SortedList[datetime.datetime, float], window_size: int = 132) -> typing.Any:
+        """
+        Calculate the rolling beta with the given window size (in days)
+        
+        :param performance_points: The performance points you want to measure beta for
+        :param benchmark_points: The benchmark/points you want to calculate beta with
+        :param window_size: Days/window to lookback
+        :returns: Rolling beta.
+        """
+        ...
+
+    @staticmethod
+    def sharpe(equity_curve: typing.Any, months: int, trading_day_per_year: int) -> typing.Any:
+        """
+        Get the rolling sharpe of the given series with a lookback of months. The risk free rate is adjustable
+        
+        :param equity_curve: Equity curve to calculate rolling sharpe for
+        :param months: Number of months to calculate the rolling period for
+        :param trading_day_per_year: The number of trading days per year to increase result of Annual statistics
+        :returns: Rolling sharpe ratio.
         """
         ...
 
@@ -831,6 +794,43 @@ class PortfolioLooper(System.Object, System.IDisposable):
         :param end: End date of history request
         :param resolution: Resolution of history request
         :returns: Enumerable of slices.
+        """
+        ...
+
+
+class MockDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IDataFeed):
+    """Fake IDataFeed"""
+
+    @property
+    def is_active(self) -> bool:
+        """Bool if the feed is active"""
+        ...
+
+    def create_subscription(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> QuantConnect.Lean.Engine.DataFeeds.Subscription:
+        """
+        Create Subscription
+        
+        :param request: Subscription request to use
+        :returns: Always null.
+        """
+        ...
+
+    def exit(self) -> None:
+        """DataFeed Exit"""
+        ...
+
+    def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm, job: QuantConnect.Packets.AlgorithmNodePacket, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider, subscription_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager, data_feed_time_provider: QuantConnect.Lean.Engine.DataFeeds.IDataFeedTimeProvider, data_channel_provider: QuantConnect.Interfaces.IDataChannelProvider) -> None:
+        """
+        Initialize the data feed
+        This implementation does nothing
+        """
+        ...
+
+    def remove_subscription(self, subscription: QuantConnect.Lean.Engine.DataFeeds.Subscription) -> None:
+        """
+        Remove Subscription; Not implemented
+        
+        :param subscription: Subscription to remove
         """
         ...
 

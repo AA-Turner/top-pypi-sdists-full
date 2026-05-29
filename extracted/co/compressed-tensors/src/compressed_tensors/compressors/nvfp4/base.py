@@ -11,10 +11,11 @@ from compressed_tensors.config import CompressionFormat
 from compressed_tensors.quantization import (
     QuantizationArgs,
     QuantizationScheme,
+    QuantizationStrategy,
     QuantizationType,
 )
 from compressed_tensors.quantization.lifecycle.forward import dequantize, quantize
-from compressed_tensors.utils import TensorStateDict
+from compressed_tensors.utils import TensorStateDict, getattr_chain
 
 
 __all__ = ["NVFP4PackedCompressor"]
@@ -30,11 +31,31 @@ class NVFP4PackedCompressor(BaseCompressor):
     """
 
     @classmethod
+    def compression_param_names(cls, scheme: QuantizationScheme) -> tuple[str]:
+        param_names = (
+            "weight_packed",
+            "weight_scale",
+            "weight_global_scale",
+        )
+        if not getattr_chain(scheme, "weights.symmetric", True):
+            param_names += ("weight_zero_point",)
+        if (
+            getattr_chain(scheme, "input_activations.strategy", None)
+            == QuantizationStrategy.TENSOR_GROUP
+        ):
+            param_names += ("input_global_scale",)
+        return param_names
+
+    @classmethod
     def _compress_scale(
         cls, scale: torch.Tensor, weights: QuantizationArgs
     ) -> torch.Tensor:
         scale_dtype = weights.scale_dtype or torch.float8_e4m3fn
         return scale.to(scale_dtype)
+
+    @classmethod
+    def _decompress_scale(cls, scale: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+        return scale.to(dtype)
 
     @classmethod
     def compress(
@@ -93,8 +114,7 @@ class NVFP4PackedCompressor(BaseCompressor):
         m, n = packed.shape
         unpacked = unpack_fp4_from_uint8(packed, m, n * 2)
 
-        # Decompress scale back to float
-        scale_float = scale.to(unpacked.dtype)
+        scale_float = cls._decompress_scale(scale, unpacked.dtype)
 
         state_dict["weight"] = dequantize(
             x_q=unpacked,

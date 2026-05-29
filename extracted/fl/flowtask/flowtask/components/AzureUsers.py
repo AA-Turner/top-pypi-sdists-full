@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import iso8601
-from .Azure import Azure
+from ..interfaces.azure_component import Azure
 from ..exceptions import ComponentError, DataNotFound
 
 class AzureUsers(Azure):

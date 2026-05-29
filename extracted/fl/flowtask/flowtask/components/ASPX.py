@@ -3,7 +3,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 import httpx
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.http import HTTPService
 from ..exceptions import ComponentError
 

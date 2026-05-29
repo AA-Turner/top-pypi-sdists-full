@@ -6,7 +6,7 @@ import pandas as pd
 from pathlib import Path
 from weasyprint import HTML, CSS
 from ..exceptions import ComponentError, ConfigError, FileNotFound
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces import TemplateSupport
 from ..utils import SafeDict
 

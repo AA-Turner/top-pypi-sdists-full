@@ -7,7 +7,7 @@ import struct
 import pandas as pd
 import orjson
 from ..exceptions import DataNotFound, ComponentError
-from .google import GoogleBase
+from ..interfaces.google_base import GoogleBase
 import os
 import time
 import tempfile

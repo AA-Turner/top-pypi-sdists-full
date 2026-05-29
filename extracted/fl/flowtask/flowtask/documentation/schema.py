@@ -63,50 +63,35 @@ class SchemaGenerator:
             if attr.required:
                 required.append(attr.name)
 
-        return ComponentSchema(
+        schema = ComponentSchema(
             title=doc.name,
             description=doc.description,
             properties=properties,
             required=required
         )
+        # Dataflow contract — non-standard but retained by every JSON Schema
+        # validator (`x-` is the conventional extension namespace).
+        schema.io = {
+            "consumes": doc.consumes or "any",
+            "produces": doc.produces or "any",
+        }
+        return schema
 
     def to_json(self, schema: ComponentSchema) -> str:
-        """Serialize schema to formatted JSON string.
-
-        Args:
-            schema: ComponentSchema to serialize.
-
-        Returns:
-            Formatted JSON string representation of the schema.
-        """
-        # Build the full JSON Schema document
-        schema_dict = {
-            "$schema": self.SCHEMA_DRAFT,
-            "type": schema.type,
-            "title": schema.title,
-            "description": schema.description,
-            "properties": schema.properties,
-        }
-
-        # Only include required array if there are required fields
-        if schema.required:
-            schema_dict["required"] = schema.required
-
+        """Serialize schema to formatted JSON string."""
         return orjson.dumps(
-            schema_dict,
-            option=orjson.OPT_INDENT_2
-        ).decode('utf-8')
+            self.to_dict(schema),
+            option=orjson.OPT_INDENT_2,
+        ).decode("utf-8")
 
     def to_dict(self, schema: ComponentSchema) -> Dict[str, Any]:
-        """Convert schema to dictionary for further processing.
+        """Convert schema to a JSON-Schema-compatible dict.
 
-        Args:
-            schema: ComponentSchema to convert.
-
-        Returns:
-            Dictionary representation of the schema.
+        Includes the ``x-flowtask-io`` extension carrying the component's
+        ``{consumes, produces}`` dataflow contract — consumers that ignore
+        extension keys (most standard validators) silently skip it.
         """
-        result = {
+        result: Dict[str, Any] = {
             "$schema": self.SCHEMA_DRAFT,
             "type": schema.type,
             "title": schema.title,
@@ -116,5 +101,9 @@ class SchemaGenerator:
 
         if schema.required:
             result["required"] = schema.required
+
+        # Non-standard extension. Keep it last so the standard sections
+        # remain at the top of the file for human readers.
+        result["x-flowtask-io"] = dict(schema.io)
 
         return result

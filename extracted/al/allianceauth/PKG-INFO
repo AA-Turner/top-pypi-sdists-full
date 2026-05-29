@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth
-Version: 5.0.1
+Version: 5.1.1
 Summary: An auth system for EVE Online to help in-game organizations
 Keywords: allianceauth,eveonline
 Author-email: Alliance Auth <adarnof@gmail.com>
@@ -24,12 +24,12 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
 Requires-Dist: bcrypt<5
 Requires-Dist: beautifulsoup4
-Requires-Dist: celery>=5.5,<6
+Requires-Dist: celery>=5.6,<6
 Requires-Dist: celery-once>=3.0.1
 Requires-Dist: django>=5.2,<6
 Requires-Dist: django-bootstrap5>=23.3
 Requires-Dist: django-celery-beat>=2.8
-Requires-Dist: django-esi>=9.0.0a3
+Requires-Dist: django-esi>=9.3
 Requires-Dist: django-redis>=5.4
 Requires-Dist: django-registration>=5.2,<6
 Requires-Dist: django-solo
@@ -51,6 +51,10 @@ Requires-Dist: slixmpp<1.9
 Requires-Dist: telnetlib3
 Requires-Dist: ua-parser
 Requires-Dist: user-agents
+Requires-Dist: celery-types ; extra == "dev"
+Requires-Dist: djlint ; extra == "dev"
+Requires-Dist: flake8 ; extra == "dev"
+Requires-Dist: isort ; extra == "dev"
 Requires-Dist: docutils==0.21.2 ; extra == "docs"
 Requires-Dist: myst-parser>=4 ; extra == "docs"
 Requires-Dist: sphinx>=8 ; extra == "docs"
@@ -67,6 +71,7 @@ Project-URL: Documentation, https://allianceauth.readthedocs.io/
 Project-URL: Homepage, https://gitlab.com/allianceauth/allianceauth
 Project-URL: Source, https://gitlab.com/allianceauth/allianceauth
 Project-URL: Tracker, https://gitlab.com/allianceauth/allianceauth/-/issues
+Provides-Extra: dev
 Provides-Extra: docs
 Provides-Extra: mumble
 Provides-Extra: test

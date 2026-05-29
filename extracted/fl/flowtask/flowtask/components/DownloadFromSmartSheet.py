@@ -20,7 +20,7 @@ import asyncio
 from collections.abc import Callable
 from pathlib import Path
 from ..exceptions import ComponentError, FileNotFound
-from .DownloadFrom import DownloadFromBase
+from ..interfaces.download_from import DownloadFromBase
 from ..interfaces.smartsheet import SmartSheetClient
 
 class DownloadFromSmartSheet(SmartSheetClient, DownloadFromBase):

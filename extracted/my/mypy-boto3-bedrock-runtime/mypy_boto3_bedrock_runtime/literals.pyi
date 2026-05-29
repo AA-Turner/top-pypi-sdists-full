@@ -90,7 +90,7 @@ AudioFormatType = Literal[
 ]
 CachePointTypeType = Literal["default"]
 CacheTTLType = Literal["1h", "5m"]
-ConversationRoleType = Literal["assistant", "user"]
+ConversationRoleType = Literal["assistant", "system", "user"]
 DocumentFormatType = Literal["csv", "doc", "docx", "html", "md", "pdf", "txt", "xls", "xlsx"]
 GuardrailActionType = Literal["GUARDRAIL_INTERVENED", "NONE"]
 GuardrailAutomatedReasoningLogicWarningTypeType = Literal["ALWAYS_FALSE", "ALWAYS_TRUE"]
@@ -497,6 +497,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",

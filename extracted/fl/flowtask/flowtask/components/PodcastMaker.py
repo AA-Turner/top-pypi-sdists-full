@@ -54,7 +54,7 @@ from parrot.conf import AGENTS_DIR, STATIC_DIR
 
 from ..exceptions import ComponentError, ConfigError
 from ..interfaces.parrot import AgentBase
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class PodcastMaker(AgentBase, FlowComponent):

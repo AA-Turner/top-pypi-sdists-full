@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.24.56
+Version: 0.25.0
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -58,16 +58,12 @@ Requires-Dist: pylsqpack==0.3.23
 Requires-Dist: prance>=25.4.8.0
 Requires-Dist: openapi-schema-validator==0.6.3
 Requires-Dist: openapi-spec-validator>=0.7.1
-Requires-Dist: async-notify[default]>=1.4.2
-Requires-Dist: pywa>=3.8.0
 Requires-Dist: ddgs>=9.5.2
 Requires-Dist: python-statemachine==2.5.0
 Requires-Dist: cel-python>=0.4
 Requires-Dist: questionary>=2.1.1
 Requires-Dist: pandas>=2.0.0
 Requires-Dist: sqlglot>=20.0
-Requires-Dist: matplotlib==3.10.0
-Requires-Dist: seaborn==0.13.2
 Requires-Dist: numexpr==2.10.2
 Requires-Dist: faiss-cpu>=1.9.0
 Provides-Extra: notify-all
@@ -100,8 +96,6 @@ Requires-Dist: tree-sitter-languages>=1.10; extra == "graphindex"
 Requires-Dist: pathspec>=0.12; extra == "graphindex"
 Provides-Extra: scheduler
 Requires-Dist: apscheduler==3.11.2; extra == "scheduler"
-Provides-Extra: arango
-Requires-Dist: python-arango-async==1.2.0; extra == "arango"
 Provides-Extra: reddit
 Requires-Dist: praw>=7.8.1; extra == "reddit"
 Provides-Extra: retrieval
@@ -131,7 +125,6 @@ Requires-Dist: requests-oauthlib==2.0.0; extra == "agents"
 Requires-Dist: undetected-chromedriver==3.5.5; extra == "agents"
 Requires-Dist: selenium==4.35.0; extra == "agents"
 Requires-Dist: playwright==1.52.0; extra == "agents"
-Requires-Dist: streamlit==1.54.0; extra == "agents"
 Requires-Dist: jira==3.10.5; extra == "agents"
 Requires-Dist: arxiv==2.2.0; extra == "agents"
 Requires-Dist: docker==7.1.0; extra == "agents"
@@ -139,12 +132,9 @@ Requires-Dist: aiogoogle==5.17.0; extra == "agents"
 Requires-Dist: rq==2.6.0; extra == "agents"
 Requires-Dist: zeep[async]==4.3.2; extra == "agents"
 Requires-Dist: branca==0.8.2; extra == "agents"
-Requires-Dist: folium==0.20.0; extra == "agents"
 Requires-Dist: webdriver-manager==4.0.2; extra == "agents"
 Requires-Dist: prophet==1.2.1; extra == "agents"
-Requires-Dist: folium==0.20.0; extra == "agents"
 Requires-Dist: opensearch-py==3.1.0; extra == "agents"
-Requires-Dist: cairosvg>=2.7; extra == "agents"
 Requires-Dist: python-pptx==1.0.2; extra == "agents"
 Requires-Dist: markdownify>=1.2.2; extra == "agents"
 Requires-Dist: python-docx==1.1.2; extra == "agents"
@@ -163,10 +153,7 @@ Requires-Dist: microsoft-kiota-authentication-azure>=1.2.0; extra == "agents"
 Requires-Dist: jinja2>=3.1; extra == "agents"
 Requires-Dist: xhtml2pdf>=0.2.17; extra == "agents"
 Provides-Extra: charts
-Requires-Dist: matplotlib>=3.7; extra == "charts"
-Requires-Dist: cairosvg>=2.7; extra == "charts"
-Requires-Dist: svglib>=1.5; extra == "charts"
-Requires-Dist: reportlab>=4.0; extra == "charts"
+Requires-Dist: ai-parrot-visualizations[charts,infographic]; extra == "charts"
 Provides-Extra: agents-lite
 Requires-Dist: yfinance==0.2.54; extra == "agents-lite"
 Requires-Dist: youtube_search==2.1.2; extra == "agents-lite"
@@ -191,23 +178,7 @@ Requires-Dist: aiogoogle==5.17.0; extra == "agents-lite"
 Requires-Dist: rq==2.6.0; extra == "agents-lite"
 Requires-Dist: zeep[async]==4.3.2; extra == "agents-lite"
 Requires-Dist: branca==0.8.2; extra == "agents-lite"
-Requires-Dist: folium==0.20.0; extra == "agents-lite"
 Requires-Dist: opensearch-py==3.1.0; extra == "agents-lite"
-Provides-Extra: embeddings
-Requires-Dist: sentence-transformers>=5.0.0; extra == "embeddings"
-Requires-Dist: faiss-cpu>=1.9.0; extra == "embeddings"
-Requires-Dist: rank_bm25==0.2.2; extra == "embeddings"
-Requires-Dist: sentencepiece==0.2.1; extra == "embeddings"
-Requires-Dist: tiktoken==0.9.0; extra == "embeddings"
-Requires-Dist: chromadb==0.6.3; extra == "embeddings"
-Requires-Dist: bm25s[full]==0.2.14; extra == "embeddings"
-Requires-Dist: simsimd>=4.3.1; extra == "embeddings"
-Requires-Dist: tokenizers<=0.22.2,>=0.20.0; extra == "embeddings"
-Requires-Dist: safetensors>=0.4.3; extra == "embeddings"
-Requires-Dist: einops>=0.7.0; extra == "embeddings"
-Requires-Dist: accelerate>=0.30.0; extra == "embeddings"
-Requires-Dist: peft>=0.10.0; extra == "embeddings"
-Requires-Dist: xformers>=0.0.27; extra == "embeddings"
 Provides-Extra: mcp
 Requires-Dist: google-genai>=2.6.0; extra == "mcp"
 Requires-Dist: openai==2.8.1; extra == "mcp"
@@ -234,7 +205,6 @@ Requires-Dist: aiogoogle==5.17.0; extra == "mcp"
 Requires-Dist: rq==2.6.0; extra == "mcp"
 Requires-Dist: zeep[async]==4.3.2; extra == "mcp"
 Requires-Dist: branca==0.8.2; extra == "mcp"
-Requires-Dist: folium==0.20.0; extra == "mcp"
 Requires-Dist: opensearch-py==3.1.0; extra == "mcp"
 Provides-Extra: images
 Requires-Dist: torchvision<0.24,>=0.23.0; extra == "images"
@@ -243,7 +213,6 @@ Requires-Dist: ultralytics==8.4.14; extra == "images"
 Requires-Dist: albumentations==2.0.6; extra == "images"
 Requires-Dist: filetype==1.2.0; extra == "images"
 Requires-Dist: imagehash==4.3.1; extra == "images"
-Requires-Dist: pgvector==0.4.1; extra == "images"
 Requires-Dist: pyheif==0.8.0; extra == "images"
 Requires-Dist: exif==1.6.1; extra == "images"
 Requires-Dist: pillow-avif-plugin==1.5.2; extra == "images"
@@ -252,14 +221,9 @@ Requires-Dist: python-xmp-toolkit==2.1.0; extra == "images"
 Requires-Dist: exifread==3.5.1; extra == "images"
 Requires-Dist: transformers<5.0,>=4.48.0; extra == "images"
 Requires-Dist: ffmpeg==1.4; extra == "images"
-Requires-Dist: holoviews==1.21.0; extra == "images"
-Requires-Dist: bokeh==3.8.2; extra == "images"
-Requires-Dist: pandas-bokeh==0.5.5; extra == "images"
-Requires-Dist: plotly==5.22.0; extra == "images"
 Requires-Dist: ipywidgets==8.1.0; extra == "images"
-Requires-Dist: altair==5.5.0; extra == "images"
 Provides-Extra: anthropic
-Requires-Dist: anthropic[aiohttp]<1.0.0,>=0.97.0; extra == "anthropic"
+Requires-Dist: anthropic[aiohttp]<1.0.0,>=0.105.0; extra == "anthropic"
 Provides-Extra: claude-agent
 Requires-Dist: claude-agent-sdk>=0.1.68; extra == "claude-agent"
 Provides-Extra: openai
@@ -269,25 +233,19 @@ Provides-Extra: google
 Requires-Dist: google-api-python-client<=2.177.0,>=2.166.0; extra == "google"
 Requires-Dist: google-cloud-texttospeech==2.27.0; extra == "google"
 Requires-Dist: google-genai>=2.6.0; extra == "google"
-Requires-Dist: google-cloud-aiplatform==1.133.0; extra == "google"
+Requires-Dist: google-cloud-aiplatform>=1.153.0; extra == "google"
 Provides-Extra: groq
 Requires-Dist: groq==0.33.0; extra == "groq"
 Provides-Extra: llms
 Requires-Dist: google-genai>=2.6.0; extra == "llms"
 Requires-Dist: openai==2.8.1; extra == "llms"
 Requires-Dist: groq==0.33.0; extra == "llms"
-Requires-Dist: anthropic[aiohttp]<1.0.0,>=0.97.0; extra == "llms"
+Requires-Dist: anthropic[aiohttp]<1.0.0,>=0.105.0; extra == "llms"
 Requires-Dist: claude-agent-sdk>=0.1.68; extra == "llms"
 Requires-Dist: xai-sdk>=0.1.0; extra == "llms"
 Provides-Extra: integrations
 Requires-Dist: querysource>=4.1.11; extra == "integrations"
 Requires-Dist: async-notify[all]>=1.5.2; extra == "integrations"
-Requires-Dist: azure-teambots>=0.1.1; extra == "integrations"
-Provides-Extra: milvus
-Requires-Dist: pymilvus==2.4.8; extra == "milvus"
-Requires-Dist: milvus-lite>=2.4.0; extra == "milvus"
-Provides-Extra: chroma
-Requires-Dist: chroma==0.2.0; extra == "chroma"
 Provides-Extra: eda
 Requires-Dist: sweetviz==2.1.4; extra == "eda"
 Provides-Extra: security
@@ -309,9 +267,8 @@ Requires-Dist: aiofiles>=23.0; extra == "filesystem-transport-full"
 Requires-Dist: watchdog>=4.0; extra == "filesystem-transport-full"
 Requires-Dist: rich>=13.0; extra == "filesystem-transport-full"
 Requires-Dist: click>=8.0; extra == "filesystem-transport-full"
-Provides-Extra: matrix
-Requires-Dist: mautrix>=0.20; extra == "matrix"
-Requires-Dist: python-olm>=3.2.16; extra == "matrix"
+Provides-Extra: messaging
+Requires-Dist: ai-parrot-integrations[messaging]; extra == "messaging"
 Provides-Extra: otel
 Requires-Dist: opentelemetry-api<2.0,>=1.25; extra == "otel"
 Requires-Dist: opentelemetry-sdk<2.0,>=1.25; extra == "otel"
@@ -321,7 +278,7 @@ Requires-Dist: opentelemetry-sdk<2.0,>=1.25; extra == "observability"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0,>=1.25; extra == "observability"
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2.0,>=1.25; extra == "observability"
 Provides-Extra: observability-openlit
-Requires-Dist: openlit>=1.0; extra == "observability-openlit"
+Requires-Dist: openlit>=1.40.0; extra == "observability-openlit"
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.24; extra == "dev"
@@ -329,10 +286,15 @@ Requires-Dist: pytest-benchmark>=4.0; extra == "dev"
 Requires-Dist: ruff>=0.4; extra == "dev"
 Provides-Extra: remote-tools
 Requires-Dist: kubernetes_asyncio>=29.0.0; extra == "remote-tools"
+Provides-Extra: visualizations
+Requires-Dist: ai-parrot-visualizations[all]; extra == "visualizations"
 Provides-Extra: all
-Requires-Dist: ai-parrot[agents,arango,audio,bigquery,charts,db,docling,embeddings,finance,flowtask,images,integrations,llms,mcp,ocr,pdf,reddit,scheduler]; extra == "all"
+Requires-Dist: ai-parrot[agents,audio,bigquery,charts,db,docling,finance,flowtask,images,integrations,llms,mcp,ocr,pdf,reddit,scheduler,visualizations]; extra == "all"
+Requires-Dist: ai-parrot-embeddings[all]; extra == "all"
+Requires-Dist: ai-parrot-integrations[all]; extra == "all"
 Provides-Extra: all-fast
-Requires-Dist: ai-parrot[agents-lite,embeddings,integrations,llms]; extra == "all-fast"
+Requires-Dist: ai-parrot[agents-lite,integrations,llms]; extra == "all-fast"
+Requires-Dist: ai-parrot-embeddings[faiss,huggingface,pgvector]; extra == "all-fast"
 
 # AI-Parrot
 

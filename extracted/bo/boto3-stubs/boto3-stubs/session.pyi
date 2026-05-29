@@ -355,6 +355,7 @@ from mypy_boto3_redshift_serverless.client import RedshiftServerlessClient
 from mypy_boto3_rekognition.client import RekognitionClient
 from mypy_boto3_repostspace.client import RePostPrivateClient
 from mypy_boto3_resiliencehub.client import ResilienceHubClient
+from mypy_boto3_resiliencehubv2.client import ResilienceHubV2Client
 from mypy_boto3_resource_explorer_2.client import ResourceExplorerClient
 from mypy_boto3_resource_groups.client import ResourceGroupsClient
 from mypy_boto3_resourcegroupstaggingapi.client import ResourceGroupsTaggingAPIClient
@@ -6635,6 +6636,25 @@ class Session:
     ) -> ResilienceHubClient:
         """
         Create client for ResilienceHub service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["resiliencehubv2"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ResilienceHubV2Client:
+        """
+        Create client for ResilienceHubV2 service.
         """
 
     @overload

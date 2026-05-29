@@ -48,6 +48,9 @@ class EventListener:
         filter_value: Optional[str] = None,
         consumer_group_id: Optional[str] = None,
         offset_reset: str = "latest",
+        max_poll_interval_ms: int = 300000,
+        session_timeout_ms: int = 45000,
+        heartbeat_interval_ms: int = 15000,
     ) -> None:
         """Initialize event listener.
 
@@ -58,6 +61,11 @@ class EventListener:
             filter_field: Optional field name to filter events (e.g., 'streamingGatewayId')
             filter_value: Optional value to match for filtering
             consumer_group_id: Optional Kafka consumer group ID (auto-generated if not provided)
+            max_poll_interval_ms: Max delay between poll() calls before the broker
+                evicts the consumer (default: 300000). Also drives the time-based
+                staleness recreate in the listen loop.
+            session_timeout_ms: Consumer session timeout (default: 45000).
+            heartbeat_interval_ms: Consumer heartbeat interval (default: 15000).
         """
         self.session = session
         self.topics = topics if isinstance(topics, list) else [topics]
@@ -65,6 +73,9 @@ class EventListener:
         self.filter_field = filter_field
         self.filter_value = filter_value
         self.offset_reset = offset_reset
+        self.max_poll_interval_ms = max_poll_interval_ms
+        self.session_timeout_ms = session_timeout_ms
+        self.heartbeat_interval_ms = heartbeat_interval_ms
 
         # Generate consumer group ID if not provided
         if consumer_group_id:
@@ -80,6 +91,12 @@ class EventListener:
         self.is_listening = False
         self._stop_event = threading.Event()
         self._listener_thread: Optional[threading.Thread] = None
+
+        # Public liveness signal: monotonic timestamp of the most recent poll
+        # cycle (updated on EVERY poll, even when no messages are returned).
+        # An external watchdog reads this attribute by name to detect a stalled
+        # or silently-evicted consumer, so the name is a public contract.
+        self.last_poll_monotonic: float = time.monotonic()
 
         # Statistics
         self.stats = {
@@ -124,6 +141,11 @@ class EventListener:
                 "group_id": self.consumer_group_id,
                 "auto_offset_reset": self.offset_reset,
                 "enable_auto_commit": True,
+                # Explicit liveness/heartbeat tuning (kafka-python otherwise uses
+                # its own defaults, which can silently evict the consumer).
+                "max_poll_interval_ms": self.max_poll_interval_ms,
+                "session_timeout_ms": self.session_timeout_ms,
+                "heartbeat_interval_ms": self.heartbeat_interval_ms,
                 "value_deserializer": lambda m: self._deserialize_json(m),
                 "key_deserializer": lambda m: m.decode("utf-8") if m else None,
             }
@@ -244,6 +266,14 @@ class EventListener:
         self.logger.info(f"Event listening started for topics: {self.topics}")
         retry_delay = 1.0
 
+        # Time-based staleness watchdog. A silent max_poll_interval_ms eviction
+        # leaves poll() returning empty with no exception, so an exception-only
+        # recreate never fires. Track the last forward progress and proactively
+        # recreate the consumer if no progress is seen for longer than
+        # 1.5 * max_poll_interval_ms.
+        staleness_threshold = (self.max_poll_interval_ms / 1000.0) * 1.5
+        last_progress = time.monotonic()
+
         while not self._stop_event.is_set():
             try:
                 if not self.consumer:
@@ -252,8 +282,13 @@ class EventListener:
                         retry_delay = min(retry_delay * 2, 60.0)
                         continue
                     retry_delay = 1.0
+                    last_progress = time.monotonic()
 
                 messages = self.consumer.poll(timeout_ms=1000, max_records=10)
+
+                # Public liveness signal — updated on EVERY poll cycle, even
+                # when poll() returns no messages.
+                self.last_poll_monotonic = time.monotonic()
 
                 for topic_partition, records in messages.items():
                     for record in records:
@@ -262,6 +297,20 @@ class EventListener:
                         except Exception as e:
                             self.logger.error(f"Error processing event: {e}")
                             self.stats["events_failed"] += 1
+
+                if messages:
+                    # Real forward progress.
+                    last_progress = self.last_poll_monotonic
+                elif self.last_poll_monotonic - last_progress > staleness_threshold:
+                    # No exception, but the broker may have silently evicted us.
+                    self.logger.warning(
+                        "No Kafka progress for %.0fs (> %.0fs threshold); recreating consumer for topics %s",
+                        self.last_poll_monotonic - last_progress,
+                        staleness_threshold,
+                        self.topics,
+                    )
+                    self._try_recreate_consumer()
+                    last_progress = time.monotonic()  # reset timer after recreate
 
                 retry_delay = 1.0  # reset on success
 

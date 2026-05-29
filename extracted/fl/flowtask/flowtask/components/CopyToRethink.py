@@ -7,7 +7,7 @@ from asyncdb.exceptions import (
     StatementError,
     DataError
 )
-from .CopyTo import CopyTo
+from ..interfaces.copy_to import CopyTo
 from ..interfaces.dataframes import PandasDataframe
 from ..exceptions import (
     ComponentError,

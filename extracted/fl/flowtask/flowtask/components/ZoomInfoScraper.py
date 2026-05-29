@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 from ..exceptions import ComponentError, ConfigError
 from ..interfaces import HTTPService, SeleniumService
 from ..interfaces.http import ua, bad_gateway_exception
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 import json
 
 

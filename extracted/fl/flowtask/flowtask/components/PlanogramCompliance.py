@@ -12,7 +12,7 @@ import re
 from parrot.clients.google import GoogleGenAIClient
 from parrot.models.google import GoogleModel
 from parrot_pipelines.models import PlanogramConfig, EndcapGeometry
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.pipelines.parrot import AIPipeline
 from ..exceptions import ComponentError, ConfigError
 

@@ -54,6 +54,8 @@ from .literals import (
     GatewayPolicyEngineModeType,
     GatewayRuleStatusType,
     GatewayStatusType,
+    HarnessBedrockApiFormatType,
+    HarnessOpenAiApiFormatType,
     HarnessStatusType,
     HarnessToolTypeType,
     HarnessTruncationStrategyType,
@@ -430,6 +432,7 @@ __all__ = (
     "HarnessAgentCoreMemoryRetrievalConfigTypeDef",
     "HarnessAgentCoreRuntimeEnvironmentRequestTypeDef",
     "HarnessAgentCoreRuntimeEnvironmentTypeDef",
+    "HarnessBedrockModelConfigOutputTypeDef",
     "HarnessBedrockModelConfigTypeDef",
     "HarnessEnvironmentArtifactTypeDef",
     "HarnessEnvironmentProviderRequestTypeDef",
@@ -441,14 +444,22 @@ __all__ = (
     "HarnessInlineFunctionConfigOutputTypeDef",
     "HarnessInlineFunctionConfigTypeDef",
     "HarnessInlineFunctionConfigUnionTypeDef",
+    "HarnessLiteLlmModelConfigOutputTypeDef",
+    "HarnessLiteLlmModelConfigTypeDef",
     "HarnessMemoryConfigurationOutputTypeDef",
     "HarnessMemoryConfigurationTypeDef",
     "HarnessMemoryConfigurationUnionTypeDef",
+    "HarnessModelConfigurationOutputTypeDef",
     "HarnessModelConfigurationTypeDef",
+    "HarnessModelConfigurationUnionTypeDef",
+    "HarnessOpenAiModelConfigOutputTypeDef",
     "HarnessOpenAiModelConfigTypeDef",
     "HarnessRemoteMcpConfigOutputTypeDef",
     "HarnessRemoteMcpConfigTypeDef",
     "HarnessRemoteMcpConfigUnionTypeDef",
+    "HarnessSkillGitAuthTypeDef",
+    "HarnessSkillGitSourceTypeDef",
+    "HarnessSkillS3SourceTypeDef",
     "HarnessSkillTypeDef",
     "HarnessSlidingWindowConfigurationTypeDef",
     "HarnessSummarizationConfigurationTypeDef",
@@ -1104,6 +1115,7 @@ class ConfigurationBundleSummaryTypeDef(TypedDict):
     bundleId: str
     bundleName: str
     description: NotRequired[str]
+    createdAt: NotRequired[datetime]
 
 ContentConfigurationTypeDef = TypedDict(
     "ContentConfigurationTypeDef",
@@ -1169,9 +1181,6 @@ class MetadataConfigurationOutputTypeDef(TypedDict):
     allowedRequestHeaders: NotRequired[list[str]]
     allowedQueryParameters: NotRequired[list[str]]
     allowedResponseHeaders: NotRequired[list[str]]
-
-class HarnessSkillTypeDef(TypedDict):
-    path: NotRequired[str]
 
 class HarnessSystemContentBlockTypeDef(TypedDict):
     text: NotRequired[str]
@@ -1588,11 +1597,21 @@ class HarnessAgentCoreMemoryRetrievalConfigTypeDef(TypedDict):
     relevanceScore: NotRequired[float]
     strategyId: NotRequired[str]
 
+class HarnessBedrockModelConfigOutputTypeDef(TypedDict):
+    modelId: str
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    apiFormat: NotRequired[HarnessBedrockApiFormatType]
+    additionalParams: NotRequired[dict[str, Any]]
+
 class HarnessBedrockModelConfigTypeDef(TypedDict):
     modelId: str
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
+    apiFormat: NotRequired[HarnessBedrockApiFormatType]
+    additionalParams: NotRequired[Mapping[str, Any]]
 
 class HarnessGeminiModelConfigTypeDef(TypedDict):
     modelId: str
@@ -1610,12 +1629,41 @@ class HarnessInlineFunctionConfigTypeDef(TypedDict):
     description: str
     inputSchema: Mapping[str, Any]
 
+class HarnessLiteLlmModelConfigOutputTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: NotRequired[str]
+    apiBase: NotRequired[str]
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    additionalParams: NotRequired[dict[str, Any]]
+
+class HarnessLiteLlmModelConfigTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: NotRequired[str]
+    apiBase: NotRequired[str]
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    additionalParams: NotRequired[Mapping[str, Any]]
+
+class HarnessOpenAiModelConfigOutputTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: str
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    apiFormat: NotRequired[HarnessOpenAiApiFormatType]
+    additionalParams: NotRequired[dict[str, Any]]
+
 class HarnessOpenAiModelConfigTypeDef(TypedDict):
     modelId: str
     apiKeyArn: str
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
+    apiFormat: NotRequired[HarnessOpenAiApiFormatType]
+    additionalParams: NotRequired[Mapping[str, Any]]
 
 class HarnessRemoteMcpConfigOutputTypeDef(TypedDict):
     url: str
@@ -1624,6 +1672,13 @@ class HarnessRemoteMcpConfigOutputTypeDef(TypedDict):
 class HarnessRemoteMcpConfigTypeDef(TypedDict):
     url: str
     headers: NotRequired[Mapping[str, str]]
+
+class HarnessSkillGitAuthTypeDef(TypedDict):
+    credentialArn: str
+    username: NotRequired[str]
+
+class HarnessSkillS3SourceTypeDef(TypedDict):
+    uri: str
 
 class HarnessSlidingWindowConfigurationTypeDef(TypedDict):
     messagesCount: NotRequired[int]
@@ -3095,14 +3150,26 @@ HarnessInlineFunctionConfigUnionTypeDef = Union[
     HarnessInlineFunctionConfigTypeDef, HarnessInlineFunctionConfigOutputTypeDef
 ]
 
+class HarnessModelConfigurationOutputTypeDef(TypedDict):
+    bedrockModelConfig: NotRequired[HarnessBedrockModelConfigOutputTypeDef]
+    openAiModelConfig: NotRequired[HarnessOpenAiModelConfigOutputTypeDef]
+    geminiModelConfig: NotRequired[HarnessGeminiModelConfigTypeDef]
+    liteLlmModelConfig: NotRequired[HarnessLiteLlmModelConfigOutputTypeDef]
+
 class HarnessModelConfigurationTypeDef(TypedDict):
     bedrockModelConfig: NotRequired[HarnessBedrockModelConfigTypeDef]
     openAiModelConfig: NotRequired[HarnessOpenAiModelConfigTypeDef]
     geminiModelConfig: NotRequired[HarnessGeminiModelConfigTypeDef]
+    liteLlmModelConfig: NotRequired[HarnessLiteLlmModelConfigTypeDef]
 
 HarnessRemoteMcpConfigUnionTypeDef = Union[
     HarnessRemoteMcpConfigTypeDef, HarnessRemoteMcpConfigOutputTypeDef
 ]
+
+class HarnessSkillGitSourceTypeDef(TypedDict):
+    url: str
+    path: NotRequired[str]
+    auth: NotRequired[HarnessSkillGitAuthTypeDef]
 
 class HarnessTruncationStrategyConfigurationTypeDef(TypedDict):
     slidingWindow: NotRequired[HarnessSlidingWindowConfigurationTypeDef]
@@ -3748,6 +3815,14 @@ class HarnessMemoryConfigurationOutputTypeDef(TypedDict):
 HarnessAgentCoreMemoryConfigurationUnionTypeDef = Union[
     HarnessAgentCoreMemoryConfigurationTypeDef, HarnessAgentCoreMemoryConfigurationOutputTypeDef
 ]
+HarnessModelConfigurationUnionTypeDef = Union[
+    HarnessModelConfigurationTypeDef, HarnessModelConfigurationOutputTypeDef
+]
+
+class HarnessSkillTypeDef(TypedDict):
+    path: NotRequired[str]
+    s3: NotRequired[HarnessSkillS3SourceTypeDef]
+    git: NotRequired[HarnessSkillGitSourceTypeDef]
 
 class HarnessTruncationConfigurationTypeDef(TypedDict):
     strategy: HarnessTruncationStrategyType
@@ -4577,7 +4652,7 @@ class HarnessTypeDef(TypedDict):
     executionRoleArn: str
     createdAt: datetime
     updatedAt: datetime
-    model: HarnessModelConfigurationTypeDef
+    model: HarnessModelConfigurationOutputTypeDef
     systemPrompt: list[HarnessSystemContentBlockTypeDef]
     tools: list[HarnessToolOutputTypeDef]
     skills: list[HarnessSkillTypeDef]
@@ -5118,7 +5193,7 @@ class CreateHarnessRequestTypeDef(TypedDict):
     environmentArtifact: NotRequired[HarnessEnvironmentArtifactTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
     authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
-    model: NotRequired[HarnessModelConfigurationTypeDef]
+    model: NotRequired[HarnessModelConfigurationUnionTypeDef]
     systemPrompt: NotRequired[Sequence[HarnessSystemContentBlockTypeDef]]
     tools: NotRequired[Sequence[HarnessToolUnionTypeDef]]
     skills: NotRequired[Sequence[HarnessSkillTypeDef]]
@@ -5172,7 +5247,7 @@ class UpdateHarnessRequestTypeDef(TypedDict):
     environmentArtifact: NotRequired[UpdatedHarnessEnvironmentArtifactTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
     authorizerConfiguration: NotRequired[UpdatedAuthorizerConfigurationTypeDef]
-    model: NotRequired[HarnessModelConfigurationTypeDef]
+    model: NotRequired[HarnessModelConfigurationUnionTypeDef]
     systemPrompt: NotRequired[Sequence[HarnessSystemContentBlockTypeDef]]
     tools: NotRequired[Sequence[HarnessToolUnionTypeDef]]
     skills: NotRequired[Sequence[HarnessSkillTypeDef]]

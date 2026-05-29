@@ -17,6 +17,17 @@ class ISlippageModel(metaclass=abc.ABCMeta):
         ...
 
 
+class NullSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
+    """Null slippage model, which provider no slippage"""
+
+    INSTANCE: QuantConnect.Orders.Slippage.NullSlippageModel
+    """The null slippage model instance"""
+
+    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
+        """Will return no slippage"""
+        ...
+
+
 class MarketImpactSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
     """
     Slippage model that mimic the effect brought by market impact,
@@ -45,6 +56,22 @@ class MarketImpactSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISli
         ...
 
 
+class ConstantSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
+    """Represents a slippage model that uses a constant percentage of slip"""
+
+    def __init__(self, slippage_percent: float) -> None:
+        """
+        Initializes a new instance of the ConstantSlippageModel class
+        
+        :param slippage_percent: The slippage percent for each order. Percent is ranged 0 to 1.
+        """
+        ...
+
+    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
+        """Slippage Model. Return a decimal cash slippage approximation on the order."""
+        ...
+
+
 class VolumeShareSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
     """
     Represents a slippage model that is calculated by multiplying the price impact constant
@@ -57,33 +84,6 @@ class VolumeShareSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlip
         
         :param volume_limit: 
         :param price_impact: Defines how large of an impact the order will have on the price calculation
-        """
-        ...
-
-    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
-        """Slippage Model. Return a decimal cash slippage approximation on the order."""
-        ...
-
-
-class NullSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
-    """Null slippage model, which provider no slippage"""
-
-    INSTANCE: QuantConnect.Orders.Slippage.NullSlippageModel
-    """The null slippage model instance"""
-
-    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
-        """Will return no slippage"""
-        ...
-
-
-class ConstantSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
-    """Represents a slippage model that uses a constant percentage of slip"""
-
-    def __init__(self, slippage_percent: float) -> None:
-        """
-        Initializes a new instance of the ConstantSlippageModel class
-        
-        :param slippage_percent: The slippage percent for each order. Percent is ranged 0 to 1.
         """
         ...
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PureCloudPlatformClientV2
-Version: 257.1.0
+Version: 258.0.0
 Summary: PureCloud Platform API SDK
 Author-email: Genesys Developer Evangelists <DeveloperEvangelists@Genesys.com>
 License: MIT License
@@ -42,7 +42,7 @@ Requires-Dist: watchdog>=6.0.0
 
 Documentation can be found at https://mypurecloud.github.io/platform-client-sdk-python/
 
-Documentation version PureCloudPlatformClientV2 257.1.0
+Documentation version PureCloudPlatformClientV2 258.0.0
 
 ## Preview APIs
 

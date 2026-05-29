@@ -44,7 +44,8 @@ class InfraEnvCreateParams(object):
         'openshift_version': 'str',
         'cpu_architecture': 'str',
         'kernel_arguments': 'KernelArguments',
-        'additional_trust_bundle': 'str'
+        'additional_trust_bundle': 'str',
+        'network_discovery_delay_seconds': 'int'
     }
 
     attribute_map = {
@@ -61,10 +62,11 @@ class InfraEnvCreateParams(object):
         'openshift_version': 'openshift_version',
         'cpu_architecture': 'cpu_architecture',
         'kernel_arguments': 'kernel_arguments',
-        'additional_trust_bundle': 'additional_trust_bundle'
+        'additional_trust_bundle': 'additional_trust_bundle',
+        'network_discovery_delay_seconds': 'network_discovery_delay_seconds'
     }
 
-    def __init__(self, name=None, proxy=None, additional_ntp_sources=None, ssh_authorized_key=None, pull_secret=None, static_network_config=None, rendezvous_ip=None, image_type=None, ignition_config_override=None, cluster_id=None, openshift_version=None, cpu_architecture='x86_64', kernel_arguments=None, additional_trust_bundle=None):  # noqa: E501
+    def __init__(self, name=None, proxy=None, additional_ntp_sources=None, ssh_authorized_key=None, pull_secret=None, static_network_config=None, rendezvous_ip=None, image_type=None, ignition_config_override=None, cluster_id=None, openshift_version=None, cpu_architecture='x86_64', kernel_arguments=None, additional_trust_bundle=None, network_discovery_delay_seconds=None):  # noqa: E501
         """InfraEnvCreateParams - a model defined in Swagger"""  # noqa: E501
 
         self._name = None
@@ -81,6 +83,7 @@ class InfraEnvCreateParams(object):
         self._cpu_architecture = None
         self._kernel_arguments = None
         self._additional_trust_bundle = None
+        self._network_discovery_delay_seconds = None
         self.discriminator = None
 
         self.name = name
@@ -109,6 +112,8 @@ class InfraEnvCreateParams(object):
             self.kernel_arguments = kernel_arguments
         if additional_trust_bundle is not None:
             self.additional_trust_bundle = additional_trust_bundle
+        if network_discovery_delay_seconds is not None:
+            self.network_discovery_delay_seconds = network_discovery_delay_seconds
 
     @property
     def name(self):
@@ -435,6 +440,31 @@ class InfraEnvCreateParams(object):
             raise ValueError("Invalid value for `additional_trust_bundle`, length must be less than or equal to `65535`")  # noqa: E501
 
         self._additional_trust_bundle = additional_trust_bundle
+
+    @property
+    def network_discovery_delay_seconds(self):
+        """Gets the network_discovery_delay_seconds of this InfraEnvCreateParams.  # noqa: E501
+
+        The number of seconds to wait before mapping host MACs to interfaces when applying static network config on minimal ISO. This can be used on hosts that need time to discover their NICs.  # noqa: E501
+
+        :return: The network_discovery_delay_seconds of this InfraEnvCreateParams.  # noqa: E501
+        :rtype: int
+        """
+        return self._network_discovery_delay_seconds
+
+    @network_discovery_delay_seconds.setter
+    def network_discovery_delay_seconds(self, network_discovery_delay_seconds):
+        """Sets the network_discovery_delay_seconds of this InfraEnvCreateParams.
+
+        The number of seconds to wait before mapping host MACs to interfaces when applying static network config on minimal ISO. This can be used on hosts that need time to discover their NICs.  # noqa: E501
+
+        :param network_discovery_delay_seconds: The network_discovery_delay_seconds of this InfraEnvCreateParams.  # noqa: E501
+        :type: int
+        """
+        if network_discovery_delay_seconds is not None and network_discovery_delay_seconds < 0:  # noqa: E501
+            raise ValueError("Invalid value for `network_discovery_delay_seconds`, must be a value greater than or equal to `0`")  # noqa: E501
+
+        self._network_discovery_delay_seconds = network_discovery_delay_seconds
 
     def to_dict(self):
         """Returns the model properties as a dict"""

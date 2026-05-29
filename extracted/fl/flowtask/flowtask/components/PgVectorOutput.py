@@ -4,7 +4,7 @@ from typing import List
 from sqlalchemy import text
 from parrot.stores.postgres import PgVectorStore
 from parrot.stores.models import Document
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import DataNotFound, ComponentError, ConfigError
 from ..conf import default_sqlalchemy_pg
 from ..interfaces.credentials import CredentialsInterface

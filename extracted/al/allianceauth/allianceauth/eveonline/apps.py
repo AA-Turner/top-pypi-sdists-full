@@ -6,3 +6,6 @@ class EveonlineConfig(AppConfig):
     name = 'allianceauth.eveonline'
     label = 'eveonline'
     verbose_name = _('EVE Online')
+
+    def ready(self) -> None:
+        pass

@@ -1,17 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: shap
-Version: 0.51.0
+Version: 0.52.0
 Summary: A unified approach to explain the output of any machine learning model.
-Author-email: Scott Lundberg <slund1@cs.washington.edu>
+Author-Email: Scott Lundberg <slund1@cs.washington.edu>
 License: MIT License
-Project-URL: Repository, http://github.com/shap/shap
-Project-URL: Documentation, https://shap.readthedocs.io/en/latest/index.html
-Project-URL: Release Notes, https://shap.readthedocs.io/en/latest/release_notes.html
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
@@ -21,9 +17,10 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.11
-Description-Content-Type: text/markdown
-License-File: LICENSE
+Project-URL: Repository, http://github.com/shap/shap
+Project-URL: Documentation, https://shap.readthedocs.io/en/latest/index.html
+Project-URL: Release Notes, https://shap.readthedocs.io/en/latest/release_notes.html
+Requires-Python: >=3.12
 Requires-Dist: numpy>=2
 Requires-Dist: scipy
 Requires-Dist: scikit-learn
@@ -36,7 +33,6 @@ Requires-Dist: numba; sys_platform != "darwin" or platform_machine != "x86_64"
 Requires-Dist: llvmlite<0.46; sys_platform == "darwin" and platform_machine == "x86_64"
 Requires-Dist: llvmlite; sys_platform != "darwin" or platform_machine != "x86_64"
 Requires-Dist: cloudpickle
-Requires-Dist: typing-extensions
 Provides-Extra: plots
 Requires-Dist: matplotlib; extra == "plots"
 Requires-Dist: ipython; extra == "plots"
@@ -74,14 +70,13 @@ Requires-Dist: pyod; extra == "test"
 Requires-Dist: transformers<4.54.0; extra == "test"
 Requires-Dist: tf-keras; extra == "test"
 Requires-Dist: protobuf; extra == "test"
-Requires-Dist: torch; python_version < "3.14" and extra == "test"
+Requires-Dist: torch<=2.11.0; python_version < "3.14" and extra == "test"
 Requires-Dist: torchvision; python_version < "3.14" and extra == "test"
 Requires-Dist: tensorflow; python_version < "3.14" and extra == "test"
 Requires-Dist: sentencepiece; extra == "test"
 Requires-Dist: opencv-python; extra == "test"
 Requires-Dist: numpy>=2.0; extra == "test"
-Requires-Dist: numba==0.63.0; extra == "test"
-Requires-Dist: causalml; extra == "test"
+Requires-Dist: causalml>=0.15.5; extra == "test"
 Requires-Dist: selenium; extra == "test"
 Provides-Extra: test-notebooks
 Requires-Dist: jupyter; extra == "test-notebooks"
@@ -95,7 +90,7 @@ Provides-Extra: nbtest
 Requires-Dist: nbtest-plugin; extra == "nbtest"
 Requires-Dist: nbtest-gen; extra == "nbtest"
 Requires-Dist: nbtest-lab-extension; extra == "nbtest"
-Dynamic: license-file
+Description-Content-Type: text/markdown
 
 
 
@@ -129,6 +124,20 @@ pip install shap
 <i>or</i>
 conda install -c conda-forge shap
 </pre>
+
+### GPU support
+
+To enable GPU-accelerated Tree SHAP, install from source with the CUDA toolkit available and the `SHAP_ENABLE_CUDA` environment variable set:
+
+<pre>
+SHAP_ENABLE_CUDA=1 pip install .
+</pre>
+
+This requires the [CUDA toolkit](https://developer.nvidia.com/cuda-toolkit) to be installed on your system.
+
+## Supported versions
+
+SHAP follows [SPEC 0](https://scientific-python.org/specs/spec-0000/) for minimum supported dependency versions. We test against the versions specified there and may not fix bugs for older versions.
 
 ## Contributing
 
@@ -223,7 +232,7 @@ import transformers
 import shap
 
 # load a transformers pipeline model
-model = transformers.pipeline('sentiment-analysis', return_all_scores=True)
+model = transformers.pipeline('sentiment-analysis', top_k=None)
 
 # explain the model on two sample inputs
 explainer = shap.Explainer(model)

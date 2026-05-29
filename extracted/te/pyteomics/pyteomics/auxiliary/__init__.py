@@ -1,8 +1,3 @@
-try:
-    basestring = basestring
-except NameError:
-    basestring = (str, bytes)
-
 from .structures import (
     PyteomicsError, Charge, ChargeList,
     _parse_charge, _parse_ion, BasicComposition,
@@ -16,7 +11,7 @@ from .file_helpers import (
     FileReader, IndexedTextReader, IndexedReaderMixin, TimeOrderedIndexedReaderMixin,
     IndexSavingMixin, OffsetIndex, HierarchicalOffsetIndex, IndexSavingTextReader,
     _file_reader, _file_writer,
-    _make_chain, _check_use_index, FileReadingProcess, TaskMappingMixin,
+    _make_chain, _check_use_index, FileReadingProcess, TaskMappingMixin, set_start_method,
     serializer, ChainBase, TableJoiner)
 
 from .math import (
@@ -32,4 +27,4 @@ from .target_decoy import (
 
 from .utils import (
     print_tree, memoize, BinaryDataArrayTransformer, ArrayConversionMixin, BinaryArrayConversionMixin,
-    MaskedArrayConversionMixin, _decode_base64_data_array)
+    MaskedArrayConversionMixin, _decode_base64_data_array, ensure_url_prefix)

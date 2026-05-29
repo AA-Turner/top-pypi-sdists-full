@@ -10,12 +10,13 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 import os
 import time
 from typing import Any, ClassVar, Literal, overload
 import warnings
 
+from openstack._utils import renamed_param
 from openstack import exceptions
 from openstack.image.v2 import cache as _cache
 from openstack.image.v2 import image as _image
@@ -84,7 +85,7 @@ class Proxy(proxy.Proxy):
     _SHADE_IMAGE_OBJECT_KEY = 'owner_specified.shade.object'
 
     # ====== CACHE MANAGEMENT======
-    def get_image_cache(self):
+    def get_image_cache(self) -> _cache.Cache:
         return self._get(_cache.Cache, requires_id=False)
 
     def cache_delete_image(self, image, ignore_missing=True):
@@ -92,17 +93,18 @@ class Proxy(proxy.Proxy):
 
         :param image: The value can be either the ID of an image or a
             :class:`~openstack.image.v2.image.Image` instance.
-        :param bool ignore_missing: When set to ``False``,
+        :param ignore_missing: When set to ``False``,
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the image or cache entry does not exist.
         :returns: ``None``
         """
         return self._delete(_cache.Cache, image, ignore_missing=ignore_missing)
 
-    def queue_image(self, image_id):
+    @renamed_param('image_id', 'image')
+    def queue_image(self, image):
         """Queue image(s) for caching."""
         cache = self._get_resource(_cache.Cache, None)
-        return cache.queue(self, image_id)
+        return cache.queue(self, resource.Resource._get_id(image))
 
     def clear_cache(self, target='both'):
         """Clear all images from cache, queue or both
@@ -178,43 +180,43 @@ class Proxy(proxy.Proxy):
         allows you to upload data from multiple sources including other glance
         instances. It should be preferred on all services that support it.
 
-        :param str name: Name of the image to create. If it is a pathname
+        :param name: Name of the image to create. If it is a pathname
             of an image, the name will be constructed from the extensionless
             basename of the path.
-        :param str filename: The path to the file to upload, if needed.
+        :param filename: The path to the file to upload, if needed.
             (optional, defaults to None)
         :param data: Image data (string or file-like object). It is mutually
             exclusive with filename
-        :param str container: Name of the container in swift where images
+        :param container: Name of the container in swift where images
             should be uploaded for import if the cloud requires such a thing.
             (optional, defaults to 'images')
-        :param str md5: md5 sum of the image file. If not given, an md5 will
+        :param md5: md5 sum of the image file. If not given, an md5 will
             be calculated.
-        :param str sha256: sha256 sum of the image file. If not given, an md5
+        :param sha256: sha256 sum of the image file. If not given, an md5
             will be calculated.
-        :param str disk_format: The disk format the image is in. (optional,
+        :param disk_format: The disk format the image is in. (optional,
             defaults to the os-client-config config value for this cloud)
-        :param str container_format: The container format the image is in.
+        :param container_format: The container format the image is in.
             (optional, defaults to the os-client-config config value for this
             cloud)
-        :param list tags: List of tags for this image. Each tag is a string
+        :param tags: List of tags for this image. Each tag is a string
             of at most 255 chars.
-        :param bool disable_vendor_agent: Whether or not to append metadata
+        :param disable_vendor_agent: Whether or not to append metadata
             flags to the image to inform the cloud in question to not expect a
             vendor agent to be runing. (optional, defaults to True)
         :param allow_duplicates: If true, skips checks that enforce unique
             image name. (optional, defaults to False)
         :param meta: A dict of key/value pairs to use for metadata that
             bypasses automatic type conversion.
-        :param bool wait: If true, waits for image to be created. Defaults to
+        :param wait: If true, waits for image to be created. Defaults to
             true - however, be aware that one of the upload methods is always
             synchronous.
         :param timeout: Seconds to wait for image creation. None is forever.
-        :param bool validate_checksum: If true and cloud returns checksum,
+        :param validate_checksum: If true and cloud returns checksum,
             compares return value with the one calculated or passed into this
             call. If value does not match - raises exception. Default is
             'false'
-        :param bool use_import: Use the 'glance-direct' method of the
+        :param use_import: Use the 'glance-direct' method of the
             interoperable image import mechanism to import the image. This
             defaults to false because it is harder on the target cloud so
             should only be used when needed, such as when the user needs the
@@ -265,7 +267,6 @@ class Proxy(proxy.Proxy):
         If a value is in meta and kwargs, meta wins.
 
         :returns: The results of image creation
-        :rtype: :class:`~openstack.image.v2.image.Image`
         :raises: SDKException if there are problems uploading
         """
         if filename and data:
@@ -494,7 +495,6 @@ class Proxy(proxy.Proxy):
         :param data: Optional data to be uploaded as an image.
 
         :returns: The results of image creation
-        :rtype: :class:`~openstack.image.v2.image.Image`
         """
         if filename and data:
             raise exceptions.SDKException(
@@ -539,12 +539,11 @@ class Proxy(proxy.Proxy):
         :param disk_format: The format of the disk. A valid value is ami,
             ari, aki, vhd, vmdk, raw, qcow2, vdi, or iso.
         :param data: The data to be uploaded as an image.
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.image.v2.image.Image`, comprised of the
             properties on the Image class.
 
         :returns: The results of image creation
-        :rtype: :class:`~openstack.image.v2.image.Image`
         """
         warnings.warn(
             "upload_image is deprecated. Use create_image instead.",
@@ -863,7 +862,7 @@ class Proxy(proxy.Proxy):
 
         :param image: The value can be either the ID of an image or a
             :class:`~openstack.image.v2.image.Image` instance.
-        :param bool stream: When ``True``, return a :class:`requests.Response`
+        :param stream: When ``True``, return a :class:`requests.Response`
             instance allowing you to iterate over the response data stream
             instead of storing its entire contents in memory. See
             :meth:`requests.Response.iter_content` for more details.
@@ -875,7 +874,7 @@ class Proxy(proxy.Proxy):
 
             When ``False``, return the entire contents of the response.
         :param output: Either a file object or a path to store data into.
-        :param int chunk_size: size in bytes to read from the wire and buffer
+        :param chunk_size: size in bytes to read from the wire and buffer
             at one time. Defaults to 1024 * 1024 = 1 MiB
 
         :returns: When output is not given - the bytes comprising the given
@@ -893,7 +892,13 @@ class Proxy(proxy.Proxy):
             chunk_size=chunk_size,
         )
 
-    def delete_image(self, image, *, store=None, ignore_missing=True):
+    def delete_image(
+        self,
+        image: str | _image.Image,
+        *,
+        store: str | _si.Store | None = None,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete an image
 
         :param image: The value can be either the ID of an image or a
@@ -902,7 +907,7 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.image.v2.service_info.Store` instance that the
             image is associated with. If specified, the image will only be
             deleted from the specified store.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the image does not exist.
             When set to ``True``, no exception will be set when
@@ -938,7 +943,7 @@ class Proxy(proxy.Proxy):
         """Find a single image
 
         :param name_or_id: The name or ID of a image.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -951,7 +956,7 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_image(self, image):
+    def get_image(self, image: str | _image.Image) -> _image.Image:
         """Get a single image
 
         :param image: The value can be the ID of a image or a
@@ -963,18 +968,19 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_image.Image, image)
 
-    def images(self, **query):
+    def images(self, **query: Any) -> Generator[_image.Image, None, None]:
         """Return a generator of images
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of image objects
-        :rtype: :class:`~openstack.image.v2.image.Image`
         """
         return self._list(_image.Image, **query)
 
-    def update_image(self, image, **attrs):
+    def update_image(
+        self, image: str | _image.Image, **attrs: Any
+    ) -> _image.Image:
         """Update a image
 
         :param image: Either the ID of a image or a
@@ -983,7 +989,6 @@ class Proxy(proxy.Proxy):
             by ``image``.
 
         :returns: The updated image
-        :rtype: :class:`~openstack.image.v2.image.Image`
         """
         return self._update(_image.Image, image, **attrs)
 
@@ -1011,10 +1016,10 @@ class Proxy(proxy.Proxy):
 
     def update_image_properties(
         self,
-        image=None,
-        meta=None,
-        **kwargs,
-    ):
+        image: str | _image.Image | None = None,
+        meta: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> bool:
         """Update the properties of an existing image
 
         :param image: The value can be the ID of a image or a
@@ -1051,13 +1056,15 @@ class Proxy(proxy.Proxy):
 
         return True
 
-    def image_tasks(self, image):
+    def image_tasks(
+        self,
+        image: str | _image.Image,
+    ) -> Generator[_image_tasks.ImageTasks, None, None]:
         """Return a generator of Image Tasks
 
         :param image: The value can be either the name of an image or a
             :class:`~openstack.image.v2.image.Image` instance.
-        :return: A generator object of image tasks
-        :rtype: :class: ~openstack.image.v2.image_tasks.ImageTasks
+        :returns: A generator object of image tasks
         :raises: :class:`~openstack.exceptions.NotFoundException`
                 when no resource can be found.
         """
@@ -1095,7 +1102,7 @@ class Proxy(proxy.Proxy):
         :param image: The value can be the ID of a image or a
             :class:`~openstack.image.v2.image.Image` instance
             that the member will be created for.
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.image.v2.member.Member`,
             comprised of the properties on the Member class.
 
@@ -1104,7 +1111,6 @@ class Proxy(proxy.Proxy):
         for details.
 
         :returns: The results of member creation
-        :rtype: :class:`~openstack.image.v2.member.Member`
         """
         image_id = resource.Resource._get_id(image)
         return self._create(_member.Member, image_id=image_id, **attrs)
@@ -1117,7 +1123,7 @@ class Proxy(proxy.Proxy):
         :param image: The value can be either the ID of an image or a
             :class:`~openstack.image.v2.image.Image` instance that the member
             is part of. This is required if ``member`` is an ID.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the member does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent member.
@@ -1162,7 +1168,7 @@ class Proxy(proxy.Proxy):
         :param image: This is the image that the member belongs to,
             the value can be the ID of a image or a
             :class:`~openstack.image.v2.image.Image` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -1177,7 +1183,11 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_member(self, member, image):
+    def get_member(
+        self,
+        member: str | _member.Member,
+        image: str | _image.Image,
+    ) -> _member.Member:
         """Get a single member on an image
 
         :param member: The value can be the ID of a member or a
@@ -1195,22 +1205,30 @@ class Proxy(proxy.Proxy):
             _member.Member, member_id=member_id, image_id=image_id
         )
 
-    def members(self, image, **query):
+    def members(
+        self,
+        image: str | _image.Image,
+        **query: Any,
+    ) -> Generator[_member.Member, None, None]:
         """Return a generator of members
 
         :param image: This is the image that the member belongs to,
             the value can be the ID of a image or a
             :class:`~openstack.image.v2.image.Image` instance.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of member objects
-        :rtype: :class:`~openstack.image.v2.member.Member`
         """
         image_id = resource.Resource._get_id(image)
         return self._list(_member.Member, image_id=image_id)
 
-    def update_member(self, member, image, **attrs):
+    def update_member(
+        self,
+        member: str | _member.Member,
+        image: str | _image.Image,
+        **attrs: Any,
+    ) -> _member.Member:
         """Update the member of an image
 
         :param member: Either the ID of a member or a
@@ -1226,7 +1244,6 @@ class Proxy(proxy.Proxy):
         for details.
 
         :returns: The updated member
-        :rtype: :class:`~openstack.image.v2.member.Member`
         """
         member_id = resource.Resource._get_id(member)
         image_id = resource.Resource._get_id(image)
@@ -1244,23 +1261,26 @@ class Proxy(proxy.Proxy):
     ) -> _metadef_namespace.MetadefNamespace:
         """Create a new metadef namespace from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             comprised of the properties on the MetadefNamespace class.
 
         :returns: The results of metadef namespace creation
-        :rtype: :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
         """
         return self._create(_metadef_namespace.MetadefNamespace, **attrs)
 
-    def delete_metadef_namespace(self, metadef_namespace, ignore_missing=True):
+    def delete_metadef_namespace(
+        self,
+        metadef_namespace: str | _metadef_namespace.MetadefNamespace,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a metadef namespace
 
         :param metadef_namespace: The value can be either the name of a metadef
             namespace or a
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance.
-        :param bool ignore_missing: When set to ``False``,
+        :param ignore_missing: When set to ``False``,
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the metadef namespace does not exist.
         :returns: ``None``
@@ -1275,7 +1295,10 @@ class Proxy(proxy.Proxy):
     # are identified by the namespace name, not an arbitrary UUID, meaning
     # 'find_metadef_namespace' would be identical to 'get_metadef_namespace'
 
-    def get_metadef_namespace(self, metadef_namespace):
+    def get_metadef_namespace(
+        self,
+        metadef_namespace: str | _metadef_namespace.MetadefNamespace,
+    ) -> _metadef_namespace.MetadefNamespace:
         """Get a single metadef namespace
 
         :param metadef_namespace: Either the name of a metadef namespace or an
@@ -1292,17 +1315,23 @@ class Proxy(proxy.Proxy):
             metadef_namespace,
         )
 
-    def metadef_namespaces(self, **query):
+    def metadef_namespaces(
+        self,
+        **query: Any,
+    ) -> Generator[_metadef_namespace.MetadefNamespace, None, None]:
         """Return a generator of metadef namespaces
 
         :returns: A generator object of metadef namespaces
-        :rtype: :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
         return self._list(_metadef_namespace.MetadefNamespace, **query)
 
-    def update_metadef_namespace(self, metadef_namespace, **attrs):
+    def update_metadef_namespace(
+        self,
+        metadef_namespace: str | _metadef_namespace.MetadefNamespace,
+        **attrs: Any,
+    ) -> _metadef_namespace.MetadefNamespace:
         """Update a server
 
         :param metadef_namespace: Either the name of a metadef namespace or an
@@ -1312,7 +1341,6 @@ class Proxy(proxy.Proxy):
             represented by ``metadef_namespace``.
 
         :returns: The updated metadef namespace
-        :rtype: :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
         """
         # rather annoyingly, Glance insists on us providing the 'namespace'
         # argument, even if we're not changing it...
@@ -1331,7 +1359,7 @@ class Proxy(proxy.Proxy):
         :param metadef_namespace: Either the name of a metadef namespace or an
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance.
-        :param str tag: The tag to be added.
+        :param tag: The tag to be added.
 
         :returns: None
         """
@@ -1346,7 +1374,7 @@ class Proxy(proxy.Proxy):
         :param metadef_namespace: Either the name of a metadef namespace or an
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance.
-        :param str tag: The tag to be removed.
+        :param tag: The tag to be removed.
 
         :returns: None
         """
@@ -1381,12 +1409,11 @@ class Proxy(proxy.Proxy):
             namespace or a
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance.
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.image.v2.metadef_object.MetadefObject`,
             comprised of the properties on the Metadef object class.
 
         :returns: A metadef namespace
-        :rtype: :class:`~openstack.image.v2.metadef_object.MetadefObject`
         """
         namespace_name = resource.Resource._get_id(namespace)
         return self._create(
@@ -1395,7 +1422,11 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    def get_metadef_object(self, metadef_object, namespace):
+    def get_metadef_object(
+        self,
+        metadef_object: str | _metadef_object.MetadefObject,
+        namespace: str | _metadef_namespace.MetadefNamespace,
+    ) -> _metadef_object.MetadefObject:
         """Get a single metadef object
 
         :param metadef_object: The value can be the ID of a metadef_object
@@ -1418,7 +1449,10 @@ class Proxy(proxy.Proxy):
             name=object_name,
         )
 
-    def metadef_objects(self, namespace):
+    def metadef_objects(
+        self,
+        namespace: str | _metadef_namespace.MetadefNamespace,
+    ) -> Generator[_metadef_object.MetadefObject, None, None]:
         """Get metadef object list of the namespace
 
         :param namespace: The value can be either the name of a metadef
@@ -1436,7 +1470,12 @@ class Proxy(proxy.Proxy):
             namespace_name=namespace_name,
         )
 
-    def update_metadef_object(self, metadef_object, namespace, **attrs):
+    def update_metadef_object(
+        self,
+        metadef_object: str | _metadef_object.MetadefObject,
+        namespace: str | _metadef_namespace.MetadefNamespace,
+        **attrs: Any,
+    ) -> _metadef_object.MetadefObject:
         """Update a single metadef object
 
         :param metadef_object: The value can be the ID of a metadef_object or a
@@ -1445,7 +1484,7 @@ class Proxy(proxy.Proxy):
             namespace or a
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance.
-        :param dict attrs: Keyword arguments which will be used to update
+        :param attrs: Keyword arguments which will be used to update
             a :class:`~openstack.image.v2.metadef_object.MetadefObject`
 
         :returns: One :class:`~openstack.image.v2.metadef_object.MetadefObject`
@@ -1461,7 +1500,13 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    def delete_metadef_object(self, metadef_object, namespace, **attrs):
+    # TODO(stephenfin): This method should return None
+    def delete_metadef_object(
+        self,
+        metadef_object: str | _metadef_object.MetadefObject,
+        namespace: str | _metadef_namespace.MetadefNamespace,
+        **attrs: Any,
+    ) -> _metadef_object.MetadefObject | None:
         """Removes a single metadef object
 
         :param metadef_object: The value can be the ID of a metadef_object or a
@@ -1470,10 +1515,10 @@ class Proxy(proxy.Proxy):
             namespace or a
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance.
-        :param dict attrs: Keyword arguments which will be used to update
+        :param attrs: Keyword arguments which will be used to update
             a :class:`~openstack.image.v2.metadef_object.MetadefObject`
 
-        :returns: ``None``
+        :returns: The deleted metadef object.
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             resource can be found.
         """
@@ -1485,14 +1530,17 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    def delete_all_metadef_objects(self, namespace):
+    # TODO(stephenfin): This method should return None
+    def delete_all_metadef_objects(
+        self, namespace: str | _metadef_namespace.MetadefNamespace
+    ) -> _metadef_namespace.MetadefNamespace:
         """Delete all objects
 
         :param namespace: The value can be either the name of a metadef
             namespace or a
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance.
-        :returns: ``None``
+        :returns: The namespace whose objects were deleted.
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             resource can be found.
         """
@@ -1502,11 +1550,13 @@ class Proxy(proxy.Proxy):
         return namespace.delete_all_objects(self)
 
     # ====== METADEF RESOURCE TYPES ======
-    def metadef_resource_types(self, **query):
+    def metadef_resource_types(
+        self,
+        **query: Any,
+    ) -> Generator[_metadef_resource_type.MetadefResourceType, None, None]:
         """Return a generator of metadef resource types
 
-        :return: A generator object of metadef resource types
-        :rtype:
+        :returns: A generator object of metadef resource types
             :class:`~openstack.image.v2.metadef_resource_type.MetadefResourceType`
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
@@ -1522,14 +1572,12 @@ class Proxy(proxy.Proxy):
         """Creates a resource type association between a namespace
             and the resource type specified in the body of the request.
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.image.v2.metadef_resource_type.MetadefResourceTypeAssociation`
             comprised of the properties on the
             MetadefResourceTypeAssociation class.
 
         :returns: The results of metadef resource type association creation
-        :rtype:
-            :class:`~openstack.image.v2.metadef_resource_type.MetadefResourceTypeAssociation`
         """
         namespace_name = resource.Resource._get_id(metadef_namespace)
         return self._create(
@@ -1540,10 +1588,11 @@ class Proxy(proxy.Proxy):
 
     def delete_metadef_resource_type_association(
         self,
-        metadef_resource_type,
-        metadef_namespace,
-        ignore_missing=True,
-    ):
+        metadef_resource_type: str
+        | _metadef_resource_type.MetadefResourceTypeAssociation,
+        metadef_namespace: str | _metadef_namespace.MetadefNamespace,
+        ignore_missing: bool = True,
+    ) -> None:
         """Removes a resource type association in a namespace.
 
         :param metadef_resource_type: The value can be either the name of
@@ -1554,7 +1603,7 @@ class Proxy(proxy.Proxy):
             namespace or an
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance
-        :param bool ignore_missing: When set to ``False``,
+        :param ignore_missing: When set to ``False``,
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the metadef resource type association does not exist.
         :returns: ``None``
@@ -1567,15 +1616,20 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def metadef_resource_type_associations(self, metadef_namespace, **query):
+    def metadef_resource_type_associations(
+        self,
+        metadef_namespace: str | _metadef_namespace.MetadefNamespace,
+        **query: Any,
+    ) -> Generator[
+        _metadef_resource_type.MetadefResourceTypeAssociation, None, None
+    ]:
         """Return a generator of metadef resource type associations
 
         :param metadef_namespace: The value can be either the name of metadef
             namespace or an
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance
-        :return: A generator object of metadef resource type associations
-        :rtype:
+        :returns: A generator object of metadef resource type associations
             :class:`~openstack.image.v2.metadef_resource_type.MetadefResourceTypeAssociation`
         :raises: :class:`~openstack.exceptions.NotFoundException`
                 when no resource can be found.
@@ -1603,7 +1657,6 @@ class Proxy(proxy.Proxy):
             represented by ``metadef_property``.
 
         :returns: The created metadef property
-        :rtype: :class:`~openstack.image.v2.metadef_property.MetadefProperty`
         """
         namespace_name = resource.Resource._get_id(metadef_namespace)
         return self._create(
@@ -1613,8 +1666,11 @@ class Proxy(proxy.Proxy):
         )
 
     def update_metadef_property(
-        self, metadef_property, metadef_namespace, **attrs
-    ):
+        self,
+        metadef_property: str | _metadef_property.MetadefProperty,
+        metadef_namespace: str | _metadef_namespace.MetadefNamespace,
+        **attrs: Any,
+    ) -> _metadef_property.MetadefProperty:
         """Update a metadef property
 
         :param metadef_property: The value can be either the name of metadef
@@ -1629,7 +1685,6 @@ class Proxy(proxy.Proxy):
             represented by ``metadef_property``.
 
         :returns: The updated metadef property
-        :rtype: :class:`~openstack.image.v2.metadef_property.MetadefProperty`
         """
         namespace_name = resource.Resource._get_id(metadef_namespace)
         metadef_property = resource.Resource._get_id(metadef_property)
@@ -1641,8 +1696,11 @@ class Proxy(proxy.Proxy):
         )
 
     def delete_metadef_property(
-        self, metadef_property, metadef_namespace, ignore_missing=True
-    ):
+        self,
+        metadef_property: str | _metadef_property.MetadefProperty,
+        metadef_namespace: str | _metadef_namespace.MetadefNamespace,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a metadef property
 
         :param metadef_property: The value can be either the name of metadef
@@ -1653,7 +1711,7 @@ class Proxy(proxy.Proxy):
             namespace or an
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance
-        :param bool ignore_missing: When set to
+        :param ignore_missing: When set to
             ``False`` :class:`~openstack.exceptions.NotFoundException` will be
             raised when the instance does not exist. When set to ``True``,
             no exception will be set when attempting to delete a nonexistent
@@ -1663,21 +1721,25 @@ class Proxy(proxy.Proxy):
         """
         namespace_name = resource.Resource._get_id(metadef_namespace)
         metadef_property = resource.Resource._get_id(metadef_property)
-        return self._delete(
+        self._delete(
             _metadef_property.MetadefProperty,
             metadef_property,
             namespace_name=namespace_name,
             ignore_missing=ignore_missing,
         )
 
-    def metadef_properties(self, metadef_namespace, **query):
+    def metadef_properties(
+        self,
+        metadef_namespace: str | _metadef_namespace.MetadefNamespace,
+        **query: Any,
+    ) -> Generator[_metadef_property.MetadefProperty, None, None]:
         """Return a generator of metadef properties
 
         :param metadef_namespace: The value can be either the name of metadef
             namespace or an
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of property objects
@@ -1691,8 +1753,11 @@ class Proxy(proxy.Proxy):
         )
 
     def get_metadef_property(
-        self, metadef_property, metadef_namespace, **query
-    ):
+        self,
+        metadef_property: str | _metadef_property.MetadefProperty,
+        metadef_namespace: str | _metadef_namespace.MetadefNamespace,
+        **query: Any,
+    ) -> _metadef_property.MetadefProperty:
         """Get a single metadef property
 
         :param metadef_property: The value can be either the name of metadef
@@ -1717,7 +1782,9 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def delete_all_metadef_properties(self, metadef_namespace):
+    def delete_all_metadef_properties(
+        self, metadef_namespace: str | _metadef_namespace.MetadefNamespace
+    ) -> None:
         """Delete all metadata definitions property inside a namespace.
 
         :param metadef_namespace: The value can be either the name of a metadef
@@ -1732,10 +1799,10 @@ class Proxy(proxy.Proxy):
         namespace = self._get_resource(
             _metadef_namespace.MetadefNamespace, metadef_namespace
         )
-        return namespace.delete_all_properties(self)
+        namespace.delete_all_properties(self)
 
     # ====== SCHEMAS ======
-    def get_images_schema(self):
+    def get_images_schema(self) -> _schema.Schema:
         """Get images schema
 
         :returns: One :class:`~openstack.image.v2.schema.Schema`
@@ -1748,7 +1815,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/images',
         )
 
-    def get_image_schema(self):
+    def get_image_schema(self) -> _schema.Schema:
         """Get single image schema
 
         :returns: One :class:`~openstack.image.v2.schema.Schema`
@@ -1761,7 +1828,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/image',
         )
 
-    def get_members_schema(self):
+    def get_members_schema(self) -> _schema.Schema:
         """Get image members schema
 
         :returns: One :class:`~openstack.image.v2.schema.Schema`
@@ -1774,7 +1841,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/members',
         )
 
-    def get_member_schema(self):
+    def get_member_schema(self) -> _schema.Schema:
         """Get image member schema
 
         :returns: One :class:`~openstack.image.v2.schema.Schema`
@@ -1787,7 +1854,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/member',
         )
 
-    def get_tasks_schema(self):
+    def get_tasks_schema(self) -> _schema.Schema:
         """Get image tasks schema
 
         :returns: One :class:`~openstack.image.v2.schema.Schema`
@@ -1800,7 +1867,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/tasks',
         )
 
-    def get_task_schema(self):
+    def get_task_schema(self) -> _schema.Schema:
         """Get image task schema
 
         :returns: One :class:`~openstack.image.v2.schema.Schema`
@@ -1813,7 +1880,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/task',
         )
 
-    def get_metadef_namespace_schema(self):
+    def get_metadef_namespace_schema(self) -> _metadef_schema.MetadefSchema:
         """Get metadata definition namespace schema
 
         :returns: One :class:`~openstack.image.v2.metadef_schema.MetadefSchema`
@@ -1826,7 +1893,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/metadefs/namespace',
         )
 
-    def get_metadef_namespaces_schema(self):
+    def get_metadef_namespaces_schema(self) -> _metadef_schema.MetadefSchema:
         """Get metadata definition namespaces schema
 
         :returns: One :class:`~openstack.image.v2.metadef_schema.MetadefSchema`
@@ -1839,7 +1906,9 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/metadefs/namespaces',
         )
 
-    def get_metadef_resource_type_schema(self):
+    def get_metadef_resource_type_schema(
+        self,
+    ) -> _metadef_schema.MetadefSchema:
         """Get metadata definition resource type association schema
 
         :returns: One :class:`~openstack.image.v2.metadef_schema.MetadefSchema`
@@ -1852,7 +1921,9 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/metadefs/resource_type',
         )
 
-    def get_metadef_resource_types_schema(self):
+    def get_metadef_resource_types_schema(
+        self,
+    ) -> _metadef_schema.MetadefSchema:
         """Get metadata definition resource type associations schema
 
         :returns: One :class:`~openstack.image.v2.metadef_schema.MetadefSchema`
@@ -1865,7 +1936,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/metadefs/resource_types',
         )
 
-    def get_metadef_object_schema(self):
+    def get_metadef_object_schema(self) -> _metadef_schema.MetadefSchema:
         """Get metadata definition object schema
 
         :returns: One :class:`~openstack.image.v2.metadef_schema.MetadefSchema`
@@ -1878,7 +1949,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/metadefs/object',
         )
 
-    def get_metadef_objects_schema(self):
+    def get_metadef_objects_schema(self) -> _metadef_schema.MetadefSchema:
         """Get metadata definition objects schema
 
         :returns: One :class:`~openstack.image.v2.metadef_schema.MetadefSchema`
@@ -1891,7 +1962,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/metadefs/objects',
         )
 
-    def get_metadef_property_schema(self):
+    def get_metadef_property_schema(self) -> _metadef_schema.MetadefSchema:
         """Get metadata definition property schema
 
         :returns: One :class:`~openstack.image.v2.metadef_schema.MetadefSchema`
@@ -1904,7 +1975,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/metadefs/property',
         )
 
-    def get_metadef_properties_schema(self):
+    def get_metadef_properties_schema(self) -> _metadef_schema.MetadefSchema:
         """Get metadata definition properties schema
 
         :returns: One :class:`~openstack.image.v2.metadef_schema.MetadefSchema`
@@ -1917,7 +1988,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/metadefs/properties',
         )
 
-    def get_metadef_tag_schema(self):
+    def get_metadef_tag_schema(self) -> _metadef_schema.MetadefSchema:
         """Get metadata definition tag schema
 
         :returns: One :class:`~openstack.image.v2.metadef_schema.MetadefSchema`
@@ -1930,7 +2001,7 @@ class Proxy(proxy.Proxy):
             base_path='/schemas/metadefs/tag',
         )
 
-    def get_metadef_tags_schema(self):
+    def get_metadef_tags_schema(self) -> _metadef_schema.MetadefSchema:
         """Get metadata definition tags schema
 
         :returns: One :class:`~openstack.image.v2.metadef_schema.MetadefSchema`
@@ -1944,18 +2015,17 @@ class Proxy(proxy.Proxy):
         )
 
     # ====== TASKS ======
-    def tasks(self, **query):
+    def tasks(self, **query: Any) -> Generator[_task.Task, None, None]:
         """Return a generator of tasks
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of task objects
-        :rtype: :class:`~openstack.image.v2.task.Task`
         """
         return self._list(_task.Task, **query)
 
-    def get_task(self, task):
+    def get_task(self, task: str | _task.Task) -> _task.Task:
         """Get task details
 
         :param task: The value can be the ID of a task or a
@@ -1970,12 +2040,11 @@ class Proxy(proxy.Proxy):
     def create_task(self, **attrs: Any) -> _task.Task:
         """Create a new task from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.image.v2.task.Task`,
             comprised of the properties on the Task class.
 
         :returns: The results of task creation
-        :rtype: :class:`~openstack.image.v2.task.Task`
         """
         return self._create(_task.Task, **attrs)
 
@@ -2051,18 +2120,21 @@ class Proxy(proxy.Proxy):
             )
 
     # ====== STORES ======
-    def stores(self, details=False, **query):
+    def stores(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_si.Store, None, None]:
         """Return a generator of supported image stores
 
         :returns: A generator of store objects
-        :rtype: :class:`~openstack.image.v2.service_info.Store`
         """
         if details:
             query['base_path'] = utils.urljoin(_si.Store.base_path, 'detail')
         return self._list(_si.Store, **query)
 
     # ====== IMPORTS ======
-    def get_import_info(self):
+    def get_import_info(self) -> _si.Import:
         """Get a info about image constraints
 
         :returns: One :class:`~openstack.image.v2.service_info.Import`
@@ -2100,7 +2172,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -2115,8 +2187,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

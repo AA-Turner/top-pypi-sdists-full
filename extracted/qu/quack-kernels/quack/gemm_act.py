@@ -37,7 +37,7 @@ from quack.gemm_tvm_ffi_utils import (
     make_fake_gemm_tensors,
     compile_gemm_kernel,
 )
-from quack.cache_utils import jit_cache
+from quack.cache import jit_cache
 import quack.layout_utils as layout_utils
 import quack.copy_utils as copy_utils
 from quack.layout_utils import permute_gated_Cregs_b16
@@ -77,7 +77,7 @@ class GemmActMixin(ComposableEpiMixin):
         d = self._epi_ops_to_params_dict(args)
         d["act_fn"] = args.act_fn
         for key in ("mRowVecBroadcast", "mColVecBroadcast"):
-            if key in self.concat_layout and key in d and d[key] is not None:
+            if key in self.concat_layout and key in d:
                 d[key] = layout_utils.concat_to_interleave(d[key], 1)
         return self.EpilogueParams(**d)
 
@@ -238,7 +238,7 @@ class GemmGatedMixin(GemmActMixin):
         d = self._epi_ops_to_params_dict(args)
         d["act_fn"] = args.act_fn
         for key in ("mRowVecBroadcast", "mColVecBroadcast"):
-            if key in self.concat_layout and key in d and d[key] is not None:
+            if key in self.concat_layout and key in d:
                 d[key] = layout_utils.concat_to_interleave(d[key], 1)
         return self.EpilogueParams(**d)
 
@@ -557,9 +557,9 @@ def gemm_act(
         use_tma_gather=use_tma_gather,
     )
 
-    from quack.cache_utils import COMPILE_ONLY
+    from quack.cache import is_compile_only
 
-    if COMPILE_ONLY:
+    if is_compile_only():
         return
 
     max_active_clusters = get_max_active_clusters(cluster_M * cluster_N) if persistent else 0

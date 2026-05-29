@@ -29,7 +29,7 @@ setup(
     install_requires=[
         "sqlparse==0.5.4",
         "networkx>=2.4",
-        "collate-sqlfluff==3.5.2",
+        "collate-sqlfluff==3.5.3",
         "sqlglot==29.0.1",
     ],
     entry_points={"console_scripts": ["sqllineage = collate_sqllineage.cli:main"]},

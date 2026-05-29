@@ -4,7 +4,7 @@ import asyncio
 from navconfig.logging import logging
 from asyncdb.exceptions import ProviderError
 from asyncdb.drivers.pg import pg
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import ComponentError, DataNotFound
 from querysource.conf import default_dsn, DB_TIMEOUT
 import pandas as pd

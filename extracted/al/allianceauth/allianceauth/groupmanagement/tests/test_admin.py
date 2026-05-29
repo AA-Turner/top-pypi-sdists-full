@@ -10,12 +10,11 @@ from django.test import Client, RequestFactory, TestCase, override_settings
 
 from allianceauth.authentication.models import CharacterOwnership, State
 from allianceauth.eveonline.models import (
-    EveAllianceInfo,
-    EveCharacter,
-    EveCorporationInfo,
+    EveAllianceInfo, EveCharacter, EveCorporationInfo,
 )
 from allianceauth.tests.auth_utils import AuthUtils
 
+from .. import admin as groupmanagement_admin
 from ..admin import Group, GroupAdmin, HasLeaderFilter
 from ..models import ReservedGroupName
 from . import get_admin_change_view_url
@@ -583,6 +582,43 @@ class TestGroupAdminChangeFormSuperuserExclusiveEdits(WebTest):
         for field in self.superuser_exclusive_fields:
             with self.subTest(field=field):
                 self.assertNotIn(field, form.fields)
+
+
+class TestAdminSignalRedirects(TestCase):
+    def test_redirect_receivers_forward_group_signals_to_base_group(self):
+        group = Group.objects.create(name='Signal Group')
+        cases = [
+            (
+                groupmanagement_admin.redirect_pre_save,
+                groupmanagement_admin.pre_save,
+                {"instance": group},
+            ),
+            (
+                groupmanagement_admin.redirect_post_save,
+                groupmanagement_admin.post_save,
+                {"instance": group, "created": False},
+            ),
+            (
+                groupmanagement_admin.redirect_pre_delete,
+                groupmanagement_admin.pre_delete,
+                {"instance": group},
+            ),
+            (
+                groupmanagement_admin.redirect_post_delete,
+                groupmanagement_admin.post_delete,
+                {"instance": group},
+            ),
+            (
+                groupmanagement_admin.redirect_m2m_changed_permissions,
+                groupmanagement_admin.m2m_changed,
+                {"instance": group, "action": "post_add", "pk_set": set()},
+            ),
+        ]
+
+        for receiver, signal, kwargs in cases:
+            with self.subTest(receiver=receiver.__name__), patch.object(signal, "send") as send:
+                receiver(sender=Group, **kwargs)
+                send.assert_called_once_with(groupmanagement_admin.BaseGroup, **kwargs)
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)

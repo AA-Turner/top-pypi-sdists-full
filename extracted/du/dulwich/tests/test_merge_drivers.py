@@ -181,9 +181,10 @@ class ProcessMergeDriverTests(unittest.TestCase):
 
         result, success = driver.merge(b"a", b"b", b"c", marker_size=15)
 
-        # Expect different line endings on Windows vs Unix
+        # On Windows the value is wrapped in double quotes for cmd.exe and
+        # echo prints them literally; POSIX shells strip the shlex quoting.
         if sys.platform == "win32":
-            expected = b"marker size: 15 \r\n"
+            expected = b'marker size: "15" \r\n'
         else:
             expected = b"marker size: 15\n"
         self.assertEqual(result, expected)
@@ -197,13 +198,42 @@ class ProcessMergeDriverTests(unittest.TestCase):
 
         result, success = driver.merge(b"a", b"b", b"c", path="dir/file.xml")
 
-        # Expect different line endings on Windows vs Unix
+        # On Windows the value is wrapped in double quotes for cmd.exe and
+        # echo prints them literally; POSIX shells strip the shlex quoting.
         if sys.platform == "win32":
-            expected = b"path: dir/file.xml \r\n"
+            expected = b'path: "dir/file.xml" \r\n'
         else:
             expected = b"path: dir/file.xml\n"
         self.assertEqual(result, expected)
         self.assertTrue(success)
+
+    def test_merge_path_with_shell_metacharacters_is_not_injected(self):
+        """Malicious paths must not be able to inject extra shell commands.
+
+        Regression test for command injection via the %P placeholder
+        (path comes from a git tree and is therefore attacker-controllable
+        when merging an untrusted branch).
+        """
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sentinel = os.path.join(tmpdir, "pwned")
+            # Path that would, without proper quoting, terminate the echo
+            # and run a separate command creating the sentinel file.
+            malicious_path = f"x; touch {sentinel} #"
+
+            command = "echo %P > %A"
+            driver = ProcessMergeDriver(command, "injectable")
+
+            result, _ = driver.merge(b"a", b"b", b"c", path=malicious_path)
+
+            self.assertFalse(
+                os.path.exists(sentinel),
+                "Merge driver executed injected command - path was not shell-quoted",
+            )
+            # The literal path should appear in the output instead.
+            self.assertIn(b"x; touch", result)
 
 
 class MergeBlobsWithDriversTests(unittest.TestCase):

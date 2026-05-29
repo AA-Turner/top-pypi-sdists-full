@@ -172,21 +172,33 @@ def int_from_bool_as_string(subject: Any) -> int:
     return int(bool_from_string(subject))
 
 
+@overload
 def bool_from_string(
     subject: Any, strict: bool = False, default: bool = False
-) -> bool:
+) -> bool: ...
+
+
+@overload
+def bool_from_string(
+    subject: Any, strict: bool = False, default: bool | None = False
+) -> bool | None: ...
+
+
+def bool_from_string(
+    subject: Any, strict: bool = False, default: bool | None = False
+) -> bool | None:
     """Interpret a subject as a boolean.
 
     A subject can be a boolean, a string or an integer. Boolean type value
     will be returned directly, otherwise the subject will be converted to
     a string. A case-insensitive match is performed such that strings
-    matching 't','true', 'on', 'y', 'yes', or '1' are considered True and,
-    when `strict=False`, anything else returns the value specified by
-    'default'.
+    matching 't', 'true', 'on', 'y', 'yes', or '1' are considered True and,
+    when ``strict=False``, anything else returns the value specified by
+    ``default``.
 
     Useful for JSON-decoded stuff and config file parsing.
 
-    If `strict=True`, unrecognized values, including None, will raise a
+    If ``strict=True``, unrecognized values, including None, will raise a
     ValueError which is useful when parsing values passed in from an API call.
     Strings yielding False are 'f', 'false', 'off', 'n', 'no', or '0'.
     """
@@ -316,7 +328,7 @@ def string_to_bytes(
 
     Mixed units interpret the "i" to mean IEC, and no "i" to mean SI
     (e.g. 1kb = 1000b, 1kib == 1024b).  Additionaly, mixed units
-    interpret 'K' as power-of-ten.  This mode is not particuarly
+    interpret 'K' as power-of-ten.  This mode is not particularly
     useful for new code, but can help with compatability for parsers
     such as GNU parted.
 
@@ -485,6 +497,19 @@ def mask_password(message: object, secret: str = "***") -> str:  # noqa: S107
     return message
 
 
+def _deep_mask(value: object, secret: str) -> object:
+    if isinstance(value, collections.abc.Mapping):
+        return mask_dict_password(value, secret=secret)
+
+    if isinstance(value, str):
+        return mask_password(value, secret=secret)
+
+    if isinstance(value, collections.abc.Collection):
+        items = [_deep_mask(v, secret=secret) for v in value]
+        return items if isinstance(value, list) else tuple(items)
+    return value
+
+
 # TODO(stephenfin): The types aren't great for this. We want to indicate that
 # the types of values in the returned dict are always identical to those of the
 # input collection except if the value was a non-dict collection. It would be
@@ -567,6 +592,8 @@ def mask_dict_password(
             # _SANITIZE_KEYS, so we fall through to here
             if isinstance(v, str):
                 out[k] = mask_password(v, secret=secret)
+            elif isinstance(v, collections.abc.Collection):
+                out[k] = _deep_mask(v, secret=secret)
             else:
                 # Just leave it alone.
                 out[k] = v

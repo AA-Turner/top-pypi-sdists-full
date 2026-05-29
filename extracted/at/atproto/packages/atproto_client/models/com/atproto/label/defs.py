@@ -1,8 +1,8 @@
-##################################################################
+#######################################################################
 # THIS IS THE AUTO-GENERATED CODE. DON'T EDIT IT BY HANDS!
-# Copyright (C) 2024 Ilya (Marshal) <https://github.com/MarshalX>.
+# Copyright (C) 2023-2026 Ilya (Marshal) <https://github.com/MarshalX>.
 # This file is part of Python atproto SDK. Licenced under MIT.
-##################################################################
+#######################################################################
 
 
 import typing as t
@@ -99,15 +99,12 @@ class LabelValueDefinitionStrings(base.ModelBase):
 
 LabelValue = t.Union[
     t.Literal['!hide'],
-    t.Literal['!no-promote'],
     t.Literal['!warn'],
     t.Literal['!no-unauthenticated'],
-    t.Literal['dmca-violation'],
-    t.Literal['doxxing'],
     t.Literal['porn'],
     t.Literal['sexual'],
     t.Literal['nudity'],
-    t.Literal['nsfl'],
-    t.Literal['gore'],
+    t.Literal['graphic-media'],
+    t.Literal['bot'],
     str,
 ]  #: Label value

@@ -224,6 +224,11 @@ TASK_EXEC_CREDENTIALS = {
 PUBSUB_REDIS_DB = config.get("PUBSUB_REDIS_DB", fallback=5)
 PUBSUB_REDIS = f"redis://{CACHE_HOST}:{CACHE_PORT}/{PUBSUB_REDIS_DB}"
 ERROR_CHANNEL = config.get("ERROR_CHANNEL", fallback="FLOWTASK:FAILED:TASKS")
+
+# Executor configuration:
+DEFAULT_EXECUTOR = config.get("DEFAULT_EXECUTOR", fallback="local")
+DOCKER_IMAGE = config.get("DOCKER_IMAGE", fallback="flowtask:latest")
+K8S_NAMESPACE = config.get("K8S_NAMESPACE", fallback="default")
 ALLOW_RESCHEDULE = config.getboolean("ALLOW_RESCHEDULE", fallback=False)
 SCHEDULER_STARTUP_JOB = config.getboolean("SCHEDULER_STARTUP_JOBS", fallback=False)
 
@@ -316,6 +321,7 @@ GOOGLE_API_KEY = config.get('GOOGLE_API_KEY')
 GOOGLE_SEARCH_API_KEY = config.get('GOOGLE_SEARCH_API_KEY')
 GOOGLE_SEARCH_ENGINE_ID = config.get('GOOGLE_SEARCH_ENGINE_ID')
 GOOGLE_PLACES_API_KEY = config.get('GOOGLE_PLACES_API_KEY')
+CENSUS_BUREAU_API_KEY = config.get('CENSUS_BUREAU_API_KEY')
 GOOGLE_CREDENTIALS_FILE = Path(
     config.get(
         'GOOGLE_CREDENTIALS_FILE',

@@ -897,6 +897,18 @@ class AgentLoop:
         _ar_t1 = time.perf_counter()
         logger.warning("[TIMING] _auto_route_task: %.2fs", _ar_t1 - _ar_t0)
 
+        # === TASK FRAME NOTE — STRUCTURED PRE-ACTION FRAMING ===
+        # Distilled from the Task World Model PRD (2026-05-29). Emit a
+        # 3-line goal/constraints/risks frame when the user's prompt
+        # matches a known task family (add/debug/refactor). Pure regex
+        # match — no LLM call — and pure-advisory: zero blocking, no
+        # change to existing behavior when no pattern matches. Gated
+        # OFF by default (DRYDOCK_FRAME) for the first A/B window.
+        try:
+            self._maybe_inject_frame_note(user_msg)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("frame note hook skipped: %s", e)
+
         # === GEMMA 4 MATH/SCIENCE TOOL DOCS — JUST-IN-TIME ===
         # gemma4.md used to inline ~3700 tokens of math/logic/stats/
         # chemistry/units/solve/prolog tool documentation on EVERY
@@ -3324,46 +3336,27 @@ class AgentLoop:
                             or '"_truncated"' in args
                             or '"_drydock_placeholder"' in args):
                         continue
-                    # 2026-05-24: previous stub format (`{path:..., _truncated:
-                    # true, _original_bytes:N, _drydock_placeholder:"..."}`)
-                    # was bait — Gemma 4 kept copying the `path` field as a
-                    # real arg in subsequent tool calls and emitted calls
-                    # like search_replace({"path":"X", "_truncated":true,
-                    # "_original_bytes":N}) repeatedly even after the
-                    # placeholder warning. Observed on operator's slides
-                    # session 2026-05-24.
+                    # 2026-05-29: ALL prior compaction-stub formats were
+                    # bait. The marker-bearing stub
+                    # `{"__drydock_compacted_args__": "..."}` (shipped
+                    # 2026-05-24) was supposed to be uncopyable because
+                    # the marker key is obviously not a real arg name.
+                    # In practice Gemma 4 reads the JSON SHAPE of the
+                    # previous assistant tool_call and copies it
+                    # structurally — including the marker key — even
+                    # when the value contains a warning telling it not
+                    # to. Operator slides session 2026-05-29 hit
+                    # placeholder errors 4× in 20min despite the SCRUB
+                    # and terse-cutoff fixes.
                     #
-                    # New stub has exactly ONE key with a deliberately
-                    # alien name — nothing resembling a real tool argument.
-                    # The path is embedded in the warning STRING so it's
-                    # still visible but not separately mineable. format.py
-                    # detects the new marker key plus the legacy keys so
-                    # old history still gets the recovery hint.
-                    path_hint = ""
-                    try:
-                        import json as _json
-                        parsed = _json.loads(args)
-                        if isinstance(parsed, dict):
-                            for k in ("path", "file_path", "command",
-                                      "cmd", "url", "file"):
-                                if k in parsed and isinstance(parsed[k], str):
-                                    v = parsed[k]
-                                    path_hint = (
-                                        v if len(v) <= 200 else v[:200] + "…"
-                                    )
-                                    break
-                    except Exception:
-                        pass
-                    note = (
-                        f"[compacted to save context — original "
-                        f"{len(args)} bytes"
-                        + (f", path={path_hint}" if path_hint else "")
-                        + "]. Do NOT copy this stub. Use read_file on "
-                        "the target file, then emit a fresh tool call "
-                        "with real arguments."
-                    )
-                    stub: dict[str, Any] = {"__drydock_compacted_args__": note}
-                    tc.function.arguments = json.dumps(stub, ensure_ascii=True)
+                    # New approach: empty args (`{}`). When the model
+                    # copies the call shape from history it gets no
+                    # args. The tool's pydantic schema then rejects with
+                    # "field 'path' required" / "field 'content'
+                    # required" — concrete validation errors the model
+                    # handles cleanly via its normal retry path, rather
+                    # than the placeholder-loop recovery dance.
+                    tc.function.arguments = "{}"
 
     def _upgrade_legacy_compaction_stubs(self) -> None:
         """Rewrite legacy compaction stubs in-place to the clean format.
@@ -3391,12 +3384,15 @@ class AgentLoop:
                 if not tc.function or not tc.function.arguments:
                     continue
                 args_str = tc.function.arguments
-                # Quick prefilter: only attempt parse if a legacy marker
-                # token is present. Avoids JSON-parsing every call.
+                # Quick prefilter: only attempt parse if a marker token
+                # is present. Avoids JSON-parsing every call. Covers
+                # legacy markers AND the post-2026-05-24 marker stub
+                # (which is also an upgrade target since 2026-05-29).
                 if not any(
                     tok in args_str for tok in (
                         '"_truncated"', '"_original_bytes"',
                         '"_drydock_placeholder"',
+                        '"__drydock_compacted_args__"',
                     )
                 ):
                     continue
@@ -3406,19 +3402,20 @@ class AgentLoop:
                     continue
                 if not isinstance(parsed, dict):
                     continue
-                # Already upgraded? skip.
-                if "__drydock_compacted_args__" in parsed:
+                # Already at empty-args (the new format)? skip.
+                if not parsed:
                     continue
-                # Confirm it's a legacy stub: must have one of the
-                # marker keys. (We already prefiltered above but be
-                # defensive — JSON strings could contain the tokens
-                # in some unrelated value.)
-                is_legacy_stub = (
+                # Confirm it's any prior stub format: legacy or the
+                # post-2026-05-24 marker-bearing stub. Both are now
+                # upgrade targets — the marker stub turned out to be
+                # copy-bait too.
+                is_stub = (
                     parsed.get("_truncated") is True
                     or "_drydock_placeholder" in parsed
                     or "_original_bytes" in parsed
+                    or "__drydock_compacted_args__" in parsed
                 )
-                if not is_legacy_stub:
+                if not is_stub:
                     continue
                 # Extract path hint from any of the known fields.
                 path_hint = ""
@@ -3437,17 +3434,18 @@ class AgentLoop:
                     if isinstance(orig_bytes, (int, float))
                     else "compacted"
                 )
-                note = (
-                    f"[{size_str}"
-                    + (f", path={path_hint}" if path_hint else "")
-                    + "]. Do NOT copy this stub. Use read_file on "
-                    "the target file, then emit a fresh tool call "
-                    "with real arguments."
-                )
-                tc.function.arguments = json.dumps(
-                    {"__drydock_compacted_args__": note},
-                    ensure_ascii=True,
-                )
+                # 2026-05-29: upgrade legacy AND post-2026-05-24 stubs
+                # (which used the marker key `__drydock_compacted_args__`)
+                # to the new empty-args format `{}`. The marker-bearing
+                # stub turned out to be bait too — Gemma 4 copies the
+                # JSON shape structurally and re-emits the marker as a
+                # fake arg, triggering format.py's placeholder-loop
+                # recovery dance. Empty args produce a clean pydantic
+                # field-required error instead. Path hint and size
+                # info from `note` is dropped — debugging value was
+                # offset by the copy-bait cost.
+                tc.function.arguments = "{}"
+                _ = size_str  # retain for future logging if useful
                 try:
                     self.stats.legacy_stubs_upgraded += 1
                 except Exception:
@@ -4633,6 +4631,114 @@ class AgentLoop:
             "[pre-rename] applied %s → %s across %d files (%d sites)",
             old_name, new_name, len(changed), occurrences,
         )
+
+    # Task-frame patterns. Order matters: the first match wins, so place
+    # the most specific verbs first. Keep each pattern narrow — false
+    # positives would surface as confusing frame notes the model copies.
+    _FRAME_PATTERNS: tuple = (
+        # Refactor / structural change. Surface-level vocab is broad,
+        # but the model usually says one of these verbs verbatim.
+        (
+            re.compile(
+                r"\b(rename|refactor|extract|migrate|move\s+\w+\s+to|"
+                r"convert\s+\w+\s+to|reorganize|split\s+\w+\s+into)\b",
+                re.IGNORECASE,
+            ),
+            "refactor",
+            "structural change",
+            "behavior-preserving; multi-file edits likely",
+            "surface-change cascade — prefer mechanical_rename / "
+            "search_replace over write_file for renames",
+        ),
+        # Debug / fix-a-failure. The "failing tests" / "red" framing is
+        # the strongest signal. Plain "fix" is too generic — require a
+        # failure-context word nearby.
+        (
+            re.compile(
+                r"\b(pytest|tests?|suite|build|ci)\b.{0,60}\b"
+                r"(failing|fails|red|broken|errors?)\b"
+                r"|\b(bug|crash|exception|traceback|stack\s*trace)\b",
+                re.IGNORECASE,
+            ),
+            "debug",
+            "identify and fix the root cause",
+            "minimal fix preferred; don't refactor beyond the bug",
+            "introducing a secondary regression by editing unrelated code",
+        ),
+        # Feature add. Broadest match, placed last so the more-specific
+        # refactor/debug verbs win first.
+        (
+            re.compile(
+                r"\b(add\s+(a|an|the)?|implement|introduce|"
+                r"support\s+for|create\s+(a|an|the)?\s*(new\s+)?)\b",
+                re.IGNORECASE,
+            ),
+            "feature_add",
+            "implement the new behavior end-to-end",
+            "preserve existing tests; new test required for new behavior",
+            "drifting into scope creep; touching files beyond the feature",
+        ),
+    )
+
+    def _maybe_inject_frame_note(self, user_msg: str) -> None:
+        """Emit a structured pre-action frame note when the user's prompt
+        matches a recognized task family (feature-add / debug / refactor).
+
+        The frame is a 3-line system note in the shape
+        `goal: ...; constraints: ...; risks: ...`. The model sees it as
+        an authoritative instruction landed before its first turn — same
+        injection path as math-docs and prompt-pattern guidance.
+
+        Gated by `DRYDOCK_FRAME` (default `0`, opt-in). Skipped under
+        pytest because it injects extra `system` messages that break
+        tests pinning exact event order. Pattern match is regex only —
+        no LLM call. Telemetry appended to `/tmp/frame_notes.jsonl` so
+        a later pass can measure whether frame-note runs correlate with
+        higher test_harness pass rates.
+
+        Distilled from the Task World Model PRD (2026-05-29). The PRD's
+        five "view agents" are already covered by existing hooks
+        (`_maybe_inject_math_docs`, `_maybe_pre_rename`,
+        `_auto_prefetch_retrieve`, `_inject_prompt_pattern_guidance`,
+        `_inject_subgoal_scaffold`). This sixth hook adds explicit task
+        framing on entry — the one piece the PRD describes that drydock
+        doesn't already do.
+        """
+        if os.environ.get("DRYDOCK_FRAME", "0").strip().lower() in ("0", "false", "no"):
+            return
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            return
+        if not user_msg or len(user_msg) < 12:
+            return
+
+        for pattern, kind, goal, constraints, risks in self._FRAME_PATTERNS:
+            if pattern.search(user_msg):
+                note = (
+                    f"DRYDOCK FRAME ({kind}): "
+                    f"goal: {goal}; "
+                    f"constraints: {constraints}; "
+                    f"risks: {risks}."
+                )
+                try:
+                    self._inject_system_note(note)
+                except Exception as e:  # noqa: BLE001
+                    logger.debug("frame inject failed: %s", e)
+                    return
+                logger.warning("[FRAME] %s — %s", kind, user_msg[:80])
+                # Best-effort telemetry. Bounded write — at most one
+                # event per user turn, no blocking on disk failure.
+                try:
+                    import json as _json
+                    import time as _time
+                    with open("/tmp/frame_notes.jsonl", "a") as f:
+                        f.write(_json.dumps({
+                            "ts": _time.time(),
+                            "kind": kind,
+                            "msg_preview": user_msg[:160],
+                        }) + "\n")
+                except OSError:
+                    pass
+                return
 
     def _maybe_inject_math_docs(self, user_msg: str) -> None:
         """Append the math/science tool cheat sheet (gemma4_math.md) to

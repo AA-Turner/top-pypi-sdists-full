@@ -51,7 +51,10 @@ def _stratify(res, n_high, n_med, n_low, n_none, seed=0):
 
 
 def _build_series_cache(cfg, sample_keys):
-    df = _common.load_filtered_hvstat(cfg.input_csv)
+    if cfg.input_format == "amis":
+        df = _common.load_filtered_amis(cfg.dir_production_statistics, cfg.parser)
+    else:
+        df = _common.load_filtered_hvstat(cfg.input_csv)
 
     print("Building series cache...")
     t0 = time.time()

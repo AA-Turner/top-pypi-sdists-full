@@ -11,14 +11,10 @@ import math
 import re
 import struct
 
-from typing import TYPE_CHECKING
+from typing import Any
 from uuid import UUID
 
 from refinery.lib.structures import MemoryFile, StructReader
-
-if TYPE_CHECKING:
-    from typing import Any
-
 
 MAGIC = b'\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1'
 MINIMAL_OLEFILE_SIZE = 1536
@@ -455,13 +451,16 @@ class OleFile:
         self._nb_sect = (len(self._mv) - self._sector_size) // self._sector_size
 
     def _getsect(self, sect: int):
-        offset = self._sector_size * (sect + 1)
-        end = offset + self._sector_size
-        if end > len(self._mv):
-            out = bytearray(self._mv[offset:])
-            out.extend(itertools.repeat(0, end - len(self._mv)))
+        size = self._sector_size
+        offset = size * (sect + 1)
+        end = offset + size
+        if end > len(mv := self._mv):
+            if offset >= len(mv):
+                raise EOFError(F'Attempting to read sector at {offset:#x}, which is out of bound.')
+            out = bytearray(mv[offset:])
+            out.extend(itertools.repeat(0, end - len(mv)))
             return out
-        return self._mv[offset:end]
+        return mv[offset:end]
 
     def _load_fat(self):
         fat: list[int] = []

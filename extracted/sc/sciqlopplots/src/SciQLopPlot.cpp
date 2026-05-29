@@ -770,12 +770,26 @@ void SciQLopPlot::set_theme(SciQLopTheme* theme)
                     if (m_theme && m_theme->qcp_theme())
                         m_impl->crosshair()->apply_theme(m_theme->qcp_theme());
                 });
-        connect(theme, &QObject::destroyed, this, [this]() { m_impl->setTheme(nullptr); });
+        connect(theme, &SciQLopTheme::changed, this,
+                [this]() { apply_selection_style(); });
+        connect(theme, &QObject::destroyed, this, [this]() {
+            m_impl->setTheme(nullptr);
+            apply_selection_style();
+        });
     }
     else
     {
         m_impl->setTheme(nullptr);
     }
+
+    apply_selection_style();
+}
+
+void SciQLopPlot::deselect_all()
+{
+    set_selected(false);
+    m_impl->deselectAll();
+    m_impl->replot(QCustomPlot::rpQueuedReplot);
 }
 
 void SciQLopPlot::minimize_margins()

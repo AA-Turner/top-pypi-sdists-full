@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from .. import dotlan, eveimageserver, evewho, zkillboard
+from .. import dotlan, eveimageserver, evekill, everef, evewho, zkillboard
 
 
 class TestEveWho(TestCase):
@@ -87,6 +87,56 @@ class TestZkillboard(TestCase):
             zkillboard.solar_system_url(12345678),
             'https://zkillboard.com/system/12345678/'
         )
+
+
+class TestEveKill(TestCase):
+
+    def test_alliance_url(self):
+        self.assertEqual(
+            evekill.alliance_url(12345678),
+            'https://eve-kill.com/alliance/12345678/'
+        )
+
+    def test_corporation_url(self):
+        self.assertEqual(
+            evekill.corporation_url(12345678),
+            'https://eve-kill.com/corporation/12345678/'
+        )
+
+    def test_character_url(self):
+        self.assertEqual(
+            evekill.character_url(12345678),
+            'https://eve-kill.com/character/12345678/'
+        )
+
+    def test_region_url(self):
+        self.assertEqual(
+            evekill.region_url(12345678),
+            'https://eve-kill.com/region/12345678/'
+        )
+
+    def test_solar_system_url(self):
+        self.assertEqual(
+            evekill.solar_system_url(12345678),
+            'https://eve-kill.com/system/12345678/'
+        )
+
+    def test_should_raise_for_unknown_category(self):
+        with self.assertRaises(NotImplementedError):
+            evekill._build_url('unknown', 12345678)
+
+
+class TestEveRef(TestCase):
+
+    def test_type_url(self):
+        self.assertEqual(
+            everef.type_url(42),
+            'https://everef.net/types/42'
+        )
+
+    def test_should_raise_for_unknown_category(self):
+        with self.assertRaises(NotImplementedError):
+            everef._build_url('unknown', 42)
 
 
 class TestEveImageServer(TestCase):

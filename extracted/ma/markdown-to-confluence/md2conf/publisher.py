@@ -8,19 +8,22 @@ Copyright 2022-2026, Levente Hunyadi
 
 import hashlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 
 from .api_base import ConfluenceSession
 from .api_types import ConfluenceContentProperty, ConfluenceLabel, ConfluencePage, ConfluenceStatus
 from .attachment import attachment_name
 from .coalesce import coalesce_json
+from .collection import ConfluenceUserCollection
 from .compatibility import override, path_relative_to
-from .converter import ConfluenceDocument, get_orderless_elements, get_volatile_attributes, get_volatile_elements
+from .converter import ConfluenceDocument, apply_generated_by_template, get_orderless_elements, get_volatile_attributes, get_volatile_elements
 from .csf import AC_ATTR, ElementType, elements_from_string
 from .environment import PageError
 from .metadata import ConfluencePageMetadata
 from .options import ConfluencePageID, ProcessorOptions
+from .options_converter import ConverterOptions
+from .order import sort_items_in_order
 from .processor import DocumentNode, DocumentProcessor, Processor, ProcessorFactory
 from .serializer import json_to_object, object_to_json, object_to_json_payload
 from .xml import ElementComparatorOptions, is_xml_equal, unwrap_substitute
@@ -43,11 +46,13 @@ class ParentCatalog:
 
     _api: ConfluenceSession
     _child_to_parent: dict[str, str | None]
+    _parent_to_children: dict[str, dict[str, int]]
     _known: set[str]
 
     def __init__(self, api: ConfluenceSession) -> None:
         self._api = api
         self._child_to_parent = {}
+        self._parent_to_children = {}
         self._known = set()
 
     def add_known(self, page_id: str) -> None:
@@ -57,7 +62,7 @@ class ParentCatalog:
 
         self._known.add(page_id)
 
-    def add_parent(self, *, page_id: str, parent_id: str | None) -> None:
+    def add_parent(self, *, page_id: str, parent_id: str | None, position: int | None) -> None:
         """
         Adds a new child-parent relationship.
 
@@ -65,6 +70,22 @@ class ParentCatalog:
         """
 
         self._child_to_parent[page_id] = parent_id
+        if parent_id is not None and position is not None:
+            children = self._parent_to_children.setdefault(parent_id, {})
+            children[page_id] = position
+
+    def get_tree(self) -> dict[str, list[str]]:
+        """
+        Maps each parent page to a list of its direct children.
+        """
+
+        tree: dict[str, list[str]] = {}
+        for parent_id, children_positions in self._parent_to_children.items():
+            children: list[str] = []
+            for _, child in sorted((position, child) for child, position in children_positions.items()):
+                children.append(child)
+            tree[parent_id] = children
+        return tree
 
     def is_traceable(self, page_id: str) -> bool:
         """
@@ -82,7 +103,11 @@ class ParentCatalog:
         else:
             page = self._api.get_page_properties(page_id)
             parent_id = page.parentId
+            position = page.position
             self._child_to_parent[page_id] = parent_id
+            if parent_id is not None and position is not None:
+                children = self._parent_to_children.setdefault(parent_id, {})
+                children[page_id] = position
 
         if parent_id is None:
             return False
@@ -107,6 +132,49 @@ class ConfluenceMarkdownTag:
             raise ValueError(f"expected: page version >= 1; got: {self.page_version}")
 
 
+@dataclass
+class AggregateOptions(ConverterOptions):
+    """
+    Options that impact the Confluence Storage Format output that is synchronized.
+
+    :param generated_by: Text to use as the generated-by prompt (or `None` to omit a prompt).
+    """
+
+    generated_by: str | None = None
+
+    @classmethod
+    def create(cls, relative_path: Path, options: ConverterOptions, generated_by: str | None) -> "AggregateOptions":
+        field_names = {f.name for f in fields(ConverterOptions)}
+        field_values = {name: getattr(options, name) for name in field_names}
+
+        if generated_by is not None:
+            generated_by = apply_generated_by_template(generated_by, relative_path)
+
+        return cls(**field_values, generated_by=generated_by)
+
+
+class DocumentHasher:
+    """
+    Quickly determines whether a page needs to be synchronized.
+
+    Aggregates input that impact the Confluence Storage Format output that is synchronized.
+    """
+
+    options: AggregateOptions
+    absolute_path: Path
+
+    def __init__(self, options: AggregateOptions, absolute_path: Path) -> None:
+        self.options = options
+        self.absolute_path = absolute_path
+
+    def digest(self) -> str:
+        m = hashlib.md5()
+        m.update(object_to_json_payload(self.options))
+        m.update(b"\n")
+        m.update(self.absolute_path.read_bytes())
+        return m.hexdigest()
+
+
 class SynchronizingProcessor(Processor):
     """
     Synchronizes a single Markdown page or a directory of Markdown pages with Confluence.
@@ -127,7 +195,7 @@ class SynchronizingProcessor(Processor):
         self.api = api
 
     @override
-    def _synchronize_structure(self, tree: DocumentNode) -> None:
+    def _synchronize_structure(self, tree: DocumentNode) -> dict[str, list[str]]:
         """
         Creates the cross-reference index and synchronizes the directory tree structure with the Confluence page hierarchy.
 
@@ -153,13 +221,71 @@ class SynchronizingProcessor(Processor):
         catalog = ParentCatalog(self.api)
         catalog.add_known(topmost_id)
         self._synchronize_subtree(tree, ConfluencePageID(topmost_id), catalog)
+        return catalog.get_tree()
+
+    @override
+    def _synchronize_order(self, tree: DocumentNode, parent_to_children: dict[str, list[str]]) -> None:
+        """
+        Recursively arranges child pages of a parent page in the same order as files in their parent directory.
+        """
+
+        metadata = self.page_metadata.get(tree.absolute_path)
+        if metadata is None:
+            return  # not associated with a page
+        parent_id = metadata.page_id
+
+        # get order of child pages
+        local_order: list[str] = []
+        for child in tree.children():
+            metadata = self.page_metadata.get(child.absolute_path)
+            if metadata is None:
+                continue
+            local_order.append(metadata.page_id)
+        if not local_order:
+            return  # nothing to sort
+        remote_order = [child_id for child_id in parent_to_children[parent_id] if child_id in local_order]
+
+        # rearrange direct child pages with minimal moves
+        def index_of(page_id: str) -> int:
+            return local_order.index(page_id)
+
+        def insert_before(page_id: str, ref_id: str) -> None:
+            self.api.move_page(page_id, "before", ref_id)
+
+        def insert_after(page_id: str, ref_id: str) -> None:
+            self.api.move_page(page_id, "after", ref_id)
+
+        sort_items_in_order(remote_order, key=index_of, insert_before=insert_before, insert_after=insert_after)
+
+        # rearrange nested children recursively
+        for child in tree.children():
+            self._synchronize_order(child, parent_to_children)
+
+    @override
+    def _synchronize_users(self, users: set[tuple[str, str]]) -> ConfluenceUserCollection:
+        """
+        Fetches Confluence user account IDs.
+        """
+
+        user_metadata = ConfluenceUserCollection()
+        for email, name in users:
+            if email in user_metadata:
+                continue
+
+            remote_users = self.api.get_users(name)
+            for remote_user in remote_users:
+                if remote_user.email is None:
+                    continue
+                if remote_user.email == email:
+                    user_metadata.add(email, remote_user.accountId)
+        return user_metadata
 
     def _synchronize_subtree(self, node: DocumentNode, parent_id: ConfluencePageID, catalog: ParentCatalog) -> None:
         if node.page_id is not None:
             # verify if page exists
             page = self.api.get_page_properties(node.page_id)
             catalog.add_known(page.id)
-            catalog.add_parent(page_id=page.id, parent_id=page.parentId)
+            catalog.add_parent(page_id=page.id, parent_id=page.parentId, position=page.position)
             update = False
         else:
             if node.title is not None:
@@ -174,7 +300,7 @@ class SynchronizingProcessor(Processor):
 
             # look up page by (possibly auto-generated) title
             page = self.api.get_or_create_page(title, parent_id)
-            catalog.add_parent(page_id=page.id, parent_id=page.parentId)
+            catalog.add_parent(page_id=page.id, parent_id=page.parentId, position=page.position)
 
             if page.status is ConfluenceStatus.ARCHIVED:
                 # user has archived a page with this (possibly auto-generated) title
@@ -220,11 +346,10 @@ class SynchronizingProcessor(Processor):
         LOGGER.debug("Generated Confluence Storage Format document:\n%s", content)
 
         # compute hash to help detect if document content or conversion options have changed
-        m = hashlib.md5()
-        m.update(object_to_json_payload(self.options.converter))
-        m.update(b"\n")
-        m.update(path.read_bytes())
-        source_digest = m.hexdigest()
+        source_digest = DocumentHasher(
+            AggregateOptions.create(path.relative_to(self.root_dir), self.options.converter, self.options.generated_by),
+            path,
+        ).digest()
 
         # set Confluence title based on Markdown content
         title = self._get_unique_title(document, path)

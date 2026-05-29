@@ -541,8 +541,7 @@ pub enum Commands {
     /// Inspect uv workspaces.
     #[command(
         after_help = "Use `uv help workspace` for more details.",
-        after_long_help = "",
-        hide = true
+        after_long_help = ""
     )]
     Workspace(WorkspaceNamespace),
     /// The implementation of the build backend.
@@ -2124,6 +2123,10 @@ pub struct PipInstallArgs {
     #[arg(long, value_parser = clap::builder::BoolishValueParser::new())]
     pub no_editable: bool,
 
+    /// Install the specified editable packages as non-editable.
+    #[arg(long, value_delimiter = ' ', value_hint = ValueHint::Other)]
+    pub no_editable_package: Vec<PackageName>,
+
     /// Constrain versions using the given requirements files.
     ///
     /// Constraints files are `requirements.txt`-like files that only control the _version_ of a
@@ -3151,6 +3154,12 @@ pub struct VenvArgs {
     #[clap(long, short, overrides_with = "allow_existing", value_parser = clap::builder::BoolishValueParser::new())]
     pub clear: bool,
 
+    /// Allow `--clear` to remove a non-virtual environment directory.
+    ///
+    /// This will remove all files and directories at the target path.
+    #[arg(long)]
+    pub force: bool,
+
     /// Fail without prompting if any existing files or directories are present at the target path.
     ///
     /// By default, when a TTY is available, `uv venv` will prompt to clear a non-empty directory.
@@ -3619,6 +3628,10 @@ pub struct RunArgs {
     #[arg(long, overrides_with = "editable", value_parser = clap::builder::BoolishValueParser::new())]
     pub no_editable: bool,
 
+    /// Install the specified editable packages as non-editable.
+    #[arg(long, value_delimiter = ' ', value_hint = ValueHint::Other)]
+    pub no_editable_package: Vec<PackageName>,
+
     /// Do not remove extraneous packages present in the environment.
     #[arg(long, overrides_with("exact"), alias = "no-exact", hide = true)]
     pub inexact: bool,
@@ -3948,6 +3961,10 @@ pub struct SyncArgs {
     /// non-editable [env: UV_NO_EDITABLE=]
     #[arg(long, overrides_with = "editable", value_parser = clap::builder::BoolishValueParser::new())]
     pub no_editable: bool,
+
+    /// Install the specified editable packages as non-editable.
+    #[arg(long, value_delimiter = ' ', value_hint = ValueHint::Other)]
+    pub no_editable_package: Vec<PackageName>,
 
     /// Do not remove extraneous packages present in the environment.
     ///
@@ -4326,6 +4343,10 @@ pub struct AddArgs {
     /// Don't add the requirements as editable [env: UV_NO_EDITABLE=]
     #[arg(long, overrides_with = "editable", hide = true, value_parser = clap::builder::BoolishValueParser::new())]
     pub no_editable: bool,
+
+    /// Don't add the specified requirements as editable.
+    #[arg(long, value_delimiter = ' ', value_hint = ValueHint::Other, hide = true)]
+    pub no_editable_package: Vec<PackageName>,
 
     /// Add a dependency as provided.
     ///
@@ -4953,6 +4974,10 @@ pub struct ExportArgs {
     /// non-editable [env: UV_NO_EDITABLE=]
     #[arg(long, overrides_with = "editable", value_parser = clap::builder::BoolishValueParser::new())]
     pub no_editable: bool,
+
+    /// Export the specified editable packages as non-editable.
+    #[arg(long, value_delimiter = ' ', value_hint = ValueHint::Other)]
+    pub no_editable_package: Vec<PackageName>,
 
     /// Include hashes for all dependencies.
     #[arg(long, overrides_with("no_hashes"), hide = true)]
@@ -8011,7 +8036,6 @@ pub enum WorkspaceCommand {
     /// List the members of a workspace.
     ///
     /// Displays newline separated names of workspace members.
-    #[command(hide = true)]
     List(WorkspaceListArgs),
 }
 #[derive(Args)]
@@ -8031,7 +8055,12 @@ pub struct MetadataArgs {
     ///
     /// In dry-run mode, uv will resolve the project's dependencies and report on the resulting
     /// changes, but will not write the lockfile to disk.
-    #[arg(long, conflicts_with = "frozen", conflicts_with = "locked")]
+    #[arg(
+        long,
+        conflicts_with = "frozen",
+        conflicts_with = "locked",
+        conflicts_with = "sync"
+    )]
     pub dry_run: bool,
 
     #[command(flatten)]
@@ -8042,6 +8071,13 @@ pub struct MetadataArgs {
 
     #[command(flatten)]
     pub refresh: RefreshArgs,
+
+    /// Sync the environment to include module ownership metadata in the output.
+    ///
+    /// This adds a mapping from importable module names to references to the package nodes
+    /// that provide them. To do this, the venv will be synced in inexact mode.
+    #[arg(long)]
+    pub sync: bool,
 
     /// The Python interpreter to use during resolution.
     ///

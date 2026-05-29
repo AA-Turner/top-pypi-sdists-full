@@ -5,7 +5,7 @@ from pathlib import Path
 from zeep import Client, Settings, helpers
 from zeep.transports import Transport
 from ..exceptions import ComponentError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class WSDLClient(FlowComponent):

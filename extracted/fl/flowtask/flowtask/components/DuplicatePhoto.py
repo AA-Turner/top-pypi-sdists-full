@@ -11,7 +11,7 @@ import pandas as pd
 from pgvector.asyncpg import register_vector
 from pgvector.utils import Vector
 from navigator.libs.json import JSONContent
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import ConfigError, ComponentError
 from ..conf import default_dsn
 

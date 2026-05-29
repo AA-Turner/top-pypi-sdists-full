@@ -303,6 +303,16 @@ except KeyboardInterrupt:
     print("You pressed CTRL-C while modules were loading.")
     sys.exit(17)
 
+env_b64 = os.environ.get("OMNIAX_ENV_BASE64", "")
+if env_b64:
+    env_decoded = base64.b64decode(env_b64).decode("utf-8")
+    # Parse into a dict
+    saved_env = {}
+    for line in env_decoded.splitlines():
+        if "=" in line:
+            key, _, value = line.partition("=")
+            saved_env[key] = value
+
 def collect_runtime_stats() -> dict:
     process = psutil.Process(os.getpid())
     mem_info = process.memory_info()
@@ -3967,7 +3977,24 @@ class MonitorProcess:
         self.thread.join()
 
 def execute_bash_code_log_time(code: str) -> list:
-    process_item = subprocess.Popen(code, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    # Decode and prepare the environment BEFORE spawning the process
+    run_env = os.environ.copy()
+    try:
+        env_b64 = os.environ.get("OMNIAX_ENV_BASE64", "")
+        if env_b64:
+            env_decoded = base64.b64decode(env_b64).decode("utf-8")
+            # Parse the decoded env and merge it into the subprocess environment
+            for line in env_decoded.splitlines():
+                if "=" in line:
+                    key, _, value = line.partition("=")
+                    run_env[key] = value
+        else:
+            print_red("⚠  Warning: OMNIAX_ENV_BASE64 is not set or empty. Environment snapshot unavailable.")
+    except Exception as e:
+        print_red(f"⚠  Warning: Unexpected error loading OMNIAX_ENV_BASE64: {e}")
+
+    # Now spawn the process WITH the decoded environment
+    process_item = subprocess.Popen(code, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=run_env)
 
     with MonitorProcess(process_item.pid):
         try:
@@ -3975,6 +4002,7 @@ def execute_bash_code_log_time(code: str) -> list:
             result = subprocess.CompletedProcess(
                 args=code, returncode=process_item.returncode, stdout=stdout, stderr=stderr
             )
+
             return [result.stdout, result.stderr, result.returncode, None]
         except subprocess.CalledProcessError as e:
             real_exit_code = e.returncode
@@ -3982,7 +4010,7 @@ def execute_bash_code_log_time(code: str) -> list:
             if real_exit_code < 0:
                 signal_code = abs(e.returncode)
                 real_exit_code = 1
-            return [e.stdout, e.stderr, real_exit_code, signal_code]
+            return [e.stdout, e.stderr, real_exit_code, signal_code, None]
 
 def execute_bash_code(code: str) -> list:
     try:

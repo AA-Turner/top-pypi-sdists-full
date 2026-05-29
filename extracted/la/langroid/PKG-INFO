@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langroid
-Version: 0.63.0
+Version: 0.65.0
 Summary: Harness LLMs with Multi-Agent Programming
 Author-email: Prasad Chalasani <pchalasani@gmail.com>
 License: MIT
@@ -39,8 +39,8 @@ Requires-Dist: pydantic-settings<3.0.0,>=2.0.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: pygithub<2.0.0,>=1.58.1
 Requires-Dist: pygments<3.0.0,>=2.15.1
-Requires-Dist: pymupdf4llm<0.1.0,>=0.0.17
 Requires-Dist: pyparsing<4.0.0,>=3.0.9
+Requires-Dist: pypdfium2<5.0.0,>=4.30.0
 Requires-Dist: pytest-rerunfailures<16.0,>=15.0
 Requires-Dist: python-dotenv<2.0.0,>=1.0.0
 Requires-Dist: python-magic<1.0.0,>=0.4.27
@@ -182,6 +182,8 @@ Requires-Dist: sqlalchemy<3.0.0,>=2.0.19; extra == 'postgres'
 Requires-Dist: sqlglot>=23.0.0; extra == 'postgres'
 Provides-Extra: pymupdf4llm
 Requires-Dist: pymupdf4llm<0.1.0,>=0.0.17; extra == 'pymupdf4llm'
+Provides-Extra: pypdfium2
+Requires-Dist: pypdfium2<5.0.0,>=4.30.0; extra == 'pypdfium2'
 Provides-Extra: scrapy
 Requires-Dist: scrapy<3.0.0,>=2.11.0; extra == 'scrapy'
 Provides-Extra: seltz

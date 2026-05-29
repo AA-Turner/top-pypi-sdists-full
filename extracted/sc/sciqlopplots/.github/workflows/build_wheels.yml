@@ -101,7 +101,7 @@ jobs:
           CIBW_ENVIRONMENT_MACOS: PYSIDE_VERSION=${{ env.PYSIDE_VERSION }} MACOSX_DEPLOYMENT_TARGET='13.3' PATH=/usr/lib/ccache:${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/macos/bin:$PATH
           CIBW_ENVIRONMENT_LINUX: PYSIDE_VERSION=${{ env.PYSIDE_VERSION }} PIP_EXTRA_INDEX_URL=${{ env.PIP_EXTRA_INDEX_URL }} CC="ccache gcc" CXX="ccache g++" CCACHE_DIR=${{ env.GITHUB_WORKSPACE }}/.ccache PATH=${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/${{ matrix.qt_dir }}/bin:$PATH LD_LIBRARY_PATH=${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/${{ matrix.qt_dir }}/lib:$LD_LIBRARY_PATH
           CIBW_BEFORE_BUILD_WINDOWS: >
-            pip install "aqtinstall @ git+https://github.com/miurahr/aqtinstall.git@master"
+            pip install delvewheel "aqtinstall @ git+https://github.com/miurahr/aqtinstall.git@master"
             && if not exist "${{ env.GITHUB_WORKSPACE }}\\Qt\\${{ env.QT_VERSION }}" aqt install-qt -O ${{ env.GITHUB_WORKSPACE }}\\Qt windows desktop ${{ env.QT_VERSION }} win64_msvc2022_64 -m qtshadertools
           CIBW_BEFORE_BUILD_MACOS: >
             pip install "aqtinstall @ git+https://github.com/miurahr/aqtinstall.git@master"
@@ -114,11 +114,31 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
             auditwheel repair -w {dest_dir} --exclude libpyside6.abi3.so.6.11 --exclude libshiboken6.abi3.so.6.11 --exclude libQt6Core.so.6 --exclude libQt6Widgets.so.6 --exclude libQt6Gui.so.6 --exclude libpyside6qml.abi3.so.6.11 --exclude libGLX.so.0 --exclude libOpenGL.so.0 --exclude libxcb.so.1 --only-plat --plat ${{ matrix.platform }} {wheel}
           CIBW_REPAIR_WHEEL_COMMAND_MACOS:
+          # Windows has no default repair command, so the wheel was never repaired and
+          # the MSVC runtime was never bundled -> "DLL load failed" on machines without the
+          # VC++ redistributable. delvewheel (installed in before-build) vendors the runtime;
+          # exclude the Qt/PySide stack so we don't ship a private Qt that conflicts with the
+          # one PySide6 loads in-process (mirrors the Linux auditwheel excludes).
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
+            delvewheel repair -w {dest_dir}
+            --add-path "${{ env.GITHUB_WORKSPACE }}\\Qt\\${{ env.QT_VERSION }}\\msvc2022_64\\bin"
+            --include "msvcp140.dll;msvcp140_1.dll;msvcp140_2.dll;vcruntime140.dll;vcruntime140_1.dll;concrt140.dll"
+            --exclude "Qt6Core.dll;Qt6Gui.dll;Qt6Widgets.dll;Qt6Svg.dll;Qt6PrintSupport.dll;Qt6OpenGL.dll;Qt6OpenGLWidgets.dll;pyside6.abi3.dll;shiboken6.abi3.dll;pyside6qml.abi3.dll"
+            {wheel}
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_34
           CIBW_MANYLINUX_AARCH64_IMAGE: quay.io/pypa/manylinux_2_39_aarch64
           CIBW_SKIP: "*-win32 *i686 *38-* *39-* pp* *musllinux* *314t*"
           CIBW_BUILD_VERBOSITY: 3
           CIBW_ARCH: ${{ matrix.arch }}
+          # Smoke test: install the freshly-repaired wheel and import it. This
+          # catches "DLL load failed" / missing-runtime / broken-bundle classes
+          # of regressions that the build step itself can't see (since it
+          # links against the build-machine Qt, not the bundled one). Three
+          # consecutive Windows-wheel fixes shipped in May 2026 would have
+          # been blocked by this. Headless import only — no QApplication.
+          # Command string contains no GitHub event data so it's not exposed
+          # to expression-injection.
+          CIBW_TEST_COMMAND: python -c "import SciQLopPlots; print('SciQLopPlots', SciQLopPlots.__version__, 'imports OK')"
 
       - uses: actions/upload-artifact@v7
         with:

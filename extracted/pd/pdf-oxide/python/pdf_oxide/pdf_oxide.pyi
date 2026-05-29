@@ -8,6 +8,8 @@ from pathlib import Path
 __all__ = [
     "setup_logging",
     "set_log_level",
+    "set_max_ops_per_stream",
+    "set_preserve_unmapped_glyphs",
     "get_log_level",
     "disable_logging",
     "sign_pdf_bytes",
@@ -99,6 +101,36 @@ def set_log_level(level: str) -> None:
     keep their stale level and ignore subsequent calls to this function.
     """
 
+def set_max_ops_per_stream(limit: int | None) -> int | None:
+    """
+    Bridge Rust `log` macros into Python's `logging` module.
+
+    After this is called, all log messages emitted by pdf_oxide flow through
+    Python's standard `logging` module, which is silent by default. Users
+    control verbosity with the normal Python API, e.g.:
+
+    ```python
+    import logging
+    logging.basicConfig(level=logging.WARNING)
+    Python wrapper: set the global content-stream
+    operator cap. `None` restores the default (1,000,000). Returns the
+    previous override value or None if default was active.
+
+    Use case: large technical PDFs (textbooks, ISO standards) with
+    legitimate content streams exceeding 1,000,000 operators. Set to
+    `None` (the default) for adversarial-input protection; set to a
+    large value when the inputs are trusted.
+    """
+
+def set_preserve_unmapped_glyphs(preserve: bool) -> bool:
+    """
+    Python wrapper: toggle the global U+FFFD
+    preservation flag. When `True`, `extract_text` / `extract_words` /
+    `extract_spans` emit U+FFFD chars for unmapped glyphs (matching
+    `extract_chars` behaviour). When `False` (the default),
+    the high-level accessors filter them. Returns the previous value.
+    """
+
 def get_log_level() -> str:
     """
     Return the current Rust-side log level filter as a lowercase string.
@@ -185,17 +217,6 @@ def has_document_timestamp(pdf_data: bytes) -> bool:
 
 def generate_barcode_svg(barcode_type: int, data: str) -> str:
     """
-    Bridge Rust `log` macros into Python's `logging` module.
-
-    After this is called, all log messages emitted by pdf_oxide flow through
-    Python's standard `logging` module, which is silent by default. Users
-    control verbosity with the normal Python API, e.g.:
-
-    ```python
-    import logging
-    logging.basicConfig(level=logging.WARNING)
-    ```
-
     Generate a 1D barcode as an SVG string.
 
     `barcode_type`: 0=Code128, 1=Code39, 2=EAN13, 3=EAN8, 4=UPCA, 5=ITF, 6=Code93, 7=Codabar.
@@ -255,7 +276,7 @@ def crypto_set_policy(spec: str) -> None:
     Install the process-wide runtime crypto-governance policy (#230).
 
     ``spec`` grammar: ``mode[;clause]*`` where
-    ``mode ∈ {compat, strict, fips-strict}`` and
+    ``mode ∈ {compat, strict, fips-strict}``
     ``clause = (allow|deny):<alg>@<read|write>`` — e.g.
     ``"compat;deny:rc4@write;deny:md5@write"`` or ``"fips-strict"``.
 
@@ -379,8 +400,18 @@ class PdfDocument:
     def authenticate(self, password: str) -> bool:
         """Authenticate with a password."""
 
-    def page_count(self) -> int:
-        """Get number of pages."""
+    @property
+    def page_count(self) -> _PageCount:
+        """
+        Get number of pages.
+
+        works as both an attribute (the v0.3.6 shape)
+        AND as a method call (the shape). Returns a `_PageCount`
+        wrapper that is callable (`doc.page_count()` returns the int),
+        indexable (`range(doc.page_count)` works via `__index__`),
+        comparable with ints (`doc.page_count == 5`). The method-call
+        form is deprecated; new code should use the attribute form.
+        """
 
     def signatures(self) -> list[Signature]:
         """
@@ -484,8 +515,8 @@ class PdfDocument:
         previews where the caller doesn't want to do DPI arithmetic.
 
         Args:
-        page (int):   Zero-based page index.
-        width (int):  Target box width in pixels (must be > 0).
+        page (int): Zero-based page index.
+        width (int): Target box width in pixels (must be > 0).
         height (int): Target box height in pixels (must be > 0).
         format (str, optional): "png" (default) or "jpeg".
         background (tuple[float, float, float, float], optional):
@@ -997,6 +1028,35 @@ class PdfDocument:
     def extract_text_ocr(self, page: int, engine: t.Any | None = None) -> str:
         """Extract text using OCR."""
 
+    def has_text_layer(self, page: int) -> bool:
+        """
+        Python wrapper: returns True if the page has a
+        text layer; False for image-only / genuinely-empty pages.
+        Callers route image-only pages to OCR.
+        """
+
+    def permissions(self) -> t.Any:
+        """
+        Python wrapper: returns the document's /P
+        permission flags as a dict (None for unencrypted PDFs). Keys
+        match the PdfPermissions struct fields. Per PDF spec §7.6.3.2
+        the flags are advisory; pdf_oxide does not enforce them.
+        """
+
+    def structured_warnings(self) -> t.Any:
+        """
+        Python wrapper: returns the
+        document's accumulated structured warnings as a list of dicts.
+        Each entry has `category`, `page`, `message`, `spec_section`.
+        Companion to the Python per-target log-level downgrade — gives
+        callers a structured opt-in surface instead of stderr text.
+
+        Named `structured_warnings` (not `flatten_warnings`) to avoid
+        collision with the existing `DocumentEditor::flatten_warnings`
+        accessor for form-flattening warnings; the Rust side was
+        renamed in for the same reason.
+        """
+
     def get_form_fields(self) -> list[FormField]:
         """Get form fields."""
 
@@ -1141,6 +1201,55 @@ class PdfDocument:
         """
 
     def __repr__(self) -> str: ...
+
+@t.final
+class _PageCount:
+    """
+    Int-like callable wrapper returned by `PdfDocument.page_count` for
+    backward-compatibility. Behaves as an int via `__int__` /
+    `__index__` / comparison protocols. Also callable via `__call__` so
+    the method-call shape (`doc.page_count()`) still works.
+
+    New code should use the attribute form (`doc.page_count`); the
+    method-call form is deprecated and will be removed in v0.4.0.
+    """
+    def __call__(self) -> int:
+        """
+        Method-call form (v0.3.54 shape): `doc.page_count()` returns
+        the int. Deprecated; use the attribute form.
+        """
+
+    def __int__(self) -> int:
+        """`int(doc.page_count)` returns the int."""
+
+    def __index__(self) -> int:
+        """
+        `range(doc.page_count)` works via the index protocol. This is
+        the v0.3.6 shape that broke in.
+        """
+
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+    def __eq__(self, other: t.Any) -> bool:
+        """
+        `doc.page_count == 5` works against `int`. Also compares with
+        another `_PageCount` instance.
+        """
+
+    def __ne__(self, other: t.Any) -> bool: ...
+    def __lt__(self, other: int) -> bool: ...
+    def __le__(self, other: int) -> bool: ...
+    def __gt__(self, other: int) -> bool: ...
+    def __ge__(self, other: int) -> bool: ...
+    def __hash__(self) -> int: ...
+    def __sub__(self, other: int) -> int:
+        """
+        Arithmetic compatibility — callers may write
+        `doc.page_count - 1` to get the last page index.
+        """
+
+    def __add__(self, other: int) -> int: ...
+    def __bool__(self) -> bool: ...
 
 @t.final
 class Pdf:
@@ -1643,7 +1752,7 @@ class DocumentBuilder:
     )
     ```
 
-    `build()`, `save()`, `save_encrypted()`, `to_bytes_encrypted()`, and
+    `build()`, `save()`, `save_encrypted()`, `to_bytes_encrypted()`,
     `save_with_encryption()` **consume** the builder — subsequent calls
     on the same instance raise `RuntimeError`.
     """
@@ -1907,7 +2016,7 @@ class FluentPageBuilder:
 
     def remaining_space(self) -> float:
         """
-        Best-effort vertical space between the last known cursor y and
+        Best-effort vertical space between the last known cursor y
         the bottom margin (72 pt). Because `PyFluentPageBuilder` buffers
         ops until `done()`, this is a client-side estimate: it returns
         `last_at_y - 72` when `at()` has been called, else `page_height
@@ -2070,7 +2179,7 @@ class Align:
 @t.final
 class Column:
     """
-    Python-side column descriptor used by `Table` and
+    Python-side column descriptor used by `Table`
     `FluentPageBuilder.streaming_table`. Constructor matches the research
     C shape: `Column(header, width=100.0, align=Align.LEFT)`.
     """
@@ -2452,7 +2561,7 @@ class Timestamp:
         """
         Cryptographically verify this TimeStampToken.
 
-        Parses the outer CMS SignedData and verifies the TSA's signature and
+        Parses the outer CMS SignedData and verifies the TSA's signature
         `messageDigest` attribute (RSA-PKCS#1 v1.5, RSA-PSS, ECDSA P-256/P-384).
 
         Returns `True` when the token is cryptographically valid, `False` when

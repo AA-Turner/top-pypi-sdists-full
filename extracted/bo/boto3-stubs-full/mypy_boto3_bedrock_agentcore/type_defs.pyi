@@ -39,7 +39,9 @@ from .literals import (
     ContentBlockTypeType,
     CryptoWalletNetworkType,
     DescriptorTypeType,
+    HarnessBedrockApiFormatType,
     HarnessConversationRoleType,
+    HarnessOpenAiApiFormatType,
     HarnessStopReasonType,
     HarnessToolTypeType,
     HarnessToolUseStatusType,
@@ -243,6 +245,7 @@ __all__ = (
     "HarnessGatewayOutboundAuthTypeDef",
     "HarnessGeminiModelConfigTypeDef",
     "HarnessInlineFunctionConfigTypeDef",
+    "HarnessLiteLlmModelConfigTypeDef",
     "HarnessMessageStartEventTypeDef",
     "HarnessMessageStopEventTypeDef",
     "HarnessMessageTypeDef",
@@ -253,6 +256,9 @@ __all__ = (
     "HarnessReasoningContentBlockTypeDef",
     "HarnessReasoningTextBlockTypeDef",
     "HarnessRemoteMcpConfigTypeDef",
+    "HarnessSkillGitAuthTypeDef",
+    "HarnessSkillGitSourceTypeDef",
+    "HarnessSkillS3SourceTypeDef",
     "HarnessSkillTypeDef",
     "HarnessStreamMetricsTypeDef",
     "HarnessSystemContentBlockTypeDef",
@@ -946,6 +952,8 @@ class HarnessBedrockModelConfigTypeDef(TypedDict):
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
+    apiFormat: NotRequired[HarnessBedrockApiFormatType]
+    additionalParams: NotRequired[Mapping[str, Any]]
 
 class HarnessReasoningContentBlockDeltaTypeDef(TypedDict):
     text: NotRequired[str]
@@ -1010,6 +1018,15 @@ class HarnessInlineFunctionConfigTypeDef(TypedDict):
     description: str
     inputSchema: Mapping[str, Any]
 
+class HarnessLiteLlmModelConfigTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: NotRequired[str]
+    apiBase: NotRequired[str]
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    additionalParams: NotRequired[Mapping[str, Any]]
+
 class HarnessMessageStartEventTypeDef(TypedDict):
     role: HarnessConversationRoleType
 
@@ -1032,6 +1049,8 @@ class HarnessOpenAiModelConfigTypeDef(TypedDict):
     maxTokens: NotRequired[int]
     temperature: NotRequired[float]
     topP: NotRequired[float]
+    apiFormat: NotRequired[HarnessOpenAiApiFormatType]
+    additionalParams: NotRequired[Mapping[str, Any]]
 
 class HarnessReasoningTextBlockTypeDef(TypedDict):
     text: str
@@ -1041,8 +1060,12 @@ class HarnessRemoteMcpConfigTypeDef(TypedDict):
     url: str
     headers: NotRequired[Mapping[str, str]]
 
-class HarnessSkillTypeDef(TypedDict):
-    path: NotRequired[str]
+class HarnessSkillGitAuthTypeDef(TypedDict):
+    credentialArn: str
+    username: NotRequired[str]
+
+class HarnessSkillS3SourceTypeDef(TypedDict):
+    uri: str
 
 class HarnessSystemContentBlockTypeDef(TypedDict):
     text: NotRequired[str]
@@ -1666,10 +1689,16 @@ class HarnessModelConfigurationTypeDef(TypedDict):
     bedrockModelConfig: NotRequired[HarnessBedrockModelConfigTypeDef]
     openAiModelConfig: NotRequired[HarnessOpenAiModelConfigTypeDef]
     geminiModelConfig: NotRequired[HarnessGeminiModelConfigTypeDef]
+    liteLlmModelConfig: NotRequired[HarnessLiteLlmModelConfigTypeDef]
 
 class HarnessReasoningContentBlockTypeDef(TypedDict):
     reasoningText: NotRequired[HarnessReasoningTextBlockTypeDef]
     redactedContent: NotRequired[BlobTypeDef]
+
+class HarnessSkillGitSourceTypeDef(TypedDict):
+    url: str
+    path: NotRequired[str]
+    auth: NotRequired[HarnessSkillGitAuthTypeDef]
 
 HarnessToolResultBlockTypeDef = TypedDict(
     "HarnessToolResultBlockTypeDef",
@@ -2054,6 +2083,11 @@ class HarnessContentBlockStartEventTypeDef(TypedDict):
 class HarnessAgentCoreGatewayConfigTypeDef(TypedDict):
     gatewayArn: str
     outboundAuth: NotRequired[HarnessGatewayOutboundAuthTypeDef]
+
+class HarnessSkillTypeDef(TypedDict):
+    path: NotRequired[str]
+    s3: NotRequired[HarnessSkillS3SourceTypeDef]
+    git: NotRequired[HarnessSkillGitSourceTypeDef]
 
 class HarnessContentBlockTypeDef(TypedDict):
     text: NotRequired[str]
@@ -2592,6 +2626,7 @@ class InvokeHarnessRequestTypeDef(TypedDict):
     harnessArn: str
     runtimeSessionId: str
     messages: Sequence[HarnessMessageTypeDef]
+    runtimeUserId: NotRequired[str]
     model: NotRequired[HarnessModelConfigurationTypeDef]
     systemPrompt: NotRequired[Sequence[HarnessSystemContentBlockTypeDef]]
     tools: NotRequired[Sequence[HarnessToolTypeDef]]

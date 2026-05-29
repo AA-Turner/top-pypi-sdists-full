@@ -8,7 +8,7 @@ import httpx
 from requests.models import PreparedRequest
 import numpy as np
 import pandas as pd
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.http import HTTPService
 from ..exceptions import (
     ComponentError,

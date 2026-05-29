@@ -101,6 +101,8 @@ __all__ = [
     'NodePoolNodeSourceArgsDict',
     'NodePoolNodeSourceDetailsArgs',
     'NodePoolNodeSourceDetailsArgsDict',
+    'NodePoolPrimaryVnicArgs',
+    'NodePoolPrimaryVnicArgsDict',
     'NodePoolSecondaryVnicArgs',
     'NodePoolSecondaryVnicArgsDict',
     'NodePoolSecondaryVnicCreateVnicDetailsArgs',
@@ -407,23 +409,31 @@ class ClusterEndpointConfigArgsDict(TypedDict):
     """
     A list of the OCIDs of the network security groups (NSGs) to apply to the cluster endpoint. For more information about NSGs, see [NetworkSecurityGroup](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/20160918/NetworkSecurityGroup/).
     """
+    security_attributes: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    """
+    [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.
+    """
 
 @pulumi.input_type
 class ClusterEndpointConfigArgs:
     def __init__(__self__, *,
                  subnet_id: pulumi.Input[_builtins.str],
                  is_public_ip_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
-                 nsg_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 nsg_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 security_attributes: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         :param pulumi.Input[_builtins.str] subnet_id: The OCID of the regional subnet in which to place the Cluster endpoint.
         :param pulumi.Input[_builtins.bool] is_public_ip_enabled: Whether the cluster should be assigned a public IP address. Defaults to false. If set to true on a private subnet, the cluster provisioning will fail.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] nsg_ids: A list of the OCIDs of the network security groups (NSGs) to apply to the cluster endpoint. For more information about NSGs, see [NetworkSecurityGroup](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/20160918/NetworkSecurityGroup/).
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.
         """
         pulumi.set(__self__, "subnet_id", subnet_id)
         if is_public_ip_enabled is not None:
             pulumi.set(__self__, "is_public_ip_enabled", is_public_ip_enabled)
         if nsg_ids is not None:
             pulumi.set(__self__, "nsg_ids", nsg_ids)
+        if security_attributes is not None:
+            pulumi.set(__self__, "security_attributes", security_attributes)
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -461,13 +471,25 @@ class ClusterEndpointConfigArgs:
     def nsg_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "nsg_ids", value)
 
+    @_builtins.property
+    @pulumi.getter(name="securityAttributes")
+    def security_attributes(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.
+        """
+        return pulumi.get(self, "security_attributes")
+
+    @security_attributes.setter
+    def security_attributes(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "security_attributes", value)
+
 
 class ClusterImagePolicyConfigArgsDict(TypedDict):
     is_policy_enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
     (Updatable) Whether the image verification policy is enabled. Defaults to false. If set to true, the images will be verified against the policy at runtime.
     """
-    key_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ClusterImagePolicyConfigKeyDetailArgs']]]]]
+    key_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ClusterImagePolicyConfigKeyDetailArgsDict']]]]]
     """
     (Updatable) A list of KMS key details.
     """
@@ -750,11 +772,11 @@ class ClusterMetadataArgs:
 
 
 class ClusterOptionsArgsDict(TypedDict):
-    add_ons: NotRequired[pulumi.Input[Optional['ClusterOptionsAddOnsArgs']]]
+    add_ons: NotRequired[pulumi.Input[Optional['ClusterOptionsAddOnsArgsDict']]]
     """
     Configurable cluster add-ons
     """
-    admission_controller_options: NotRequired[pulumi.Input[Optional['ClusterOptionsAdmissionControllerOptionsArgs']]]
+    admission_controller_options: NotRequired[pulumi.Input[Optional['ClusterOptionsAdmissionControllerOptionsArgsDict']]]
     """
     (Updatable) Configurable cluster admission controllers
     """
@@ -762,23 +784,23 @@ class ClusterOptionsArgsDict(TypedDict):
     """
     IP family to use for single stack or define the order of IP families for dual-stack. Available values are [] (defaults to IPv4), [IPv4] (IPv4), [IPv4, IPv6] (IPv4 preferred dual stack).
     """
-    kubernetes_network_config: NotRequired[pulumi.Input[Optional['ClusterOptionsKubernetesNetworkConfigArgs']]]
+    kubernetes_network_config: NotRequired[pulumi.Input[Optional['ClusterOptionsKubernetesNetworkConfigArgsDict']]]
     """
     Network configuration for Kubernetes.
     """
-    open_id_connect_discovery: NotRequired[pulumi.Input[Optional['ClusterOptionsOpenIdConnectDiscoveryArgs']]]
+    open_id_connect_discovery: NotRequired[pulumi.Input[Optional['ClusterOptionsOpenIdConnectDiscoveryArgsDict']]]
     """
     (Updatable) The property that define the status of the OIDC Discovery feature for a cluster.
     """
-    open_id_connect_token_authentication_config: NotRequired[pulumi.Input[Optional['ClusterOptionsOpenIdConnectTokenAuthenticationConfigArgs']]]
+    open_id_connect_token_authentication_config: NotRequired[pulumi.Input[Optional['ClusterOptionsOpenIdConnectTokenAuthenticationConfigArgsDict']]]
     """
     (Updatable) The properties that configure OIDC token authentication in kube-apiserver. For more information, see [Configuring the API Server](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#using-flags).
     """
-    persistent_volume_config: NotRequired[pulumi.Input[Optional['ClusterOptionsPersistentVolumeConfigArgs']]]
+    persistent_volume_config: NotRequired[pulumi.Input[Optional['ClusterOptionsPersistentVolumeConfigArgsDict']]]
     """
     (Updatable) Configuration to be applied to block volumes created by Kubernetes Persistent Volume Claims (PVC)
     """
-    service_lb_config: NotRequired[pulumi.Input[Optional['ClusterOptionsServiceLbConfigArgs']]]
+    service_lb_config: NotRequired[pulumi.Input[Optional['ClusterOptionsServiceLbConfigArgsDict']]]
     """
     (Updatable) Configuration to be applied to load balancers created by Kubernetes services
     """
@@ -1123,7 +1145,7 @@ class ClusterOptionsOpenIdConnectTokenAuthenticationConfigArgsDict(TypedDict):
     """
     (Updatable) URL of the provider that allows the API server to discover public signing keys.  Only URLs that use the https:// scheme are accepted. This is typically the provider's discovery URL,  changed to have an empty path.
     """
-    required_claims: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ClusterOptionsOpenIdConnectTokenAuthenticationConfigRequiredClaimArgs']]]]]
+    required_claims: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ClusterOptionsOpenIdConnectTokenAuthenticationConfigRequiredClaimArgsDict']]]]]
     """
     (Updatable) A key=value pair that describes a required claim in the ID Token. If set, the claim is verified to be present  in the ID Token with a matching value. Repeat this flag to specify multiple claims.
     """
@@ -1546,7 +1568,7 @@ class ContainerInstanceContainerArgsDict(TypedDict):
     """
     Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only. Example: `{"bar-key": "value"}`
     """
-    health_checks: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ContainerInstanceContainerHealthCheckArgs']]]]]
+    health_checks: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ContainerInstanceContainerHealthCheckArgsDict']]]]]
     """
     list of container health checks to check container status and take appropriate action if container status is failed. There are two types of health checks that we currently support HTTP and TCP.
     """
@@ -1560,11 +1582,11 @@ class ContainerInstanceContainerArgsDict(TypedDict):
     """
     A message that describes the current state of the container in more detail. Can be used to provide actionable information.
     """
-    resource_config: NotRequired[pulumi.Input[Optional['ContainerInstanceContainerResourceConfigArgs']]]
+    resource_config: NotRequired[pulumi.Input[Optional['ContainerInstanceContainerResourceConfigArgsDict']]]
     """
     The size and amount of resources available to the container.
     """
-    security_context: NotRequired[pulumi.Input[Optional['ContainerInstanceContainerSecurityContextArgs']]]
+    security_context: NotRequired[pulumi.Input[Optional['ContainerInstanceContainerSecurityContextArgsDict']]]
     """
     Security context for container.
     """
@@ -1589,7 +1611,7 @@ class ContainerInstanceContainerArgsDict(TypedDict):
     """
     The time the container instance was updated, in the format defined by [RFC 3339](https://tools.ietf.org/rfc/rfc3339).
     """
-    volume_mounts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ContainerInstanceContainerVolumeMountArgs']]]]]
+    volume_mounts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ContainerInstanceContainerVolumeMountArgsDict']]]]]
     """
     List of the volume mounts.
     """
@@ -2037,7 +2059,7 @@ class ContainerInstanceContainerHealthCheckArgsDict(TypedDict):
     """
     Number of consecutive failures at which we consider the check failed.
     """
-    headers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ContainerInstanceContainerHealthCheckHeaderArgs']]]]]
+    headers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ContainerInstanceContainerHealthCheckHeaderArgsDict']]]]]
     """
     Container health check HTTP headers.
     """
@@ -2401,7 +2423,7 @@ class ContainerInstanceContainerResourceConfigArgs:
 
 
 class ContainerInstanceContainerSecurityContextArgsDict(TypedDict):
-    capabilities: NotRequired[pulumi.Input[Optional['ContainerInstanceContainerSecurityContextCapabilitiesArgs']]]
+    capabilities: NotRequired[pulumi.Input[Optional['ContainerInstanceContainerSecurityContextCapabilitiesArgsDict']]]
     """
     Linux Container capabilities to configure capabilities of container.
     """
@@ -3170,7 +3192,7 @@ class ContainerInstanceVolumeArgsDict(TypedDict):
     """
     The volume type of the empty directory, can be either File Storage or Memory.
     """
-    configs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ContainerInstanceVolumeConfigArgs']]]]]
+    configs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ContainerInstanceVolumeConfigArgsDict']]]]]
     """
     Contains key value pairs which can be mounted as individual files inside the container. The value needs to be base64 encoded. It is decoded to plain text before the mount.
     """
@@ -3371,7 +3393,7 @@ class NodePoolNodeArgsDict(TypedDict):
     """
     (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Operations.CostCenter": "42"}`
     """
-    errors: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['NodePoolNodeErrorArgs']]]]]
+    errors: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['NodePoolNodeErrorArgsDict']]]]]
     """
     An error that may be associated with the node.
     """
@@ -3678,7 +3700,7 @@ class NodePoolNodeConfigDetailsArgsDict(TypedDict):
     """
     (Updatable) The OCID of the Key Management Service key assigned to the boot volume.
     """
-    node_pool_pod_network_option_details: NotRequired[pulumi.Input[Optional['NodePoolNodeConfigDetailsNodePoolPodNetworkOptionDetailsArgs']]]
+    node_pool_pod_network_option_details: NotRequired[pulumi.Input[Optional['NodePoolNodeConfigDetailsNodePoolPodNetworkOptionDetailsArgsDict']]]
     """
     (Updatable) The CNI related configuration of pods in the node pool.
     """
@@ -3929,7 +3951,7 @@ class NodePoolNodeConfigDetailsPlacementConfigArgsDict(TypedDict):
     """
     (Updatable) A list of fault domains in which to place nodes.
     """
-    preemptible_node_config: NotRequired[pulumi.Input[Optional['NodePoolNodeConfigDetailsPlacementConfigPreemptibleNodeConfigArgs']]]
+    preemptible_node_config: NotRequired[pulumi.Input[Optional['NodePoolNodeConfigDetailsPlacementConfigPreemptibleNodeConfigArgsDict']]]
     """
     (Updatable) Configuration options for preemptible nodes.
     """
@@ -4507,6 +4529,35 @@ class NodePoolNodeSourceDetailsArgs:
         pulumi.set(self, "boot_volume_size_in_gbs", value)
 
 
+class NodePoolPrimaryVnicArgsDict(TypedDict):
+    security_attributes: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    """
+    (Updatable) [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.
+    """
+
+@pulumi.input_type
+class NodePoolPrimaryVnicArgs:
+    def __init__(__self__, *,
+                 security_attributes: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.
+        """
+        if security_attributes is not None:
+            pulumi.set(__self__, "security_attributes", security_attributes)
+
+    @_builtins.property
+    @pulumi.getter(name="securityAttributes")
+    def security_attributes(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        (Updatable) [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.
+        """
+        return pulumi.get(self, "security_attributes")
+
+    @security_attributes.setter
+    def security_attributes(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "security_attributes", value)
+
+
 class NodePoolSecondaryVnicArgsDict(TypedDict):
     create_vnic_details: pulumi.Input['NodePoolSecondaryVnicCreateVnicDetailsArgsDict']
     """
@@ -4608,13 +4659,17 @@ class NodePoolSecondaryVnicCreateVnicDetailsArgsDict(TypedDict):
     """
     (Updatable) The number of ip addresses to attach to secondary vnic
     """
-    ipv6address_ipv6subnet_cidr_pair_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['NodePoolSecondaryVnicCreateVnicDetailsIpv6addressIpv6subnetCidrPairDetailArgs']]]]]
+    ipv6address_ipv6subnet_cidr_pair_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['NodePoolSecondaryVnicCreateVnicDetailsIpv6addressIpv6subnetCidrPairDetailArgsDict']]]]]
     """
     (Updatable) A list of IPv6 prefixes from which the VNIC should be assigned an IPv6 address. You can provide only the prefix  and Oracle Cloud Infrastructure selects an available address from the range. You can optionally choose to leave the prefix range empty  and instead provide the specific IPv6 address that should be used from within that range.
     """
     nsg_ids: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
     (Updatable) A list of the OCIDs of the network security groups (NSGs) to add the VNIC to
+    """
+    security_attributes: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    """
+    (Updatable) [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.
     """
     skip_source_dest_check: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -4634,6 +4689,7 @@ class NodePoolSecondaryVnicCreateVnicDetailsArgs:
                  ip_count: pulumi.Input[Optional[_builtins.int]] = None,
                  ipv6address_ipv6subnet_cidr_pair_details: pulumi.Input[Optional[Sequence[pulumi.Input['NodePoolSecondaryVnicCreateVnicDetailsIpv6addressIpv6subnetCidrPairDetailArgs']]]] = None,
                  nsg_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 security_attributes: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  skip_source_dest_check: pulumi.Input[Optional[_builtins.bool]] = None):
         """
         :param pulumi.Input[_builtins.str] subnet_id: (Updatable) the ocid of the subnet to create the vnic in
@@ -4646,6 +4702,7 @@ class NodePoolSecondaryVnicCreateVnicDetailsArgs:
         :param pulumi.Input[_builtins.int] ip_count: (Updatable) The number of ip addresses to attach to secondary vnic
         :param pulumi.Input[Sequence[pulumi.Input['NodePoolSecondaryVnicCreateVnicDetailsIpv6addressIpv6subnetCidrPairDetailArgs']]] ipv6address_ipv6subnet_cidr_pair_details: (Updatable) A list of IPv6 prefixes from which the VNIC should be assigned an IPv6 address. You can provide only the prefix  and Oracle Cloud Infrastructure selects an available address from the range. You can optionally choose to leave the prefix range empty  and instead provide the specific IPv6 address that should be used from within that range.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] nsg_ids: (Updatable) A list of the OCIDs of the network security groups (NSGs) to add the VNIC to
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.
         :param pulumi.Input[_builtins.bool] skip_source_dest_check: (Updatable) Whether the source/destination check is disabled on the VNIC
         """
         pulumi.set(__self__, "subnet_id", subnet_id)
@@ -4667,6 +4724,8 @@ class NodePoolSecondaryVnicCreateVnicDetailsArgs:
             pulumi.set(__self__, "ipv6address_ipv6subnet_cidr_pair_details", ipv6address_ipv6subnet_cidr_pair_details)
         if nsg_ids is not None:
             pulumi.set(__self__, "nsg_ids", nsg_ids)
+        if security_attributes is not None:
+            pulumi.set(__self__, "security_attributes", security_attributes)
         if skip_source_dest_check is not None:
             pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
 
@@ -4789,6 +4848,18 @@ class NodePoolSecondaryVnicCreateVnicDetailsArgs:
     @nsg_ids.setter
     def nsg_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "nsg_ids", value)
+
+    @_builtins.property
+    @pulumi.getter(name="securityAttributes")
+    def security_attributes(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        (Updatable) [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.
+        """
+        return pulumi.get(self, "security_attributes")
+
+    @security_attributes.setter
+    def security_attributes(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "security_attributes", value)
 
     @_builtins.property
     @pulumi.getter(name="skipSourceDestCheck")

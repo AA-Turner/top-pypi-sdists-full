@@ -5,8 +5,6 @@ docsig._module
 AST-backed modules, classes, and functions for docstring checking.
 """
 
-from __future__ import annotations as _
-
 import re as _re
 import typing as _t
 from pathlib import Path as _Path
@@ -37,6 +35,8 @@ ERRORS = (
     RecursionError,
     _ast.DuplicateBasesError,
 )
+
+_DEFAULT_NAME = "module"
 
 
 class Parent:  # pylint: disable=too-many-instance-attributes
@@ -74,8 +74,14 @@ class Parent:  # pylint: disable=too-many-instance-attributes
         self._imports = imports or _Imports()
         self._overloads = _Overloads()
         if node is None:
-            self._name = "module"
+            # this is either an empty module object (name it module)
+            # or an error preventing the module from being parsed
+            self._name = _DEFAULT_NAME
             if not isinstance(self, Function) and error is not None:
+                # the only "function" belonging to the module can be
+                # later inspected to report on the module error (the
+                # report doesn't analyze modules or classes - it
+                # analyzes functions)
                 self._children.append(Function(file, error=error))
         else:
             self._name = node.name

@@ -22,6 +22,7 @@ import itertools
 import json
 import logging
 import math
+import warnings
 from collections import defaultdict
 from collections.abc import Collection, Iterable
 from datetime import datetime, timedelta
@@ -47,6 +48,7 @@ from sqlalchemy import (
     Uuid,
     and_,
     case,
+    cast,
     delete,
     extract,
     false,
@@ -72,6 +74,7 @@ from airflow._shared.observability.traces import new_dagrun_trace_carrier, new_t
 from airflow._shared.timezones import timezone
 from airflow.assets.manager import asset_manager
 from airflow.configuration import conf
+from airflow.exceptions import RemovedInAirflow4Warning
 from airflow.executors.workloads import BaseWorkload
 from airflow.listeners.listener import get_listener_manager
 from airflow.models.asset import AssetModel
@@ -260,7 +263,14 @@ def _get_new_task_ids(
     if not latest_dag:
         raise ValueError(f"Latest DAG version for '{dag_id}' not found")
 
-    current_dag = scheduler_dagbag.get_dag_for_run(dag_run=dag_run, session=session)
+    # Use created_dag_version_id directly to get the DAG version the run was
+    # originally created with. We cannot use get_dag_for_run here because it
+    # falls back to the latest version when bundle_version is not set (e.g.
+    # LocalDagBundle), which would make current_dag == latest_dag and the diff
+    # always empty.
+    current_dag = None
+    if dag_run.created_dag_version_id:
+        current_dag = scheduler_dagbag.get_dag(version_id=dag_run.created_dag_version_id, session=session)
     new_task_ids = set(latest_dag.task_ids) - set(current_dag.task_ids) if current_dag else set()
 
     return list(new_task_ids)
@@ -376,6 +386,11 @@ def clear_task_instances(
             ti.state = None
             ti.external_executor_id = None
             ti.clear_next_method_args()
+            # Match DagVersion to latest serialized DAG when run_on_latest_version.
+            if run_on_latest_version:
+                latest_dag_version = DagVersion.get_latest_version(ti.dag_id, session=session)
+                if latest_dag_version is not None:
+                    ti.dag_version_id = latest_dag_version.id
             session.merge(ti)
 
     if dag_run_state is not False and tis:
@@ -416,8 +431,7 @@ def clear_task_instances(
                         dr.created_dag_version_id = dag_version.id
                         dr.dag = dr_dag
                         dr.verify_integrity(session=session, dag_version_id=dag_version.id)
-                        for ti in dr.task_instances:
-                            ti.dag_version_id = dag_version.id
+                        # Only cleared TIs get latest dag_version_id above; do not rewrite others.
                 else:
                     dr_dag = scheduler_dagbag.get_dag_for_run(dag_run=dr, session=session)
                 if not dr_dag:
@@ -429,6 +443,20 @@ def clear_task_instances(
                 if dag_run_state == DagRunState.QUEUED:
                     dr.last_scheduling_decision = None
                     dr.start_date = None
+            elif run_on_latest_version:
+                # Queued/running DagRun: update DR to latest version/bundle for workloads that use it.
+                dag_version = DagVersion.get_latest_version(dr.dag_id, session=session)
+                if dag_version and dr.created_dag_version_id != dag_version.id:
+                    dr_dag = scheduler_dagbag.get_latest_version_of_dag(dr.dag_id, session=session)
+                    if not dr_dag:
+                        log.warning("No serialized dag found for dag '%s'", dr.dag_id)
+                    else:
+                        dr.created_dag_version_id = dag_version.id
+                        dr.dag = dr_dag
+                        if not dr_dag.disable_bundle_versioning:
+                            bundle_version = dr.dag_model.bundle_version
+                            if bundle_version is not None:
+                                dr.bundle_version = bundle_version
     for ti in tis:
         ti.context_carrier = new_task_run_carrier(ti.dag_run.context_carrier)
     session.flush()
@@ -748,6 +776,14 @@ class TaskInstance(Base, LoggingMixin, BaseWorkload):
         if self.map_index >= 0:
             return str(self.map_index)
         return None
+
+    @rendered_map_index.expression  # type: ignore[no-redef]
+    def rendered_map_index(cls):
+        return case(
+            (cls._rendered_map_index.isnot(None), cls._rendered_map_index),
+            (cls.map_index >= 0, cast(cls.map_index, String)),
+            else_=None,
+        )
 
     @property
     def log_url(self) -> str:
@@ -1095,7 +1131,7 @@ class TaskInstance(Base, LoggingMixin, BaseWorkload):
         prefix = f"<TaskInstance: {self.dag_id}.{self.task_id} {self.run_id} "
         if self.map_index != -1:
             prefix += f"map_index={self.map_index} "
-        return prefix + f"[{self.state}]>"
+        return prefix + f"[{self.state}] ti_id={self.id}>"
 
     def next_retry_datetime(self):
         """
@@ -1847,22 +1883,52 @@ class TaskInstance(Base, LoggingMixin, BaseWorkload):
 
     @provide_session
     def get_num_running_task_instances(self, session: Session, same_dagrun: bool = False) -> int:
-        """Return Number of running TIs from the DB."""
-        # .count() is inefficient
-        num_running_task_instances_query = (
+        """Count running TIs from the DB."""
+        warnings.warn(
+            "This function is deprecated and will be removed in Airflow.",
+            RemovedInAirflow4Warning,
+            stacklevel=2,
+        )
+        return self._get_num_task_instances_of_state(
+            [TaskInstanceState.RUNNING],
+            same_dagrun=same_dagrun,
+            session=session,
+        )
+
+    def get_num_active_task_instances(self, *, same_dagrun: bool = False, session: Session) -> int:
+        """
+        Count active (running or deferred) TIs for this task from the DB.
+
+        Deferred TIs are included because they are still logically in-flight
+        and must count against max_active_tis_per_dag / max_active_tis_per_dagrun.
+
+        :meta private:
+        """
+        return self._get_num_task_instances_of_state(
+            [TaskInstanceState.RUNNING, TaskInstanceState.DEFERRED],
+            same_dagrun=same_dagrun,
+            session=session,
+        )
+
+    def _get_num_task_instances_of_state(
+        self,
+        states: Collection[TaskInstanceState],
+        *,
+        same_dagrun: bool = False,
+        session: Session,
+    ) -> int:
+        stmt = (
             select(func.count())
             .select_from(TaskInstance)
-            .where(
-                TaskInstance.dag_id == self.dag_id,
-                TaskInstance.task_id == self.task_id,
-                TaskInstance.state == TaskInstanceState.RUNNING,
-            )
+            .where(TaskInstance.dag_id == self.dag_id, TaskInstance.task_id == self.task_id)
         )
+        if states:
+            stmt = stmt.where(or_(*(TaskInstance.state == s for s in states)))
+        else:
+            return 0
         if same_dagrun:
-            num_running_task_instances_query = num_running_task_instances_query.where(
-                TaskInstance.run_id == self.run_id
-            )
-        return session.scalar(num_running_task_instances_query) or 0
+            stmt = stmt.where(TaskInstance.run_id == self.run_id)
+        return session.scalar(stmt) or 0
 
     @staticmethod
     def filter_for_tis(tis: Iterable[TaskInstance | TaskInstanceKey]) -> ColumnElement[bool] | None:

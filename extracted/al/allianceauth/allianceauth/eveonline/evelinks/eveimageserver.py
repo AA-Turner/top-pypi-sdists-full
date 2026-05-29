@@ -1,4 +1,7 @@
-from . import _ESI_CATEGORY_ALLIANCE, _ESI_CATEGORY_CHARACTER, _ESI_CATEGORY_CORPORATION, _ESI_CATEGORY_INVENTORYTYPE
+from . import (
+    _ESI_CATEGORY_ALLIANCE, _ESI_CATEGORY_CHARACTER, _ESI_CATEGORY_CORPORATION,
+    _ESI_CATEGORY_INVENTORYTYPE,
+)
 
 _EVE_IMAGE_SERVER_URL = 'https://images.evetech.net'
 _DEFAULT_IMAGE_SIZE = 32
@@ -8,8 +11,8 @@ def _eve_entity_image_url(
     category: str,
     entity_id: int,
     size: int = 32,
-    variant: str = None,
-    tenant: str = None,
+    variant: str | None = None,
+    tenant: str | None = None,
 ) -> str:
     """returns image URL for an Eve Online ID.
     Supported categories: alliance, corporation, character, inventory_type

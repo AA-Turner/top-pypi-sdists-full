@@ -3,7 +3,7 @@ from collections.abc import Callable
 import asyncio
 import json
 from ..interfaces.ParrotBot import ParrotBot
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from pydantic import BaseModel, Field
 
 

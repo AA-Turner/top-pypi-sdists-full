@@ -55,6 +55,7 @@ from .paginator import (
     ListStorageProfilesForQueuePaginator,
     ListStorageProfilesPaginator,
     ListTasksPaginator,
+    ListVolumesPaginator,
     ListWorkersPaginator,
 )
 from .type_defs import (
@@ -128,6 +129,7 @@ from .type_defs import (
     DeleteQueueLimitAssociationRequestTypeDef,
     DeleteQueueRequestTypeDef,
     DeleteStorageProfileRequestTypeDef,
+    DeleteVolumeRequestTypeDef,
     DeleteWorkerRequestTypeDef,
     DisassociateMemberFromFarmRequestTypeDef,
     DisassociateMemberFromFleetRequestTypeDef,
@@ -171,6 +173,8 @@ from .type_defs import (
     GetStorageProfileResponseTypeDef,
     GetTaskRequestTypeDef,
     GetTaskResponseTypeDef,
+    GetVolumeRequestTypeDef,
+    GetVolumeResponseTypeDef,
     GetWorkerRequestTypeDef,
     GetWorkerResponseTypeDef,
     ListAvailableMeteredProductsRequestTypeDef,
@@ -229,6 +233,8 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     ListTasksRequestTypeDef,
     ListTasksResponseTypeDef,
+    ListVolumesRequestTypeDef,
+    ListVolumesResponseTypeDef,
     ListWorkersRequestTypeDef,
     ListWorkersResponseTypeDef,
     PutMeteredProductRequestTypeDef,
@@ -757,6 +763,14 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#delete_storage_profile)
         """
 
+    def delete_volume(self, **kwargs: Unpack[DeleteVolumeRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a persistent volume.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/delete_volume.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#delete_volume)
+        """
+
     def delete_worker(self, **kwargs: Unpack[DeleteWorkerRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a worker.
@@ -973,6 +987,14 @@ class DeadlineCloudClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/get_task.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#get_task)
+        """
+
+    def get_volume(self, **kwargs: Unpack[GetVolumeRequestTypeDef]) -> GetVolumeResponseTypeDef:
+        """
+        Gets a persistent volume.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/get_volume.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#get_volume)
         """
 
     def get_worker(self, **kwargs: Unpack[GetWorkerRequestTypeDef]) -> GetWorkerResponseTypeDef:
@@ -1247,6 +1269,16 @@ class DeadlineCloudClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/list_tasks.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#list_tasks)
+        """
+
+    def list_volumes(
+        self, **kwargs: Unpack[ListVolumesRequestTypeDef]
+    ) -> ListVolumesResponseTypeDef:
+        """
+        Lists the persistent volumes in a fleet.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/list_volumes.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#list_volumes)
         """
 
     def list_workers(
@@ -1785,6 +1817,17 @@ class DeadlineCloudClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_tasks"]
     ) -> ListTasksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_volumes"]
+    ) -> ListVolumesPaginator:
         """
         Create a paginator for an operation.
 

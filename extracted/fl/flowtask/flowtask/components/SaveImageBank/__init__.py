@@ -7,7 +7,7 @@ from PIL.TiffImagePlugin import IFDRational
 from pgvector.asyncpg import register_vector
 from querysource.types.validators import Entity
 from navigator.libs.json import JSONContent
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from ...exceptions import ConfigError, ComponentError
 from ...conf import default_dsn
 

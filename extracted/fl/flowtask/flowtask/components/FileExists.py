@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path, PurePath
 from ..exceptions import FileNotFound, FileError, ComponentError
-from .FileBase import FileBase
+from ..interfaces.file_base import FileBase
 
 
 class FileExists(FileBase):

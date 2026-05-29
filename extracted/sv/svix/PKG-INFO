@@ -1,48 +1,40 @@
 Metadata-Version: 2.4
 Name: svix
-Version: 1.94.0
+Version: 1.95.1
 Summary: Svix webhooks API client and webhook verification library
-Home-page: https://www.svix.com
-Author: Svix
-Author-email: development@svix.com
-License: MIT
-Keywords: svix,diahook,webhooks
+Project-URL: Repository, https://github.com/svix/svix-webhooks/
+Project-URL: Issues, https://github.com/svix/svix-webhooks/issues
+Project-URL: Changelog, https://github.com/svix/svix-webhooks/blob/main/ChangeLog.md
+Author-email: Svix <development@svix.com>
+License-Expression: MIT
+Keywords: diahook,svix,webhooks
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Topic :: Software Development :: Libraries
-Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Requires-Python: >=3.6
-Description-Content-Type: text/markdown
-Requires-Dist: pydantic>=2.10
-Requires-Dist: httpx>=0.23.0
+Requires-Python: >=3.8
 Requires-Dist: attrs>=21.3.0
-Requires-Dist: standardwebhooks
+Requires-Dist: deprecated
+Requires-Dist: httpx>=0.23.0
+Requires-Dist: pydantic>=2.10
 Requires-Dist: python-dateutil
-Requires-Dist: Deprecated
-Requires-Dist: types-python-dateutil
-Requires-Dist: types-Deprecated
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: standardwebhooks
+Description-Content-Type: text/markdown
 
 <h1 align="center">
     <a style="text-decoration: none" href="https://www.svix.com">
@@ -90,7 +82,7 @@ You can find general usage documentation at <https://docs.svix.com>.  For comple
 # Installation
 
 ```sh
-pip install Svix
+pip install svix
 ```
 
 ## Usage
@@ -119,13 +111,13 @@ First checkout the [core README](../README.md#development) for details on how to
 
 ## Requirements
 
- - python 3
+ - [CPython](https://www.python.org/) 3.8+
+ - [uv](https://github.com/astral-sh/uv)
 
 ## Installing dependencies
 
 ```sh
-python -m venv .venv
-pip install -r requirements.txt && pip install -r requirements-dev.txt
+uv sync --frozen --all-groups
 ```
 
 ## Contributing
@@ -133,7 +125,8 @@ pip install -r requirements.txt && pip install -r requirements-dev.txt
 Before opening a PR be sure to format your code!
 
 ```sh
-./scripts/format.sh
+uv run ./scripts/format.sh
+uv run ./scripts/lint.sh
 ```
 
 ## Running Tests
@@ -141,5 +134,7 @@ Before opening a PR be sure to format your code!
 Simply run:
 
 ```sh
-pytest
+uv run pytest
 ```
+
+Note that this will run integration tests that require a running Docker/Podman/etc server and working [`docker-compose`](https://docs.docker.com/compose/)

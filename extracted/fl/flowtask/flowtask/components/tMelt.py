@@ -4,7 +4,7 @@ from collections.abc import Callable
 import pandas as pd
 from querysource.exceptions import DriverError, QueryException
 from ..exceptions import ComponentError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class tMelt(FlowComponent):

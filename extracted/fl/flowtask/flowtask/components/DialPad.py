@@ -4,7 +4,7 @@ from collections.abc import Callable
 from urllib.parse import urljoin
 from io import StringIO
 from navconfig.logging import logging
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.http import HTTPService
 from ..exceptions import ComponentError
 

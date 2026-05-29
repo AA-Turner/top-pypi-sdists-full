@@ -15,32 +15,12 @@ import System
 import System.Collections.Generic
 import System.Collections.Immutable
 
-Expression = typing.Any
 QuantConnect_Securities_Option_StrategyMatcher_OptionPosition = typing.Any
 QuantConnect_Securities_Option_StrategyMatcher_OptionStrategyDefinitionMatch = typing.Any
+Expression = typing.Any
 QuantConnect_Securities_Option_StrategyMatcher_OptionStrategyLegDefinitionMatch = typing.Any
 
 QuantConnect_Securities_Option_StrategyMatcher_ConstantOptionStrategyLegPredicateReferenceValue_T = typing.TypeVar("QuantConnect_Securities_Option_StrategyMatcher_ConstantOptionStrategyLegPredicateReferenceValue_T")
-
-
-class PredicateTargetValue(IntEnum):
-    """
-    Specifies the type of value being compared against in a OptionStrategyLegPredicate.
-    These values define the limits of what can be filtered and must match available slice methods in
-    OptionPositionCollection
-    """
-
-    RIGHT = 0
-    """Predicate matches on OptionPosition.right (0)"""
-
-    QUANTITY = 1
-    """Predicate match on OptionPosition.quantity (1)"""
-
-    STRIKE = 2
-    """Predicate matches on OptionPosition.strike (2)"""
-
-    EXPIRATION = 3
-    """Predicate matches on OptionPosition.expiration (3)"""
 
 
 class OptionPosition(System.IEquatable[QuantConnect_Securities_Option_StrategyMatcher_OptionPosition]):
@@ -250,6 +230,26 @@ class OptionPosition(System.IEquatable[QuantConnect_Securities_Option_StrategyMa
         ...
 
 
+class PredicateTargetValue(IntEnum):
+    """
+    Specifies the type of value being compared against in a OptionStrategyLegPredicate.
+    These values define the limits of what can be filtered and must match available slice methods in
+    OptionPositionCollection
+    """
+
+    RIGHT = 0
+    """Predicate matches on OptionPosition.right (0)"""
+
+    QUANTITY = 1
+    """Predicate match on OptionPosition.quantity (1)"""
+
+    STRIKE = 2
+    """Predicate matches on OptionPosition.strike (2)"""
+
+    EXPIRATION = 3
+    """Predicate matches on OptionPosition.expiration (3)"""
+
+
 class IOptionStrategyLegPredicateReferenceValue(metaclass=abc.ABCMeta):
     """
     When decoding leg predicates, we extract the value we're comparing against
@@ -272,6 +272,40 @@ class IOptionStrategyLegPredicateReferenceValue(metaclass=abc.ABCMeta):
         For example, the predicate may include ... > legs<0>.Strike, and upon evaluation, we need to
         be able to extract leg<0>.Strike for the currently contemplated set of legs adhering to a
         strategy's definition.
+        """
+        ...
+
+
+class ConstantOptionStrategyLegPredicateReferenceValue(typing.Generic[QuantConnect_Securities_Option_StrategyMatcher_ConstantOptionStrategyLegPredicateReferenceValue_T], System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyLegPredicateReferenceValue):
+    """Provides an implementation of IOptionStrategyLegPredicateReferenceValue that represents a constant value."""
+
+    @property
+    def target(self) -> QuantConnect.Securities.Option.StrategyMatcher.PredicateTargetValue:
+        """Gets the target of this value"""
+        ...
+
+    def __init__(self, value: QuantConnect_Securities_Option_StrategyMatcher_ConstantOptionStrategyLegPredicateReferenceValue_T, target: QuantConnect.Securities.Option.StrategyMatcher.PredicateTargetValue) -> None:
+        """
+        Initializes a new instance of the ConstantOptionStrategyLegPredicateReferenceValue{T} class
+        
+        :param value: The constant reference value
+        :param target: The value target in relation to the OptionPosition
+        """
+        ...
+
+    def resolve(self, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]) -> System.Object:
+        """Returns the constant value provided at initialization"""
+        ...
+
+
+class ConstantOptionStrategyLegReferenceValue(System.Object):
+    """Provides methods for easily creating instances of ConstantOptionStrategyLegPredicateReferenceValue{T}"""
+
+    @staticmethod
+    def create(value: typing.Any) -> QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyLegPredicateReferenceValue:
+        """
+        Creates a new instance of the ConstantOptionStrategyLegPredicateReferenceValue{T} class for
+        the specified value
         """
         ...
 
@@ -516,98 +550,6 @@ class OptionPositionCollection(System.Object, typing.Iterable[QuantConnect.Secur
         ...
 
 
-class OptionStrategyLegPredicate(System.Object):
-    """
-    Defines a condition under which a particular OptionPosition can be combined with
-    a preceding list of leg (also of type OptionPosition) to achieve a particular
-    option strategy.
-    """
-
-    @property
-    def is_indexed(self) -> bool:
-        """Determines whether or not this predicate is able to utilize OptionPositionCollection indexes."""
-        ...
-
-    def __init__(self, comparison: QuantConnect.BinaryComparison, reference: QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyLegPredicateReferenceValue, predicate: typing.Callable[[typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], bool], expression: typing.Any) -> None:
-        """
-        Initializes a new instance of the OptionStrategyLegPredicate class
-        
-        :param comparison: The BinaryComparison invoked
-        :param reference: The reference value, such as a strike price, encapsulated within the
-        IOptionStrategyLegPredicateReferenceValue to enable resolving the value from different potential sets.
-        :param predicate: The compiled predicate expression
-        :param expression: The predicate expression, from which, all other values were derived.
-        """
-        ...
-
-    @staticmethod
-    def create(expression: typing.Any) -> QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegPredicate:
-        """Creates a new OptionStrategyLegPredicate from the specified predicate expression"""
-        ...
-
-    def filter(self, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection, include_underlying: bool) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
-        """Filters the specified positions by applying this predicate based on the referenced legs."""
-        ...
-
-    def get_reference_value(self) -> QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyLegPredicateReferenceValue:
-        """Gets the underlying IOptionStrategyLegPredicateReferenceValue value used by this predicate."""
-        ...
-
-    def matches(self, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], position: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> bool:
-        """
-        Determines whether or not the provided combination of preceding legs
-        and current position adhere to this predicate's requirements.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
-class IOptionPositionCollectionEnumerator(metaclass=abc.ABCMeta):
-    """
-    Enumerates an OptionPositionCollection. The intent is to evaluate positions that
-    may be more important sooner. Positions appearing earlier in the enumeration are evaluated before
-    positions showing later. This effectively prioritizes individual positions. This should not be
-    used filter filtering, but it could also be used to split a position, for example a position with
-    10 could be changed to two 5s and they don't need to be enumerated back to-back either. In this
-    way you could prioritize the first 5 and then delay matching of the final 5.
-    """
-
-    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
-        """
-        Enumerates the provided positions. Positions enumerated first are more
-        likely to be matched than those appearing later in the enumeration.
-        """
-        ...
-
-
-class FunctionalOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
-    """Provides a functional implementation of IOptionPositionCollectionEnumerator"""
-
-    def __init__(self, enumerate: typing.Callable[[QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection], typing.List[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]]) -> None:
-        """
-        Initializes a new instance of the FunctionalOptionPositionCollectionEnumerator class
-        
-        :param enumerate: 
-        """
-        ...
-
-    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
-        """
-        Enumerate the Option Positions Collection
-        
-        :param positions: The positions to enumerate on
-        :returns: Enumerable of Option Positions.
-        """
-        ...
-
-
 class OptionStrategyMatch(System.Object):
     """
     Defines a complete result from running the matcher on a collection of positions.
@@ -633,6 +575,24 @@ class IOptionStrategyMatchObjectiveFunction(metaclass=abc.ABCMeta):
         Evaluates the objective function for the provided match solution. Solution with the highest score will be selected
         as the solution. NOTE: This part of the match has not been implemented as of 2020-11-06 as it's only evaluating the
         first solution match (MatchOnce).
+        """
+        ...
+
+
+class IOptionPositionCollectionEnumerator(metaclass=abc.ABCMeta):
+    """
+    Enumerates an OptionPositionCollection. The intent is to evaluate positions that
+    may be more important sooner. Positions appearing earlier in the enumeration are evaluated before
+    positions showing later. This effectively prioritizes individual positions. This should not be
+    used filter filtering, but it could also be used to split a position, for example a position with
+    10 could be changed to two 5s and they don't need to be enumerated back to-back either. In this
+    way you could prioritize the first 5 and then delay matching of the final 5.
+    """
+
+    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+        """
+        Enumerates the provided positions. Positions enumerated first are more
+        likely to be matched than those appearing later in the enumeration.
         """
         ...
 
@@ -862,6 +822,59 @@ class OptionStrategyLegDefinitionMatch(System.IEquatable[QuantConnect_Securities
         ...
 
 
+class OptionStrategyLegPredicate(System.Object):
+    """
+    Defines a condition under which a particular OptionPosition can be combined with
+    a preceding list of leg (also of type OptionPosition) to achieve a particular
+    option strategy.
+    """
+
+    @property
+    def is_indexed(self) -> bool:
+        """Determines whether or not this predicate is able to utilize OptionPositionCollection indexes."""
+        ...
+
+    def __init__(self, comparison: QuantConnect.BinaryComparison, reference: QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyLegPredicateReferenceValue, predicate: typing.Callable[[typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], bool], expression: typing.Any) -> None:
+        """
+        Initializes a new instance of the OptionStrategyLegPredicate class
+        
+        :param comparison: The BinaryComparison invoked
+        :param reference: The reference value, such as a strike price, encapsulated within the
+        IOptionStrategyLegPredicateReferenceValue to enable resolving the value from different potential sets.
+        :param predicate: The compiled predicate expression
+        :param expression: The predicate expression, from which, all other values were derived.
+        """
+        ...
+
+    @staticmethod
+    def create(expression: typing.Any) -> QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegPredicate:
+        """Creates a new OptionStrategyLegPredicate from the specified predicate expression"""
+        ...
+
+    def filter(self, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection, include_underlying: bool) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
+        """Filters the specified positions by applying this predicate based on the referenced legs."""
+        ...
+
+    def get_reference_value(self) -> QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyLegPredicateReferenceValue:
+        """Gets the underlying IOptionStrategyLegPredicateReferenceValue value used by this predicate."""
+        ...
+
+    def matches(self, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], position: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> bool:
+        """
+        Determines whether or not the provided combination of preceding legs
+        and current position adhere to this predicate's requirements.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+
 class OptionStrategyLegDefinition(System.Object, typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegPredicate]):
     """
     Defines a single option leg in an option strategy. This definition supports direct
@@ -938,95 +951,6 @@ class OptionStrategyLegDefinition(System.Object, typing.Iterable[QuantConnect.Se
         """
         Determines whether or not this leg definition matches the specified position,
         and if so, what the resulting quantity of the OptionStrategy.OptionLegData should be.
-        """
-        ...
-
-
-class OptionStrategyDefinitionMatch(System.Object, System.IEquatable[QuantConnect_Securities_Option_StrategyMatcher_OptionStrategyDefinitionMatch]):
-    """Defines a match of OptionPosition to a OptionStrategyDefinition"""
-
-    @property
-    def definition(self) -> QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition:
-        """The OptionStrategyDefinition matched"""
-        ...
-
-    @property
-    def multiplier(self) -> int:
-        """
-        The number of times the definition is able to match the available positions.
-        Since definitions are formed at the 'unit' level, such as having 1 contract,
-        the multiplier defines how many times the definition matched. This multiplier
-        is used to scale the quantity defined in each leg definition when creating the
-        OptionStrategy objects.
-        """
-        ...
-
-    @property
-    def legs(self) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch]:
-        """The OptionStrategyLegDefinitionMatch instances matched to the definition."""
-        ...
-
-    def __eq__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
-        """
-        OptionStrategyDefinitionMatch == Operator
-        
-        :returns: True if they are the same.
-        """
-        ...
-
-    def __init__(self, definition: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch], multiplier: int) -> None:
-        """Initializes a new instance of the OptionStrategyDefinitionMatch class"""
-        ...
-
-    def __ne__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
-        """
-        OptionStrategyDefinitionMatch != Operator
-        
-        :returns: True if they are not the same.
-        """
-        ...
-
-    def create_strategy(self) -> QuantConnect.Securities.Option.OptionStrategy:
-        """Creates the OptionStrategy instance this match represents"""
-        ...
-
-    @overload
-    def equals(self, other: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
-        """
-        Indicates whether the current object is equal to another object of the same type.
-        
-        :param other: An object to compare with this object.
-        :returns: true if the current object is equal to the other parameter; otherwise, false.
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Serves as the default hash function.
-        
-        :returns: A hash code for the current object.
-        """
-        ...
-
-    def remove_from(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
-        """Deducts the matched positions from the specified positions taking into account the multiplier"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
         """
         ...
 
@@ -1181,6 +1105,95 @@ class OptionStrategyDefinition(System.Object, typing.Iterable[QuantConnect.Secur
         ...
 
 
+class OptionStrategyDefinitionMatch(System.Object, System.IEquatable[QuantConnect_Securities_Option_StrategyMatcher_OptionStrategyDefinitionMatch]):
+    """Defines a match of OptionPosition to a OptionStrategyDefinition"""
+
+    @property
+    def definition(self) -> QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition:
+        """The OptionStrategyDefinition matched"""
+        ...
+
+    @property
+    def multiplier(self) -> int:
+        """
+        The number of times the definition is able to match the available positions.
+        Since definitions are formed at the 'unit' level, such as having 1 contract,
+        the multiplier defines how many times the definition matched. This multiplier
+        is used to scale the quantity defined in each leg definition when creating the
+        OptionStrategy objects.
+        """
+        ...
+
+    @property
+    def legs(self) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch]:
+        """The OptionStrategyLegDefinitionMatch instances matched to the definition."""
+        ...
+
+    def __eq__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
+        """
+        OptionStrategyDefinitionMatch == Operator
+        
+        :returns: True if they are the same.
+        """
+        ...
+
+    def __init__(self, definition: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch], multiplier: int) -> None:
+        """Initializes a new instance of the OptionStrategyDefinitionMatch class"""
+        ...
+
+    def __ne__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
+        """
+        OptionStrategyDefinitionMatch != Operator
+        
+        :returns: True if they are not the same.
+        """
+        ...
+
+    def create_strategy(self) -> QuantConnect.Securities.Option.OptionStrategy:
+        """Creates the OptionStrategy instance this match represents"""
+        ...
+
+    @overload
+    def equals(self, other: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
+        """
+        Indicates whether the current object is equal to another object of the same type.
+        
+        :param other: An object to compare with this object.
+        :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Serves as the default hash function.
+        
+        :returns: A hash code for the current object.
+        """
+        ...
+
+    def remove_from(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
+        """Deducts the matched positions from the specified positions taking into account the multiplier"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+
 class DefaultOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
     """Provides a default implementation of the IOptionPositionCollectionEnumerator abstraction."""
 
@@ -1200,6 +1213,17 @@ class IOptionStrategyDefinitionEnumerator(metaclass=abc.ABCMeta):
         ...
 
 
+class IdentityOptionStrategyDefinitionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyDefinitionEnumerator):
+    """
+    Provides a default implementation of IOptionStrategyDefinitionEnumerator that enumerates
+    definitions according to the order that they were provided to OptionStrategyMatcherOptions
+    """
+
+    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
+        """Enumerates the definitions in the same order as provided."""
+        ...
+
+
 class DescendingByLegCountOptionStrategyDefinitionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyDefinitionEnumerator):
     """
     Provides an implementation of IOptionStrategyDefinitionEnumerator that enumerates definitions
@@ -1208,40 +1232,6 @@ class DescendingByLegCountOptionStrategyDefinitionEnumerator(System.Object, Quan
 
     def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
         """Enumerates definitions in descending order of OptionStrategyDefinition.leg_count"""
-        ...
-
-
-class ConstantOptionStrategyLegPredicateReferenceValue(typing.Generic[QuantConnect_Securities_Option_StrategyMatcher_ConstantOptionStrategyLegPredicateReferenceValue_T], System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyLegPredicateReferenceValue):
-    """Provides an implementation of IOptionStrategyLegPredicateReferenceValue that represents a constant value."""
-
-    @property
-    def target(self) -> QuantConnect.Securities.Option.StrategyMatcher.PredicateTargetValue:
-        """Gets the target of this value"""
-        ...
-
-    def __init__(self, value: QuantConnect_Securities_Option_StrategyMatcher_ConstantOptionStrategyLegPredicateReferenceValue_T, target: QuantConnect.Securities.Option.StrategyMatcher.PredicateTargetValue) -> None:
-        """
-        Initializes a new instance of the ConstantOptionStrategyLegPredicateReferenceValue{T} class
-        
-        :param value: The constant reference value
-        :param target: The value target in relation to the OptionPosition
-        """
-        ...
-
-    def resolve(self, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]) -> System.Object:
-        """Returns the constant value provided at initialization"""
-        ...
-
-
-class ConstantOptionStrategyLegReferenceValue(System.Object):
-    """Provides methods for easily creating instances of ConstantOptionStrategyLegPredicateReferenceValue{T}"""
-
-    @staticmethod
-    def create(value: typing.Any) -> QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyLegPredicateReferenceValue:
-        """
-        Creates a new instance of the ConstantOptionStrategyLegPredicateReferenceValue{T} class for
-        the specified value
-        """
         ...
 
 
@@ -1487,28 +1477,6 @@ class OptionStrategyDefinitions(System.Object):
     """
 
 
-class AbsoluteRiskOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
-    """
-    Stub class providing an idea towards an optimal IOptionPositionCollectionEnumerator implementation
-    that still needs to be implemented.
-    """
-
-    def __init__(self, market_price_provider: typing.Callable[[QuantConnect.Symbol], float]) -> None:
-        """
-        Intializes a new instance of the AbsoluteRiskOptionPositionCollectionEnumerator class
-        
-        :param market_price_provider: Function providing the current market price for a provided symbol
-        """
-        ...
-
-    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
-        """
-        Enumerates the provided positions. Positions enumerated first are more
-        likely to be matched than those appearing later in the enumeration.
-        """
-        ...
-
-
 class UnmatchedPositionCountOptionStrategyMatchObjectiveFunction(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyMatchObjectiveFunction):
     """
     Provides an implementation of IOptionStrategyMatchObjectiveFunction that evaluates the number of unmatched
@@ -1517,36 +1485,6 @@ class UnmatchedPositionCountOptionStrategyMatchObjectiveFunction(System.Object, 
 
     def compute_score(self, input: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection, match: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatch, unmatched: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> float:
         """Computes the delta in matched vs unmatched positions, which gives precedence to solutions that match more contracts."""
-        ...
-
-
-class OptionStrategyLegPredicateReferenceValue(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyLegPredicateReferenceValue):
-    """
-    Provides an implementation of IOptionStrategyLegPredicateReferenceValue that references an option
-    leg from the list of already matched legs by index. The property referenced is defined by PredicateTargetValue
-    """
-
-    @property
-    def target(self) -> QuantConnect.Securities.Option.StrategyMatcher.PredicateTargetValue:
-        """Gets the target of this value"""
-        ...
-
-    def __init__(self, index: int, target: QuantConnect.Securities.Option.StrategyMatcher.PredicateTargetValue) -> None:
-        """
-        Initializes a new instance of the IOptionStrategyLegPredicateReferenceValue class
-        
-        :param index: The legs list index
-        :param target: The property value being referenced
-        """
-        ...
-
-    def resolve(self, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]) -> System.Object:
-        """
-        Resolves the value of the comparand specified in an OptionStrategyLegPredicate.
-        For example, the predicate may include ... > legs<0>.Strike, and upon evaluation, we need to
-        be able to extract leg<0>.Strike for the currently contemplated set of legs adhering to a
-        strategy's definition.
-        """
         ...
 
 
@@ -1578,14 +1516,76 @@ class OptionStrategyMatcher(System.Object):
         ...
 
 
-class IdentityOptionStrategyDefinitionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyDefinitionEnumerator):
+class FunctionalOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
+    """Provides a functional implementation of IOptionPositionCollectionEnumerator"""
+
+    def __init__(self, enumerate: typing.Callable[[QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection], typing.List[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]]) -> None:
+        """
+        Initializes a new instance of the FunctionalOptionPositionCollectionEnumerator class
+        
+        :param enumerate: 
+        """
+        ...
+
+    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+        """
+        Enumerate the Option Positions Collection
+        
+        :param positions: The positions to enumerate on
+        :returns: Enumerable of Option Positions.
+        """
+        ...
+
+
+class AbsoluteRiskOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
     """
-    Provides a default implementation of IOptionStrategyDefinitionEnumerator that enumerates
-    definitions according to the order that they were provided to OptionStrategyMatcherOptions
+    Stub class providing an idea towards an optimal IOptionPositionCollectionEnumerator implementation
+    that still needs to be implemented.
     """
 
-    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
-        """Enumerates the definitions in the same order as provided."""
+    def __init__(self, market_price_provider: typing.Callable[[QuantConnect.Symbol], float]) -> None:
+        """
+        Intializes a new instance of the AbsoluteRiskOptionPositionCollectionEnumerator class
+        
+        :param market_price_provider: Function providing the current market price for a provided symbol
+        """
+        ...
+
+    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+        """
+        Enumerates the provided positions. Positions enumerated first are more
+        likely to be matched than those appearing later in the enumeration.
+        """
+        ...
+
+
+class OptionStrategyLegPredicateReferenceValue(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyLegPredicateReferenceValue):
+    """
+    Provides an implementation of IOptionStrategyLegPredicateReferenceValue that references an option
+    leg from the list of already matched legs by index. The property referenced is defined by PredicateTargetValue
+    """
+
+    @property
+    def target(self) -> QuantConnect.Securities.Option.StrategyMatcher.PredicateTargetValue:
+        """Gets the target of this value"""
+        ...
+
+    def __init__(self, index: int, target: QuantConnect.Securities.Option.StrategyMatcher.PredicateTargetValue) -> None:
+        """
+        Initializes a new instance of the IOptionStrategyLegPredicateReferenceValue class
+        
+        :param index: The legs list index
+        :param target: The property value being referenced
+        """
+        ...
+
+    def resolve(self, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]) -> System.Object:
+        """
+        Resolves the value of the comparand specified in an OptionStrategyLegPredicate.
+        For example, the predicate may include ... > legs<0>.Strike, and upon evaluation, we need to
+        be able to extract leg<0>.Strike for the currently contemplated set of legs adhering to a
+        strategy's definition.
+        """
         ...
 
 

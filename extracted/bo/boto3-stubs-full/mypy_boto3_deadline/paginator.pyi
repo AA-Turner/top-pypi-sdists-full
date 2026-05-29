@@ -40,6 +40,7 @@ Usage::
         ListStorageProfilesForQueuePaginator,
         ListStorageProfilesPaginator,
         ListTasksPaginator,
+        ListVolumesPaginator,
         ListWorkersPaginator,
     )
 
@@ -74,6 +75,7 @@ Usage::
     list_storage_profiles_for_queue_paginator: ListStorageProfilesForQueuePaginator = client.get_paginator("list_storage_profiles_for_queue")
     list_storage_profiles_paginator: ListStorageProfilesPaginator = client.get_paginator("list_storage_profiles")
     list_tasks_paginator: ListTasksPaginator = client.get_paginator("list_tasks")
+    list_volumes_paginator: ListVolumesPaginator = client.get_paginator("list_volumes")
     list_workers_paginator: ListWorkersPaginator = client.get_paginator("list_workers")
     ```
 """
@@ -142,6 +144,8 @@ from .type_defs import (
     ListStorageProfilesResponseTypeDef,
     ListTasksRequestPaginateTypeDef,
     ListTasksResponseTypeDef,
+    ListVolumesRequestPaginateTypeDef,
+    ListVolumesResponseTypeDef,
     ListWorkersRequestPaginateTypeDef,
     ListWorkersResponseTypeDef,
 )
@@ -180,6 +184,7 @@ __all__ = (
     "ListStorageProfilesForQueuePaginator",
     "ListStorageProfilesPaginator",
     "ListTasksPaginator",
+    "ListVolumesPaginator",
     "ListWorkersPaginator",
 )
 
@@ -693,6 +698,24 @@ class ListTasksPaginator(_ListTasksPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/paginator/ListTasks.html#DeadlineCloud.Paginator.ListTasks.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/paginators/#listtaskspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListVolumesPaginatorBase = Paginator[ListVolumesResponseTypeDef]
+else:
+    _ListVolumesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListVolumesPaginator(_ListVolumesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/paginator/ListVolumes.html#DeadlineCloud.Paginator.ListVolumes)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/paginators/#listvolumespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListVolumesRequestPaginateTypeDef]
+    ) -> PageIterator[ListVolumesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/paginator/ListVolumes.html#DeadlineCloud.Paginator.ListVolumes.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/paginators/#listvolumespaginator)
         """
 
 if TYPE_CHECKING:

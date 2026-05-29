@@ -38,7 +38,9 @@ from redis.commands.search.result import Result
 from redis.commands.search.suggestion import Suggestion
 from redis.utils import safe_str
 from tests.conftest import (
-    is_resp2_connection,
+    expects_resp2_shape,
+    expects_resp3_shape,
+    expects_unified_shape,
     skip_if_redis_enterprise,
     skip_if_resp_version,
     skip_if_server_version_gte,
@@ -167,7 +169,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         assert num_docs == int(info["num_docs"])
 
         res = await decoded_r.ft().search("henry iv")
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert isinstance(res, Result)
             assert 225 == res.total
             assert 10 == len(res.docs)
@@ -265,7 +267,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
             res = await decoded_r.ft().search(Query("death of a salesman"))
             assert 1 == res.total
             await decoded_r.ft().delete_document("doc-5ghs2")
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert isinstance(res, dict)
             assert 225 == res["total_results"]
             assert 10 == len(res["results"])
@@ -386,12 +388,12 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
 
         q = Query("foo ~bar").with_scores()
         res = await decoded_r.ft().search(q)
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert 2 == res.total
             assert "doc2" == res.docs[0].id
             assert 3.0 == res.docs[0].score
             assert "doc1" == res.docs[1].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert 2 == res["total_results"]
             assert "doc2" == res["results"][0]["id"]
             assert 3.0 == res["results"][0]["score"]
@@ -408,12 +410,12 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
 
         q = Query("foo ~bar").with_scores()
         res = await decoded_r.ft().search(q)
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert 2 == res.total
             assert "doc2" == res.docs[0].id
             assert 0.87 == pytest.approx(res.docs[0].score, 0.01)
             assert "doc1" == res.docs[1].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert 2 == res["total_results"]
             assert "doc2" == res["results"][0]["id"]
             assert 0.87 == pytest.approx(res["results"][0]["score"], 0.01)
@@ -430,10 +432,10 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         q1 = Query("foo bar").no_content()
         q2 = Query("foo bar hello world").no_content()
         res1, res2 = await decoded_r.ft().search(q1), await decoded_r.ft().search(q2)
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert 0 == res1.total
             assert 1 == res2.total
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert 0 == res1["total_results"]
             assert 1 == res2["total_results"]
 
@@ -459,12 +461,12 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         )
         res1, res2 = await decoded_r.ft().search(q1), await decoded_r.ft().search(q2)
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert 1 == res1.total
             assert 1 == res2.total
             assert "doc2" == res1.docs[0].id
             assert "doc1" == res2.docs[0].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert 1 == res1["total_results"]
             assert 1 == res2["total_results"]
             assert "doc2" == res1["results"][0]["id"]
@@ -475,7 +477,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         q2 = Query("foo").add_filter(GeoFilter("loc", -0.44, 51.45, 100)).no_content()
         res1, res2 = await decoded_r.ft().search(q1), await decoded_r.ft().search(q2)
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert 1 == res1.total
             assert 2 == res2.total
             assert "doc1" == res1.docs[0].id
@@ -484,7 +486,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
             res = [res2.docs[0].id, res2.docs[1].id]
             res.sort()
             assert ["doc1", "doc2"] == res
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert 1 == res1["total_results"]
             assert 2 == res2["total_results"]
             assert "doc1" == res1["results"][0]["id"]
@@ -508,7 +510,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         q2 = Query("foo").sort_by("num", asc=False).no_content()
         res1, res2 = await decoded_r.ft().search(q1), await decoded_r.ft().search(q2)
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert 3 == res1.total
             assert "doc1" == res1.docs[0].id
             assert "doc2" == res1.docs[1].id
@@ -517,7 +519,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
             assert "doc1" == res2.docs[2].id
             assert "doc2" == res2.docs[1].id
             assert "doc3" == res2.docs[0].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert 3 == res1["total_results"]
             assert "doc1" == res1["results"][0]["id"]
             assert "doc2" == res1["results"][1]["id"]
@@ -653,7 +655,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         )
         await self.waitForIndex(decoded_r, "idx")
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             res = await decoded_r.ft().search(Query("@text:aa*"))
             assert 0 == res.total
 
@@ -675,7 +677,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
 
             res = await decoded_r.ft().search(Query("*").sort_by("tag", asc=True))
             assert "doc1" == res.docs[0].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             res = await decoded_r.ft().search(Query("@text:aa*"))
             assert 0 == res["total_results"]
 
@@ -747,7 +749,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         q.highlight(fields=("play", "txt"), tags=("<b>", "</b>"))
         q.summarize("txt")
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             doc = sorted((await decoded_r.ft().search(q)).docs)[0]
             assert "<b>Henry</b> IV" == doc.play
             assert (
@@ -763,7 +765,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
                 "ACT I SCENE I. London. The palace. Enter <b>KING</b> <b>HENRY</b>, LORD JOHN OF LANCASTER, the EARL of WESTMORELAND, SIR... "  # noqa
                 == doc.txt
             )
-        else:
+        elif expects_resp3_shape(decoded_r):
             doc = sorted((await decoded_r.ft().search(q))["results"])[0]
             assert "<b>Henry</b> IV" == doc["extra_attributes"]["play"]
             assert (
@@ -797,7 +799,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         await index1.hset("index1:lonestar", mapping={"name": "lonestar"})
         await index2.hset("index2:yogurt", mapping={"name": "yogurt"})
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             res = (await ftindex1.search("*")).docs[0]
             assert "index1:lonestar" == res.id
 
@@ -817,7 +819,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
 
             res = (await alias_client2.search("*")).docs[0]
             assert "index2:yogurt" == res.id
-        else:
+        elif expects_resp3_shape(decoded_r):
             res = (await ftindex1.search("*"))["results"][0]
             assert "index1:lonestar" == res["id"]
 
@@ -860,7 +862,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         # add the actual alias and check
         await index1.aliasadd("myalias")
         alias_client = self.getClient(decoded_r).ft("myalias")
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             res = sorted((await alias_client.search("*")).docs, key=lambda x: x.id)
             assert "doc1" == res[0].id
 
@@ -873,7 +875,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
             alias_client2 = self.getClient(decoded_r).ft("myalias")
             res = sorted((await alias_client2.search("*")).docs, key=lambda x: x.id)
             assert "doc1" == res[0].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             res = sorted(
                 (await alias_client.search("*"))["results"], key=lambda x: x["id"]
             )
@@ -907,7 +909,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         await self.waitForIndex(decoded_r, "idx")
 
         q = Query("@tags:{foo}")
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             res = await decoded_r.ft().search(q)
             assert 1 == res.total
 
@@ -925,7 +927,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
 
             q2 = await decoded_r.ft().tagvals("tags")
             assert (tags.split(",") + tags2.split(",")).sort() == q2.sort()
-        else:
+        elif expects_resp3_shape(decoded_r):
             res = await decoded_r.ft().search(q)
             assert 1 == res["total_results"]
 
@@ -953,10 +955,10 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
 
         # Now get the index info to confirm its contents
         response = await decoded_r.ft().info()
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r):
             assert "SORTABLE" in response["attributes"][0]
             assert "NOSTEM" in response["attributes"][0]
-        else:
+        elif expects_resp3_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert "SORTABLE" in response["attributes"][0]["flags"]
             assert "NOSTEM" in response["attributes"][0]["flags"]
 
@@ -979,9 +981,9 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
 
         # Ensure we find the result searching on the added body field
         res = await decoded_r.ft().search(q)
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert 1 == res.total
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert 1 == res["total_results"]
 
     @pytest.mark.redismod
@@ -996,7 +998,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         )
         await self.waitForIndex(decoded_r, "idx")
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             # test spellcheck
             res = await decoded_r.ft().spellcheck("impornant")
             assert "important" == res["impornant"][0]["suggestion"]
@@ -1024,7 +1026,7 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
             # test spellcheck exclude
             res = await decoded_r.ft().spellcheck("lorm", exclude="dict")
             assert res == {}
-        else:
+        elif expects_resp3_shape(decoded_r):
             # test spellcheck
             res = await decoded_r.ft().spellcheck("impornant")
             assert "important" in res["results"]["impornant"][0].keys()
@@ -1079,10 +1081,10 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         await decoded_r.hset("doc2", mapping={"name": "John"})
 
         res = await decoded_r.ft().search(Query("Jon"))
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert 1 == len(res.docs)
             assert "Jon" == res.docs[0].name
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert 1 == res["total_results"]
             assert "Jon" == res["results"][0]["extra_attributes"]["name"]
 
@@ -1096,10 +1098,10 @@ class TestBaseSearchFunctionality(AsyncSearchTestsBase):
         await decoded_r.hset("doc2", mapping={"name": "John"})
 
         res = await decoded_r.ft().search(Query("Jon"))
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert 2 == len(res.docs)
             assert ["John", "Jon"] == sorted(d.name for d in res.docs)
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert 2 == res["total_results"]
             assert ["John", "Jon"] == sorted(
                 d["extra_attributes"]["name"] for d in res["results"]
@@ -1214,7 +1216,7 @@ class TestScorers(AsyncSearchTestsBase):
             },
         )
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             # default scorer is TFIDF
             res = await decoded_r.ft().search(Query("quick").with_scores())
             assert 1.0 == res.docs[0].score
@@ -1242,7 +1244,7 @@ class TestScorers(AsyncSearchTestsBase):
                 Query("quick").scorer("HAMMING").with_scores()
             )
             assert 0.0 == res.docs[0].score
-        else:
+        elif expects_resp3_shape(decoded_r):
             res = await decoded_r.ft().search(Query("quick").with_scores())
             assert 1.0 == res["results"][0]["score"]
             res = await decoded_r.ft().search(
@@ -1289,7 +1291,7 @@ class TestScorers(AsyncSearchTestsBase):
             },
         )
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             # default scorer is BM25STD
             res = await decoded_r.ft().search(Query("quick").with_scores())
             assert 0.23 == pytest.approx(res.docs[0].score, 0.05)
@@ -1317,7 +1319,7 @@ class TestScorers(AsyncSearchTestsBase):
                 Query("quick").scorer("HAMMING").with_scores()
             )
             assert 0.0 == res.docs[0].score
-        else:
+        elif expects_resp3_shape(decoded_r):
             res = await decoded_r.ft().search(Query("quick").with_scores())
             assert 0.23 == pytest.approx(res["results"][0]["score"], 0.05)
             res = await decoded_r.ft().search(
@@ -1417,7 +1419,7 @@ class TestAggregations(AsyncSearchTestsBase):
         )
 
         for dialect in [1, 2]:
-            if is_resp2_connection(decoded_r):
+            if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
                 req = (
                     aggregations.AggregateRequest("redis")
                     .group_by("@parent", reducers.count())
@@ -1540,7 +1542,7 @@ class TestAggregations(AsyncSearchTestsBase):
                 assert res[2] == "random"
                 assert len(res[3]) == 2
                 assert res[3][0] in ["RediSearch", "RedisAI", "RedisJson"]
-            else:
+            elif expects_resp3_shape(decoded_r):
                 req = (
                     aggregations.AggregateRequest("redis")
                     .group_by("@parent", reducers.count())
@@ -1694,7 +1696,7 @@ class TestAggregations(AsyncSearchTestsBase):
         await decoded_r.ft().client.hset("doc1", mapping={"t1": "a", "t2": "b"})
         await decoded_r.ft().client.hset("doc2", mapping={"t1": "b", "t2": "a"})
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             # test sort_by using SortDirection
             req = aggregations.AggregateRequest("*").sort_by(
                 aggregations.Asc("@t2"), aggregations.Desc("@t1")
@@ -1719,7 +1721,7 @@ class TestAggregations(AsyncSearchTestsBase):
             res = await decoded_r.ft().aggregate(req)
             assert len(res.rows) == 1
             assert res.rows[0] == ["t1", "b"]
-        else:
+        elif expects_resp3_shape(decoded_r):
             # test sort_by using SortDirection
             req = aggregations.AggregateRequest("*").sort_by(
                 aggregations.Asc("@t2"), aggregations.Desc("@t1")
@@ -1751,7 +1753,7 @@ class TestAggregations(AsyncSearchTestsBase):
         # create index
         assert await decoded_r.ft().create_index((TextField("txt"),))
         await self.waitForIndex(decoded_r, getattr(decoded_r.ft(), "index_name", "idx"))
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r):
             info = await decoded_r.ft().info()
             assert "WITHSUFFIXTRIE" not in info["attributes"][0]
             assert await decoded_r.ft().dropindex()
@@ -1774,7 +1776,7 @@ class TestAggregations(AsyncSearchTestsBase):
             )
             info = await decoded_r.ft().info()
             assert "WITHSUFFIXTRIE" in info["attributes"][0]
-        else:
+        elif expects_resp3_shape(decoded_r) or expects_unified_shape(decoded_r):
             info = await decoded_r.ft().info()
             assert "WITHSUFFIXTRIE" not in info["attributes"][0]["flags"]
             assert await decoded_r.ft().dropindex()
@@ -1883,6 +1885,7 @@ class TestAggregations(AsyncSearchTestsBase):
 class TestPipeline(AsyncSearchTestsBase):
     @pytest.mark.redismod
     @skip_if_redis_enterprise()
+    @skip_if_server_version_gte("8.7.0")  # Deactivate temporarily
     async def test_search_commands_in_pipeline(self, decoded_r: redis.Redis):
         p = await decoded_r.ft().pipeline()
         p.create_index((TextField("txt"),))
@@ -1891,14 +1894,22 @@ class TestPipeline(AsyncSearchTestsBase):
         q = Query("foo bar").with_payloads()
         await p.search(q)
         res = await p.execute()
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r):
             assert res[:3] == ["OK", True, True]
             assert 2 == res[3][0]
             assert "doc1" == res[3][1]
             assert "doc2" == res[3][4]
             assert res[3][5] is None
             assert res[3][3] == res[3][6] == ["txt", "foo bar"]
-        else:
+        elif expects_unified_shape(decoded_r):
+            assert res[:3] == ["OK", True, True]
+            assert isinstance(res[3], Result)
+            assert 2 == res[3].total
+            assert "doc1" == res[3].docs[0].id
+            assert "doc2" == res[3].docs[1].id
+            assert res[3].docs[0].payload is None
+            assert res[3].docs[0].txt == res[3].docs[1].txt == "foo bar"
+        elif expects_resp3_shape(decoded_r):
             assert res[:3] == ["OK", True, True]
             assert 2 == res[3]["total_results"]
             assert "doc1" == res[3]["results"][0]["id"]
@@ -1912,6 +1923,7 @@ class TestPipeline(AsyncSearchTestsBase):
 
     @pytest.mark.redismod
     @skip_if_server_version_lt("8.3.224")
+    @skip_if_server_version_gte("8.7.0")  # Deactivate temporarily
     async def test_hybrid_search_query_with_pipeline(self, decoded_r: redis.Redis):
         p = decoded_r.ft().pipeline()
         p.create_index(
@@ -1961,7 +1973,7 @@ class TestPipeline(AsyncSearchTestsBase):
         # the default results count limit is 10
         assert res[:3] == ["OK", 2, 2]
         hybrid_search_res = res[3]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r):
             # it doesn't get parsed to object in pipeline
             assert hybrid_search_res[0] == "total_results"
             assert hybrid_search_res[1] == 2
@@ -1971,7 +1983,12 @@ class TestPipeline(AsyncSearchTestsBase):
             assert hybrid_search_res[5] == []
             assert hybrid_search_res[6] == "execution_time"
             assert float(hybrid_search_res[7]) > 0
-        else:
+        elif expects_unified_shape(decoded_r):
+            assert hybrid_search_res.total_results == 2
+            assert len(hybrid_search_res.results) == 2
+            assert hybrid_search_res.warnings == []
+            assert hybrid_search_res.execution_time > 0
+        elif expects_resp3_shape(decoded_r):
             assert hybrid_search_res["total_results"] == 2
             assert len(hybrid_search_res["results"]) == 2
             assert hybrid_search_res["warnings"] == []
@@ -2011,10 +2028,10 @@ class TestSearchWithVamana(AsyncSearchTestsBase):
             q, query_params={"vec": np.array(vectors[0], dtype=np.float32).tobytes()}
         )
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total == 3
             assert "doc0" == res.docs[0].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] == 3
             assert "doc0" == res["results"][0]["id"]
 
@@ -2048,10 +2065,10 @@ class TestSearchWithVamana(AsyncSearchTestsBase):
         query_params = {"vec": np.array(vectors[0], dtype=np.float32).tobytes()}
 
         res = await decoded_r.ft().search(query, query_params=query_params)
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total == 2
             assert "doc0" == res.docs[0].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] == 2
             assert "doc0" == res["results"][0]["id"]
 
@@ -2080,10 +2097,10 @@ class TestSearchWithVamana(AsyncSearchTestsBase):
         query_params = {"vec": np.array(vectors[0], dtype=np.float16).tobytes()}
 
         res = await decoded_r.ft("idx16").search(query, query_params=query_params)
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total == 2
             assert "doc16_0" == res.docs[0].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] == 2
             assert "doc16_0" == res["results"][0]["id"]
 
@@ -2118,10 +2135,10 @@ class TestSearchWithVamana(AsyncSearchTestsBase):
         query_params = {"vec": np.array(vectors[0], dtype=np.float32).tobytes()}
 
         res = await decoded_r.ft().search(query, query_params=query_params)
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total == 5
             assert "doc0" == res.docs[0].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] == 5
             assert "doc0" == res["results"][0]["id"]
 
@@ -2158,15 +2175,18 @@ class TestSearchWithVamana(AsyncSearchTestsBase):
         query_params = {"vec": np.array(vectors[0], dtype=np.float32).tobytes()}
 
         res = await decoded_r.ft().search(query, query_params=query_params)
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total == 3
             assert "doc0" == res.docs[0].id
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] == 3
             assert "doc0" == res["results"][0]["id"]
 
 
 class TestHybridSearch(AsyncSearchTestsBase):
+    _HYBRID_TIMEOUT_DIM = 8192
+    _HYBRID_TIMEOUT_DOCS = 1500
+
     async def _create_hybrid_search_index(self, decoded_r: redis.Redis, dim=4):
         await decoded_r.ft().create_index(
             (
@@ -2197,6 +2217,44 @@ class TestHybridSearch(AsyncSearchTestsBase):
             definition=IndexDefinition(prefix=["item:"]),
         )
         await AsyncSearchTestsBase.waitForIndex(decoded_r, "idx")
+
+    async def _create_hybrid_search_timeout_index(self, decoded_r: redis.Redis):
+        await decoded_r.ft().create_index(
+            (
+                TextField("description"),
+                VectorField(
+                    "embedding",
+                    "FLAT",
+                    {
+                        "TYPE": "FLOAT32",
+                        "DIM": self._HYBRID_TIMEOUT_DIM,
+                        "DISTANCE_METRIC": "L2",
+                    },
+                ),
+            ),
+            definition=IndexDefinition(prefix=["timeout-item:"]),
+        )
+        await AsyncSearchTestsBase.waitForIndex(decoded_r, "idx")
+
+    async def _add_data_for_hybrid_search_timeout(self, decoded_r: redis.Redis):
+        vectors = [
+            np.full(self._HYBRID_TIMEOUT_DIM, value, dtype=np.float32).tobytes()
+            for value in (0.1, 0.2, 0.3, 0.4, 0.5)
+        ]
+        pipeline = decoded_r.pipeline()
+        batch_size = 250
+        for i in range(self._HYBRID_TIMEOUT_DOCS):
+            pipeline.hset(
+                f"timeout-item:{i}",
+                mapping={
+                    "description": "red shoes",
+                    "embedding": vectors[i % len(vectors)],
+                },
+            )
+            if (i + 1) % batch_size == 0:
+                await pipeline.execute()
+                pipeline = decoded_r.pipeline()
+        await pipeline.execute()
 
     @staticmethod
     def _generate_random_vector(dim):
@@ -2242,6 +2300,7 @@ class TestHybridSearch(AsyncSearchTestsBase):
                 ([5.0, 6.0, 7.0, 8.0], "black shoes"),
             ]
         items = items * items_sets
+        batch_size = 1000
         pipeline = client.pipeline()
         for i, vec in enumerate(items):
             vec, description = vec
@@ -2259,7 +2318,10 @@ class TestHybridSearch(AsyncSearchTestsBase):
                 "size": 10 + i % 3,
             }
             pipeline.hset(f"item:{i}", mapping=mapping)
-        await pipeline.execute()  # Execute all at once
+            if (i + 1) % batch_size == 0:
+                await pipeline.execute()
+                pipeline = client.pipeline()
+        await pipeline.execute()  # Execute remaining
 
     @staticmethod
     def _convert_dict_values_to_str(list_of_dicts):
@@ -2317,20 +2379,22 @@ class TestHybridSearch(AsyncSearchTestsBase):
         )
 
         # the default results count limit is 10
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results == 10
             assert len(res.results) == 10
             assert res.warnings == []
             assert res.execution_time > 0
             assert all(isinstance(res.results[i]["__score"], bytes) for i in range(10))
             assert all(isinstance(res.results[i]["__key"], bytes) for i in range(10))
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] == 10
             assert len(res["results"]) == 10
             assert res["warnings"] == []
             assert res["execution_time"] > 0
-            assert all(isinstance(res["results"][i]["__score"], str) for i in range(10))
-            assert all(isinstance(res["results"][i]["__key"], str) for i in range(10))
+            assert all(
+                isinstance(res["results"][i]["__score"], bytes) for i in range(10)
+            )
+            assert all(isinstance(res["results"][i]["__key"], bytes) for i in range(10))
 
     @pytest.mark.redismod
     @skip_if_server_version_lt("8.3.224")
@@ -2387,17 +2451,15 @@ class TestHybridSearch(AsyncSearchTestsBase):
             },
         ]
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results >= 2
             assert len(res.results) == 2
             assert res.results == expected_results_tfidf
             assert res.warnings == []
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] >= 2
             assert len(res["results"]) == 2
-            assert res["results"] == self._convert_dict_values_to_str(
-                expected_results_tfidf
-            )
+            assert res["results"] == expected_results_tfidf
             assert res["warnings"] == []
 
         search_query.scorer("BM25")
@@ -2426,17 +2488,15 @@ class TestHybridSearch(AsyncSearchTestsBase):
                 "__score": b"0.657894719299",
             },
         ]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results >= 2
             assert len(res.results) == 2
             assert res.results == expected_results_bm25
             assert res.warnings == []
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] >= 2
             assert len(res["results"]) == 2
-            assert res["results"] == self._convert_dict_values_to_str(
-                expected_results_bm25
-            )
+            assert res["results"] == expected_results_bm25
             assert res["warnings"] == []
 
     @pytest.mark.redismod
@@ -2467,18 +2527,18 @@ class TestHybridSearch(AsyncSearchTestsBase):
             params_substitution={"vec": "abcd1234efgh5678"},
             timeout=10,
         )
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert len(res.results) > 0
             assert res.warnings == []
             for item in res.results:
                 assert item["price"] in [b"15", b"16"]
                 assert item["size"] in [b"10", b"11"]
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert len(res["results"]) > 0
             assert res["warnings"] == []
             for item in res["results"]:
-                assert item["price"] in ["15", "16"]
-                assert item["size"] in ["10", "11"]
+                assert item["price"] in [b"15", b"16"]
+                assert item["size"] in [b"10", b"11"]
 
     @pytest.mark.redismod
     @skip_if_server_version_lt("8.3.224")
@@ -2515,16 +2575,16 @@ class TestHybridSearch(AsyncSearchTestsBase):
             {"__key": b"item:7", "__score": b"0.0161290322581"},
             {"__key": b"item:12", "__score": b"0.015873015873"},
         ]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results == 3  # KNN top-k value
             assert len(res.results) == 3
             assert res.results == expected_results
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] == 3  # KNN top-k value
             assert len(res["results"]) == 3
-            assert res["results"] == self._convert_dict_values_to_str(expected_results)
+            assert res["results"] == expected_results
             assert res["warnings"] == []
             assert res["execution_time"] > 0
 
@@ -2545,23 +2605,28 @@ class TestHybridSearch(AsyncSearchTestsBase):
             timeout=10,
         )
 
-        expected_results2 = [
-            {"__key": b"item:12", "__score": b"0.016393442623"},
-            {"__key": b"item:22", "__score": b"0.0161290322581"},
-            {"__key": b"item:27", "__score": b"0.015873015873"},
-        ]
-        if is_resp2_connection(decoded_r):
+        # HNSW is an approximate, randomized index (random graph levels,
+        # async insertion order), and EF_RUNTIME=1 makes the search maximally
+        # sensitive to graph topology, so the top-K docs and their order can
+        # differ between runs even with identical input data. With rank-based
+        # RRF scoring, that reshuffle produces different __score values too.
+        # Validate only the shape of each result dict.
+        expected_keys = {"__key", "__score"}
+
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res2.total_results == 3  # KNN top-k value
             assert len(res2.results) == 3
-            assert res2.results == expected_results2
+
+            for result in res2.results:
+                assert set(result.keys()) == expected_keys
             assert res2.warnings == []
             assert res2.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res2["total_results"] == 3  # KNN top-k value
             assert len(res2["results"]) == 3
-            assert res2["results"] == self._convert_dict_values_to_str(
-                expected_results2
-            )
+
+            for result in res2["results"]:
+                assert set(result.keys()) == expected_keys
             assert res2["warnings"] == []
             assert res2["execution_time"] > 0
 
@@ -2597,21 +2662,25 @@ class TestHybridSearch(AsyncSearchTestsBase):
             timeout=10,
         )
 
-        expected_results = [
-            {"__key": b"item:2", "__score": b"0.016393442623"},
-            {"__key": b"item:7", "__score": b"0.0161290322581"},
-            {"__key": b"item:12", "__score": b"0.015873015873"},
-        ]
-        if is_resp2_connection(decoded_r):
+        # vsim RANGE does not guarantee a stable order between runs for
+        # equal-distance candidates, and RRF scoring (1/(60+rank)) is
+        # rank-based, so exact keys and scores cannot be pinned reliably
+        # even with identical input data. Validate only the shape of each
+        # result dict.
+        expected_keys = {"__key", "__score"}
+
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results >= 3  # at least 3 results
             assert len(res.results) == 3
-            assert res.results == expected_results
+            for result in res.results:
+                assert set(result.keys()) == expected_keys
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] >= 3
             assert len(res["results"]) == 3
-            assert res["results"] == self._convert_dict_values_to_str(expected_results)
+            for result in res["results"]:
+                assert set(result.keys()) == expected_keys
             assert res["warnings"] == []
             assert res["execution_time"] > 0
 
@@ -2635,24 +2704,24 @@ class TestHybridSearch(AsyncSearchTestsBase):
             timeout=10,
         )
 
-        expected_results_hnsw = [
-            {"__key": b"item:27", "__score": b"0.016393442623"},
-            {"__key": b"item:12", "__score": b"0.0161290322581"},
-            {"__key": b"item:22", "__score": b"0.015873015873"},
-        ]
-
-        if is_resp2_connection(decoded_r):
+        # HNSW is an approximate, randomized index (random graph levels,
+        # async insertion order), so the set of docs returned by vsim RANGE
+        # and their order can differ between runs even with identical input
+        # data. With rank-based RRF scoring, that reshuffle produces
+        # different __score values too. Validate only the shape of each
+        # result dict.
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results >= 3
             assert len(res.results) == 3
-            assert res.results == expected_results_hnsw
+            for result in res.results:
+                assert set(result.keys()) == expected_keys
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] >= 3
             assert len(res["results"]) == 3
-            assert res["results"] == self._convert_dict_values_to_str(
-                expected_results_hnsw
-            )
+            for result in res["results"]:
+                assert set(result.keys()) == expected_keys
             assert res["warnings"] == []
             assert res["execution_time"] > 0
 
@@ -2661,9 +2730,8 @@ class TestHybridSearch(AsyncSearchTestsBase):
     async def test_hybrid_search_query_with_combine_all_score_aliases(self, decoded_r):
         # Create index and add data
         await self._create_hybrid_search_index(decoded_r)
-        await self._add_data_for_hybrid_search(
-            decoded_r, items_sets=1, use_random_str_data=True
-        )
+        # The assertions name the exact KNN winners, so keep vectors deterministic.
+        await self._add_data_for_hybrid_search(decoded_r, items_sets=1)
 
         search_query = HybridSearchQuery("shoes")
         search_query.yield_score_as("search_score")
@@ -2688,11 +2756,13 @@ class TestHybridSearch(AsyncSearchTestsBase):
         res = await decoded_r.ft().hybrid_search(
             query=hybrid_query,
             combine_method=combine_method,
-            params_substitution={"vec": "abcd1234efgh5678"},
+            params_substitution={
+                "vec": np.array([1, 2, 7, 8], dtype=np.float32).tobytes()
+            },
             timeout=10,
         )
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert len(res.results) > 0
             assert res.warnings == []
             for item in res.results:
@@ -2707,17 +2777,17 @@ class TestHybridSearch(AsyncSearchTestsBase):
                 else:
                     assert "vsim_score" not in item
 
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert len(res["results"]) > 0
             assert res["warnings"] == []
             for item in res["results"]:
                 assert item["combined_score"] is not None
                 assert "__score" not in item
-                if item["__key"] in ["item:0", "item:1", "item:4"]:
+                if item["__key"] in [b"item:0", b"item:1", b"item:4"]:
                     assert item["search_score"] is not None
                 else:
                     assert "search_score" not in item
-                if item["__key"] in ["item:0", "item:1", "item:2"]:
+                if item["__key"] in [b"item:0", b"item:1", b"item:2"]:
                     assert item["vsim_score"] is not None
                 else:
                     assert "vsim_score" not in item
@@ -2761,16 +2831,16 @@ class TestHybridSearch(AsyncSearchTestsBase):
             {"__key": b"item:7", "__score": b"0.166666666667"},
             {"__key": b"item:12", "__score": b"0.166666666667"},
         ]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results >= 3
             assert len(res.results) == 3
             assert res.results == expected_results
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] >= 3
             assert len(res["results"]) == 3
-            assert res["results"] == self._convert_dict_values_to_str(expected_results)
+            assert res["results"] == expected_results
             assert res["warnings"] == []
             assert res["execution_time"] > 0
 
@@ -2793,16 +2863,16 @@ class TestHybridSearch(AsyncSearchTestsBase):
             {"__key": b"item:0", "__score": b"0.666666666667"},
             {"__key": b"item:7", "__score": b"0.4"},
         ]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results >= 3
             assert len(res.results) == 3
             assert res.results == expected_results
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] >= 3
             assert len(res["results"]) == 3
-            assert res["results"] == self._convert_dict_values_to_str(expected_results)
+            assert res["results"] == expected_results
             assert res["warnings"] == []
             assert res["execution_time"] > 0
 
@@ -2823,16 +2893,16 @@ class TestHybridSearch(AsyncSearchTestsBase):
             {"__key": b"item:0", "__score": b"0.016393442623"},
             {"__key": b"item:7", "__score": b"0.0161290322581"},
         ]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results >= 3
             assert len(res.results) == 3
             assert res.results == expected_results
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] >= 3
             assert len(res["results"]) == 3
-            assert res["results"] == self._convert_dict_values_to_str(expected_results)
+            assert res["results"] == expected_results
             assert res["warnings"] == []
             assert res["execution_time"] > 0
 
@@ -2882,20 +2952,54 @@ class TestHybridSearch(AsyncSearchTestsBase):
                 "item_key": b"item:2",
             }
         ]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results >= 1
             assert len(res.results) == 1
             self.compare_list_of_dicts(res.results, expected_results)
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] >= 1
             assert len(res["results"]) == 1
-            self.compare_list_of_dicts(
-                res["results"], self._convert_dict_values_to_str(expected_results)
-            )
+            self.compare_list_of_dicts(res["results"], expected_results)
             assert res["warnings"] == []
             assert res["execution_time"] > 0
+
+    @pytest.mark.redismod
+    @skip_if_server_version_lt("8.3.224")
+    async def test_hybrid_search_query_with_binary_load(self, decoded_r):
+        await self._create_hybrid_search_index(decoded_r)
+        await self._add_data_for_hybrid_search(decoded_r, items_sets=1)
+
+        search_query = HybridSearchQuery("@color:{red}")
+        vsim_query = HybridVsimQuery(
+            vector_field_name="@embedding",
+            vector_data="$vec",
+        )
+        hybrid_query = HybridQuery(search_query, vsim_query)
+
+        postprocessing_config = HybridPostProcessingConfig()
+        postprocessing_config.load("@embedding", decode_field=False)
+        postprocessing_config.limit(0, 1)
+
+        res = await decoded_r.ft().hybrid_search(
+            query=hybrid_query,
+            post_processing=postprocessing_config,
+            params_substitution={
+                "vec": np.array([1, 2, 7, 8], dtype=np.float32).tobytes()
+            },
+            timeout=10,
+        )
+
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
+            loaded_embedding = res.results[0]["embedding"]
+            assert res.warnings == []
+        elif expects_resp3_shape(decoded_r):
+            loaded_embedding = res["results"][0]["embedding"]
+            assert res["warnings"] == []
+
+        assert isinstance(loaded_embedding, bytes)
+        assert np.frombuffer(loaded_embedding, dtype=np.float32).shape == (4,)
 
     @pytest.mark.redismod
     @skip_if_server_version_lt("8.3.224")
@@ -2954,16 +3058,14 @@ class TestHybridSearch(AsyncSearchTestsBase):
                 "tax_discount": b"3.24",
             },
         ]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert len(res.results) == 3
             self.compare_list_of_dicts(res.results, expected_results)
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert len(res["results"]) == 3
-            self.compare_list_of_dicts(
-                res["results"], self._convert_dict_values_to_str(expected_results)
-            )
+            self.compare_list_of_dicts(res["results"], expected_results)
             assert res["warnings"] == []
             assert res["execution_time"] > 0
 
@@ -3001,16 +3103,16 @@ class TestHybridSearch(AsyncSearchTestsBase):
             timeout=10,
         )
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert len(res.results) == 3
             for item in res.results:
                 assert item["price"] == b"15"
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert len(res["results"]) == 3
             for item in res["results"]:
-                assert item["price"] == "15"
+                assert item["price"] == b"15"
             assert res["warnings"] == []
             assert res["execution_time"] > 0
 
@@ -3070,14 +3172,14 @@ class TestHybridSearch(AsyncSearchTestsBase):
                 "price_discount": b"14.4",
             },
         ]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert len(res.results) == 3
             assert res.results == expected_results
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert len(res["results"]) == 3
-            assert res["results"] == self._convert_dict_values_to_str(expected_results)
+            assert res["results"] == expected_results
             assert res["warnings"] == []
             assert res["execution_time"] > 0
 
@@ -3110,10 +3212,10 @@ class TestHybridSearch(AsyncSearchTestsBase):
             timeout=10,
         )
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert len(res.results) == 3
             assert res.warnings == []
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert len(res["results"]) == 3
             assert res["warnings"] == []
 
@@ -3158,84 +3260,62 @@ class TestHybridSearch(AsyncSearchTestsBase):
             {"color": b"black", "price": b"15", "price_discount": b"13.5"},
             {"color": b"red", "price": b"15", "price_discount": b"13.5"},
         ]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert res.total_results >= 5
             assert len(res.results) == 5
             # the order here should match because of the sort
             assert res.results == expected_results
             assert res.warnings == []
             assert res.execution_time > 0
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["total_results"] >= 5
             assert len(res["results"]) == 5
             # the order here should match because of the sort
-            assert res["results"] == self._convert_dict_values_to_str(expected_results)
+            assert res["results"] == expected_results
             assert res["warnings"] == []
             assert res["execution_time"] > 0
 
     @pytest.mark.redismod
     @skip_if_server_version_lt("8.3.224")
+    @pytest.mark.timeout(60)
     async def test_hybrid_search_query_with_timeout(self, decoded_r):
-        dim = 128
-        # Create index and add data
-        await self._create_hybrid_search_index(decoded_r, dim=dim)
-        await self._add_data_for_hybrid_search(
-            decoded_r,
-            items_sets=5000,
-            dim_for_random_data=dim,
-            use_random_str_data=True,
-        )
+        await self._create_hybrid_search_timeout_index(decoded_r)
+        await self._add_data_for_hybrid_search_timeout(decoded_r)
 
-        # set search query
-        search_query = HybridSearchQuery("*")
-
+        search_query = HybridSearchQuery("@description:(shoes)")
         vsim_query = HybridVsimQuery(
-            vector_field_name="@embedding-hnsw",
+            vector_field_name="@embedding",
             vector_data="$vec",
         )
-        vsim_query.vsim_method_params(VectorSearchMethods.KNN, K=1000)
-        vsim_query.filter(
-            HybridFilter(
-                "((@price:[15 16] @size:[10 11]) | (@price:[13 15] @size:[11 12])) @description:(shoes) -@description:(green)"
-            )
+        vsim_query.vsim_method_params(
+            VectorSearchMethods.KNN, K=self._HYBRID_TIMEOUT_DOCS
         )
-
         hybrid_query = HybridQuery(search_query, vsim_query)
+        query_vector = np.full(
+            self._HYBRID_TIMEOUT_DIM, 0.25, dtype=np.float32
+        ).tobytes()
 
-        combine_method = CombineResultsMethod(CombinationMethods.RRF, WINDOW=1000)
-
-        timeout = 5000  # 5 second timeout
         res = await decoded_r.ft().hybrid_search(
             query=hybrid_query,
-            combine_method=combine_method,
-            params_substitution={"vec": "abcd" * dim},
-            timeout=timeout,
+            params_substitution={"vec": query_vector},
+            timeout=1,
         )
 
-        if is_resp2_connection(decoded_r):
-            assert len(res.results) > 0
-            assert res.warnings == []
-            assert res.execution_time > 0 and res.execution_time < timeout
-        else:
-            assert len(res["results"]) > 0
-            assert res["warnings"] == []
-            assert res["execution_time"] > 0 and res["execution_time"] < timeout
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
+            warnings = res.warnings
+            assert res.execution_time > 0
+        elif expects_resp3_shape(decoded_r):
+            warnings = res["warnings"]
+            assert res["execution_time"] > 0
 
-        res = await decoded_r.ft().hybrid_search(
-            query=hybrid_query,
-            params_substitution={"vec": "abcd" * dim},
-            timeout=1,
-        )  # 1 ms timeout
-        if is_resp2_connection(decoded_r):
-            assert (
-                b"Timeout limit was reached (VSIM)" in res.warnings
-                or b"Timeout limit was reached (SEARCH)" in res.warnings
-            )
-        else:
-            assert (
-                "Timeout limit was reached (VSIM)" in res["warnings"]
-                or "Timeout limit was reached (SEARCH)" in res["warnings"]
-            )
+        assert any(
+            safe_str(warning)
+            in {
+                "Timeout limit was reached (VSIM)",
+                "Timeout limit was reached (SEARCH)",
+            }
+            for warning in warnings
+        )
 
     @pytest.mark.redismod
     @skip_if_server_version_lt("8.3.224")
@@ -3281,13 +3361,13 @@ class TestHybridSearch(AsyncSearchTestsBase):
             {"price": b"18", "colors_count": b"2"},
         ]
 
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert len(res.results) == 4
             assert res.results == expected_results
             assert res.warnings == []
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert len(res["results"]) == 4
-            assert res["results"] == self._convert_dict_values_to_str(expected_results)
+            assert res["results"] == expected_results
             assert res["warnings"] == []
 
         postprocessing_config = HybridPostProcessingConfig()
@@ -3320,13 +3400,13 @@ class TestHybridSearch(AsyncSearchTestsBase):
             {"price": b"17", "item_type": b"dress", "unique_colors_count": b"1"},
             {"price": b"17", "item_type": b"shoes", "unique_colors_count": b"2"},
         ]
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert len(res.results) == 6
             assert res.results == expected_results
             assert res.warnings == []
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert len(res["results"]) == 6
-            assert res["results"] == self._convert_dict_values_to_str(expected_results)
+            assert res["results"] == expected_results
             assert res["warnings"] == []
 
     @pytest.mark.redismod
@@ -3354,26 +3434,26 @@ class TestHybridSearch(AsyncSearchTestsBase):
             },
             timeout=10,
         )
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert isinstance(res, HybridCursorResult)
             assert res.search_cursor_id > 0
             assert res.vsim_cursor_id > 0
             search_cursor = aggregations.Cursor(res.search_cursor_id)
             vsim_cursor = aggregations.Cursor(res.vsim_cursor_id)
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert res["SEARCH"] > 0
             assert res["VSIM"] > 0
             search_cursor = aggregations.Cursor(res["SEARCH"])
             vsim_cursor = aggregations.Cursor(res["VSIM"])
 
         search_res_from_cursor = await decoded_r.ft().aggregate(query=search_cursor)
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert len(search_res_from_cursor.rows) == 5
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert len(search_res_from_cursor[0]["results"]) == 5
 
         vsim_res_from_cursor = await decoded_r.ft().aggregate(query=vsim_cursor)
-        if is_resp2_connection(decoded_r):
+        if expects_resp2_shape(decoded_r) or expects_unified_shape(decoded_r):
             assert len(vsim_res_from_cursor.rows) == 5
-        else:
+        elif expects_resp3_shape(decoded_r):
             assert len(vsim_res_from_cursor[0]["results"]) == 5

@@ -6,7 +6,7 @@ from typing import Optional
 from collections.abc import Callable
 from bs4 import BeautifulSoup
 from lxml import etree
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.dataframes import PandasDataframe
 
 

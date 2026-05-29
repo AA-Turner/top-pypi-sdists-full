@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 import urllib
 import pandas as pd
 from ..exceptions import ComponentError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.http import HTTPService
 
 

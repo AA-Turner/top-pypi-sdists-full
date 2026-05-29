@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: braindecode
-Version: 1.5.1
+Version: 1.5.2
 Summary: Deep learning software to decode EEG, ECG or MEG signals
 Author-email: Robin Tibor Schirrmeister <robintibor@gmail.com>, Bruno Aristimunha Pinto <b.aristimunha@gmail.com>, Alexandre Gramfort <agramfort@meta.com>
 Maintainer-email: Alexandre Gramfort <agramfort@meta.com>, Bruno Aristimunha Pinto <b.aristimunha@gmail.com>, Robin Tibor Schirrmeister <robintibor@gmail.com>

@@ -160,8 +160,8 @@ def scatter_trend(x, y=None, **kwargs):
     pylab.ylabel(kwargs.get('ylabel', ''))
 
     equation = (
-        '$y\,=\,{:.3f}x\,{}\,{:.3f}$, '
-        '$R^2=\,{:.3f}$ \n$\sigma\,=\,{:.3f}$'.format(
+        r'$y\,=\,{:.3f}x\,{}\,{:.3f}$, '
+        r'$R^2=\,{:.3f}$ \n$\sigma\,=\,{:.3f}$'.format(
             a, '-' if b < 0 else '+', abs(b), r*r, stderr))
 
     if y is None:
@@ -246,23 +246,20 @@ def plot_function_3d(x, y, function, **kwargs):
     plot_type = kwargs.pop('plot_type', 'surface')
     if plot_type == 'surface':
         ax.plot_surface(X, Y, Z,
-                rstride=kwargs.pop('rstride', 1),
-                cstride=kwargs.pop('cstride', 1),
-                cmap=kwargs.pop('cmap', pylab.cm.jet),
-                **kwargs)
+                        rstride=kwargs.pop('rstride', 1),
+                        cstride=kwargs.pop('cstride', 1),
+                        cmap=kwargs.pop('cmap', pylab.cm.jet),
+                        **kwargs)
     elif plot_type == 'wireframe':
-        ax.plot_wireframe(X, Y, Z,
-                cmap=kwargs.pop('cmap', pylab.cm.jet), **kwargs)
+        ax.plot_wireframe(X, Y, Z, cmap=kwargs.pop('cmap', pylab.cm.jet), **kwargs)
     elif plot_type == 'scatter':
         ax.scatter3D(np.ravel(X), np.ravel(Y), np.ravel(Z), **kwargs)
     elif plot_type == 'contour':
         num_contours = kwargs.pop('num_contours', 50)
-        ax.contour3D(X, Y, Z, num_contours,
-                cmap=kwargs.pop('cmap', pylab.cm.jet), **kwargs)
+        ax.contour3D(X, Y, Z, num_contours, cmap=kwargs.pop('cmap', pylab.cm.jet), **kwargs)
     elif plot_type == 'contourf':
         num_contours = kwargs.pop('num_contours', 50)
-        ax.contourf3D(X, Y, Z, num_contours,
-                cmap=kwargs.pop('cmap', pylab.cm.jet), **kwargs)
+        ax.contourf3D(X, Y, Z, num_contours, cmap=kwargs.pop('cmap', pylab.cm.jet), **kwargs)
     else:
         raise PyteomicsError('Unknown plot type: {}'.format(plot_type))
 
@@ -299,11 +296,10 @@ def plot_function_contour(x, y, function, **kwargs):
     Z = np.array(Z)
     num_contours = kwargs.pop('num_contours', 50)
     if kwargs.pop('filling', True):
-        pylab.contourf(X, Y, Z, num_contours,
-                cmap=kwargs.pop('cmap', pylab.cm.jet), **kwargs)
+        plot_func = pylab.contourf
     else:
-        pylab.contour(X, Y, Z, num_contours,
-                cmap=kwargs.pop('cmap', pylab.cm.jet), **kwargs)
+        plot_func = pylab.contour
+    plot_func(X, Y, Z, num_contours, cmap=kwargs.pop('cmap', pylab.cm.jet), **kwargs)
 
 
 def plot_qvalue_curve(qvalues, *args, **kwargs):
@@ -399,6 +395,19 @@ def plot_spectrum(spectrum, *args, **kwargs):
     **kwargs
         When using `default` backend: given to :py:func:`pylab.plot` or :py:func:`pylab.bar` (depending on `centroided`).
 
+    precursor_mz : float, keyword only, optional
+        Precursor m/z value.
+
+        .. note::
+            If not given, an attempt will be made to extract it from `spectrum`.
+            `spectrum_utils` backends require this value to be specified or extractable.
+    precursor_charge : int, keyword only, optional
+        Precursor charge state.
+
+        .. note::
+            If not given, an attempt will be made to extract it from `spectrum`.
+            `spectrum_utils` backends require this value to be specified or extractable.
+
     min_intensity : float, keyword only, optional
         Remove low-intensity peaks; this is a factor of maximum peak intensity. Default is 0 (no filtering).
         Only works with `spectrum_utils` and `spectrum_utils.iplot` backends.
@@ -451,11 +460,14 @@ def _default_annotate_spectrum(spectrum, peptide, *args, **kwargs):
         rtol = kwargs.pop('rtol', 1e-5)
     text_kw = kwargs.pop('text_kw', dict(ha='center', clip_on=True, backgroundcolor='#ffffff99'))
     precursor_charge = kwargs.pop('precursor_charge', None)
-    if precursor_charge is None:
-        precursor_charge = _get_precursor_charge(spectrum)
-    if precursor_charge is None:
-        raise PyteomicsError('Could not extract precursor charge from spectrum. Please specify `precursor_charge` kwarg.')
-    maxcharge = kwargs.pop('maxcharge', max(1, precursor_charge - 1))
+
+    precursor_charge = _get_precursor_charge(spectrum, strict=False)
+    maxcharge = kwargs.pop('maxcharge', None)
+    if maxcharge is None:
+        if precursor_charge is not None:
+            maxcharge = max(1, precursor_charge - 1)
+        else:
+            maxcharge = 1
     ax = kwargs.get('ax', None)
     # end of common kwargs
 
@@ -476,26 +488,16 @@ def _default_annotate_spectrum(spectrum, peptide, *args, **kwargs):
                 adjust = True
     # end of backend-specific kwargs
 
-    parsed = parser.parse(peptide, True, labels=list(aa_mass) + [parser.std_cterm, parser.std_nterm])
-    n = len(parsed)
+    # Generate fragment m/z and name series
+    series = mass.fragment_series(peptide, ion_types=types, maxcharge=maxcharge,
+                                    aa_mass=aa_mass, mass_data=mass_data, ion_comp=ion_comp)
+
     maxpeak = spectrum['intensity array'].max()
-    mz, names = {}, {}
-    for ion in types:
-        for charge in range(1, maxcharge + 1):
-            if ion[0] in 'abc':
-                for i in range(2, n):
-                    mz.setdefault(ion, []).append(mass.fast_mass2(parsed[:i] + [parser.std_cterm],
-                        aa_mass=aa_mass, charge=charge, ion_type=ion, mass_data=mass_data, ion_comp=ion_comp))
-                    names.setdefault(ion, []).append(ion[0] + str(i - 1) + ion[1:])
-            else:
-                for i in range(1, n - 1):
-                    mz.setdefault(ion, []).append(mass.fast_mass2([parser.std_nterm] + parsed[n - (i + 1):],
-                        aa_mass=aa_mass, charge=charge, ion_type=ion, mass_data=mass_data, ion_comp=ion_comp))
-                    names.setdefault(ion, []).append(ion[0] + str(i) + ion[1:])
     texts = []
     for ion in types:
+        names, mz = zip(*series[ion].items())
         c = colors.get(ion, colors.get(ion[0], 'blue'))
-        matrix = np.abs(spectrum['m/z array'] - np.array(mz[ion]).reshape(-1, 1))
+        matrix = np.abs(spectrum['m/z array'] - np.array(mz).reshape(-1, 1))
         if ftol is not None:
             match = np.where(matrix < ftol)
         else:
@@ -505,7 +507,7 @@ def _default_annotate_spectrum(spectrum, peptide, *args, **kwargs):
         for j, i in zip(*match):
             x = spectrum['m/z array'][i]
             y = spectrum['intensity array'][i] + maxpeak * 0.02
-            name = names[ion][j]
+            name = names[j]
             texts.append(pylab.text(x, y, name, color=c, **text_kw))
     if adjust:
         adjust_text(texts, **adjust_kw)
@@ -513,7 +515,15 @@ def _default_annotate_spectrum(spectrum, peptide, *args, **kwargs):
     return plot_spectrum(spectrum, *args, centroided=centroided, **kwargs)
 
 
-def _get_precursor_charge(spectrum):
+def _get_precursor_charge(spectrum: dict, **kwargs):
+    """
+    Inspect kwargs and spectrum to get precursor charge.
+    If found in kwargs, return that value. Otherwise, try to extract from spectrum.
+    If not found and `strict` kwarg is True (default), raise PyteomicsError.
+    """
+    provided = kwargs.get('precursor_charge')
+    if provided is not None:
+        return provided
     try:
         return mgf.MGFBase.parse_precursor_charge(spectrum['params']['charge'], list_only=True)[0]
     except (PyteomicsError, KeyError):
@@ -522,10 +532,19 @@ def _get_precursor_charge(spectrum):
         return int(spectrum['precursorList']['precursor'][0]['selectedIonList']['selectedIon'][0]['charge state'])
     except KeyError:
         pass
-    return None
+    if kwargs.get('strict', True):
+        raise PyteomicsError('Could not extract precursor charge from spectrum. Please specify `precursor_charge` kwarg.')
 
 
-def _get_precursor_mz(spectrum):
+def _get_precursor_mz(spectrum: dict, **kwargs):
+    """
+    Inspect kwargs and spectrum to get precursor m/z.
+    If found in kwargs, return that value. Otherwise, try to extract from spectrum.
+    If not found and `strict` kwarg is True (default), raise PyteomicsError.
+    """
+    provided = kwargs.get('precursor_mz')
+    if provided is not None:
+        return provided
     try:
         return spectrum['params']['pepmass'][0]
     except KeyError:
@@ -538,7 +557,8 @@ def _get_precursor_mz(spectrum):
         for attr in spectrum['attributes']:
             if attr in {"MS:1000827", "MS:1000744", "MS:1002234"}:
                 return spectrum['attributes'][attr]
-    return None
+    if kwargs.get('strict', True):
+        raise PyteomicsError('Could not extract precursor m/z from spectrum. Please specify `precursor_mz` kwarg.')
 
 
 def _spectrum_utils_create_spectrum(spectrum, *args, **kwargs):
@@ -552,13 +572,16 @@ def _spectrum_utils_create_spectrum(spectrum, *args, **kwargs):
     max_num_peaks = kwargs.pop('max_num_peaks', None)
     scaling = kwargs.pop('scaling', None)
     max_intensity = kwargs.pop('max_intensity', None)
+    precursor_mz = _get_precursor_mz(spectrum, **kwargs)
+    precursor_charge = _get_precursor_charge(spectrum, **kwargs)
     spectrum = sus.MsmsSpectrum(
-        'None', kwargs.pop('precursor_mz', None), kwargs.pop('precursor_charge', None),
+        'None', precursor_mz, precursor_charge,
         spectrum['m/z array'], spectrum['intensity array'])
     if mz_range:
         spectrum = spectrum.set_mz_range(*mz_range)
 
-    spectrum = spectrum.filter_intensity(min_intensity=min_intensity, max_num_peaks=max_num_peaks
+    spectrum = spectrum.filter_intensity(
+        min_intensity=min_intensity, max_num_peaks=max_num_peaks
         ).scale_intensity(scaling, max_intensity)
     return spectrum
 
@@ -577,12 +600,8 @@ def _spectrum_utils_annotate_spectrum(spectrum, peptide, *args, **kwargs):
 
     # kwargs.pop('text_kw', None)  # not used
 
-    precursor_charge = kwargs.pop('precursor_charge', None)
-    if precursor_charge is None:
-        precursor_charge = _get_precursor_charge(spectrum)
-    if precursor_charge is None:
-        raise PyteomicsError('Could not extract precursor charge from spectrum. '
-            'Please specify `precursor_charge` keyword argument.')
+    precursor_charge = _get_precursor_charge(spectrum, **kwargs, strict=False)
+    kwargs.pop('precursor_charge', None)  # avoid duplication in calling _spectrum_utils_create_spectrum
 
     maxcharge = kwargs.pop('maxcharge', max(1, precursor_charge - 1))
     # end of common kwargs
@@ -596,7 +615,7 @@ def _spectrum_utils_annotate_spectrum(spectrum, peptide, *args, **kwargs):
     prefix = kwargs.get('prefix')
 
     try:
-        parsed_proforma = proforma.ProForma.parse(peptide)
+        parsed_proforma = proforma.ProForma.parse(peptide, case_sensitive_aa=True)
         peptide_pro = peptide
     except Exception:
         parsed_proforma = None
@@ -605,9 +624,7 @@ def _spectrum_utils_annotate_spectrum(spectrum, peptide, *args, **kwargs):
         except Exception:
             raise PyteomicsError("Cannot parse {} as ProForma or convert from modX".format(peptide))
 
-    precursor_mz = kwargs.pop('precursor_mz', None)
-    if precursor_mz is None:
-        precursor_mz = _get_precursor_mz(spectrum)
+    precursor_mz = _get_precursor_mz(spectrum, **kwargs, strict=False)
     if precursor_mz is None:
         try:
             if aa_comp:
@@ -618,12 +635,17 @@ def _spectrum_utils_annotate_spectrum(spectrum, peptide, *args, **kwargs):
                 precursor_mz = mass.mass_charge_ratio(parsed_proforma.mass, precursor_charge)
         except PyteomicsError:
             raise PyteomicsError('Cannot obtain precursor m/z, please specify `precursor_mz` argument.')
+    if precursor_charge is None:
+        if parsed_proforma and parsed_proforma.charge_state is not None:
+            precursor_charge = parsed_proforma.charge_state.charge
+        else:
+            raise PyteomicsError('Cannot obtain precursor charge, please specify `precursor_charge` argument.')
 
     spectrum = _spectrum_utils_create_spectrum(spectrum, *args,
         precursor_mz=precursor_mz, precursor_charge=precursor_charge, **kwargs)
     if remove_precursor_peak:
         spectrum = spectrum.remove_precursor_peak(tol, tol_mode)
-    spectrum = spectrum.annotate_proforma(peptide_pro, tol, tol_mode, types, maxcharge)
+    spectrum = spectrum.annotate_proforma(peptide_pro, tol, tol_mode, types, max_ion_charge=maxcharge)
 
     return spectrum
 
@@ -646,14 +668,18 @@ def _spectrum_utils_annotate_plot(spectrum, peptide, *args, **kwargs):
 
     with SpectrumUtilsColorScheme(kwargs.pop('colors', None)):
         spectrum = _spectrum_utils_annotate_spectrum(spectrum, peptide, *args, **kwargs)
-        return sup.spectrum(spectrum, annot_kws=kwargs.pop('text_kw', None), ax=kwargs.pop('ax', None))
+        return spectrum, sup.spectrum(
+            spectrum, annot_kws=kwargs.pop('text_kw', None), ax=kwargs.pop('ax', None),
+            annot_fmt=kwargs.pop('annot_fmt', str), grid=kwargs.pop('grid', True))
 
 
 def _spectrum_utils_annotate_iplot(spectrum, peptide, *args, **kwargs):
     import spectrum_utils.iplot as supi
     with SpectrumUtilsColorScheme(kwargs.pop('colors', None)):
         spectrum = _spectrum_utils_annotate_spectrum(spectrum, peptide, *args, **kwargs)
-        return supi.spectrum(spectrum, annot_kws=kwargs.pop('text_kw', None))
+        return spectrum, supi.spectrum(
+            spectrum, annot_kws=kwargs.pop('text_kw', None),
+            annot_fmt=kwargs.pop('annot_fmt', str), grid=kwargs.pop('grid', True))
 
 
 _annotation_backends = {
@@ -671,7 +697,7 @@ def annotate_spectrum(spectrum, peptide, *args, **kwargs):
     spectrum : dict
         A spectrum as returned by Pyteomics parsers. Needs to have 'm/z array' and 'intensity array' keys.
     peptide : str
-        A modX sequence.
+        A modX or ProForma sequence.
     backend : str, keyword only, optional
         One of `{'default', 'spectrum_utils', 'spectrum_utils.iplot'}`.
         The `spectrum_utils` backend requires installing :py:mod:`spectrum_utils`.
@@ -722,7 +748,7 @@ def annotate_spectrum(spectrum, peptide, *args, **kwargs):
 
     remove_precursor_peak : bool, keyword only, optional
         Remove precursor peak from spectrum before annotation. Default is :py:const:`False`.
-        Only works with `spectrum_utils` backend.
+        Only works with `spectrum_utils` and `spectrum_utils.iplot` backends.
     min_intensity : float, keyword only, optional
         Remove low-intensity peaks; this is a factor of maximum peak intensity. Default is 0 (no filtering).
         Only works with `spectrum_utils` and `spectrum_utils.iplot` backends.
@@ -735,6 +761,12 @@ def annotate_spectrum(spectrum, peptide, *args, **kwargs):
         Intensity of the most intense peak relative to which the peaks will be scaled
         (the default is :py:const:`None`, which means that no scaling
         relative to the most intense peak will be performed).
+        Only works with `spectrum_utils` and `spectrum_utils.iplot` backends.
+    annot_fmt : callable, keyword-only, optional
+        Passed to :py:func:`spectrum_utils.plot.spectrum`.
+        Only works with `spectrum_utils` and `spectrum_utils.iplot` backends.
+    grid : bool, keyword-only, optional
+        Passed to :py:func:`spectrum_utils.plot.spectrum`. Default is :py:const:`True`.
         Only works with `spectrum_utils` and `spectrum_utils.iplot` backends.
     aa_comp : dict, keyword only, optional
         Amino acid compositions, including modified ones. If given, will be used for conversion from *modX* to ProForma.
@@ -789,7 +821,7 @@ def mirror(spec_top, spec_bottom, peptide=None, spectrum_kws=None, ax=None, **kw
         A spectrum as returned by Pyteomics parsers. Needs to have 'm/z array' and 'intensity array' keys.
     spec_bottom : dict
         A spectrum as returned by Pyteomics parsers. Needs to have 'm/z array' and 'intensity array' keys.
-    peptide : str or None, optional
+    peptide : str or tuple[str, str] or None, optional
         A modX sequence or ProForma. If provided, the peaks will be annotated as peptide fragments.
     spectrum_kws : dict or None, optional
         Passed to :py:func:`spectrum_utils.plot.mirror`.
@@ -816,8 +848,12 @@ def mirror(spec_top, spec_bottom, peptide=None, spectrum_kws=None, ax=None, **kw
     """
 
     spec_gen = _spectrum_utils_create_spectrum if peptide is None else _spectrum_utils_annotate_spectrum
-    spec_top = spec_gen(spec_top, peptide, **kwargs)
-    spec_bottom = spec_gen(spec_bottom, peptide, **kwargs)
+    if isinstance(peptide, tuple):
+        peptide_top, peptide_bottom = peptide
+    else:
+        peptide_top = peptide_bottom = peptide
+    spec_top = spec_gen(spec_top, peptide_top, **kwargs)
+    spec_bottom = spec_gen(spec_bottom, peptide_bottom, **kwargs)
 
     bname = kwargs.pop('backend', 'spectrum_utils')
     backend = _mirror_backends.get(bname)

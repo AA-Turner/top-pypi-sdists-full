@@ -6,3 +6,6 @@ class NotificationsConfig(AppConfig):
     name = 'allianceauth.notifications'
     label = 'notifications'
     verbose_name = _('Notifications')
+
+    def ready(self) -> None:
+        pass

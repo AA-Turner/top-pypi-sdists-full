@@ -11,7 +11,7 @@
 # under the License.
 
 from typing import Any, ClassVar, Literal
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 from openstack import _log
 from openstack.baremetal.v1 import node as _node
@@ -37,10 +37,13 @@ class Proxy(proxy.Proxy):
 
     # ========== Introspections ==========
 
-    def introspections(self, **query):
+    def introspections(
+        self,
+        **query: Any,
+    ) -> Generator[_introspect.Introspection, None, None]:
         """Retrieve a generator of introspection records.
 
-        :param dict query: Optional query parameters to be sent to restrict
+        :param query: Optional query parameters to be sent to restrict
             the records to be returned. Available parameters include:
 
             * ``fields``: A list containing one or more fields to be returned
@@ -69,14 +72,14 @@ class Proxy(proxy.Proxy):
         :returns: A generator of :class:`~.introspection.Introspection`
             objects
         """
-        return _introspect.Introspection.list(self, **query)
+        return self._list(_introspect.Introspection, **query)
 
     def start_introspection(self, node, manage_boot=None):
         """Create a new introspection from attributes.
 
         :param node: The value can be either the name or ID of a node or
             a :class:`~openstack.baremetal.v1.node.Node` instance.
-        :param bool manage_boot: Whether to manage boot parameters for the
+        :param manage_boot: Whether to manage boot parameters for the
             node. Defaults to the server default (which is `True`).
 
         :returns: :class:`~.introspection.Introspection` instance.
@@ -90,7 +93,10 @@ class Proxy(proxy.Proxy):
             kwargs['manage_boot'] = manage_boot
         return res.create(self, **kwargs)
 
-    def get_introspection(self, introspection):
+    def get_introspection(
+        self,
+        introspection: str | _introspect.Introspection,
+    ) -> _introspect.Introspection:
         """Get a specific introspection.
 
         :param introspection: The value can be the name or ID of an
@@ -102,7 +108,11 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_introspect.Introspection, introspection)
 
-    def get_introspection_data(self, introspection, processed=True):
+    def get_introspection_data(
+        self,
+        introspection: str | _introspect.Introspection,
+        processed: bool = True,
+    ) -> dict[str, Any]:
         """Get introspection data.
 
         :param introspection: The value can be the name or ID of an
@@ -111,7 +121,6 @@ class Proxy(proxy.Proxy):
         :param processed: Whether to fetch the final processed data (the
             default) or the raw unprocessed data as received from the ramdisk.
         :returns: introspection data from the most recent successful run.
-        :rtype: dict
         """
         res = self._get_resource(_introspect.Introspection, introspection)
         return res.get_data(self, processed=processed)
@@ -125,7 +134,7 @@ class Proxy(proxy.Proxy):
         :param introspection: The value can be the name or ID of an
             introspection (matching bare metal node name or ID) or
             an :class:`~.introspection.Introspection` instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the introspection could not be found. When set to ``True``, no
             exception will be raised when attempting to abort a non-existent
@@ -170,7 +179,7 @@ class Proxy(proxy.Proxy):
     ) -> _introspection_rule.IntrospectionRule:
         """Create a new introspection rules from attributes.
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~.introspection_rule.IntrospectionRule`,
             comprised of the properties on the IntrospectionRule class.
 
@@ -180,15 +189,15 @@ class Proxy(proxy.Proxy):
 
     def delete_introspection_rule(
         self,
-        introspection_rule,
-        ignore_missing=True,
-    ):
+        introspection_rule: str | _introspection_rule.IntrospectionRule,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete an introspection rule.
 
         :param introspection_rule: The value can be either the ID of an
             introspection rule or a
             :class:`~.introspection_rule.IntrospectionRule` instance.
-        :param bool ignore_missing: When set to ``False``, an
+        :param ignore_missing: When set to ``False``, an
             exception:class:`~openstack.exceptions.NotFoundException` will be
             raised when the introspection rule could not be found. When set to
             ``True``, no exception will be raised when attempting to delete a
@@ -202,7 +211,10 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_introspection_rule(self, introspection_rule):
+    def get_introspection_rule(
+        self,
+        introspection_rule: str | _introspection_rule.IntrospectionRule,
+    ) -> _introspection_rule.IntrospectionRule:
         """Get a specific introspection rule.
 
         :param introspection_rule: The value can be the name or ID of an
@@ -218,10 +230,13 @@ class Proxy(proxy.Proxy):
             introspection_rule,
         )
 
-    def introspection_rules(self, **query):
+    def introspection_rules(
+        self,
+        **query: Any,
+    ) -> Generator[_introspection_rule.IntrospectionRule, None, None]:
         """Retrieve a generator of introspection rules.
 
-        :param dict query: Optional query parameters to be sent to restrict
+        :param query: Optional query parameters to be sent to restrict
             the records to be returned. Available parameters include:
 
             * ``uuid``: The UUID of the Ironic Inspector rule.
@@ -269,7 +284,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -284,8 +299,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

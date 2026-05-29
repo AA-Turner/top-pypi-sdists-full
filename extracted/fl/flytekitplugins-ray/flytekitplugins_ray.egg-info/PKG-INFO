@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flytekitplugins-ray
-Version: 1.16.21
+Version: 1.16.22
 Summary: This package holds the Ray plugins for flytekit
 Author: flyteorg
 Author-email: admin@flyte.org
@@ -18,7 +18,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Requires-Dist: ray[default]
 Requires-Dist: flytekit>1.14.5
-Requires-Dist: flyteidl>=1.13.6
+Requires-Dist: flyteidl>=1.16.7
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

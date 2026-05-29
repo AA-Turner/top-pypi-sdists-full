@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lightly
-Version: 1.5.23
+Version: 1.5.24
 Summary: A deep learning package for self-supervised learning
 Author-email: Lightly Team <team@lightly.ai>
 License: Copyright (c) 2018 The Python Packaging Authority
@@ -68,7 +68,6 @@ Provides-Extra: all
 Requires-Dist: lightly[dev,matplotlib,minimal,timm,video]; extra == "all"
 Provides-Extra: dev
 Requires-Dist: sphinx; extra == "dev"
-Requires-Dist: pylint; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-forked; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
@@ -88,8 +87,7 @@ Requires-Dist: scikit-learn; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: toml; extra == "dev"
 Requires-Dist: torchmetrics; extra == "dev"
-Requires-Dist: black==23.1.0; extra == "dev"
-Requires-Dist: isort==5.11.5; extra == "dev"
+Requires-Dist: ruff==0.12.7; extra == "dev"
 Requires-Dist: mypy==1.4.1; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
 Requires-Dist: types-toml; extra == "dev"
@@ -121,7 +119,7 @@ Dynamic: license-file
 [![Unit Tests](https://github.com/lightly-ai/lightly/workflows/Unit%20Tests/badge.svg)](https://github.com/lightly-ai/lightly/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/lightly)](https://pypi.org/project/lightly/)
 [![Downloads](https://static.pepy.tech/badge/lightly)](https://pepy.tech/project/lightly)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Discord](https://img.shields.io/discord/752876370337726585?logo=discord&logoColor=white&label=discord&color=7289da)](https://discord.gg/xvNJW94)
 [![Twitter](https://img.shields.io/twitter/follow/LightlyAI)](https://x.com/LightlyAI)
 [![codecov.io](https://codecov.io/github/lightly-ai/lightly/coverage.svg?branch=master)](https://app.codecov.io/gh/lightly-ai/lightly)
@@ -144,6 +142,7 @@ on your data, check out [lightly.ai](https://www.lightly.ai). It's free to get s
 
 ## News 🚀
 
+* May 28, 2026 - We now have [LeJEPA](https://arxiv.org/pdf/2511.08544) support for self-supervised learning! 🧬 
 * March 23, 2026 - Check out our latest open-source project [LightlyStudio](https://github.com/lightly-ai/lightly-studio) to visualize, annotate, and manage your data with ease! 🔍
 * April 15, 2025 - We are excited to announce that you can now leverage SSL and distillation pretraining in just a few lines of code! We've worked hard to make self-supervised learning even more accessible with our new project [LightlyTrain](https://github.com/lightly-ai/lightly-train). Head over there to get started and supercharge your models! ⚡️
 
@@ -404,11 +403,12 @@ tuned for maximum accuracy. For detailed results and more information about the 
 
 **Note**: Evaluation settings are based on these papers:
 
-- Linear: [SimCLR](https://arxiv.org/abs/2002.05709)
-- Finetune: [SimCLR](https://arxiv.org/abs/2002.05709)
+- Linear & Finetune:
+  - ResNet: [SimCLR](https://arxiv.org/abs/2002.05709)
+  - ViT: [MAE](https://arxiv.org/abs/2111.06377)
 - KNN: [InstDisc](https://arxiv.org/abs/1805.01978)
 
-See the [benchmarking scripts](./benchmarks/imagenet/resnet50/) for details.
+See the [benchmarking scripts](./benchmarks/imagenet/) for details.
 
 | Model           | Backbone | Batch Size | Epochs | Linear Top1 | Finetune Top1 | kNN Top1 | Tensorboard                                                                                                                                                                    | Checkpoint                                                                                                                                                              |
 | --------------- | -------- | ---------- | ------ | ----------- | ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -486,7 +486,7 @@ pytest <path to file or directory>
 
 ### Code Formatting
 
-To format code with [black](https://black.readthedocs.io/en/stable/) and [isort](https://docs.pytest.org) run:
+To format code with [ruff](https://docs.astral.sh/ruff/) run:
 
 ```
 make format
@@ -535,8 +535,17 @@ make format
 - [Learning Visual Representations via Language-Guided Sampling, 2023](https://arxiv.org/pdf/2302.12248.pdf)
 - [Self-Supervised Learning Methods for Label-Efficient Dental Caries Classification, 2022](https://www.mdpi.com/2075-4418/12/5/1237)
 - [DPCL: Contrastive representation learning with differential privacy, 2022](https://assets.researchsquare.com/files/rs-1516950/v1_covered.pdf?c=1654486158)
-- [Decoupled Contrastive Learning, 2021](https://arxiv.org/abs/2110.06848)
+- [Decoupled Contrastive Learning, 2021](https://arxiv.org/pdf/2110.06848)
 - [solo-learn: A Library of Self-supervised Methods for Visual Representation Learning, 2021](https://www.jmlr.org/papers/volume23/21-1155/21-1155.pdf)
+- [EdgeCrafter: Compact ViTs for Edge Dense Prediction via Task-Specialized Distillation](https://arxiv.org/pdf/2603.18739)
+- [Unlabeled to Accurate: Self-Supervised Learning for Land Use Classification in Sentinel-2 Imagery](https://ieeexplore.ieee.org/abstract/document/11087068)
+- [Self-supervised Representation Learning for AI-Based Musculoskeletal Radiograph Registry Construction](https://link.springer.com/chapter/10.1007/978-3-032-14492-8_29)
+- [Real-Time Object Detection Meets DINOv3](https://intellindust-ai-lab.github.io/projects/DEIMv2/)
+- [Vision Foundry: A System for Training Foundational Vision AI Models, 2025](https://arxiv.org/pdf/2512.11837)
+- [Self-supervised learning outperforms supervised learning for crop classification by annotating only 5% of images, 2025](https://link.springer.com/article/10.1007/s11119-025-10302-9)
+- [Self-Supervised Learning Powered by Synthetic Data From Diffusion Models: Application to X-Ray Images, 2025](https://doi.org/10.1109/ACCESS.2025.3555619)
+- [Wildlife Target Re-Identification Using Self-supervised Learning in Non-Urban Settings, 2025](https://arxiv.org/pdf/2507.02403)
+- [SSL-MAE: Adaptive Semisupervised Learning Framework for Multilabel Classification of Remote Sensing Images Using Masked Autoencoders, 2025](https://ieeexplore.ieee.org/document/11029124/)
 
 ## Company behind this Open Source Framework
 

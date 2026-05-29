@@ -18,7 +18,7 @@ from scipy.spatial.distance import pdist, squareform
 from sklearn import metrics
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import (
     DataNotFound,
     ConfigError,

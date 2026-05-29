@@ -50,7 +50,7 @@ from ..interfaces.zoom import ZoomInterface
 from ..interfaces.cache import CacheSupport
 from ..interfaces.Boto3Client import Boto3Client
 from ..interfaces.qs import QSSupport
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.zoom import RecordingType
 from datetime import datetime as _dt
 from ..exceptions import ComponentError, ConfigError, DataNotFound
@@ -127,6 +127,18 @@ class ZoomUs(ZoomInterface, CacheSupport, Boto3Client, QSSupport, FlowComponent)
             [str(e).strip() for e in ext if str(e).strip()]
             if isinstance(ext, list)
             else [e.strip() for e in (ext or "").split(",") if e.strip()]
+        )
+
+        # ── Session IDs (SMS by session) ──
+        # When provided (directly or via an input column), SMS sessions are
+        # fetched one-by-one through get_sms_session_details instead of being
+        # listed by phone number.
+        self.session_id_column: str = kwargs.get("session_id_column", "session_id")
+        sid = kwargs.get("session_ids")
+        self.session_ids: List[str] = (
+            [str(s).strip() for s in sid if str(s).strip()]
+            if isinstance(sid, list)
+            else [s.strip() for s in (sid or "").split(",") if s.strip()]
         )
 
         # ── Paths ──
@@ -998,7 +1010,25 @@ class ZoomUs(ZoomInterface, CacheSupport, Boto3Client, QSSupport, FlowComponent)
     # =================================================================
 
     async def sms(self) -> pd.DataFrame:
-        """Fetch SMS sessions and messages for specified phone numbers."""
+        """Fetch SMS sessions and messages by session_id (preferred) or phone number."""
+        # Collect session_ids from the input DataFrame, if a session_id column exists.
+        if self.previous and hasattr(self, "input") and self.input is not None:
+            if hasattr(self.input, "empty") and not self.input.empty:
+                if self.session_id_column in self.input.columns:
+                    ids = (
+                        self.input[self.session_id_column]
+                        .dropna().astype(str).unique().tolist()
+                    )
+                    for sid in ids:
+                        sid = sid.strip()
+                        if sid and sid not in self.session_ids:
+                            self.session_ids.append(sid)
+
+        # Mode 1: fetch specific sessions directly by session_id.
+        if self.session_ids:
+            return await self._sms_by_session_ids()
+
+        # Mode 2: fetch by phone number / extension (original behaviour).
         # Process input DataFrame
         if self.previous and hasattr(self, "input") and self.input is not None:
             if hasattr(self.input, "empty") and not self.input.empty:
@@ -1192,6 +1222,134 @@ class ZoomUs(ZoomInterface, CacheSupport, Boto3Client, QSSupport, FlowComponent)
         self.add_metric("SMS_SESSIONS_COUNT", len(session_records))
         self.add_metric("SMS_MESSAGES_COUNT", total_messages)
 
+        return df
+
+    async def _sms_by_session_ids(self) -> pd.DataFrame:
+        """Fetch SMS messages for explicit session IDs.
+
+        Used when session_ids are provided directly or via an input column
+        (e.g. navigator.zoom_log.session_id). Each session is retrieved with
+        get_sms_session_details, bypassing the phone-number session listing.
+
+        Returns:
+            DataFrame with one row per session, same shape as ``sms()`` output.
+        """
+        self._logger.info(
+            f"📱 Fetching {len(self.session_ids)} SMS session(s) by session_id..."
+        )
+        session_records: List[Dict[str, Any]] = []
+        total_messages = 0
+        sem = asyncio.Semaphore(3)
+
+        async def _fetch(session_id: str):
+            nonlocal total_messages
+            messages: List[Dict[str, Any]] = []
+            detail: Dict[str, Any] = {}
+            next_page = None
+            try:
+                while True:
+                    async with sem:
+                        detail = await self.get_sms_session_details(
+                            session_id, next_page_token=next_page
+                        )
+                    messages.extend(detail.get("sms_histories", []))
+                    next_page = detail.get("next_page_token")
+                    if not next_page:
+                        break
+            except Exception as e:
+                self._logger.error(
+                    f"  Session {session_id}: error fetching messages – {e}"
+                )
+                return
+
+            # The session-detail endpoint returns sms_histories but usually NOT
+            # participants, so resolve owner/other/session_type from participants
+            # when present and fall back to the messages themselves.
+            participants = detail.get("participants", [])
+            owner_number = owner_name = other_number = None
+            for p in participants:
+                if p.get("is_session_owner", False):
+                    owner_number = p.get("phone_number") or owner_number
+                    owner_name = p.get("display_name") or owner_name
+                else:
+                    other_number = p.get("phone_number") or other_number
+
+            session_type = detail.get("session_type")
+            for m in messages:
+                if not session_type:
+                    session_type = (m.get("owner") or {}).get("type")
+                direction = str(m.get("direction", "")).lower()
+                sender = (m.get("sender") or {}).get("phone_number")
+                if direction == "out":
+                    # T-ROC side sends; recipients are the candidate(s).
+                    owner_number = owner_number or sender
+                    if not other_number:
+                        for tm in (m.get("to_members") or []):
+                            if not tm.get("is_message_owner"):
+                                other_number = tm.get("phone_number") or other_number
+                                if other_number:
+                                    break
+                elif direction == "in":
+                    # Candidate replies; sender is the candidate.
+                    other_number = other_number or sender
+
+            # bound: 'In' = a reply from the other party.
+            dirs = {str(m.get("direction", "")).lower() for m in messages}
+            has_in, has_out = "in" in dirs, "out" in dirs
+            if has_in and has_out:
+                bound = "both"
+            elif has_in:
+                bound = "inbound"
+            elif has_out:
+                bound = "outbound"
+            else:
+                bound = "unknown"
+
+            last_message_time = detail.get("last_message_time")
+            if not last_message_time and messages:
+                times = [m.get("date_time") for m in messages if m.get("date_time")]
+                if times:
+                    last_message_time = max(times)
+
+            session_records.append(
+                {
+                    "session_id": session_id,
+                    "extension": None,
+                    "phone_number": owner_number,
+                    "bound": bound,
+                    "session_type": session_type,
+                    "owner_number": owner_number,
+                    "owner_name": owner_name,
+                    "other_number": other_number,
+                    "last_message_time": last_message_time,
+                    "last_access_time": detail.get("last_access_time"),
+                    "message_count": len(messages),
+                    "messages": messages,
+                    "participants": participants,
+                    "fetched_at": datetime.utcnow().isoformat() + "Z",
+                }
+            )
+            total_messages += len(messages)
+
+        await asyncio.gather(*[_fetch(sid) for sid in self.session_ids])
+
+        self._logger.info(
+            f"✅ Fetched {len(session_records)} session(s) "
+            f"with {total_messages} message(s)"
+        )
+
+        if not session_records:
+            self.add_metric("NUMROWS", 0)
+            self.add_metric("SMS_MESSAGES_COUNT", 0)
+            raise DataNotFound(
+                "ZoomUs: No SMS sessions found for the provided session_ids"
+            )
+
+        df = pd.DataFrame(session_records)
+        self.add_metric("NUMROWS", len(df))
+        self.add_metric("NUMCOLS", len(df.columns))
+        self.add_metric("SMS_SESSIONS_COUNT", len(session_records))
+        self.add_metric("SMS_MESSAGES_COUNT", total_messages)
         return df
 
     # =================================================================

@@ -62,12 +62,14 @@ if os.getenv("BRAINTRUST_INSTRUMENT_THREADS", "").lower() in ("true", "1", "yes"
 
 from .audit import *
 from .auto import auto_instrument as auto_instrument
+from .dataset_pipeline import *
 from .framework import *
 from .framework2 import *
 from .functions.invoke import *
 from .functions.stream import *
 from .generated_types import *
 from .integrations.anthropic import wrap_anthropic as wrap_anthropic
+from .integrations.instructor import wrap_instructor as wrap_instructor
 from .integrations.litellm import wrap_litellm as wrap_litellm
 from .integrations.openai import wrap_openai as wrap_openai
 from .integrations.openrouter import wrap_openrouter as wrap_openrouter

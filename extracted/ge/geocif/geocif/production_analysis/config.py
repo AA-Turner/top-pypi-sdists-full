@@ -27,8 +27,28 @@ def load_config(path_config_file):
     parser.read(paths)
 
     s = "BEAST"
+    # Optional input_csv — required when input_format=hvstat, ignored
+    # (with a logged warning at the call site) when input_format=amis.
+    input_csv = (
+        Path(parser.get(s, "input_csv"))
+        if parser.has_option(s, "input_csv") and parser.get(s, "input_csv").strip()
+        else None
+    )
     cfg = SimpleNamespace(
-        input_csv=Path(parser.get(s, "input_csv")),
+        input_csv=input_csv,
+        # Loader switch: 'hvstat' (default, reads cfg.input_csv) or 'amis'
+        # (reads per-crop XLSX workbooks under
+        # ${PATHS:dir_production_statistics} matching the configured
+        # countries × crops × seasons set).
+        input_format=parser.get(s, "input_format", fallback="hvstat").strip().lower(),
+        # AMIS path needs the production_statistics directory; hvstat
+        # ignores this. Read from [PATHS] (resolved via ExtendedInterpolation).
+        dir_production_statistics=(
+            Path(parser.get("PATHS", "dir_production_statistics"))
+            if parser.has_section("PATHS")
+               and parser.has_option("PATHS", "dir_production_statistics")
+            else None
+        ),
         output_dir=Path(parser.get(s, "output_dir")),
         min_years=parser.getint(s, "min_years", fallback=15),
         tcp_minmax=ast.literal_eval(parser.get(s, "tcp_minmax", fallback="[0, 8]")),

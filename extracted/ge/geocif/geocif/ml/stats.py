@@ -4,6 +4,63 @@ import pandas as pd
 from geocif.progress import pbar as _pbar
 
 
+# Canonical production-system whitelist used by HvStat Africa data
+# (geocif/ml/stats.py:add_statistics and production_analysis/_common.py:
+# load_filtered_hvstat both filter to these labels). The HvStat CSV
+# carries 27 unique PS values across all countries; the 17 not listed
+# here are non-standard / project-specific and excluded as noise.
+# Tuple so it's immutable at import time.
+STANDARD_PRODUCTION_SYSTEMS = (
+    "none",
+    "Small-scale (PS)",
+    "Commercial (PS)",
+    "Communal (PS)",
+    "All (PS)",
+    "irrigated",
+    "rainfed",
+    "Rainfed (PS)",
+    "agro_pastoral",
+    "riverine",
+)
+
+
+def aggregate_yield_across_ps(yield_values, area_values, prod_values):
+    """Area-weighted aggregation across multiple production-system rows
+    for one (region, year) combo.
+
+    When a (country, admin, crop, season, year) appears in HvStat under
+    multiple whitelisted PS labels (e.g. ``Rainfed (PS)`` + ``irrigated``
+    for the same district), this collapses them into a single yield via
+    total_production / total_area so each system contributes
+    proportionally to its area.
+
+    Returns ``(agg_yield, total_area, total_prod)`` — all NaN-safe
+    scalars. ``area`` and ``prod`` use ``sum(skipna=True)``; the yield
+    falls back through three branches: prod/area when both are positive;
+    area-weighted yield mean when only area is positive; plain mean as
+    last resort.
+
+    Used by both ``add_statistics`` (per-(region, year) join groups) and
+    ``production_analysis._common.load_filtered_hvstat`` (per-series
+    groupby) so the PS aggregation logic lives in one place.
+    """
+    yield_values = yield_values.replace([0, np.inf, -np.inf], np.nan)
+    area_values = area_values.replace([0, np.inf, -np.inf], np.nan)
+    prod_values = prod_values.replace([0, np.inf, -np.inf], np.nan)
+    total_area = area_values.sum(skipna=True)
+    total_prod = prod_values.sum(skipna=True)
+    if total_area and total_area > 0 and total_prod and total_prod > 0:
+        agg_yield = total_prod / total_area
+    elif total_area and total_area > 0 and yield_values.notna().any():
+        agg_yield = (
+            (yield_values.fillna(0) * area_values.fillna(0)).sum()
+            / total_area
+        )
+    else:
+        agg_yield = yield_values.mean(skipna=True)
+    return agg_yield, total_area, total_prod
+
+
 def get_yld_prd(df, name_crop, cntr, region, calendar_year, region_column="ADM1_NAME"):
     """
     Example input: ('United States of America', 'Wyoming', 2000)
@@ -305,20 +362,7 @@ def add_statistics(
             # because geoprepare extraction converts spaces to underscores)
             mask_region = df_fewsnet[admin_zone].str.lower().str.replace("_", " ") == region.lower().replace("_", " ")
             mask_yield = (
-                df_fewsnet["crop_production_system"].isin(
-                    [
-                        "none",
-                        "Small-scale (PS)",
-                        "Commercial (PS)",
-                        "Communal (PS)",
-                        "All (PS)",
-                        "irrigated",
-                        "rainfed",
-                        "Rainfed (PS)",
-                        "agro_pastoral",
-                        "riverine"
-                    ]
-                )
+                df_fewsnet["crop_production_system"].isin(STANDARD_PRODUCTION_SYSTEMS)
                 & (df_fewsnet["harvest_year"] == harvest_year)
                 & (df_fewsnet["product"] == crop)
                 & df_fewsnet["season_name"].isin(season_filter)
@@ -334,19 +378,7 @@ def add_statistics(
             # Fallback to "Annual" for Malawi Maize when primary season has no data
             if yield_value.empty and country == "Malawi" and crop == "Maize" and "Annual" in available_seasons and "Annual" not in season_filter:
                 mask_yield_annual = (
-                    df_fewsnet["crop_production_system"].isin(
-                        [
-                            "none",
-                            "Small-scale (PS)",
-                            "Commercial (PS)",
-                            "All (PS)",
-                            "irrigated",
-                            "rainfed",
-                            "Rainfed (PS)",
-                            "agro_pastoral",
-                            "riverine"
-                        ]
-                    )
+                    df_fewsnet["crop_production_system"].isin(STANDARD_PRODUCTION_SYSTEMS)
                     & (df_fewsnet["harvest_year"] == harvest_year)
                     & (df_fewsnet["product"] == crop)
                     & (df_fewsnet["season_name"] == "Annual")
@@ -356,28 +388,20 @@ def add_statistics(
                 area_value = df_fewsnet.loc[mask_combined, "area"]
                 prod_value = df_fewsnet.loc[mask_combined, "production"]
 
-            # Replace any inf or 0 values by NaN
-            yield_value = yield_value.replace([0, np.inf, -np.inf], np.nan)
-            area_value = area_value.replace([0, np.inf, -np.inf], np.nan)
-            prod_value = prod_value.replace([0, np.inf, -np.inf], np.nan)
-
-            if not yield_value.empty:
-                # Area-weighted aggregation: multiple hvstat rows may pass
-                # the filter (e.g. Rainfed (PS) + irrigated for the same
-                # district/year).  Combine via total_production /
-                # total_area so each system contributes proportionally to
-                # its area, rather than the first row winning.
-                total_area = area_value.sum(skipna=True)
-                total_prod = prod_value.sum(skipna=True)
-                if total_area and total_area > 0 and total_prod and total_prod > 0:
-                    agg_yield = total_prod / total_area
-                elif total_area and total_area > 0 and yield_value.notna().any():
-                    agg_yield = (
-                        (yield_value.fillna(0) * area_value.fillna(0)).sum()
-                        / total_area
-                    )
-                else:
-                    agg_yield = yield_value.mean(skipna=True)
+            # df.loc[bool_mask, "col"] always returns a Series here, but
+            # the pandas stubs union the return type with scalars — guard
+            # via len() with an explicit cast so static checkers and
+            # runtime agree.
+            yield_series = pd.Series(yield_value)
+            if len(yield_series) > 0:
+                # Area-weighted aggregation across PS — same logic used by
+                # production_analysis._common.load_filtered_hvstat, lifted
+                # to aggregate_yield_across_ps so both call sites share it.
+                agg_yield, total_area, total_prod = aggregate_yield_across_ps(
+                    yield_series,
+                    pd.Series(area_value),
+                    pd.Series(prod_value),
+                )
                 group.loc[:, target_col] = agg_yield
                 group.loc[:, "Area (ha)"] = total_area if total_area > 0 else np.nan
                 group.loc[:, "Production (tn)"] = (

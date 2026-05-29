@@ -10,9 +10,8 @@ from types import FrameType
 
 import psutil
 import torch
-import torch.distributed as dist
+from compressed_tensors.distributed import is_distributed, is_source_process
 from compressed_tensors.offload.convert import from_accelerate
-from compressed_tensors.offload.dist_utils import is_distributed, is_rank0
 from loguru import logger
 from transformers import PreTrainedModel
 from transformers.models.auto.modeling_auto import _BaseAutoModelClass
@@ -25,7 +24,9 @@ cls_to_patch = _BaseAutoModelClass | PreTrainedModel
 
 
 @contextlib.contextmanager
-def load_offloaded_model(extra_cpu_mem: int = 5e9):
+def load_offloaded_model(
+    model_class: type[cls_to_patch] | None = None, extra_cpu_mem: int = 5e9
+):
     """
     Context manager used to load a transformers model with offloading implemented by
     compressed-tensors.
@@ -39,15 +40,21 @@ def load_offloaded_model(extra_cpu_mem: int = 5e9):
     `device_map="auto_offload"`, which means that the model will load as many parameters
     can fit onto the cpu, and any extra parameters will be loaded on disk.
 
+    :param model_class: explicit class to patch. If None, patches all classes in the
+        caller's frame that are subclasses of _BaseAutoModelClass or PreTrainedModel.
     :param extra_cpu_mem: extra cpu memory to reserve for any operations not related to
         model loading (bytes). Defaults to 5Gb.
     """
-    frame = _get_caller_frame()
-
     with contextlib.ExitStack() as stack:
-        for obj in frame.f_globals.values():
-            if isinstance(obj, type) and issubclass(obj, cls_to_patch):
-                stack.enter_context(patch_from_pretrained(obj, extra_cpu_mem))
+        if model_class is not None:
+            # Explicit class provided, patch only that class
+            stack.enter_context(patch_from_pretrained(model_class, extra_cpu_mem))
+        else:
+            # No class provided, use frame-based patching
+            frame = _get_caller_frame()
+            for obj in frame.f_globals.values():
+                if isinstance(obj, type) and issubclass(obj, cls_to_patch):
+                    stack.enter_context(patch_from_pretrained(obj, extra_cpu_mem))
 
         yield
 
@@ -61,7 +68,7 @@ def patch_from_pretrained(obj: cls_to_patch, extra_cpu_mem: int):
         kwargs.setdefault("device_map", None)
 
         # Rank 0 does loading, other ranks init on meta device
-        if not is_rank0():
+        if not is_source_process():
             kwargs["device_map"] = "meta"
             # Workaround: transformers v5 tie_weights() calls torch.equal() on
             # meta tensors which is unsupported. Since rank 0 broadcasts the real
@@ -81,6 +88,7 @@ def patch_from_pretrained(obj: cls_to_patch, extra_cpu_mem: int):
 
         model = original_func(cls, *args, **kwargs)
         from_accelerate(model)  # rank 0 shares weights with ranks via offload/broadcast
+
         return model
 
     try:
@@ -91,14 +99,13 @@ def patch_from_pretrained(obj: cls_to_patch, extra_cpu_mem: int):
 
 
 def _get_device_memory() -> dict[int, int]:
-    # TODO: extend to xpu, ect.
     if is_distributed():
-        index = dist.get_rank()
-        return {index: torch.cuda.get_device_properties(index).total_memory}
+        index = torch.accelerator.current_device_index()
+        return {index: torch.accelerator.get_memory_info(index)[1]}
     else:
         return {
-            index: torch.cuda.get_device_properties(index).total_memory
-            for index in range(torch.cuda.device_count())
+            index: torch.accelerator.get_memory_info(index)[1]
+            for index in range(torch.accelerator.device_count())
         }
 
 

@@ -31,7 +31,7 @@ class TransferData(BaseModel):
     )
     target_account_id: StrictStr = Field(
         description="The unique identifier for the account in the third-party system that should be transferred to",
-        json_schema_extra={"x-semantic": "account-id"},
+        json_schema_extra={"x-semantic": "auxiliary-account-id"},
     )
     __properties: ClassVar[List[str]] = ["source_account_id", "target_account_id"]
     model_config = ConfigDict(

@@ -8,7 +8,7 @@ import ast
 from asyncdb.exceptions import NoDataFound
 from ..exceptions import ComponentError, DataNotFound, TaskError
 from ..utils import cPrint
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..conf import TASK_PATH
 from ..interfaces import DBSupport, TemplateSupport
 from ..interfaces.qs import QSSupport

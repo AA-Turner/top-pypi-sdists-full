@@ -281,6 +281,8 @@ public:
 
     void setSelected(bool selected);
 
+    Q_SLOT void deselect_all();
+
     virtual QList<QColor> color_palette() const noexcept override;
 
     virtual void set_color_palette(const QList<QColor>& palette) noexcept override;
@@ -324,6 +326,7 @@ signals:
     Q_SIGNAL void span_created(MultiPlotsVerticalSpan* span);
     Q_SIGNAL void span_creation_canceled();
     Q_SIGNAL void panel_added(SciQLopPlotPanelInterface* panel);
+    Q_SIGNAL void panel_inserted(SciQLopPlotPanelInterface* panel, int at);
     Q_SIGNAL void panel_removed(SciQLopPlotPanelInterface* panel);
     Q_SIGNAL void inspector_extensions_changed();
     Q_SIGNAL void inspector_extension_added(InspectorExtension* extension);

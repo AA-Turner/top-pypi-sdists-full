@@ -1,4 +1,4 @@
-""" Video Dataset """
+"""Video Dataset"""
 
 # Copyright (c) 2020. Lightly AG and its affiliates.
 # All Rights Reserved
@@ -128,10 +128,10 @@ class VideoLoader(threading.local):
         >>> from torchvision import io
         >>>
         >>> # get timestamps
-        >>> ts, fps = io.read_video_timestamps('myvideo.mp4', pts_unit = 'sec')
+        >>> ts, fps = io.read_video_timestamps("myvideo.mp4", pts_unit="sec")
         >>>
         >>> # create a VideoLoader
-        >>> video_loader = VideoLoader('myvideo.mp4', ts)
+        >>> video_loader = VideoLoader("myvideo.mp4", ts)
         >>>
         >>> # get frame at specific timestamp
         >>> frame = video_loader.read_frame(ts[21])
@@ -282,7 +282,7 @@ class VideoLoader(threading.local):
                 warnings.warn(
                     f"Loaded wrong frame in {self.path}! Tried to load frame "
                     f"with index {index} and timestamp {float(timestamp)} but "
-                    f'could only find frame with timestamp {frame_info["pts"]}.'
+                    f"could only find frame with timestamp {frame_info['pts']}."
                 )
 
             # Make sure we have the tensor in correct shape (we want H x W x C)
@@ -501,10 +501,8 @@ class VideoDataset(datasets.VisionDataset):
         The filename is created from the video filename, the frame number, and
         the video format. The frame number will be zero padded to make sure
         all filenames have the same length and can easily be sorted.
-        E.g. when retrieving a sample from the video
-        `my_video.mp4` at frame 153, the filename will be:
-
-        >>> my_video-153-mp4.png
+        For example, when retrieving a sample from the video ``my_video.mp4``
+        at frame 153, the filename will be ``my_video-153-mp4.png``.
 
         Args:
             index:

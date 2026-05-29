@@ -52,7 +52,7 @@ from querysource.exceptions import (
 from querysource.libs.encoders import DefaultEncoder
 from querysource.types.validators import is_empty
 from ..exceptions import ComponentError, DataNotFound, ConfigError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.dataframes import PandasDataframe
 from ..interfaces import TemplateSupport
 from ..utils import SafeDict

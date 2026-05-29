@@ -18,6 +18,8 @@ from braintrust.integrations import (
     CrewAIIntegration,
     DSPyIntegration,
     GoogleGenAIIntegration,
+    HuggingFaceHubIntegration,
+    InstructorIntegration,
     LangChainIntegration,
     LiteLLMIntegration,
     LiveKitAgentsIntegration,
@@ -56,8 +58,10 @@ def auto_instrument(
     litellm: bool = True,
     pydantic_ai: bool = True,
     google_genai: bool = True,
+    instructor: bool = True,
     openrouter: bool = True,
     mistral: bool = True,
+    huggingface_hub: bool = True,
     agno: bool = True,
     agentscope: bool = True,
     claude_agent_sdk: bool = True,
@@ -88,8 +92,10 @@ def auto_instrument(
         litellm: Enable LiteLLM instrumentation (default: True)
         pydantic_ai: Enable Pydantic AI instrumentation (default: True)
         google_genai: Enable Google GenAI instrumentation (default: True)
+        instructor: Enable Instructor (structured-output) instrumentation (default: True)
         openrouter: Enable OpenRouter instrumentation (default: True)
         mistral: Enable Mistral instrumentation (default: True)
+        huggingface_hub: Enable HuggingFace Hub instrumentation (default: True)
         agno: Enable Agno instrumentation (default: True)
         agentscope: Enable AgentScope instrumentation (default: True)
         claude_agent_sdk: Enable Claude Agent SDK instrumentation (default: True)
@@ -161,10 +167,14 @@ def auto_instrument(
         results["pydantic_ai"] = _instrument_integration(PydanticAIIntegration)
     if google_genai:
         results["google_genai"] = _instrument_integration(GoogleGenAIIntegration)
+    if instructor:
+        results["instructor"] = _instrument_integration(InstructorIntegration)
     if openrouter:
         results["openrouter"] = _instrument_integration(OpenRouterIntegration)
     if mistral:
         results["mistral"] = _instrument_integration(MistralIntegration)
+    if huggingface_hub:
+        results["huggingface_hub"] = _instrument_integration(HuggingFaceHubIntegration)
     if agno:
         results["agno"] = _instrument_integration(AgnoIntegration)
     if agentscope:

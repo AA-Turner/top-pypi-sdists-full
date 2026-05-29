@@ -1,3 +1,5 @@
+/* eslint-disable max-lines */
+
 /*!
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -20,7 +22,12 @@ import { describe, it, expect } from "vitest";
 
 import type { TaskInstanceResponse } from "openapi/requests/types.gen";
 
-import { buildTaskInstanceUrl, getTaskInstanceAdditionalPath, getTaskInstanceLink } from "./links";
+import {
+  buildTaskInstanceUrl,
+  getNextHref,
+  getTaskInstanceAdditionalPath,
+  getTaskInstanceLink,
+} from "./links";
 
 describe("getTaskInstanceLink", () => {
   const testCases = [
@@ -270,5 +277,60 @@ describe("buildTaskInstanceUrl", () => {
         taskId: "my_group",
       }),
     ).toBe("/dags/my_dag/runs/run_1/tasks/group/my_group");
+  });
+
+  it("should not preserve sub-routes for mapped tasks without map index", () => {
+    expect(
+      buildTaskInstanceUrl({
+        currentPathname: "/dags/old_dag/runs/old_run/tasks/old_task/mapped/2/xcom",
+        dagId: "new_dag",
+        isMapped: true,
+        runId: "new_run",
+        taskId: "new_task",
+      }),
+    ).toBe("/dags/new_dag/runs/new_run/tasks/new_task/mapped");
+  });
+});
+
+describe("getNextHref", () => {
+  // Regression tests for https://github.com/apache/airflow/issues/46533 — the
+  // "next" parameter sent to the login redirect must be a same-origin relative
+  // URL so that proxied deployments (e.g. Gitpod) don't bounce the browser
+  // back to the API server's reported origin (e.g. http://localhost:29091).
+  it.each([
+    {
+      description: "preserves pathname only",
+      expected: "/dags/my_dag",
+      input: { hash: "", pathname: "/dags/my_dag", search: "" },
+    },
+    {
+      description: "preserves pathname and search",
+      expected: "/dags/my_dag?tab=graph",
+      input: { hash: "", pathname: "/dags/my_dag", search: "?tab=graph" },
+    },
+    {
+      description: "preserves pathname, search, and hash",
+      expected: "/dags/my_dag?tab=graph#section",
+      input: { hash: "#section", pathname: "/dags/my_dag", search: "?tab=graph" },
+    },
+    {
+      description: "preserves proxied base path, search, and hash",
+      expected: "/team-a/dags/my_dag?tab=graph#section",
+      input: { hash: "#section", pathname: "/team-a/dags/my_dag", search: "?tab=graph" },
+    },
+    {
+      description: "handles root path",
+      expected: "/",
+      input: { hash: "", pathname: "/", search: "" },
+    },
+  ])("$description", ({ expected, input }) => {
+    expect(getNextHref(input)).toBe(expected);
+  });
+
+  it("does not include the origin (no http(s) prefix)", () => {
+    const result = getNextHref({ hash: "", pathname: "/dags/my_dag", search: "" });
+
+    expect(result.startsWith("http://")).toBe(false);
+    expect(result.startsWith("https://")).toBe(false);
   });
 });

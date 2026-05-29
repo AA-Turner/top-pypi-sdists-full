@@ -14,3 +14,6 @@ class CrontabConfig(AppConfig):
     name = "allianceauth.crontab"
     label = "crontab"
     verbose_name = _("Crontab")
+
+    def ready(self) -> None:
+        pass

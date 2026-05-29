@@ -251,6 +251,24 @@ class ServicesSignalsTestCase(TestCase):
         self.assertFalse(svc.validate_user.called)
         self.assertFalse(svc.sync_nickname.called)
 
+    @mock.patch(MODULE_PATH + '.ServicesHook')
+    def test_process_main_character_update_validates_and_syncs_nickname(
+        self, services_hook
+    ):
+        svc = mock.Mock()
+        svc.validate_user.return_value = None
+        svc.sync_nickname.return_value = None
+        svc.access_perm = 'auth.access_testsvc'
+
+        services_hook.get_services.return_value = [svc]
+
+        self.member.profile.main_character.character_name = 'Updated Name'
+        self.member.profile.main_character.save()
+
+        self.assertTrue(services_hook.get_services.called)
+        svc.validate_user.assert_called_once_with(self.member)
+        svc.sync_nickname.assert_called_once_with(self.member)
+
 
 @mock.patch(
     "allianceauth.services.modules.mumble.auth_hooks.MumbleService.update_groups"

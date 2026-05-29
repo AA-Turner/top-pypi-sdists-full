@@ -8,7 +8,7 @@ import aiofiles
 from ..conf import IMAP_RETRY_SELECT, FILES_PATH
 from ..utils.mail import MailMessage
 from ..exceptions import ComponentError, FileNotFound
-from .DownloadFrom import DownloadFromBase
+from ..interfaces.download_from import DownloadFromBase
 from ..interfaces.IMAPClient import IMAPClient
 
 

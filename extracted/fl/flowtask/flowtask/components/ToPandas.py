@@ -1,6 +1,6 @@
 from collections.abc import Callable
 import asyncio
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import DataNotFound
 from ..interfaces.dataframes import (
     PandasDataframe,

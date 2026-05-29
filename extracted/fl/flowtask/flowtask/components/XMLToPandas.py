@@ -6,7 +6,7 @@ import numpy as np
 from lxml import etree
 from ..exceptions import ComponentError, DataNotFound
 from ..utils import cPrint
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 pp = pprint.PrettyPrinter(indent=2)

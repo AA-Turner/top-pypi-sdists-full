@@ -13,7 +13,6 @@ from allianceauth.eveonline.models import (
     EveCharacter,
     EveCorporationInfo,
 )
-from allianceauth.eveonline.providers import ObjectNotFound
 from allianceauth.services.hooks import get_extension_logger
 from esi.decorators import token_required
 
@@ -151,11 +150,16 @@ def add_alliance(request, token):
         msg = _("{alliance_name} successfully added/updated to Killstats").format(
             alliance_name=audit.alliance.alliance_name,
         )
-    except ObjectNotFound:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         msg = _("Failed to fetch Alliance data for {alliance_name}").format(
             alliance_name=char.alliance_name,
         )
         messages.warning(request, msg)
+        logger.error(
+            "Error fetching alliance data for alliance_id %s: %s",
+            char.alliance_id,
+            exc,
+        )
         return redirect("killstats:index")
 
     messages.info(request, msg)

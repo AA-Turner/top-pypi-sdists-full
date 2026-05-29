@@ -12,7 +12,7 @@ from duckduckgo_search.exceptions import RatelimitException
 from ...exceptions import ComponentError, ConfigError
 from ...interfaces import HTTPService, SeleniumService
 from ...interfaces.http import ua, bad_gateway_exception
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from .parsers import (
     LeadiqScrapper,
     ExploriumScrapper,

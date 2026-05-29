@@ -8,7 +8,7 @@ import pyheif
 from PIL import Image, UnidentifiedImageError
 import filetype
 import pandas as pd
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.Boto3Client import Boto3Client
 from ..conf import  THUMBNAIL_LOCAL_BASE_URL
 

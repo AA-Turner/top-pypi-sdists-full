@@ -17,7 +17,7 @@ This line imports [all common QuantConnect members](https://github.com/QuantConn
 
 setup(
     name="quantconnect-stubs",
-    version="17751",
+    version="17754",
     description="Type stubs for QuantConnect's Lean",
     author="QuantConnect",
     author_email="support@quantconnect.com",
@@ -136,6 +136,7 @@ setup(
         "QuantConnect.Messaging",
         "QuantConnect.Notifications",
         "QuantConnect.Optimizer",
+        "QuantConnect.Optimizer.Analysis",
         "QuantConnect.Optimizer.Launcher",
         "QuantConnect.Optimizer.Objectives",
         "QuantConnect.Optimizer.Parameters",
@@ -367,6 +368,7 @@ setup(
         "QuantConnect.Messaging": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Notifications": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Optimizer": ["*.py", "*.pyi", "py.typed"],
+        "QuantConnect.Optimizer.Analysis": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Optimizer.Launcher": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Optimizer.Objectives": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Optimizer.Parameters": ["*.py", "*.pyi", "py.typed"],

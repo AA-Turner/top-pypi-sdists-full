@@ -4,7 +4,7 @@ from collections.abc import Callable
 import pandas
 from pandas import json_normalize
 from ..exceptions import ComponentError, DataNotFound
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class tExplode(FlowComponent):

@@ -10,7 +10,7 @@ from asyncdb.exceptions import (
     DataError
 )
 from pathlib import Path
-from .CopyTo import CopyTo
+from ..interfaces.copy_to import CopyTo
 from ..interfaces.dataframes import PandasDataframe
 from ..exceptions import (
     ComponentError,

@@ -15,30 +15,22 @@ import System.Security.Principal
 import System.Threading
 import System.Threading.Tasks
 
-System_Threading_AsyncFlowControl = typing.Any
 System_Threading_CancellationToken = typing.Any
 System_Threading_CancellationTokenRegistration = typing.Any
+System_Threading_AsyncFlowControl = typing.Any
 
+System_Threading_ThreadLocal_T = typing.TypeVar("System_Threading_ThreadLocal_T")
 System_Threading_AsyncLocal_T = typing.TypeVar("System_Threading_AsyncLocal_T")
 System_Threading_AsyncLocalValueChangedArgs_T = typing.TypeVar("System_Threading_AsyncLocalValueChangedArgs_T")
-System_Threading_ThreadLocal_T = typing.TypeVar("System_Threading_ThreadLocal_T")
 System_Threading_ThreadPool_QueueUserWorkItem_TState = typing.TypeVar("System_Threading_ThreadPool_QueueUserWorkItem_TState")
 System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState = typing.TypeVar("System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState")
-System_Threading_Volatile_Read_T = typing.TypeVar("System_Threading_Volatile_Read_T")
-System_Threading_Volatile_Write_T = typing.TypeVar("System_Threading_Volatile_Write_T")
 System_Threading_LazyInitializer_EnsureInitialized_T = typing.TypeVar("System_Threading_LazyInitializer_EnsureInitialized_T")
 System_Threading_Interlocked_Exchange_T = typing.TypeVar("System_Threading_Interlocked_Exchange_T")
 System_Threading_Interlocked_CompareExchange_T = typing.TypeVar("System_Threading_Interlocked_CompareExchange_T")
 System_Threading_Interlocked_And_T = typing.TypeVar("System_Threading_Interlocked_And_T")
 System_Threading_Interlocked_Or_T = typing.TypeVar("System_Threading_Interlocked_Or_T")
-
-
-class ThreadAbortException(System.SystemException):
-    """This class has no documentation."""
-
-    @property
-    def exception_state(self) -> System.Object:
-        ...
+System_Threading_Volatile_Read_T = typing.TypeVar("System_Threading_Volatile_Read_T")
+System_Threading_Volatile_Write_T = typing.TypeVar("System_Threading_Volatile_Write_T")
 
 
 class WaitHandle(System.MarshalByRefObject, System.IDisposable, metaclass=abc.ABCMeta):
@@ -164,14 +156,6 @@ class WaitHandle(System.MarshalByRefObject, System.IDisposable, metaclass=abc.AB
         ...
 
 
-class EventResetMode(IntEnum):
-    """This class has no documentation."""
-
-    AUTO_RESET = 0
-
-    MANUAL_RESET = 1
-
-
 class NamedWaitHandleOptions:
     """This class has no documentation."""
 
@@ -192,60 +176,58 @@ class NamedWaitHandleOptions:
         ...
 
 
-class EventWaitHandle(System.Threading.WaitHandle):
+class Mutex(System.Threading.WaitHandle):
     """This class has no documentation."""
 
     @overload
-    def __init__(self, initial_state: bool, mode: System.Threading.EventResetMode) -> None:
+    def __init__(self, initially_owned: bool, name: str, options: System.Threading.NamedWaitHandleOptions, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
         ...
 
     @overload
-    def __init__(self, initial_state: bool, mode: System.Threading.EventResetMode, name: str, options: System.Threading.NamedWaitHandleOptions) -> None:
+    def __init__(self, initially_owned: bool, name: str, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
         ...
 
     @overload
-    def __init__(self, initial_state: bool, mode: System.Threading.EventResetMode, name: str) -> None:
+    def __init__(self, initially_owned: bool, name: str, options: System.Threading.NamedWaitHandleOptions) -> None:
         ...
 
     @overload
-    def __init__(self, initial_state: bool, mode: System.Threading.EventResetMode, name: str, options: System.Threading.NamedWaitHandleOptions, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
+    def __init__(self, initially_owned: bool, name: str) -> None:
         ...
 
     @overload
-    def __init__(self, initial_state: bool, mode: System.Threading.EventResetMode, name: str, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
+    def __init__(self, name: str, options: System.Threading.NamedWaitHandleOptions) -> None:
+        ...
+
+    @overload
+    def __init__(self, initially_owned: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         ...
 
     @staticmethod
     @overload
-    def open_existing(name: str, options: System.Threading.NamedWaitHandleOptions) -> System.Threading.EventWaitHandle:
+    def open_existing(name: str, options: System.Threading.NamedWaitHandleOptions) -> System.Threading.Mutex:
         ...
 
     @staticmethod
     @overload
-    def open_existing(name: str) -> System.Threading.EventWaitHandle:
+    def open_existing(name: str) -> System.Threading.Mutex:
         ...
 
-    def reset(self) -> bool:
-        ...
-
-    def set(self) -> bool:
+    def release_mutex(self) -> None:
         ...
 
     @staticmethod
     @overload
-    def try_open_existing(name: str, options: System.Threading.NamedWaitHandleOptions, result: typing.Optional[System.Threading.EventWaitHandle]) -> typing.Tuple[bool, System.Threading.EventWaitHandle]:
+    def try_open_existing(name: str, options: System.Threading.NamedWaitHandleOptions, result: typing.Optional[System.Threading.Mutex]) -> typing.Tuple[bool, System.Threading.Mutex]:
         ...
 
     @staticmethod
     @overload
-    def try_open_existing(name: str, result: typing.Optional[System.Threading.EventWaitHandle]) -> typing.Tuple[bool, System.Threading.EventWaitHandle]:
-        ...
-
-
-class RegisteredWaitHandle(System.MarshalByRefObject):
-    """This class has no documentation."""
-
-    def unregister(self, wait_object: System.Threading.WaitHandle) -> bool:
+    def try_open_existing(name: str, result: typing.Optional[System.Threading.Mutex]) -> typing.Tuple[bool, System.Threading.Mutex]:
         ...
 
 
@@ -299,6 +281,13 @@ class _ThreadPool_UnsafeQueueUserWorkItem:
         ...
 
     def __getitem__(self, type: typing.Type[System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState]) -> System.Threading._Typed_ThreadPool_UnsafeQueueUserWorkItem[System_Threading_ThreadPool_UnsafeQueueUserWorkItem_TState]:
+        ...
+
+
+class RegisteredWaitHandle(System.MarshalByRefObject):
+    """This class has no documentation."""
+
+    def unregister(self, wait_object: System.Threading.WaitHandle) -> bool:
         ...
 
 
@@ -411,150 +400,55 @@ class ThreadPoolBoundHandle(System.Object, System.IDisposable, System.Threading.
         ...
 
 
-class LockRecursionPolicy(IntEnum):
+class Semaphore(System.Threading.WaitHandle):
     """This class has no documentation."""
 
-    NO_RECURSION = 0
-
-    SUPPORTS_RECURSION = 1
-
-
-class ReaderWriterLockSlim(System.Object, System.IDisposable):
-    """This class has no documentation."""
-
-    @property
-    def is_read_lock_held(self) -> bool:
-        ...
-
-    @property
-    def is_upgradeable_read_lock_held(self) -> bool:
-        ...
-
-    @property
-    def is_write_lock_held(self) -> bool:
-        ...
-
-    @property
-    def recursion_policy(self) -> System.Threading.LockRecursionPolicy:
-        ...
-
-    @property
-    def current_read_count(self) -> int:
-        ...
-
-    @property
-    def recursive_read_count(self) -> int:
-        ...
-
-    @property
-    def recursive_upgrade_count(self) -> int:
-        ...
-
-    @property
-    def recursive_write_count(self) -> int:
-        ...
-
-    @property
-    def waiting_read_count(self) -> int:
-        ...
-
-    @property
-    def waiting_upgrade_count(self) -> int:
-        ...
-
-    @property
-    def waiting_write_count(self) -> int:
+    @overload
+    def __init__(self, initial_count: int, maximum_count: int) -> None:
         ...
 
     @overload
-    def __init__(self) -> None:
+    def __init__(self, initial_count: int, maximum_count: int, name: str, options: System.Threading.NamedWaitHandleOptions) -> None:
         ...
 
     @overload
-    def __init__(self, recursion_policy: System.Threading.LockRecursionPolicy) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def enter_read_lock(self) -> None:
-        ...
-
-    def enter_upgradeable_read_lock(self) -> None:
-        ...
-
-    def enter_write_lock(self) -> None:
-        ...
-
-    def exit_read_lock(self) -> None:
-        ...
-
-    def exit_upgradeable_read_lock(self) -> None:
-        ...
-
-    def exit_write_lock(self) -> None:
+    def __init__(self, initial_count: int, maximum_count: int, name: str) -> None:
         ...
 
     @overload
-    def try_enter_read_lock(self, timeout: datetime.timedelta) -> bool:
+    def __init__(self, initial_count: int, maximum_count: int, name: str, options: System.Threading.NamedWaitHandleOptions, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
         ...
 
     @overload
-    def try_enter_read_lock(self, milliseconds_timeout: int) -> bool:
+    def __init__(self, initial_count: int, maximum_count: int, name: str, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
+        ...
+
+    @staticmethod
+    @overload
+    def open_existing(name: str, options: System.Threading.NamedWaitHandleOptions) -> System.Threading.Semaphore:
+        ...
+
+    @staticmethod
+    @overload
+    def open_existing(name: str) -> System.Threading.Semaphore:
         ...
 
     @overload
-    def try_enter_upgradeable_read_lock(self, timeout: datetime.timedelta) -> bool:
+    def release(self) -> int:
         ...
 
     @overload
-    def try_enter_upgradeable_read_lock(self, milliseconds_timeout: int) -> bool:
+    def release(self, release_count: int) -> int:
         ...
 
+    @staticmethod
     @overload
-    def try_enter_write_lock(self, timeout: datetime.timedelta) -> bool:
+    def try_open_existing(name: str, options: System.Threading.NamedWaitHandleOptions, result: typing.Optional[System.Threading.Semaphore]) -> typing.Tuple[bool, System.Threading.Semaphore]:
         ...
 
+    @staticmethod
     @overload
-    def try_enter_write_lock(self, milliseconds_timeout: int) -> bool:
-        ...
-
-
-class Lock(System.Object):
-    """This class has no documentation."""
-
-    class Scope:
-        """This class has no documentation."""
-
-        def dispose(self) -> None:
-            ...
-
-    @property
-    def is_held_by_current_thread(self) -> bool:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def enter(self) -> None:
-        ...
-
-    def enter_scope(self) -> System.Threading.Lock.Scope:
-        ...
-
-    def exit(self) -> None:
-        ...
-
-    @overload
-    def try_enter(self) -> bool:
-        ...
-
-    @overload
-    def try_enter(self, milliseconds_timeout: int) -> bool:
-        ...
-
-    @overload
-    def try_enter(self, timeout: datetime.timedelta) -> bool:
+    def try_open_existing(name: str, result: typing.Optional[System.Threading.Semaphore]) -> typing.Tuple[bool, System.Threading.Semaphore]:
         ...
 
 
@@ -978,145 +872,174 @@ class Thread(System.Runtime.ConstrainedExecution.CriticalFinalizerObject):
         ...
 
 
-class SynchronizationLockException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
 class ThreadStartException(System.SystemException):
     """This class has no documentation."""
 
 
-class AutoResetEvent(System.Threading.EventWaitHandle):
+class LockRecursionPolicy(IntEnum):
     """This class has no documentation."""
 
-    def __init__(self, initial_state: bool) -> None:
+    NO_RECURSION = 0
+
+    SUPPORTS_RECURSION = 1
+
+
+class ReaderWriterLockSlim(System.Object, System.IDisposable):
+    """This class has no documentation."""
+
+    @property
+    def is_read_lock_held(self) -> bool:
         ...
 
+    @property
+    def is_upgradeable_read_lock_held(self) -> bool:
+        ...
 
-class LazyThreadSafetyMode(IntEnum):
-    """This class has no documentation."""
+    @property
+    def is_write_lock_held(self) -> bool:
+        ...
 
-    NONE = 0
+    @property
+    def recursion_policy(self) -> System.Threading.LockRecursionPolicy:
+        ...
 
-    PUBLICATION_ONLY = 1
+    @property
+    def current_read_count(self) -> int:
+        ...
 
-    EXECUTION_AND_PUBLICATION = 2
+    @property
+    def recursive_read_count(self) -> int:
+        ...
 
+    @property
+    def recursive_upgrade_count(self) -> int:
+        ...
 
-class ThreadInterruptedException(System.SystemException):
-    """This class has no documentation."""
+    @property
+    def recursive_write_count(self) -> int:
+        ...
+
+    @property
+    def waiting_read_count(self) -> int:
+        ...
+
+    @property
+    def waiting_upgrade_count(self) -> int:
+        ...
+
+    @property
+    def waiting_write_count(self) -> int:
+        ...
 
     @overload
     def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self, message: str) -> None:
+    def __init__(self, recursion_policy: System.Threading.LockRecursionPolicy) -> None:
         ...
 
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class Timer(System.MarshalByRefObject, System.Threading.ITimer):
-    """This class has no documentation."""
-
-    ACTIVE_COUNT: int
-
-    @overload
-    def __init__(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any, due_time: int, period: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any, due_time: datetime.timedelta, period: datetime.timedelta) -> None:
-        ...
-
-    @overload
-    def __init__(self, callback: typing.Callable[[System.Object], typing.Any]) -> None:
-        ...
-
-    @overload
-    def change(self, due_time: int, period: int) -> bool:
-        ...
-
-    @overload
-    def change(self, due_time: datetime.timedelta, period: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def dispose(self, notify_object: System.Threading.WaitHandle) -> bool:
-        ...
-
-    @overload
     def dispose(self) -> None:
         ...
 
-    def dispose_async(self) -> System.Threading.Tasks.ValueTask:
+    def enter_read_lock(self) -> None:
+        ...
+
+    def enter_upgradeable_read_lock(self) -> None:
+        ...
+
+    def enter_write_lock(self) -> None:
+        ...
+
+    def exit_read_lock(self) -> None:
+        ...
+
+    def exit_upgradeable_read_lock(self) -> None:
+        ...
+
+    def exit_write_lock(self) -> None:
+        ...
+
+    @overload
+    def try_enter_read_lock(self, timeout: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def try_enter_read_lock(self, milliseconds_timeout: int) -> bool:
+        ...
+
+    @overload
+    def try_enter_upgradeable_read_lock(self, timeout: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def try_enter_upgradeable_read_lock(self, milliseconds_timeout: int) -> bool:
+        ...
+
+    @overload
+    def try_enter_write_lock(self, timeout: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def try_enter_write_lock(self, milliseconds_timeout: int) -> bool:
         ...
 
 
-class Semaphore(System.Threading.WaitHandle):
+class EventResetMode(IntEnum):
+    """This class has no documentation."""
+
+    AUTO_RESET = 0
+
+    MANUAL_RESET = 1
+
+
+class EventWaitHandle(System.Threading.WaitHandle):
     """This class has no documentation."""
 
     @overload
-    def __init__(self, initial_count: int, maximum_count: int) -> None:
+    def __init__(self, initial_state: bool, mode: System.Threading.EventResetMode) -> None:
         ...
 
     @overload
-    def __init__(self, initial_count: int, maximum_count: int, name: str, options: System.Threading.NamedWaitHandleOptions) -> None:
+    def __init__(self, initial_state: bool, mode: System.Threading.EventResetMode, name: str, options: System.Threading.NamedWaitHandleOptions) -> None:
         ...
 
     @overload
-    def __init__(self, initial_count: int, maximum_count: int, name: str) -> None:
+    def __init__(self, initial_state: bool, mode: System.Threading.EventResetMode, name: str) -> None:
         ...
 
     @overload
-    def __init__(self, initial_count: int, maximum_count: int, name: str, options: System.Threading.NamedWaitHandleOptions, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
+    def __init__(self, initial_state: bool, mode: System.Threading.EventResetMode, name: str, options: System.Threading.NamedWaitHandleOptions, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
         ...
 
     @overload
-    def __init__(self, initial_count: int, maximum_count: int, name: str, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
-        ...
-
-    @staticmethod
-    @overload
-    def open_existing(name: str, options: System.Threading.NamedWaitHandleOptions) -> System.Threading.Semaphore:
+    def __init__(self, initial_state: bool, mode: System.Threading.EventResetMode, name: str, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
         ...
 
     @staticmethod
     @overload
-    def open_existing(name: str) -> System.Threading.Semaphore:
-        ...
-
-    @overload
-    def release(self) -> int:
-        ...
-
-    @overload
-    def release(self, release_count: int) -> int:
+    def open_existing(name: str, options: System.Threading.NamedWaitHandleOptions) -> System.Threading.EventWaitHandle:
         ...
 
     @staticmethod
     @overload
-    def try_open_existing(name: str, options: System.Threading.NamedWaitHandleOptions, result: typing.Optional[System.Threading.Semaphore]) -> typing.Tuple[bool, System.Threading.Semaphore]:
+    def open_existing(name: str) -> System.Threading.EventWaitHandle:
+        ...
+
+    def reset(self) -> bool:
+        ...
+
+    def set(self) -> bool:
         ...
 
     @staticmethod
     @overload
-    def try_open_existing(name: str, result: typing.Optional[System.Threading.Semaphore]) -> typing.Tuple[bool, System.Threading.Semaphore]:
+    def try_open_existing(name: str, options: System.Threading.NamedWaitHandleOptions, result: typing.Optional[System.Threading.EventWaitHandle]) -> typing.Tuple[bool, System.Threading.EventWaitHandle]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_open_existing(name: str, result: typing.Optional[System.Threading.EventWaitHandle]) -> typing.Tuple[bool, System.Threading.EventWaitHandle]:
         ...
 
 
@@ -1223,23 +1146,65 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
         ...
 
 
-class SemaphoreSlim(System.Object, System.IDisposable):
+class CancellationTokenSource(System.Object, System.IDisposable):
     """This class has no documentation."""
 
     @property
-    def current_count(self) -> int:
+    def is_cancellation_requested(self) -> bool:
         ...
 
     @property
-    def available_wait_handle(self) -> System.Threading.WaitHandle:
+    def token(self) -> System.Threading.CancellationToken:
         ...
 
     @overload
-    def __init__(self, initial_count: int) -> None:
+    def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self, initial_count: int, max_count: int) -> None:
+    def __init__(self, delay: datetime.timedelta) -> None:
+        ...
+
+    @overload
+    def __init__(self, delay: datetime.timedelta, time_provider: System.TimeProvider) -> None:
+        ...
+
+    @overload
+    def __init__(self, milliseconds_delay: int) -> None:
+        ...
+
+    @overload
+    def cancel(self) -> None:
+        ...
+
+    @overload
+    def cancel(self, throw_on_first_exception: bool) -> None:
+        ...
+
+    @overload
+    def cancel_after(self, delay: datetime.timedelta) -> None:
+        ...
+
+    @overload
+    def cancel_after(self, milliseconds_delay: int) -> None:
+        ...
+
+    def cancel_async(self) -> System.Threading.Tasks.Task:
+        ...
+
+    @staticmethod
+    @overload
+    def create_linked_token_source(token_1: System.Threading.CancellationToken, token_2: System.Threading.CancellationToken) -> System.Threading.CancellationTokenSource:
+        ...
+
+    @staticmethod
+    @overload
+    def create_linked_token_source(token: System.Threading.CancellationToken) -> System.Threading.CancellationTokenSource:
+        ...
+
+    @staticmethod
+    @overload
+    def create_linked_token_source(*tokens: typing.Union[System.Threading.CancellationToken, typing.Iterable[System.Threading.CancellationToken]]) -> System.Threading.CancellationTokenSource:
         ...
 
     @overload
@@ -1250,430 +1215,7 @@ class SemaphoreSlim(System.Object, System.IDisposable):
     def dispose(self, disposing: bool) -> None:
         ...
 
-    @overload
-    def release(self) -> int:
-        ...
-
-    @overload
-    def release(self, release_count: int) -> int:
-        ...
-
-    @overload
-    def wait(self) -> None:
-        ...
-
-    @overload
-    def wait(self, cancellation_token: System.Threading.CancellationToken) -> None:
-        ...
-
-    @overload
-    def wait(self, timeout: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def wait(self, timeout: datetime.timedelta, cancellation_token: System.Threading.CancellationToken) -> bool:
-        ...
-
-    @overload
-    def wait(self, milliseconds_timeout: int) -> bool:
-        ...
-
-    @overload
-    def wait(self, milliseconds_timeout: int, cancellation_token: System.Threading.CancellationToken) -> bool:
-        ...
-
-    @overload
-    def wait_async(self) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def wait_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def wait_async(self, milliseconds_timeout: int) -> System.Threading.Tasks.Task[bool]:
-        ...
-
-    @overload
-    def wait_async(self, timeout: datetime.timedelta) -> System.Threading.Tasks.Task[bool]:
-        ...
-
-    @overload
-    def wait_async(self, timeout: datetime.timedelta, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[bool]:
-        ...
-
-    @overload
-    def wait_async(self, milliseconds_timeout: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[bool]:
-        ...
-
-
-class WaitHandleCannotBeOpenedException(System.ApplicationException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class ThreadStateException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class SpinWait:
-    """This class has no documentation."""
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def next_spin_will_yield(self) -> bool:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-    @overload
-    def spin_once(self) -> None:
-        ...
-
-    @overload
-    def spin_once(self, sleep_1_threshold: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def spin_until(condition: typing.Callable[[], bool]) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def spin_until(condition: typing.Callable[[], bool], timeout: datetime.timedelta) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def spin_until(condition: typing.Callable[[], bool], milliseconds_timeout: int) -> bool:
-        ...
-
-
-class SemaphoreFullException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class _Typed_Volatile_Read(typing.Generic[System_Threading_Volatile_Read_T]):
-    """"""
-
-    @overload
-    def __call__(self, location: System_Threading_Volatile_Read_T) -> System_Threading_Volatile_Read_T:
-        ...
-
-
-class _Volatile_Read:
-    """"""
-
-    @overload
-    def __call__(self, location: bool) -> bool:
-        ...
-
-    @overload
-    def __call__(self, location: int) -> int:
-        ...
-
-    @overload
-    def __call__(self, location: float) -> float:
-        ...
-
-    @overload
-    def __call__(self, location: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @overload
-    def __call__(self, location: System.UIntPtr) -> System.UIntPtr:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Threading_Volatile_Read_T]) -> System.Threading._Typed_Volatile_Read[System_Threading_Volatile_Read_T]:
-        ...
-
-
-class _Typed_Volatile_Write(typing.Generic[System_Threading_Volatile_Write_T]):
-    """"""
-
-    @overload
-    def __call__(self, location: System_Threading_Volatile_Write_T, value: System_Threading_Volatile_Write_T) -> None:
-        ...
-
-
-class _Volatile_Write:
-    """"""
-
-    @overload
-    def __call__(self, location: bool, value: bool) -> None:
-        ...
-
-    @overload
-    def __call__(self, location: int, value: int) -> None:
-        ...
-
-    @overload
-    def __call__(self, location: float, value: float) -> None:
-        ...
-
-    @overload
-    def __call__(self, location: System.IntPtr, value: System.IntPtr) -> None:
-        ...
-
-    @overload
-    def __call__(self, location: System.UIntPtr, value: System.UIntPtr) -> None:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Threading_Volatile_Write_T]) -> System.Threading._Typed_Volatile_Write[System_Threading_Volatile_Write_T]:
-        ...
-
-
-class Volatile(System.Object):
-    """This class has no documentation."""
-
-    read: System.Threading._Volatile_Read
-
-    write: System.Threading._Volatile_Write
-
-    @staticmethod
-    def read_barrier() -> None:
-        ...
-
-    @staticmethod
-    def write_barrier() -> None:
-        ...
-
-
-class WaitHandleExtensions(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def get_safe_wait_handle(wait_handle: System.Threading.WaitHandle) -> Microsoft.Win32.SafeHandles.SafeWaitHandle:
-        ...
-
-    @staticmethod
-    def set_safe_wait_handle(wait_handle: System.Threading.WaitHandle, value: Microsoft.Win32.SafeHandles.SafeWaitHandle) -> None:
-        ...
-
-
-class Mutex(System.Threading.WaitHandle):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self, initially_owned: bool, name: str, options: System.Threading.NamedWaitHandleOptions, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
-        ...
-
-    @overload
-    def __init__(self, initially_owned: bool, name: str, created_new: typing.Optional[bool]) -> typing.Tuple[None, bool]:
-        ...
-
-    @overload
-    def __init__(self, initially_owned: bool, name: str, options: System.Threading.NamedWaitHandleOptions) -> None:
-        ...
-
-    @overload
-    def __init__(self, initially_owned: bool, name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, options: System.Threading.NamedWaitHandleOptions) -> None:
-        ...
-
-    @overload
-    def __init__(self, initially_owned: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def open_existing(name: str, options: System.Threading.NamedWaitHandleOptions) -> System.Threading.Mutex:
-        ...
-
-    @staticmethod
-    @overload
-    def open_existing(name: str) -> System.Threading.Mutex:
-        ...
-
-    def release_mutex(self) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def try_open_existing(name: str, options: System.Threading.NamedWaitHandleOptions, result: typing.Optional[System.Threading.Mutex]) -> typing.Tuple[bool, System.Threading.Mutex]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_open_existing(name: str, result: typing.Optional[System.Threading.Mutex]) -> typing.Tuple[bool, System.Threading.Mutex]:
-        ...
-
-
-class AbandonedMutexException(System.SystemException):
-    """This class has no documentation."""
-
-    @property
-    def mutex(self) -> System.Threading.Mutex:
-        ...
-
-    @property
-    def mutex_index(self) -> int:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, location: int, handle: System.Threading.WaitHandle) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, location: int, handle: System.Threading.WaitHandle) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception, location: int, handle: System.Threading.WaitHandle) -> None:
-        ...
-
-
-class Timeout(System.Object):
-    """This class has no documentation."""
-
-    INFINITE_TIME_SPAN: datetime.timedelta = ...
-
-    INFINITE: int = -1
-
-
-class Monitor(System.Object):
-    """This class has no documentation."""
-
-    LOCK_CONTENTION_COUNT: int
-
-    @staticmethod
-    @overload
-    def enter(obj: typing.Any, lock_taken: bool) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def enter(obj: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def exit(obj: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def is_entered(obj: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    def pulse(obj: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def pulse_all(obj: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def try_enter(obj: typing.Any, timeout: datetime.timedelta) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def try_enter(obj: typing.Any, timeout: datetime.timedelta, lock_taken: bool) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def try_enter(obj: typing.Any, lock_taken: bool) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def try_enter(obj: typing.Any, milliseconds_timeout: int, lock_taken: bool) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def try_enter(obj: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def try_enter(obj: typing.Any, milliseconds_timeout: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def wait(obj: typing.Any, timeout: datetime.timedelta) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def wait(obj: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def wait(obj: typing.Any, milliseconds_timeout: int, exit_context: bool) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def wait(obj: typing.Any, timeout: datetime.timedelta, exit_context: bool) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def wait(obj: typing.Any, milliseconds_timeout: int) -> bool:
+    def try_reset(self) -> bool:
         ...
 
 
@@ -1714,23 +1256,25 @@ class LazyInitializer(System.Object):
     ensure_initialized: System.Threading._LazyInitializer_EnsureInitialized
 
 
-class NativeOverlapped:
+class LazyThreadSafetyMode(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    PUBLICATION_ONLY = 1
+
+    EXECUTION_AND_PUBLICATION = 2
+
+
+class Overlapped(System.Object):
     """This class has no documentation."""
 
     @property
-    def internal_low(self) -> System.IntPtr:
+    def async_result(self) -> System.IAsyncResult:
         ...
 
-    @internal_low.setter
-    def internal_low(self, value: System.IntPtr) -> None:
-        ...
-
-    @property
-    def internal_high(self) -> System.IntPtr:
-        ...
-
-    @internal_high.setter
-    def internal_high(self, value: System.IntPtr) -> None:
+    @async_result.setter
+    def async_result(self, value: System.IAsyncResult) -> None:
         ...
 
     @property
@@ -1750,11 +1294,41 @@ class NativeOverlapped:
         ...
 
     @property
-    def event_handle(self) -> System.IntPtr:
-        ...
+    def event_handle(self) -> int:
+        warnings.warn("Overlapped.EventHandle is not 64-bit compatible and has been deprecated. Use EventHandleIntPtr instead.", DeprecationWarning)
 
     @event_handle.setter
-    def event_handle(self, value: System.IntPtr) -> None:
+    def event_handle(self, value: int) -> None:
+        warnings.warn("Overlapped.EventHandle is not 64-bit compatible and has been deprecated. Use EventHandleIntPtr instead.", DeprecationWarning)
+
+    @property
+    def event_handle_int_ptr(self) -> System.IntPtr:
+        ...
+
+    @event_handle_int_ptr.setter
+    def event_handle_int_ptr(self, value: System.IntPtr) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, offset_lo: int, offset_hi: int, h_event: System.IntPtr, ar: System.IAsyncResult) -> None:
+        ...
+
+    @staticmethod
+    def free(native_overlapped_ptr: typing.Any) -> None:
+        ...
+
+    def pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any], user_data: typing.Any) -> typing.Any:
+        ...
+
+    @staticmethod
+    def unpack(native_overlapped_ptr: typing.Any) -> System.Threading.Overlapped:
+        ...
+
+    def unsafe_pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any], user_data: typing.Any) -> typing.Any:
         ...
 
 
@@ -1902,183 +1476,7 @@ class Interlocked(System.Object):
         ...
 
 
-class PeriodicTimer(System.Object, System.IDisposable):
-    """This class has no documentation."""
-
-    @property
-    def period(self) -> datetime.timedelta:
-        ...
-
-    @period.setter
-    def period(self, value: datetime.timedelta) -> None:
-        ...
-
-    @overload
-    def __init__(self, period: datetime.timedelta) -> None:
-        ...
-
-    @overload
-    def __init__(self, period: datetime.timedelta, time_provider: System.TimeProvider) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def wait_for_next_tick_async(self, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[bool]:
-        ...
-
-
-class CancellationTokenSource(System.Object, System.IDisposable):
-    """This class has no documentation."""
-
-    @property
-    def is_cancellation_requested(self) -> bool:
-        ...
-
-    @property
-    def token(self) -> System.Threading.CancellationToken:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, delay: datetime.timedelta) -> None:
-        ...
-
-    @overload
-    def __init__(self, delay: datetime.timedelta, time_provider: System.TimeProvider) -> None:
-        ...
-
-    @overload
-    def __init__(self, milliseconds_delay: int) -> None:
-        ...
-
-    @overload
-    def cancel(self) -> None:
-        ...
-
-    @overload
-    def cancel(self, throw_on_first_exception: bool) -> None:
-        ...
-
-    @overload
-    def cancel_after(self, delay: datetime.timedelta) -> None:
-        ...
-
-    @overload
-    def cancel_after(self, milliseconds_delay: int) -> None:
-        ...
-
-    def cancel_async(self) -> System.Threading.Tasks.Task:
-        ...
-
-    @staticmethod
-    @overload
-    def create_linked_token_source(token_1: System.Threading.CancellationToken, token_2: System.Threading.CancellationToken) -> System.Threading.CancellationTokenSource:
-        ...
-
-    @staticmethod
-    @overload
-    def create_linked_token_source(token: System.Threading.CancellationToken) -> System.Threading.CancellationTokenSource:
-        ...
-
-    @staticmethod
-    @overload
-    def create_linked_token_source(*tokens: typing.Union[System.Threading.CancellationToken, typing.Iterable[System.Threading.CancellationToken]]) -> System.Threading.CancellationTokenSource:
-        ...
-
-    @overload
-    def dispose(self) -> None:
-        ...
-
-    @overload
-    def dispose(self, disposing: bool) -> None:
-        ...
-
-    def try_reset(self) -> bool:
-        ...
-
-
-class AsyncLocal(typing.Generic[System_Threading_AsyncLocal_T], System.Object, System.Threading.IAsyncLocal):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> System_Threading_AsyncLocal_T:
-        ...
-
-    @value.setter
-    def value(self, value: System_Threading_AsyncLocal_T) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, value_changed_handler: typing.Callable[[System.Threading.AsyncLocalValueChangedArgs[System_Threading_AsyncLocal_T]], typing.Any]) -> None:
-        ...
-
-
-class AsyncLocalValueChangedArgs(typing.Generic[System_Threading_AsyncLocalValueChangedArgs_T]):
-    """This class has no documentation."""
-
-    @property
-    def previous_value(self) -> System_Threading_AsyncLocalValueChangedArgs_T:
-        ...
-
-    @property
-    def current_value(self) -> System_Threading_AsyncLocalValueChangedArgs_T:
-        ...
-
-    @property
-    def thread_context_changed(self) -> bool:
-        ...
-
-
-class SynchronizationContext(System.Object):
-    """This class has no documentation."""
-
-    CURRENT: System.Threading.SynchronizationContext
-
-    def __init__(self) -> None:
-        ...
-
-    def create_copy(self) -> System.Threading.SynchronizationContext:
-        ...
-
-    def is_wait_notification_required(self) -> bool:
-        ...
-
-    def operation_completed(self) -> None:
-        ...
-
-    def operation_started(self) -> None:
-        ...
-
-    def post(self, d: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> None:
-        ...
-
-    def send(self, d: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def set_synchronization_context(sync_context: System.Threading.SynchronizationContext) -> None:
-        ...
-
-    def set_wait_notification_required(self) -> None:
-        ...
-
-    def wait(self, wait_handles: typing.List[System.IntPtr], wait_all: bool, milliseconds_timeout: int) -> int:
-        ...
-
-    @staticmethod
-    def wait_helper(wait_handles: typing.List[System.IntPtr], wait_all: bool, milliseconds_timeout: int) -> int:
-        ...
-
-
-class LockRecursionException(System.Exception):
+class ThreadStateException(System.SystemException):
     """This class has no documentation."""
 
     @overload
@@ -2094,14 +1492,130 @@ class LockRecursionException(System.Exception):
         ...
 
 
-class ThreadExceptionEventArgs(System.EventArgs):
+class AbandonedMutexException(System.SystemException):
     """This class has no documentation."""
 
     @property
-    def exception(self) -> System.Exception:
+    def mutex(self) -> System.Threading.Mutex:
         ...
 
-    def __init__(self, t: System.Exception) -> None:
+    @property
+    def mutex_index(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, location: int, handle: System.Threading.WaitHandle) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, location: int, handle: System.Threading.WaitHandle) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception, location: int, handle: System.Threading.WaitHandle) -> None:
+        ...
+
+
+class NativeOverlapped:
+    """This class has no documentation."""
+
+    @property
+    def internal_low(self) -> System.IntPtr:
+        ...
+
+    @internal_low.setter
+    def internal_low(self, value: System.IntPtr) -> None:
+        ...
+
+    @property
+    def internal_high(self) -> System.IntPtr:
+        ...
+
+    @internal_high.setter
+    def internal_high(self, value: System.IntPtr) -> None:
+        ...
+
+    @property
+    def offset_low(self) -> int:
+        ...
+
+    @offset_low.setter
+    def offset_low(self, value: int) -> None:
+        ...
+
+    @property
+    def offset_high(self) -> int:
+        ...
+
+    @offset_high.setter
+    def offset_high(self, value: int) -> None:
+        ...
+
+    @property
+    def event_handle(self) -> System.IntPtr:
+        ...
+
+    @event_handle.setter
+    def event_handle(self, value: System.IntPtr) -> None:
+        ...
+
+
+class ThreadLocal(typing.Generic[System_Threading_ThreadLocal_T], System.Object, System.IDisposable):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System_Threading_ThreadLocal_T:
+        ...
+
+    @value.setter
+    def value(self, value: System_Threading_ThreadLocal_T) -> None:
+        ...
+
+    @property
+    def values(self) -> typing.List[System_Threading_ThreadLocal_T]:
+        ...
+
+    @property
+    def is_value_created(self) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, track_all_values: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, value_factory: typing.Callable[[], System_Threading_ThreadLocal_T]) -> None:
+        ...
+
+    @overload
+    def __init__(self, value_factory: typing.Callable[[], System_Threading_ThreadLocal_T], track_all_values: bool) -> None:
+        ...
+
+    @overload
+    def dispose(self) -> None:
+        ...
+
+    @overload
+    def dispose(self, disposing: bool) -> None:
+        ...
+
+    def to_string(self) -> str:
         ...
 
 
@@ -2171,47 +1685,53 @@ class ManualResetEventSlim(System.Object, System.IDisposable):
         ...
 
 
-class Overlapped(System.Object):
+class Lock(System.Object):
+    """This class has no documentation."""
+
+    class Scope:
+        """This class has no documentation."""
+
+        def dispose(self) -> None:
+            ...
+
+    @property
+    def is_held_by_current_thread(self) -> bool:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def enter(self) -> None:
+        ...
+
+    def enter_scope(self) -> System.Threading.Lock.Scope:
+        ...
+
+    def exit(self) -> None:
+        ...
+
+    @overload
+    def try_enter(self) -> bool:
+        ...
+
+    @overload
+    def try_enter(self, milliseconds_timeout: int) -> bool:
+        ...
+
+    @overload
+    def try_enter(self, timeout: datetime.timedelta) -> bool:
+        ...
+
+
+class AsyncLocal(typing.Generic[System_Threading_AsyncLocal_T], System.Object, System.Threading.IAsyncLocal):
     """This class has no documentation."""
 
     @property
-    def async_result(self) -> System.IAsyncResult:
+    def value(self) -> System_Threading_AsyncLocal_T:
         ...
 
-    @async_result.setter
-    def async_result(self, value: System.IAsyncResult) -> None:
-        ...
-
-    @property
-    def offset_low(self) -> int:
-        ...
-
-    @offset_low.setter
-    def offset_low(self, value: int) -> None:
-        ...
-
-    @property
-    def offset_high(self) -> int:
-        ...
-
-    @offset_high.setter
-    def offset_high(self, value: int) -> None:
-        ...
-
-    @property
-    def event_handle(self) -> int:
-        warnings.warn("Overlapped.EventHandle is not 64-bit compatible and has been deprecated. Use EventHandleIntPtr instead.", DeprecationWarning)
-
-    @event_handle.setter
-    def event_handle(self, value: int) -> None:
-        warnings.warn("Overlapped.EventHandle is not 64-bit compatible and has been deprecated. Use EventHandleIntPtr instead.", DeprecationWarning)
-
-    @property
-    def event_handle_int_ptr(self) -> System.IntPtr:
-        ...
-
-    @event_handle_int_ptr.setter
-    def event_handle_int_ptr(self, value: System.IntPtr) -> None:
+    @value.setter
+    def value(self, value: System_Threading_AsyncLocal_T) -> None:
         ...
 
     @overload
@@ -2219,64 +1739,330 @@ class Overlapped(System.Object):
         ...
 
     @overload
-    def __init__(self, offset_lo: int, offset_hi: int, h_event: System.IntPtr, ar: System.IAsyncResult) -> None:
-        ...
-
-    @staticmethod
-    def free(native_overlapped_ptr: typing.Any) -> None:
-        ...
-
-    def pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any], user_data: typing.Any) -> typing.Any:
-        ...
-
-    @staticmethod
-    def unpack(native_overlapped_ptr: typing.Any) -> System.Threading.Overlapped:
-        ...
-
-    def unsafe_pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any], user_data: typing.Any) -> typing.Any:
+    def __init__(self, value_changed_handler: typing.Callable[[System.Threading.AsyncLocalValueChangedArgs[System_Threading_AsyncLocal_T]], typing.Any]) -> None:
         ...
 
 
-class ManualResetEvent(System.Threading.EventWaitHandle):
+class AsyncLocalValueChangedArgs(typing.Generic[System_Threading_AsyncLocalValueChangedArgs_T]):
+    """This class has no documentation."""
+
+    @property
+    def previous_value(self) -> System_Threading_AsyncLocalValueChangedArgs_T:
+        ...
+
+    @property
+    def current_value(self) -> System_Threading_AsyncLocalValueChangedArgs_T:
+        ...
+
+    @property
+    def thread_context_changed(self) -> bool:
+        ...
+
+
+class LockRecursionException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class Timeout(System.Object):
+    """This class has no documentation."""
+
+    INFINITE_TIME_SPAN: datetime.timedelta = ...
+
+    INFINITE: int = -1
+
+
+class PeriodicTimer(System.Object, System.IDisposable):
+    """This class has no documentation."""
+
+    @property
+    def period(self) -> datetime.timedelta:
+        ...
+
+    @period.setter
+    def period(self, value: datetime.timedelta) -> None:
+        ...
+
+    @overload
+    def __init__(self, period: datetime.timedelta) -> None:
+        ...
+
+    @overload
+    def __init__(self, period: datetime.timedelta, time_provider: System.TimeProvider) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def wait_for_next_tick_async(self, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[bool]:
+        ...
+
+
+class SynchronizationLockException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class Timer(System.MarshalByRefObject, System.Threading.ITimer):
+    """This class has no documentation."""
+
+    ACTIVE_COUNT: int
+
+    @overload
+    def __init__(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any, due_time: int, period: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any, due_time: datetime.timedelta, period: datetime.timedelta) -> None:
+        ...
+
+    @overload
+    def __init__(self, callback: typing.Callable[[System.Object], typing.Any]) -> None:
+        ...
+
+    @overload
+    def change(self, due_time: int, period: int) -> bool:
+        ...
+
+    @overload
+    def change(self, due_time: datetime.timedelta, period: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def dispose(self, notify_object: System.Threading.WaitHandle) -> bool:
+        ...
+
+    @overload
+    def dispose(self) -> None:
+        ...
+
+    def dispose_async(self) -> System.Threading.Tasks.ValueTask:
+        ...
+
+
+class AutoResetEvent(System.Threading.EventWaitHandle):
     """This class has no documentation."""
 
     def __init__(self, initial_state: bool) -> None:
         ...
 
 
-class ThreadLocal(typing.Generic[System_Threading_ThreadLocal_T], System.Object, System.IDisposable):
+class SynchronizationContext(System.Object):
     """This class has no documentation."""
 
-    @property
-    def value(self) -> System_Threading_ThreadLocal_T:
-        ...
+    CURRENT: System.Threading.SynchronizationContext
 
-    @value.setter
-    def value(self, value: System_Threading_ThreadLocal_T) -> None:
-        ...
-
-    @property
-    def values(self) -> typing.List[System_Threading_ThreadLocal_T]:
-        ...
-
-    @property
-    def is_value_created(self) -> bool:
-        ...
-
-    @overload
     def __init__(self) -> None:
         ...
 
+    def create_copy(self) -> System.Threading.SynchronizationContext:
+        ...
+
+    def is_wait_notification_required(self) -> bool:
+        ...
+
+    def operation_completed(self) -> None:
+        ...
+
+    def operation_started(self) -> None:
+        ...
+
+    def post(self, d: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> None:
+        ...
+
+    def send(self, d: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def set_synchronization_context(sync_context: System.Threading.SynchronizationContext) -> None:
+        ...
+
+    def set_wait_notification_required(self) -> None:
+        ...
+
+    def wait(self, wait_handles: typing.List[System.IntPtr], wait_all: bool, milliseconds_timeout: int) -> int:
+        ...
+
+    @staticmethod
+    def wait_helper(wait_handles: typing.List[System.IntPtr], wait_all: bool, milliseconds_timeout: int) -> int:
+        ...
+
+
+class ThreadExceptionEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def exception(self) -> System.Exception:
+        ...
+
+    def __init__(self, t: System.Exception) -> None:
+        ...
+
+
+class Monitor(System.Object):
+    """This class has no documentation."""
+
+    LOCK_CONTENTION_COUNT: int
+
+    @staticmethod
     @overload
-    def __init__(self, track_all_values: bool) -> None:
+    def enter(obj: typing.Any, lock_taken: bool) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def enter(obj: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def exit(obj: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def is_entered(obj: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    def pulse(obj: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def pulse_all(obj: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def try_enter(obj: typing.Any, timeout: datetime.timedelta) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def try_enter(obj: typing.Any, timeout: datetime.timedelta, lock_taken: bool) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def try_enter(obj: typing.Any, lock_taken: bool) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def try_enter(obj: typing.Any, milliseconds_timeout: int, lock_taken: bool) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def try_enter(obj: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def try_enter(obj: typing.Any, milliseconds_timeout: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def wait(obj: typing.Any, timeout: datetime.timedelta) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def wait(obj: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def wait(obj: typing.Any, milliseconds_timeout: int, exit_context: bool) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def wait(obj: typing.Any, timeout: datetime.timedelta, exit_context: bool) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def wait(obj: typing.Any, milliseconds_timeout: int) -> bool:
+        ...
+
+
+class SpinWait:
+    """This class has no documentation."""
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def next_spin_will_yield(self) -> bool:
+        ...
+
+    def reset(self) -> None:
         ...
 
     @overload
-    def __init__(self, value_factory: typing.Callable[[], System_Threading_ThreadLocal_T]) -> None:
+    def spin_once(self) -> None:
         ...
 
     @overload
-    def __init__(self, value_factory: typing.Callable[[], System_Threading_ThreadLocal_T], track_all_values: bool) -> None:
+    def spin_once(self, sleep_1_threshold: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def spin_until(condition: typing.Callable[[], bool]) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def spin_until(condition: typing.Callable[[], bool], timeout: datetime.timedelta) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def spin_until(condition: typing.Callable[[], bool], milliseconds_timeout: int) -> bool:
+        ...
+
+
+class SemaphoreSlim(System.Object, System.IDisposable):
+    """This class has no documentation."""
+
+    @property
+    def current_count(self) -> int:
+        ...
+
+    @property
+    def available_wait_handle(self) -> System.Threading.WaitHandle:
+        ...
+
+    @overload
+    def __init__(self, initial_count: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, initial_count: int, max_count: int) -> None:
         ...
 
     @overload
@@ -2287,7 +2073,170 @@ class ThreadLocal(typing.Generic[System_Threading_ThreadLocal_T], System.Object,
     def dispose(self, disposing: bool) -> None:
         ...
 
-    def to_string(self) -> str:
+    @overload
+    def release(self) -> int:
+        ...
+
+    @overload
+    def release(self, release_count: int) -> int:
+        ...
+
+    @overload
+    def wait(self) -> None:
+        ...
+
+    @overload
+    def wait(self, cancellation_token: System.Threading.CancellationToken) -> None:
+        ...
+
+    @overload
+    def wait(self, timeout: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def wait(self, timeout: datetime.timedelta, cancellation_token: System.Threading.CancellationToken) -> bool:
+        ...
+
+    @overload
+    def wait(self, milliseconds_timeout: int) -> bool:
+        ...
+
+    @overload
+    def wait(self, milliseconds_timeout: int, cancellation_token: System.Threading.CancellationToken) -> bool:
+        ...
+
+    @overload
+    def wait_async(self) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def wait_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def wait_async(self, milliseconds_timeout: int) -> System.Threading.Tasks.Task[bool]:
+        ...
+
+    @overload
+    def wait_async(self, timeout: datetime.timedelta) -> System.Threading.Tasks.Task[bool]:
+        ...
+
+    @overload
+    def wait_async(self, timeout: datetime.timedelta, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[bool]:
+        ...
+
+    @overload
+    def wait_async(self, milliseconds_timeout: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[bool]:
+        ...
+
+
+class ThreadAbortException(System.SystemException):
+    """This class has no documentation."""
+
+    @property
+    def exception_state(self) -> System.Object:
+        ...
+
+
+class _Typed_Volatile_Read(typing.Generic[System_Threading_Volatile_Read_T]):
+    """"""
+
+    @overload
+    def __call__(self, location: System_Threading_Volatile_Read_T) -> System_Threading_Volatile_Read_T:
+        ...
+
+
+class _Volatile_Read:
+    """"""
+
+    @overload
+    def __call__(self, location: bool) -> bool:
+        ...
+
+    @overload
+    def __call__(self, location: int) -> int:
+        ...
+
+    @overload
+    def __call__(self, location: float) -> float:
+        ...
+
+    @overload
+    def __call__(self, location: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @overload
+    def __call__(self, location: System.UIntPtr) -> System.UIntPtr:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Volatile_Read_T]) -> System.Threading._Typed_Volatile_Read[System_Threading_Volatile_Read_T]:
+        ...
+
+
+class _Typed_Volatile_Write(typing.Generic[System_Threading_Volatile_Write_T]):
+    """"""
+
+    @overload
+    def __call__(self, location: System_Threading_Volatile_Write_T, value: System_Threading_Volatile_Write_T) -> None:
+        ...
+
+
+class _Volatile_Write:
+    """"""
+
+    @overload
+    def __call__(self, location: bool, value: bool) -> None:
+        ...
+
+    @overload
+    def __call__(self, location: int, value: int) -> None:
+        ...
+
+    @overload
+    def __call__(self, location: float, value: float) -> None:
+        ...
+
+    @overload
+    def __call__(self, location: System.IntPtr, value: System.IntPtr) -> None:
+        ...
+
+    @overload
+    def __call__(self, location: System.UIntPtr, value: System.UIntPtr) -> None:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Volatile_Write_T]) -> System.Threading._Typed_Volatile_Write[System_Threading_Volatile_Write_T]:
+        ...
+
+
+class Volatile(System.Object):
+    """This class has no documentation."""
+
+    read: System.Threading._Volatile_Read
+
+    write: System.Threading._Volatile_Write
+
+    @staticmethod
+    def read_barrier() -> None:
+        ...
+
+    @staticmethod
+    def write_barrier() -> None:
+        ...
+
+
+class ThreadInterruptedException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 
@@ -2330,6 +2279,57 @@ class SpinLock:
 
     @overload
     def try_enter(self, milliseconds_timeout: int, lock_taken: bool) -> None:
+        ...
+
+
+class SemaphoreFullException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class ManualResetEvent(System.Threading.EventWaitHandle):
+    """This class has no documentation."""
+
+    def __init__(self, initial_state: bool) -> None:
+        ...
+
+
+class WaitHandleCannotBeOpenedException(System.ApplicationException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class WaitHandleExtensions(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def get_safe_wait_handle(wait_handle: System.Threading.WaitHandle) -> Microsoft.Win32.SafeHandles.SafeWaitHandle:
+        ...
+
+    @staticmethod
+    def set_safe_wait_handle(wait_handle: System.Threading.WaitHandle, value: Microsoft.Win32.SafeHandles.SafeWaitHandle) -> None:
         ...
 
 

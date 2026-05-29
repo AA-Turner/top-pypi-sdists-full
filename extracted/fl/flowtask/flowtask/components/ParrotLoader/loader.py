@@ -19,7 +19,7 @@ except ImportError:
     LOADER_REGISTRY = {}
 
 logging.getLogger("pdfminer").setLevel(logging.WARNING)
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from ...conf import BASE_DIR
 from ...exceptions import ConfigError, ComponentError
 

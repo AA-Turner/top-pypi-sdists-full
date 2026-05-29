@@ -20,7 +20,7 @@ from parrot.tools.nextstop import (
 from parrot.models.responses import AgentResponse
 # Inherited interfaces:
 from ..interfaces.parrot import AgentBase
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 class NextStopResponse(AgentResponse):
     """

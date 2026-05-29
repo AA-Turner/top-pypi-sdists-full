@@ -1,10 +1,9 @@
 import copy
 import platform
 import socket
-import sys
 import threading
 import types
-from errno import ECONNREFUSED
+from errno import ECONNREFUSED, EWOULDBLOCK
 from typing import Any
 from unittest import mock
 from unittest.mock import call, patch, MagicMock, Mock
@@ -13,6 +12,8 @@ import pytest
 import redis
 from redis import ConnectionPool, Redis
 from redis._parsers import _HiredisParser, _RESP2Parser, _RESP3Parser
+from redis._parsers.hiredis import NOT_ENOUGH_DATA
+from redis._parsers.socket import SocketBuffer
 from redis.backoff import NoBackoff
 from redis.cache import (
     CacheConfig,
@@ -43,10 +44,44 @@ from redis.observability.attributes import (
     ConnectionState,
 )
 from redis.retry import Retry
-from redis.utils import HIREDIS_AVAILABLE
+from redis.utils import HIREDIS_AVAILABLE, SENTINEL
 
 from .conftest import skip_if_server_version_lt
 from .mocks import MockSocket
+
+
+class DummyHiredisReader:
+    def __init__(self, response=NOT_ENOUGH_DATA, decoded_response=None, has_data=False):
+        self.responses = [response]
+        self.decoded_response = decoded_response
+        self.has_data_value = has_data
+
+    def has_data(self):
+        return self.has_data_value
+
+    def gets(self, *args):
+        if self.responses:
+            response = self.responses.pop(0)
+            if args == (False,) or self.decoded_response is None:
+                return response
+            return self.decoded_response
+        return NOT_ENOUGH_DATA
+
+
+class DummyPushNotification(list):
+    pass
+
+
+def make_hiredis_parser(
+    response=NOT_ENOUGH_DATA, decoded_response=None, has_data=False
+):
+    parser = _HiredisParser.__new__(_HiredisParser)
+    parser._reader = DummyHiredisReader(response, decoded_response, has_data)
+    parser._hiredis_PushNotificationType = None
+    parser._sock = mock.Mock()
+    parser._buffer = bytearray(65536)
+    parser._socket_timeout = None
+    return parser
 
 
 @pytest.mark.skipif(HIREDIS_AVAILABLE, reason="PythonParser only")
@@ -57,6 +92,106 @@ def test_invalid_response(r):
     with mock.patch.object(parser._buffer, "readline", return_value=raw):
         with pytest.raises(InvalidResponse, match=f"Protocol Error: {raw!r}"):
             parser.read_response()
+
+
+def test_hiredis_can_read_detects_reader_data():
+    parser = make_hiredis_parser(response=b"OK", has_data=True)
+
+    assert parser.can_read(timeout=0) is True
+    assert parser.read_response() == b"OK"
+
+
+def test_hiredis_can_read_checks_socket_readiness_without_reading():
+    parser = make_hiredis_parser(has_data=False)
+
+    with patch("redis._parsers.hiredis._socket_can_read", return_value=True) as ready:
+        assert parser.can_read(timeout=0) is True
+
+    ready.assert_called_once_with(parser._sock, 0)
+
+
+def test_hiredis_can_read_does_not_decide_disable_decoding():
+    raw = b"\xe2\x98\x83"
+    parser = make_hiredis_parser(
+        response=raw,
+        decoded_response=raw.decode(),
+        has_data=True,
+    )
+
+    assert parser.can_read(timeout=0) is True
+    assert parser.read_response(disable_decoding=True) == raw
+
+
+def test_hiredis_can_read_leaves_decoding_to_read_response():
+    raw = b"\xe2\x98\x83"
+    parser = make_hiredis_parser(
+        response=raw,
+        decoded_response=raw.decode(),
+        has_data=True,
+    )
+
+    assert parser.can_read(timeout=0) is True
+    assert parser.read_response() == raw.decode()
+
+
+def test_hiredis_read_response_returns_initial_push_notification():
+    push_response = DummyPushNotification([b"message", b"channel", b"data"])
+    handled_response = object()
+    parser = make_hiredis_parser()
+    parser._hiredis_PushNotificationType = DummyPushNotification
+    parser._reader.responses = [push_response]
+    parser.pubsub_push_handler_func = Mock(return_value=handled_response)
+
+    assert parser.read_response(push_request=True) is handled_response
+    parser.pubsub_push_handler_func.assert_called_once_with(push_response)
+
+
+def test_hiredis_read_response_skips_initial_push_notification():
+    push_response = DummyPushNotification([b"message", b"channel", b"data"])
+    parser = make_hiredis_parser()
+    parser._hiredis_PushNotificationType = DummyPushNotification
+    parser._reader.responses = [push_response, b"OK"]
+    parser.pubsub_push_handler_func = Mock(return_value=push_response)
+
+    assert parser.read_response() == b"OK"
+    parser.pubsub_push_handler_func.assert_called_once_with(push_response)
+
+
+def test_hiredis_read_response_preserves_timeout_after_initial_push_notification():
+    push_response = DummyPushNotification([b"message", b"channel", b"data"])
+    parser = make_hiredis_parser()
+    parser._hiredis_PushNotificationType = DummyPushNotification
+    parser._reader.responses = [push_response, NOT_ENOUGH_DATA]
+    parser._sock.recv_into.side_effect = BlockingIOError(
+        EWOULDBLOCK, "Resource temporarily unavailable"
+    )
+    parser.pubsub_push_handler_func = Mock(return_value=push_response)
+
+    with pytest.raises(TimeoutError):
+        parser.read_response(timeout=0)
+
+    parser.pubsub_push_handler_func.assert_called_once_with(push_response)
+
+
+def test_hiredis_read_response_timeout_zero_maps_would_block_to_timeout():
+    parser = make_hiredis_parser()
+    parser._sock.recv_into.side_effect = BlockingIOError(
+        EWOULDBLOCK, "Resource temporarily unavailable"
+    )
+
+    with pytest.raises(TimeoutError):
+        parser.read_response(timeout=0)
+
+
+def test_socket_buffer_timeout_zero_maps_would_block_to_timeout():
+    sock = Mock()
+    sock.recv.side_effect = BlockingIOError(
+        EWOULDBLOCK, "Resource temporarily unavailable"
+    )
+    socket_buffer = SocketBuffer(sock, socket_read_size=65536, socket_timeout=None)
+
+    with pytest.raises(TimeoutError):
+        socket_buffer.readline(timeout=0)
 
 
 @skip_if_server_version_lt("4.0.0")
@@ -81,6 +216,36 @@ def test_loading_external_modules(r):
     # assert mod.get('fookey') == d
 
 
+@pytest.mark.fixed_client
+@pytest.mark.parametrize(
+    "client_kwargs",
+    [
+        {"driver_info": None},
+        {"lib_name": None, "lib_version": None},
+    ],
+)
+def test_redis_client_preserves_explicit_none_driver_info(client_kwargs):
+    if "lib_name" in client_kwargs:
+        with pytest.warns(DeprecationWarning):
+            client = Redis(**client_kwargs)
+    else:
+        client = Redis(**client_kwargs)
+
+    assert client.connection_pool.connection_kwargs["driver_info"] is None
+    client.close()
+
+
+@pytest.mark.fixed_client
+def test_redis_client_default_driver_info():
+    client = Redis()
+    driver_info = client.connection_pool.connection_kwargs["driver_info"]
+
+    assert driver_info.formatted_name == "redis-py"
+    assert driver_info.lib_version is not None
+    client.close()
+
+
+@pytest.mark.fixed_client
 class TestConnection:
     def test_disconnect(self):
         conn = Connection()
@@ -112,6 +277,29 @@ class TestConnection:
         mock_sock.shutdown.assert_called_once()
         mock_sock.close.assert_called_once()
         assert conn._sock is None
+
+    @pytest.mark.parametrize(
+        "connection_kwargs",
+        [
+            {"driver_info": None},
+            {"lib_name": None, "lib_version": None},
+        ],
+    )
+    def test_client_setinfo_skipped_with_explicit_none(self, connection_kwargs):
+        if "lib_name" in connection_kwargs:
+            with pytest.warns(DeprecationWarning):
+                conn = Connection(protocol=2, **connection_kwargs)
+        else:
+            conn = Connection(protocol=2, **connection_kwargs)
+        conn._parser.on_connect = mock.Mock()
+        conn.send_command = mock.Mock()
+        conn.read_response = mock.Mock(return_value="OK")
+
+        conn.on_connect_check_health()
+
+        assert conn.driver_info is None
+        conn.send_command.assert_not_called()
+        conn.read_response.assert_not_called()
 
     def clear(self, conn):
         conn.retry_on_error.clear()
@@ -213,7 +401,7 @@ def test_connection_parse_response_resume(r: redis.Redis, parser_class):
     assert i > 0
 
 
-@pytest.mark.onlynoncluster
+@pytest.mark.fixed_client
 @pytest.mark.parametrize(
     "Class",
     [
@@ -249,7 +437,7 @@ def test_pack_command(Class):
     assert actual == expected, f"actual = {actual}, expected = {expected}"
 
 
-@pytest.mark.onlynoncluster
+@pytest.mark.fixed_client
 def test_create_single_connection_client_from_url():
     client = redis.Redis.from_url(
         "redis://localhost:6379/0?", single_connection_client=True
@@ -274,7 +462,6 @@ def test_pool_auto_close(request, from_url):
     r1.close()
 
 
-@pytest.mark.skipif(sys.version_info == (3, 9), reason="Flacky test on Python 3.9")
 @pytest.mark.parametrize("from_url", (True, False), ids=("from_url", "from_args"))
 def test_redis_connection_pool(request, from_url):
     """Verify that basic Redis instances using `connection_pool`
@@ -295,9 +482,10 @@ def test_redis_connection_pool(request, from_url):
 
     called = 0
 
-    def mock_disconnect(_):
+    def mock_disconnect(target_pool):
         nonlocal called
-        called += 1
+        if pool is not None and target_pool is pool:
+            called += 1
 
     with patch.object(ConnectionPool, "disconnect", mock_disconnect):
         with get_redis_connection() as r1:
@@ -327,9 +515,10 @@ def test_redis_from_pool(request, from_url):
 
     called = 0
 
-    def mock_disconnect(_):
+    def mock_disconnect(target_pool):
         nonlocal called
-        called += 1
+        if pool is not None and target_pool is pool:
+            called += 1
 
     with patch.object(ConnectionPool, "disconnect", mock_disconnect):
         with get_redis_connection() as r1:
@@ -372,6 +561,7 @@ def test_format_error_message(conn, error, expected_message):
     assert error_message == expected_message
 
 
+@pytest.mark.fixed_client
 def test_network_connection_failure():
     # Match only the stable part of the error message across OS
     exp_err = rf"Error {ECONNREFUSED} connecting to localhost:9999\."
@@ -380,6 +570,7 @@ def test_network_connection_failure():
         redis.set("a", "b")
 
 
+@pytest.mark.fixed_client
 @pytest.mark.skipif(
     not hasattr(socket, "AF_UNIX"),
     reason="Unix domain sockets not supported on this platform",
@@ -391,6 +582,7 @@ def test_unix_socket_connection_failure():
         redis.set("a", "b")
 
 
+@pytest.mark.fixed_client
 class TestUnitConnectionPool:
     @pytest.mark.parametrize(
         "max_conn", (-1, "str"), ids=("non-positive", "wrong type")
@@ -452,6 +644,7 @@ class TestUnitConnectionPool:
         connection_pool.disconnect()
 
 
+@pytest.mark.fixed_client
 class TestUnitCacheProxyConnection:
     def test_clears_cache_on_disconnect(self, mock_connection, cache_conf):
         cache = DefaultCache(CacheConfig(max_size=10))
@@ -598,6 +791,100 @@ class TestUnitCacheProxyConnection:
         platform.python_implementation() == "PyPy",
         reason="Pypy doesn't support side_effect",
     )
+    @pytest.mark.parametrize(
+        "command,redis_keys,redis_args,cached_value",
+        [
+            ("ZCARD", ("myset",), ("ZCARD", "myset"), 2),
+            ("SCARD", ("myset",), ("SCARD", "myset"), 5),
+            ("LLEN", ("mylist",), ("LLEN", "mylist"), 0),
+            (
+                "LRANGE",
+                ("mylist",),
+                ("LRANGE", "mylist", "0", "-1"),
+                [b"a", b"b"],
+            ),
+            ("EXISTS", ("foo",), ("EXISTS", "foo"), True),
+        ],
+        ids=["int-zcard", "int-scard", "int-llen", "list-lrange", "bool-exists"],
+    )
+    def test_read_response_returns_cached_non_bytes_reply(
+        self, mock_cache, mock_connection, command, redis_keys, redis_args, cached_value
+    ):
+        """Test that cached non-bytes responses (int, list, bool) don't crash.
+
+        Regression test for https://github.com/redis/redis-py/issues/4009
+        """
+        mock_connection.retry = "mock"
+        mock_connection.host = "mock"
+        mock_connection.port = "mock"
+        mock_connection.db = 0
+        mock_connection.credential_provider = UsernamePasswordCredentialProvider()
+        mock_connection._event_dispatcher = EventDispatcher()
+
+        cache_key = CacheKey(
+            command=command, redis_keys=redis_keys, redis_args=redis_args
+        )
+        valid_entry = CacheEntry(
+            cache_key=cache_key,
+            cache_value=cached_value,
+            status=CacheEntryStatus.VALID,
+            connection_ref=mock_connection,
+        )
+        in_progress_entry = CacheEntry(
+            cache_key=cache_key,
+            cache_value=CacheProxyConnection.DUMMY_CACHE_VALUE,
+            status=CacheEntryStatus.IN_PROGRESS,
+            connection_ref=mock_connection,
+        )
+        mock_cache.is_cachable.return_value = True
+        mock_cache.get.side_effect = [
+            # 1st send_command: cache.get(key) → None (cache miss)
+            None,
+            # 1st read_response: cache.get(key) is not None check
+            in_progress_entry,
+            # 1st read_response: cache.get(key).status check
+            in_progress_entry,
+            # 1st read_response: cache.get(key) after wire read (to update entry)
+            in_progress_entry,
+            # 2nd send_command: cache.get(key) → truthy (cache hit, enter branch)
+            valid_entry,
+            # 2nd send_command: entry = cache.get(key)
+            valid_entry,
+            # 2nd send_command: re-check cache.get(key) → truthy (return early)
+            valid_entry,
+            # 2nd read_response: cache.get(key) is not None check
+            valid_entry,
+            # 2nd read_response: cache.get(key).status check (VALID != IN_PROGRESS)
+            valid_entry,
+            # 2nd read_response: cache.get(key).cache_value (deep copy)
+            valid_entry,
+        ]
+        mock_connection.send_command.return_value = Any
+        mock_connection.read_response.return_value = cached_value
+        mock_connection.can_read.return_value = False
+
+        proxy_connection = CacheProxyConnection(
+            mock_connection, mock_cache, threading.RLock()
+        )
+        proxy_connection.send_command(*list(redis_args), **{"keys": list(redis_keys)})
+        # First call: cache miss, reads from connection
+        assert proxy_connection.read_response() == cached_value
+        assert proxy_connection._current_command_cache_key is None
+
+        # Re-issue send_command so _current_command_cache_key is set again;
+        # this time send_command sees a VALID entry and returns early.
+        proxy_connection.send_command(*list(redis_args), **{"keys": list(redis_keys)})
+        # Second call: cache hit — this must not raise TypeError
+        assert proxy_connection.read_response() == cached_value
+        # Verify the second read_response used the cache, not the wire:
+        # mock_connection.read_response should have been called only once
+        # (during the first read_response).
+        mock_connection.read_response.assert_called_once()
+
+    @pytest.mark.skipif(
+        platform.python_implementation() == "PyPy",
+        reason="Pypy doesn't support side_effect",
+    )
     def test_triggers_invalidation_processing_on_another_connection(
         self, mock_cache, mock_connection
     ):
@@ -630,7 +917,264 @@ class TestUnitCacheProxyConnection:
 
         assert proxy_connection.read_response() == b"bar"
         assert another_conn.can_read.call_count == 2
-        another_conn.read_response.assert_called_once()
+        another_conn.read_response.assert_called_once_with(
+            push_request=True, timeout=0, disconnect_on_error=False
+        )
+
+    @pytest.mark.skipif(
+        platform.python_implementation() == "PyPy",
+        reason="Pypy doesn't support side_effect",
+    )
+    def test_sends_command_when_cache_entry_invalidated_during_drain(
+        self, mock_cache, mock_connection
+    ):
+        """Regression test for issue #3600.
+
+        When another connection's invalidation drain removes the cache entry,
+        send_command must fall through and send the command over the wire
+        instead of returning early (which would cause read_response to hang).
+        """
+        mock_connection.retry = "mock"
+        mock_connection.host = "mock"
+        mock_connection.port = "mock"
+        mock_connection.db = 0
+        mock_connection.credential_provider = UsernamePasswordCredentialProvider()
+        mock_connection._event_dispatcher = Mock(spec=EventDispatcher)
+
+        another_conn = copy.deepcopy(mock_connection)
+        another_conn.can_read.side_effect = [True, False]
+        another_conn.read_response.return_value = None
+
+        cache_key = CacheKey(
+            command="GET", redis_keys=("foo",), redis_args=("GET", "foo")
+        )
+        cache_entry = CacheEntry(
+            cache_key=cache_key,
+            cache_value=b"bar",
+            status=CacheEntryStatus.VALID,
+            connection_ref=another_conn,
+        )
+
+        mock_cache.is_cachable.return_value = True
+        # get() call sequence in send_command:
+        #   1st: check if entry exists (truthy → enter branch)
+        #   2nd: fetch the entry
+        #   3rd: re-check after drain (None → entry was invalidated)
+        mock_cache.get.side_effect = [cache_entry, cache_entry, None]
+        mock_connection.can_read.return_value = False
+        mock_connection.send_command.return_value = None
+
+        proxy_connection = CacheProxyConnection(
+            mock_connection, mock_cache, threading.RLock()
+        )
+        proxy_connection.send_command(*["GET", "foo"], **{"keys": ["foo"]})
+
+        # The drain should have happened on the other connection
+        assert another_conn.can_read.call_count == 2
+        another_conn.read_response.assert_called_once_with(
+            push_request=True, timeout=0, disconnect_on_error=False
+        )
+
+        # The command must have been sent over the wire (not returned early)
+        mock_connection.send_command.assert_called_once_with("GET", "foo", keys=["foo"])
+
+        # An IN_PROGRESS entry must have been set for this connection
+        mock_cache.set.assert_called_once_with(
+            CacheEntry(
+                cache_key=cache_key,
+                cache_value=CacheProxyConnection.DUMMY_CACHE_VALUE,
+                status=CacheEntryStatus.IN_PROGRESS,
+                connection_ref=mock_connection,
+            )
+        )
+
+    @pytest.mark.skipif(
+        platform.python_implementation() == "PyPy",
+        reason="Pypy doesn't support side_effect",
+    )
+    def test_invalidation_processing_on_another_connection_breaks_on_timeout(
+        self, mock_cache, mock_connection
+    ):
+        mock_connection.retry = "mock"
+        mock_connection.host = "mock"
+        mock_connection.port = "mock"
+        mock_connection.db = 0
+        mock_connection.credential_provider = UsernamePasswordCredentialProvider()
+        mock_connection._event_dispatcher = Mock(spec=EventDispatcher)
+
+        another_conn = copy.deepcopy(mock_connection)
+        another_conn.can_read.return_value = True
+        another_conn.read_response.side_effect = TimeoutError("timeout")
+
+        cache_key = CacheKey(
+            command="GET", redis_keys=("foo",), redis_args=("GET", "foo")
+        )
+        cache_entry = CacheEntry(
+            cache_key=cache_key,
+            cache_value=b"bar",
+            status=CacheEntryStatus.VALID,
+            connection_ref=another_conn,
+        )
+
+        mock_cache.is_cachable.return_value = True
+        mock_cache.get.side_effect = [cache_entry, cache_entry, cache_entry]
+        mock_connection.can_read.return_value = False
+
+        proxy_connection = CacheProxyConnection(
+            mock_connection, mock_cache, threading.RLock()
+        )
+        proxy_connection.send_command(*["GET", "foo"], **{"keys": ["foo"]})
+
+        another_conn.read_response.assert_called_once_with(
+            push_request=True, timeout=0, disconnect_on_error=False
+        )
+        mock_connection.send_command.assert_not_called()
+
+    def test_process_pending_invalidations_breaks_on_timeout(self, mock_connection):
+        mock_connection.retry = "mock"
+        mock_connection.host = "mock"
+        mock_connection.port = "mock"
+        mock_connection.db = 0
+        mock_connection._event_dispatcher = EventDispatcher()
+        mock_connection.credential_provider = UsernamePasswordCredentialProvider()
+        mock_connection.can_read.return_value = True
+        mock_connection.read_response.side_effect = TimeoutError("timeout")
+
+        cache = DefaultCache(CacheConfig(max_size=10))
+        proxy_connection = CacheProxyConnection(
+            mock_connection, cache, threading.RLock()
+        )
+
+        proxy_connection._process_pending_invalidations()
+
+        mock_connection.read_response.assert_called_once_with(
+            push_request=True, timeout=0, disconnect_on_error=False
+        )
+
+    def test_read_response_propagates_timeout_parameter(self, mock_connection):
+        """Test that timeout parameter is propagated to underlying connection."""
+        mock_connection.retry = "mock"
+        mock_connection.host = "mock"
+        mock_connection.port = "mock"
+        mock_connection.db = 0
+        mock_connection._event_dispatcher = EventDispatcher()
+        mock_connection.credential_provider = UsernamePasswordCredentialProvider()
+        mock_connection.read_response.return_value = b"OK"
+
+        cache = DefaultCache(CacheConfig(max_size=10))
+        proxy_connection = CacheProxyConnection(
+            mock_connection, cache, threading.RLock()
+        )
+
+        # Test with specific timeout value
+        proxy_connection.read_response(timeout=0.5)
+        mock_connection.read_response.assert_called_with(
+            disable_decoding=False,
+            timeout=0.5,
+            disconnect_on_error=True,
+            push_request=False,
+        )
+
+    def test_read_response_timeout_default_is_sentinel(self, mock_connection):
+        """Test that default timeout value is SENTINEL."""
+        mock_connection.retry = "mock"
+        mock_connection.host = "mock"
+        mock_connection.port = "mock"
+        mock_connection.db = 0
+        mock_connection._event_dispatcher = EventDispatcher()
+        mock_connection.credential_provider = UsernamePasswordCredentialProvider()
+        mock_connection.read_response.return_value = b"OK"
+
+        cache = DefaultCache(CacheConfig(max_size=10))
+        proxy_connection = CacheProxyConnection(
+            mock_connection, cache, threading.RLock()
+        )
+
+        # Test default timeout is SENTINEL
+        proxy_connection.read_response()
+        mock_connection.read_response.assert_called_with(
+            disable_decoding=False,
+            timeout=SENTINEL,
+            disconnect_on_error=True,
+            push_request=False,
+        )
+
+    def test_read_response_timeout_none_passed_through(self, mock_connection):
+        """Test that timeout=None is passed through for blocking behavior."""
+        mock_connection.retry = "mock"
+        mock_connection.host = "mock"
+        mock_connection.port = "mock"
+        mock_connection.db = 0
+        mock_connection._event_dispatcher = EventDispatcher()
+        mock_connection.credential_provider = UsernamePasswordCredentialProvider()
+        mock_connection.read_response.return_value = b"OK"
+
+        cache = DefaultCache(CacheConfig(max_size=10))
+        proxy_connection = CacheProxyConnection(
+            mock_connection, cache, threading.RLock()
+        )
+
+        # Test timeout=None is passed through
+        proxy_connection.read_response(timeout=None)
+        mock_connection.read_response.assert_called_with(
+            disable_decoding=False,
+            timeout=None,
+            disconnect_on_error=True,
+            push_request=False,
+        )
+
+    def test_read_response_timeout_zero_passed_through(self, mock_connection):
+        """Test that timeout=0 is passed through for non-blocking behavior."""
+        mock_connection.retry = "mock"
+        mock_connection.host = "mock"
+        mock_connection.port = "mock"
+        mock_connection.db = 0
+        mock_connection._event_dispatcher = EventDispatcher()
+        mock_connection.credential_provider = UsernamePasswordCredentialProvider()
+        mock_connection.read_response.return_value = b"OK"
+
+        cache = DefaultCache(CacheConfig(max_size=10))
+        proxy_connection = CacheProxyConnection(
+            mock_connection, cache, threading.RLock()
+        )
+
+        # Test timeout=0 is passed through
+        proxy_connection.read_response(timeout=0)
+        mock_connection.read_response.assert_called_with(
+            disable_decoding=False,
+            timeout=0,
+            disconnect_on_error=True,
+            push_request=False,
+        )
+
+    def test_read_response_all_params_with_timeout(self, mock_connection):
+        """Test that all parameters including timeout are correctly passed."""
+        mock_connection.retry = "mock"
+        mock_connection.host = "mock"
+        mock_connection.port = "mock"
+        mock_connection.db = 0
+        mock_connection._event_dispatcher = EventDispatcher()
+        mock_connection.credential_provider = UsernamePasswordCredentialProvider()
+        mock_connection.read_response.return_value = b"OK"
+
+        cache = DefaultCache(CacheConfig(max_size=10))
+        proxy_connection = CacheProxyConnection(
+            mock_connection, cache, threading.RLock()
+        )
+
+        # Test all parameters together
+        proxy_connection.read_response(
+            disable_decoding=True,
+            timeout=1.5,
+            disconnect_on_error=False,
+            push_request=True,
+        )
+        mock_connection.read_response.assert_called_with(
+            disable_decoding=True,
+            timeout=1.5,
+            disconnect_on_error=False,
+            push_request=True,
+        )
 
 
 class TestConnectionPoolGetConnectionCount:

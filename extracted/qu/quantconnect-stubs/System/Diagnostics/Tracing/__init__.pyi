@@ -450,6 +450,40 @@ class EventSource(System.Object, System.IDisposable):
         ...
 
 
+class DiagnosticCounter(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def display_name(self) -> str:
+        ...
+
+    @display_name.setter
+    def display_name(self, value: str) -> None:
+        ...
+
+    @property
+    def display_units(self) -> str:
+        ...
+
+    @display_units.setter
+    def display_units(self, value: str) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def event_source(self) -> System.Diagnostics.Tracing.EventSource:
+        ...
+
+    def add_metadata(self, key: str, value: str) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+
 class EventSourceCreatedEventArgs(System.EventArgs):
     """This class has no documentation."""
 
@@ -654,50 +688,19 @@ class NonEventAttribute(System.Attribute):
         ...
 
 
-class DiagnosticCounter(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
+class EventSourceException(System.Exception):
     """This class has no documentation."""
 
-    @property
-    def display_name(self) -> str:
+    @overload
+    def __init__(self) -> None:
         ...
 
-    @display_name.setter
-    def display_name(self, value: str) -> None:
+    @overload
+    def __init__(self, message: str) -> None:
         ...
 
-    @property
-    def display_units(self) -> str:
-        ...
-
-    @display_units.setter
-    def display_units(self, value: str) -> None:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def event_source(self) -> System.Diagnostics.Tracing.EventSource:
-        ...
-
-    def add_metadata(self, key: str, value: str) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-
-class EventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
-    """This class has no documentation."""
-
-    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource) -> None:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    def write_metric(self, value: float) -> None:
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 
@@ -719,22 +722,6 @@ class IncrementingEventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
         ...
 
     def to_string(self) -> str:
-        ...
-
-
-class EventSourceException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 
@@ -804,6 +791,19 @@ class PollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
         ...
 
     def to_string(self) -> str:
+        ...
+
+
+class EventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
+    """This class has no documentation."""
+
+    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource) -> None:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    def write_metric(self, value: float) -> None:
         ...
 
 

@@ -10,9 +10,9 @@ import System.Runtime.InteropServices
 System_Buffers_StandardFormat = typing.Any
 
 System_Buffers_SearchValues_T = typing.TypeVar("System_Buffers_SearchValues_T")
+System_Buffers_IMemoryOwner_T = typing.TypeVar("System_Buffers_IMemoryOwner_T")
 System_Buffers_ArrayPool_T = typing.TypeVar("System_Buffers_ArrayPool_T")
 System_Buffers_MemoryManager_T = typing.TypeVar("System_Buffers_MemoryManager_T")
-System_Buffers_IMemoryOwner_T = typing.TypeVar("System_Buffers_IMemoryOwner_T")
 
 
 class SearchValues(typing.Generic[System_Buffers_SearchValues_T], System.Object):
@@ -34,6 +34,15 @@ class SearchValues(typing.Generic[System_Buffers_SearchValues_T], System.Object)
     @staticmethod
     @overload
     def create(values: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> System.Buffers.SearchValues[str]:
+        ...
+
+
+class IMemoryOwner(typing.Generic[System_Buffers_IMemoryOwner_T], System.IDisposable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def memory(self) -> System.Memory[System_Buffers_IMemoryOwner_T]:
         ...
 
 
@@ -61,6 +70,18 @@ class IPinnable(metaclass=abc.ABCMeta):
         ...
 
 
+class OperationStatus(IntEnum):
+    """This class has no documentation."""
+
+    DONE = 0
+
+    DESTINATION_TOO_SMALL = 1
+
+    NEED_MORE_DATA = 2
+
+    INVALID_DATA = 3
+
+
 class ArrayPool(typing.Generic[System_Buffers_ArrayPool_T], System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -80,55 +101,6 @@ class ArrayPool(typing.Generic[System_Buffers_ArrayPool_T], System.Object, metac
         ...
 
     def Return(self, array: typing.List[System_Buffers_ArrayPool_T], clearArray: bool = False) -> None:
-        ...
-
-
-class OperationStatus(IntEnum):
-    """This class has no documentation."""
-
-    DONE = 0
-
-    DESTINATION_TOO_SMALL = 1
-
-    NEED_MORE_DATA = 2
-
-    INVALID_DATA = 3
-
-
-class MemoryManager(typing.Generic[System_Buffers_MemoryManager_T], System.Object, System.Buffers.IMemoryOwner[System_Buffers_MemoryManager_T], System.Buffers.IPinnable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def memory(self) -> System.Memory[System_Buffers_MemoryManager_T]:
-        ...
-
-    @overload
-    def create_memory(self, length: int) -> System.Memory[System_Buffers_MemoryManager_T]:
-        ...
-
-    @overload
-    def create_memory(self, start: int, length: int) -> System.Memory[System_Buffers_MemoryManager_T]:
-        ...
-
-    def dispose(self, disposing: bool) -> None:
-        ...
-
-    def get_span(self) -> System.Span[System_Buffers_MemoryManager_T]:
-        ...
-
-    def pin(self, element_index: int = 0) -> System.Buffers.MemoryHandle:
-        ...
-
-    def unpin(self) -> None:
-        ...
-
-
-class IMemoryOwner(typing.Generic[System_Buffers_IMemoryOwner_T], System.IDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def memory(self) -> System.Memory[System_Buffers_IMemoryOwner_T]:
         ...
 
 
@@ -190,6 +162,34 @@ class StandardFormat(System.IEquatable[System_Buffers_StandardFormat]):
 
     @staticmethod
     def try_parse(format: System.ReadOnlySpan[str], result: typing.Optional[System.Buffers.StandardFormat]) -> typing.Tuple[bool, System.Buffers.StandardFormat]:
+        ...
+
+
+class MemoryManager(typing.Generic[System_Buffers_MemoryManager_T], System.Object, System.Buffers.IMemoryOwner[System_Buffers_MemoryManager_T], System.Buffers.IPinnable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def memory(self) -> System.Memory[System_Buffers_MemoryManager_T]:
+        ...
+
+    @overload
+    def create_memory(self, length: int) -> System.Memory[System_Buffers_MemoryManager_T]:
+        ...
+
+    @overload
+    def create_memory(self, start: int, length: int) -> System.Memory[System_Buffers_MemoryManager_T]:
+        ...
+
+    def dispose(self, disposing: bool) -> None:
+        ...
+
+    def get_span(self) -> System.Span[System_Buffers_MemoryManager_T]:
+        ...
+
+    def pin(self, element_index: int = 0) -> System.Buffers.MemoryHandle:
+        ...
+
+    def unpin(self) -> None:
         ...
 
 

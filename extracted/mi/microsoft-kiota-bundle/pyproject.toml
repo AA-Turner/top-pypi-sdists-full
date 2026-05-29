@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "microsoft-kiota-bundle"
-version = "1.10.1"
+version = "1.10.2"
 description = "Bundle package for kiota generated libraries in Python"
 authors = ["Microsoft <graphtooling+python@microsoft.com>"]
 license = "MIT"
@@ -26,12 +26,12 @@ packages = [{include = "kiota_bundle"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
-microsoft-kiota-abstractions = { version = "1.10.1"}
-microsoft-kiota-http = { version = "1.10.1"}
-microsoft-kiota-serialization-json = { version = "1.10.1"}
-microsoft-kiota-serialization-form = { version = "1.10.1"}
-microsoft-kiota-serialization-text = { version = "1.10.1"}
-microsoft-kiota-serialization-multipart = { version = "1.10.1"}
+microsoft-kiota-abstractions = { version = "1.10.2"}
+microsoft-kiota-http = { version = "1.10.2"}
+microsoft-kiota-serialization-json = { version = "1.10.2"}
+microsoft-kiota-serialization-form = { version = "1.10.2"}
+microsoft-kiota-serialization-text = { version = "1.10.2"}
+microsoft-kiota-serialization-multipart = { version = "1.10.2"}
 
 [tool.poetry.group.dev.dependencies]
 yapf = "^0.40.2"

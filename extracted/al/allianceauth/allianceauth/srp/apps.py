@@ -6,3 +6,6 @@ class SRPConfig(AppConfig):
     name = 'allianceauth.srp'
     label = 'srp'
     verbose_name = _('Ship Replacement')
+
+    def ready(self) -> None:
+        pass

@@ -41,7 +41,9 @@ __all__ = (
     "DescriptorTypeType",
     "EventFilterConditionType",
     "ExtractionJobStatusType",
+    "HarnessBedrockApiFormatType",
     "HarnessConversationRoleType",
+    "HarnessOpenAiApiFormatType",
     "HarnessStopReasonType",
     "HarnessToolTypeType",
     "HarnessToolUseStatusType",
@@ -132,7 +134,9 @@ CurrencyType = Literal["USD"]
 DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 EventFilterConditionType = Literal["HAS_EVENTS"]
 ExtractionJobStatusType = Literal["FAILED"]
+HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "responses"]
 HarnessConversationRoleType = Literal["assistant", "user"]
+HarnessOpenAiApiFormatType = Literal["chat_completions", "responses"]
 HarnessStopReasonType = Literal[
     "content_filtered",
     "end_turn",
@@ -548,6 +552,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",

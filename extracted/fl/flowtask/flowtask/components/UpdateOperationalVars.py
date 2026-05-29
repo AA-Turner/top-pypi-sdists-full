@@ -47,7 +47,7 @@ import logging
 from typing import Any
 from collections.abc import Callable
 from ..exceptions import ComponentError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces import DBSupport
 
 

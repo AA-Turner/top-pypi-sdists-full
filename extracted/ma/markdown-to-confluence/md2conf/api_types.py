@@ -83,6 +83,14 @@ class ConfluenceContentVersion:
 
 
 @dataclass(frozen=True)
+class ConfluenceUser:
+    accountId: str
+    publicName: str
+    displayName: str
+    email: str | None = None
+
+
+@dataclass(frozen=True)
 class ConfluenceAttachment:
     """
     Holds data for an object uploaded to Confluence as a page attachment.
@@ -115,6 +123,11 @@ class ConfluenceAttachment:
     webuiLink: str
     downloadLink: str
     version: ConfluenceContentVersion
+
+
+@dataclass(frozen=True)
+class ConfluencePageRef:
+    pageId: str
 
 
 @dataclass(frozen=True)

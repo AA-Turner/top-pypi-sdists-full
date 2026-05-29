@@ -5,7 +5,7 @@ from collections.abc import Callable
 import aiofiles
 from tqdm import tqdm
 from ..exceptions import FileError
-from .UploadTo import UploadToBase
+from ..interfaces.upload_to import UploadToBase
 from ..interfaces.Boto3Client import Boto3Client
 
 

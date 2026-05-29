@@ -1,5 +1,6 @@
 import http.client
 import json
+import os
 import platform
 import shutil
 import socket
@@ -9,11 +10,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from typing import IO
 
-from biolib._shared.types.typing import Dict, Literal, Optional, Union, cast
+from biolib._shared.types.typing import Dict, Literal, Optional, Type, Union, cast
 from biolib.biolib_logging import logger_no_user_data
 
-_HttpMethod = Literal['GET', 'POST', 'PATCH', 'PUT', 'DELETE']
+_HttpMethod = Literal['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE']
 
 
 def _create_ssl_context():
@@ -80,7 +82,12 @@ class HttpClient:
         response_path: Optional[str] = None,
         retry_on_http_500: Optional[bool] = False,
         max_content_length_in_bytes: Optional[int] = None,
+        data_file_path: Optional[str] = None,
+        redirect_handler: Optional[Type[urllib.request.HTTPRedirectHandler]] = None,
     ) -> HttpResponse:
+        if data is not None and data_file_path is not None:
+            raise ValueError('Cannot specify both data and data_file_path')
+
         if not HttpClient.ssl_context:
             HttpClient.ssl_context = _create_ssl_context()
         headers_to_send = headers or {}
@@ -88,12 +95,16 @@ class HttpClient:
             headers_to_send['Accept'] = 'application/json'
             headers_to_send['Content-Type'] = 'application/json'
 
-        request = urllib.request.Request(
-            url=url,
-            data=json.dumps(data).encode() if isinstance(data, dict) else data,
-            headers=headers_to_send,
-            method=method or 'GET',
-        )
+        if data_file_path:
+            headers_to_send.setdefault('Content-Type', 'application/octet-stream')
+            headers_to_send.setdefault('Content-Length', str(os.path.getsize(data_file_path)))
+        else:
+            request = urllib.request.Request(
+                url=url,
+                data=json.dumps(data).encode() if isinstance(data, dict) else data,
+                headers=headers_to_send,
+                method=method or 'GET',
+            )
         if timeout_in_seconds is None:
             timeout_in_seconds = 60 if isinstance(data, dict) else 180  # TODO: Calculate timeout based on data size
 
@@ -102,12 +113,31 @@ class HttpClient:
             if retry_count > 0:
                 time.sleep(5 * retry_count)
                 logger_no_user_data.debug(f'Retrying HTTP {method} request...')
+
+            file_handle: Optional[IO[bytes]] = None
             try:
-                with urllib.request.urlopen(
-                    request,
-                    context=HttpClient.ssl_context,
-                    timeout=timeout_in_seconds,
-                ) as response:
+                if data_file_path:
+                    file_handle = open(data_file_path, 'rb')  # noqa: SIM115
+                    request = urllib.request.Request(
+                        url=url,
+                        data=file_handle,
+                        headers=headers_to_send,
+                        method=method or 'GET',
+                    )
+                if redirect_handler:
+                    handlers: list = [
+                        urllib.request.HTTPSHandler(context=HttpClient.ssl_context),
+                        redirect_handler,
+                    ]
+                    opener = urllib.request.build_opener(*handlers)
+                    response_ctx = opener.open(request, timeout=timeout_in_seconds)
+                else:
+                    response_ctx = urllib.request.urlopen(
+                        request,
+                        context=HttpClient.ssl_context,
+                        timeout=timeout_in_seconds,
+                    )
+                with response_ctx as response:
                     if max_content_length_in_bytes:
                         content_length = response.getheader('Content-Length')
                         if not content_length:
@@ -142,6 +172,12 @@ class HttpClient:
                     if retry_count > 0:
                         logger_no_user_data.warning(f'HTTP {method} request failed with read timeout for "{url}"')
                     last_error = error
+                elif isinstance(error.reason, socket.gaierror):
+                    logger_no_user_data.warning(f'DNS resolution failed for "{url}": {error.reason}')
+                    last_error = error
+                elif isinstance(error.reason, OSError):
+                    logger_no_user_data.warning(f'Connection failed for "{url}": {error.reason}')
+                    last_error = error
                 else:
                     raise error
 
@@ -155,5 +191,9 @@ class HttpClient:
                     f'HTTP {method} request failed with incomplete read for "{url}": {repr(error)}'
                 )
                 last_error = error
+
+            finally:
+                if file_handle is not None:
+                    file_handle.close()
 
         raise last_error or Exception(f'HTTP {method} request failed after {retries} retries for "{url}"')

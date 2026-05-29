@@ -40,12 +40,12 @@ dynamic = [
 dependencies = [
     "bcrypt<5",
     "beautifulsoup4",
-    "celery>=5.5,<6",
+    "celery>=5.6,<6",
     "celery-once>=3.0.1",
     "django>=5.2,<6",
     "django-bootstrap5>=23.3",
     "django-celery-beat>=2.8",
-    "django-esi>=9.0.0a3",
+    "django-esi>=9.3",
     "django-redis>=5.4",
     "django-registration>=5.2,<6",
     "django-solo",
@@ -67,6 +67,12 @@ dependencies = [
     "telnetlib3",
     "ua-parser",
     "user-agents",
+]
+optional-dependencies.dev = [
+    "celery-types",
+    "djlint",
+    "flake8",
+    "isort",
 ]
 optional-dependencies.docs = [
     # Pin docutils <0.22 due to sphinx-tabs incompatibility with docutils 0.22.4

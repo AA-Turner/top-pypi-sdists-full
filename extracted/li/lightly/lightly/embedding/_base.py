@@ -1,4 +1,4 @@
-""" BaseEmbeddings """
+"""BaseEmbeddings"""
 
 # Copyright (c) 2020. Lightly AG and its affiliates.
 # All Rights Reserved
@@ -41,7 +41,6 @@ class BaseEmbedding(LightningModule):
             dataloader: (torch.utils.data.DataLoader)
 
         """
-
         super(BaseEmbedding, self).__init__()
         self.model = model
         self.criterion = criterion

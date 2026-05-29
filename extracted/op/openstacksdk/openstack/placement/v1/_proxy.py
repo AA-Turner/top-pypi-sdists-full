@@ -10,8 +10,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from collections.abc import Callable, Generator
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+import warnings
 
 from openstack.placement.v1 import resource_class as _resource_class
 from openstack.placement.v1 import resource_provider as _resource_provider
@@ -21,6 +22,7 @@ from openstack.placement.v1 import (
 from openstack.placement.v1 import trait as _trait
 from openstack import proxy
 from openstack import resource
+from openstack import warnings as os_warnings
 
 
 class Proxy(proxy.Proxy):
@@ -43,18 +45,21 @@ class Proxy(proxy.Proxy):
             comprised of the properties on the ResourceClass class.
 
         :returns: The results of resource class creation
-        :rtype: :class:`~openstack.placement.v1.resource_class.ResourceClass`
         """
         return self._create(_resource_class.ResourceClass, **attrs)
 
-    def delete_resource_class(self, resource_class, ignore_missing=True):
+    def delete_resource_class(
+        self,
+        resource_class: str | _resource_class.ResourceClass,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a resource class
 
         :param resource_class: The value can be either the ID of a resource
             class or an
             :class:`~openstack.placement.v1.resource_class.ResourceClass`,
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource class does not exist. When set to ``True``, no
             exception will be set when attempting to delete a nonexistent
@@ -68,7 +73,9 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def update_resource_class(self, resource_class, **attrs):
+    def update_resource_class(
+        self, resource_class: str | _resource_class.ResourceClass, **attrs: Any
+    ) -> _resource_class.ResourceClass:
         """Update a resource class
 
         :param resource_class: The value can be either the ID of a resource
@@ -79,7 +86,6 @@ class Proxy(proxy.Proxy):
             represented by ``resource_class``.
 
         :returns: The updated resource class
-        :rtype: :class:`~openstack.placement.v1.resource_class.ResourceClass`
         """
         return self._update(
             _resource_class.ResourceClass,
@@ -87,7 +93,10 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    def get_resource_class(self, resource_class):
+    def get_resource_class(
+        self,
+        resource_class: str | _resource_class.ResourceClass,
+    ) -> _resource_class.ResourceClass:
         """Get a single resource_class.
 
         :param resource_class: The value can be either the ID of a resource
@@ -105,10 +114,13 @@ class Proxy(proxy.Proxy):
             resource_class,
         )
 
-    def resource_classes(self, **query):
+    def resource_classes(
+        self,
+        **query: Any,
+    ) -> Generator[_resource_class.ResourceClass, None, None]:
         """Retrieve a generator of resource classs.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the resource classs to be returned.
 
         :returns: A generator of resource class instances.
@@ -127,18 +139,21 @@ class Proxy(proxy.Proxy):
             comprised of the properties on the ResourceProvider class.
 
         :returns: The results of resource provider creation
-        :rtype: :class:`~openstack.placement.v1.resource_provider.ResourceProvider`
-        """  # noqa: E501
+        """
         return self._create(_resource_provider.ResourceProvider, **attrs)
 
-    def delete_resource_provider(self, resource_provider, ignore_missing=True):
+    def delete_resource_provider(
+        self,
+        resource_provider: str | _resource_provider.ResourceProvider,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a resource provider
 
         :param resource_provider: The value can be either the ID of a resource
             provider or an
             :class:`~openstack.placement.v1.resource_provider.ResourceProvider`,
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource provider does not exist. When set to ``True``, no
             exception will be set when attempting to delete a nonexistent
@@ -152,7 +167,11 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def update_resource_provider(self, resource_provider, **attrs):
+    def update_resource_provider(
+        self,
+        resource_provider: str | _resource_provider.ResourceProvider,
+        **attrs: Any,
+    ) -> _resource_provider.ResourceProvider:
         """Update a resource provider
 
         :param resource_provider: The value can be either the ID of a resource
@@ -163,15 +182,17 @@ class Proxy(proxy.Proxy):
             represented by ``resource_provider``.
 
         :returns: The updated resource provider
-        :rtype: :class:`~openstack.placement.v1.resource_provider.ResourceProvider`
-        """  # noqa: E501
+        """
         return self._update(
             _resource_provider.ResourceProvider,
             resource_provider,
             **attrs,
         )
 
-    def get_resource_provider(self, resource_provider):
+    def get_resource_provider(
+        self,
+        resource_provider: str | _resource_provider.ResourceProvider,
+    ) -> _resource_provider.ResourceProvider:
         """Get a single resource_provider.
 
         :param resource_provider: The value can be either the ID of a resource
@@ -211,7 +232,7 @@ class Proxy(proxy.Proxy):
         """Find a single resource_provider.
 
         :param name_or_id: The name or ID of a resource provider.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist.  When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
@@ -227,10 +248,13 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def resource_providers(self, **query):
+    def resource_providers(
+        self,
+        **query: Any,
+    ) -> Generator[_resource_provider.ResourceProvider, None, None]:
         """Retrieve a generator of resource providers.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the resource providers to be returned.
 
         :returns: A generator of resource provider instances.
@@ -239,7 +263,10 @@ class Proxy(proxy.Proxy):
 
     # resource provider aggregates
 
-    def get_resource_provider_aggregates(self, resource_provider):
+    def fetch_resource_provider_aggregates(
+        self,
+        resource_provider: str | _resource_provider.ResourceProvider,
+    ) -> _resource_provider.ResourceProvider:
         """Get a list of aggregates for a resource provider.
 
         :param resource_provider: The value can be either the ID of a resource
@@ -258,6 +285,23 @@ class Proxy(proxy.Proxy):
             resource_provider,
         )
         return res.fetch_aggregates(self)
+
+    # TODO(stephenfin): Remove in 5.0
+    def get_resource_provider_aggregates(
+        self,
+        resource_provider: str | _resource_provider.ResourceProvider,
+    ) -> _resource_provider.ResourceProvider:
+        """Get a list of aggregates for a resource provider.
+
+        .. deprecated:: 4.14.0
+            Use :meth:`fetch_resource_provider_aggregates` instead.
+        """
+        warnings.warn(
+            "The 'get_resource_provider_aggregates' method is deprecated; "
+            "use 'fetch_resource_provider_aggregates' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.fetch_resource_provider_aggregates(resource_provider)
 
     def set_resource_provider_aggregates(self, resource_provider, *aggregates):
         """Update aggregates for a resource provider.
@@ -307,8 +351,7 @@ class Proxy(proxy.Proxy):
             comprised of the properties on the ResourceProviderInventory class.
 
         :returns: The results of resource provider inventory creation
-        :rtype: :class:`~openstack.placement.v1.resource_provider_inventory.ResourceProviderInventory`
-        """  # noqa: E501
+        """
         resource_provider_id = resource.Resource._get_id(resource_provider)
         resource_class_name = resource.Resource._get_id(resource_class)
         return self._create(
@@ -321,10 +364,13 @@ class Proxy(proxy.Proxy):
 
     def delete_resource_provider_inventory(
         self,
-        resource_provider_inventory,
-        resource_provider=None,
-        ignore_missing=True,
-    ):
+        resource_provider_inventory: str
+        | _resource_provider_inventory.ResourceProviderInventory,
+        resource_provider: str
+        | _resource_provider.ResourceProvider
+        | None = None,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a resource provider inventory
 
         :param resource_provider_inventory: The value can be either the ID of a
@@ -335,7 +381,7 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.placement.v1.resource_provider.ResourceProvider`
             instance. This value must be specified when
             ``resource_provider_inventory`` is an ID.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource provider inventory does not exist. When set to
             ``True``, no exception will be set when attempting to delete a
@@ -357,12 +403,15 @@ class Proxy(proxy.Proxy):
 
     def update_resource_provider_inventory(
         self,
-        resource_provider_inventory,
-        resource_provider=None,
+        resource_provider_inventory: str
+        | _resource_provider_inventory.ResourceProviderInventory,
+        resource_provider: str
+        | _resource_provider.ResourceProvider
+        | None = None,
         *,
-        resource_provider_generation=None,
-        **attrs,
-    ):
+        resource_provider_generation: int | None = None,
+        **attrs: Any,
+    ) -> _resource_provider_inventory.ResourceProviderInventory:
         """Update a resource provider's inventory
 
         :param resource_provider_inventory: The value can be either the ID of a resource
@@ -377,7 +426,6 @@ class Proxy(proxy.Proxy):
             represented by ``resource_provider_inventory``.
 
         :returns: The updated resource provider inventory
-        :rtype: :class:`~openstack.placement.v1.resource_provider_inventory.ResourceProviderInventory`
         """  # noqa: E501
         resource_provider_id = self._get_uri_attribute(
             resource_provider_inventory,
@@ -394,9 +442,13 @@ class Proxy(proxy.Proxy):
 
     def get_resource_provider_inventory(
         self,
-        resource_provider_inventory,
-        resource_provider=None,
-    ):
+        resource_provider_inventory: (
+            str | _resource_provider_inventory.ResourceProviderInventory
+        ),
+        resource_provider: (
+            str | _resource_provider.ResourceProvider | None
+        ) = None,
+    ) -> _resource_provider_inventory.ResourceProviderInventory:
         """Get a single resource_provider_inventory
 
         :param resource_provider_inventory: The value can be either the ID of a
@@ -424,7 +476,13 @@ class Proxy(proxy.Proxy):
             resource_provider_id=resource_provider_id,
         )
 
-    def resource_provider_inventories(self, resource_provider, **query):
+    def resource_provider_inventories(
+        self,
+        resource_provider: str | _resource_provider.ResourceProvider,
+        **query: Any,
+    ) -> Generator[
+        _resource_provider_inventory.ResourceProviderInventory, None, None
+    ]:
         """Retrieve a generator of resource provider inventories
 
         :param resource_provider: Either the ID of a resource provider or a
@@ -450,16 +508,17 @@ class Proxy(proxy.Proxy):
         :param name: The name of the new trait
 
         :returns: The results of trait creation
-        :rtype: :class:`~openstack.placement.v1.trait.Trait`
         """
         return self._create(_trait.Trait, name=name)
 
-    def delete_trait(self, trait, ignore_missing=True):
+    def delete_trait(
+        self, trait: str | _trait.Trait, ignore_missing: bool = True
+    ) -> None:
         """Delete a trait
 
         :param trait: The value can be either the ID of a trait or an
             :class:`~openstack.placement.v1.trait.Trait`, instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource provider inventory does not exist. When set to
             ``True``, no exception will be set when attempting to delete a
@@ -469,7 +528,7 @@ class Proxy(proxy.Proxy):
         """
         self._delete(_trait.Trait, trait, ignore_missing=ignore_missing)
 
-    def get_trait(self, trait):
+    def get_trait(self, trait: str | _trait.Trait) -> _trait.Trait:
         """Get a single trait
 
         :param trait: The value can be either the ID of a trait or an
@@ -482,7 +541,7 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_trait.Trait, trait)
 
-    def traits(self, **query):
+    def traits(self, **query: Any) -> Generator[_trait.Trait, None, None]:
         """Retrieve a generator of traits
 
         :param query: Optional query parameters to be sent to limit
@@ -521,7 +580,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -536,8 +595,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

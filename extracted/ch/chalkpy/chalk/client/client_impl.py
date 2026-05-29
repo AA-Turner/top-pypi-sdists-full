@@ -6398,7 +6398,7 @@ https://docs.chalk.ai/cli/apply
         resolver: str | None = None,
         query_tags: list[str] | None = None,
         store_offline: bool | None = None,
-        allow_empty_tiles: bool | None = None,
+        allow_empty_tiles: bool = True,
         exact: bool = False,
         enable_profiling: bool = False,
         resource_group: str | None = None,

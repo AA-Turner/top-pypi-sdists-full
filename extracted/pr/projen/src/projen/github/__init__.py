@@ -5304,6 +5304,59 @@ class GithubWorkflow(
             check_type(argname="argument jobs", value=jobs, expected_type=type_hints["jobs"])
         return typing.cast(None, jsii.invoke(self, "addJobs", [jobs]))
 
+    @jsii.member(jsii_name="appendStep")
+    def append_step(
+        self,
+        job_id: builtins.str,
+        *,
+        run: typing.Optional[builtins.str] = None,
+        uses: typing.Optional[builtins.str] = None,
+        with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        continue_on_error: typing.Optional[builtins.bool] = None,
+        timeout_minutes: typing.Optional[jsii.Number] = None,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        if_: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
+        working_directory: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Appends a step to the end of a job's step list.
+
+        :param job_id: The job name (unique within the workflow).
+        :param run: (experimental) Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
+        :param uses: (experimental) Selects an action to run as part of a step in your job. An action is a reusable unit of code. You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image.
+        :param with_: (experimental) A map of the input parameters defined by the action. Each input parameter is a key/value pair. Input parameters are set as environment variables. The variable is prefixed with INPUT_ and converted to upper case.
+        :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
+        :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
+        :param env: (experimental) Sets environment variables for steps to use in the runner environment. You can also set environment variables for the entire workflow or a job.
+        :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
+        :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
+        :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
+        :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c2c1da253367f5ac8878af3a7061301a73b14e7ddab7d0bf125b384473df4b84)
+            check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
+        step = _JobStep_c3287c05(
+            run=run,
+            uses=uses,
+            with_=with_,
+            continue_on_error=continue_on_error,
+            timeout_minutes=timeout_minutes,
+            env=env,
+            id=id,
+            if_=if_,
+            name=name,
+            shell=shell,
+            working_directory=working_directory,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "appendStep", [job_id, step]))
+
     @jsii.member(jsii_name="getJob")
     def get_job(
         self,
@@ -5319,6 +5372,142 @@ class GithubWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__f6eb2f09bb8f2d945c8f2826934c657ba552c34bd0514dcd4dfea5bae7172af5)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast(typing.Union["_JobCallingReusableWorkflow_12ad1018", "_Job_20ffcf45"], jsii.invoke(self, "getJob", [id]))
+
+    @jsii.member(jsii_name="getStep")
+    def get_step(
+        self,
+        job_id: builtins.str,
+        step_id: builtins.str,
+    ) -> "_JobStep_c3287c05":
+        '''(experimental) Gets a single step from a job by step ID.
+
+        The returned object is frozen and read-only. Use ``replaceStep`` or
+        ``patchStep`` to modify a step.
+
+        :param job_id: The job name (unique within the workflow).
+        :param step_id: The step ID to look up.
+
+        :return: A read-only copy of the step
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98ca96efd0e35c2a249c17c816c681f0586cde5056d99e7abf2fe2fbd6b65649)
+            check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
+            check_type(argname="argument step_id", value=step_id, expected_type=type_hints["step_id"])
+        return typing.cast("_JobStep_c3287c05", jsii.invoke(self, "getStep", [job_id, step_id]))
+
+    @jsii.member(jsii_name="insertStepAfter")
+    def insert_step_after(
+        self,
+        job_id: builtins.str,
+        reference_step_id: builtins.str,
+        *,
+        run: typing.Optional[builtins.str] = None,
+        uses: typing.Optional[builtins.str] = None,
+        with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        continue_on_error: typing.Optional[builtins.bool] = None,
+        timeout_minutes: typing.Optional[jsii.Number] = None,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        if_: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
+        working_directory: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Inserts a step after an existing step, identified by ID.
+
+        :param job_id: The job name (unique within the workflow).
+        :param reference_step_id: The ID of the step to insert after.
+        :param run: (experimental) Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
+        :param uses: (experimental) Selects an action to run as part of a step in your job. An action is a reusable unit of code. You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image.
+        :param with_: (experimental) A map of the input parameters defined by the action. Each input parameter is a key/value pair. Input parameters are set as environment variables. The variable is prefixed with INPUT_ and converted to upper case.
+        :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
+        :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
+        :param env: (experimental) Sets environment variables for steps to use in the runner environment. You can also set environment variables for the entire workflow or a job.
+        :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
+        :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
+        :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
+        :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad17047f6d44720906e0616128e61d58d605c2541a07f1f200dbf28e2c0a6b66)
+            check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
+            check_type(argname="argument reference_step_id", value=reference_step_id, expected_type=type_hints["reference_step_id"])
+        step = _JobStep_c3287c05(
+            run=run,
+            uses=uses,
+            with_=with_,
+            continue_on_error=continue_on_error,
+            timeout_minutes=timeout_minutes,
+            env=env,
+            id=id,
+            if_=if_,
+            name=name,
+            shell=shell,
+            working_directory=working_directory,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "insertStepAfter", [job_id, reference_step_id, step]))
+
+    @jsii.member(jsii_name="insertStepBefore")
+    def insert_step_before(
+        self,
+        job_id: builtins.str,
+        reference_step_id: builtins.str,
+        *,
+        run: typing.Optional[builtins.str] = None,
+        uses: typing.Optional[builtins.str] = None,
+        with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        continue_on_error: typing.Optional[builtins.bool] = None,
+        timeout_minutes: typing.Optional[jsii.Number] = None,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        if_: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
+        working_directory: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Inserts a step before an existing step, identified by ID.
+
+        :param job_id: The job name (unique within the workflow).
+        :param reference_step_id: The ID of the step to insert before.
+        :param run: (experimental) Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
+        :param uses: (experimental) Selects an action to run as part of a step in your job. An action is a reusable unit of code. You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image.
+        :param with_: (experimental) A map of the input parameters defined by the action. Each input parameter is a key/value pair. Input parameters are set as environment variables. The variable is prefixed with INPUT_ and converted to upper case.
+        :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
+        :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
+        :param env: (experimental) Sets environment variables for steps to use in the runner environment. You can also set environment variables for the entire workflow or a job.
+        :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
+        :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
+        :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
+        :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a72fad6a72387bf7e8273ac5cdaf456177096c97bb4ca95c845eebd5b4f2d4d8)
+            check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
+            check_type(argname="argument reference_step_id", value=reference_step_id, expected_type=type_hints["reference_step_id"])
+        step = _JobStep_c3287c05(
+            run=run,
+            uses=uses,
+            with_=with_,
+            continue_on_error=continue_on_error,
+            timeout_minutes=timeout_minutes,
+            env=env,
+            id=id,
+            if_=if_,
+            name=name,
+            shell=shell,
+            working_directory=working_directory,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "insertStepBefore", [job_id, reference_step_id, step]))
 
     @jsii.member(jsii_name="on")
     def on(
@@ -5440,6 +5629,74 @@ class GithubWorkflow(
 
         return typing.cast(None, jsii.invoke(self, "on", [events]))
 
+    @jsii.member(jsii_name="patchStep")
+    def patch_step(
+        self,
+        job_id: builtins.str,
+        step_id: builtins.str,
+        *,
+        run: typing.Optional[builtins.str] = None,
+        uses: typing.Optional[builtins.str] = None,
+        with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        continue_on_error: typing.Optional[builtins.bool] = None,
+        timeout_minutes: typing.Optional[jsii.Number] = None,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        if_: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
+        working_directory: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Applies a surgical modification to an existing step.
+
+        The provided patch is shallow-merged onto the existing step. Fields not
+        present in the patch are preserved unchanged. Use ``getStep`` to read the
+        current step values before constructing the patch.
+
+        :param job_id: The job name (unique within the workflow).
+        :param step_id: The ID of the step to patch.
+        :param run: (experimental) Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
+        :param uses: (experimental) Selects an action to run as part of a step in your job. An action is a reusable unit of code. You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image.
+        :param with_: (experimental) A map of the input parameters defined by the action. Each input parameter is a key/value pair. Input parameters are set as environment variables. The variable is prefixed with INPUT_ and converted to upper case.
+        :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
+        :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
+        :param env: (experimental) Sets environment variables for steps to use in the runner environment. You can also set environment variables for the entire workflow or a job.
+        :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
+        :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
+        :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
+        :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
+
+        :stability: experimental
+
+        Example::
+
+            // Add an env var without replacing existing ones:
+            const step = workflow.getStep("build", "install");
+            workflow.patchStep("build", "install", {
+              env: { ...step.env, NODE_AUTH_TOKEN: "${{ steps.jfrog.outputs.oidc-token }}" },
+            });
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6129b91aa6568d6255d3afc17889aca4acec2c8f8e39ca1a835d0b052a76ad24)
+            check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
+            check_type(argname="argument step_id", value=step_id, expected_type=type_hints["step_id"])
+        patch = _JobStep_c3287c05(
+            run=run,
+            uses=uses,
+            with_=with_,
+            continue_on_error=continue_on_error,
+            timeout_minutes=timeout_minutes,
+            env=env,
+            id=id,
+            if_=if_,
+            name=name,
+            shell=shell,
+            working_directory=working_directory,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "patchStep", [job_id, step_id, patch]))
+
     @jsii.member(jsii_name="removeJob")
     def remove_job(self, id: builtins.str) -> None:
         '''(experimental) Removes a single job to the workflow.
@@ -5452,6 +5709,77 @@ class GithubWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__d6238e02d0487983eac268e7d911b4e6700414a64c33fafe83136f926e10e255)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast(None, jsii.invoke(self, "removeJob", [id]))
+
+    @jsii.member(jsii_name="removeStep")
+    def remove_step(self, job_id: builtins.str, step_id: builtins.str) -> None:
+        '''(experimental) Removes a step from a job by step ID.
+
+        :param job_id: The job name (unique within the workflow).
+        :param step_id: The ID of the step to remove.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fabaeab4a16e99bd6827b8ca47f7de5c9162cb4b06d574177a36e7bd6f29e62c)
+            check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
+            check_type(argname="argument step_id", value=step_id, expected_type=type_hints["step_id"])
+        return typing.cast(None, jsii.invoke(self, "removeStep", [job_id, step_id]))
+
+    @jsii.member(jsii_name="replaceStep")
+    def replace_step(
+        self,
+        job_id: builtins.str,
+        step_id: builtins.str,
+        *,
+        run: typing.Optional[builtins.str] = None,
+        uses: typing.Optional[builtins.str] = None,
+        with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        continue_on_error: typing.Optional[builtins.bool] = None,
+        timeout_minutes: typing.Optional[jsii.Number] = None,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        if_: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        shell: typing.Optional[builtins.str] = None,
+        working_directory: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Replaces an existing step in a job, preserving its position.
+
+        :param job_id: The job name (unique within the workflow).
+        :param step_id: The ID of the step to replace.
+        :param run: (experimental) Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
+        :param uses: (experimental) Selects an action to run as part of a step in your job. An action is a reusable unit of code. You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image.
+        :param with_: (experimental) A map of the input parameters defined by the action. Each input parameter is a key/value pair. Input parameters are set as environment variables. The variable is prefixed with INPUT_ and converted to upper case.
+        :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
+        :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
+        :param env: (experimental) Sets environment variables for steps to use in the runner environment. You can also set environment variables for the entire workflow or a job.
+        :param id: (experimental) A unique identifier for the step. You can use the id to reference the step in contexts.
+        :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
+        :param name: (experimental) A name for your step to display on GitHub.
+        :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
+        :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__594bb401fd1b92fb9e008e53dc73d7d77e660fe98c491aecc6996fffee383bb1)
+            check_type(argname="argument job_id", value=job_id, expected_type=type_hints["job_id"])
+            check_type(argname="argument step_id", value=step_id, expected_type=type_hints["step_id"])
+        replacement_step = _JobStep_c3287c05(
+            run=run,
+            uses=uses,
+            with_=with_,
+            continue_on_error=continue_on_error,
+            timeout_minutes=timeout_minutes,
+            env=env,
+            id=id,
+            if_=if_,
+            name=name,
+            shell=shell,
+            working_directory=working_directory,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "replaceStep", [job_id, step_id, replacement_step]))
 
     @jsii.member(jsii_name="updateJob")
     def update_job(
@@ -10686,14 +11014,122 @@ def _typecheckingstub__35b214ee606f61696719b92d704439e37a0a249e846714952fe087dd0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c2c1da253367f5ac8878af3a7061301a73b14e7ddab7d0bf125b384473df4b84(
+    job_id: builtins.str,
+    *,
+    run: typing.Optional[builtins.str] = None,
+    uses: typing.Optional[builtins.str] = None,
+    with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    continue_on_error: typing.Optional[builtins.bool] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    if_: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
+    working_directory: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f6eb2f09bb8f2d945c8f2826934c657ba552c34bd0514dcd4dfea5bae7172af5(
     id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__98ca96efd0e35c2a249c17c816c681f0586cde5056d99e7abf2fe2fbd6b65649(
+    job_id: builtins.str,
+    step_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad17047f6d44720906e0616128e61d58d605c2541a07f1f200dbf28e2c0a6b66(
+    job_id: builtins.str,
+    reference_step_id: builtins.str,
+    *,
+    run: typing.Optional[builtins.str] = None,
+    uses: typing.Optional[builtins.str] = None,
+    with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    continue_on_error: typing.Optional[builtins.bool] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    if_: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
+    working_directory: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a72fad6a72387bf7e8273ac5cdaf456177096c97bb4ca95c845eebd5b4f2d4d8(
+    job_id: builtins.str,
+    reference_step_id: builtins.str,
+    *,
+    run: typing.Optional[builtins.str] = None,
+    uses: typing.Optional[builtins.str] = None,
+    with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    continue_on_error: typing.Optional[builtins.bool] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    if_: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
+    working_directory: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6129b91aa6568d6255d3afc17889aca4acec2c8f8e39ca1a835d0b052a76ad24(
+    job_id: builtins.str,
+    step_id: builtins.str,
+    *,
+    run: typing.Optional[builtins.str] = None,
+    uses: typing.Optional[builtins.str] = None,
+    with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    continue_on_error: typing.Optional[builtins.bool] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    if_: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
+    working_directory: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d6238e02d0487983eac268e7d911b4e6700414a64c33fafe83136f926e10e255(
     id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fabaeab4a16e99bd6827b8ca47f7de5c9162cb4b06d574177a36e7bd6f29e62c(
+    job_id: builtins.str,
+    step_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__594bb401fd1b92fb9e008e53dc73d7d77e660fe98c491aecc6996fffee383bb1(
+    job_id: builtins.str,
+    step_id: builtins.str,
+    *,
+    run: typing.Optional[builtins.str] = None,
+    uses: typing.Optional[builtins.str] = None,
+    with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    continue_on_error: typing.Optional[builtins.bool] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    if_: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    shell: typing.Optional[builtins.str] = None,
+    working_directory: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

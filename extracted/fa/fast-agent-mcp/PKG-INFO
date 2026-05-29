@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fast-agent-mcp
-Version: 0.7.12
+Version: 0.7.13
 Summary: Define, Prompt and Test MCP enabled Agents and Workflows
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
@@ -221,21 +221,21 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: <3.15,>=3.13.5
 Requires-Dist: a2a-sdk==1.0.3
-Requires-Dist: agent-client-protocol==0.10.0
+Requires-Dist: agent-client-protocol==0.10.1
 Requires-Dist: aiohttp==3.13.5
-Requires-Dist: anthropic[vertex]==0.102.0
+Requires-Dist: anthropic[vertex]==0.104.1
 Requires-Dist: deprecated==1.3.1
 Requires-Dist: email-validator==2.2.0
-Requires-Dist: fastapi==0.136.1
+Requires-Dist: fastapi==0.136.3
 Requires-Dist: fastmcp==3.3.1
-Requires-Dist: google-genai==2.4.0
+Requires-Dist: google-genai==2.6.0
 Requires-Dist: huggingface-hub==1.15.0
 Requires-Dist: jsonschema==4.26.0
 Requires-Dist: keyring==25.7.0
 Requires-Dist: mcp==1.27.1
 Requires-Dist: mslex==1.3.0
 Requires-Dist: multilspy==0.0.15
-Requires-Dist: openai[aiohttp]==2.36.0
+Requires-Dist: openai[aiohttp]==2.38.0
 Requires-Dist: opentelemetry-distro==0.60b1
 Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.39.1
 Requires-Dist: opentelemetry-instrumentation-anthropic==0.52.1; python_version >= '3.10' and python_version < '4.0'
@@ -251,6 +251,7 @@ Requires-Dist: python-frontmatter==1.1.0
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: rich==15.0.0
 Requires-Dist: ruamel-yaml==0.19.1
+Requires-Dist: starlette==1.0.1
 Requires-Dist: textual-image>=0.12.0
 Requires-Dist: tiktoken==0.13.0
 Requires-Dist: typer==0.25.1

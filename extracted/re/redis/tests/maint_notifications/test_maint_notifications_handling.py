@@ -7,6 +7,7 @@ import pytest
 from time import sleep
 
 from redis import Redis
+from redis._defaults import DEFAULT_SOCKET_CONNECT_TIMEOUT, DEFAULT_SOCKET_TIMEOUT
 from redis.cache import CacheConfig
 from redis.connection import (
     AbstractConnection,
@@ -56,12 +57,12 @@ class Helpers:
         expected_state=MaintenanceState.NONE,
         expected_should_reconnect: Union[bool, str] = True,
         expected_host_address=DEFAULT_ADDRESS.split(":")[0],
-        expected_socket_timeout=None,
-        expected_socket_connect_timeout=None,
+        expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+        expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
         expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-        expected_orig_socket_timeout=None,
-        expected_orig_socket_connect_timeout=None,
-        expected_current_socket_timeout=None,
+        expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+        expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
+        expected_current_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
         expected_current_peername=DEFAULT_ADDRESS.split(":")[0],
     ):
         """Helper method to validate state of in-use connections."""
@@ -96,11 +97,11 @@ class Helpers:
         tmp_address=AFTER_MOVING_ADDRESS.split(":")[0],
         expected_state=MaintenanceState.MOVING,
         expected_host_address=DEFAULT_ADDRESS.split(":")[0],
-        expected_socket_timeout=None,
-        expected_socket_connect_timeout=None,
+        expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+        expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
         expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-        expected_orig_socket_timeout=None,
-        expected_orig_socket_connect_timeout=None,
+        expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+        expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
     ):
         """Helper method to validate state of free/available connections."""
 
@@ -466,6 +467,7 @@ class TestMaintenanceNotificationsBase:
         return test_redis_client
 
 
+@pytest.mark.fixed_client
 class TestMaintenanceNotificationsHandshake(TestMaintenanceNotificationsBase):
     """Integration tests for maintenance notifications handling with real connection pool."""
 
@@ -530,6 +532,7 @@ class TestMaintenanceNotificationsHandshake(TestMaintenanceNotificationsBase):
             test_redis_client.close()
 
 
+@pytest.mark.fixed_client
 class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificationsBase):
     """Integration tests for maintenance notifications handling with real connection pool."""
 
@@ -619,7 +622,7 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
 
         assert conn.should_reconnect() is False
         assert conn.orig_host_address == "localhost"
-        assert conn.orig_socket_timeout is None
+        assert conn.orig_socket_timeout == DEFAULT_SOCKET_TIMEOUT
 
         self._validate_connection_handlers(conn, pool_handler, self.config)
 
@@ -849,7 +852,7 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             assert result5 is True, "Command 5 (SET key_receive_migrated) failed"
 
             # Step 8: Validate socket timeout is reversed back to original after MIGRATED
-            self._validate_current_timeout(None)
+            self._validate_current_timeout(DEFAULT_SOCKET_TIMEOUT)
 
             # Verify maintenance notifications were processed correctly
             # The key is that we have at least 1 socket and all operations succeeded
@@ -902,8 +905,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             assert result2 is True, "Command 2 (SET key_receive_migrating) failed"
 
             # Validate timeout was NOT updated (relaxed is disabled)
-            # Should remain at default timeout (None), not relaxed to 30s
-            self._validate_current_timeout(None)
+            # Should remain at the default timeout, not relaxed to 30s
+            self._validate_current_timeout(DEFAULT_SOCKET_TIMEOUT)
 
             # Command 3: Another command to verify timeout remains unchanged
             result3 = test_redis_client.get(key1)
@@ -923,7 +926,7 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             assert result4 is True, "Command 4 (SET key_receive_migrated) failed"
 
             # Validate timeout is still NOT updated after MIGRATED (relaxed is disabled)
-            self._validate_current_timeout(None)
+            self._validate_current_timeout(DEFAULT_SOCKET_TIMEOUT)
 
             # Command 5: This SET command will receive FAILING_OVER push message before response
             key_failing_over = "key_receive_failing_over"
@@ -934,7 +937,7 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             assert result5 is True, "Command 5 (SET key_receive_failing_over) failed"
 
             # Validate timeout is still NOT updated after FAILING_OVER (relaxed is disabled)
-            self._validate_current_timeout(None)
+            self._validate_current_timeout(DEFAULT_SOCKET_TIMEOUT)
 
             # Command 6: Another command to verify timeout remains unchanged during failover
             result6 = test_redis_client.get(key_failing_over)
@@ -954,7 +957,7 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             assert result7 is True, "Command 7 (SET key_receive_failed_over) failed"
 
             # Validate timeout is still NOT updated after FAILED_OVER (relaxed is disabled)
-            self._validate_current_timeout(None)
+            self._validate_current_timeout(DEFAULT_SOCKET_TIMEOUT)
 
             # Command 8: Final command to verify timeout remains unchanged after all notifications
             result8 = test_redis_client.get(key_failed_over)
@@ -1047,7 +1050,7 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             assert result5 is True, "Command 5 (SET key_receive_failed_over) failed"
 
             # Step 8: Validate socket timeout is reversed back to original after FAILED_OVER
-            self._validate_current_timeout(None)
+            self._validate_current_timeout(DEFAULT_SOCKET_TIMEOUT)
 
             # Verify maintenance notifications were processed correctly
             # The key is that we have at least 1 socket and all operations succeeded
@@ -1116,8 +1119,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             )
             self._validate_disconnected(5)
             self._validate_connected(6)
@@ -1128,8 +1131,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_current_socket_timeout=self.config.relaxed_timeout,
                 expected_current_peername=DEFAULT_ADDRESS.split(":")[
                     0
@@ -1142,8 +1145,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 should_be_connected_count=1,
                 connected_to_tmp_address=True,
             )
@@ -1154,12 +1157,12 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 in_use_connections,
                 expected_state=MaintenanceState.NONE,
                 expected_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_socket_timeout=None,
-                expected_socket_connect_timeout=None,
+                expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
-                expected_current_socket_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
+                expected_current_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
                 expected_current_peername=DEFAULT_ADDRESS.split(":")[0],
             )
             Helpers.validate_conn_kwargs(
@@ -1168,20 +1171,20 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_maintenance_notification_hash=None,
                 expected_host_address=DEFAULT_ADDRESS.split(":")[0],
                 expected_port=int(DEFAULT_ADDRESS.split(":")[1]),
-                expected_socket_timeout=None,
-                expected_socket_connect_timeout=None,
+                expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             )
             Helpers.validate_free_connections_state(
                 pool=test_redis_client.connection_pool,
                 expected_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_socket_timeout=None,
-                expected_socket_connect_timeout=None,
+                expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 should_be_connected_count=1,
                 connected_to_tmp_address=True,
                 expected_state=MaintenanceState.NONE,
@@ -1247,8 +1250,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             )
             self._validate_disconnected(0)
             self._validate_connected(10)
@@ -1260,8 +1263,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_current_socket_timeout=self.config.relaxed_timeout,
                 expected_current_peername=DEFAULT_ADDRESS.split(":")[
                     0
@@ -1274,8 +1277,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 should_be_connected_count=5,
                 connected_to_tmp_address=False,
             )
@@ -1289,8 +1292,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_current_socket_timeout=self.config.relaxed_timeout,
                 expected_current_peername=DEFAULT_ADDRESS.split(":")[
                     0
@@ -1305,12 +1308,12 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 in_use_connections,
                 expected_state=MaintenanceState.NONE,
                 expected_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_socket_timeout=None,
-                expected_socket_connect_timeout=None,
+                expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
-                expected_current_socket_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
+                expected_current_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
                 expected_current_peername=DEFAULT_ADDRESS.split(":")[0],
             )
             Helpers.validate_conn_kwargs(
@@ -1319,20 +1322,20 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_maintenance_notification_hash=None,
                 expected_host_address=DEFAULT_ADDRESS.split(":")[0],
                 expected_port=int(DEFAULT_ADDRESS.split(":")[1]),
-                expected_socket_timeout=None,
-                expected_socket_connect_timeout=None,
+                expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             )
             Helpers.validate_free_connections_state(
                 pool=test_redis_client.connection_pool,
                 expected_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_socket_timeout=None,
-                expected_socket_connect_timeout=None,
+                expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 should_be_connected_count=0,
                 connected_to_tmp_address=True,
                 expected_state=MaintenanceState.NONE,
@@ -1388,8 +1391,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_maintenance_notification_hash=hash(MOVING_NOTIFICATION),
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
                 expected_port=int(DEFAULT_ADDRESS.split(":")[1]),
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_host_address=AFTER_MOVING_ADDRESS.split(":")[0],
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
@@ -1474,12 +1477,11 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
 
             # Validate that new connections are created with original address (no temporary settings)
             assert new_connection.orig_host_address == DEFAULT_ADDRESS.split(":")[0]
-            assert new_connection.orig_socket_timeout is None
+            assert new_connection.orig_socket_timeout == DEFAULT_SOCKET_TIMEOUT
             # New connections should be connected to the original address
             assert new_connection._get_socket() is not None
             assert new_connection._get_socket().connected is True
-            # Socket timeout should be None (original timeout)
-            assert new_connection._get_socket().gettimeout() is None
+            assert new_connection._get_socket().gettimeout() == DEFAULT_SOCKET_TIMEOUT
 
         finally:
             if hasattr(test_redis_client.connection_pool, "disconnect"):
@@ -1536,8 +1538,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_maintenance_notification_hash=hash(MOVING_NOTIFICATION),
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
                 expected_port=int(DEFAULT_ADDRESS.split(":")[1]),
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_host_address=AFTER_MOVING_ADDRESS.split(":")[0],
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
@@ -1564,8 +1566,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_maintenance_notification_hash=hash(MOVING_NOTIFICATION),
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
                 expected_port=int(DEFAULT_ADDRESS.split(":")[1]),
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_host_address=AFTER_MOVING_ADDRESS.split(":")[0],
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
@@ -1638,8 +1640,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             )
             # Validate all connections reflect the first MOVING notification
             Helpers.validate_in_use_connections_state(
@@ -1649,8 +1651,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_current_socket_timeout=self.config.relaxed_timeout,
                 expected_current_peername=DEFAULT_ADDRESS.split(":")[0],
             )
@@ -1663,8 +1665,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_socket_timeout=self.config.relaxed_timeout,
                 expected_socket_connect_timeout=self.config.relaxed_timeout,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             )
             # Reconnect in use connections
             for conn in in_use_connections:
@@ -1699,8 +1701,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                     expected_socket_timeout=self.config.relaxed_timeout,
                     expected_socket_connect_timeout=self.config.relaxed_timeout,
                     expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                    expected_orig_socket_timeout=None,
-                    expected_orig_socket_connect_timeout=None,
+                    expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                    expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 )
                 # Validate all connections reflect the second MOVING notification
                 Helpers.validate_in_use_connections_state(
@@ -1710,8 +1712,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                     expected_socket_timeout=self.config.relaxed_timeout,
                     expected_socket_connect_timeout=self.config.relaxed_timeout,
                     expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                    expected_orig_socket_timeout=None,
-                    expected_orig_socket_connect_timeout=None,
+                    expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                    expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                     expected_current_socket_timeout=self.config.relaxed_timeout,
                     expected_current_peername=orig_after_moving.split(":")[0],
                 )
@@ -1725,8 +1727,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                     expected_socket_timeout=self.config.relaxed_timeout,
                     expected_socket_connect_timeout=self.config.relaxed_timeout,
                     expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                    expected_orig_socket_timeout=None,
-                    expected_orig_socket_connect_timeout=None,
+                    expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                    expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 )
             finally:
                 AFTER_MOVING_ADDRESS = orig_after_moving
@@ -1739,11 +1741,11 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
                 expected_maintenance_notification_hash=None,
                 expected_host_address=DEFAULT_ADDRESS.split(":")[0],
                 expected_port=int(DEFAULT_ADDRESS.split(":")[1]),
-                expected_socket_timeout=None,
-                expected_socket_connect_timeout=None,
+                expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
                 expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-                expected_orig_socket_timeout=None,
-                expected_orig_socket_connect_timeout=None,
+                expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+                expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             )
         finally:
             if hasattr(test_redis_client.connection_pool, "disconnect"):
@@ -1787,8 +1789,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             expected_socket_timeout=self.config.relaxed_timeout,
             expected_socket_connect_timeout=self.config.relaxed_timeout,
             expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
         )
 
         if hasattr(test_redis_client.connection_pool, "disconnect"):
@@ -1850,8 +1852,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             expected_socket_timeout=self.config.relaxed_timeout,
             expected_socket_connect_timeout=self.config.relaxed_timeout,
             expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_current_socket_timeout=self.config.relaxed_timeout,
             expected_current_peername=DEFAULT_ADDRESS.split(":")[0],
         )
@@ -1864,8 +1866,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             expected_socket_timeout=self.config.relaxed_timeout,
             expected_socket_connect_timeout=self.config.relaxed_timeout,
             expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
         )
 
         # 2. MIGRATING notification (simulate direct connection handler call)
@@ -1880,8 +1882,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             expected_socket_timeout=self.config.relaxed_timeout,
             expected_socket_connect_timeout=self.config.relaxed_timeout,
             expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_current_socket_timeout=self.config.relaxed_timeout,
             expected_current_peername=DEFAULT_ADDRESS.split(":")[0],
         )
@@ -1899,8 +1901,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             expected_socket_timeout=self.config.relaxed_timeout,
             expected_socket_connect_timeout=self.config.relaxed_timeout,
             expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_current_socket_timeout=self.config.relaxed_timeout,
             expected_current_peername=DEFAULT_ADDRESS.split(":")[0],
         )
@@ -1918,8 +1920,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             expected_socket_timeout=self.config.relaxed_timeout,
             expected_socket_connect_timeout=self.config.relaxed_timeout,
             expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_current_socket_timeout=self.config.relaxed_timeout,
             expected_current_peername=DEFAULT_ADDRESS.split(":")[0],
         )
@@ -1937,8 +1939,8 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             expected_socket_timeout=self.config.relaxed_timeout,
             expected_socket_connect_timeout=self.config.relaxed_timeout,
             expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_current_socket_timeout=self.config.relaxed_timeout,
             expected_current_peername=DEFAULT_ADDRESS.split(":")[0],
         )
@@ -1949,12 +1951,12 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             in_use_connections,
             expected_state=MaintenanceState.NONE,
             expected_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_socket_timeout=None,
-            expected_socket_connect_timeout=None,
+            expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
-            expected_current_socket_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
+            expected_current_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
             expected_current_peername=DEFAULT_ADDRESS.split(":")[0],
         )
         Helpers.validate_free_connections_state(
@@ -1963,11 +1965,11 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             connected_to_tmp_address=False,
             expected_state=MaintenanceState.NONE,
             expected_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_socket_timeout=None,
-            expected_socket_connect_timeout=None,
+            expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_orig_host_address=DEFAULT_ADDRESS.split(":")[0],
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
         )
         # New connection after MOVED
         new_conn_none = pool.get_connection()
@@ -1980,6 +1982,7 @@ class TestMaintenanceNotificationsHandlingSingleProxy(TestMaintenanceNotificatio
             pool.disconnect()
 
 
+@pytest.mark.fixed_client
 class TestMaintenanceNotificationsHandlingMultipleProxies(
     TestMaintenanceNotificationsBase
 ):
@@ -2069,8 +2072,8 @@ class TestMaintenanceNotificationsHandlingMultipleProxies(
             expected_socket_timeout=self.config.relaxed_timeout,
             expected_socket_connect_timeout=self.config.relaxed_timeout,
             expected_orig_host_address=self.orig_host,
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_current_socket_timeout=self.config.relaxed_timeout,
             expected_current_peername=key1,
         )
@@ -2086,16 +2089,20 @@ class TestMaintenanceNotificationsHandlingMultipleProxies(
                 assert conn.socket_timeout == self.config.relaxed_timeout
                 assert conn.socket_connect_timeout == self.config.relaxed_timeout
                 assert conn.orig_host_address == self.orig_host
-                assert conn.orig_socket_timeout is None
-                assert conn.orig_socket_connect_timeout is None
+                assert conn.orig_socket_timeout == DEFAULT_SOCKET_TIMEOUT
+                assert (
+                    conn.orig_socket_connect_timeout == DEFAULT_SOCKET_CONNECT_TIMEOUT
+                )
             else:
                 assert conn.maintenance_state == MaintenanceState.NONE
                 assert conn.host == self.orig_host
-                assert conn.socket_timeout is None
-                assert conn.socket_connect_timeout is None
+                assert conn.socket_timeout == DEFAULT_SOCKET_TIMEOUT
+                assert conn.socket_connect_timeout == DEFAULT_SOCKET_CONNECT_TIMEOUT
                 assert conn.orig_host_address == self.orig_host
-                assert conn.orig_socket_timeout is None
-                assert conn.orig_socket_connect_timeout is None
+                assert conn.orig_socket_timeout == DEFAULT_SOCKET_TIMEOUT
+                assert (
+                    conn.orig_socket_connect_timeout == DEFAULT_SOCKET_CONNECT_TIMEOUT
+                )
         assert changed_free_connections == 2
         assert len(free_connections) == 4
 
@@ -2117,8 +2124,8 @@ class TestMaintenanceNotificationsHandlingMultipleProxies(
             expected_socket_timeout=self.config.relaxed_timeout,
             expected_socket_connect_timeout=self.config.relaxed_timeout,
             expected_orig_host_address=self.orig_host,
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_current_socket_timeout=self.config.relaxed_timeout,
             expected_current_peername=key2,
         )
@@ -2134,8 +2141,10 @@ class TestMaintenanceNotificationsHandlingMultipleProxies(
                 assert conn.socket_timeout == self.config.relaxed_timeout
                 assert conn.socket_connect_timeout == self.config.relaxed_timeout
                 assert conn.orig_host_address == self.orig_host
-                assert conn.orig_socket_timeout is None
-                assert conn.orig_socket_connect_timeout is None
+                assert conn.orig_socket_timeout == DEFAULT_SOCKET_TIMEOUT
+                assert (
+                    conn.orig_socket_connect_timeout == DEFAULT_SOCKET_CONNECT_TIMEOUT
+                )
             # here I can't validate the other connections since some of
             # them are in MOVING state from the first notification
             # and some are in NONE state
@@ -2170,7 +2179,7 @@ class TestMaintenanceNotificationsHandlingMultipleProxies(
         conn_notification_handler.handle_notification(NodeMigratedNotification(id=3))
         # validate connection is in MOVING state
         assert conn.maintenance_state == MaintenanceState.NONE
-        assert conn.socket_timeout is None
+        assert conn.socket_timeout == DEFAULT_SOCKET_TIMEOUT
 
         # sleep to expire only the first MOVING notifications
         sleep(1.3)
@@ -2180,12 +2189,12 @@ class TestMaintenanceNotificationsHandlingMultipleProxies(
             in_use_connections[key1],
             expected_state=MaintenanceState.NONE,
             expected_host_address=self.orig_host,
-            expected_socket_timeout=None,
-            expected_socket_connect_timeout=None,
+            expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_orig_host_address=self.orig_host,
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
-            expected_current_socket_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
+            expected_current_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
             expected_current_peername=key1,
         )
         Helpers.validate_in_use_connections_state(
@@ -2195,8 +2204,8 @@ class TestMaintenanceNotificationsHandlingMultipleProxies(
             expected_socket_timeout=self.config.relaxed_timeout,
             expected_socket_connect_timeout=self.config.relaxed_timeout,
             expected_orig_host_address=self.orig_host,
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_current_socket_timeout=self.config.relaxed_timeout,
             expected_current_peername=key2,
         )
@@ -2205,12 +2214,12 @@ class TestMaintenanceNotificationsHandlingMultipleProxies(
             expected_state=MaintenanceState.NONE,
             expected_should_reconnect=False,
             expected_host_address=self.orig_host,
-            expected_socket_timeout=None,
-            expected_socket_connect_timeout=None,
+            expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_orig_host_address=self.orig_host,
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
-            expected_current_socket_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
+            expected_current_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
             expected_current_peername=key3,
         )
         # TODO validate free connections
@@ -2227,12 +2236,12 @@ class TestMaintenanceNotificationsHandlingMultipleProxies(
             expected_state=MaintenanceState.NONE,
             expected_should_reconnect="any",
             expected_host_address=self.orig_host,
-            expected_socket_timeout=None,
-            expected_socket_connect_timeout=None,
+            expected_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
             expected_orig_host_address=self.orig_host,
-            expected_orig_socket_timeout=None,
-            expected_orig_socket_connect_timeout=None,
-            expected_current_socket_timeout=None,
+            expected_orig_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
+            expected_orig_socket_connect_timeout=DEFAULT_SOCKET_CONNECT_TIMEOUT,
+            expected_current_socket_timeout=DEFAULT_SOCKET_TIMEOUT,
             expected_current_peername="any",
         )
         # TODO validate free connections

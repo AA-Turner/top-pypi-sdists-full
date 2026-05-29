@@ -94,6 +94,9 @@ from finbourne_horizon.models.processor_schema_response import ProcessorSchemaRe
 from finbourne_horizon.models.property_mapping import PropertyMapping
 from finbourne_horizon.models.query_request import QueryRequest
 from finbourne_horizon.models.query_specification import QuerySpecification
+from finbourne_horizon.models.replay_options import ReplayOptions
+from finbourne_horizon.models.replay_transactions_request import ReplayTransactionsRequest
+from finbourne_horizon.models.replay_transactions_response import ReplayTransactionsResponse
 from finbourne_horizon.models.resource_id import ResourceId
 from finbourne_horizon.models.row_details import RowDetails
 from finbourne_horizon.models.run_file_response import RunFileResponse
@@ -191,6 +194,9 @@ __all__ = [
     "PropertyMapping",
     "QueryRequest",
     "QuerySpecification",
+    "ReplayOptions",
+    "ReplayTransactionsRequest",
+    "ReplayTransactionsResponse",
     "ResourceId",
     "RowDetails",
     "RunFileResponse",

@@ -20,7 +20,7 @@ from ..utils.mail import MailMessage
 from ..utils import check_empty
 from ..parsers.maps import open_map, open_model
 from ..conf import TASK_PATH, DEFAULT_ENCODING
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..utils.constants import excel_based
 
 

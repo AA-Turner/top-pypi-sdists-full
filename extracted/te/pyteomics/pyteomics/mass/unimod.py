@@ -26,6 +26,8 @@ This module requires :py:mod:`lxml` and :py:mod:`sqlalchemy`.
 #   limitations under the License.
 
 import re
+import warnings
+from urllib.request import urlopen
 
 from lxml import etree
 try:
@@ -41,6 +43,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from . import mass
+from ..auxiliary import ensure_url_prefix
 
 model_registry = set()
 
@@ -57,12 +60,6 @@ Base = declarative_base(metaclass=SubclassRegisteringDeclarativeMeta)
 
 _unimod_xml_download_url = 'http://www.unimod.org/xml/unimod_tables.xml'
 
-try:
-    basestring
-except:
-    basestring = (str, bytes)
-
-
 CompositionType = mass.Composition
 
 
@@ -71,12 +68,13 @@ def simple_repr(self):  # pragma: no cover
     d = {'%s=%r' % (k, v) for k, v in self.__dict__.items() if not k.startswith('_')}
     return template.format(self=self, d=', '.join(d))
 
+
 Base.__repr__ = simple_repr
 
 
 def remove_namespace(doc, namespace):
     """Remove namespace in the passed document in place."""
-    ns = u'{%s}' % namespace
+    ns = f'{{{namespace}}}'
     nsl = len(ns)
     for elem in doc.getiterator():
         if elem.tag.startswith(ns):
@@ -95,7 +93,8 @@ def preprocess_xml(doc_path):
     -------
     out : etree.ElementTree
     """
-    tree = etree.parse(doc_path)
+    urlpath = ensure_url_prefix(doc_path)
+    tree = etree.parse(urlopen(urlpath))
     root = tree.getroot()
     for ns in root.nsmap.values():
         remove_namespace(tree, ns)
@@ -213,7 +212,7 @@ class AlternativeName(Base):
         return inst
 
     id = Column(Integer, primary_key=True)
-    alt_name = Column(Unicode(256), index=True)
+    alt_name = Column(UnicodeText, index=True)
     modification_id = Column(Integer, ForeignKey('Modification.id'), index=True)
 
 
@@ -245,7 +244,7 @@ class AminoAcid(Base, HasFullNameMixin):
     num_N = Column(Integer)
     num_S = Column(Integer)
     full_name = Column(Unicode(25), index=True)
-    one_letter = Column(Unicode(10), index=True)
+    one_letter = Column(Unicode(10), index=True, unique=True)
     three_letter = Column(Unicode(10), index=True)
 
 
@@ -301,8 +300,8 @@ class Brick(Base, HasFullNameMixin):
         return inst
 
     id = Column(Integer, primary_key=True)
-    brick = Column(Unicode(64), index=True)
-    full_name = Column(Unicode(128), index=True)
+    brick = Column(Unicode(64), index=True, unique=True)
+    full_name = Column(UnicodeText, index=True)
 
     elements = relationship('BrickToElement')
 
@@ -453,8 +452,8 @@ class Element(Base, HasFullNameMixin):
     id = Column(Integer, primary_key=True)
     average_mass = Column(Numeric(12, 6, asdecimal=False))
     monoisotopic_mass = Column(Numeric(12, 6, asdecimal=False))
-    full_name = Column(Unicode(64), index=True)
-    element = Column(Unicode(16), index=True)
+    full_name = Column(UnicodeText, index=True)
+    element = Column(Unicode(16), index=True, unique=True)
 
 
 @has_composition('_composition')
@@ -464,13 +463,13 @@ class Modification(Base, HasFullNameMixin):
     _tag_name = 'modifications_row'
 
     id = Column(Integer, primary_key=True)
-    username_of_poster = Column(Unicode(128))
+    username_of_poster = Column(UnicodeText)
     average_mass = Column(Numeric(12, 6, asdecimal=False), index=True)
-    ex_code_name = Column(Unicode(64), index=True)
+    ex_code_name = Column(UnicodeText, index=True)
     monoisotopic_mass = Column(Numeric(12, 6, asdecimal=False), index=True)
-    full_name = Column(Unicode(128), index=True)
-    code_name = Column(Unicode(128), index=True)
-    _composition = Column(Unicode(128), index=True)
+    full_name = Column(UnicodeText, index=True)
+    code_name = Column(UnicodeText, index=True)
+    _composition = Column(UnicodeText, index=True)
     approved = Column(Boolean, index=True)
 
     notes = relationship('MiscNotesModifications')
@@ -536,7 +535,7 @@ class Specificity(Base):
     modification_id = Column(Integer, ForeignKey(Modification.id), index=True)
     hidden = Column(Boolean, index=True)
     group = Column(Integer, index=True)
-    neutral_losses = relationship('SpecificityToNeutralLoss')
+    neutral_losses = relationship('SpecificityToNeutralLoss', back_populates='specificity')
 
     @classmethod
     def from_tag(cls, tag):
@@ -569,7 +568,7 @@ class NeutralLoss(Base):
         return inst
 
     id = Column(Integer, primary_key=True)
-    brick_string = Column(Unicode(64), index=True)
+    brick_string = Column(UnicodeText, index=True)
     specificity_id = Column(Integer, ForeignKey(Specificity.id), index=True)
     count = Column(Integer)
 
@@ -597,10 +596,10 @@ class SpecificityToNeutralLoss(Base):
 
     id = Column(Integer, primary_key=True)
     specificity_id = Column(Integer, ForeignKey(Specificity.id), index=True)
-    specificity = relationship(Specificity, uselist=False)
+    specificity = relationship(Specificity, uselist=False, back_populates='neutral_losses')
     monoisotopic_mass = Column(Numeric(12, 6, asdecimal=False), index=True)
     average_mass = Column(Numeric(12, 6, asdecimal=False), index=True)
-    _composition = Column(Unicode(128))
+    _composition = Column(UnicodeText)
     is_slave = Column(Boolean, index=True)
     is_peptide_neutral_loss = Column(Boolean, index=True)
     is_required_peptide_neutral_loss = Column(Boolean, index=True)
@@ -630,7 +629,7 @@ class Crossreference(Base):
     id = Column(Integer, primary_key=True)
     source_id = Column(Integer, ForeignKey(CrossreferenceSource.id), index=True)
     source = relationship(CrossreferenceSource, uselist=False)
-    url = Column(Unicode(128))
+    url = Column(UnicodeText)
     modification_id = Column(Integer, ForeignKey(Modification.id), index=True)
     text = Column(UnicodeText)
 
@@ -662,12 +661,69 @@ def load(doc_path, output_path='sqlite://'):
     engine = create_engine(output_path)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, autoflush=False)()
-    for model in model_registry:
+    skipped_rows = 0
+    skip_stats = {}
+    skip_examples = []
+
+    for model in _iter_models_in_dependency_order():
         if hasattr(model, '_tag_name') and hasattr(model, 'from_tag'):
             for tag in tree.iterfind('.//' + model._tag_name):
-                session.add(model.from_tag(tag))
-        session.commit()
+                try:
+                    row = model.from_tag(tag)
+                    # Isolate each insert in a savepoint so one bad row does not
+                    # abort loading for the rest of the dataset.
+                    with session.begin_nested():
+                        session.add(row)
+                        session.flush()
+                except Exception as err:
+                    skipped_rows += 1
+                    key = (model.__name__, err.__class__.__name__)
+                    skip_stats[key] = skip_stats.get(key, 0) + 1
+                    if len(skip_examples) < 5:
+                        skip_examples.append(
+                            '{}(record_id={}): {}'.format(
+                                model.__name__, tag.attrib.get('record_id', '?'), err.__class__.__name__))
+                    continue
+    session.commit()
+    if skipped_rows:
+        details = ', '.join(
+            '{}:{}={}'.format(model_name, error_name, count)
+            for (model_name, error_name), count in sorted(skip_stats.items()))
+        message = (
+            'Skipped {} row(s) while loading Unimod into {}. '
+            'This indicates row-level data or constraint issues. '
+            'Summary [{}]. Examples [{}].'.format(
+                skipped_rows,
+                output_path,
+                details,
+                '; '.join(skip_examples)))
+        warnings.warn(message, RuntimeWarning)
     return session
+
+
+def _iter_models_in_dependency_order():
+    """Yield model classes ordered by table dependencies.
+
+    This avoids backend-specific foreign key constraint failures when loading
+    data into strict relational databases like PostgreSQL.
+    """
+    table_to_models = {}
+    for model in model_registry:
+        table = getattr(model, '__table__', None)
+        if table is not None:
+            table_to_models.setdefault(table.key, []).append(model)
+
+    yielded = set()
+    for table in Base.metadata.sorted_tables:
+        models = table_to_models.get(table.key, ())
+        for model in sorted(models, key=lambda inst: inst.__name__):
+            yielded.add(model)
+            yield model
+
+    # Include any models that are not attached to metadata ordering.
+    for model in sorted(model_registry, key=lambda inst: inst.__name__):
+        if model not in yielded and hasattr(model, '_tag_name') and hasattr(model, 'from_tag'):
+            yield model
 
 
 def session(path='sqlite:///unimod.db'):
@@ -720,7 +776,7 @@ class Unimod(object):
                 self.session = session(path)
                 if self.session.query(Modification).first() is None:
                     raise Exception()
-            except:
+            except Exception:
                 # Database may not yet exist at that location
                 self.session = load(_unimod_xml_download_url, path)
                 self.session.query(Modification).first()
@@ -743,11 +799,11 @@ class Unimod(object):
         out : Modification
         """
         if isinstance(identifier, int):
-            mod = self.session.query(Modification).get(identifier)
+            mod = self.session.get(Modification, identifier)
             if mod is None:
                 raise KeyError(identifier)
             return mod
-        elif isinstance(identifier, basestring):
+        elif isinstance(identifier, (str, bytes)):
             if strict:
                 mod = self.session.query(Modification).filter(
                     (Modification.full_name == identifier) |

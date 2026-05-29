@@ -1,5 +1,5 @@
 from ..utils import cPrint, SafeDict
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class Dummy(FlowComponent):

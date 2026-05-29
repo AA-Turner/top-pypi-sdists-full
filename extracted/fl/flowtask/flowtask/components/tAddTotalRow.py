@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import Callable
 import pandas as pd
 from ..exceptions import ComponentError, ConfigError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class tAddTotalRow(FlowComponent):

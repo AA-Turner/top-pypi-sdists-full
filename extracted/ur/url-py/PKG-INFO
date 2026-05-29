@@ -1,23 +1,23 @@
 Metadata-Version: 2.4
 Name: url-py
-Version: 0.21.1
+Version: 2026.5.1
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Rust
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 License-File: LICENSE
 Summary: Python bindings to Rust's url crate (from Servo)
 Keywords: data structures,rust,persistent
 Author-email: Julian Berman <Julian+url-py@GrayVines.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst; charset=UTF-8
 Project-URL: Documentation, https://url-py.readthedocs.io/
 Project-URL: Funding, https://github.com/sponsors/Julian

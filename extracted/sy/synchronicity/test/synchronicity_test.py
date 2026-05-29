@@ -3,11 +3,14 @@ import concurrent.futures
 import gc
 import inspect
 import logging
+import os
 import pytest
+import subprocess
 import sys
 import threading
 import time
 import typing
+from pathlib import Path
 from typing import Coroutine
 from unittest.mock import MagicMock
 
@@ -680,7 +683,6 @@ def test_blocking_in_async_callback():
 
 
 @pytest.mark.filterwarnings("ignore")
-@pytest.mark.skipif(sys.version_info >= (3, 14), reason="Test flakes on 3.14")
 def test_synchronizer_unexpected_thread_death(caplog):
     s = Synchronizer()
 
@@ -714,6 +716,18 @@ def test_synchronizer_unexpected_thread_death(caplog):
     assert "Traceback" in error_log.message
     assert "CustomError" in error_log.message
     s._close_loop()
+
+
+def test_synchronizer_exposes_names_in_debug_mode():
+    fn = Path(__file__).parent / "support" / "_blocking_func.py"
+
+    result = subprocess.run(
+        [sys.executable, fn],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONASYNCIODEBUG": "1"},
+    )
+    assert "my_custom_coro_name" in result.stderr
 
 
 def test_run_async_gen_runs_aclose(synchronizer):

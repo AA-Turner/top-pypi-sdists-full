@@ -941,7 +941,94 @@ class SAGEMessageBridge:
         #                          private-relay addresses)
         self._phone_contacts_cache: dict[str, dict] = {}
         self._email_contacts_cache: dict[str, dict] = {}
-        self._phone_cache_refreshed_at: float = 0.0
+        self._phone_cache_refreshed_at = 0.0
+        self._user_email = ""
+        self._user_phone = ""
+
+    def _get_verified_recipients(self) -> set[str]:
+        """Get all verified email addresses and phone numbers for the logged-in user."""
+        verified = set()
+        
+        # 1. Primary email & phone from WebSocket ready frame
+        if getattr(self, "_user_email", None):
+            verified.add(self._user_email.lower())
+        if getattr(self, "_user_phone", None):
+            norm = self._normalize_e164(self._user_phone)
+            if norm:
+                verified.add(norm)
+                digits = re.sub(r"\D", "", norm)
+                if len(digits) == 11 and digits.startswith("1"):
+                    digits = digits[1:]
+                verified.add(digits)
+                
+        # 2. Check cached credentials from auth file (best effort)
+        try:
+            from sage.core.cli_auth import load_auth
+            auth = load_auth()
+            if auth and auth.get("email"):
+                verified.add(auth["email"].lower().strip())
+        except Exception:
+            pass
+
+        # 3. Linked providers from backend
+        try:
+            be = SAGEBackend(self._token, self._api_base)
+            providers = be.get_linked_providers()
+            for p in providers:
+                email = (p.get("email") or "").lower().strip()
+                if email:
+                    verified.add(email)
+                phone = (p.get("phone_number") or "").strip()
+                if phone:
+                    norm = self._normalize_e164(phone)
+                    if norm:
+                        verified.add(norm)
+                        digits = re.sub(r"\D", "", norm)
+                        if len(digits) == 11 and digits.startswith("1"):
+                            digits = digits[1:]
+                        verified.add(digits)
+        except Exception as exc:
+            logger.debug("Failed to fetch linked providers for verification: %s", exc)
+
+        return verified
+
+    def _is_recipient_verified(self, recipient: str) -> bool:
+        """Verify if the recipient is an owned/verified identity of the current user."""
+        if not recipient:
+            return False
+        
+        recipient_clean = recipient.strip().lower()
+        
+        # Normalize phone if shaped like a phone number
+        e164 = self._normalize_e164(recipient_clean)
+        digits = re.sub(r"\D", "", recipient_clean)
+        if len(digits) == 11 and digits.startswith("1"):
+            digits = digits[1:]
+            
+        verified_set = self._get_verified_recipients()
+        
+        # Check direct email/phone matches
+        if recipient_clean in verified_set:
+            return True
+        if e164 and e164 in verified_set:
+            return True
+        if digits and digits in verified_set:
+            return True
+            
+        # Check carrier gateway addresses (e.g. 4085073140@vtext.com)
+        if "@" in recipient_clean:
+            local = recipient_clean.split("@")[0]
+            if local.isdigit():
+                norm_local = self._normalize_e164(local)
+                if norm_local in verified_set:
+                    return True
+                local_digits = re.sub(r"\D", "", local)
+                if len(local_digits) == 11 and local_digits.startswith("1"):
+                    local_digits = local_digits[1:]
+                if local_digits in verified_set:
+                    return True
+
+        return False
 
     def _log(self, msg: str) -> None:
         ts = time.strftime("%H:%M:%S")
@@ -1288,6 +1375,12 @@ class SAGEMessageBridge:
             contact = self._email_contacts_cache.get(sender.lower())
         if not contact:
             return  # unregistered sender; don't run sage on every random chat
+
+        # P0 Security Check: Sender must be a verified owned contact method of the current user.
+        # We reject inbound messages from other people to prevent cross-user command execution.
+        if not self._is_recipient_verified(sender):
+            self._log(f"🛡 Refusing inbound message from unverified sender: {sender}")
+            return
 
         device_type = (contact.get("device_type") or "").lower()
         target, task = self._parse_routing(text)
@@ -2080,6 +2173,10 @@ class SAGEMessageBridge:
         if not text:
             return False
 
+        if not self._is_recipient_verified(gateway_email):
+            self._log(f"🛡 Refusing native delivery: {gateway_email} is not a verified contact of this user.")
+            return False
+
         # Strip down for SMS-friendly length
         if len(text) > 280:
             text = self._summarize_for_sms(text, "")
@@ -2173,6 +2270,10 @@ class SAGEMessageBridge:
         if not phone or not text:
             return
 
+        if not self._is_recipient_verified(phone):
+            self._log(f"🛡 Refusing native message: {phone} is not a verified contact of this user.")
+            return
+
         digits = re.sub(r"\D", "", phone)
         phone_e164 = ""
         if len(digits) == 10:
@@ -2225,6 +2326,10 @@ class SAGEMessageBridge:
         text              = msg.get("text", "")
         device_type       = (msg.get("device_type") or "").lower()
         if not text:
+            return
+
+        if not self._is_recipient_verified(recipient_bounced):
+            self._log(f"🛡 Refusing native fallback: {recipient_bounced} is not a verified contact of this user.")
             return
 
         # Normalize phone number for KDE Connect
@@ -2284,6 +2389,10 @@ class SAGEMessageBridge:
         text         = (msg.get("text") or "").strip()
         computer_name = (msg.get("computer_name") or self.cfg.computer_name or "SAGE").strip()
         if not apple_email or not text:
+            return
+
+        if not self._is_recipient_verified(apple_email):
+            self._log(f"🛡 Refusing native iMessage to Apple ID: {apple_email} is not a verified contact of this user.")
             return
 
         body = f"[SAGE — {computer_name}] {text}"
@@ -2366,7 +2475,7 @@ class SAGEMessageBridge:
             if not isinstance(c, dict):
                 continue
             imsg_addr = (c.get("imessage_address") or "").strip()
-            if not imsg_addr or imsg_addr in sent_to:
+            if not imsg_addr or imsg_addr in sent_to or not self._is_recipient_verified(imsg_addr):
                 continue
             body = f"[SAGE — {computer_name}] {announce_text}"
             if _send_imessage(imsg_addr, body):
@@ -2380,7 +2489,7 @@ class SAGEMessageBridge:
             if not isinstance(c, dict):
                 continue
             email = (c.get("email") or "").lower().strip()
-            if not email or email in sent_to:
+            if not email or email in sent_to or not self._is_recipient_verified(email):
                 continue
             domain = email.split("@")[-1] if "@" in email else ""
             if domain not in self._APPLE_ID_DOMAINS:
@@ -2402,7 +2511,7 @@ class SAGEMessageBridge:
             if p.get("provider_id") != "apple.com":
                 continue
             email = (p.get("email") or "").lower().strip()
-            if not email or email in sent_to:
+            if not email or email in sent_to or not self._is_recipient_verified(email):
                 continue
             domain = email.split("@")[-1] if "@" in email else ""
             if domain in self._APPLE_ID_DOMAINS:
@@ -2500,6 +2609,8 @@ class SAGEMessageBridge:
                     continue
 
                 self._bridge_email = resp.get("display_email") or resp.get("bridge_email", "")
+                self._user_email = resp.get("user_email", "").lower().strip()
+                self._user_phone = resp.get("user_phone", "").strip()
                 reconnect_delay = 3
                 self._log(f"Connected. Users message: {self._bridge_email}")
 

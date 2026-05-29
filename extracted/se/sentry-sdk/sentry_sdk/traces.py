@@ -37,13 +37,13 @@ if TYPE_CHECKING:
         Callable,
         Iterator,
         Optional,
-        overload,
         ParamSpec,
         TypeVar,
         Union,
+        overload,
     )
 
-    from sentry_sdk._types import Attributes, AttributeValue
+    from sentry_sdk._types import Attributes, AttributeValue, SpanJSON
     from sentry_sdk.profiler.continuous_profiler import ContinuousProfile
 
     P = ParamSpec("P")
@@ -572,7 +572,38 @@ class StreamedSpan:
         if not self._is_segment():
             return
 
-        self.set_attribute("process.command_args", sys.argv)
+        client = sentry_sdk.get_client()
+
+        self.set_attribute(SPANDATA.SENTRY_PLATFORM, "python")
+        self.set_attribute(SPANDATA.PROCESS_COMMAND_ARGS, sys.argv)
+        self.set_attribute(
+            SPANDATA.SENTRY_SDK_INTEGRATIONS, sorted(client.integrations.keys())
+        )
+
+        if client.options.get("dist") and SPANDATA.SENTRY_DIST not in self._attributes:
+            self.set_attribute(
+                SPANDATA.SENTRY_DIST, str(client.options["dist"]).strip()
+            )
+
+    def _to_json(self) -> "SpanJSON":
+        res: "SpanJSON" = {
+            "trace_id": self.trace_id,
+            "span_id": self.span_id,
+            "name": self._name if self._name is not None else "<unlabeled span>",
+            "status": self._status,
+            "is_segment": self._is_segment(),
+            "start_timestamp": self._start_timestamp.timestamp(),
+        }
+
+        if self._end_timestamp:
+            res["end_timestamp"] = self._end_timestamp.timestamp()
+
+        if self._parent_span_id:
+            res["parent_span_id"] = self._parent_span_id
+
+        res["attributes"] = {k: v for k, v in self._attributes.items()}
+
+        return res
 
 
 class NoOpStreamedSpan(StreamedSpan):

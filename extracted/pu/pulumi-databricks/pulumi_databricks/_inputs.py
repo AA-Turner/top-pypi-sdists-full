@@ -35,8 +35,116 @@ __all__ = [
     'AccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgsDict',
     'AccountNetworkPolicyIngressArgs',
     'AccountNetworkPolicyIngressArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountApiArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountApiArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountUiArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountUiArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountApiArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountApiArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountUiArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountUiArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginArgsDict',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs',
+    'AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgsDict',
     'AccountNetworkPolicyIngressDryRunArgs',
     'AccountNetworkPolicyIngressDryRunArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountApiArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountApiArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountUiArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountUiArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountApiArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountApiArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountUiArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountUiArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginArgsDict',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs',
+    'AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgsDict',
     'AccountNetworkPolicyIngressDryRunPrivateAccessArgs',
     'AccountNetworkPolicyIngressDryRunPrivateAccessArgsDict',
     'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleArgs',
@@ -273,6 +381,8 @@ __all__ = [
     'AccountSettingV2AibiDashboardEmbeddingAccessPolicyArgsDict',
     'AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs',
     'AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgsDict',
+    'AccountSettingV2AllowedAppsUserApiScopesArgs',
+    'AccountSettingV2AllowedAppsUserApiScopesArgsDict',
     'AccountSettingV2AutomaticClusterUpdateWorkspaceArgs',
     'AccountSettingV2AutomaticClusterUpdateWorkspaceArgsDict',
     'AccountSettingV2AutomaticClusterUpdateWorkspaceEnablementDetailsArgs',
@@ -289,6 +399,8 @@ __all__ = [
     'AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict',
     'AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs',
     'AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgsDict',
+    'AccountSettingV2EffectiveAllowedAppsUserApiScopesArgs',
+    'AccountSettingV2EffectiveAllowedAppsUserApiScopesArgsDict',
     'AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs',
     'AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict',
     'AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceEnablementDetailsArgs',
@@ -303,6 +415,8 @@ __all__ = [
     'AccountSettingV2EffectiveBooleanValArgsDict',
     'AccountSettingV2EffectiveIntegerValArgs',
     'AccountSettingV2EffectiveIntegerValArgsDict',
+    'AccountSettingV2EffectiveOperationalEmailCustomRecipientArgs',
+    'AccountSettingV2EffectiveOperationalEmailCustomRecipientArgsDict',
     'AccountSettingV2EffectivePersonalComputeArgs',
     'AccountSettingV2EffectivePersonalComputeArgsDict',
     'AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs',
@@ -311,6 +425,8 @@ __all__ = [
     'AccountSettingV2EffectiveStringValArgsDict',
     'AccountSettingV2IntegerValArgs',
     'AccountSettingV2IntegerValArgsDict',
+    'AccountSettingV2OperationalEmailCustomRecipientArgs',
+    'AccountSettingV2OperationalEmailCustomRecipientArgsDict',
     'AccountSettingV2PersonalComputeArgs',
     'AccountSettingV2PersonalComputeArgsDict',
     'AccountSettingV2RestrictWorkspaceAdminsArgs',
@@ -775,6 +891,8 @@ __all__ = [
     'FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowArgsDict',
     'FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowContinuousArgs',
     'FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowContinuousArgsDict',
+    'FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowRollingArgs',
+    'FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowRollingArgsDict',
     'FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowSlidingArgs',
     'FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowSlidingArgsDict',
     'FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowTumblingArgs',
@@ -813,6 +931,8 @@ __all__ = [
     'FeatureEngineeringFeatureTimeWindowArgsDict',
     'FeatureEngineeringFeatureTimeWindowContinuousArgs',
     'FeatureEngineeringFeatureTimeWindowContinuousArgsDict',
+    'FeatureEngineeringFeatureTimeWindowRollingArgs',
+    'FeatureEngineeringFeatureTimeWindowRollingArgsDict',
     'FeatureEngineeringFeatureTimeWindowSlidingArgs',
     'FeatureEngineeringFeatureTimeWindowSlidingArgsDict',
     'FeatureEngineeringFeatureTimeWindowTumblingArgs',
@@ -821,6 +941,14 @@ __all__ = [
     'FeatureEngineeringFeatureTimeseriesColumnArgsDict',
     'FeatureEngineeringKafkaConfigAuthConfigArgs',
     'FeatureEngineeringKafkaConfigAuthConfigArgsDict',
+    'FeatureEngineeringKafkaConfigAuthConfigMtlsConfigArgs',
+    'FeatureEngineeringKafkaConfigAuthConfigMtlsConfigArgsDict',
+    'FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeyPasswordRefArgs',
+    'FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeyPasswordRefArgsDict',
+    'FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeystorePasswordRefArgs',
+    'FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeystorePasswordRefArgsDict',
+    'FeatureEngineeringKafkaConfigAuthConfigMtlsConfigTruststorePasswordRefArgs',
+    'FeatureEngineeringKafkaConfigAuthConfigMtlsConfigTruststorePasswordRefArgsDict',
     'FeatureEngineeringKafkaConfigBackfillSourceArgs',
     'FeatureEngineeringKafkaConfigBackfillSourceArgsDict',
     'FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgs',
@@ -833,12 +961,18 @@ __all__ = [
     'FeatureEngineeringKafkaConfigSubscriptionModeArgsDict',
     'FeatureEngineeringKafkaConfigValueSchemaArgs',
     'FeatureEngineeringKafkaConfigValueSchemaArgsDict',
+    'FeatureEngineeringMaterializedFeatureCronScheduleTriggerArgs',
+    'FeatureEngineeringMaterializedFeatureCronScheduleTriggerArgsDict',
     'FeatureEngineeringMaterializedFeatureOfflineStoreConfigArgs',
     'FeatureEngineeringMaterializedFeatureOfflineStoreConfigArgsDict',
     'FeatureEngineeringMaterializedFeatureOnlineStoreConfigArgs',
     'FeatureEngineeringMaterializedFeatureOnlineStoreConfigArgsDict',
     'FeatureEngineeringMaterializedFeatureProviderConfigArgs',
     'FeatureEngineeringMaterializedFeatureProviderConfigArgsDict',
+    'FeatureEngineeringMaterializedFeatureStreamingModeArgs',
+    'FeatureEngineeringMaterializedFeatureStreamingModeArgsDict',
+    'FeatureEngineeringMaterializedFeatureTableTriggerArgs',
+    'FeatureEngineeringMaterializedFeatureTableTriggerArgsDict',
     'FileProviderConfigArgs',
     'FileProviderConfigArgsDict',
     'GitCredentialProviderConfigArgs',
@@ -1231,6 +1365,10 @@ __all__ = [
     'JobTaskForEachTaskTaskPowerBiTaskPowerBiModelArgsDict',
     'JobTaskForEachTaskTaskPowerBiTaskTableArgs',
     'JobTaskForEachTaskTaskPowerBiTaskTableArgsDict',
+    'JobTaskForEachTaskTaskPythonOperatorTaskArgs',
+    'JobTaskForEachTaskTaskPythonOperatorTaskArgsDict',
+    'JobTaskForEachTaskTaskPythonOperatorTaskParameterArgs',
+    'JobTaskForEachTaskTaskPythonOperatorTaskParameterArgsDict',
     'JobTaskForEachTaskTaskPythonWheelTaskArgs',
     'JobTaskForEachTaskTaskPythonWheelTaskArgsDict',
     'JobTaskForEachTaskTaskRunJobTaskArgs',
@@ -1363,6 +1501,10 @@ __all__ = [
     'JobTaskPowerBiTaskPowerBiModelArgsDict',
     'JobTaskPowerBiTaskTableArgs',
     'JobTaskPowerBiTaskTableArgsDict',
+    'JobTaskPythonOperatorTaskArgs',
+    'JobTaskPythonOperatorTaskArgsDict',
+    'JobTaskPythonOperatorTaskParameterArgs',
+    'JobTaskPythonOperatorTaskParameterArgsDict',
     'JobTaskPythonWheelTaskArgs',
     'JobTaskPythonWheelTaskArgsDict',
     'JobTaskRunJobTaskArgs',
@@ -1781,6 +1923,16 @@ __all__ = [
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptionsArgsDict',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptionsArgs',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptionsArgsDict',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsArgs',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsArgsDict',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerArgs',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerArgsDict',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgs',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgsDict',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerArgs',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerArgsDict',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgs',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgsDict',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptionsArgs',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptionsArgsDict',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptionsArgs',
@@ -1823,6 +1975,16 @@ __all__ = [
     'PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptionsArgsDict',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptionsArgs',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptionsArgsDict',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsArgs',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsArgsDict',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerArgs',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerArgsDict',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgs',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgsDict',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerArgs',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerArgsDict',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgs',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgsDict',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptionsArgs',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptionsArgsDict',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptionsArgs',
@@ -2259,6 +2421,8 @@ __all__ = [
     'WorkspaceSettingV2AibiDashboardEmbeddingAccessPolicyArgsDict',
     'WorkspaceSettingV2AibiDashboardEmbeddingApprovedDomainsArgs',
     'WorkspaceSettingV2AibiDashboardEmbeddingApprovedDomainsArgsDict',
+    'WorkspaceSettingV2AllowedAppsUserApiScopesArgs',
+    'WorkspaceSettingV2AllowedAppsUserApiScopesArgsDict',
     'WorkspaceSettingV2AutomaticClusterUpdateWorkspaceArgs',
     'WorkspaceSettingV2AutomaticClusterUpdateWorkspaceArgsDict',
     'WorkspaceSettingV2AutomaticClusterUpdateWorkspaceEnablementDetailsArgs',
@@ -2275,6 +2439,8 @@ __all__ = [
     'WorkspaceSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict',
     'WorkspaceSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs',
     'WorkspaceSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgsDict',
+    'WorkspaceSettingV2EffectiveAllowedAppsUserApiScopesArgs',
+    'WorkspaceSettingV2EffectiveAllowedAppsUserApiScopesArgsDict',
     'WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs',
     'WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict',
     'WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceEnablementDetailsArgs',
@@ -2289,6 +2455,8 @@ __all__ = [
     'WorkspaceSettingV2EffectiveBooleanValArgsDict',
     'WorkspaceSettingV2EffectiveIntegerValArgs',
     'WorkspaceSettingV2EffectiveIntegerValArgsDict',
+    'WorkspaceSettingV2EffectiveOperationalEmailCustomRecipientArgs',
+    'WorkspaceSettingV2EffectiveOperationalEmailCustomRecipientArgsDict',
     'WorkspaceSettingV2EffectivePersonalComputeArgs',
     'WorkspaceSettingV2EffectivePersonalComputeArgsDict',
     'WorkspaceSettingV2EffectiveRestrictWorkspaceAdminsArgs',
@@ -2297,6 +2465,8 @@ __all__ = [
     'WorkspaceSettingV2EffectiveStringValArgsDict',
     'WorkspaceSettingV2IntegerValArgs',
     'WorkspaceSettingV2IntegerValArgsDict',
+    'WorkspaceSettingV2OperationalEmailCustomRecipientArgs',
+    'WorkspaceSettingV2OperationalEmailCustomRecipientArgsDict',
     'WorkspaceSettingV2PersonalComputeArgs',
     'WorkspaceSettingV2PersonalComputeArgsDict',
     'WorkspaceSettingV2ProviderConfigArgs',
@@ -4072,6 +4242,7 @@ class AccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgs:
 
 
 class AccountNetworkPolicyIngressArgsDict(TypedDict):
+    cross_workspace_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessArgsDict']]]
     private_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessArgsDict']]]
     """
     The network policy restrictions for private access to the workspace.
@@ -4086,6 +4257,7 @@ class AccountNetworkPolicyIngressArgsDict(TypedDict):
 @pulumi.input_type
 class AccountNetworkPolicyIngressArgs:
     def __init__(__self__, *,
+                 cross_workspace_access: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessArgs']] = None,
                  private_access: pulumi.Input[Optional['AccountNetworkPolicyIngressPrivateAccessArgs']] = None,
                  public_access: pulumi.Input[Optional['AccountNetworkPolicyIngressPublicAccessArgs']] = None):
         """
@@ -4094,10 +4266,21 @@ class AccountNetworkPolicyIngressArgs:
         :param pulumi.Input['AccountNetworkPolicyIngressPublicAccessArgs'] public_access: The network policy restrictions for public access to the workspace.
                Configures how public internet traffic is allowed or denied access
         """
+        if cross_workspace_access is not None:
+            pulumi.set(__self__, "cross_workspace_access", cross_workspace_access)
         if private_access is not None:
             pulumi.set(__self__, "private_access", private_access)
         if public_access is not None:
             pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="crossWorkspaceAccess")
+    def cross_workspace_access(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessArgs']]:
+        return pulumi.get(self, "cross_workspace_access")
+
+    @cross_workspace_access.setter
+    def cross_workspace_access(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessArgs']]):
+        pulumi.set(self, "cross_workspace_access", value)
 
     @_builtins.property
     @pulumi.getter(name="privateAccess")
@@ -4126,7 +4309,1045 @@ class AccountNetworkPolicyIngressArgs:
         pulumi.set(self, "public_access", value)
 
 
+class AccountNetworkPolicyIngressCrossWorkspaceAccessArgsDict(TypedDict):
+    restriction_mode: pulumi.Input[_builtins.str]
+    allow_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleArgsDict']]]]]
+    deny_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleArgsDict']]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessArgs:
+    def __init__(__self__, *,
+                 restriction_mode: pulumi.Input[_builtins.str],
+                 allow_rules: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleArgs']]]] = None,
+                 deny_rules: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleArgs']]]] = None):
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "restriction_mode")
+
+    @restriction_mode.setter
+    def restriction_mode(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "restriction_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleArgs']]]]:
+        return pulumi.get(self, "allow_rules")
+
+    @allow_rules.setter
+    def allow_rules(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleArgs']]]]):
+        pulumi.set(self, "allow_rules", value)
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleArgs']]]]:
+        return pulumi.get(self, "deny_rules")
+
+    @deny_rules.setter
+    def deny_rules(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleArgs']]]]):
+        pulumi.set(self, "deny_rules", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleArgsDict(TypedDict):
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgsDict']]]
+    label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginArgsDict']]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleArgs:
+    def __init__(__self__, *,
+                 authentication: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationArgs']] = None,
+                 destination: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgs']] = None,
+                 label: pulumi.Input[Optional[_builtins.str]] = None,
+                 origin: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginArgs']] = None):
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationArgs']]:
+        return pulumi.get(self, "authentication")
+
+    @authentication.setter
+    def authentication(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationArgs']]):
+        pulumi.set(self, "authentication", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgs']]:
+        return pulumi.get(self, "destination")
+
+    @destination.setter
+    def destination(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgs']]):
+        pulumi.set(self, "destination", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "label")
+
+    @label.setter
+    def label(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "label", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginArgs']]:
+        return pulumi.get(self, "origin")
+
+    @origin.setter
+    def origin(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginArgs']]):
+        pulumi.set(self, "origin", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationArgsDict(TypedDict):
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgsDict']]]]]
+    """
+    Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+    """
+    identity_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationArgs:
+    def __init__(__self__, *,
+                 identities: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs']]]] = None,
+                 identity_type: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs']]] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param pulumi.Input[_builtins.str] identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs']]]]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @identities.setter
+    def identities(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs']]]]):
+        pulumi.set(self, "identities", value)
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+    @identity_type.setter
+    def identity_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "identity_type", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgsDict(TypedDict):
+    principal_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    principal_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs:
+    def __init__(__self__, *,
+                 principal_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 principal_type: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "principal_id")
+
+    @principal_id.setter
+    def principal_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "principal_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+    @principal_type.setter
+    def principal_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "principal_type", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgsDict(TypedDict):
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountUiArgsDict']]]
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgsDict']]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationArgs:
+    def __init__(__self__, *,
+                 account_api: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountApiArgs']] = None,
+                 account_databricks_one: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs']] = None,
+                 account_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountUiArgs']] = None,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None,
+                 apps_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgs']] = None,
+                 lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs']] = None,
+                 workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs']] = None,
+                 workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs']] = None):
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountApiArgs']]:
+        return pulumi.get(self, "account_api")
+
+    @account_api.setter
+    def account_api(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountApiArgs']]):
+        pulumi.set(self, "account_api", value)
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs']]:
+        return pulumi.get(self, "account_databricks_one")
+
+    @account_databricks_one.setter
+    def account_databricks_one(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs']]):
+        pulumi.set(self, "account_databricks_one", value)
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountUiArgs']]:
+        return pulumi.get(self, "account_ui")
+
+    @account_ui.setter
+    def account_ui(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountUiArgs']]):
+        pulumi.set(self, "account_ui", value)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgs']]:
+        return pulumi.get(self, "apps_runtime")
+
+    @apps_runtime.setter
+    def apps_runtime(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgs']]):
+        pulumi.set(self, "apps_runtime", value)
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs']]:
+        return pulumi.get(self, "lakebase_runtime")
+
+    @lakebase_runtime.setter
+    def lakebase_runtime(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs']]):
+        pulumi.set(self, "lakebase_runtime", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs']]:
+        return pulumi.get(self, "workspace_api")
+
+    @workspace_api.setter
+    def workspace_api(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs']]):
+        pulumi.set(self, "workspace_api", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs']]:
+        return pulumi.get(self, "workspace_ui")
+
+    @workspace_ui.setter
+    def workspace_ui(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs']]):
+        pulumi.set(self, "workspace_ui", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountApiArgsDict(TypedDict):
+    scope_qualifier: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountApiArgs:
+    def __init__(__self__, *,
+                 scope_qualifier: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @scope_qualifier.setter
+    def scope_qualifier(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "scope_qualifier", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "scopes")
+
+    @scopes.setter
+    def scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "scopes", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountUiArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAccountUiArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgsDict(TypedDict):
+    scope_qualifier: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs:
+    def __init__(__self__, *,
+                 scope_qualifier: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @scope_qualifier.setter
+    def scope_qualifier(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "scope_qualifier", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "scopes")
+
+    @scopes.setter
+    def scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "scopes", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginArgsDict(TypedDict):
+    all_source_workspaces: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    Matches all source workspaces
+    """
+    selected_workspaces: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgsDict']]]
+    """
+    Specific source workspace IDs to match
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginArgs:
+    def __init__(__self__, *,
+                 all_source_workspaces: pulumi.Input[Optional[_builtins.bool]] = None,
+                 selected_workspaces: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs']] = None):
+        """
+        :param pulumi.Input[_builtins.bool] all_source_workspaces: Matches all source workspaces
+        :param pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs'] selected_workspaces: Specific source workspace IDs to match
+        """
+        if all_source_workspaces is not None:
+            pulumi.set(__self__, "all_source_workspaces", all_source_workspaces)
+        if selected_workspaces is not None:
+            pulumi.set(__self__, "selected_workspaces", selected_workspaces)
+
+    @_builtins.property
+    @pulumi.getter(name="allSourceWorkspaces")
+    def all_source_workspaces(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Matches all source workspaces
+        """
+        return pulumi.get(self, "all_source_workspaces")
+
+    @all_source_workspaces.setter
+    def all_source_workspaces(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_source_workspaces", value)
+
+    @_builtins.property
+    @pulumi.getter(name="selectedWorkspaces")
+    def selected_workspaces(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs']]:
+        """
+        Specific source workspace IDs to match
+        """
+        return pulumi.get(self, "selected_workspaces")
+
+    @selected_workspaces.setter
+    def selected_workspaces(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs']]):
+        pulumi.set(self, "selected_workspaces", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgsDict(TypedDict):
+    workspace_ids: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs:
+    def __init__(__self__, *,
+                 workspace_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]] = None):
+        if workspace_ids is not None:
+            pulumi.set(__self__, "workspace_ids", workspace_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceIds")
+    def workspace_ids(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]:
+        return pulumi.get(self, "workspace_ids")
+
+    @workspace_ids.setter
+    def workspace_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]):
+        pulumi.set(self, "workspace_ids", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleArgsDict(TypedDict):
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgsDict']]]
+    label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginArgsDict']]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleArgs:
+    def __init__(__self__, *,
+                 authentication: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationArgs']] = None,
+                 destination: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgs']] = None,
+                 label: pulumi.Input[Optional[_builtins.str]] = None,
+                 origin: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginArgs']] = None):
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationArgs']]:
+        return pulumi.get(self, "authentication")
+
+    @authentication.setter
+    def authentication(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationArgs']]):
+        pulumi.set(self, "authentication", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgs']]:
+        return pulumi.get(self, "destination")
+
+    @destination.setter
+    def destination(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgs']]):
+        pulumi.set(self, "destination", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "label")
+
+    @label.setter
+    def label(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "label", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginArgs']]:
+        return pulumi.get(self, "origin")
+
+    @origin.setter
+    def origin(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginArgs']]):
+        pulumi.set(self, "origin", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationArgsDict(TypedDict):
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgsDict']]]]]
+    """
+    Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+    """
+    identity_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationArgs:
+    def __init__(__self__, *,
+                 identities: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs']]]] = None,
+                 identity_type: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs']]] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param pulumi.Input[_builtins.str] identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs']]]]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @identities.setter
+    def identities(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs']]]]):
+        pulumi.set(self, "identities", value)
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+    @identity_type.setter
+    def identity_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "identity_type", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgsDict(TypedDict):
+    principal_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    principal_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs:
+    def __init__(__self__, *,
+                 principal_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 principal_type: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "principal_id")
+
+    @principal_id.setter
+    def principal_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "principal_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+    @principal_type.setter
+    def principal_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "principal_type", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgsDict(TypedDict):
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountUiArgsDict']]]
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgsDict']]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationArgs:
+    def __init__(__self__, *,
+                 account_api: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountApiArgs']] = None,
+                 account_databricks_one: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs']] = None,
+                 account_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountUiArgs']] = None,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None,
+                 apps_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgs']] = None,
+                 lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs']] = None,
+                 workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs']] = None,
+                 workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs']] = None):
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountApiArgs']]:
+        return pulumi.get(self, "account_api")
+
+    @account_api.setter
+    def account_api(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountApiArgs']]):
+        pulumi.set(self, "account_api", value)
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs']]:
+        return pulumi.get(self, "account_databricks_one")
+
+    @account_databricks_one.setter
+    def account_databricks_one(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs']]):
+        pulumi.set(self, "account_databricks_one", value)
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountUiArgs']]:
+        return pulumi.get(self, "account_ui")
+
+    @account_ui.setter
+    def account_ui(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountUiArgs']]):
+        pulumi.set(self, "account_ui", value)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgs']]:
+        return pulumi.get(self, "apps_runtime")
+
+    @apps_runtime.setter
+    def apps_runtime(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgs']]):
+        pulumi.set(self, "apps_runtime", value)
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs']]:
+        return pulumi.get(self, "lakebase_runtime")
+
+    @lakebase_runtime.setter
+    def lakebase_runtime(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs']]):
+        pulumi.set(self, "lakebase_runtime", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs']]:
+        return pulumi.get(self, "workspace_api")
+
+    @workspace_api.setter
+    def workspace_api(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs']]):
+        pulumi.set(self, "workspace_api", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs']]:
+        return pulumi.get(self, "workspace_ui")
+
+    @workspace_ui.setter
+    def workspace_ui(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs']]):
+        pulumi.set(self, "workspace_ui", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountApiArgsDict(TypedDict):
+    scope_qualifier: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountApiArgs:
+    def __init__(__self__, *,
+                 scope_qualifier: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @scope_qualifier.setter
+    def scope_qualifier(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "scope_qualifier", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "scopes")
+
+    @scopes.setter
+    def scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "scopes", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountUiArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAccountUiArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgsDict(TypedDict):
+    scope_qualifier: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs:
+    def __init__(__self__, *,
+                 scope_qualifier: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @scope_qualifier.setter
+    def scope_qualifier(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "scope_qualifier", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "scopes")
+
+    @scopes.setter
+    def scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "scopes", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginArgsDict(TypedDict):
+    all_source_workspaces: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    Matches all source workspaces
+    """
+    selected_workspaces: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgsDict']]]
+    """
+    Specific source workspace IDs to match
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginArgs:
+    def __init__(__self__, *,
+                 all_source_workspaces: pulumi.Input[Optional[_builtins.bool]] = None,
+                 selected_workspaces: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs']] = None):
+        """
+        :param pulumi.Input[_builtins.bool] all_source_workspaces: Matches all source workspaces
+        :param pulumi.Input['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs'] selected_workspaces: Specific source workspace IDs to match
+        """
+        if all_source_workspaces is not None:
+            pulumi.set(__self__, "all_source_workspaces", all_source_workspaces)
+        if selected_workspaces is not None:
+            pulumi.set(__self__, "selected_workspaces", selected_workspaces)
+
+    @_builtins.property
+    @pulumi.getter(name="allSourceWorkspaces")
+    def all_source_workspaces(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Matches all source workspaces
+        """
+        return pulumi.get(self, "all_source_workspaces")
+
+    @all_source_workspaces.setter
+    def all_source_workspaces(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_source_workspaces", value)
+
+    @_builtins.property
+    @pulumi.getter(name="selectedWorkspaces")
+    def selected_workspaces(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs']]:
+        """
+        Specific source workspace IDs to match
+        """
+        return pulumi.get(self, "selected_workspaces")
+
+    @selected_workspaces.setter
+    def selected_workspaces(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs']]):
+        pulumi.set(self, "selected_workspaces", value)
+
+
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgsDict(TypedDict):
+    workspace_ids: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs:
+    def __init__(__self__, *,
+                 workspace_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]] = None):
+        if workspace_ids is not None:
+            pulumi.set(__self__, "workspace_ids", workspace_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceIds")
+    def workspace_ids(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]:
+        return pulumi.get(self, "workspace_ids")
+
+    @workspace_ids.setter
+    def workspace_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]):
+        pulumi.set(self, "workspace_ids", value)
+
+
 class AccountNetworkPolicyIngressDryRunArgsDict(TypedDict):
+    cross_workspace_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessArgsDict']]]
     private_access: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessArgsDict']]]
     """
     The network policy restrictions for private access to the workspace.
@@ -4141,6 +5362,7 @@ class AccountNetworkPolicyIngressDryRunArgsDict(TypedDict):
 @pulumi.input_type
 class AccountNetworkPolicyIngressDryRunArgs:
     def __init__(__self__, *,
+                 cross_workspace_access: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessArgs']] = None,
                  private_access: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPrivateAccessArgs']] = None,
                  public_access: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessArgs']] = None):
         """
@@ -4149,10 +5371,21 @@ class AccountNetworkPolicyIngressDryRunArgs:
         :param pulumi.Input['AccountNetworkPolicyIngressDryRunPublicAccessArgs'] public_access: The network policy restrictions for public access to the workspace.
                Configures how public internet traffic is allowed or denied access
         """
+        if cross_workspace_access is not None:
+            pulumi.set(__self__, "cross_workspace_access", cross_workspace_access)
         if private_access is not None:
             pulumi.set(__self__, "private_access", private_access)
         if public_access is not None:
             pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="crossWorkspaceAccess")
+    def cross_workspace_access(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessArgs']]:
+        return pulumi.get(self, "cross_workspace_access")
+
+    @cross_workspace_access.setter
+    def cross_workspace_access(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessArgs']]):
+        pulumi.set(self, "cross_workspace_access", value)
 
     @_builtins.property
     @pulumi.getter(name="privateAccess")
@@ -4179,6 +5412,1043 @@ class AccountNetworkPolicyIngressDryRunArgs:
     @public_access.setter
     def public_access(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunPublicAccessArgs']]):
         pulumi.set(self, "public_access", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessArgsDict(TypedDict):
+    restriction_mode: pulumi.Input[_builtins.str]
+    allow_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleArgsDict']]]]]
+    deny_rules: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleArgsDict']]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessArgs:
+    def __init__(__self__, *,
+                 restriction_mode: pulumi.Input[_builtins.str],
+                 allow_rules: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleArgs']]]] = None,
+                 deny_rules: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleArgs']]]] = None):
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "restriction_mode")
+
+    @restriction_mode.setter
+    def restriction_mode(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "restriction_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleArgs']]]]:
+        return pulumi.get(self, "allow_rules")
+
+    @allow_rules.setter
+    def allow_rules(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleArgs']]]]):
+        pulumi.set(self, "allow_rules", value)
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleArgs']]]]:
+        return pulumi.get(self, "deny_rules")
+
+    @deny_rules.setter
+    def deny_rules(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleArgs']]]]):
+        pulumi.set(self, "deny_rules", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleArgsDict(TypedDict):
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationArgsDict']]]
+    label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginArgsDict']]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleArgs:
+    def __init__(__self__, *,
+                 authentication: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationArgs']] = None,
+                 destination: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationArgs']] = None,
+                 label: pulumi.Input[Optional[_builtins.str]] = None,
+                 origin: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginArgs']] = None):
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationArgs']]:
+        return pulumi.get(self, "authentication")
+
+    @authentication.setter
+    def authentication(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationArgs']]):
+        pulumi.set(self, "authentication", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationArgs']]:
+        return pulumi.get(self, "destination")
+
+    @destination.setter
+    def destination(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationArgs']]):
+        pulumi.set(self, "destination", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "label")
+
+    @label.setter
+    def label(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "label", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginArgs']]:
+        return pulumi.get(self, "origin")
+
+    @origin.setter
+    def origin(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginArgs']]):
+        pulumi.set(self, "origin", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationArgsDict(TypedDict):
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgsDict']]]]]
+    """
+    Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+    """
+    identity_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationArgs:
+    def __init__(__self__, *,
+                 identities: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs']]]] = None,
+                 identity_type: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs']]] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param pulumi.Input[_builtins.str] identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs']]]]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @identities.setter
+    def identities(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs']]]]):
+        pulumi.set(self, "identities", value)
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+    @identity_type.setter
+    def identity_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "identity_type", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgsDict(TypedDict):
+    principal_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    principal_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleAuthenticationIdentityArgs:
+    def __init__(__self__, *,
+                 principal_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 principal_type: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "principal_id")
+
+    @principal_id.setter
+    def principal_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "principal_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+    @principal_type.setter
+    def principal_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "principal_type", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationArgsDict(TypedDict):
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountUiArgsDict']]]
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgsDict']]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationArgs:
+    def __init__(__self__, *,
+                 account_api: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountApiArgs']] = None,
+                 account_databricks_one: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs']] = None,
+                 account_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountUiArgs']] = None,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None,
+                 apps_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgs']] = None,
+                 lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs']] = None,
+                 workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs']] = None,
+                 workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs']] = None):
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountApiArgs']]:
+        return pulumi.get(self, "account_api")
+
+    @account_api.setter
+    def account_api(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountApiArgs']]):
+        pulumi.set(self, "account_api", value)
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs']]:
+        return pulumi.get(self, "account_databricks_one")
+
+    @account_databricks_one.setter
+    def account_databricks_one(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs']]):
+        pulumi.set(self, "account_databricks_one", value)
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountUiArgs']]:
+        return pulumi.get(self, "account_ui")
+
+    @account_ui.setter
+    def account_ui(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountUiArgs']]):
+        pulumi.set(self, "account_ui", value)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgs']]:
+        return pulumi.get(self, "apps_runtime")
+
+    @apps_runtime.setter
+    def apps_runtime(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgs']]):
+        pulumi.set(self, "apps_runtime", value)
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs']]:
+        return pulumi.get(self, "lakebase_runtime")
+
+    @lakebase_runtime.setter
+    def lakebase_runtime(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs']]):
+        pulumi.set(self, "lakebase_runtime", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs']]:
+        return pulumi.get(self, "workspace_api")
+
+    @workspace_api.setter
+    def workspace_api(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs']]):
+        pulumi.set(self, "workspace_api", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs']]:
+        return pulumi.get(self, "workspace_ui")
+
+    @workspace_ui.setter
+    def workspace_ui(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs']]):
+        pulumi.set(self, "workspace_ui", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountApiArgsDict(TypedDict):
+    scope_qualifier: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountApiArgs:
+    def __init__(__self__, *,
+                 scope_qualifier: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @scope_qualifier.setter
+    def scope_qualifier(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "scope_qualifier", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "scopes")
+
+    @scopes.setter
+    def scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "scopes", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountDatabricksOneArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountUiArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAccountUiArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationAppsRuntimeArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationLakebaseRuntimeArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgsDict(TypedDict):
+    scope_qualifier: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceApiArgs:
+    def __init__(__self__, *,
+                 scope_qualifier: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @scope_qualifier.setter
+    def scope_qualifier(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "scope_qualifier", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "scopes")
+
+    @scopes.setter
+    def scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "scopes", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleDestinationWorkspaceUiArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginArgsDict(TypedDict):
+    all_source_workspaces: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    Matches all source workspaces
+    """
+    selected_workspaces: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgsDict']]]
+    """
+    Specific source workspace IDs to match
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginArgs:
+    def __init__(__self__, *,
+                 all_source_workspaces: pulumi.Input[Optional[_builtins.bool]] = None,
+                 selected_workspaces: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs']] = None):
+        """
+        :param pulumi.Input[_builtins.bool] all_source_workspaces: Matches all source workspaces
+        :param pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs'] selected_workspaces: Specific source workspace IDs to match
+        """
+        if all_source_workspaces is not None:
+            pulumi.set(__self__, "all_source_workspaces", all_source_workspaces)
+        if selected_workspaces is not None:
+            pulumi.set(__self__, "selected_workspaces", selected_workspaces)
+
+    @_builtins.property
+    @pulumi.getter(name="allSourceWorkspaces")
+    def all_source_workspaces(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Matches all source workspaces
+        """
+        return pulumi.get(self, "all_source_workspaces")
+
+    @all_source_workspaces.setter
+    def all_source_workspaces(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_source_workspaces", value)
+
+    @_builtins.property
+    @pulumi.getter(name="selectedWorkspaces")
+    def selected_workspaces(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs']]:
+        """
+        Specific source workspace IDs to match
+        """
+        return pulumi.get(self, "selected_workspaces")
+
+    @selected_workspaces.setter
+    def selected_workspaces(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs']]):
+        pulumi.set(self, "selected_workspaces", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgsDict(TypedDict):
+    workspace_ids: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessAllowRuleOriginSelectedWorkspacesArgs:
+    def __init__(__self__, *,
+                 workspace_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]] = None):
+        if workspace_ids is not None:
+            pulumi.set(__self__, "workspace_ids", workspace_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceIds")
+    def workspace_ids(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]:
+        return pulumi.get(self, "workspace_ids")
+
+    @workspace_ids.setter
+    def workspace_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]):
+        pulumi.set(self, "workspace_ids", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleArgsDict(TypedDict):
+    authentication: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationArgsDict']]]
+    destination: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationArgsDict']]]
+    label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    origin: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginArgsDict']]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleArgs:
+    def __init__(__self__, *,
+                 authentication: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationArgs']] = None,
+                 destination: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationArgs']] = None,
+                 label: pulumi.Input[Optional[_builtins.str]] = None,
+                 origin: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginArgs']] = None):
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationArgs']]:
+        return pulumi.get(self, "authentication")
+
+    @authentication.setter
+    def authentication(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationArgs']]):
+        pulumi.set(self, "authentication", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationArgs']]:
+        return pulumi.get(self, "destination")
+
+    @destination.setter
+    def destination(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationArgs']]):
+        pulumi.set(self, "destination", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "label")
+
+    @label.setter
+    def label(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "label", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginArgs']]:
+        return pulumi.get(self, "origin")
+
+    @origin.setter
+    def origin(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginArgs']]):
+        pulumi.set(self, "origin", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationArgsDict(TypedDict):
+    identities: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgsDict']]]]]
+    """
+    Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+    """
+    identity_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationArgs:
+    def __init__(__self__, *,
+                 identities: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs']]]] = None,
+                 identity_type: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs']]] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param pulumi.Input[_builtins.str] identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs']]]]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @identities.setter
+    def identities(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs']]]]):
+        pulumi.set(self, "identities", value)
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+    @identity_type.setter
+    def identity_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "identity_type", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgsDict(TypedDict):
+    principal_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    principal_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleAuthenticationIdentityArgs:
+    def __init__(__self__, *,
+                 principal_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 principal_type: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "principal_id")
+
+    @principal_id.setter
+    def principal_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "principal_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+    @principal_type.setter
+    def principal_type(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "principal_type", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationArgsDict(TypedDict):
+    account_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountApiArgsDict']]]
+    account_databricks_one: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgsDict']]]
+    account_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountUiArgsDict']]]
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    apps_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgsDict']]]
+    lakebase_runtime: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgsDict']]]
+    workspace_api: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgsDict']]]
+    workspace_ui: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgsDict']]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationArgs:
+    def __init__(__self__, *,
+                 account_api: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountApiArgs']] = None,
+                 account_databricks_one: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs']] = None,
+                 account_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountUiArgs']] = None,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None,
+                 apps_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgs']] = None,
+                 lakebase_runtime: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs']] = None,
+                 workspace_api: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs']] = None,
+                 workspace_ui: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs']] = None):
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountApiArgs']]:
+        return pulumi.get(self, "account_api")
+
+    @account_api.setter
+    def account_api(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountApiArgs']]):
+        pulumi.set(self, "account_api", value)
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs']]:
+        return pulumi.get(self, "account_databricks_one")
+
+    @account_databricks_one.setter
+    def account_databricks_one(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs']]):
+        pulumi.set(self, "account_databricks_one", value)
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountUiArgs']]:
+        return pulumi.get(self, "account_ui")
+
+    @account_ui.setter
+    def account_ui(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountUiArgs']]):
+        pulumi.set(self, "account_ui", value)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgs']]:
+        return pulumi.get(self, "apps_runtime")
+
+    @apps_runtime.setter
+    def apps_runtime(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgs']]):
+        pulumi.set(self, "apps_runtime", value)
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs']]:
+        return pulumi.get(self, "lakebase_runtime")
+
+    @lakebase_runtime.setter
+    def lakebase_runtime(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs']]):
+        pulumi.set(self, "lakebase_runtime", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs']]:
+        return pulumi.get(self, "workspace_api")
+
+    @workspace_api.setter
+    def workspace_api(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs']]):
+        pulumi.set(self, "workspace_api", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs']]:
+        return pulumi.get(self, "workspace_ui")
+
+    @workspace_ui.setter
+    def workspace_ui(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs']]):
+        pulumi.set(self, "workspace_ui", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountApiArgsDict(TypedDict):
+    scope_qualifier: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountApiArgs:
+    def __init__(__self__, *,
+                 scope_qualifier: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @scope_qualifier.setter
+    def scope_qualifier(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "scope_qualifier", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "scopes")
+
+    @scopes.setter
+    def scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "scopes", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountDatabricksOneArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountUiArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAccountUiArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationAppsRuntimeArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationLakebaseRuntimeArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgsDict(TypedDict):
+    scope_qualifier: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceApiArgs:
+    def __init__(__self__, *,
+                 scope_qualifier: pulumi.Input[Optional[_builtins.str]] = None,
+                 scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @scope_qualifier.setter
+    def scope_qualifier(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "scope_qualifier", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "scopes")
+
+    @scopes.setter
+    def scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "scopes", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgsDict(TypedDict):
+    all_destinations: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleDestinationWorkspaceUiArgs:
+    def __init__(__self__, *,
+                 all_destinations: pulumi.Input[Optional[_builtins.bool]] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "all_destinations")
+
+    @all_destinations.setter
+    def all_destinations(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_destinations", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginArgsDict(TypedDict):
+    all_source_workspaces: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    Matches all source workspaces
+    """
+    selected_workspaces: NotRequired[pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgsDict']]]
+    """
+    Specific source workspace IDs to match
+    """
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginArgs:
+    def __init__(__self__, *,
+                 all_source_workspaces: pulumi.Input[Optional[_builtins.bool]] = None,
+                 selected_workspaces: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs']] = None):
+        """
+        :param pulumi.Input[_builtins.bool] all_source_workspaces: Matches all source workspaces
+        :param pulumi.Input['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs'] selected_workspaces: Specific source workspace IDs to match
+        """
+        if all_source_workspaces is not None:
+            pulumi.set(__self__, "all_source_workspaces", all_source_workspaces)
+        if selected_workspaces is not None:
+            pulumi.set(__self__, "selected_workspaces", selected_workspaces)
+
+    @_builtins.property
+    @pulumi.getter(name="allSourceWorkspaces")
+    def all_source_workspaces(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Matches all source workspaces
+        """
+        return pulumi.get(self, "all_source_workspaces")
+
+    @all_source_workspaces.setter
+    def all_source_workspaces(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "all_source_workspaces", value)
+
+    @_builtins.property
+    @pulumi.getter(name="selectedWorkspaces")
+    def selected_workspaces(self) -> pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs']]:
+        """
+        Specific source workspace IDs to match
+        """
+        return pulumi.get(self, "selected_workspaces")
+
+    @selected_workspaces.setter
+    def selected_workspaces(self, value: pulumi.Input[Optional['AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs']]):
+        pulumi.set(self, "selected_workspaces", value)
+
+
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgsDict(TypedDict):
+    workspace_ids: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyIngressDryRunCrossWorkspaceAccessDenyRuleOriginSelectedWorkspacesArgs:
+    def __init__(__self__, *,
+                 workspace_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]] = None):
+        if workspace_ids is not None:
+            pulumi.set(__self__, "workspace_ids", workspace_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceIds")
+    def workspace_ids(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]:
+        return pulumi.get(self, "workspace_ids")
+
+    @workspace_ids.setter
+    def workspace_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]):
+        pulumi.set(self, "workspace_ids", value)
 
 
 class AccountNetworkPolicyIngressDryRunPrivateAccessArgsDict(TypedDict):
@@ -8729,6 +10999,26 @@ class AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs:
         pulumi.set(self, "approved_domains", value)
 
 
+class AccountSettingV2AllowedAppsUserApiScopesArgsDict(TypedDict):
+    allowed_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class AccountSettingV2AllowedAppsUserApiScopesArgs:
+    def __init__(__self__, *,
+                 allowed_scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if allowed_scopes is not None:
+            pulumi.set(__self__, "allowed_scopes", allowed_scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="allowedScopes")
+    def allowed_scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "allowed_scopes")
+
+    @allowed_scopes.setter
+    def allowed_scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "allowed_scopes", value)
+
+
 class AccountSettingV2AutomaticClusterUpdateWorkspaceArgsDict(TypedDict):
     can_toggle: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
@@ -9053,6 +11343,26 @@ class AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs:
         pulumi.set(self, "approved_domains", value)
 
 
+class AccountSettingV2EffectiveAllowedAppsUserApiScopesArgsDict(TypedDict):
+    allowed_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class AccountSettingV2EffectiveAllowedAppsUserApiScopesArgs:
+    def __init__(__self__, *,
+                 allowed_scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if allowed_scopes is not None:
+            pulumi.set(__self__, "allowed_scopes", allowed_scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="allowedScopes")
+    def allowed_scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "allowed_scopes")
+
+    @allowed_scopes.setter
+    def allowed_scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "allowed_scopes", value)
+
+
 class AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict(TypedDict):
     can_toggle: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
@@ -9349,6 +11659,26 @@ class AccountSettingV2EffectiveIntegerValArgs:
         pulumi.set(self, "value", value)
 
 
+class AccountSettingV2EffectiveOperationalEmailCustomRecipientArgsDict(TypedDict):
+    email: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class AccountSettingV2EffectiveOperationalEmailCustomRecipientArgs:
+    def __init__(__self__, *,
+                 email: pulumi.Input[Optional[_builtins.str]] = None):
+        if email is not None:
+            pulumi.set(__self__, "email", email)
+
+    @_builtins.property
+    @pulumi.getter
+    def email(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "email")
+
+    @email.setter
+    def email(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "email", value)
+
+
 class AccountSettingV2EffectivePersonalComputeArgsDict(TypedDict):
     value: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -9458,6 +11788,26 @@ class AccountSettingV2IntegerValArgs:
     @value.setter
     def value(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "value", value)
+
+
+class AccountSettingV2OperationalEmailCustomRecipientArgsDict(TypedDict):
+    email: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class AccountSettingV2OperationalEmailCustomRecipientArgs:
+    def __init__(__self__, *,
+                 email: pulumi.Input[Optional[_builtins.str]] = None):
+        if email is not None:
+            pulumi.set(__self__, "email", email)
+
+    @_builtins.property
+    @pulumi.getter
+    def email(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "email")
+
+    @email.setter
+    def email(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "email", value)
 
 
 class AccountSettingV2PersonalComputeArgsDict(TypedDict):
@@ -10602,22 +12952,37 @@ class AppActiveDeploymentArgsDict(TypedDict):
     commands: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     create_time: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The creation time of the app.
+    The creation time of the deployment.
     """
     creator: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The email of the user that created the app.
+    The email of the user that created the deployment.
     """
     deployment_artifacts: NotRequired[pulumi.Input[Optional['AppActiveDeploymentDeploymentArtifactsArgsDict']]]
+    """
+    attribute
+    """
     deployment_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The unique ID of the deployment.
+    """
     env_vars: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AppActiveDeploymentEnvVarArgsDict']]]]]
     git_source: NotRequired[pulumi.Input[Optional['AppActiveDeploymentGitSourceArgsDict']]]
     mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The deployment mode (`AUTO_SYNC` or `SNAPSHOT`).
+    """
     source_code_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The snapshotted workspace file system path of the source code loaded by the deployed app.
+    """
     status: NotRequired[pulumi.Input[Optional['AppActiveDeploymentStatusArgsDict']]]
+    """
+    attribute
+    """
     update_time: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The update time of the app.
+    The update time of the deployment.
     """
 
 @pulumi.input_type
@@ -10635,9 +13000,14 @@ class AppActiveDeploymentArgs:
                  status: pulumi.Input[Optional['AppActiveDeploymentStatusArgs']] = None,
                  update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] create_time: The creation time of the app.
-        :param pulumi.Input[_builtins.str] creator: The email of the user that created the app.
-        :param pulumi.Input[_builtins.str] update_time: The update time of the app.
+        :param pulumi.Input[_builtins.str] create_time: The creation time of the deployment.
+        :param pulumi.Input[_builtins.str] creator: The email of the user that created the deployment.
+        :param pulumi.Input['AppActiveDeploymentDeploymentArtifactsArgs'] deployment_artifacts: attribute
+        :param pulumi.Input[_builtins.str] deployment_id: The unique ID of the deployment.
+        :param pulumi.Input[_builtins.str] mode: The deployment mode (`AUTO_SYNC` or `SNAPSHOT`).
+        :param pulumi.Input[_builtins.str] source_code_path: The snapshotted workspace file system path of the source code loaded by the deployed app.
+        :param pulumi.Input['AppActiveDeploymentStatusArgs'] status: attribute
+        :param pulumi.Input[_builtins.str] update_time: The update time of the deployment.
         """
         if commands is not None:
             pulumi.set(__self__, "commands", commands)
@@ -10675,7 +13045,7 @@ class AppActiveDeploymentArgs:
     @pulumi.getter(name="createTime")
     def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The creation time of the app.
+        The creation time of the deployment.
         """
         return pulumi.get(self, "create_time")
 
@@ -10687,7 +13057,7 @@ class AppActiveDeploymentArgs:
     @pulumi.getter
     def creator(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The email of the user that created the app.
+        The email of the user that created the deployment.
         """
         return pulumi.get(self, "creator")
 
@@ -10698,6 +13068,9 @@ class AppActiveDeploymentArgs:
     @_builtins.property
     @pulumi.getter(name="deploymentArtifacts")
     def deployment_artifacts(self) -> pulumi.Input[Optional['AppActiveDeploymentDeploymentArtifactsArgs']]:
+        """
+        attribute
+        """
         return pulumi.get(self, "deployment_artifacts")
 
     @deployment_artifacts.setter
@@ -10707,6 +13080,9 @@ class AppActiveDeploymentArgs:
     @_builtins.property
     @pulumi.getter(name="deploymentId")
     def deployment_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The unique ID of the deployment.
+        """
         return pulumi.get(self, "deployment_id")
 
     @deployment_id.setter
@@ -10734,6 +13110,9 @@ class AppActiveDeploymentArgs:
     @_builtins.property
     @pulumi.getter
     def mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The deployment mode (`AUTO_SYNC` or `SNAPSHOT`).
+        """
         return pulumi.get(self, "mode")
 
     @mode.setter
@@ -10743,6 +13122,9 @@ class AppActiveDeploymentArgs:
     @_builtins.property
     @pulumi.getter(name="sourceCodePath")
     def source_code_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The snapshotted workspace file system path of the source code loaded by the deployed app.
+        """
         return pulumi.get(self, "source_code_path")
 
     @source_code_path.setter
@@ -10752,6 +13134,9 @@ class AppActiveDeploymentArgs:
     @_builtins.property
     @pulumi.getter
     def status(self) -> pulumi.Input[Optional['AppActiveDeploymentStatusArgs']]:
+        """
+        attribute
+        """
         return pulumi.get(self, "status")
 
     @status.setter
@@ -10762,7 +13147,7 @@ class AppActiveDeploymentArgs:
     @pulumi.getter(name="updateTime")
     def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The update time of the app.
+        The update time of the deployment.
         """
         return pulumi.get(self, "update_time")
 
@@ -10773,17 +13158,26 @@ class AppActiveDeploymentArgs:
 
 class AppActiveDeploymentDeploymentArtifactsArgsDict(TypedDict):
     source_code_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The snapshotted workspace file system path of the source code loaded by the deployed app.
+    """
 
 @pulumi.input_type
 class AppActiveDeploymentDeploymentArtifactsArgs:
     def __init__(__self__, *,
                  source_code_path: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] source_code_path: The snapshotted workspace file system path of the source code loaded by the deployed app.
+        """
         if source_code_path is not None:
             pulumi.set(__self__, "source_code_path", source_code_path)
 
     @_builtins.property
     @pulumi.getter(name="sourceCodePath")
     def source_code_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The snapshotted workspace file system path of the source code loaded by the deployed app.
+        """
         return pulumi.get(self, "source_code_path")
 
     @source_code_path.setter
@@ -10848,10 +13242,19 @@ class AppActiveDeploymentEnvVarArgs:
 
 class AppActiveDeploymentGitSourceArgsDict(TypedDict):
     branch: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The resource path of the Lakebase Autoscaling branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789`).
+    """
     commit: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     git_repository: NotRequired[pulumi.Input[Optional['AppActiveDeploymentGitSourceGitRepositoryArgsDict']]]
+    """
+    Git repository configuration for app deployments (see below). When specified, deployments can reference code from this repository by providing only the git reference (branch, tag, or commit).
+    """
     resolved_commit: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     source_code_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The snapshotted workspace file system path of the source code loaded by the deployed app.
+    """
     tag: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
 @pulumi.input_type
@@ -10863,6 +13266,11 @@ class AppActiveDeploymentGitSourceArgs:
                  resolved_commit: pulumi.Input[Optional[_builtins.str]] = None,
                  source_code_path: pulumi.Input[Optional[_builtins.str]] = None,
                  tag: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] branch: The resource path of the Lakebase Autoscaling branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789`).
+        :param pulumi.Input['AppActiveDeploymentGitSourceGitRepositoryArgs'] git_repository: Git repository configuration for app deployments (see below). When specified, deployments can reference code from this repository by providing only the git reference (branch, tag, or commit).
+        :param pulumi.Input[_builtins.str] source_code_path: The snapshotted workspace file system path of the source code loaded by the deployed app.
+        """
         if branch is not None:
             pulumi.set(__self__, "branch", branch)
         if commit is not None:
@@ -10879,6 +13287,9 @@ class AppActiveDeploymentGitSourceArgs:
     @_builtins.property
     @pulumi.getter
     def branch(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The resource path of the Lakebase Autoscaling branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789`).
+        """
         return pulumi.get(self, "branch")
 
     @branch.setter
@@ -10897,6 +13308,9 @@ class AppActiveDeploymentGitSourceArgs:
     @_builtins.property
     @pulumi.getter(name="gitRepository")
     def git_repository(self) -> pulumi.Input[Optional['AppActiveDeploymentGitSourceGitRepositoryArgs']]:
+        """
+        Git repository configuration for app deployments (see below). When specified, deployments can reference code from this repository by providing only the git reference (branch, tag, or commit).
+        """
         return pulumi.get(self, "git_repository")
 
     @git_repository.setter
@@ -10915,6 +13329,9 @@ class AppActiveDeploymentGitSourceArgs:
     @_builtins.property
     @pulumi.getter(name="sourceCodePath")
     def source_code_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The snapshotted workspace file system path of the source code loaded by the deployed app.
+        """
         return pulumi.get(self, "source_code_path")
 
     @source_code_path.setter
@@ -10933,9 +13350,12 @@ class AppActiveDeploymentGitSourceArgs:
 
 class AppActiveDeploymentGitSourceGitRepositoryArgsDict(TypedDict):
     provider: pulumi.Input[_builtins.str]
+    """
+    Git provider. Case insensitive. Supported values: `gitHub`, `gitHubEnterprise`, `bitbucketCloud`, `bitbucketServer`, `azureDevOpsServices`, `gitLab`, `gitLabEnterpriseEdition`, `awsCodeCommit`.
+    """
     url: pulumi.Input[_builtins.str]
     """
-    The URL of the app once it is deployed.
+    URL of the Git repository.
     """
 
 @pulumi.input_type
@@ -10944,7 +13364,8 @@ class AppActiveDeploymentGitSourceGitRepositoryArgs:
                  provider: pulumi.Input[_builtins.str],
                  url: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] url: The URL of the app once it is deployed.
+        :param pulumi.Input[_builtins.str] provider: Git provider. Case insensitive. Supported values: `gitHub`, `gitHubEnterprise`, `bitbucketCloud`, `bitbucketServer`, `azureDevOpsServices`, `gitLab`, `gitLabEnterpriseEdition`, `awsCodeCommit`.
+        :param pulumi.Input[_builtins.str] url: URL of the Git repository.
         """
         pulumi.set(__self__, "provider", provider)
         pulumi.set(__self__, "url", url)
@@ -10952,6 +13373,9 @@ class AppActiveDeploymentGitSourceGitRepositoryArgs:
     @_builtins.property
     @pulumi.getter
     def provider(self) -> pulumi.Input[_builtins.str]:
+        """
+        Git provider. Case insensitive. Supported values: `gitHub`, `gitHubEnterprise`, `bitbucketCloud`, `bitbucketServer`, `azureDevOpsServices`, `gitLab`, `gitLabEnterpriseEdition`, `awsCodeCommit`.
+        """
         return pulumi.get(self, "provider")
 
     @provider.setter
@@ -10962,7 +13386,7 @@ class AppActiveDeploymentGitSourceGitRepositoryArgs:
     @pulumi.getter
     def url(self) -> pulumi.Input[_builtins.str]:
         """
-        The URL of the app once it is deployed.
+        URL of the Git repository.
         """
         return pulumi.get(self, "url")
 
@@ -10974,11 +13398,11 @@ class AppActiveDeploymentGitSourceGitRepositoryArgs:
 class AppActiveDeploymentStatusArgsDict(TypedDict):
     message: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    Application status message
+    The status message of the deployment.
     """
     state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    State of the application.
+    The state of the deployment.
     """
 
 @pulumi.input_type
@@ -10987,8 +13411,8 @@ class AppActiveDeploymentStatusArgs:
                  message: pulumi.Input[Optional[_builtins.str]] = None,
                  state: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] message: Application status message
-        :param pulumi.Input[_builtins.str] state: State of the application.
+        :param pulumi.Input[_builtins.str] message: The status message of the deployment.
+        :param pulumi.Input[_builtins.str] state: The state of the deployment.
         """
         if message is not None:
             pulumi.set(__self__, "message", message)
@@ -10999,7 +13423,7 @@ class AppActiveDeploymentStatusArgs:
     @pulumi.getter
     def message(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Application status message
+        The status message of the deployment.
         """
         return pulumi.get(self, "message")
 
@@ -11011,7 +13435,7 @@ class AppActiveDeploymentStatusArgs:
     @pulumi.getter
     def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        State of the application.
+        The state of the deployment.
         """
         return pulumi.get(self, "state")
 
@@ -11023,11 +13447,11 @@ class AppActiveDeploymentStatusArgs:
 class AppAppStatusArgsDict(TypedDict):
     message: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    Application status message
+    The status message of the deployment.
     """
     state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    State of the application.
+    The state of the deployment.
     """
 
 @pulumi.input_type
@@ -11036,8 +13460,8 @@ class AppAppStatusArgs:
                  message: pulumi.Input[Optional[_builtins.str]] = None,
                  state: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] message: Application status message
-        :param pulumi.Input[_builtins.str] state: State of the application.
+        :param pulumi.Input[_builtins.str] message: The status message of the deployment.
+        :param pulumi.Input[_builtins.str] state: The state of the deployment.
         """
         if message is not None:
             pulumi.set(__self__, "message", message)
@@ -11048,7 +13472,7 @@ class AppAppStatusArgs:
     @pulumi.getter
     def message(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Application status message
+        The status message of the deployment.
         """
         return pulumi.get(self, "message")
 
@@ -11060,7 +13484,7 @@ class AppAppStatusArgs:
     @pulumi.getter
     def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        State of the application.
+        The state of the deployment.
         """
         return pulumi.get(self, "state")
 
@@ -11073,11 +13497,11 @@ class AppComputeStatusArgsDict(TypedDict):
     active_instances: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     message: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    Application status message
+    The status message of the deployment.
     """
     state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    State of the application.
+    The state of the deployment.
     """
 
 @pulumi.input_type
@@ -11087,8 +13511,8 @@ class AppComputeStatusArgs:
                  message: pulumi.Input[Optional[_builtins.str]] = None,
                  state: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] message: Application status message
-        :param pulumi.Input[_builtins.str] state: State of the application.
+        :param pulumi.Input[_builtins.str] message: The status message of the deployment.
+        :param pulumi.Input[_builtins.str] state: The state of the deployment.
         """
         if active_instances is not None:
             pulumi.set(__self__, "active_instances", active_instances)
@@ -11110,7 +13534,7 @@ class AppComputeStatusArgs:
     @pulumi.getter
     def message(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Application status message
+        The status message of the deployment.
         """
         return pulumi.get(self, "message")
 
@@ -11122,7 +13546,7 @@ class AppComputeStatusArgs:
     @pulumi.getter
     def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        State of the application.
+        The state of the deployment.
         """
         return pulumi.get(self, "state")
 
@@ -11133,9 +13557,12 @@ class AppComputeStatusArgs:
 
 class AppGitRepositoryArgsDict(TypedDict):
     provider: pulumi.Input[_builtins.str]
+    """
+    Git provider. Case insensitive. Supported values: `gitHub`, `gitHubEnterprise`, `bitbucketCloud`, `bitbucketServer`, `azureDevOpsServices`, `gitLab`, `gitLabEnterpriseEdition`, `awsCodeCommit`.
+    """
     url: pulumi.Input[_builtins.str]
     """
-    The URL of the app once it is deployed.
+    URL of the Git repository.
     """
 
 @pulumi.input_type
@@ -11144,7 +13571,8 @@ class AppGitRepositoryArgs:
                  provider: pulumi.Input[_builtins.str],
                  url: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] url: The URL of the app once it is deployed.
+        :param pulumi.Input[_builtins.str] provider: Git provider. Case insensitive. Supported values: `gitHub`, `gitHubEnterprise`, `bitbucketCloud`, `bitbucketServer`, `azureDevOpsServices`, `gitLab`, `gitLabEnterpriseEdition`, `awsCodeCommit`.
+        :param pulumi.Input[_builtins.str] url: URL of the Git repository.
         """
         pulumi.set(__self__, "provider", provider)
         pulumi.set(__self__, "url", url)
@@ -11152,6 +13580,9 @@ class AppGitRepositoryArgs:
     @_builtins.property
     @pulumi.getter
     def provider(self) -> pulumi.Input[_builtins.str]:
+        """
+        Git provider. Case insensitive. Supported values: `gitHub`, `gitHubEnterprise`, `bitbucketCloud`, `bitbucketServer`, `azureDevOpsServices`, `gitLab`, `gitLabEnterpriseEdition`, `awsCodeCommit`.
+        """
         return pulumi.get(self, "provider")
 
     @provider.setter
@@ -11162,7 +13593,7 @@ class AppGitRepositoryArgs:
     @pulumi.getter
     def url(self) -> pulumi.Input[_builtins.str]:
         """
-        The URL of the app once it is deployed.
+        URL of the Git repository.
         """
         return pulumi.get(self, "url")
 
@@ -11175,22 +13606,37 @@ class AppPendingDeploymentArgsDict(TypedDict):
     commands: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     create_time: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The creation time of the app.
+    The creation time of the deployment.
     """
     creator: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The email of the user that created the app.
+    The email of the user that created the deployment.
     """
     deployment_artifacts: NotRequired[pulumi.Input[Optional['AppPendingDeploymentDeploymentArtifactsArgsDict']]]
+    """
+    attribute
+    """
     deployment_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The unique ID of the deployment.
+    """
     env_vars: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AppPendingDeploymentEnvVarArgsDict']]]]]
     git_source: NotRequired[pulumi.Input[Optional['AppPendingDeploymentGitSourceArgsDict']]]
     mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The deployment mode (`AUTO_SYNC` or `SNAPSHOT`).
+    """
     source_code_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The snapshotted workspace file system path of the source code loaded by the deployed app.
+    """
     status: NotRequired[pulumi.Input[Optional['AppPendingDeploymentStatusArgsDict']]]
+    """
+    attribute
+    """
     update_time: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The update time of the app.
+    The update time of the deployment.
     """
 
 @pulumi.input_type
@@ -11208,9 +13654,14 @@ class AppPendingDeploymentArgs:
                  status: pulumi.Input[Optional['AppPendingDeploymentStatusArgs']] = None,
                  update_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] create_time: The creation time of the app.
-        :param pulumi.Input[_builtins.str] creator: The email of the user that created the app.
-        :param pulumi.Input[_builtins.str] update_time: The update time of the app.
+        :param pulumi.Input[_builtins.str] create_time: The creation time of the deployment.
+        :param pulumi.Input[_builtins.str] creator: The email of the user that created the deployment.
+        :param pulumi.Input['AppPendingDeploymentDeploymentArtifactsArgs'] deployment_artifacts: attribute
+        :param pulumi.Input[_builtins.str] deployment_id: The unique ID of the deployment.
+        :param pulumi.Input[_builtins.str] mode: The deployment mode (`AUTO_SYNC` or `SNAPSHOT`).
+        :param pulumi.Input[_builtins.str] source_code_path: The snapshotted workspace file system path of the source code loaded by the deployed app.
+        :param pulumi.Input['AppPendingDeploymentStatusArgs'] status: attribute
+        :param pulumi.Input[_builtins.str] update_time: The update time of the deployment.
         """
         if commands is not None:
             pulumi.set(__self__, "commands", commands)
@@ -11248,7 +13699,7 @@ class AppPendingDeploymentArgs:
     @pulumi.getter(name="createTime")
     def create_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The creation time of the app.
+        The creation time of the deployment.
         """
         return pulumi.get(self, "create_time")
 
@@ -11260,7 +13711,7 @@ class AppPendingDeploymentArgs:
     @pulumi.getter
     def creator(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The email of the user that created the app.
+        The email of the user that created the deployment.
         """
         return pulumi.get(self, "creator")
 
@@ -11271,6 +13722,9 @@ class AppPendingDeploymentArgs:
     @_builtins.property
     @pulumi.getter(name="deploymentArtifacts")
     def deployment_artifacts(self) -> pulumi.Input[Optional['AppPendingDeploymentDeploymentArtifactsArgs']]:
+        """
+        attribute
+        """
         return pulumi.get(self, "deployment_artifacts")
 
     @deployment_artifacts.setter
@@ -11280,6 +13734,9 @@ class AppPendingDeploymentArgs:
     @_builtins.property
     @pulumi.getter(name="deploymentId")
     def deployment_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The unique ID of the deployment.
+        """
         return pulumi.get(self, "deployment_id")
 
     @deployment_id.setter
@@ -11307,6 +13764,9 @@ class AppPendingDeploymentArgs:
     @_builtins.property
     @pulumi.getter
     def mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The deployment mode (`AUTO_SYNC` or `SNAPSHOT`).
+        """
         return pulumi.get(self, "mode")
 
     @mode.setter
@@ -11316,6 +13776,9 @@ class AppPendingDeploymentArgs:
     @_builtins.property
     @pulumi.getter(name="sourceCodePath")
     def source_code_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The snapshotted workspace file system path of the source code loaded by the deployed app.
+        """
         return pulumi.get(self, "source_code_path")
 
     @source_code_path.setter
@@ -11325,6 +13788,9 @@ class AppPendingDeploymentArgs:
     @_builtins.property
     @pulumi.getter
     def status(self) -> pulumi.Input[Optional['AppPendingDeploymentStatusArgs']]:
+        """
+        attribute
+        """
         return pulumi.get(self, "status")
 
     @status.setter
@@ -11335,7 +13801,7 @@ class AppPendingDeploymentArgs:
     @pulumi.getter(name="updateTime")
     def update_time(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The update time of the app.
+        The update time of the deployment.
         """
         return pulumi.get(self, "update_time")
 
@@ -11346,17 +13812,26 @@ class AppPendingDeploymentArgs:
 
 class AppPendingDeploymentDeploymentArtifactsArgsDict(TypedDict):
     source_code_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The snapshotted workspace file system path of the source code loaded by the deployed app.
+    """
 
 @pulumi.input_type
 class AppPendingDeploymentDeploymentArtifactsArgs:
     def __init__(__self__, *,
                  source_code_path: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] source_code_path: The snapshotted workspace file system path of the source code loaded by the deployed app.
+        """
         if source_code_path is not None:
             pulumi.set(__self__, "source_code_path", source_code_path)
 
     @_builtins.property
     @pulumi.getter(name="sourceCodePath")
     def source_code_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The snapshotted workspace file system path of the source code loaded by the deployed app.
+        """
         return pulumi.get(self, "source_code_path")
 
     @source_code_path.setter
@@ -11421,10 +13896,19 @@ class AppPendingDeploymentEnvVarArgs:
 
 class AppPendingDeploymentGitSourceArgsDict(TypedDict):
     branch: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The resource path of the Lakebase Autoscaling branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789`).
+    """
     commit: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     git_repository: NotRequired[pulumi.Input[Optional['AppPendingDeploymentGitSourceGitRepositoryArgsDict']]]
+    """
+    Git repository configuration for app deployments (see below). When specified, deployments can reference code from this repository by providing only the git reference (branch, tag, or commit).
+    """
     resolved_commit: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     source_code_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The snapshotted workspace file system path of the source code loaded by the deployed app.
+    """
     tag: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
 @pulumi.input_type
@@ -11436,6 +13920,11 @@ class AppPendingDeploymentGitSourceArgs:
                  resolved_commit: pulumi.Input[Optional[_builtins.str]] = None,
                  source_code_path: pulumi.Input[Optional[_builtins.str]] = None,
                  tag: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] branch: The resource path of the Lakebase Autoscaling branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789`).
+        :param pulumi.Input['AppPendingDeploymentGitSourceGitRepositoryArgs'] git_repository: Git repository configuration for app deployments (see below). When specified, deployments can reference code from this repository by providing only the git reference (branch, tag, or commit).
+        :param pulumi.Input[_builtins.str] source_code_path: The snapshotted workspace file system path of the source code loaded by the deployed app.
+        """
         if branch is not None:
             pulumi.set(__self__, "branch", branch)
         if commit is not None:
@@ -11452,6 +13941,9 @@ class AppPendingDeploymentGitSourceArgs:
     @_builtins.property
     @pulumi.getter
     def branch(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The resource path of the Lakebase Autoscaling branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789`).
+        """
         return pulumi.get(self, "branch")
 
     @branch.setter
@@ -11470,6 +13962,9 @@ class AppPendingDeploymentGitSourceArgs:
     @_builtins.property
     @pulumi.getter(name="gitRepository")
     def git_repository(self) -> pulumi.Input[Optional['AppPendingDeploymentGitSourceGitRepositoryArgs']]:
+        """
+        Git repository configuration for app deployments (see below). When specified, deployments can reference code from this repository by providing only the git reference (branch, tag, or commit).
+        """
         return pulumi.get(self, "git_repository")
 
     @git_repository.setter
@@ -11488,6 +13983,9 @@ class AppPendingDeploymentGitSourceArgs:
     @_builtins.property
     @pulumi.getter(name="sourceCodePath")
     def source_code_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The snapshotted workspace file system path of the source code loaded by the deployed app.
+        """
         return pulumi.get(self, "source_code_path")
 
     @source_code_path.setter
@@ -11506,9 +14004,12 @@ class AppPendingDeploymentGitSourceArgs:
 
 class AppPendingDeploymentGitSourceGitRepositoryArgsDict(TypedDict):
     provider: pulumi.Input[_builtins.str]
+    """
+    Git provider. Case insensitive. Supported values: `gitHub`, `gitHubEnterprise`, `bitbucketCloud`, `bitbucketServer`, `azureDevOpsServices`, `gitLab`, `gitLabEnterpriseEdition`, `awsCodeCommit`.
+    """
     url: pulumi.Input[_builtins.str]
     """
-    The URL of the app once it is deployed.
+    URL of the Git repository.
     """
 
 @pulumi.input_type
@@ -11517,7 +14018,8 @@ class AppPendingDeploymentGitSourceGitRepositoryArgs:
                  provider: pulumi.Input[_builtins.str],
                  url: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] url: The URL of the app once it is deployed.
+        :param pulumi.Input[_builtins.str] provider: Git provider. Case insensitive. Supported values: `gitHub`, `gitHubEnterprise`, `bitbucketCloud`, `bitbucketServer`, `azureDevOpsServices`, `gitLab`, `gitLabEnterpriseEdition`, `awsCodeCommit`.
+        :param pulumi.Input[_builtins.str] url: URL of the Git repository.
         """
         pulumi.set(__self__, "provider", provider)
         pulumi.set(__self__, "url", url)
@@ -11525,6 +14027,9 @@ class AppPendingDeploymentGitSourceGitRepositoryArgs:
     @_builtins.property
     @pulumi.getter
     def provider(self) -> pulumi.Input[_builtins.str]:
+        """
+        Git provider. Case insensitive. Supported values: `gitHub`, `gitHubEnterprise`, `bitbucketCloud`, `bitbucketServer`, `azureDevOpsServices`, `gitLab`, `gitLabEnterpriseEdition`, `awsCodeCommit`.
+        """
         return pulumi.get(self, "provider")
 
     @provider.setter
@@ -11535,7 +14040,7 @@ class AppPendingDeploymentGitSourceGitRepositoryArgs:
     @pulumi.getter
     def url(self) -> pulumi.Input[_builtins.str]:
         """
-        The URL of the app once it is deployed.
+        URL of the Git repository.
         """
         return pulumi.get(self, "url")
 
@@ -11547,11 +14052,11 @@ class AppPendingDeploymentGitSourceGitRepositoryArgs:
 class AppPendingDeploymentStatusArgsDict(TypedDict):
     message: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    Application status message
+    The status message of the deployment.
     """
     state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    State of the application.
+    The state of the deployment.
     """
 
 @pulumi.input_type
@@ -11560,8 +14065,8 @@ class AppPendingDeploymentStatusArgs:
                  message: pulumi.Input[Optional[_builtins.str]] = None,
                  state: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] message: Application status message
-        :param pulumi.Input[_builtins.str] state: State of the application.
+        :param pulumi.Input[_builtins.str] message: The status message of the deployment.
+        :param pulumi.Input[_builtins.str] state: The state of the deployment.
         """
         if message is not None:
             pulumi.set(__self__, "message", message)
@@ -11572,7 +14077,7 @@ class AppPendingDeploymentStatusArgs:
     @pulumi.getter
     def message(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Application status message
+        The status message of the deployment.
         """
         return pulumi.get(self, "message")
 
@@ -11584,7 +14089,7 @@ class AppPendingDeploymentStatusArgs:
     @pulumi.getter
     def state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        State of the application.
+        The state of the deployment.
         """
         return pulumi.get(self, "state")
 
@@ -11619,6 +14124,9 @@ class AppResourceArgsDict(TypedDict):
     The name of the resource.
     """
     app: NotRequired[pulumi.Input[Optional['AppResourceAppArgsDict']]]
+    """
+    attribute - reference to another Databricks App.
+    """
     database: NotRequired[pulumi.Input[Optional['AppResourceDatabaseArgsDict']]]
     """
     attribute
@@ -11630,6 +14138,9 @@ class AppResourceArgsDict(TypedDict):
     Exactly one of the following attributes must be provided:
     """
     experiment: NotRequired[pulumi.Input[Optional['AppResourceExperimentArgsDict']]]
+    """
+    attribute
+    """
     genie_space: NotRequired[pulumi.Input[Optional['AppResourceGenieSpaceArgsDict']]]
     """
     attribute
@@ -11639,6 +14150,9 @@ class AppResourceArgsDict(TypedDict):
     attribute
     """
     postgres: NotRequired[pulumi.Input[Optional['AppResourcePostgresArgsDict']]]
+    """
+    attribute
+    """
     secret: NotRequired[pulumi.Input[Optional['AppResourceSecretArgsDict']]]
     """
     attribute
@@ -11673,12 +14187,15 @@ class AppResourceArgs:
                  uc_securable: pulumi.Input[Optional['AppResourceUcSecurableArgs']] = None):
         """
         :param pulumi.Input[_builtins.str] name: The name of the resource.
+        :param pulumi.Input['AppResourceAppArgs'] app: attribute - reference to another Databricks App.
         :param pulumi.Input['AppResourceDatabaseArgs'] database: attribute
         :param pulumi.Input[_builtins.str] description: The description of the resource.
                
                Exactly one of the following attributes must be provided:
+        :param pulumi.Input['AppResourceExperimentArgs'] experiment: attribute
         :param pulumi.Input['AppResourceGenieSpaceArgs'] genie_space: attribute
         :param pulumi.Input['AppResourceJobArgs'] job: attribute
+        :param pulumi.Input['AppResourcePostgresArgs'] postgres: attribute
         :param pulumi.Input['AppResourceSecretArgs'] secret: attribute
         :param pulumi.Input['AppResourceServingEndpointArgs'] serving_endpoint: attribute
         :param pulumi.Input['AppResourceSqlWarehouseArgs'] sql_warehouse: attribute
@@ -11723,6 +14240,9 @@ class AppResourceArgs:
     @_builtins.property
     @pulumi.getter
     def app(self) -> pulumi.Input[Optional['AppResourceAppArgs']]:
+        """
+        attribute - reference to another Databricks App.
+        """
         return pulumi.get(self, "app")
 
     @app.setter
@@ -11758,6 +14278,9 @@ class AppResourceArgs:
     @_builtins.property
     @pulumi.getter
     def experiment(self) -> pulumi.Input[Optional['AppResourceExperimentArgs']]:
+        """
+        attribute
+        """
         return pulumi.get(self, "experiment")
 
     @experiment.setter
@@ -11791,6 +14314,9 @@ class AppResourceArgs:
     @_builtins.property
     @pulumi.getter
     def postgres(self) -> pulumi.Input[Optional['AppResourcePostgresArgs']]:
+        """
+        attribute
+        """
         return pulumi.get(self, "postgres")
 
     @postgres.setter
@@ -11849,9 +14375,12 @@ class AppResourceArgs:
 class AppResourceAppArgsDict(TypedDict):
     name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The name of the app. The name must contain only lowercase alphanumeric characters and hyphens. It must be unique within the workspace.
+    The name of the app to grant permission on.
     """
     permission: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Permission to grant on the app. Supported permissions are: `CAN_USE`.
+    """
 
 @pulumi.input_type
 class AppResourceAppArgs:
@@ -11859,7 +14388,8 @@ class AppResourceAppArgs:
                  name: pulumi.Input[Optional[_builtins.str]] = None,
                  permission: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] name: The name of the app. The name must contain only lowercase alphanumeric characters and hyphens. It must be unique within the workspace.
+        :param pulumi.Input[_builtins.str] name: The name of the app to grant permission on.
+        :param pulumi.Input[_builtins.str] permission: Permission to grant on the app. Supported permissions are: `CAN_USE`.
         """
         if name is not None:
             pulumi.set(__self__, "name", name)
@@ -11870,7 +14400,7 @@ class AppResourceAppArgs:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The name of the app. The name must contain only lowercase alphanumeric characters and hyphens. It must be unique within the workspace.
+        The name of the app to grant permission on.
         """
         return pulumi.get(self, "name")
 
@@ -11881,6 +14411,9 @@ class AppResourceAppArgs:
     @_builtins.property
     @pulumi.getter
     def permission(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Permission to grant on the app. Supported permissions are: `CAN_USE`.
+        """
         return pulumi.get(self, "permission")
 
     @permission.setter
@@ -11956,19 +14489,32 @@ class AppResourceDatabaseArgs:
 
 class AppResourceExperimentArgsDict(TypedDict):
     experiment_id: pulumi.Input[_builtins.str]
+    """
+    The ID of the MLflow experiment to grant permission on.
+    """
     permission: pulumi.Input[_builtins.str]
+    """
+    Permission to grant on the experiment. Supported permissions are: `CAN_READ`, `CAN_EDIT`, `CAN_MANAGE`.
+    """
 
 @pulumi.input_type
 class AppResourceExperimentArgs:
     def __init__(__self__, *,
                  experiment_id: pulumi.Input[_builtins.str],
                  permission: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] experiment_id: The ID of the MLflow experiment to grant permission on.
+        :param pulumi.Input[_builtins.str] permission: Permission to grant on the experiment. Supported permissions are: `CAN_READ`, `CAN_EDIT`, `CAN_MANAGE`.
+        """
         pulumi.set(__self__, "experiment_id", experiment_id)
         pulumi.set(__self__, "permission", permission)
 
     @_builtins.property
     @pulumi.getter(name="experimentId")
     def experiment_id(self) -> pulumi.Input[_builtins.str]:
+        """
+        The ID of the MLflow experiment to grant permission on.
+        """
         return pulumi.get(self, "experiment_id")
 
     @experiment_id.setter
@@ -11978,6 +14524,9 @@ class AppResourceExperimentArgs:
     @_builtins.property
     @pulumi.getter
     def permission(self) -> pulumi.Input[_builtins.str]:
+        """
+        Permission to grant on the experiment. Supported permissions are: `CAN_READ`, `CAN_EDIT`, `CAN_MANAGE`.
+        """
         return pulumi.get(self, "permission")
 
     @permission.setter
@@ -11991,6 +14540,9 @@ class AppResourceGenieSpaceArgsDict(TypedDict):
     The name of Genie Space.
     """
     permission: pulumi.Input[_builtins.str]
+    """
+    Permission to grant on Genie Space. Supported permissions are `CAN_MANAGE`, `CAN_EDIT`, `CAN_RUN`, `CAN_VIEW`.
+    """
     space_id: pulumi.Input[_builtins.str]
     """
     The unique ID of Genie Space.
@@ -12004,6 +14556,7 @@ class AppResourceGenieSpaceArgs:
                  space_id: pulumi.Input[_builtins.str]):
         """
         :param pulumi.Input[_builtins.str] name: The name of Genie Space.
+        :param pulumi.Input[_builtins.str] permission: Permission to grant on Genie Space. Supported permissions are `CAN_MANAGE`, `CAN_EDIT`, `CAN_RUN`, `CAN_VIEW`.
         :param pulumi.Input[_builtins.str] space_id: The unique ID of Genie Space.
         """
         pulumi.set(__self__, "name", name)
@@ -12025,6 +14578,9 @@ class AppResourceGenieSpaceArgs:
     @_builtins.property
     @pulumi.getter
     def permission(self) -> pulumi.Input[_builtins.str]:
+        """
+        Permission to grant on Genie Space. Supported permissions are `CAN_MANAGE`, `CAN_EDIT`, `CAN_RUN`, `CAN_VIEW`.
+        """
         return pulumi.get(self, "permission")
 
     @permission.setter
@@ -12093,11 +14649,17 @@ class AppResourceJobArgs:
 
 class AppResourcePostgresArgsDict(TypedDict):
     branch: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The resource path of the Lakebase Autoscaling branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789`).
+    """
     database: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    attribute
+    The resource path of a specific database within the branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789/databases/db-456`). If omitted, permission applies to the branch.
     """
     permission: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Permission to grant on the Lakebase Autoscaling branch or database. Supported permissions are: `CAN_CONNECT_AND_CREATE`.
+    """
 
 @pulumi.input_type
 class AppResourcePostgresArgs:
@@ -12106,7 +14668,9 @@ class AppResourcePostgresArgs:
                  database: pulumi.Input[Optional[_builtins.str]] = None,
                  permission: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] database: attribute
+        :param pulumi.Input[_builtins.str] branch: The resource path of the Lakebase Autoscaling branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789`).
+        :param pulumi.Input[_builtins.str] database: The resource path of a specific database within the branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789/databases/db-456`). If omitted, permission applies to the branch.
+        :param pulumi.Input[_builtins.str] permission: Permission to grant on the Lakebase Autoscaling branch or database. Supported permissions are: `CAN_CONNECT_AND_CREATE`.
         """
         if branch is not None:
             pulumi.set(__self__, "branch", branch)
@@ -12118,6 +14682,9 @@ class AppResourcePostgresArgs:
     @_builtins.property
     @pulumi.getter
     def branch(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The resource path of the Lakebase Autoscaling branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789`).
+        """
         return pulumi.get(self, "branch")
 
     @branch.setter
@@ -12128,7 +14695,7 @@ class AppResourcePostgresArgs:
     @pulumi.getter
     def database(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        attribute
+        The resource path of a specific database within the branch to grant permission on (e.g. `projects/proj-abc123/branches/branch-xyz789/databases/db-456`). If omitted, permission applies to the branch.
         """
         return pulumi.get(self, "database")
 
@@ -12139,6 +14706,9 @@ class AppResourcePostgresArgs:
     @_builtins.property
     @pulumi.getter
     def permission(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Permission to grant on the Lakebase Autoscaling branch or database. Supported permissions are: `CAN_CONNECT_AND_CREATE`.
+        """
         return pulumi.get(self, "permission")
 
     @permission.setter
@@ -12309,15 +14879,15 @@ class AppResourceSqlWarehouseArgs:
 class AppResourceUcSecurableArgsDict(TypedDict):
     permission: pulumi.Input[_builtins.str]
     """
-    Permissions to grant on UC securable, i.e. `READ_VOLUME`, `WRITE_VOLUME`.
+    Permission to grant on UC securable. Supported values depend on `securable_type`: `READ_VOLUME` and `WRITE_VOLUME` for `VOLUME`, `SELECT` and `MODIFY` for `TABLE`, `EXECUTE` for `FUNCTION`, `USE_CONNECTION` for `CONNECTION`.
     """
     securable_full_name: pulumi.Input[_builtins.str]
     """
-    the full name of UC securable, i.e. `my-catalog.my-schema.my-volume`.
+    The full name of UC securable, i.e. `my-catalog.my-schema.my-volume`.
     """
     securable_type: pulumi.Input[_builtins.str]
     """
-    the type of UC securable, i.e. `VOLUME`.
+    The type of UC securable. Supported values are `CONNECTION`, `FUNCTION`, `TABLE`, `VOLUME`.
     """
     securable_kind: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -12329,9 +14899,9 @@ class AppResourceUcSecurableArgs:
                  securable_type: pulumi.Input[_builtins.str],
                  securable_kind: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] permission: Permissions to grant on UC securable, i.e. `READ_VOLUME`, `WRITE_VOLUME`.
-        :param pulumi.Input[_builtins.str] securable_full_name: the full name of UC securable, i.e. `my-catalog.my-schema.my-volume`.
-        :param pulumi.Input[_builtins.str] securable_type: the type of UC securable, i.e. `VOLUME`.
+        :param pulumi.Input[_builtins.str] permission: Permission to grant on UC securable. Supported values depend on `securable_type`: `READ_VOLUME` and `WRITE_VOLUME` for `VOLUME`, `SELECT` and `MODIFY` for `TABLE`, `EXECUTE` for `FUNCTION`, `USE_CONNECTION` for `CONNECTION`.
+        :param pulumi.Input[_builtins.str] securable_full_name: The full name of UC securable, i.e. `my-catalog.my-schema.my-volume`.
+        :param pulumi.Input[_builtins.str] securable_type: The type of UC securable. Supported values are `CONNECTION`, `FUNCTION`, `TABLE`, `VOLUME`.
         """
         pulumi.set(__self__, "permission", permission)
         pulumi.set(__self__, "securable_full_name", securable_full_name)
@@ -12343,7 +14913,7 @@ class AppResourceUcSecurableArgs:
     @pulumi.getter
     def permission(self) -> pulumi.Input[_builtins.str]:
         """
-        Permissions to grant on UC securable, i.e. `READ_VOLUME`, `WRITE_VOLUME`.
+        Permission to grant on UC securable. Supported values depend on `securable_type`: `READ_VOLUME` and `WRITE_VOLUME` for `VOLUME`, `SELECT` and `MODIFY` for `TABLE`, `EXECUTE` for `FUNCTION`, `USE_CONNECTION` for `CONNECTION`.
         """
         return pulumi.get(self, "permission")
 
@@ -12355,7 +14925,7 @@ class AppResourceUcSecurableArgs:
     @pulumi.getter(name="securableFullName")
     def securable_full_name(self) -> pulumi.Input[_builtins.str]:
         """
-        the full name of UC securable, i.e. `my-catalog.my-schema.my-volume`.
+        The full name of UC securable, i.e. `my-catalog.my-schema.my-volume`.
         """
         return pulumi.get(self, "securable_full_name")
 
@@ -12367,7 +14937,7 @@ class AppResourceUcSecurableArgs:
     @pulumi.getter(name="securableType")
     def securable_type(self) -> pulumi.Input[_builtins.str]:
         """
-        the type of UC securable, i.e. `VOLUME`.
+        The type of UC securable. Supported values are `CONNECTION`, `FUNCTION`, `TABLE`, `VOLUME`.
         """
         return pulumi.get(self, "securable_type")
 
@@ -13123,17 +15693,26 @@ class AppSpaceStatusArgs:
 
 class AppTelemetryExportDestinationArgsDict(TypedDict):
     unity_catalog: NotRequired[pulumi.Input[Optional['AppTelemetryExportDestinationUnityCatalogArgsDict']]]
+    """
+    attribute - export telemetry to Unity Catalog tables (must already exist and be writable by the app's service principal).
+    """
 
 @pulumi.input_type
 class AppTelemetryExportDestinationArgs:
     def __init__(__self__, *,
                  unity_catalog: pulumi.Input[Optional['AppTelemetryExportDestinationUnityCatalogArgs']] = None):
+        """
+        :param pulumi.Input['AppTelemetryExportDestinationUnityCatalogArgs'] unity_catalog: attribute - export telemetry to Unity Catalog tables (must already exist and be writable by the app's service principal).
+        """
         if unity_catalog is not None:
             pulumi.set(__self__, "unity_catalog", unity_catalog)
 
     @_builtins.property
     @pulumi.getter(name="unityCatalog")
     def unity_catalog(self) -> pulumi.Input[Optional['AppTelemetryExportDestinationUnityCatalogArgs']]:
+        """
+        attribute - export telemetry to Unity Catalog tables (must already exist and be writable by the app's service principal).
+        """
         return pulumi.get(self, "unity_catalog")
 
     @unity_catalog.setter
@@ -13143,8 +15722,17 @@ class AppTelemetryExportDestinationArgs:
 
 class AppTelemetryExportDestinationUnityCatalogArgsDict(TypedDict):
     logs_table: pulumi.Input[_builtins.str]
+    """
+    Full name of the Unity Catalog table for OpenTelemetry logs.
+    """
     metrics_table: pulumi.Input[_builtins.str]
+    """
+    Full name of the Unity Catalog table for OpenTelemetry metrics.
+    """
     traces_table: pulumi.Input[_builtins.str]
+    """
+    Full name of the Unity Catalog table for OpenTelemetry traces (spans).
+    """
 
 @pulumi.input_type
 class AppTelemetryExportDestinationUnityCatalogArgs:
@@ -13152,6 +15740,11 @@ class AppTelemetryExportDestinationUnityCatalogArgs:
                  logs_table: pulumi.Input[_builtins.str],
                  metrics_table: pulumi.Input[_builtins.str],
                  traces_table: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] logs_table: Full name of the Unity Catalog table for OpenTelemetry logs.
+        :param pulumi.Input[_builtins.str] metrics_table: Full name of the Unity Catalog table for OpenTelemetry metrics.
+        :param pulumi.Input[_builtins.str] traces_table: Full name of the Unity Catalog table for OpenTelemetry traces (spans).
+        """
         pulumi.set(__self__, "logs_table", logs_table)
         pulumi.set(__self__, "metrics_table", metrics_table)
         pulumi.set(__self__, "traces_table", traces_table)
@@ -13159,6 +15752,9 @@ class AppTelemetryExportDestinationUnityCatalogArgs:
     @_builtins.property
     @pulumi.getter(name="logsTable")
     def logs_table(self) -> pulumi.Input[_builtins.str]:
+        """
+        Full name of the Unity Catalog table for OpenTelemetry logs.
+        """
         return pulumi.get(self, "logs_table")
 
     @logs_table.setter
@@ -13168,6 +15764,9 @@ class AppTelemetryExportDestinationUnityCatalogArgs:
     @_builtins.property
     @pulumi.getter(name="metricsTable")
     def metrics_table(self) -> pulumi.Input[_builtins.str]:
+        """
+        Full name of the Unity Catalog table for OpenTelemetry metrics.
+        """
         return pulumi.get(self, "metrics_table")
 
     @metrics_table.setter
@@ -13177,6 +15776,9 @@ class AppTelemetryExportDestinationUnityCatalogArgs:
     @_builtins.property
     @pulumi.getter(name="tracesTable")
     def traces_table(self) -> pulumi.Input[_builtins.str]:
+        """
+        Full name of the Unity Catalog table for OpenTelemetry traces (spans).
+        """
         return pulumi.get(self, "traces_table")
 
     @traces_table.setter
@@ -21812,16 +24414,25 @@ class ExternalMetadataProviderConfigArgs:
 
 class FeatureEngineeringFeatureEntityArgsDict(TypedDict):
     name: pulumi.Input[_builtins.str]
+    """
+    (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
+    """
 
 @pulumi.input_type
 class FeatureEngineeringFeatureEntityArgs:
     def __init__(__self__, *,
                  name: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] name: (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
+        """
         pulumi.set(__self__, "name", name)
 
     @_builtins.property
     @pulumi.getter
     def name(self) -> pulumi.Input[_builtins.str]:
+        """
+        (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
+        """
         return pulumi.get(self, "name")
 
     @name.setter
@@ -22399,6 +25010,7 @@ class FeatureEngineeringFeatureFunctionAggregationFunctionSumArgs:
 
 class FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowArgsDict(TypedDict):
     continuous: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowContinuousArgsDict']]]
+    rolling: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowRollingArgsDict']]]
     sliding: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowSlidingArgsDict']]]
     tumbling: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowTumblingArgsDict']]]
 
@@ -22406,10 +25018,13 @@ class FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowArgsDict(Typ
 class FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowArgs:
     def __init__(__self__, *,
                  continuous: pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowContinuousArgs']] = None,
+                 rolling: pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowRollingArgs']] = None,
                  sliding: pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowSlidingArgs']] = None,
                  tumbling: pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowTumblingArgs']] = None):
         if continuous is not None:
             pulumi.set(__self__, "continuous", continuous)
+        if rolling is not None:
+            pulumi.set(__self__, "rolling", rolling)
         if sliding is not None:
             pulumi.set(__self__, "sliding", sliding)
         if tumbling is not None:
@@ -22423,6 +25038,15 @@ class FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowArgs:
     @continuous.setter
     def continuous(self, value: pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowContinuousArgs']]):
         pulumi.set(self, "continuous", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def rolling(self) -> pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowRollingArgs']]:
+        return pulumi.get(self, "rolling")
+
+    @rolling.setter
+    def rolling(self, value: pulumi.Input[Optional['FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowRollingArgs']]):
+        pulumi.set(self, "rolling", value)
 
     @_builtins.property
     @pulumi.getter
@@ -22482,6 +25106,50 @@ class FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowContinuousAr
     @offset.setter
     def offset(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "offset", value)
+
+
+class FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowRollingArgsDict(TypedDict):
+    window_duration: pulumi.Input[_builtins.str]
+    delay: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The delay applied to the end of the rolling window (must be non-negative).
+    For example, delay=1d shifts the window end 1 day before the evaluation time
+    """
+
+@pulumi.input_type
+class FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowRollingArgs:
+    def __init__(__self__, *,
+                 window_duration: pulumi.Input[_builtins.str],
+                 delay: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] delay: The delay applied to the end of the rolling window (must be non-negative).
+               For example, delay=1d shifts the window end 1 day before the evaluation time
+        """
+        pulumi.set(__self__, "window_duration", window_duration)
+        if delay is not None:
+            pulumi.set(__self__, "delay", delay)
+
+    @_builtins.property
+    @pulumi.getter(name="windowDuration")
+    def window_duration(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "window_duration")
+
+    @window_duration.setter
+    def window_duration(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "window_duration", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def delay(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The delay applied to the end of the rolling window (must be non-negative).
+        For example, delay=1d shifts the window end 1 day before the evaluation time
+        """
+        return pulumi.get(self, "delay")
+
+    @delay.setter
+    def delay(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "delay", value)
 
 
 class FeatureEngineeringFeatureFunctionAggregationFunctionTimeWindowSlidingArgsDict(TypedDict):
@@ -22855,7 +25523,9 @@ class FeatureEngineeringFeatureSourceArgs:
 class FeatureEngineeringFeatureSourceDeltaTableSourceArgsDict(TypedDict):
     full_name: pulumi.Input[_builtins.str]
     """
-    The full three-part name (catalog, schema, name) of the feature
+    The full three-part name (catalog, schema, name) of the feature. This is the
+    feature's resource identifier; the catalog_name, schema_name, and name fields
+    below are OUTPUT_ONLY decomposed views of this value
     """
     dataframe_schema: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -22894,7 +25564,9 @@ class FeatureEngineeringFeatureSourceDeltaTableSourceArgs:
                  timeseries_column: pulumi.Input[Optional[_builtins.str]] = None,
                  transformation_sql: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] full_name: The full three-part name (catalog, schema, name) of the feature
+        :param pulumi.Input[_builtins.str] full_name: The full three-part name (catalog, schema, name) of the feature. This is the
+               feature's resource identifier; the catalog_name, schema_name, and name fields
+               below are OUTPUT_ONLY decomposed views of this value
         :param pulumi.Input[_builtins.str] dataframe_schema: Schema of the resulting dataframe after transformations, in Spark StructType JSON format (from df.schema.json()).
                Required if transformation_sql is specified.
                Example: {"type":"struct","fields":[{"name":"col_a","type":"integer","nullable":true,"metadata":{}},{"name":"col_c","type":"integer","nullable":true,"metadata":{}}]}
@@ -22923,7 +25595,9 @@ class FeatureEngineeringFeatureSourceDeltaTableSourceArgs:
     @pulumi.getter(name="fullName")
     def full_name(self) -> pulumi.Input[_builtins.str]:
         """
-        The full three-part name (catalog, schema, name) of the feature
+        The full three-part name (catalog, schema, name) of the feature. This is the
+        feature's resource identifier; the catalog_name, schema_name, and name fields
+        below are OUTPUT_ONLY decomposed views of this value
         """
         return pulumi.get(self, "full_name")
 
@@ -23000,6 +25674,9 @@ class FeatureEngineeringFeatureSourceDeltaTableSourceArgs:
 
 class FeatureEngineeringFeatureSourceKafkaSourceArgsDict(TypedDict):
     name: pulumi.Input[_builtins.str]
+    """
+    (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
+    """
     entity_column_identifiers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['FeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifierArgsDict']]]]]
     """
     Deprecated: Use Feature.entity instead. Kept for backwards compatibility.
@@ -23024,6 +25701,7 @@ class FeatureEngineeringFeatureSourceKafkaSourceArgs:
                  filter_condition: pulumi.Input[Optional[_builtins.str]] = None,
                  timeseries_column_identifier: pulumi.Input[Optional['FeatureEngineeringFeatureSourceKafkaSourceTimeseriesColumnIdentifierArgs']] = None):
         """
+        :param pulumi.Input[_builtins.str] name: (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
         :param pulumi.Input[Sequence[pulumi.Input['FeatureEngineeringFeatureSourceKafkaSourceEntityColumnIdentifierArgs']]] entity_column_identifiers: Deprecated: Use Feature.entity instead. Kept for backwards compatibility.
                The entity column identifiers of the Kafka source
         :param pulumi.Input[_builtins.str] filter_condition: Deprecated: Use DeltaTableSource.filter_condition or KafkaSource.filter_condition instead. Kept for backwards compatibility.
@@ -23042,6 +25720,9 @@ class FeatureEngineeringFeatureSourceKafkaSourceArgs:
     @_builtins.property
     @pulumi.getter
     def name(self) -> pulumi.Input[_builtins.str]:
+        """
+        (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
+        """
         return pulumi.get(self, "name")
 
     @name.setter
@@ -23213,6 +25894,9 @@ class FeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgsDict(TypedD
     The scalar data type of the field. Possible values are: `BINARY`, `BOOLEAN`, `DATE`, `DECIMAL`, `DOUBLE`, `FLOAT`, `INTEGER`, `LONG`, `SHORT`, `STRING`, `TIMESTAMP`
     """
     name: pulumi.Input[_builtins.str]
+    """
+    (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
+    """
 
 @pulumi.input_type
 class FeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgs:
@@ -23221,6 +25905,7 @@ class FeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgs:
                  name: pulumi.Input[_builtins.str]):
         """
         :param pulumi.Input[_builtins.str] data_type: The scalar data type of the field. Possible values are: `BINARY`, `BOOLEAN`, `DATE`, `DECIMAL`, `DOUBLE`, `FLOAT`, `INTEGER`, `LONG`, `SHORT`, `STRING`, `TIMESTAMP`
+        :param pulumi.Input[_builtins.str] name: (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
         """
         pulumi.set(__self__, "data_type", data_type)
         pulumi.set(__self__, "name", name)
@@ -23240,6 +25925,9 @@ class FeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgs:
     @_builtins.property
     @pulumi.getter
     def name(self) -> pulumi.Input[_builtins.str]:
+        """
+        (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
+        """
         return pulumi.get(self, "name")
 
     @name.setter
@@ -23249,6 +25937,7 @@ class FeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgs:
 
 class FeatureEngineeringFeatureTimeWindowArgsDict(TypedDict):
     continuous: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowContinuousArgsDict']]]
+    rolling: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowRollingArgsDict']]]
     sliding: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowSlidingArgsDict']]]
     tumbling: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowTumblingArgsDict']]]
 
@@ -23256,10 +25945,13 @@ class FeatureEngineeringFeatureTimeWindowArgsDict(TypedDict):
 class FeatureEngineeringFeatureTimeWindowArgs:
     def __init__(__self__, *,
                  continuous: pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowContinuousArgs']] = None,
+                 rolling: pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowRollingArgs']] = None,
                  sliding: pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowSlidingArgs']] = None,
                  tumbling: pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowTumblingArgs']] = None):
         if continuous is not None:
             pulumi.set(__self__, "continuous", continuous)
+        if rolling is not None:
+            pulumi.set(__self__, "rolling", rolling)
         if sliding is not None:
             pulumi.set(__self__, "sliding", sliding)
         if tumbling is not None:
@@ -23273,6 +25965,15 @@ class FeatureEngineeringFeatureTimeWindowArgs:
     @continuous.setter
     def continuous(self, value: pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowContinuousArgs']]):
         pulumi.set(self, "continuous", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def rolling(self) -> pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowRollingArgs']]:
+        return pulumi.get(self, "rolling")
+
+    @rolling.setter
+    def rolling(self, value: pulumi.Input[Optional['FeatureEngineeringFeatureTimeWindowRollingArgs']]):
+        pulumi.set(self, "rolling", value)
 
     @_builtins.property
     @pulumi.getter
@@ -23332,6 +26033,50 @@ class FeatureEngineeringFeatureTimeWindowContinuousArgs:
     @offset.setter
     def offset(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "offset", value)
+
+
+class FeatureEngineeringFeatureTimeWindowRollingArgsDict(TypedDict):
+    window_duration: pulumi.Input[_builtins.str]
+    delay: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The delay applied to the end of the rolling window (must be non-negative).
+    For example, delay=1d shifts the window end 1 day before the evaluation time
+    """
+
+@pulumi.input_type
+class FeatureEngineeringFeatureTimeWindowRollingArgs:
+    def __init__(__self__, *,
+                 window_duration: pulumi.Input[_builtins.str],
+                 delay: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] delay: The delay applied to the end of the rolling window (must be non-negative).
+               For example, delay=1d shifts the window end 1 day before the evaluation time
+        """
+        pulumi.set(__self__, "window_duration", window_duration)
+        if delay is not None:
+            pulumi.set(__self__, "delay", delay)
+
+    @_builtins.property
+    @pulumi.getter(name="windowDuration")
+    def window_duration(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "window_duration")
+
+    @window_duration.setter
+    def window_duration(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "window_duration", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def delay(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The delay applied to the end of the rolling window (must be non-negative).
+        For example, delay=1d shifts the window end 1 day before the evaluation time
+        """
+        return pulumi.get(self, "delay")
+
+    @delay.setter
+    def delay(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "delay", value)
 
 
 class FeatureEngineeringFeatureTimeWindowSlidingArgsDict(TypedDict):
@@ -23395,16 +26140,25 @@ class FeatureEngineeringFeatureTimeWindowTumblingArgs:
 
 class FeatureEngineeringFeatureTimeseriesColumnArgsDict(TypedDict):
     name: pulumi.Input[_builtins.str]
+    """
+    (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
+    """
 
 @pulumi.input_type
 class FeatureEngineeringFeatureTimeseriesColumnArgs:
     def __init__(__self__, *,
                  name: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] name: (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
+        """
         pulumi.set(__self__, "name", name)
 
     @_builtins.property
     @pulumi.getter
     def name(self) -> pulumi.Input[_builtins.str]:
+        """
+        (string) - Name of the feature, extracted from the full three-part name (catalog.schema.name)
+        """
         return pulumi.get(self, "name")
 
     @name.setter
@@ -23413,6 +26167,10 @@ class FeatureEngineeringFeatureTimeseriesColumnArgs:
 
 
 class FeatureEngineeringKafkaConfigAuthConfigArgsDict(TypedDict):
+    mtls_config: NotRequired[pulumi.Input[Optional['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigArgsDict']]]
+    """
+    Mutual-TLS authentication. See MtlsConfig
+    """
     uc_service_credential_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     Name of the Unity Catalog service credential. This value will be set under the option databricks.serviceCredential
@@ -23421,12 +26179,28 @@ class FeatureEngineeringKafkaConfigAuthConfigArgsDict(TypedDict):
 @pulumi.input_type
 class FeatureEngineeringKafkaConfigAuthConfigArgs:
     def __init__(__self__, *,
+                 mtls_config: pulumi.Input[Optional['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigArgs']] = None,
                  uc_service_credential_name: pulumi.Input[Optional[_builtins.str]] = None):
         """
+        :param pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigArgs'] mtls_config: Mutual-TLS authentication. See MtlsConfig
         :param pulumi.Input[_builtins.str] uc_service_credential_name: Name of the Unity Catalog service credential. This value will be set under the option databricks.serviceCredential
         """
+        if mtls_config is not None:
+            pulumi.set(__self__, "mtls_config", mtls_config)
         if uc_service_credential_name is not None:
             pulumi.set(__self__, "uc_service_credential_name", uc_service_credential_name)
+
+    @_builtins.property
+    @pulumi.getter(name="mtlsConfig")
+    def mtls_config(self) -> pulumi.Input[Optional['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigArgs']]:
+        """
+        Mutual-TLS authentication. See MtlsConfig
+        """
+        return pulumi.get(self, "mtls_config")
+
+    @mtls_config.setter
+    def mtls_config(self, value: pulumi.Input[Optional['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigArgs']]):
+        pulumi.set(self, "mtls_config", value)
 
     @_builtins.property
     @pulumi.getter(name="ucServiceCredentialName")
@@ -23439,6 +26213,310 @@ class FeatureEngineeringKafkaConfigAuthConfigArgs:
     @uc_service_credential_name.setter
     def uc_service_credential_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "uc_service_credential_name", value)
+
+
+class FeatureEngineeringKafkaConfigAuthConfigMtlsConfigArgsDict(TypedDict):
+    key_password_ref: pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeyPasswordRefArgsDict']
+    """
+    Secret-scope reference for the private key password. Often the same value as the
+    keystore password (keytool's default), but provided as a separate field because
+    Apache Kafka requires it as a distinct option (kafka.ssl.key.password)
+    """
+    keystore_location: pulumi.Input[_builtins.str]
+    """
+    Unity Catalog volume path to the JKS keystore file containing the client certificate
+    and private key. e.g. "/Volumes/<catalog>/<schema>/<volume>/client.jks". The
+    materialization compute must have read permission on this volume
+    """
+    keystore_password_ref: pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeystorePasswordRefArgsDict']
+    """
+    Secret-scope reference for the JKS keystore password
+    """
+    truststore_location: pulumi.Input[_builtins.str]
+    """
+    Unity Catalog volume path to the JKS truststore file containing the CA certificate(s)
+    trusted to verify the Kafka broker's server certificate.
+    e.g. "/Volumes/<catalog>/<schema>/<volume>/truststore.jks"
+    """
+    truststore_password_ref: pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigTruststorePasswordRefArgsDict']
+    """
+    Secret-scope reference for the JKS truststore password
+    """
+    disable_hostname_verification: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    Set to true only when the broker certificate's SAN intentionally does not match
+    the connection endpoint — for example when reaching the cluster through a
+    PrivateLink endpoint whose DNS name is not in the broker certificate. Skipping
+    the hostname check removes a defense against man-in-the-middle attacks; do not
+    enable casually. mTLS client authentication is unaffected by this option.
+
+    See the Apache Kafka SSL security guide for background on this check:
+    https://kafka.apache.org/42/security/encryption-and-authentication-using-ssl/#host-name-verification
+    """
+
+@pulumi.input_type
+class FeatureEngineeringKafkaConfigAuthConfigMtlsConfigArgs:
+    def __init__(__self__, *,
+                 key_password_ref: pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeyPasswordRefArgs'],
+                 keystore_location: pulumi.Input[_builtins.str],
+                 keystore_password_ref: pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeystorePasswordRefArgs'],
+                 truststore_location: pulumi.Input[_builtins.str],
+                 truststore_password_ref: pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigTruststorePasswordRefArgs'],
+                 disable_hostname_verification: pulumi.Input[Optional[_builtins.bool]] = None):
+        """
+        :param pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeyPasswordRefArgs'] key_password_ref: Secret-scope reference for the private key password. Often the same value as the
+               keystore password (keytool's default), but provided as a separate field because
+               Apache Kafka requires it as a distinct option (kafka.ssl.key.password)
+        :param pulumi.Input[_builtins.str] keystore_location: Unity Catalog volume path to the JKS keystore file containing the client certificate
+               and private key. e.g. "/Volumes/<catalog>/<schema>/<volume>/client.jks". The
+               materialization compute must have read permission on this volume
+        :param pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeystorePasswordRefArgs'] keystore_password_ref: Secret-scope reference for the JKS keystore password
+        :param pulumi.Input[_builtins.str] truststore_location: Unity Catalog volume path to the JKS truststore file containing the CA certificate(s)
+               trusted to verify the Kafka broker's server certificate.
+               e.g. "/Volumes/<catalog>/<schema>/<volume>/truststore.jks"
+        :param pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigTruststorePasswordRefArgs'] truststore_password_ref: Secret-scope reference for the JKS truststore password
+        :param pulumi.Input[_builtins.bool] disable_hostname_verification: Set to true only when the broker certificate's SAN intentionally does not match
+               the connection endpoint — for example when reaching the cluster through a
+               PrivateLink endpoint whose DNS name is not in the broker certificate. Skipping
+               the hostname check removes a defense against man-in-the-middle attacks; do not
+               enable casually. mTLS client authentication is unaffected by this option.
+               
+               See the Apache Kafka SSL security guide for background on this check:
+               https://kafka.apache.org/42/security/encryption-and-authentication-using-ssl/#host-name-verification
+        """
+        pulumi.set(__self__, "key_password_ref", key_password_ref)
+        pulumi.set(__self__, "keystore_location", keystore_location)
+        pulumi.set(__self__, "keystore_password_ref", keystore_password_ref)
+        pulumi.set(__self__, "truststore_location", truststore_location)
+        pulumi.set(__self__, "truststore_password_ref", truststore_password_ref)
+        if disable_hostname_verification is not None:
+            pulumi.set(__self__, "disable_hostname_verification", disable_hostname_verification)
+
+    @_builtins.property
+    @pulumi.getter(name="keyPasswordRef")
+    def key_password_ref(self) -> pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeyPasswordRefArgs']:
+        """
+        Secret-scope reference for the private key password. Often the same value as the
+        keystore password (keytool's default), but provided as a separate field because
+        Apache Kafka requires it as a distinct option (kafka.ssl.key.password)
+        """
+        return pulumi.get(self, "key_password_ref")
+
+    @key_password_ref.setter
+    def key_password_ref(self, value: pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeyPasswordRefArgs']):
+        pulumi.set(self, "key_password_ref", value)
+
+    @_builtins.property
+    @pulumi.getter(name="keystoreLocation")
+    def keystore_location(self) -> pulumi.Input[_builtins.str]:
+        """
+        Unity Catalog volume path to the JKS keystore file containing the client certificate
+        and private key. e.g. "/Volumes/<catalog>/<schema>/<volume>/client.jks". The
+        materialization compute must have read permission on this volume
+        """
+        return pulumi.get(self, "keystore_location")
+
+    @keystore_location.setter
+    def keystore_location(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "keystore_location", value)
+
+    @_builtins.property
+    @pulumi.getter(name="keystorePasswordRef")
+    def keystore_password_ref(self) -> pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeystorePasswordRefArgs']:
+        """
+        Secret-scope reference for the JKS keystore password
+        """
+        return pulumi.get(self, "keystore_password_ref")
+
+    @keystore_password_ref.setter
+    def keystore_password_ref(self, value: pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeystorePasswordRefArgs']):
+        pulumi.set(self, "keystore_password_ref", value)
+
+    @_builtins.property
+    @pulumi.getter(name="truststoreLocation")
+    def truststore_location(self) -> pulumi.Input[_builtins.str]:
+        """
+        Unity Catalog volume path to the JKS truststore file containing the CA certificate(s)
+        trusted to verify the Kafka broker's server certificate.
+        e.g. "/Volumes/<catalog>/<schema>/<volume>/truststore.jks"
+        """
+        return pulumi.get(self, "truststore_location")
+
+    @truststore_location.setter
+    def truststore_location(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "truststore_location", value)
+
+    @_builtins.property
+    @pulumi.getter(name="truststorePasswordRef")
+    def truststore_password_ref(self) -> pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigTruststorePasswordRefArgs']:
+        """
+        Secret-scope reference for the JKS truststore password
+        """
+        return pulumi.get(self, "truststore_password_ref")
+
+    @truststore_password_ref.setter
+    def truststore_password_ref(self, value: pulumi.Input['FeatureEngineeringKafkaConfigAuthConfigMtlsConfigTruststorePasswordRefArgs']):
+        pulumi.set(self, "truststore_password_ref", value)
+
+    @_builtins.property
+    @pulumi.getter(name="disableHostnameVerification")
+    def disable_hostname_verification(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Set to true only when the broker certificate's SAN intentionally does not match
+        the connection endpoint — for example when reaching the cluster through a
+        PrivateLink endpoint whose DNS name is not in the broker certificate. Skipping
+        the hostname check removes a defense against man-in-the-middle attacks; do not
+        enable casually. mTLS client authentication is unaffected by this option.
+
+        See the Apache Kafka SSL security guide for background on this check:
+        https://kafka.apache.org/42/security/encryption-and-authentication-using-ssl/#host-name-verification
+        """
+        return pulumi.get(self, "disable_hostname_verification")
+
+    @disable_hostname_verification.setter
+    def disable_hostname_verification(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "disable_hostname_verification", value)
+
+
+class FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeyPasswordRefArgsDict(TypedDict):
+    key: pulumi.Input[_builtins.str]
+    """
+    The key within the scope
+    """
+    scope: pulumi.Input[_builtins.str]
+    """
+    The Databricks secret scope name
+    """
+
+@pulumi.input_type
+class FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeyPasswordRefArgs:
+    def __init__(__self__, *,
+                 key: pulumi.Input[_builtins.str],
+                 scope: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] key: The key within the scope
+        :param pulumi.Input[_builtins.str] scope: The Databricks secret scope name
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "scope", scope)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> pulumi.Input[_builtins.str]:
+        """
+        The key within the scope
+        """
+        return pulumi.get(self, "key")
+
+    @key.setter
+    def key(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "key", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scope(self) -> pulumi.Input[_builtins.str]:
+        """
+        The Databricks secret scope name
+        """
+        return pulumi.get(self, "scope")
+
+    @scope.setter
+    def scope(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "scope", value)
+
+
+class FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeystorePasswordRefArgsDict(TypedDict):
+    key: pulumi.Input[_builtins.str]
+    """
+    The key within the scope
+    """
+    scope: pulumi.Input[_builtins.str]
+    """
+    The Databricks secret scope name
+    """
+
+@pulumi.input_type
+class FeatureEngineeringKafkaConfigAuthConfigMtlsConfigKeystorePasswordRefArgs:
+    def __init__(__self__, *,
+                 key: pulumi.Input[_builtins.str],
+                 scope: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] key: The key within the scope
+        :param pulumi.Input[_builtins.str] scope: The Databricks secret scope name
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "scope", scope)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> pulumi.Input[_builtins.str]:
+        """
+        The key within the scope
+        """
+        return pulumi.get(self, "key")
+
+    @key.setter
+    def key(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "key", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scope(self) -> pulumi.Input[_builtins.str]:
+        """
+        The Databricks secret scope name
+        """
+        return pulumi.get(self, "scope")
+
+    @scope.setter
+    def scope(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "scope", value)
+
+
+class FeatureEngineeringKafkaConfigAuthConfigMtlsConfigTruststorePasswordRefArgsDict(TypedDict):
+    key: pulumi.Input[_builtins.str]
+    """
+    The key within the scope
+    """
+    scope: pulumi.Input[_builtins.str]
+    """
+    The Databricks secret scope name
+    """
+
+@pulumi.input_type
+class FeatureEngineeringKafkaConfigAuthConfigMtlsConfigTruststorePasswordRefArgs:
+    def __init__(__self__, *,
+                 key: pulumi.Input[_builtins.str],
+                 scope: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] key: The key within the scope
+        :param pulumi.Input[_builtins.str] scope: The Databricks secret scope name
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "scope", scope)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> pulumi.Input[_builtins.str]:
+        """
+        The key within the scope
+        """
+        return pulumi.get(self, "key")
+
+    @key.setter
+    def key(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "key", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def scope(self) -> pulumi.Input[_builtins.str]:
+        """
+        The Databricks secret scope name
+        """
+        return pulumi.get(self, "scope")
+
+    @scope.setter
+    def scope(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "scope", value)
 
 
 class FeatureEngineeringKafkaConfigBackfillSourceArgsDict(TypedDict):
@@ -23801,6 +26879,35 @@ class FeatureEngineeringKafkaConfigValueSchemaArgs:
         pulumi.set(self, "json_schema", value)
 
 
+class FeatureEngineeringMaterializedFeatureCronScheduleTriggerArgsDict(TypedDict):
+    cron_expression: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The cron expression defining the schedule (e.g., "0 0 * * *" for daily at midnight)
+    """
+
+@pulumi.input_type
+class FeatureEngineeringMaterializedFeatureCronScheduleTriggerArgs:
+    def __init__(__self__, *,
+                 cron_expression: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] cron_expression: The cron expression defining the schedule (e.g., "0 0 * * *" for daily at midnight)
+        """
+        if cron_expression is not None:
+            pulumi.set(__self__, "cron_expression", cron_expression)
+
+    @_builtins.property
+    @pulumi.getter(name="cronExpression")
+    def cron_expression(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The cron expression defining the schedule (e.g., "0 0 * * *" for daily at midnight)
+        """
+        return pulumi.get(self, "cron_expression")
+
+    @cron_expression.setter
+    def cron_expression(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "cron_expression", value)
+
+
 class FeatureEngineeringMaterializedFeatureOfflineStoreConfigArgsDict(TypedDict):
     catalog_name: pulumi.Input[_builtins.str]
     schema_name: pulumi.Input[_builtins.str]
@@ -23935,6 +27042,44 @@ class FeatureEngineeringMaterializedFeatureProviderConfigArgs:
     @workspace_id.setter
     def workspace_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "workspace_id", value)
+
+
+class FeatureEngineeringMaterializedFeatureStreamingModeArgsDict(TypedDict):
+    mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The type of streaming mode used by the materialization pipeline. Possible values are: `STREAMING_MODE_TYPE_MBM`, `STREAMING_MODE_TYPE_RTM`
+    """
+
+@pulumi.input_type
+class FeatureEngineeringMaterializedFeatureStreamingModeArgs:
+    def __init__(__self__, *,
+                 mode: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] mode: The type of streaming mode used by the materialization pipeline. Possible values are: `STREAMING_MODE_TYPE_MBM`, `STREAMING_MODE_TYPE_RTM`
+        """
+        if mode is not None:
+            pulumi.set(__self__, "mode", mode)
+
+    @_builtins.property
+    @pulumi.getter
+    def mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The type of streaming mode used by the materialization pipeline. Possible values are: `STREAMING_MODE_TYPE_MBM`, `STREAMING_MODE_TYPE_RTM`
+        """
+        return pulumi.get(self, "mode")
+
+    @mode.setter
+    def mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "mode", value)
+
+
+class FeatureEngineeringMaterializedFeatureTableTriggerArgsDict(TypedDict):
+    pass
+
+@pulumi.input_type
+class FeatureEngineeringMaterializedFeatureTableTriggerArgs:
+    def __init__(__self__):
+        pass
 
 
 class FileProviderConfigArgsDict(TypedDict):
@@ -30743,6 +33888,7 @@ class JobTaskArgsDict(TypedDict):
     """
     pipeline_task: NotRequired[pulumi.Input[Optional['JobTaskPipelineTaskArgsDict']]]
     power_bi_task: NotRequired[pulumi.Input[Optional['JobTaskPowerBiTaskArgsDict']]]
+    python_operator_task: NotRequired[pulumi.Input[Optional['JobTaskPythonOperatorTaskArgsDict']]]
     python_wheel_task: NotRequired[pulumi.Input[Optional['JobTaskPythonWheelTaskArgsDict']]]
     retry_on_timeout: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -30797,6 +33943,7 @@ class JobTaskArgs:
                  notification_settings: pulumi.Input[Optional['JobTaskNotificationSettingsArgs']] = None,
                  pipeline_task: pulumi.Input[Optional['JobTaskPipelineTaskArgs']] = None,
                  power_bi_task: pulumi.Input[Optional['JobTaskPowerBiTaskArgs']] = None,
+                 python_operator_task: pulumi.Input[Optional['JobTaskPythonOperatorTaskArgs']] = None,
                  python_wheel_task: pulumi.Input[Optional['JobTaskPythonWheelTaskArgs']] = None,
                  retry_on_timeout: pulumi.Input[Optional[_builtins.bool]] = None,
                  run_if: pulumi.Input[Optional[_builtins.str]] = None,
@@ -30886,6 +34033,8 @@ class JobTaskArgs:
             pulumi.set(__self__, "pipeline_task", pipeline_task)
         if power_bi_task is not None:
             pulumi.set(__self__, "power_bi_task", power_bi_task)
+        if python_operator_task is not None:
+            pulumi.set(__self__, "python_operator_task", python_operator_task)
         if python_wheel_task is not None:
             pulumi.set(__self__, "python_wheel_task", python_wheel_task)
         if retry_on_timeout is not None:
@@ -31206,6 +34355,15 @@ class JobTaskArgs:
     @power_bi_task.setter
     def power_bi_task(self, value: pulumi.Input[Optional['JobTaskPowerBiTaskArgs']]):
         pulumi.set(self, "power_bi_task", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pythonOperatorTask")
+    def python_operator_task(self) -> pulumi.Input[Optional['JobTaskPythonOperatorTaskArgs']]:
+        return pulumi.get(self, "python_operator_task")
+
+    @python_operator_task.setter
+    def python_operator_task(self, value: pulumi.Input[Optional['JobTaskPythonOperatorTaskArgs']]):
+        pulumi.set(self, "python_operator_task", value)
 
     @_builtins.property
     @pulumi.getter(name="pythonWheelTask")
@@ -32397,6 +35555,7 @@ class JobTaskForEachTaskTaskArgsDict(TypedDict):
     """
     pipeline_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPipelineTaskArgsDict']]]
     power_bi_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPowerBiTaskArgsDict']]]
+    python_operator_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPythonOperatorTaskArgsDict']]]
     python_wheel_task: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskPythonWheelTaskArgsDict']]]
     retry_on_timeout: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -32450,6 +35609,7 @@ class JobTaskForEachTaskTaskArgs:
                  notification_settings: pulumi.Input[Optional['JobTaskForEachTaskTaskNotificationSettingsArgs']] = None,
                  pipeline_task: pulumi.Input[Optional['JobTaskForEachTaskTaskPipelineTaskArgs']] = None,
                  power_bi_task: pulumi.Input[Optional['JobTaskForEachTaskTaskPowerBiTaskArgs']] = None,
+                 python_operator_task: pulumi.Input[Optional['JobTaskForEachTaskTaskPythonOperatorTaskArgs']] = None,
                  python_wheel_task: pulumi.Input[Optional['JobTaskForEachTaskTaskPythonWheelTaskArgs']] = None,
                  retry_on_timeout: pulumi.Input[Optional[_builtins.bool]] = None,
                  run_if: pulumi.Input[Optional[_builtins.str]] = None,
@@ -32537,6 +35697,8 @@ class JobTaskForEachTaskTaskArgs:
             pulumi.set(__self__, "pipeline_task", pipeline_task)
         if power_bi_task is not None:
             pulumi.set(__self__, "power_bi_task", power_bi_task)
+        if python_operator_task is not None:
+            pulumi.set(__self__, "python_operator_task", python_operator_task)
         if python_wheel_task is not None:
             pulumi.set(__self__, "python_wheel_task", python_wheel_task)
         if retry_on_timeout is not None:
@@ -32848,6 +36010,15 @@ class JobTaskForEachTaskTaskArgs:
     @power_bi_task.setter
     def power_bi_task(self, value: pulumi.Input[Optional['JobTaskForEachTaskTaskPowerBiTaskArgs']]):
         pulumi.set(self, "power_bi_task", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pythonOperatorTask")
+    def python_operator_task(self) -> pulumi.Input[Optional['JobTaskForEachTaskTaskPythonOperatorTaskArgs']]:
+        return pulumi.get(self, "python_operator_task")
+
+    @python_operator_task.setter
+    def python_operator_task(self, value: pulumi.Input[Optional['JobTaskForEachTaskTaskPythonOperatorTaskArgs']]):
+        pulumi.set(self, "python_operator_task", value)
 
     @_builtins.property
     @pulumi.getter(name="pythonWheelTask")
@@ -36527,12 +39698,22 @@ class JobTaskForEachTaskTaskPipelineTaskArgsDict(TypedDict):
 
     > The following configuration blocks are only supported inside a `task` block
     """
+    full_refresh_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    parameters: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    refresh_flow_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    refresh_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    reset_checkpoint_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
 
 @pulumi.input_type
 class JobTaskForEachTaskTaskPipelineTaskArgs:
     def __init__(__self__, *,
                  pipeline_id: pulumi.Input[_builtins.str],
-                 full_refresh: pulumi.Input[Optional[_builtins.bool]] = None):
+                 full_refresh: pulumi.Input[Optional[_builtins.bool]] = None,
+                 full_refresh_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 parameters: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 refresh_flow_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 refresh_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 reset_checkpoint_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         :param pulumi.Input[_builtins.str] pipeline_id: The pipeline's unique ID.
         :param pulumi.Input[_builtins.bool] full_refresh: (Bool) Specifies if there should be full refresh of the pipeline.
@@ -36542,6 +39723,16 @@ class JobTaskForEachTaskTaskPipelineTaskArgs:
         pulumi.set(__self__, "pipeline_id", pipeline_id)
         if full_refresh is not None:
             pulumi.set(__self__, "full_refresh", full_refresh)
+        if full_refresh_selections is not None:
+            pulumi.set(__self__, "full_refresh_selections", full_refresh_selections)
+        if parameters is not None:
+            pulumi.set(__self__, "parameters", parameters)
+        if refresh_flow_selections is not None:
+            pulumi.set(__self__, "refresh_flow_selections", refresh_flow_selections)
+        if refresh_selections is not None:
+            pulumi.set(__self__, "refresh_selections", refresh_selections)
+        if reset_checkpoint_selections is not None:
+            pulumi.set(__self__, "reset_checkpoint_selections", reset_checkpoint_selections)
 
     @_builtins.property
     @pulumi.getter(name="pipelineId")
@@ -36568,6 +39759,51 @@ class JobTaskForEachTaskTaskPipelineTaskArgs:
     @full_refresh.setter
     def full_refresh(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "full_refresh", value)
+
+    @_builtins.property
+    @pulumi.getter(name="fullRefreshSelections")
+    def full_refresh_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "full_refresh_selections")
+
+    @full_refresh_selections.setter
+    def full_refresh_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "full_refresh_selections", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def parameters(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "parameters")
+
+    @parameters.setter
+    def parameters(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "parameters", value)
+
+    @_builtins.property
+    @pulumi.getter(name="refreshFlowSelections")
+    def refresh_flow_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "refresh_flow_selections")
+
+    @refresh_flow_selections.setter
+    def refresh_flow_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "refresh_flow_selections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="refreshSelections")
+    def refresh_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "refresh_selections")
+
+    @refresh_selections.setter
+    def refresh_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "refresh_selections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="resetCheckpointSelections")
+    def reset_checkpoint_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "reset_checkpoint_selections")
+
+    @reset_checkpoint_selections.setter
+    def reset_checkpoint_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "reset_checkpoint_selections", value)
 
 
 class JobTaskForEachTaskTaskPowerBiTaskArgsDict(TypedDict):
@@ -36877,6 +40113,88 @@ class JobTaskForEachTaskTaskPowerBiTaskTableArgs:
         pulumi.set(self, "storage_mode", value)
 
 
+class JobTaskForEachTaskTaskPythonOperatorTaskArgsDict(TypedDict):
+    main: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskPythonOperatorTaskParameterArgsDict']]]]]
+
+@pulumi.input_type
+class JobTaskForEachTaskTaskPythonOperatorTaskArgs:
+    def __init__(__self__, *,
+                 main: pulumi.Input[Optional[_builtins.str]] = None,
+                 parameters: pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskPythonOperatorTaskParameterArgs']]]] = None):
+        if main is not None:
+            pulumi.set(__self__, "main", main)
+        if parameters is not None:
+            pulumi.set(__self__, "parameters", parameters)
+
+    @_builtins.property
+    @pulumi.getter
+    def main(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "main")
+
+    @main.setter
+    def main(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "main", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def parameters(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskPythonOperatorTaskParameterArgs']]]]:
+        return pulumi.get(self, "parameters")
+
+    @parameters.setter
+    def parameters(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskForEachTaskTaskPythonOperatorTaskParameterArgs']]]]):
+        pulumi.set(self, "parameters", value)
+
+
+class JobTaskForEachTaskTaskPythonOperatorTaskParameterArgsDict(TypedDict):
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    An optional name for the job. The default value is Untitled.
+    """
+    value: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    integer value used to compare to the given metric.
+    """
+
+@pulumi.input_type
+class JobTaskForEachTaskTaskPythonOperatorTaskParameterArgs:
+    def __init__(__self__, *,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 value: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] name: An optional name for the job. The default value is Untitled.
+        :param pulumi.Input[_builtins.str] value: integer value used to compare to the given metric.
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        An optional name for the job. The default value is Untitled.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        integer value used to compare to the given metric.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "value", value)
+
+
 class JobTaskForEachTaskTaskPythonWheelTaskArgsDict(TypedDict):
     entry_point: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -37125,11 +40443,19 @@ class JobTaskForEachTaskTaskRunJobTaskPipelineParamsArgsDict(TypedDict):
 
     > The following configuration blocks are only supported inside a `task` block
     """
+    full_refresh_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    refresh_flow_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    refresh_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    reset_checkpoint_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
 
 @pulumi.input_type
 class JobTaskForEachTaskTaskRunJobTaskPipelineParamsArgs:
     def __init__(__self__, *,
-                 full_refresh: pulumi.Input[Optional[_builtins.bool]] = None):
+                 full_refresh: pulumi.Input[Optional[_builtins.bool]] = None,
+                 full_refresh_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 refresh_flow_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 refresh_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 reset_checkpoint_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         :param pulumi.Input[_builtins.bool] full_refresh: (Bool) Specifies if there should be full refresh of the pipeline.
                
@@ -37137,6 +40463,14 @@ class JobTaskForEachTaskTaskRunJobTaskPipelineParamsArgs:
         """
         if full_refresh is not None:
             pulumi.set(__self__, "full_refresh", full_refresh)
+        if full_refresh_selections is not None:
+            pulumi.set(__self__, "full_refresh_selections", full_refresh_selections)
+        if refresh_flow_selections is not None:
+            pulumi.set(__self__, "refresh_flow_selections", refresh_flow_selections)
+        if refresh_selections is not None:
+            pulumi.set(__self__, "refresh_selections", refresh_selections)
+        if reset_checkpoint_selections is not None:
+            pulumi.set(__self__, "reset_checkpoint_selections", reset_checkpoint_selections)
 
     @_builtins.property
     @pulumi.getter(name="fullRefresh")
@@ -37151,6 +40485,42 @@ class JobTaskForEachTaskTaskRunJobTaskPipelineParamsArgs:
     @full_refresh.setter
     def full_refresh(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "full_refresh", value)
+
+    @_builtins.property
+    @pulumi.getter(name="fullRefreshSelections")
+    def full_refresh_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "full_refresh_selections")
+
+    @full_refresh_selections.setter
+    def full_refresh_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "full_refresh_selections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="refreshFlowSelections")
+    def refresh_flow_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "refresh_flow_selections")
+
+    @refresh_flow_selections.setter
+    def refresh_flow_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "refresh_flow_selections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="refreshSelections")
+    def refresh_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "refresh_selections")
+
+    @refresh_selections.setter
+    def refresh_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "refresh_selections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="resetCheckpointSelections")
+    def reset_checkpoint_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "reset_checkpoint_selections")
+
+    @reset_checkpoint_selections.setter
+    def reset_checkpoint_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "reset_checkpoint_selections", value)
 
 
 class JobTaskForEachTaskTaskSparkJarTaskArgsDict(TypedDict):
@@ -40806,12 +44176,22 @@ class JobTaskPipelineTaskArgsDict(TypedDict):
 
     > The following configuration blocks are only supported inside a `task` block
     """
+    full_refresh_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    parameters: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    refresh_flow_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    refresh_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    reset_checkpoint_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
 
 @pulumi.input_type
 class JobTaskPipelineTaskArgs:
     def __init__(__self__, *,
                  pipeline_id: pulumi.Input[_builtins.str],
-                 full_refresh: pulumi.Input[Optional[_builtins.bool]] = None):
+                 full_refresh: pulumi.Input[Optional[_builtins.bool]] = None,
+                 full_refresh_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 parameters: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 refresh_flow_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 refresh_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 reset_checkpoint_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         :param pulumi.Input[_builtins.str] pipeline_id: The pipeline's unique ID.
         :param pulumi.Input[_builtins.bool] full_refresh: (Bool) Specifies if there should be full refresh of the pipeline.
@@ -40821,6 +44201,16 @@ class JobTaskPipelineTaskArgs:
         pulumi.set(__self__, "pipeline_id", pipeline_id)
         if full_refresh is not None:
             pulumi.set(__self__, "full_refresh", full_refresh)
+        if full_refresh_selections is not None:
+            pulumi.set(__self__, "full_refresh_selections", full_refresh_selections)
+        if parameters is not None:
+            pulumi.set(__self__, "parameters", parameters)
+        if refresh_flow_selections is not None:
+            pulumi.set(__self__, "refresh_flow_selections", refresh_flow_selections)
+        if refresh_selections is not None:
+            pulumi.set(__self__, "refresh_selections", refresh_selections)
+        if reset_checkpoint_selections is not None:
+            pulumi.set(__self__, "reset_checkpoint_selections", reset_checkpoint_selections)
 
     @_builtins.property
     @pulumi.getter(name="pipelineId")
@@ -40847,6 +44237,51 @@ class JobTaskPipelineTaskArgs:
     @full_refresh.setter
     def full_refresh(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "full_refresh", value)
+
+    @_builtins.property
+    @pulumi.getter(name="fullRefreshSelections")
+    def full_refresh_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "full_refresh_selections")
+
+    @full_refresh_selections.setter
+    def full_refresh_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "full_refresh_selections", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def parameters(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "parameters")
+
+    @parameters.setter
+    def parameters(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "parameters", value)
+
+    @_builtins.property
+    @pulumi.getter(name="refreshFlowSelections")
+    def refresh_flow_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "refresh_flow_selections")
+
+    @refresh_flow_selections.setter
+    def refresh_flow_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "refresh_flow_selections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="refreshSelections")
+    def refresh_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "refresh_selections")
+
+    @refresh_selections.setter
+    def refresh_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "refresh_selections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="resetCheckpointSelections")
+    def reset_checkpoint_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "reset_checkpoint_selections")
+
+    @reset_checkpoint_selections.setter
+    def reset_checkpoint_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "reset_checkpoint_selections", value)
 
 
 class JobTaskPowerBiTaskArgsDict(TypedDict):
@@ -41156,6 +44591,88 @@ class JobTaskPowerBiTaskTableArgs:
         pulumi.set(self, "storage_mode", value)
 
 
+class JobTaskPythonOperatorTaskArgsDict(TypedDict):
+    main: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    parameters: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskPythonOperatorTaskParameterArgsDict']]]]]
+
+@pulumi.input_type
+class JobTaskPythonOperatorTaskArgs:
+    def __init__(__self__, *,
+                 main: pulumi.Input[Optional[_builtins.str]] = None,
+                 parameters: pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskPythonOperatorTaskParameterArgs']]]] = None):
+        if main is not None:
+            pulumi.set(__self__, "main", main)
+        if parameters is not None:
+            pulumi.set(__self__, "parameters", parameters)
+
+    @_builtins.property
+    @pulumi.getter
+    def main(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "main")
+
+    @main.setter
+    def main(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "main", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def parameters(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskPythonOperatorTaskParameterArgs']]]]:
+        return pulumi.get(self, "parameters")
+
+    @parameters.setter
+    def parameters(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['JobTaskPythonOperatorTaskParameterArgs']]]]):
+        pulumi.set(self, "parameters", value)
+
+
+class JobTaskPythonOperatorTaskParameterArgsDict(TypedDict):
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    An optional name for the job. The default value is Untitled.
+    """
+    value: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    integer value used to compare to the given metric.
+    """
+
+@pulumi.input_type
+class JobTaskPythonOperatorTaskParameterArgs:
+    def __init__(__self__, *,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 value: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] name: An optional name for the job. The default value is Untitled.
+        :param pulumi.Input[_builtins.str] value: integer value used to compare to the given metric.
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        An optional name for the job. The default value is Untitled.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        integer value used to compare to the given metric.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "value", value)
+
+
 class JobTaskPythonWheelTaskArgsDict(TypedDict):
     entry_point: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -41404,11 +44921,19 @@ class JobTaskRunJobTaskPipelineParamsArgsDict(TypedDict):
 
     > The following configuration blocks are only supported inside a `task` block
     """
+    full_refresh_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    refresh_flow_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    refresh_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    reset_checkpoint_selections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
 
 @pulumi.input_type
 class JobTaskRunJobTaskPipelineParamsArgs:
     def __init__(__self__, *,
-                 full_refresh: pulumi.Input[Optional[_builtins.bool]] = None):
+                 full_refresh: pulumi.Input[Optional[_builtins.bool]] = None,
+                 full_refresh_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 refresh_flow_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 refresh_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 reset_checkpoint_selections: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         :param pulumi.Input[_builtins.bool] full_refresh: (Bool) Specifies if there should be full refresh of the pipeline.
                
@@ -41416,6 +44941,14 @@ class JobTaskRunJobTaskPipelineParamsArgs:
         """
         if full_refresh is not None:
             pulumi.set(__self__, "full_refresh", full_refresh)
+        if full_refresh_selections is not None:
+            pulumi.set(__self__, "full_refresh_selections", full_refresh_selections)
+        if refresh_flow_selections is not None:
+            pulumi.set(__self__, "refresh_flow_selections", refresh_flow_selections)
+        if refresh_selections is not None:
+            pulumi.set(__self__, "refresh_selections", refresh_selections)
+        if reset_checkpoint_selections is not None:
+            pulumi.set(__self__, "reset_checkpoint_selections", reset_checkpoint_selections)
 
     @_builtins.property
     @pulumi.getter(name="fullRefresh")
@@ -41430,6 +44963,42 @@ class JobTaskRunJobTaskPipelineParamsArgs:
     @full_refresh.setter
     def full_refresh(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "full_refresh", value)
+
+    @_builtins.property
+    @pulumi.getter(name="fullRefreshSelections")
+    def full_refresh_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "full_refresh_selections")
+
+    @full_refresh_selections.setter
+    def full_refresh_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "full_refresh_selections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="refreshFlowSelections")
+    def refresh_flow_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "refresh_flow_selections")
+
+    @refresh_flow_selections.setter
+    def refresh_flow_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "refresh_flow_selections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="refreshSelections")
+    def refresh_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "refresh_selections")
+
+    @refresh_selections.setter
+    def refresh_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "refresh_selections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="resetCheckpointSelections")
+    def reset_checkpoint_selections(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "reset_checkpoint_selections")
+
+    @reset_checkpoint_selections.setter
+    def reset_checkpoint_selections(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "reset_checkpoint_selections", value)
 
 
 class JobTaskSparkJarTaskArgsDict(TypedDict):
@@ -49690,13 +53259,13 @@ class MwsNetworksGcpNetworkInfoArgs:
         pulumi.set(__self__, "subnet_region", subnet_region)
         pulumi.set(__self__, "vpc_id", vpc_id)
         if pod_ip_range_name is not None:
-            warnings.warn("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
-            pulumi.log.warn("""pod_ip_range_name is deprecated: gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-vpc""")
+            warnings.warn("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
+            pulumi.log.warn("""pod_ip_range_name is deprecated: gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""")
         if pod_ip_range_name is not None:
             pulumi.set(__self__, "pod_ip_range_name", pod_ip_range_name)
         if service_ip_range_name is not None:
-            warnings.warn("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
-            pulumi.log.warn("""service_ip_range_name is deprecated: gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-vpc""")
+            warnings.warn("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
+            pulumi.log.warn("""service_ip_range_name is deprecated: gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""")
         if service_ip_range_name is not None:
             pulumi.set(__self__, "service_ip_range_name", service_ip_range_name)
 
@@ -49750,7 +53319,7 @@ class MwsNetworksGcpNetworkInfoArgs:
 
     @_builtins.property
     @pulumi.getter(name="podIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def pod_ip_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "pod_ip_range_name")
 
@@ -49760,7 +53329,7 @@ class MwsNetworksGcpNetworkInfoArgs:
 
     @_builtins.property
     @pulumi.getter(name="serviceIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def service_ip_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "service_ip_range_name")
 
@@ -50018,13 +53587,13 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
                  gke_cluster_service_ip_range: pulumi.Input[Optional[_builtins.str]] = None):
         pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         if gke_cluster_pod_ip_range is not None:
-            warnings.warn("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_cluster_pod_ip_range is deprecated: gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_cluster_pod_ip_range is deprecated: gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_cluster_pod_ip_range is not None:
             pulumi.set(__self__, "gke_cluster_pod_ip_range", gke_cluster_pod_ip_range)
         if gke_cluster_service_ip_range is not None:
-            warnings.warn("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_cluster_service_ip_range is deprecated: gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_cluster_service_ip_range is deprecated: gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_cluster_service_ip_range is not None:
             pulumi.set(__self__, "gke_cluster_service_ip_range", gke_cluster_service_ip_range)
 
@@ -50039,7 +53608,7 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterPodIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_pod_ip_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "gke_cluster_pod_ip_range")
 
@@ -50049,7 +53618,7 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterServiceIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.116.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_service_ip_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "gke_cluster_service_ip_range")
 
@@ -53934,6 +57503,7 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsArgsDict(TypedDict)
     gdrive_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsArgsDict']]]
     google_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptionsArgsDict']]]
     jira_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptionsArgsDict']]]
+    kafka_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsArgsDict']]]
     meta_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptionsArgsDict']]]
     outlook_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptionsArgsDict']]]
     sharepoint_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsArgsDict']]]
@@ -53948,6 +57518,7 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsArgs:
                  gdrive_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsArgs']] = None,
                  google_ads_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptionsArgs']] = None,
                  jira_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptionsArgs']] = None,
+                 kafka_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsArgs']] = None,
                  meta_ads_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptionsArgs']] = None,
                  outlook_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptionsArgs']] = None,
                  sharepoint_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsArgs']] = None,
@@ -53962,6 +57533,8 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsArgs:
             pulumi.set(__self__, "google_ads_options", google_ads_options)
         if jira_options is not None:
             pulumi.set(__self__, "jira_options", jira_options)
+        if kafka_options is not None:
+            pulumi.set(__self__, "kafka_options", kafka_options)
         if meta_ads_options is not None:
             pulumi.set(__self__, "meta_ads_options", meta_ads_options)
         if outlook_options is not None:
@@ -54010,6 +57583,15 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsArgs:
     @jira_options.setter
     def jira_options(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptionsArgs']]):
         pulumi.set(self, "jira_options", value)
+
+    @_builtins.property
+    @pulumi.getter(name="kafkaOptions")
+    def kafka_options(self) -> pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsArgs']]:
+        return pulumi.get(self, "kafka_options")
+
+    @kafka_options.setter
+    def kafka_options(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsArgs']]):
+        pulumi.set(self, "kafka_options", value)
 
     @_builtins.property
     @pulumi.getter(name="metaAdsOptions")
@@ -54400,6 +57982,332 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptionsArgs:
     @include_jira_spaces.setter
     def include_jira_spaces(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "include_jira_spaces", value)
+
+
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsArgsDict(TypedDict):
+    client_config: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    key_transformer: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerArgsDict']]]
+    max_offsets_per_trigger: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    starting_offset: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    topic_pattern: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    topics: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    value_transformer: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerArgsDict']]]
+
+@pulumi.input_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsArgs:
+    def __init__(__self__, *,
+                 client_config: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 key_transformer: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerArgs']] = None,
+                 max_offsets_per_trigger: pulumi.Input[Optional[_builtins.int]] = None,
+                 starting_offset: pulumi.Input[Optional[_builtins.str]] = None,
+                 topic_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+                 topics: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 value_transformer: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerArgs']] = None):
+        if client_config is not None:
+            pulumi.set(__self__, "client_config", client_config)
+        if key_transformer is not None:
+            pulumi.set(__self__, "key_transformer", key_transformer)
+        if max_offsets_per_trigger is not None:
+            pulumi.set(__self__, "max_offsets_per_trigger", max_offsets_per_trigger)
+        if starting_offset is not None:
+            pulumi.set(__self__, "starting_offset", starting_offset)
+        if topic_pattern is not None:
+            pulumi.set(__self__, "topic_pattern", topic_pattern)
+        if topics is not None:
+            pulumi.set(__self__, "topics", topics)
+        if value_transformer is not None:
+            pulumi.set(__self__, "value_transformer", value_transformer)
+
+    @_builtins.property
+    @pulumi.getter(name="clientConfig")
+    def client_config(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "client_config")
+
+    @client_config.setter
+    def client_config(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "client_config", value)
+
+    @_builtins.property
+    @pulumi.getter(name="keyTransformer")
+    def key_transformer(self) -> pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerArgs']]:
+        return pulumi.get(self, "key_transformer")
+
+    @key_transformer.setter
+    def key_transformer(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerArgs']]):
+        pulumi.set(self, "key_transformer", value)
+
+    @_builtins.property
+    @pulumi.getter(name="maxOffsetsPerTrigger")
+    def max_offsets_per_trigger(self) -> pulumi.Input[Optional[_builtins.int]]:
+        return pulumi.get(self, "max_offsets_per_trigger")
+
+    @max_offsets_per_trigger.setter
+    def max_offsets_per_trigger(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "max_offsets_per_trigger", value)
+
+    @_builtins.property
+    @pulumi.getter(name="startingOffset")
+    def starting_offset(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "starting_offset")
+
+    @starting_offset.setter
+    def starting_offset(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "starting_offset", value)
+
+    @_builtins.property
+    @pulumi.getter(name="topicPattern")
+    def topic_pattern(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "topic_pattern")
+
+    @topic_pattern.setter
+    def topic_pattern(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "topic_pattern", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def topics(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "topics")
+
+    @topics.setter
+    def topics(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "topics", value)
+
+    @_builtins.property
+    @pulumi.getter(name="valueTransformer")
+    def value_transformer(self) -> pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerArgs']]:
+        return pulumi.get(self, "value_transformer")
+
+    @value_transformer.setter
+    def value_transformer(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerArgs']]):
+        pulumi.set(self, "value_transformer", value)
+
+
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerArgsDict(TypedDict):
+    format: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    json_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgsDict']]]
+
+@pulumi.input_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerArgs:
+    def __init__(__self__, *,
+                 format: pulumi.Input[Optional[_builtins.str]] = None,
+                 json_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgs']] = None):
+        if format is not None:
+            pulumi.set(__self__, "format", format)
+        if json_options is not None:
+            pulumi.set(__self__, "json_options", json_options)
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "format")
+
+    @format.setter
+    def format(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "format", value)
+
+    @_builtins.property
+    @pulumi.getter(name="jsonOptions")
+    def json_options(self) -> pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgs']]:
+        return pulumi.get(self, "json_options")
+
+    @json_options.setter
+    def json_options(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgs']]):
+        pulumi.set(self, "json_options", value)
+
+
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgsDict(TypedDict):
+    as_variant: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    schema: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+    """
+    schema_evolution_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    schema_file_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    schema_hints: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgs:
+    def __init__(__self__, *,
+                 as_variant: pulumi.Input[Optional[_builtins.bool]] = None,
+                 schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_evolution_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_hints: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+        """
+        if as_variant is not None:
+            pulumi.set(__self__, "as_variant", as_variant)
+        if schema is not None:
+            pulumi.set(__self__, "schema", schema)
+        if schema_evolution_mode is not None:
+            pulumi.set(__self__, "schema_evolution_mode", schema_evolution_mode)
+        if schema_file_path is not None:
+            pulumi.set(__self__, "schema_file_path", schema_file_path)
+        if schema_hints is not None:
+            pulumi.set(__self__, "schema_hints", schema_hints)
+
+    @_builtins.property
+    @pulumi.getter(name="asVariant")
+    def as_variant(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "as_variant")
+
+    @as_variant.setter
+    def as_variant(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "as_variant", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+        """
+        return pulumi.get(self, "schema")
+
+    @schema.setter
+    def schema(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaEvolutionMode")
+    def schema_evolution_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_evolution_mode")
+
+    @schema_evolution_mode.setter
+    def schema_evolution_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_evolution_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaFilePath")
+    def schema_file_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_file_path")
+
+    @schema_file_path.setter
+    def schema_file_path(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_file_path", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaHints")
+    def schema_hints(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_hints")
+
+    @schema_hints.setter
+    def schema_hints(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_hints", value)
+
+
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerArgsDict(TypedDict):
+    format: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    json_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgsDict']]]
+
+@pulumi.input_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerArgs:
+    def __init__(__self__, *,
+                 format: pulumi.Input[Optional[_builtins.str]] = None,
+                 json_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgs']] = None):
+        if format is not None:
+            pulumi.set(__self__, "format", format)
+        if json_options is not None:
+            pulumi.set(__self__, "json_options", json_options)
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "format")
+
+    @format.setter
+    def format(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "format", value)
+
+    @_builtins.property
+    @pulumi.getter(name="jsonOptions")
+    def json_options(self) -> pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgs']]:
+        return pulumi.get(self, "json_options")
+
+    @json_options.setter
+    def json_options(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgs']]):
+        pulumi.set(self, "json_options", value)
+
+
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgsDict(TypedDict):
+    as_variant: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    schema: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+    """
+    schema_evolution_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    schema_file_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    schema_hints: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgs:
+    def __init__(__self__, *,
+                 as_variant: pulumi.Input[Optional[_builtins.bool]] = None,
+                 schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_evolution_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_hints: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+        """
+        if as_variant is not None:
+            pulumi.set(__self__, "as_variant", as_variant)
+        if schema is not None:
+            pulumi.set(__self__, "schema", schema)
+        if schema_evolution_mode is not None:
+            pulumi.set(__self__, "schema_evolution_mode", schema_evolution_mode)
+        if schema_file_path is not None:
+            pulumi.set(__self__, "schema_file_path", schema_file_path)
+        if schema_hints is not None:
+            pulumi.set(__self__, "schema_hints", schema_hints)
+
+    @_builtins.property
+    @pulumi.getter(name="asVariant")
+    def as_variant(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "as_variant")
+
+    @as_variant.setter
+    def as_variant(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "as_variant", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+        """
+        return pulumi.get(self, "schema")
+
+    @schema.setter
+    def schema(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaEvolutionMode")
+    def schema_evolution_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_evolution_mode")
+
+    @schema_evolution_mode.setter
+    def schema_evolution_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_evolution_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaFilePath")
+    def schema_file_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_file_path")
+
+    @schema_file_path.setter
+    def schema_file_path(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_file_path", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaHints")
+    def schema_hints(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_hints")
+
+    @schema_hints.setter
+    def schema_hints(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_hints", value)
 
 
 class PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptionsArgsDict(TypedDict):
@@ -55446,6 +59354,7 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsArgsDict(TypedDict):
     gdrive_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsArgsDict']]]
     google_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptionsArgsDict']]]
     jira_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptionsArgsDict']]]
+    kafka_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsArgsDict']]]
     meta_ads_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptionsArgsDict']]]
     outlook_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptionsArgsDict']]]
     sharepoint_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsArgsDict']]]
@@ -55460,6 +59369,7 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsArgs:
                  gdrive_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsArgs']] = None,
                  google_ads_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptionsArgs']] = None,
                  jira_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptionsArgs']] = None,
+                 kafka_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsArgs']] = None,
                  meta_ads_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptionsArgs']] = None,
                  outlook_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptionsArgs']] = None,
                  sharepoint_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsArgs']] = None,
@@ -55474,6 +59384,8 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsArgs:
             pulumi.set(__self__, "google_ads_options", google_ads_options)
         if jira_options is not None:
             pulumi.set(__self__, "jira_options", jira_options)
+        if kafka_options is not None:
+            pulumi.set(__self__, "kafka_options", kafka_options)
         if meta_ads_options is not None:
             pulumi.set(__self__, "meta_ads_options", meta_ads_options)
         if outlook_options is not None:
@@ -55522,6 +59434,15 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsArgs:
     @jira_options.setter
     def jira_options(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptionsArgs']]):
         pulumi.set(self, "jira_options", value)
+
+    @_builtins.property
+    @pulumi.getter(name="kafkaOptions")
+    def kafka_options(self) -> pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsArgs']]:
+        return pulumi.get(self, "kafka_options")
+
+    @kafka_options.setter
+    def kafka_options(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsArgs']]):
+        pulumi.set(self, "kafka_options", value)
 
     @_builtins.property
     @pulumi.getter(name="metaAdsOptions")
@@ -55912,6 +59833,332 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptionsArgs:
     @include_jira_spaces.setter
     def include_jira_spaces(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "include_jira_spaces", value)
+
+
+class PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsArgsDict(TypedDict):
+    client_config: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    key_transformer: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerArgsDict']]]
+    max_offsets_per_trigger: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    starting_offset: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    topic_pattern: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    topics: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    value_transformer: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerArgsDict']]]
+
+@pulumi.input_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsArgs:
+    def __init__(__self__, *,
+                 client_config: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 key_transformer: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerArgs']] = None,
+                 max_offsets_per_trigger: pulumi.Input[Optional[_builtins.int]] = None,
+                 starting_offset: pulumi.Input[Optional[_builtins.str]] = None,
+                 topic_pattern: pulumi.Input[Optional[_builtins.str]] = None,
+                 topics: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 value_transformer: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerArgs']] = None):
+        if client_config is not None:
+            pulumi.set(__self__, "client_config", client_config)
+        if key_transformer is not None:
+            pulumi.set(__self__, "key_transformer", key_transformer)
+        if max_offsets_per_trigger is not None:
+            pulumi.set(__self__, "max_offsets_per_trigger", max_offsets_per_trigger)
+        if starting_offset is not None:
+            pulumi.set(__self__, "starting_offset", starting_offset)
+        if topic_pattern is not None:
+            pulumi.set(__self__, "topic_pattern", topic_pattern)
+        if topics is not None:
+            pulumi.set(__self__, "topics", topics)
+        if value_transformer is not None:
+            pulumi.set(__self__, "value_transformer", value_transformer)
+
+    @_builtins.property
+    @pulumi.getter(name="clientConfig")
+    def client_config(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "client_config")
+
+    @client_config.setter
+    def client_config(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "client_config", value)
+
+    @_builtins.property
+    @pulumi.getter(name="keyTransformer")
+    def key_transformer(self) -> pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerArgs']]:
+        return pulumi.get(self, "key_transformer")
+
+    @key_transformer.setter
+    def key_transformer(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerArgs']]):
+        pulumi.set(self, "key_transformer", value)
+
+    @_builtins.property
+    @pulumi.getter(name="maxOffsetsPerTrigger")
+    def max_offsets_per_trigger(self) -> pulumi.Input[Optional[_builtins.int]]:
+        return pulumi.get(self, "max_offsets_per_trigger")
+
+    @max_offsets_per_trigger.setter
+    def max_offsets_per_trigger(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "max_offsets_per_trigger", value)
+
+    @_builtins.property
+    @pulumi.getter(name="startingOffset")
+    def starting_offset(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "starting_offset")
+
+    @starting_offset.setter
+    def starting_offset(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "starting_offset", value)
+
+    @_builtins.property
+    @pulumi.getter(name="topicPattern")
+    def topic_pattern(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "topic_pattern")
+
+    @topic_pattern.setter
+    def topic_pattern(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "topic_pattern", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def topics(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "topics")
+
+    @topics.setter
+    def topics(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "topics", value)
+
+    @_builtins.property
+    @pulumi.getter(name="valueTransformer")
+    def value_transformer(self) -> pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerArgs']]:
+        return pulumi.get(self, "value_transformer")
+
+    @value_transformer.setter
+    def value_transformer(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerArgs']]):
+        pulumi.set(self, "value_transformer", value)
+
+
+class PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerArgsDict(TypedDict):
+    format: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    json_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgsDict']]]
+
+@pulumi.input_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerArgs:
+    def __init__(__self__, *,
+                 format: pulumi.Input[Optional[_builtins.str]] = None,
+                 json_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgs']] = None):
+        if format is not None:
+            pulumi.set(__self__, "format", format)
+        if json_options is not None:
+            pulumi.set(__self__, "json_options", json_options)
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "format")
+
+    @format.setter
+    def format(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "format", value)
+
+    @_builtins.property
+    @pulumi.getter(name="jsonOptions")
+    def json_options(self) -> pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgs']]:
+        return pulumi.get(self, "json_options")
+
+    @json_options.setter
+    def json_options(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgs']]):
+        pulumi.set(self, "json_options", value)
+
+
+class PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgsDict(TypedDict):
+    as_variant: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    schema: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+    """
+    schema_evolution_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    schema_file_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    schema_hints: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsKeyTransformerJsonOptionsArgs:
+    def __init__(__self__, *,
+                 as_variant: pulumi.Input[Optional[_builtins.bool]] = None,
+                 schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_evolution_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_hints: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+        """
+        if as_variant is not None:
+            pulumi.set(__self__, "as_variant", as_variant)
+        if schema is not None:
+            pulumi.set(__self__, "schema", schema)
+        if schema_evolution_mode is not None:
+            pulumi.set(__self__, "schema_evolution_mode", schema_evolution_mode)
+        if schema_file_path is not None:
+            pulumi.set(__self__, "schema_file_path", schema_file_path)
+        if schema_hints is not None:
+            pulumi.set(__self__, "schema_hints", schema_hints)
+
+    @_builtins.property
+    @pulumi.getter(name="asVariant")
+    def as_variant(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "as_variant")
+
+    @as_variant.setter
+    def as_variant(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "as_variant", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+        """
+        return pulumi.get(self, "schema")
+
+    @schema.setter
+    def schema(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaEvolutionMode")
+    def schema_evolution_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_evolution_mode")
+
+    @schema_evolution_mode.setter
+    def schema_evolution_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_evolution_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaFilePath")
+    def schema_file_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_file_path")
+
+    @schema_file_path.setter
+    def schema_file_path(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_file_path", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaHints")
+    def schema_hints(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_hints")
+
+    @schema_hints.setter
+    def schema_hints(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_hints", value)
+
+
+class PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerArgsDict(TypedDict):
+    format: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    json_options: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgsDict']]]
+
+@pulumi.input_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerArgs:
+    def __init__(__self__, *,
+                 format: pulumi.Input[Optional[_builtins.str]] = None,
+                 json_options: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgs']] = None):
+        if format is not None:
+            pulumi.set(__self__, "format", format)
+        if json_options is not None:
+            pulumi.set(__self__, "json_options", json_options)
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "format")
+
+    @format.setter
+    def format(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "format", value)
+
+    @_builtins.property
+    @pulumi.getter(name="jsonOptions")
+    def json_options(self) -> pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgs']]:
+        return pulumi.get(self, "json_options")
+
+    @json_options.setter
+    def json_options(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgs']]):
+        pulumi.set(self, "json_options", value)
+
+
+class PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgsDict(TypedDict):
+    as_variant: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    schema: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+    """
+    schema_evolution_mode: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    schema_file_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    schema_hints: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsKafkaOptionsValueTransformerJsonOptionsArgs:
+    def __init__(__self__, *,
+                 as_variant: pulumi.Input[Optional[_builtins.bool]] = None,
+                 schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_evolution_mode: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_file_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 schema_hints: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+        """
+        if as_variant is not None:
+            pulumi.set(__self__, "as_variant", as_variant)
+        if schema is not None:
+            pulumi.set(__self__, "schema", schema)
+        if schema_evolution_mode is not None:
+            pulumi.set(__self__, "schema_evolution_mode", schema_evolution_mode)
+        if schema_file_path is not None:
+            pulumi.set(__self__, "schema_file_path", schema_file_path)
+        if schema_hints is not None:
+            pulumi.set(__self__, "schema_hints", schema_hints)
+
+    @_builtins.property
+    @pulumi.getter(name="asVariant")
+    def as_variant(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "as_variant")
+
+    @as_variant.setter
+    def as_variant(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "as_variant", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
+        """
+        return pulumi.get(self, "schema")
+
+    @schema.setter
+    def schema(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaEvolutionMode")
+    def schema_evolution_mode(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_evolution_mode")
+
+    @schema_evolution_mode.setter
+    def schema_evolution_mode(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_evolution_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaFilePath")
+    def schema_file_path(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_file_path")
+
+    @schema_file_path.setter
+    def schema_file_path(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_file_path", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaHints")
+    def schema_hints(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "schema_hints")
+
+    @schema_hints.setter
+    def schema_hints(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_hints", value)
 
 
 class PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptionsArgsDict(TypedDict):
@@ -58284,11 +62531,16 @@ class PostgresBranchStatusArgsDict(TypedDict):
     """
     current_state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    (string) - The branch's state, indicating if it is initializing, ready for use, or archived. Possible values are: `ARCHIVED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
+    (string) - The branch's state, indicating if it is initializing, ready for use, or archived. Possible values are: `ARCHIVED`, `DELETED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
     """
     default: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
     (boolean) - Whether the branch is the project's default branch
+    """
+    delete_time: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - A timestamp indicating when the branch was deleted.
+    Empty if the branch is not deleted
     """
     expire_time: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -58304,7 +62556,12 @@ class PostgresBranchStatusArgsDict(TypedDict):
     """
     pending_state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    (string) - The pending state of the branch, if a state transition is in progress. Possible values are: `ARCHIVED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
+    (string) - The pending state of the branch, if a state transition is in progress. Possible values are: `ARCHIVED`, `DELETED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
+    """
+    purge_time: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - A timestamp indicating when the branch is scheduled to be purged.
+    Empty if the branch is not deleted, otherwise set to a timestamp in the future
     """
     source_branch: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -58330,10 +62587,12 @@ class PostgresBranchStatusArgs:
                  branch_id: pulumi.Input[Optional[_builtins.str]] = None,
                  current_state: pulumi.Input[Optional[_builtins.str]] = None,
                  default: pulumi.Input[Optional[_builtins.bool]] = None,
+                 delete_time: pulumi.Input[Optional[_builtins.str]] = None,
                  expire_time: pulumi.Input[Optional[_builtins.str]] = None,
                  is_protected: pulumi.Input[Optional[_builtins.bool]] = None,
                  logical_size_bytes: pulumi.Input[Optional[_builtins.int]] = None,
                  pending_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 purge_time: pulumi.Input[Optional[_builtins.str]] = None,
                  source_branch: pulumi.Input[Optional[_builtins.str]] = None,
                  source_branch_lsn: pulumi.Input[Optional[_builtins.str]] = None,
                  source_branch_time: pulumi.Input[Optional[_builtins.str]] = None,
@@ -58342,12 +62601,16 @@ class PostgresBranchStatusArgs:
         :param pulumi.Input[_builtins.str] branch_id: The ID to use for the Branch. This becomes the final component of the branch's resource name.
                The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
                For example, `development` becomes `projects/my-app/branches/development`
-        :param pulumi.Input[_builtins.str] current_state: (string) - The branch's state, indicating if it is initializing, ready for use, or archived. Possible values are: `ARCHIVED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
+        :param pulumi.Input[_builtins.str] current_state: (string) - The branch's state, indicating if it is initializing, ready for use, or archived. Possible values are: `ARCHIVED`, `DELETED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
         :param pulumi.Input[_builtins.bool] default: (boolean) - Whether the branch is the project's default branch
+        :param pulumi.Input[_builtins.str] delete_time: (string) - A timestamp indicating when the branch was deleted.
+               Empty if the branch is not deleted
         :param pulumi.Input[_builtins.str] expire_time: (string) - Absolute expiration time for the branch. Empty if expiration is disabled
         :param pulumi.Input[_builtins.bool] is_protected: (boolean) - Whether the branch is protected
         :param pulumi.Input[_builtins.int] logical_size_bytes: (integer) - The logical size of the branch
-        :param pulumi.Input[_builtins.str] pending_state: (string) - The pending state of the branch, if a state transition is in progress. Possible values are: `ARCHIVED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
+        :param pulumi.Input[_builtins.str] pending_state: (string) - The pending state of the branch, if a state transition is in progress. Possible values are: `ARCHIVED`, `DELETED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
+        :param pulumi.Input[_builtins.str] purge_time: (string) - A timestamp indicating when the branch is scheduled to be purged.
+               Empty if the branch is not deleted, otherwise set to a timestamp in the future
         :param pulumi.Input[_builtins.str] source_branch: (string) - The name of the source branch from which this branch was created.
                Format: projects/{project_id}/branches/{branch_id}
         :param pulumi.Input[_builtins.str] source_branch_lsn: (string) - The Log Sequence Number (LSN) on the source branch from which this branch was created
@@ -58360,6 +62623,8 @@ class PostgresBranchStatusArgs:
             pulumi.set(__self__, "current_state", current_state)
         if default is not None:
             pulumi.set(__self__, "default", default)
+        if delete_time is not None:
+            pulumi.set(__self__, "delete_time", delete_time)
         if expire_time is not None:
             pulumi.set(__self__, "expire_time", expire_time)
         if is_protected is not None:
@@ -58368,6 +62633,8 @@ class PostgresBranchStatusArgs:
             pulumi.set(__self__, "logical_size_bytes", logical_size_bytes)
         if pending_state is not None:
             pulumi.set(__self__, "pending_state", pending_state)
+        if purge_time is not None:
+            pulumi.set(__self__, "purge_time", purge_time)
         if source_branch is not None:
             pulumi.set(__self__, "source_branch", source_branch)
         if source_branch_lsn is not None:
@@ -58395,7 +62662,7 @@ class PostgresBranchStatusArgs:
     @pulumi.getter(name="currentState")
     def current_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        (string) - The branch's state, indicating if it is initializing, ready for use, or archived. Possible values are: `ARCHIVED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
+        (string) - The branch's state, indicating if it is initializing, ready for use, or archived. Possible values are: `ARCHIVED`, `DELETED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
         """
         return pulumi.get(self, "current_state")
 
@@ -58414,6 +62681,19 @@ class PostgresBranchStatusArgs:
     @default.setter
     def default(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "default", value)
+
+    @_builtins.property
+    @pulumi.getter(name="deleteTime")
+    def delete_time(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - A timestamp indicating when the branch was deleted.
+        Empty if the branch is not deleted
+        """
+        return pulumi.get(self, "delete_time")
+
+    @delete_time.setter
+    def delete_time(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "delete_time", value)
 
     @_builtins.property
     @pulumi.getter(name="expireTime")
@@ -58455,13 +62735,26 @@ class PostgresBranchStatusArgs:
     @pulumi.getter(name="pendingState")
     def pending_state(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        (string) - The pending state of the branch, if a state transition is in progress. Possible values are: `ARCHIVED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
+        (string) - The pending state of the branch, if a state transition is in progress. Possible values are: `ARCHIVED`, `DELETED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
         """
         return pulumi.get(self, "pending_state")
 
     @pending_state.setter
     def pending_state(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "pending_state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="purgeTime")
+    def purge_time(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - A timestamp indicating when the branch is scheduled to be purged.
+        Empty if the branch is not deleted, otherwise set to a timestamp in the future
+        """
+        return pulumi.get(self, "purge_time")
+
+    @purge_time.setter
+    def purge_time(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "purge_time", value)
 
     @_builtins.property
     @pulumi.getter(name="sourceBranch")
@@ -58627,11 +62920,6 @@ class PostgresCatalogStatusArgsDict(TypedDict):
     """
     (string) - The resource path of the branch associated with the catalog.
     """
-    catalog_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    """
-    The ID in the Unity Catalog.
-    It becomes the full resource name, for example "my_catalog" becomes "catalogs/my_catalog"
-    """
     postgres_database: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     (string) - The name of the Postgres database associated with the catalog
@@ -58645,20 +62933,15 @@ class PostgresCatalogStatusArgsDict(TypedDict):
 class PostgresCatalogStatusArgs:
     def __init__(__self__, *,
                  branch: pulumi.Input[Optional[_builtins.str]] = None,
-                 catalog_id: pulumi.Input[Optional[_builtins.str]] = None,
                  postgres_database: pulumi.Input[Optional[_builtins.str]] = None,
                  project: pulumi.Input[Optional[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] branch: (string) - The resource path of the branch associated with the catalog.
-        :param pulumi.Input[_builtins.str] catalog_id: The ID in the Unity Catalog.
-               It becomes the full resource name, for example "my_catalog" becomes "catalogs/my_catalog"
         :param pulumi.Input[_builtins.str] postgres_database: (string) - The name of the Postgres database associated with the catalog
         :param pulumi.Input[_builtins.str] project: (string) - The resource path of the project associated with the catalog.
         """
         if branch is not None:
             pulumi.set(__self__, "branch", branch)
-        if catalog_id is not None:
-            pulumi.set(__self__, "catalog_id", catalog_id)
         if postgres_database is not None:
             pulumi.set(__self__, "postgres_database", postgres_database)
         if project is not None:
@@ -58675,19 +62958,6 @@ class PostgresCatalogStatusArgs:
     @branch.setter
     def branch(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "branch", value)
-
-    @_builtins.property
-    @pulumi.getter(name="catalogId")
-    def catalog_id(self) -> pulumi.Input[Optional[_builtins.str]]:
-        """
-        The ID in the Unity Catalog.
-        It becomes the full resource name, for example "my_catalog" becomes "catalogs/my_catalog"
-        """
-        return pulumi.get(self, "catalog_id")
-
-    @catalog_id.setter
-    def catalog_id(self, value: pulumi.Input[Optional[_builtins.str]]):
-        pulumi.set(self, "catalog_id", value)
 
     @_builtins.property
     @pulumi.getter(name="postgresDatabase")
@@ -67876,9 +72146,6 @@ class VectorSearchEndpointScalingInfoArgs:
 class VectorSearchIndexDeltaSyncIndexSpecArgsDict(TypedDict):
     columns_to_indices: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     columns_to_syncs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
-    """
-    list of columns to sync. If not specified, all columns are syncronized.
-    """
     embedding_source_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['VectorSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgsDict']]]]]
     """
     array of objects representing columns that contain the embedding source.  Each entry consists of:
@@ -67918,7 +72185,6 @@ class VectorSearchIndexDeltaSyncIndexSpecArgs:
                  pipeline_type: pulumi.Input[Optional[_builtins.str]] = None,
                  source_table: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] columns_to_syncs: list of columns to sync. If not specified, all columns are syncronized.
         :param pulumi.Input[Sequence[pulumi.Input['VectorSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgs']]] embedding_source_columns: array of objects representing columns that contain the embedding source.  Each entry consists of:
         :param pulumi.Input[Sequence[pulumi.Input['VectorSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgs']]] embedding_vector_columns: array of objects representing columns that contain the embedding vectors. Each entry consists of:
         :param pulumi.Input[_builtins.str] embedding_writeback_table: Automatically sync the vector index contents and computed embeddings to the specified Delta table. The only supported table name is the index name with the suffix `_writeback_table`.
@@ -67957,9 +72223,6 @@ class VectorSearchIndexDeltaSyncIndexSpecArgs:
     @_builtins.property
     @pulumi.getter(name="columnsToSyncs")
     def columns_to_syncs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
-        """
-        list of columns to sync. If not specified, all columns are syncronized.
-        """
         return pulumi.get(self, "columns_to_syncs")
 
     @columns_to_syncs.setter
@@ -68686,6 +72949,26 @@ class WorkspaceSettingV2AibiDashboardEmbeddingApprovedDomainsArgs:
         pulumi.set(self, "approved_domains", value)
 
 
+class WorkspaceSettingV2AllowedAppsUserApiScopesArgsDict(TypedDict):
+    allowed_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class WorkspaceSettingV2AllowedAppsUserApiScopesArgs:
+    def __init__(__self__, *,
+                 allowed_scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if allowed_scopes is not None:
+            pulumi.set(__self__, "allowed_scopes", allowed_scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="allowedScopes")
+    def allowed_scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "allowed_scopes")
+
+    @allowed_scopes.setter
+    def allowed_scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "allowed_scopes", value)
+
+
 class WorkspaceSettingV2AutomaticClusterUpdateWorkspaceArgsDict(TypedDict):
     can_toggle: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
@@ -69010,6 +73293,26 @@ class WorkspaceSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs:
         pulumi.set(self, "approved_domains", value)
 
 
+class WorkspaceSettingV2EffectiveAllowedAppsUserApiScopesArgsDict(TypedDict):
+    allowed_scopes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+
+@pulumi.input_type
+class WorkspaceSettingV2EffectiveAllowedAppsUserApiScopesArgs:
+    def __init__(__self__, *,
+                 allowed_scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        if allowed_scopes is not None:
+            pulumi.set(__self__, "allowed_scopes", allowed_scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="allowedScopes")
+    def allowed_scopes(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "allowed_scopes")
+
+    @allowed_scopes.setter
+    def allowed_scopes(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "allowed_scopes", value)
+
+
 class WorkspaceSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict(TypedDict):
     can_toggle: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     enabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
@@ -69306,6 +73609,26 @@ class WorkspaceSettingV2EffectiveIntegerValArgs:
         pulumi.set(self, "value", value)
 
 
+class WorkspaceSettingV2EffectiveOperationalEmailCustomRecipientArgsDict(TypedDict):
+    email: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class WorkspaceSettingV2EffectiveOperationalEmailCustomRecipientArgs:
+    def __init__(__self__, *,
+                 email: pulumi.Input[Optional[_builtins.str]] = None):
+        if email is not None:
+            pulumi.set(__self__, "email", email)
+
+    @_builtins.property
+    @pulumi.getter
+    def email(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "email")
+
+    @email.setter
+    def email(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "email", value)
+
+
 class WorkspaceSettingV2EffectivePersonalComputeArgsDict(TypedDict):
     value: NotRequired[pulumi.Input[Optional[_builtins.str]]]
 
@@ -69415,6 +73738,26 @@ class WorkspaceSettingV2IntegerValArgs:
     @value.setter
     def value(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "value", value)
+
+
+class WorkspaceSettingV2OperationalEmailCustomRecipientArgsDict(TypedDict):
+    email: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class WorkspaceSettingV2OperationalEmailCustomRecipientArgs:
+    def __init__(__self__, *,
+                 email: pulumi.Input[Optional[_builtins.str]] = None):
+        if email is not None:
+            pulumi.set(__self__, "email", email)
+
+    @_builtins.property
+    @pulumi.getter
+    def email(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "email")
+
+    @email.setter
+    def email(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "email", value)
 
 
 class WorkspaceSettingV2PersonalComputeArgsDict(TypedDict):

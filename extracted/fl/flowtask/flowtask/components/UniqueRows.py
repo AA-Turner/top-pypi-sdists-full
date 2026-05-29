@@ -4,7 +4,7 @@ from collections.abc import Callable
 import pandas as pd
 from asyncdb.exceptions import StatementError, DataError
 from ..exceptions import ComponentError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class UniqueRows(FlowComponent):

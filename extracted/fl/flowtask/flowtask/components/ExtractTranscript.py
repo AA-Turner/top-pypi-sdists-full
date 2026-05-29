@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import tempfile
 import logging
 import sys
@@ -13,7 +14,7 @@ import pandas as pd
 from tqdm import tqdm
 from parrot.loaders.audio import AudioLoader
 from sqlalchemy import create_engine, text, bindparam
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.Boto3Client import Boto3Client
 from ..exceptions import ConfigError, ComponentError
 from ..conf import default_dsn
@@ -71,6 +72,12 @@ class ExtractTranscript(Boto3Client, FlowComponent):
     |                            |          | When skipping processed rows, downloads SRT from S3 for downstream components.             |
     |   s3_srt_key_column        | No       | Column containing S3 keys for SRT files. Default: `"transcript_srt_s3_key"`.               |
     |                            |          | Used with `download_from_s3` to locate SRT files in S3.                                    |
+    |   release_every            | No       | Frequency of `_release_audio_resources()` calls during `run()`. Default: `0`.              |
+    |                            |          | `0` means release only on `close()`; N means release every N processed rows.               |
+    |                            |          | Useful for very long batches when GPU/CPU memory pressure is a concern.                    |
+    |   prewarm_models           | No       | Eagerly load WhisperX, alignment, and (when `diarization` is on) pyannote pipelines        |
+    |                            |          | during `start()` to warm the HuggingFace cache before the first row arrives.               |
+    |                            |          | Default: `true`. Set to `false` to skip pre-warming (e.g. in tests or fast-start envs).   |
 
     **Returns**
 
@@ -110,11 +117,13 @@ class ExtractTranscript(Boto3Client, FlowComponent):
           audio_column: audio_path
           language: en
           model_size: small
-          diarization: false
+          diarization: true
           summarization: true
           device: cuda
           cuda_number: 0
           skip_errors: true
+          prewarm_models: true
+          release_every: 0
         ```
     """
     _version = "1.0.0"
@@ -178,6 +187,11 @@ class ExtractTranscript(Boto3Client, FlowComponent):
         self.download_from_s3: bool = kwargs.pop('download_from_s3', True)
         self.s3_srt_key_column: str = kwargs.pop('s3_srt_key_column', 'transcript_srt_s3_key')
 
+        # Executor / resource-release / pre-warm configuration
+        self._extract_executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+        self.release_every: int = kwargs.pop('release_every', 0)
+        self.prewarm_models: bool = kwargs.pop('prewarm_models', True)
+
         # S3 upload configuration
         self.save_s3: bool = kwargs.pop('save_s3', False)
         self._s3_config: str = kwargs.pop('s3_config', 'default')
@@ -202,6 +216,103 @@ class ExtractTranscript(Boto3Client, FlowComponent):
 
         # AudioLoader instance (initialized in start)
         self._audio_loader: Optional[AudioLoader] = None
+
+    def _run_extract_audio_blocking(self, path):
+        """Run extract_audio in this worker thread.
+
+        The thread has no running event loop, so asyncio.run() is safe and
+        creates a one-shot loop for the coroutine's duration. This keeps the
+        qw worker's main event loop free to emit heartbeats while transcription
+        runs.
+        """
+        return asyncio.run(self._audio_loader.extract_audio(path))
+
+    def _prewarm_models_blocking(self) -> None:
+        """Cold-load WhisperX, alignment, and (when enabled) pyannote pipelines.
+
+        Runs on the executor thread. The first real row then reads weights from
+        the local HF cache instead of pulling them from huggingface.co on the
+        worker's main event loop.
+        """
+        import os
+        import whisperx
+
+        # Mirror parrot's device/compute_type derivation from get_whisperx_transcript
+        pipeline_idx, _, _ = self._audio_loader._get_device()
+        if isinstance(pipeline_idx, str):
+            device = pipeline_idx
+        elif pipeline_idx >= 0:
+            device = 'cuda'
+        else:
+            device = 'cpu'
+
+        if device.startswith('cuda'):
+            compute_type = 'float16'
+        elif device == 'mps':
+            compute_type = 'float32'
+        else:
+            compute_type = 'int8'
+
+        model_id = self._audio_loader._get_whisperx_name(self.language, self.model_size)
+
+        # WhisperX ASR — result discarded; purpose is to warm the HF cache
+        _w = whisperx.load_model(
+            model_id,
+            device=device,
+            compute_type=compute_type,
+            language=self.language,
+        )
+        del _w
+
+        # Alignment model
+        _a, _meta = whisperx.load_align_model(
+            language_code=self.language,
+            device=device,
+        )
+        del _a
+
+        # Diarization pipeline (only when enabled and a token is available)
+        if self.diarization:
+            token = (
+                os.environ.get('PYANNOTE_AUDIO_AUTH')
+                or os.environ.get('HUGGINGFACEHUB_API_TOKEN')
+            )
+            if token:
+                _d = whisperx.diarize.DiarizationPipeline(token=token, device=device)
+                del _d
+            else:
+                self._logger.warning(
+                    "ExtractTranscript pre-warm: diarization is enabled but no "
+                    "PYANNOTE_AUDIO_AUTH or HUGGINGFACEHUB_API_TOKEN found in env; "
+                    "skipping diarizer warm-up."
+                )
+
+        gc.collect()
+        if device.startswith('cuda'):
+            try:
+                import torch as _torch
+                _torch.cuda.empty_cache()
+            except Exception:  # pragma: no cover — defensive
+                pass
+
+    async def _prewarm_models(self) -> None:
+        """Schedule the blocking pre-warm on the executor. Best-effort: never raises."""
+        if not self.prewarm_models or self._extract_executor is None:
+            return
+
+        loop = asyncio.get_running_loop()
+        try:
+            await loop.run_in_executor(self._extract_executor, self._prewarm_models_blocking)
+        except Exception as exc:
+            self._logger.warning(
+                f"ExtractTranscript pre-warm failed ({type(exc).__name__}): {exc}. "
+                "First row will pay the cold cost."
+            )
+            self.add_metric('PREWARM_FAILED', True)
+            self.add_metric('PREWARM_ERROR', type(exc).__name__)
+        else:
+            self.add_metric('PREWARM_DONE', True)
+            self._logger.info("ExtractTranscript pre-warm complete")
 
     def _release_audio_resources(self) -> None:
         """Release GPU/CPU resources allocated by AudioLoader/WhisperX."""
@@ -277,6 +388,13 @@ class ExtractTranscript(Boto3Client, FlowComponent):
             loader_kwargs['model_name'] = self.model_name
         self._audio_loader = AudioLoader(**loader_kwargs)
 
+        # Single-thread executor so the worker's event loop stays unblocked during
+        # CPU/GPU-heavy transcription work (WhisperX + pyannote).
+        self._extract_executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix='extract-transcript',
+        )
+
         # Initialize S3 connection if save_s3 is enabled
         if self.save_s3:
             # Process credentials (similar to UploadToS3)
@@ -289,8 +407,15 @@ class ExtractTranscript(Boto3Client, FlowComponent):
             # Open S3 connection
             await self.open()
 
+        # Pre-warm WhisperX / pyannote on the executor so the first row
+        # reads from local HF cache rather than downloading from huggingface.co.
+        await self._prewarm_models()
+
     async def close(self):
         """Clean up resources."""
+        if self._extract_executor is not None:
+            self._extract_executor.shutdown(wait=True)
+            self._extract_executor = None
         self._release_audio_resources()
         await super().close()
 
@@ -536,15 +661,22 @@ class ExtractTranscript(Boto3Client, FlowComponent):
 
                 display_name = path.name
 
-            # Extract audio using Parrot's AudioLoader (suppress verbose output)
-            # Redirect stdout/stderr to suppress print() statements from Parrot
+            # Offload CPU/GPU-heavy transcription to the executor thread so the
+            # worker's event loop (and its heartbeat task) stays responsive.
+            # stdout/stderr redirect inside _run_extract_audio_blocking is process-wide
+            # but acceptable because this component processes rows serially.
             old_stdout = sys.stdout
             old_stderr = sys.stderr
             sys.stdout = StringIO()
             sys.stderr = StringIO()
 
             try:
-                metadata = await self._audio_loader.extract_audio(path)
+                loop = asyncio.get_running_loop()
+                metadata = await loop.run_in_executor(
+                    self._extract_executor,
+                    self._run_extract_audio_blocking,
+                    path,
+                )
             finally:
                 # Restore stdout/stderr
                 sys.stdout = old_stdout
@@ -708,9 +840,6 @@ class ExtractTranscript(Boto3Client, FlowComponent):
                 self._logger.warning(
                     f"Failed to delete {len(cleanup_errors)} temporary file(s): {', '.join(cleanup_errors)}"
                 )
-
-            # Ensure GPU memory is returned to the pool between files
-            self._release_audio_resources()
 
     async def run(self):
         """Process all audio files in the DataFrame."""
@@ -906,6 +1035,11 @@ class ExtractTranscript(Boto3Client, FlowComponent):
                     if TORCH_AVAILABLE and self._device == 'cuda':
                         torch.cuda.empty_cache()
                         self._logger.debug(f"🧹 VRAM cleanup after processing {idx + 1} files")
+
+                # Full model/resource release every N files (default 0 = only on close())
+                if self.release_every > 0 and (idx + 1) % self.release_every == 0:
+                    self._release_audio_resources()
+                    self._logger.debug(f"🧹 Full resource release after processing {idx + 1} files")
 
                 pbar.update(1)
 

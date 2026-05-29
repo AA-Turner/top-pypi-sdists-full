@@ -17,6 +17,7 @@ from allianceauth.eveonline.models import (
 from allianceauth.services.hooks import ServicesHook
 from allianceauth.tests.auth_utils import AuthUtils
 
+from .. import admin as authentication_admin
 from ..admin import (
     BaseUserAdmin, CharacterOwnershipAdmin, MainAllianceFilter,
     MainCorporationsFilter, MainFactionFilter, OwnershipRecordAdmin,
@@ -819,3 +820,44 @@ class TestMakeServicesHooksActions(TestCaseWithTestData):
         action(MagicMock(), MagicMock(), [self.user_1])
         self.assertFalse(mock_service.sync_nickname.called)
         self.assertTrue(mock_service.sync_nicknames_bulk.called)
+
+
+class TestAdminSignalRedirects(TestCaseWithTestData):
+    def test_redirect_receivers_forward_user_signals_to_base_user(self):
+        cases = [
+            (
+                authentication_admin.redirect_pre_save,
+                authentication_admin.pre_save,
+                {"instance": self.user_1},
+            ),
+            (
+                authentication_admin.redirect_post_save,
+                authentication_admin.post_save,
+                {"instance": self.user_1, "created": False},
+            ),
+            (
+                authentication_admin.redirect_pre_delete,
+                authentication_admin.pre_delete,
+                {"instance": self.user_1},
+            ),
+            (
+                authentication_admin.redirect_post_delete,
+                authentication_admin.post_delete,
+                {"instance": self.user_1},
+            ),
+            (
+                authentication_admin.redirect_m2m_changed_groups,
+                authentication_admin.m2m_changed,
+                {"instance": self.user_1, "action": "post_add", "pk_set": {self.group_1.pk}},
+            ),
+            (
+                authentication_admin.redirect_m2m_changed_permissions,
+                authentication_admin.m2m_changed,
+                {"instance": self.user_1, "action": "post_add", "pk_set": set()},
+            ),
+        ]
+
+        for receiver, signal, kwargs in cases:
+            with self.subTest(receiver=receiver.__name__), patch.object(signal, "send") as send:
+                receiver(sender=User, **kwargs)
+                send.assert_called_once_with(authentication_admin.BaseUser, **kwargs)

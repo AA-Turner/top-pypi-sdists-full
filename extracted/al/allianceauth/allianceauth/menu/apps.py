@@ -15,7 +15,7 @@ class MenuConfig(AppConfig):
     label = "menu"
     verbose_name = _("Menu")
 
-    def ready(self):
+    def ready(self) -> None:
         from allianceauth.menu.core import smart_sync
 
         smart_sync.reset_menu_items_sync()

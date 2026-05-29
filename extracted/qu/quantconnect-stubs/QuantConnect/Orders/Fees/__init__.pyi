@@ -98,8 +98,97 @@ class FeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
         ...
 
 
-class TDAmeritradeFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Provides an implementation of FeeModel that models TDAmeritrade order fees"""
+class BybitFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Bybit fee model implementation"""
+
+    MAKER_NON_VIP_FEE: float = 0.001
+    """
+    Tier 1 maker fees
+    https://learn.bybit.com/bybit-guide/bybit-trading-fees/
+    """
+
+    TAKER_NON_VIP_FEE: float = 0.001
+    """
+    Tier 1 taker fees
+    https://learn.bybit.com/bybit-guide/bybit-trading-fees/
+    """
+
+    def __init__(self, m_fee: float = ..., t_fee: float = ...) -> None:
+        """
+        Creates Binance fee model setting fees values
+        
+        :param m_fee: Maker fee value
+        :param t_fee: Taker fee value
+        """
+        ...
+
+    def get_fee(self, order: QuantConnect.Orders.Order) -> float:
+        """
+        Gets the fee factor for the given order
+        
+        
+        This Class is protected.
+        
+        :param order: The order to get the fee factor for
+        :returns: The fee factor for the given order.
+        """
+        ...
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Gets the order fee associated with the specified order.
+        
+        :param parameters: A OrderFeeParameters object
+        containing the security and order
+        :returns: The cost of the order in a CashAmount instance.
+        """
+        ...
+
+
+class InteractiveBrokersFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Provides the default implementation of IFeeModel"""
+
+    def __init__(self, monthly_forex_trade_amount_in_us_dollars: float = 0, monthly_options_trade_amount_in_contracts: float = 0) -> None:
+        """
+        Initializes a new instance of the ImmediateFillModel
+        
+        :param monthly_forex_trade_amount_in_us_dollars: Monthly FX dollar volume traded
+        :param monthly_options_trade_amount_in_contracts: Monthly options contracts traded
+        """
+        ...
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Gets the order fee associated with the specified order. This returns the cost
+        of the transaction in the account currency
+        
+        :param parameters: A OrderFeeParameters object
+        containing the security and order
+        :returns: The cost of the order in units of the account currency.
+        """
+        ...
+
+    @staticmethod
+    def get_potential_order_price(order: QuantConnect.Orders.Order, security: QuantConnect.Securities.Security) -> float:
+        """
+        Approximates the order's price based on the order type
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class WolverineFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Provides an implementation of FeeModel that models Wolverine order fees"""
+
+    def __init__(self, fees_per_share: typing.Optional[float] = None) -> None:
+        """
+        Creates a new instance
+        
+        :param fees_per_share: The fees per share to apply
+        """
+        ...
 
     def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
         """
@@ -108,6 +197,53 @@ class TDAmeritradeFeeModel(QuantConnect.Orders.Fees.FeeModel):
         :param parameters: A OrderFeeParameters object
         containing the security and order
         :returns: The cost of the order in quote currency.
+        """
+        ...
+
+
+class AxosFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
+    """Provides an implementation of FeeModel that models Axos order fees"""
+
+    def __init__(self, fees_per_share: typing.Optional[float] = None) -> None:
+        """
+        Creates a new instance
+        
+        :param fees_per_share: The fees per share to apply
+        """
+        ...
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Get the fee for this order in quote currency
+        
+        :param parameters: A OrderFeeParameters object
+        containing the security and order
+        :returns: The cost of the order in quote currency.
+        """
+        ...
+
+
+class BybitFuturesFeeModel(QuantConnect.Orders.Fees.BybitFeeModel):
+    """Bybit futures fee model implementation"""
+
+    MAKER_NON_VIP_FEE: float = 0.0002
+    """
+    Tier 1 maker fees
+    https://learn.bybit.com/bybit-guide/bybit-trading-fees/
+    """
+
+    TAKER_NON_VIP_FEE: float = 0.00055
+    """
+    Tier 1 taker fees
+    https://learn.bybit.com/bybit-guide/bybit-trading-fees/
+    """
+
+    def __init__(self, maker_fee: float = ..., taker_fee: float = ...) -> None:
+        """
+        Initializes a new instance of the BybitFuturesFeeModel class
+        
+        :param maker_fee: The accounts maker fee
+        :param taker_fee: The accounts taker fee
         """
         ...
 
@@ -123,6 +259,48 @@ class AlphaStreamsFeeModel(QuantConnect.Orders.Fees.FeeModel):
         :param parameters: A OrderFeeParameters object
         containing the security and order
         :returns: The cost of the order in units of the account currency.
+        """
+        ...
+
+
+class CharlesSchwabFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Represents a fee model specific to Charles Schwab."""
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Calculates the order fee based on the security type and order parameters.
+        
+        :param parameters: The parameters for the order fee calculation, which include security and order details.
+        :returns: An OrderFee instance representing the calculated order fee.
+        """
+        ...
+
+
+class BitfinexFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Provides an implementation of FeeModel that models Bitfinex order fees"""
+
+    MAKER_FEE: float = 0.001
+    """
+    Tier 1 maker fees
+    Maker fees are paid when you add liquidity to our order book by placing a limit order under the ticker price for buy and above the ticker price for sell.
+    https://www.bitfinex.com/fees
+    """
+
+    TAKER_FEE: float = 0.002
+    """
+    Tier 1 taker fees
+    Taker fees are paid when you remove liquidity from our order book by placing any order that is executed against an order of the order book.
+    Note: If you place a hidden order, you will always pay the taker fee. If you place a limit order that hits a hidden order, you will always pay the maker fee.
+    https://www.bitfinex.com/fees
+    """
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Get the fee for this order in quote currency
+        
+        :param parameters: A OrderFeeParameters object
+        containing the security and order
+        :returns: The cost of the order in quote currency.
         """
         ...
 
@@ -194,33 +372,22 @@ class CoinbaseFeeModel(QuantConnect.Orders.Fees.FeeModel):
         ...
 
 
-class GDAXFeeModel(QuantConnect.Orders.Fees.CoinbaseFeeModel):
-    """
-    Provides an implementation of FeeModel that models GDAX order fees
-    
-    
-    GDAXFeeModel is deprecated. Use CoinbaseFeeModel instead.
-    """
+class AlpacaFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Represents the fee model specific to Alpaca trading platform."""
 
+    MAKER_CRYPTO_FEE: float = 0.0015
+    """The fee percentage for a maker transaction in cryptocurrency."""
 
-class FxcmFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Provides an implementation of FeeModel that models FXCM order fees"""
-
-    def __init__(self, currency: str = "USD") -> None:
-        """
-        Creates a new instance
-        
-        :param currency: The currency of the order fee, for FXCM this is the account currency
-        """
-        ...
+    TAKER_CRYPTO_FEE: float = 0.0025
+    """The fee percentage for a taker transaction in cryptocurrency."""
 
     def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
         """
-        Get the fee for this order in units of the account currency
+        Gets the order fee associated with the specified order.
         
         :param parameters: A OrderFeeParameters object
         containing the security and order
-        :returns: The cost of the order in units of the account currency.
+        :returns: The cost of the order in a CashAmount instance.
         """
         ...
 
@@ -283,127 +450,8 @@ class BinanceFeeModel(QuantConnect.Orders.Fees.FeeModel):
         ...
 
 
-class BinanceFuturesFeeModel(QuantConnect.Orders.Fees.BinanceFeeModel):
-    """Provides an implementation of FeeModel that models Binance Futures order fees"""
-
-    MAKER_TIER_1_USDT_FEE: float = 0.0002
-    """
-    Tier 1 USDT maker fees
-    https://www.binance.com/en/fee/futureFee
-    """
-
-    TAKER_TIER_1_USDT_FEE: float = 0.0004
-    """
-    Tier 1 USDT taker fees
-    https://www.binance.com/en/fee/futureFee
-    """
-
-    MAKER_TIER_1_BUSD_FEE: float = 0.00012
-    """
-    Tier 1 BUSD maker fees
-    https://www.binance.com/en/fee/futureFee
-    """
-
-    TAKER_TIER_1_BUSD_FEE: float = 0.00036
-    """
-    Tier 1 BUSD taker fees
-    https://www.binance.com/en/fee/futureFee
-    """
-
-    def __init__(self, m_usdt_fee: float = ..., t_usdt_fee: float = ..., m_busd_fee: float = ..., t_busd_fee: float = ...) -> None:
-        """
-        Creates Binance Futures fee model setting fees values
-        
-        :param m_usdt_fee: Maker fee value for USDT pair contracts
-        :param t_usdt_fee: Taker fee value for USDT pair contracts
-        :param m_busd_fee: Maker fee value for BUSD pair contracts
-        :param t_busd_fee: Taker fee value for BUSD pair contracts
-        """
-        ...
-
-    def get_fee(self, order: QuantConnect.Orders.Order) -> float:
-        """
-        Gets the fee for the given order
-        
-        
-        This Class is protected.
-        """
-        ...
-
-
-class BinanceCoinFuturesFeeModel(QuantConnect.Orders.Fees.BinanceFeeModel):
-    """Provides an implementation of FeeModel that models Binance Coin Futures order fees"""
-
-    MAKER_TIER_1_FEE: float = 0.0001
-    """
-    Tier 1 maker fees
-    https://www.binance.com/en/fee/deliveryFee
-    """
-
-    TAKER_TIER_1_FEE: float = 0.0005
-    """
-    Tier 1 taker fees
-    https://www.binance.com/en/fee/deliveryFee
-    """
-
-    def __init__(self, m_fee: float = ..., t_fee: float = ...) -> None:
-        """
-        Creates Binance Coin Futures fee model setting fees values
-        
-        :param m_fee: Maker fee value
-        :param t_fee: Taker fee value
-        """
-        ...
-
-
-class EzeFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Eze fee model implementation"""
-
-
-class FTXFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """
-    Provides an implementation of FeeModel that models FTX order fees
-    https://help.ftx.com/hc/en-us/articles/360024479432-Fees
-    """
-
-    @property
-    def maker_fee(self) -> float:
-        """Tier 1 maker fees"""
-        ...
-
-    @property
-    def taker_fee(self) -> float:
-        """Tier 1 taker fees"""
-        ...
-
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
-        """
-        Get the fee for this order in quote currency
-        
-        :param parameters: A OrderFeeParameters object
-        containing the security and order
-        :returns: The cost of the order in quote currency.
-        """
-        ...
-
-
-class BitfinexFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Provides an implementation of FeeModel that models Bitfinex order fees"""
-
-    MAKER_FEE: float = 0.001
-    """
-    Tier 1 maker fees
-    Maker fees are paid when you add liquidity to our order book by placing a limit order under the ticker price for buy and above the ticker price for sell.
-    https://www.bitfinex.com/fees
-    """
-
-    TAKER_FEE: float = 0.002
-    """
-    Tier 1 taker fees
-    Taker fees are paid when you remove liquidity from our order book by placing any order that is executed against an order of the order book.
-    Note: If you place a hidden order, you will always pay the taker fee. If you place a limit order that hits a hidden order, you will always pay the maker fee.
-    https://www.bitfinex.com/fees
-    """
+class TDAmeritradeFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Provides an implementation of FeeModel that models TDAmeritrade order fees"""
 
     def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
         """
@@ -439,28 +487,221 @@ class ConstantFeeModel(QuantConnect.Orders.Fees.FeeModel):
         ...
 
 
-class ModifiedFillQuantityOrderFee(QuantConnect.Orders.Fees.OrderFee):
+class ExanteFeeModel(QuantConnect.Orders.Fees.FeeModel):
     """
-    An order fee where the fee quantity has already been subtracted from the filled quantity so instead we subtracted
-    from the quote currency when applied to the portfolio
+    Provides an implementation of FeeModel that models Exante order fees.
+    According to:
+    https://support.exante.eu/hc/en-us/articles/115005873143-Fees-overview-exchange-imposed-fees?source=searchhttps://exante.eu/markets/
     """
 
-    def __init__(self, order_fee: QuantConnect.Securities.CashAmount, quote_currency: str, contract_multiplier: float) -> None:
+    MARKET_USA_RATE: float = 0.02
+    """Market USA rate"""
+
+    DEFAULT_RATE: float = 0.02
+    """Default rate"""
+
+    def __init__(self, forex_commission_rate: float = 0.25) -> None:
         """
-        Initializes a new instance of the ModifiedFillQuantityOrderFee class
+        Creates a new instance
         
-        :param order_fee: The order fee
-        :param quote_currency: The associated security quote currency
-        :param contract_multiplier: The associated security contract multiplier
+        :param forex_commission_rate: Commission rate for FX operations
         """
         ...
 
-    def apply_to_portfolio(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, fill: QuantConnect.Orders.OrderEvent) -> None:
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
         """
-        Applies the order fee to the given portfolio
+        Gets the order fee associated with the specified order.
         
-        :param portfolio: The portfolio instance
-        :param fill: The order fill event
+        :param parameters: A OrderFeeParameters object
+        containing the security and order
+        :returns: The cost of the order in a CashAmount instance.
+        """
+        ...
+
+
+class FTXFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """
+    Provides an implementation of FeeModel that models FTX order fees
+    https://help.ftx.com/hc/en-us/articles/360024479432-Fees
+    """
+
+    @property
+    def maker_fee(self) -> float:
+        """Tier 1 maker fees"""
+        ...
+
+    @property
+    def taker_fee(self) -> float:
+        """Tier 1 taker fees"""
+        ...
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Get the fee for this order in quote currency
+        
+        :param parameters: A OrderFeeParameters object
+        containing the security and order
+        :returns: The cost of the order in quote currency.
+        """
+        ...
+
+
+class FTXUSFeeModel(QuantConnect.Orders.Fees.FTXFeeModel):
+    """
+    Provides an implementation of FeeModel that models FTX order fees
+    https://help.ftx.us/hc/en-us/articles/360043579273-Fees
+    """
+
+    @property
+    def maker_fee(self) -> float:
+        """Tier 1 maker fees"""
+        ...
+
+    @property
+    def taker_fee(self) -> float:
+        """Tier 1 taker fees"""
+        ...
+
+
+class TradeStationFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Represents a fee model specific to TradeStation."""
+
+    @property
+    def us_resident(self) -> bool:
+        """Gets or sets a value indicating whether the entity or person is a resident of the United States."""
+        ...
+
+    @us_resident.setter
+    def us_resident(self, value: bool) -> None:
+        ...
+
+    def __init__(self, us_resident: bool = True) -> None:
+        """
+        Initializes a new instance of the TradeStationFeeModel class.
+        
+        :param us_resident: A boolean value indicating whether the entity or person is a US resident.
+        Default is true.
+        """
+        ...
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Calculates the order fee based on the security type and order parameters.
+        
+        :param parameters: The parameters for the order fee calculation, which include security and order details.
+        :returns: An OrderFee instance representing the calculated order fee.
+        """
+        ...
+
+
+class EzeFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Eze fee model implementation"""
+
+
+class dYdXFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """dYdX fee model implementation"""
+
+    def __init__(self, m_fee: float = ..., t_fee: float = ...) -> None:
+        """
+        Creates Binance fee model setting fees values
+        
+        :param m_fee: Maker fee value
+        :param t_fee: Taker fee value
+        """
+        ...
+
+    def get_fee(self, order: QuantConnect.Orders.Order) -> float:
+        """
+        Gets the fee factor for the given order
+        
+        
+        This Class is protected.
+        
+        :param order: The order to get the fee factor for
+        :returns: The fee factor for the given order.
+        """
+        ...
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Gets the order fee associated with the specified order.
+        
+        :param parameters: A OrderFeeParameters object
+        containing the security and order
+        :returns: The cost of the order in a CashAmount instance.
+        """
+        ...
+
+
+class FeeModelExtensions(System.Object):
+    """
+    Provide extension method for IFeeModel to enable
+    backwards compatibility of invocations.
+    """
+
+    @staticmethod
+    def get_order_fee(model: QuantConnect.Orders.Fees.IFeeModel, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
+        """
+        Gets the order fee associated with the specified order. This returns the cost
+        of the transaction in the account currency
+        
+        :param model: The fee model
+        :param security: The security matching the order
+        :param order: The order to compute fees for
+        :returns: The cost of the order in units of the account currency.
+        """
+        ...
+
+
+class RBIFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Provides an implementation of FeeModel that models RBI order fees"""
+
+    def __init__(self, fees_per_share: typing.Optional[float] = None) -> None:
+        """
+        Creates a new instance
+        
+        :param fees_per_share: The fees per share to apply
+        """
+        ...
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Get the fee for this order in quote currency
+        
+        :param parameters: A OrderFeeParameters object
+        containing the security and order
+        :returns: The cost of the order in quote currency.
+        """
+        ...
+
+
+class GDAXFeeModel(QuantConnect.Orders.Fees.CoinbaseFeeModel):
+    """
+    Provides an implementation of FeeModel that models GDAX order fees
+    
+    
+    GDAXFeeModel is deprecated. Use CoinbaseFeeModel instead.
+    """
+
+
+class FxcmFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Provides an implementation of FeeModel that models FXCM order fees"""
+
+    def __init__(self, currency: str = "USD") -> None:
+        """
+        Creates a new instance
+        
+        :param currency: The currency of the order fee, for FXCM this is the account currency
+        """
+        ...
+
+    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+        """
+        Get the fee for this order in units of the account currency
+        
+        :param parameters: A OrderFeeParameters object
+        containing the security and order
+        :returns: The cost of the order in units of the account currency.
         """
         ...
 
@@ -589,42 +830,6 @@ class IndiaFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
         ...
 
 
-class RBIFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Provides an implementation of FeeModel that models RBI order fees"""
-
-    def __init__(self, fees_per_share: typing.Optional[float] = None) -> None:
-        """
-        Creates a new instance
-        
-        :param fees_per_share: The fees per share to apply
-        """
-        ...
-
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
-        """
-        Get the fee for this order in quote currency
-        
-        :param parameters: A OrderFeeParameters object
-        containing the security and order
-        :returns: The cost of the order in quote currency.
-        """
-        ...
-
-
-class TastytradeFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Represents a fee model specific to Tastytrade."""
-
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
-        """
-        Gets the order fee for a given security and order.
-        
-        :param parameters: The parameters including the security and order details.
-        :returns: A OrderFee instance representing the total fee for the order,
-        or OrderFee.ZERO if no fee is applicable.
-        """
-        ...
-
-
 class ZerodhaFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
     """Provides the default implementation of IFeeModel Refer to https://www.samco.in/technology/brokerage_calculator"""
 
@@ -709,42 +914,54 @@ class ZerodhaFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         ...
 
 
-class AxosFeeModel(System.Object, QuantConnect.Orders.Fees.IFeeModel):
-    """Provides an implementation of FeeModel that models Axos order fees"""
-
-    def __init__(self, fees_per_share: typing.Optional[float] = None) -> None:
-        """
-        Creates a new instance
-        
-        :param fees_per_share: The fees per share to apply
-        """
-        ...
-
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
-        """
-        Get the fee for this order in quote currency
-        
-        :param parameters: A OrderFeeParameters object
-        containing the security and order
-        :returns: The cost of the order in quote currency.
-        """
-        ...
-
-
-class FTXUSFeeModel(QuantConnect.Orders.Fees.FTXFeeModel):
+class ModifiedFillQuantityOrderFee(QuantConnect.Orders.Fees.OrderFee):
     """
-    Provides an implementation of FeeModel that models FTX order fees
-    https://help.ftx.us/hc/en-us/articles/360043579273-Fees
+    An order fee where the fee quantity has already been subtracted from the filled quantity so instead we subtracted
+    from the quote currency when applied to the portfolio
     """
 
-    @property
-    def maker_fee(self) -> float:
-        """Tier 1 maker fees"""
+    def __init__(self, order_fee: QuantConnect.Securities.CashAmount, quote_currency: str, contract_multiplier: float) -> None:
+        """
+        Initializes a new instance of the ModifiedFillQuantityOrderFee class
+        
+        :param order_fee: The order fee
+        :param quote_currency: The associated security quote currency
+        :param contract_multiplier: The associated security contract multiplier
+        """
         ...
 
-    @property
-    def taker_fee(self) -> float:
-        """Tier 1 taker fees"""
+    def apply_to_portfolio(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, fill: QuantConnect.Orders.OrderEvent) -> None:
+        """
+        Applies the order fee to the given portfolio
+        
+        :param portfolio: The portfolio instance
+        :param fill: The order fill event
+        """
+        ...
+
+
+class BinanceCoinFuturesFeeModel(QuantConnect.Orders.Fees.BinanceFeeModel):
+    """Provides an implementation of FeeModel that models Binance Coin Futures order fees"""
+
+    MAKER_TIER_1_FEE: float = 0.0001
+    """
+    Tier 1 maker fees
+    https://www.binance.com/en/fee/deliveryFee
+    """
+
+    TAKER_TIER_1_FEE: float = 0.0005
+    """
+    Tier 1 taker fees
+    https://www.binance.com/en/fee/deliveryFee
+    """
+
+    def __init__(self, m_fee: float = ..., t_fee: float = ...) -> None:
+        """
+        Creates Binance Coin Futures fee model setting fees values
+        
+        :param m_fee: Maker fee value
+        :param t_fee: Taker fee value
+        """
         ...
 
 
@@ -822,178 +1039,6 @@ class SamcoFeeModel(QuantConnect.Orders.Fees.IndiaFeeModel):
         ...
 
 
-class ExanteFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """
-    Provides an implementation of FeeModel that models Exante order fees.
-    According to:
-    https://support.exante.eu/hc/en-us/articles/115005873143-Fees-overview-exchange-imposed-fees?source=searchhttps://exante.eu/markets/
-    """
-
-    MARKET_USA_RATE: float = 0.02
-    """Market USA rate"""
-
-    DEFAULT_RATE: float = 0.02
-    """Default rate"""
-
-    def __init__(self, forex_commission_rate: float = 0.25) -> None:
-        """
-        Creates a new instance
-        
-        :param forex_commission_rate: Commission rate for FX operations
-        """
-        ...
-
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
-        """
-        Gets the order fee associated with the specified order.
-        
-        :param parameters: A OrderFeeParameters object
-        containing the security and order
-        :returns: The cost of the order in a CashAmount instance.
-        """
-        ...
-
-
-class CharlesSchwabFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Represents a fee model specific to Charles Schwab."""
-
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
-        """
-        Calculates the order fee based on the security type and order parameters.
-        
-        :param parameters: The parameters for the order fee calculation, which include security and order details.
-        :returns: An OrderFee instance representing the calculated order fee.
-        """
-        ...
-
-
-class dYdXFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """dYdX fee model implementation"""
-
-    def __init__(self, m_fee: float = ..., t_fee: float = ...) -> None:
-        """
-        Creates Binance fee model setting fees values
-        
-        :param m_fee: Maker fee value
-        :param t_fee: Taker fee value
-        """
-        ...
-
-    def get_fee(self, order: QuantConnect.Orders.Order) -> float:
-        """
-        Gets the fee factor for the given order
-        
-        
-        This Class is protected.
-        
-        :param order: The order to get the fee factor for
-        :returns: The fee factor for the given order.
-        """
-        ...
-
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
-        """
-        Gets the order fee associated with the specified order.
-        
-        :param parameters: A OrderFeeParameters object
-        containing the security and order
-        :returns: The cost of the order in a CashAmount instance.
-        """
-        ...
-
-
-class BybitFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Bybit fee model implementation"""
-
-    MAKER_NON_VIP_FEE: float = 0.001
-    """
-    Tier 1 maker fees
-    https://learn.bybit.com/bybit-guide/bybit-trading-fees/
-    """
-
-    TAKER_NON_VIP_FEE: float = 0.001
-    """
-    Tier 1 taker fees
-    https://learn.bybit.com/bybit-guide/bybit-trading-fees/
-    """
-
-    def __init__(self, m_fee: float = ..., t_fee: float = ...) -> None:
-        """
-        Creates Binance fee model setting fees values
-        
-        :param m_fee: Maker fee value
-        :param t_fee: Taker fee value
-        """
-        ...
-
-    def get_fee(self, order: QuantConnect.Orders.Order) -> float:
-        """
-        Gets the fee factor for the given order
-        
-        
-        This Class is protected.
-        
-        :param order: The order to get the fee factor for
-        :returns: The fee factor for the given order.
-        """
-        ...
-
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
-        """
-        Gets the order fee associated with the specified order.
-        
-        :param parameters: A OrderFeeParameters object
-        containing the security and order
-        :returns: The cost of the order in a CashAmount instance.
-        """
-        ...
-
-
-class BybitFuturesFeeModel(QuantConnect.Orders.Fees.BybitFeeModel):
-    """Bybit futures fee model implementation"""
-
-    MAKER_NON_VIP_FEE: float = 0.0002
-    """
-    Tier 1 maker fees
-    https://learn.bybit.com/bybit-guide/bybit-trading-fees/
-    """
-
-    TAKER_NON_VIP_FEE: float = 0.00055
-    """
-    Tier 1 taker fees
-    https://learn.bybit.com/bybit-guide/bybit-trading-fees/
-    """
-
-    def __init__(self, maker_fee: float = ..., taker_fee: float = ...) -> None:
-        """
-        Initializes a new instance of the BybitFuturesFeeModel class
-        
-        :param maker_fee: The accounts maker fee
-        :param taker_fee: The accounts taker fee
-        """
-        ...
-
-
-class FeeModelExtensions(System.Object):
-    """
-    Provide extension method for IFeeModel to enable
-    backwards compatibility of invocations.
-    """
-
-    @staticmethod
-    def get_order_fee(model: QuantConnect.Orders.Fees.IFeeModel, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
-        """
-        Gets the order fee associated with the specified order. This returns the cost
-        of the transaction in the account currency
-        
-        :param model: The fee model
-        :param security: The security matching the order
-        :param order: The order to compute fees for
-        :returns: The cost of the order in units of the account currency.
-        """
-        ...
-
-
 class KrakenFeeModel(QuantConnect.Orders.Fees.FeeModel):
     """Provides an implementation of FeeModel that models Kraken order fees"""
 
@@ -1034,106 +1079,61 @@ class KrakenFeeModel(QuantConnect.Orders.Fees.FeeModel):
         ...
 
 
-class TradeStationFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Represents a fee model specific to TradeStation."""
-
-    @property
-    def us_resident(self) -> bool:
-        """Gets or sets a value indicating whether the entity or person is a resident of the United States."""
-        ...
-
-    @us_resident.setter
-    def us_resident(self, value: bool) -> None:
-        ...
-
-    def __init__(self, us_resident: bool = True) -> None:
-        """
-        Initializes a new instance of the TradeStationFeeModel class.
-        
-        :param us_resident: A boolean value indicating whether the entity or person is a US resident.
-        Default is true.
-        """
-        ...
+class TastytradeFeeModel(QuantConnect.Orders.Fees.FeeModel):
+    """Represents a fee model specific to Tastytrade."""
 
     def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
         """
-        Calculates the order fee based on the security type and order parameters.
+        Gets the order fee for a given security and order.
         
-        :param parameters: The parameters for the order fee calculation, which include security and order details.
-        :returns: An OrderFee instance representing the calculated order fee.
+        :param parameters: The parameters including the security and order details.
+        :returns: A OrderFee instance representing the total fee for the order,
+        or OrderFee.ZERO if no fee is applicable.
         """
         ...
 
 
-class AlpacaFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Represents the fee model specific to Alpaca trading platform."""
+class BinanceFuturesFeeModel(QuantConnect.Orders.Fees.BinanceFeeModel):
+    """Provides an implementation of FeeModel that models Binance Futures order fees"""
 
-    MAKER_CRYPTO_FEE: float = 0.0015
-    """The fee percentage for a maker transaction in cryptocurrency."""
+    MAKER_TIER_1_USDT_FEE: float = 0.0002
+    """
+    Tier 1 USDT maker fees
+    https://www.binance.com/en/fee/futureFee
+    """
 
-    TAKER_CRYPTO_FEE: float = 0.0025
-    """The fee percentage for a taker transaction in cryptocurrency."""
+    TAKER_TIER_1_USDT_FEE: float = 0.0004
+    """
+    Tier 1 USDT taker fees
+    https://www.binance.com/en/fee/futureFee
+    """
 
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
+    MAKER_TIER_1_BUSD_FEE: float = 0.00012
+    """
+    Tier 1 BUSD maker fees
+    https://www.binance.com/en/fee/futureFee
+    """
+
+    TAKER_TIER_1_BUSD_FEE: float = 0.00036
+    """
+    Tier 1 BUSD taker fees
+    https://www.binance.com/en/fee/futureFee
+    """
+
+    def __init__(self, m_usdt_fee: float = ..., t_usdt_fee: float = ..., m_busd_fee: float = ..., t_busd_fee: float = ...) -> None:
         """
-        Gets the order fee associated with the specified order.
+        Creates Binance Futures fee model setting fees values
         
-        :param parameters: A OrderFeeParameters object
-        containing the security and order
-        :returns: The cost of the order in a CashAmount instance.
+        :param m_usdt_fee: Maker fee value for USDT pair contracts
+        :param t_usdt_fee: Taker fee value for USDT pair contracts
+        :param m_busd_fee: Maker fee value for BUSD pair contracts
+        :param t_busd_fee: Taker fee value for BUSD pair contracts
         """
         ...
 
-
-class WolverineFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Provides an implementation of FeeModel that models Wolverine order fees"""
-
-    def __init__(self, fees_per_share: typing.Optional[float] = None) -> None:
+    def get_fee(self, order: QuantConnect.Orders.Order) -> float:
         """
-        Creates a new instance
-        
-        :param fees_per_share: The fees per share to apply
-        """
-        ...
-
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
-        """
-        Get the fee for this order in quote currency
-        
-        :param parameters: A OrderFeeParameters object
-        containing the security and order
-        :returns: The cost of the order in quote currency.
-        """
-        ...
-
-
-class InteractiveBrokersFeeModel(QuantConnect.Orders.Fees.FeeModel):
-    """Provides the default implementation of IFeeModel"""
-
-    def __init__(self, monthly_forex_trade_amount_in_us_dollars: float = 0, monthly_options_trade_amount_in_contracts: float = 0) -> None:
-        """
-        Initializes a new instance of the ImmediateFillModel
-        
-        :param monthly_forex_trade_amount_in_us_dollars: Monthly FX dollar volume traded
-        :param monthly_options_trade_amount_in_contracts: Monthly options contracts traded
-        """
-        ...
-
-    def get_order_fee(self, parameters: QuantConnect.Orders.Fees.OrderFeeParameters) -> QuantConnect.Orders.Fees.OrderFee:
-        """
-        Gets the order fee associated with the specified order. This returns the cost
-        of the transaction in the account currency
-        
-        :param parameters: A OrderFeeParameters object
-        containing the security and order
-        :returns: The cost of the order in units of the account currency.
-        """
-        ...
-
-    @staticmethod
-    def get_potential_order_price(order: QuantConnect.Orders.Order, security: QuantConnect.Securities.Security) -> float:
-        """
-        Approximates the order's price based on the order type
+        Gets the fee for the given order
         
         
         This Class is protected.

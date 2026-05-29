@@ -61,28 +61,6 @@ class Index(QuantConnect.Securities.Security):
         ...
 
 
-class IndexExchange(QuantConnect.Securities.SecurityExchange):
-    """INDEX exchange class - information and helper tools for Index exchange properties"""
-
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days per year for this security, used for performance statistics."""
-        ...
-
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the IndexExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
-class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
-
-
 class IndexSymbol(System.Object):
     """Helper methods for Index Symbols"""
 
@@ -107,6 +85,28 @@ class IndexSymbol(System.Object):
 
 class IndexCache(QuantConnect.Securities.SecurityCache):
     """INDEX specific caching support"""
+
+
+class IndexExchange(QuantConnect.Securities.SecurityExchange):
+    """INDEX exchange class - information and helper tools for Index exchange properties"""
+
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days per year for this security, used for performance statistics."""
+        ...
+
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the IndexExchange class using the specified
+        exchange hours to determine open/close times
+        
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
+        """
+        ...
+
+
+class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
 
 
 class IndexHolding(QuantConnect.Securities.SecurityHolding):

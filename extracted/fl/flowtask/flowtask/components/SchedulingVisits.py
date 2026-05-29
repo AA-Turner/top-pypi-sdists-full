@@ -12,7 +12,7 @@ import requests
 from sklearn.neighbors import BallTree
 from geopy.distance import geodesic  # For calculating distances
 from ..exceptions import DataNotFound, ComponentError, ConfigError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 # OSRM base URL for routing requests

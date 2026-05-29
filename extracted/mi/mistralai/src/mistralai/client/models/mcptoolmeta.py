@@ -2,9 +2,8 @@
 # @generated-id: 07cf1c0762c9
 
 from __future__ import annotations
-from .mcpservericon import MCPServerIcon, MCPServerIconTypedDict
-from .toolannotations import ToolAnnotations, ToolAnnotationsTypedDict
-from .toolexecution import ToolExecution, ToolExecutionTypedDict
+from .mcpuitoolmeta import MCPUIToolMeta, MCPUIToolMetaTypedDict
+from .turbinetoolmeta import TurbineToolMeta, TurbineToolMetaTypedDict
 from mistralai.client.types import (
     BaseModel,
     Nullable,
@@ -14,49 +13,36 @@ from mistralai.client.types import (
 )
 import pydantic
 from pydantic import ConfigDict, model_serializer
-from typing import Any, Dict, List
+from typing import Any, Dict
 from typing_extensions import Annotated, NotRequired, TypedDict
 
 
 class MCPToolMetaTypedDict(TypedDict):
-    name: str
-    input_schema: Dict[str, Any]
-    title: NotRequired[Nullable[str]]
-    description: NotRequired[Nullable[str]]
-    output_schema: NotRequired[Nullable[Dict[str, Any]]]
-    icons: NotRequired[Nullable[List[MCPServerIconTypedDict]]]
-    annotations: NotRequired[Nullable[ToolAnnotationsTypedDict]]
-    meta: NotRequired[Nullable[MCPToolMetaTypedDict]]
-    execution: NotRequired[Nullable[ToolExecutionTypedDict]]
+    r"""Typed _meta for MCP tools.
+
+    Only the 'ui' field is typed. Other fields are allowed via extra=\"allow\".
+    """
+
+    ui: NotRequired[Nullable[MCPUIToolMetaTypedDict]]
+    ai_mistral_turbine: NotRequired[Nullable[TurbineToolMetaTypedDict]]
 
 
 class MCPToolMeta(BaseModel):
+    r"""Typed _meta for MCP tools.
+
+    Only the 'ui' field is typed. Other fields are allowed via extra=\"allow\".
+    """
+
     model_config = ConfigDict(
         populate_by_name=True, arbitrary_types_allowed=True, extra="allow"
     )
     __pydantic_extra__: Dict[str, Any] = pydantic.Field(init=False)
 
-    name: str
+    ui: OptionalNullable[MCPUIToolMeta] = UNSET
 
-    input_schema: Annotated[Dict[str, Any], pydantic.Field(alias="inputSchema")]
-
-    title: OptionalNullable[str] = UNSET
-
-    description: OptionalNullable[str] = UNSET
-
-    output_schema: Annotated[
-        OptionalNullable[Dict[str, Any]], pydantic.Field(alias="outputSchema")
+    ai_mistral_turbine: Annotated[
+        OptionalNullable[TurbineToolMeta], pydantic.Field(alias="ai.mistral/turbine")
     ] = UNSET
-
-    icons: OptionalNullable[List[MCPServerIcon]] = UNSET
-
-    annotations: OptionalNullable[ToolAnnotations] = UNSET
-
-    meta: Annotated[OptionalNullable[MCPToolMeta], pydantic.Field(alias="_meta")] = (
-        UNSET
-    )
-
-    execution: OptionalNullable[ToolExecution] = UNSET
 
     @property
     def additional_properties(self):
@@ -68,28 +54,8 @@ class MCPToolMeta(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(
-            [
-                "title",
-                "description",
-                "outputSchema",
-                "icons",
-                "annotations",
-                "_meta",
-                "execution",
-            ]
-        )
-        nullable_fields = set(
-            [
-                "title",
-                "description",
-                "outputSchema",
-                "icons",
-                "annotations",
-                "_meta",
-                "execution",
-            ]
-        )
+        optional_fields = set(["ui", "ai.mistral/turbine"])
+        nullable_fields = set(["ui", "ai.mistral/turbine"])
         serialized = handler(self)
         m = {}
 

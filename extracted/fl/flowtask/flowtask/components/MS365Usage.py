@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import Callable
 import pandas as pd
-from flowtask.components.Azure import Azure
+from flowtask.interfaces.azure_component import Azure
 from flowtask.exceptions import ComponentError
 
 

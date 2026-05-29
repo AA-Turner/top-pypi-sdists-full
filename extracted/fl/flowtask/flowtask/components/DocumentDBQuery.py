@@ -6,7 +6,7 @@ import aiofiles
 from navconfig.logging import logging
 from ..interfaces import TemplateSupport
 from ..interfaces.databases.documentdb import DocumentDBSupport
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..utils.functions import is_empty
 from ..exceptions import FileError, ComponentError, DataNotFound
 from ..utils.json import json_decoder, json_encoder

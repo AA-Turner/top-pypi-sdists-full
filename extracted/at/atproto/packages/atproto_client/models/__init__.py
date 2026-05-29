@@ -22,10 +22,17 @@ from atproto_client.models.app.bsky.contact import get_matches as AppBskyContact
 from atproto_client.models.app.bsky.contact import get_sync_status as AppBskyContactGetSyncStatus
 from atproto_client.models.app.bsky.contact import import_contacts as AppBskyContactImportContacts
 from atproto_client.models.app.bsky.contact import remove_data as AppBskyContactRemoveData
+from atproto_client.models.app.bsky.contact import send_notification as AppBskyContactSendNotification
 from atproto_client.models.app.bsky.contact import start_phone_verification as AppBskyContactStartPhoneVerification
 from atproto_client.models.app.bsky.contact import verify_phone as AppBskyContactVerifyPhone
+from atproto_client.models.app.bsky.draft import create_draft as AppBskyDraftCreateDraft
+from atproto_client.models.app.bsky.draft import defs as AppBskyDraftDefs
+from atproto_client.models.app.bsky.draft import delete_draft as AppBskyDraftDeleteDraft
+from atproto_client.models.app.bsky.draft import get_drafts as AppBskyDraftGetDrafts
+from atproto_client.models.app.bsky.draft import update_draft as AppBskyDraftUpdateDraft
 from atproto_client.models.app.bsky.embed import defs as AppBskyEmbedDefs
 from atproto_client.models.app.bsky.embed import external as AppBskyEmbedExternal
+from atproto_client.models.app.bsky.embed import get_embed_external_view as AppBskyEmbedGetEmbedExternalView
 from atproto_client.models.app.bsky.embed import images as AppBskyEmbedImages
 from atproto_client.models.app.bsky.embed import record as AppBskyEmbedRecord
 from atproto_client.models.app.bsky.embed import record_with_media as AppBskyEmbedRecordWithMedia
@@ -120,6 +127,9 @@ from atproto_client.models.app.bsky.unspecced import (
     get_onboarding_suggested_starter_packs_skeleton as AppBskyUnspeccedGetOnboardingSuggestedStarterPacksSkeleton,
 )
 from atproto_client.models.app.bsky.unspecced import (
+    get_onboarding_suggested_users_skeleton as AppBskyUnspeccedGetOnboardingSuggestedUsersSkeleton,
+)
+from atproto_client.models.app.bsky.unspecced import (
     get_popular_feed_generators as AppBskyUnspeccedGetPopularFeedGenerators,
 )
 from atproto_client.models.app.bsky.unspecced import get_post_thread_other_v2 as AppBskyUnspeccedGetPostThreadOtherV2
@@ -129,12 +139,33 @@ from atproto_client.models.app.bsky.unspecced import (
     get_suggested_feeds_skeleton as AppBskyUnspeccedGetSuggestedFeedsSkeleton,
 )
 from atproto_client.models.app.bsky.unspecced import (
+    get_suggested_onboarding_users as AppBskyUnspeccedGetSuggestedOnboardingUsers,
+)
+from atproto_client.models.app.bsky.unspecced import (
     get_suggested_starter_packs as AppBskyUnspeccedGetSuggestedStarterPacks,
 )
 from atproto_client.models.app.bsky.unspecced import (
     get_suggested_starter_packs_skeleton as AppBskyUnspeccedGetSuggestedStarterPacksSkeleton,
 )
 from atproto_client.models.app.bsky.unspecced import get_suggested_users as AppBskyUnspeccedGetSuggestedUsers
+from atproto_client.models.app.bsky.unspecced import (
+    get_suggested_users_for_discover as AppBskyUnspeccedGetSuggestedUsersForDiscover,
+)
+from atproto_client.models.app.bsky.unspecced import (
+    get_suggested_users_for_discover_skeleton as AppBskyUnspeccedGetSuggestedUsersForDiscoverSkeleton,
+)
+from atproto_client.models.app.bsky.unspecced import (
+    get_suggested_users_for_explore as AppBskyUnspeccedGetSuggestedUsersForExplore,
+)
+from atproto_client.models.app.bsky.unspecced import (
+    get_suggested_users_for_explore_skeleton as AppBskyUnspeccedGetSuggestedUsersForExploreSkeleton,
+)
+from atproto_client.models.app.bsky.unspecced import (
+    get_suggested_users_for_see_more as AppBskyUnspeccedGetSuggestedUsersForSeeMore,
+)
+from atproto_client.models.app.bsky.unspecced import (
+    get_suggested_users_for_see_more_skeleton as AppBskyUnspeccedGetSuggestedUsersForSeeMoreSkeleton,
+)
 from atproto_client.models.app.bsky.unspecced import (
     get_suggested_users_skeleton as AppBskyUnspeccedGetSuggestedUsersSkeleton,
 )
@@ -157,6 +188,7 @@ from atproto_client.models.chat.bsky.actor import declaration as ChatBskyActorDe
 from atproto_client.models.chat.bsky.actor import defs as ChatBskyActorDefs
 from atproto_client.models.chat.bsky.actor import delete_account as ChatBskyActorDeleteAccount
 from atproto_client.models.chat.bsky.actor import export_account_data as ChatBskyActorExportAccountData
+from atproto_client.models.chat.bsky.actor import get_status as ChatBskyActorGetStatus
 from atproto_client.models.chat.bsky.convo import accept_convo as ChatBskyConvoAcceptConvo
 from atproto_client.models.chat.bsky.convo import add_reaction as ChatBskyConvoAddReaction
 from atproto_client.models.chat.bsky.convo import defs as ChatBskyConvoDefs
@@ -164,19 +196,39 @@ from atproto_client.models.chat.bsky.convo import delete_message_for_self as Cha
 from atproto_client.models.chat.bsky.convo import get_convo as ChatBskyConvoGetConvo
 from atproto_client.models.chat.bsky.convo import get_convo_availability as ChatBskyConvoGetConvoAvailability
 from atproto_client.models.chat.bsky.convo import get_convo_for_members as ChatBskyConvoGetConvoForMembers
+from atproto_client.models.chat.bsky.convo import get_convo_members as ChatBskyConvoGetConvoMembers
 from atproto_client.models.chat.bsky.convo import get_log as ChatBskyConvoGetLog
 from atproto_client.models.chat.bsky.convo import get_messages as ChatBskyConvoGetMessages
 from atproto_client.models.chat.bsky.convo import leave_convo as ChatBskyConvoLeaveConvo
+from atproto_client.models.chat.bsky.convo import list_convo_requests as ChatBskyConvoListConvoRequests
 from atproto_client.models.chat.bsky.convo import list_convos as ChatBskyConvoListConvos
+from atproto_client.models.chat.bsky.convo import lock_convo as ChatBskyConvoLockConvo
 from atproto_client.models.chat.bsky.convo import mute_convo as ChatBskyConvoMuteConvo
 from atproto_client.models.chat.bsky.convo import remove_reaction as ChatBskyConvoRemoveReaction
 from atproto_client.models.chat.bsky.convo import send_message as ChatBskyConvoSendMessage
 from atproto_client.models.chat.bsky.convo import send_message_batch as ChatBskyConvoSendMessageBatch
+from atproto_client.models.chat.bsky.convo import unlock_convo as ChatBskyConvoUnlockConvo
 from atproto_client.models.chat.bsky.convo import unmute_convo as ChatBskyConvoUnmuteConvo
 from atproto_client.models.chat.bsky.convo import update_all_read as ChatBskyConvoUpdateAllRead
 from atproto_client.models.chat.bsky.convo import update_read as ChatBskyConvoUpdateRead
+from atproto_client.models.chat.bsky.group import add_members as ChatBskyGroupAddMembers
+from atproto_client.models.chat.bsky.group import approve_join_request as ChatBskyGroupApproveJoinRequest
+from atproto_client.models.chat.bsky.group import create_group as ChatBskyGroupCreateGroup
+from atproto_client.models.chat.bsky.group import create_join_link as ChatBskyGroupCreateJoinLink
+from atproto_client.models.chat.bsky.group import defs as ChatBskyGroupDefs
+from atproto_client.models.chat.bsky.group import disable_join_link as ChatBskyGroupDisableJoinLink
+from atproto_client.models.chat.bsky.group import edit_group as ChatBskyGroupEditGroup
+from atproto_client.models.chat.bsky.group import edit_join_link as ChatBskyGroupEditJoinLink
+from atproto_client.models.chat.bsky.group import enable_join_link as ChatBskyGroupEnableJoinLink
+from atproto_client.models.chat.bsky.group import get_join_link_previews as ChatBskyGroupGetJoinLinkPreviews
+from atproto_client.models.chat.bsky.group import list_join_requests as ChatBskyGroupListJoinRequests
+from atproto_client.models.chat.bsky.group import list_mutual_groups as ChatBskyGroupListMutualGroups
+from atproto_client.models.chat.bsky.group import reject_join_request as ChatBskyGroupRejectJoinRequest
+from atproto_client.models.chat.bsky.group import remove_members as ChatBskyGroupRemoveMembers
+from atproto_client.models.chat.bsky.group import request_join as ChatBskyGroupRequestJoin
 from atproto_client.models.chat.bsky.moderation import get_actor_metadata as ChatBskyModerationGetActorMetadata
 from atproto_client.models.chat.bsky.moderation import get_message_context as ChatBskyModerationGetMessageContext
+from atproto_client.models.chat.bsky.moderation import subscribe_mod_events as ChatBskyModerationSubscribeModEvents
 from atproto_client.models.chat.bsky.moderation import update_actor_access as ChatBskyModerationUpdateActorAccess
 from atproto_client.models.com.atproto.admin import defs as ComAtprotoAdminDefs
 from atproto_client.models.com.atproto.admin import delete_account as ComAtprotoAdminDeleteAccount
@@ -279,7 +331,14 @@ from atproto_client.models.com.atproto.temp import dereference_scope as ComAtpro
 from atproto_client.models.com.atproto.temp import fetch_labels as ComAtprotoTempFetchLabels
 from atproto_client.models.com.atproto.temp import request_phone_verification as ComAtprotoTempRequestPhoneVerification
 from atproto_client.models.com.atproto.temp import revoke_account_credentials as ComAtprotoTempRevokeAccountCredentials
+from atproto_client.models.com.germnetwork import declaration as ComGermnetworkDeclaration
 from atproto_client.models.models_loader import load_models
+from atproto_client.models.site.standard import document as SiteStandardDocument
+from atproto_client.models.site.standard import publication as SiteStandardPublication
+from atproto_client.models.site.standard.graph import recommend as SiteStandardGraphRecommend
+from atproto_client.models.site.standard.graph import subscription as SiteStandardGraphSubscription
+from atproto_client.models.site.standard.theme import basic as SiteStandardThemeBasic
+from atproto_client.models.site.standard.theme import color as SiteStandardThemeColor
 from atproto_client.models.tools.ozone.communication import create_template as ToolsOzoneCommunicationCreateTemplate
 from atproto_client.models.tools.ozone.communication import defs as ToolsOzoneCommunicationDefs
 from atproto_client.models.tools.ozone.communication import delete_template as ToolsOzoneCommunicationDeleteTemplate
@@ -306,7 +365,28 @@ from atproto_client.models.tools.ozone.moderation import query_events as ToolsOz
 from atproto_client.models.tools.ozone.moderation import query_statuses as ToolsOzoneModerationQueryStatuses
 from atproto_client.models.tools.ozone.moderation import schedule_action as ToolsOzoneModerationScheduleAction
 from atproto_client.models.tools.ozone.moderation import search_repos as ToolsOzoneModerationSearchRepos
+from atproto_client.models.tools.ozone.queue import assign_moderator as ToolsOzoneQueueAssignModerator
+from atproto_client.models.tools.ozone.queue import create_queue as ToolsOzoneQueueCreateQueue
+from atproto_client.models.tools.ozone.queue import defs as ToolsOzoneQueueDefs
+from atproto_client.models.tools.ozone.queue import delete_queue as ToolsOzoneQueueDeleteQueue
+from atproto_client.models.tools.ozone.queue import get_assignments as ToolsOzoneQueueGetAssignments
+from atproto_client.models.tools.ozone.queue import list_queues as ToolsOzoneQueueListQueues
+from atproto_client.models.tools.ozone.queue import route_reports as ToolsOzoneQueueRouteReports
+from atproto_client.models.tools.ozone.queue import unassign_moderator as ToolsOzoneQueueUnassignModerator
+from atproto_client.models.tools.ozone.queue import update_queue as ToolsOzoneQueueUpdateQueue
+from atproto_client.models.tools.ozone.report import assign_moderator as ToolsOzoneReportAssignModerator
+from atproto_client.models.tools.ozone.report import create_activity as ToolsOzoneReportCreateActivity
 from atproto_client.models.tools.ozone.report import defs as ToolsOzoneReportDefs
+from atproto_client.models.tools.ozone.report import get_assignments as ToolsOzoneReportGetAssignments
+from atproto_client.models.tools.ozone.report import get_historical_stats as ToolsOzoneReportGetHistoricalStats
+from atproto_client.models.tools.ozone.report import get_latest_report as ToolsOzoneReportGetLatestReport
+from atproto_client.models.tools.ozone.report import get_live_stats as ToolsOzoneReportGetLiveStats
+from atproto_client.models.tools.ozone.report import get_report as ToolsOzoneReportGetReport
+from atproto_client.models.tools.ozone.report import list_activities as ToolsOzoneReportListActivities
+from atproto_client.models.tools.ozone.report import query_reports as ToolsOzoneReportQueryReports
+from atproto_client.models.tools.ozone.report import reassign_queue as ToolsOzoneReportReassignQueue
+from atproto_client.models.tools.ozone.report import refresh_stats as ToolsOzoneReportRefreshStats
+from atproto_client.models.tools.ozone.report import unassign_moderator as ToolsOzoneReportUnassignModerator
 from atproto_client.models.tools.ozone.safelink import add_rule as ToolsOzoneSafelinkAddRule
 from atproto_client.models.tools.ozone.safelink import defs as ToolsOzoneSafelinkDefs
 from atproto_client.models.tools.ozone.safelink import query_events as ToolsOzoneSafelinkQueryEvents
@@ -376,10 +456,17 @@ class _Ids:
     AppBskyContactGetSyncStatus: str = 'app.bsky.contact.getSyncStatus'
     AppBskyContactImportContacts: str = 'app.bsky.contact.importContacts'
     AppBskyContactRemoveData: str = 'app.bsky.contact.removeData'
+    AppBskyContactSendNotification: str = 'app.bsky.contact.sendNotification'
     AppBskyContactStartPhoneVerification: str = 'app.bsky.contact.startPhoneVerification'
     AppBskyContactVerifyPhone: str = 'app.bsky.contact.verifyPhone'
+    AppBskyDraftCreateDraft: str = 'app.bsky.draft.createDraft'
+    AppBskyDraftDefs: str = 'app.bsky.draft.defs'
+    AppBskyDraftDeleteDraft: str = 'app.bsky.draft.deleteDraft'
+    AppBskyDraftGetDrafts: str = 'app.bsky.draft.getDrafts'
+    AppBskyDraftUpdateDraft: str = 'app.bsky.draft.updateDraft'
     AppBskyEmbedDefs: str = 'app.bsky.embed.defs'
     AppBskyEmbedExternal: str = 'app.bsky.embed.external'
+    AppBskyEmbedGetEmbedExternalView: str = 'app.bsky.embed.getEmbedExternalView'
     AppBskyEmbedImages: str = 'app.bsky.embed.images'
     AppBskyEmbedRecord: str = 'app.bsky.embed.record'
     AppBskyEmbedRecordWithMedia: str = 'app.bsky.embed.recordWithMedia'
@@ -463,14 +550,24 @@ class _Ids:
     AppBskyUnspeccedGetOnboardingSuggestedStarterPacksSkeleton: str = (
         'app.bsky.unspecced.getOnboardingSuggestedStarterPacksSkeleton'
     )
+    AppBskyUnspeccedGetOnboardingSuggestedUsersSkeleton: str = 'app.bsky.unspecced.getOnboardingSuggestedUsersSkeleton'
     AppBskyUnspeccedGetPopularFeedGenerators: str = 'app.bsky.unspecced.getPopularFeedGenerators'
     AppBskyUnspeccedGetPostThreadOtherV2: str = 'app.bsky.unspecced.getPostThreadOtherV2'
     AppBskyUnspeccedGetPostThreadV2: str = 'app.bsky.unspecced.getPostThreadV2'
     AppBskyUnspeccedGetSuggestedFeeds: str = 'app.bsky.unspecced.getSuggestedFeeds'
     AppBskyUnspeccedGetSuggestedFeedsSkeleton: str = 'app.bsky.unspecced.getSuggestedFeedsSkeleton'
+    AppBskyUnspeccedGetSuggestedOnboardingUsers: str = 'app.bsky.unspecced.getSuggestedOnboardingUsers'
     AppBskyUnspeccedGetSuggestedStarterPacks: str = 'app.bsky.unspecced.getSuggestedStarterPacks'
     AppBskyUnspeccedGetSuggestedStarterPacksSkeleton: str = 'app.bsky.unspecced.getSuggestedStarterPacksSkeleton'
     AppBskyUnspeccedGetSuggestedUsers: str = 'app.bsky.unspecced.getSuggestedUsers'
+    AppBskyUnspeccedGetSuggestedUsersForDiscover: str = 'app.bsky.unspecced.getSuggestedUsersForDiscover'
+    AppBskyUnspeccedGetSuggestedUsersForDiscoverSkeleton: str = (
+        'app.bsky.unspecced.getSuggestedUsersForDiscoverSkeleton'
+    )
+    AppBskyUnspeccedGetSuggestedUsersForExplore: str = 'app.bsky.unspecced.getSuggestedUsersForExplore'
+    AppBskyUnspeccedGetSuggestedUsersForExploreSkeleton: str = 'app.bsky.unspecced.getSuggestedUsersForExploreSkeleton'
+    AppBskyUnspeccedGetSuggestedUsersForSeeMore: str = 'app.bsky.unspecced.getSuggestedUsersForSeeMore'
+    AppBskyUnspeccedGetSuggestedUsersForSeeMoreSkeleton: str = 'app.bsky.unspecced.getSuggestedUsersForSeeMoreSkeleton'
     AppBskyUnspeccedGetSuggestedUsersSkeleton: str = 'app.bsky.unspecced.getSuggestedUsersSkeleton'
     AppBskyUnspeccedGetSuggestionsSkeleton: str = 'app.bsky.unspecced.getSuggestionsSkeleton'
     AppBskyUnspeccedGetTaggedSuggestions: str = 'app.bsky.unspecced.getTaggedSuggestions'
@@ -489,6 +586,7 @@ class _Ids:
     ChatBskyActorDefs: str = 'chat.bsky.actor.defs'
     ChatBskyActorDeleteAccount: str = 'chat.bsky.actor.deleteAccount'
     ChatBskyActorExportAccountData: str = 'chat.bsky.actor.exportAccountData'
+    ChatBskyActorGetStatus: str = 'chat.bsky.actor.getStatus'
     ChatBskyConvoAcceptConvo: str = 'chat.bsky.convo.acceptConvo'
     ChatBskyConvoAddReaction: str = 'chat.bsky.convo.addReaction'
     ChatBskyConvoDefs: str = 'chat.bsky.convo.defs'
@@ -496,19 +594,39 @@ class _Ids:
     ChatBskyConvoGetConvo: str = 'chat.bsky.convo.getConvo'
     ChatBskyConvoGetConvoAvailability: str = 'chat.bsky.convo.getConvoAvailability'
     ChatBskyConvoGetConvoForMembers: str = 'chat.bsky.convo.getConvoForMembers'
+    ChatBskyConvoGetConvoMembers: str = 'chat.bsky.convo.getConvoMembers'
     ChatBskyConvoGetLog: str = 'chat.bsky.convo.getLog'
     ChatBskyConvoGetMessages: str = 'chat.bsky.convo.getMessages'
     ChatBskyConvoLeaveConvo: str = 'chat.bsky.convo.leaveConvo'
+    ChatBskyConvoListConvoRequests: str = 'chat.bsky.convo.listConvoRequests'
     ChatBskyConvoListConvos: str = 'chat.bsky.convo.listConvos'
+    ChatBskyConvoLockConvo: str = 'chat.bsky.convo.lockConvo'
     ChatBskyConvoMuteConvo: str = 'chat.bsky.convo.muteConvo'
     ChatBskyConvoRemoveReaction: str = 'chat.bsky.convo.removeReaction'
     ChatBskyConvoSendMessage: str = 'chat.bsky.convo.sendMessage'
     ChatBskyConvoSendMessageBatch: str = 'chat.bsky.convo.sendMessageBatch'
+    ChatBskyConvoUnlockConvo: str = 'chat.bsky.convo.unlockConvo'
     ChatBskyConvoUnmuteConvo: str = 'chat.bsky.convo.unmuteConvo'
     ChatBskyConvoUpdateAllRead: str = 'chat.bsky.convo.updateAllRead'
     ChatBskyConvoUpdateRead: str = 'chat.bsky.convo.updateRead'
+    ChatBskyGroupAddMembers: str = 'chat.bsky.group.addMembers'
+    ChatBskyGroupApproveJoinRequest: str = 'chat.bsky.group.approveJoinRequest'
+    ChatBskyGroupCreateGroup: str = 'chat.bsky.group.createGroup'
+    ChatBskyGroupCreateJoinLink: str = 'chat.bsky.group.createJoinLink'
+    ChatBskyGroupDefs: str = 'chat.bsky.group.defs'
+    ChatBskyGroupDisableJoinLink: str = 'chat.bsky.group.disableJoinLink'
+    ChatBskyGroupEditGroup: str = 'chat.bsky.group.editGroup'
+    ChatBskyGroupEditJoinLink: str = 'chat.bsky.group.editJoinLink'
+    ChatBskyGroupEnableJoinLink: str = 'chat.bsky.group.enableJoinLink'
+    ChatBskyGroupGetJoinLinkPreviews: str = 'chat.bsky.group.getJoinLinkPreviews'
+    ChatBskyGroupListJoinRequests: str = 'chat.bsky.group.listJoinRequests'
+    ChatBskyGroupListMutualGroups: str = 'chat.bsky.group.listMutualGroups'
+    ChatBskyGroupRejectJoinRequest: str = 'chat.bsky.group.rejectJoinRequest'
+    ChatBskyGroupRemoveMembers: str = 'chat.bsky.group.removeMembers'
+    ChatBskyGroupRequestJoin: str = 'chat.bsky.group.requestJoin'
     ChatBskyModerationGetActorMetadata: str = 'chat.bsky.moderation.getActorMetadata'
     ChatBskyModerationGetMessageContext: str = 'chat.bsky.moderation.getMessageContext'
+    ChatBskyModerationSubscribeModEvents: str = 'chat.bsky.moderation.subscribeModEvents'
     ChatBskyModerationUpdateActorAccess: str = 'chat.bsky.moderation.updateActorAccess'
     ComAtprotoAdminDefs: str = 'com.atproto.admin.defs'
     ComAtprotoAdminDeleteAccount: str = 'com.atproto.admin.deleteAccount'
@@ -605,6 +723,13 @@ class _Ids:
     ComAtprotoTempFetchLabels: str = 'com.atproto.temp.fetchLabels'
     ComAtprotoTempRequestPhoneVerification: str = 'com.atproto.temp.requestPhoneVerification'
     ComAtprotoTempRevokeAccountCredentials: str = 'com.atproto.temp.revokeAccountCredentials'
+    ComGermnetworkDeclaration: str = 'com.germnetwork.declaration'
+    SiteStandardDocument: str = 'site.standard.document'
+    SiteStandardPublication: str = 'site.standard.publication'
+    SiteStandardGraphRecommend: str = 'site.standard.graph.recommend'
+    SiteStandardGraphSubscription: str = 'site.standard.graph.subscription'
+    SiteStandardThemeBasic: str = 'site.standard.theme.basic'
+    SiteStandardThemeColor: str = 'site.standard.theme.color'
     ToolsOzoneCommunicationCreateTemplate: str = 'tools.ozone.communication.createTemplate'
     ToolsOzoneCommunicationDefs: str = 'tools.ozone.communication.defs'
     ToolsOzoneCommunicationDeleteTemplate: str = 'tools.ozone.communication.deleteTemplate'
@@ -627,7 +752,28 @@ class _Ids:
     ToolsOzoneModerationQueryStatuses: str = 'tools.ozone.moderation.queryStatuses'
     ToolsOzoneModerationScheduleAction: str = 'tools.ozone.moderation.scheduleAction'
     ToolsOzoneModerationSearchRepos: str = 'tools.ozone.moderation.searchRepos'
+    ToolsOzoneQueueAssignModerator: str = 'tools.ozone.queue.assignModerator'
+    ToolsOzoneQueueCreateQueue: str = 'tools.ozone.queue.createQueue'
+    ToolsOzoneQueueDefs: str = 'tools.ozone.queue.defs'
+    ToolsOzoneQueueDeleteQueue: str = 'tools.ozone.queue.deleteQueue'
+    ToolsOzoneQueueGetAssignments: str = 'tools.ozone.queue.getAssignments'
+    ToolsOzoneQueueListQueues: str = 'tools.ozone.queue.listQueues'
+    ToolsOzoneQueueRouteReports: str = 'tools.ozone.queue.routeReports'
+    ToolsOzoneQueueUnassignModerator: str = 'tools.ozone.queue.unassignModerator'
+    ToolsOzoneQueueUpdateQueue: str = 'tools.ozone.queue.updateQueue'
+    ToolsOzoneReportAssignModerator: str = 'tools.ozone.report.assignModerator'
+    ToolsOzoneReportCreateActivity: str = 'tools.ozone.report.createActivity'
     ToolsOzoneReportDefs: str = 'tools.ozone.report.defs'
+    ToolsOzoneReportGetAssignments: str = 'tools.ozone.report.getAssignments'
+    ToolsOzoneReportGetHistoricalStats: str = 'tools.ozone.report.getHistoricalStats'
+    ToolsOzoneReportGetLatestReport: str = 'tools.ozone.report.getLatestReport'
+    ToolsOzoneReportGetLiveStats: str = 'tools.ozone.report.getLiveStats'
+    ToolsOzoneReportGetReport: str = 'tools.ozone.report.getReport'
+    ToolsOzoneReportListActivities: str = 'tools.ozone.report.listActivities'
+    ToolsOzoneReportQueryReports: str = 'tools.ozone.report.queryReports'
+    ToolsOzoneReportReassignQueue: str = 'tools.ozone.report.reassignQueue'
+    ToolsOzoneReportRefreshStats: str = 'tools.ozone.report.refreshStats'
+    ToolsOzoneReportUnassignModerator: str = 'tools.ozone.report.unassignModerator'
     ToolsOzoneSafelinkAddRule: str = 'tools.ozone.safelink.addRule'
     ToolsOzoneSafelinkDefs: str = 'tools.ozone.safelink.defs'
     ToolsOzoneSafelinkQueryEvents: str = 'tools.ozone.safelink.queryEvents'

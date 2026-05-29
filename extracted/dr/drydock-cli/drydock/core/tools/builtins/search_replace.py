@@ -713,13 +713,30 @@ class SearchReplace(
                 try:
                     head = original_content[:1500]
                     line_count = original_content.count("\n")
-                    error_message += (
-                        f"\n\n[HINT: search text not found in {file_path.name}. "
-                        f"File may have changed. Current file head "
-                        f"({line_count} lines total):\n"
-                        f"-----FILE HEAD-----\n{head}\n-----FILE HEAD END-----\n"
-                        f"Adjust your SEARCH text to match the actual content above.]"
-                    )
+                    # If write_file previously wrote this file, the stale
+                    # SEARCH text is from the pre-write version — say so
+                    # explicitly so the model uses write_file again rather
+                    # than iterating on the wrong text.
+                    path_writes = self.state.__dict__.get("_path_writes", {})
+                    if path_writes.get(str(file_path), 0) > 0:
+                        hint_prefix = (
+                            f"[HINT: search text not found in {file_path.name}. "
+                            f"This file was recently overwritten by write_file — "
+                            f"your SEARCH text is from the PREVIOUS version. "
+                            f"DO NOT retry search_replace; use write_file again "
+                            f"with the complete new content. "
+                            f"Current file ({line_count} lines):\n"
+                            f"-----FILE HEAD-----\n{head}\n-----FILE HEAD END-----]"
+                        )
+                    else:
+                        hint_prefix = (
+                            f"[HINT: search text not found in {file_path.name}. "
+                            f"File may have changed. Current file head "
+                            f"({line_count} lines total):\n"
+                            f"-----FILE HEAD-----\n{head}\n-----FILE HEAD END-----\n"
+                            f"Adjust your SEARCH text to match the actual content above.]"
+                        )
+                    error_message += f"\n\n{hint_prefix}"
                 except Exception:
                     pass
             elif entry["count"] >= 2:

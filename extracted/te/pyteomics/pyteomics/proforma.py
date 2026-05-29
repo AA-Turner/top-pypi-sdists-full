@@ -10,40 +10,27 @@ for more up-to-date information.
 For more details, see the :mod:`pyteomics.proforma` online.
 '''
 
+import itertools
 import re
 import warnings
-from collections import deque, namedtuple
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, ClassVar, Sequence, Tuple, Type, Union, Generic, TypeVar, NamedTuple
+from collections import Counter, deque, namedtuple
 from functools import partial
+from itertools import chain
 from array import array as _array
+from enum import Enum
+from numbers import Integral
 
-try:
-    from enum import Enum
-except ImportError:
-    # Python 2 doesn't have a builtin Enum type
-    Enum = object
-
-from .mass import Composition, std_aa_mass, Unimod, nist_mass, calculate_mass, std_ion_comp, mass_charge_ratio
+from .mass import Composition, std_aa_mass, Unimod, nist_mass, calculate_mass, std_ion_comp, mass_charge_ratio, std_aa_comp
 from .auxiliary import PyteomicsError, BasicComposition
-from .auxiliary.utils import add_metaclass
+from .auxiliary.utils import add_metaclass, memoize
+from .auxiliary.psims_util import load_psimod, load_xlmod, load_gno, obo_cache, _has_psims
 
 try:
     import numpy as np
 except ImportError:
     np = None
 
-try:
-    from psims.controlled_vocabulary.controlled_vocabulary import (load_psimod, load_xlmod, load_gno, obo_cache, load_unimod)
-    _has_psims = True
-except ImportError:
-    def _needs_psims(name):
-        raise ImportError("Loading %s requires the `psims` library. To access it, please install `psims`" % name)
-
-    load_psimod = partial(_needs_psims, 'PSIMOD')
-    load_xlmod = partial(_needs_psims, 'XLMOD')
-    load_gno = partial(_needs_psims, 'GNO')
-    load_unimod = partial(_needs_psims, 'UNIMOD')
-    obo_cache = None
-    _has_psims = False
 
 _WATER_MASS = calculate_mass(formula="H2O")
 
@@ -51,8 +38,8 @@ std_aa_mass = std_aa_mass.copy()
 std_aa_mass['X'] = 0
 
 element_symbols = set(nist_mass)
-element_symbols.remove("e*")
-element_symbols.add('e')
+
+T = TypeVar('T')
 
 
 class ProFormaError(PyteomicsError):
@@ -99,6 +86,13 @@ class TagTypeEnum(Enum):
 
     localization_marker = 9
     position_label = 10
+
+    position_modifier = 11
+    comup = 12
+    comkp = 13
+    limit = 14
+    custom = 15
+
     group_placeholder = 999
 
 
@@ -110,10 +104,30 @@ class ModificationTagStyle(Enum):
     LongName = 4
 
 
+class ModificationSourceType(Enum):
+    """
+    Whether a tag was generated from explicit user input (``Explicit``), a constant
+    modification rule (``Constant``), or from a variable expansion (``Generated``).
+
+    Used to track sources in :class:`ProteoformCombinator` machinery.
+    """
+    Explicit = 0
+    Constant = 1
+    Generated = 2
+
+
 _sentinel = object()
 
 
 class ModificationMassNotFoundError(ProFormaError):
+    pass
+
+
+class CompositionNotFoundError(ProFormaError):
+    pass
+
+
+class MissingChargeStateError(ProFormaError):
     pass
 
 
@@ -137,17 +151,25 @@ class TagBase(object):
     group_id: str or None
         A short label denoting which group, if any, this tag belongs to
     '''
-    __slots__ = ("type", "value", "extra", "group_id")
+    __slots__ = ("type", "value", "extra", "group_id", )
 
-    prefix_name = None
-    short_prefix = None
-    prefix_map = {}
+    type: TagTypeEnum
+    value: Any
+    extra: List["TagBase"]
+    group_id: Optional[str]
+
+    prefix_name: ClassVar[Optional[str]] = None
+    short_prefix: ClassVar[Optional[str]] = None
+    prefix_map: ClassVar[Dict[str, Type['TagBase']]] = {}
 
     def __init__(self, type, value, extra=None, group_id=None):
         self.type = type
         self.value = value
-        self.extra = extra
+        self.extra = extra or []
         self.group_id = group_id
+
+    def copy(self):
+        return self.__class__(self.value, [e.copy() for e in self.extra], self.group_id)
 
     def __str__(self):
         part = self._format_main()
@@ -176,10 +198,33 @@ class TagBase(object):
         return (self.type == other.type) and (self.value == other.value) and (self.extra == other.extra) \
             and (self.group_id == other.group_id)
 
+    def __hash__(self) -> int:
+        return hash((self.type, self.value, tuple(self.extra), self.group_id))
+
     def __ne__(self, other):
         return not self == other
 
-    def find_tag_type(self, tag_type):
+    def is_modification(self) -> bool:
+        return self.type in (
+            TagTypeEnum.formula,
+            TagTypeEnum.generic,
+            TagTypeEnum.glycan,
+            TagTypeEnum.gnome,
+            TagTypeEnum.unimod,
+            TagTypeEnum.massmod,
+            TagTypeEnum.psimod,
+            TagTypeEnum.custom,
+        )
+
+    def find_modification(self) -> Optional["TagBase"]:
+        if self.is_modification():
+            return self
+        for tag in self.extra:
+            if tag.is_modification():
+                return tag
+        return None
+
+    def find_tag_type(self, tag_type: TagTypeEnum) -> List['TagBase']:
         '''Search this tag or tag collection for elements with a particular
         tag type and return them.
 
@@ -204,10 +249,10 @@ class TagBase(object):
         return out
 
     @classmethod
-    def parse(cls, buffer):
+    def parse(cls, buffer) -> 'TagBase':
         return process_tag_tokens(buffer)
 
-    def has_mass(self):
+    def has_mass(self) -> bool:
         """
         Check if this tag carries a mass value.
 
@@ -216,6 +261,23 @@ class TagBase(object):
         bool
         """
         return False
+
+    def has_composition(self) -> bool:
+        return False
+
+    def __or__(self, other):
+        this = self.copy()
+        this.extra.append(other.copy())
+        return this
+
+    @property
+    def limit(self) -> int:
+        limit_tags = self.find_tag_type(TagTypeEnum.limit)
+        if limit_tags:
+            if len(limit_tags) > 1:
+                warnings.warn(f"{len(limit_tags)} Limit tags were found for {self}, this is undefined behavior. Only the first tag will be used")
+            return limit_tags[0].value
+        return 1
 
 
 class GroupLabelBase(TagBase):
@@ -229,6 +291,9 @@ class GroupLabelBase(TagBase):
         else:
             label = part
         return '%s' % label
+
+    def __hash__(self):
+        return hash(str(self))
 
 
 class PositionLabelTag(GroupLabelBase):
@@ -273,10 +338,83 @@ class InformationTag(TagBase):
             TagTypeEnum.info, str(value), extra, group_id)
 
     def _format_main(self):
-        return str(self.value)
+        return f"INFO:{self.value}"
+
+
+class PositionModifierTag(TagBase):
+    __slots__ = ()
+
+    prefix_name = "Position"
+
+    def __init__(self, value, extra=None, group_id=None):
+        super().__init__(TagTypeEnum.position_modifier, value, extra, group_id)
+
+    def __eq__(self, other):
+        return super().__eq__(other)
+
+    def __hash__(self):
+        return hash(self.value)
+
+    def _format_main(self):
+        return f"{self.prefix_name}:{self.value}"
+
+
+class LimitModifierTag(TagBase):
+    __slots__ = ()
+
+    prefix_name = "Limit"
+
+    def __init__(self, value, extra=None, group_id=None):
+        if not isinstance(value, (int, float)):
+            try:
+                value = int(value)
+            except (ValueError, TypeError):
+                pass
+        super().__init__(TagTypeEnum.limit, value, extra, group_id)
+
+    def _format_main(self):
+        return f"{self.prefix_name}:{self.value}"
+
+
+class ColocaliseModificationsOfKnownPostionTag(TagBase):
+    __slots__ = ()
+
+    prefix_name = "ColocaliseModificationsOfKnownPosition"
+    short_prefix = "CoMKP"
+
+    def __init__(self, extra=None, group_id=None):
+        super().__init__(TagTypeEnum.comkp, None, extra, group_id)
+
+    def copy(self):
+        return self.__class__([e.copy() for e in (self.extra or [])], self.group_id)
+
+    def _format_main(self):
+        return self.short_prefix
+
+
+class ColocaliseModificationsOfUnknownPostionTag(TagBase):
+    __slots__ = ()
+
+    prefix_name = "ColocaliseModificationsOfUnknownPosition"
+    short_prefix = "CoMUP"
+
+    def __init__(self, extra=None, group_id=None):
+        super().__init__(TagTypeEnum.comup, None, extra, group_id)
+
+    def copy(self):
+        return self.__class__([e.copy() for e in self.extra or []], self.group_id)
+
+    def _format_main(self):
+        return self.short_prefix
 
 
 class ModificationResolver(object):
+    name: str
+    symbol: str
+
+    _database: Optional[Any]
+    _cache: Optional[Dict[Tuple[Optional[str], Optional[int], frozenset], Any]]
+
     def __init__(self, name, **kwargs):
         self.name = name.lower()
         self.symbol = self.name[0]
@@ -287,7 +425,7 @@ class ModificationResolver(object):
         """Clear the modification definition cache"""
         self._cache.clear()
 
-    def enable_caching(self, flag=True):
+    def enable_caching(self, flag: bool=True):
         """
         Enable or disable caching of modification definitions.
 
@@ -318,7 +456,7 @@ class ModificationResolver(object):
     def database(self, database):
         self._database = database
 
-    def parse_identifier(self, identifier):
+    def parse_identifier(self, identifier: str) -> Tuple[Optional[str], Optional[int]]:
         """Parse a string that is either a CV prefixed identifier or name.
 
         Parameters
@@ -349,18 +487,31 @@ class ModificationResolver(object):
             id = None
         return name, id
 
-    def _resolve_impl(self, name=None, id=None, **kwargs):
+    def _resolve_impl(self, name: str=None, id: int=None, **kwargs) -> Dict[str, Any]:
         raise NotImplementedError()
 
-    def resolve(self, name=None, id=None, **kwargs):
+    def resolve(self, name: str=None, id: int=None, **kwargs):
         if self._cache is None:
             return self._resolve_impl(name, id, **kwargs)
         cache_key = (name, id, frozenset(kwargs.items()))
         if cache_key in self._cache:
             return self._cache[cache_key].copy()
-        value = self._resolve_impl(name, id, **kwargs)
+        try:
+            value = self._resolve_impl(name, id, **kwargs)
+        except KeyError:
+            if name.startswith(("+", "-")):
+                value = {
+                    "composition": None,
+                    "mass": float(name),
+                    "name": name,
+                    "id": None,
+                    "provider": self.name,
+                    "source": self,
+                }
+            else:
+                raise
         self._cache[cache_key] = value
-        return  value.copy()
+        return value.copy()
 
     def __call__(self, name=None, id=None, **kwargs):
         return self.resolve(name, id, **kwargs)
@@ -448,23 +599,41 @@ class PSIModResolver(ModificationResolver):
             defn = self.database['MOD:{:05d}'.format(id)]
         else:
             raise ValueError("Must provide one of `name` or `id`")
-        try:
-            mass = float(defn.DiffMono)
-        except (KeyError, TypeError, ValueError):
-            raise ModificationMassNotFoundError("Could not resolve the mass of %r from %r" % ((name, id), defn))
-        if defn.DiffFormula is not None:
-            composition = Composition()
-            diff_formula_tokens = defn.DiffFormula.strip().split(" ")
-            for i in range(0, len(diff_formula_tokens), 2):
-                element = diff_formula_tokens[i]
-                count = diff_formula_tokens[i + 1]
-                if count:
-                    count = int(count)
-                if element.startswith("("):
-                    j = element.index(")")
-                    isotope = element[1:j]
-                    element = "%s[%s]" % (element[j + 1:], isotope)
-                composition[element] += count
+
+        # Non-standard amino acids are listed with `DiffMono` = `none`
+        # but have a valid `MassMono` definition. Normally, `MassMono` is
+        # the full mass of the residue plus the modification so it'd double count the
+        # amino acid to use that value. Non-standard amino acids are a special case
+        # because they *should* only be used with the amino acid X
+        mass = None
+        for key in ["DiffMono", "MassMono"]:
+            if key in defn:
+                try:
+                    mass = float(defn[key])
+                    break
+                except (KeyError, TypeError, ValueError):
+                    continue
+        else:
+            raise ModificationMassNotFoundError(
+                "Could not resolve the mass of %r from %r" % ((name, id), defn)
+            )
+
+        # As with `DiffMono` for non-standard amino acids, but for chemical formulas -> Compositions
+        for key in ["DiffFormula", "Formula"]:
+            if key in defn and defn[key] is not None:
+                composition = Composition()
+                diff_formula_tokens = defn[key].strip().split(" ")
+                for i in range(0, len(diff_formula_tokens), 2):
+                    element = diff_formula_tokens[i]
+                    count = diff_formula_tokens[i + 1]
+                    if count:
+                        count = int(count)
+                    if element.startswith("("):
+                        j = element.index(")")
+                        isotope = element[1:j]
+                        element = "%s[%s]" % (element[j + 1:], isotope)
+                    composition[element] += count
+                break
         else:
             composition = None
             warnings.warn("No formula was found for %r in PSI-MOD, composition will be missing" % ((name, id), ))
@@ -486,6 +655,18 @@ class XLMODResolver(ModificationResolver):
     def load_database(self):
         return load_xlmod()
 
+    def _parse_formula(self, formula: str):
+        formula: str = formula.replace("D", "H[2]")
+        tokens = formula.split(' ')
+        composition = Composition()
+        for token in tokens:
+            sign = 1
+            if token.startswith("-"):
+                token = token[1:]
+                sign = -1
+            composition += Composition(token) * sign
+        return composition
+
     def _resolve_impl(self, name=None, id=None, **kwargs):
         if name is not None:
             defn = self.database[name]
@@ -498,10 +679,9 @@ class XLMODResolver(ModificationResolver):
         except (KeyError, TypeError, ValueError):
             raise ModificationMassNotFoundError("Could not resolve the mass of %r from %r" % ((name, id), defn))
         if 'deadEndFormula' in defn:
-            composition = Composition(defn['deadEndFormula'].replace(" ", '').replace("D", "H[2]"))
+            composition = self._parse_formula(defn["deadEndFormula"])
         elif 'bridgeFormula' in defn:
-            composition = Composition(
-                defn['bridgeFormula'].replace(" ", '').replace("D", "H[2]"))
+            composition = self._parse_formula(defn["bridgeFormula"])
         return {
             'mass': mass,
             'composition': composition,
@@ -510,6 +690,7 @@ class XLMODResolver(ModificationResolver):
             'provider': self.name,
             "source": self
         }
+
 
 # TODO: Implement resolve walking up the graph to get the mass. Can't really
 # get any more information without glypy/glyspace interaction
@@ -615,7 +796,7 @@ class GNOResolver(ModificationResolver):
         raw_mass, monosaccharides, composition = self.get_mass_from_glycan_composition(term)
 
         rec = {
-            "name":term.name,
+            "name": term.name,
             "id": term.id,
             "provider": self.name,
             "composition": composition,
@@ -677,17 +858,47 @@ class GenericResolver(ModificationResolver):
         return defn
 
 
+class CustomResolver(ModificationResolver):
+    store: Dict[str, Dict[str, Any]]
+
+    def __init__(self, store: Dict[str, Dict[str, Any]]=None, **kwargs):
+        if store is None:
+            store = {}
+        super().__init__("custom", **kwargs)
+        self.store = store
+
+    def _resolve_impl(self, name = None, id = None, **kwargs):
+        if name is not None:
+            return self.store[name]
+        elif id is not None:
+            return self.store[id]
+        else:
+            raise ValueError("Must provide one of `name` or `id`")
+
+    def register(self, name, state: Dict[str, Any], **kwargs):
+        state = state.copy()
+        state.update(kwargs)
+        state['id'] = name
+        no_mass = "mass" not in state
+        no_comp = "composition" not in state
+        if no_mass and no_comp:
+            raise ValueError("A custom modification definition *must* include at least one of `mass` or `composition`")
+        self.store[name] = state
+
+
 class ModificationBase(TagBase):
     '''A base class for all modification tags with marked prefixes.
 
     While :class:`ModificationBase` is hashable, its equality testing
     brings in additional tag-related information. For pure modification
     identity comparison, use :attr:`key` to get a :class:`ModificationToken`
-    free of these concerns..
+    free of these concerns.
     '''
 
     _tag_type = None
-    __slots__ = ('_definition', 'style')
+    __slots__ = ('_definition', 'style', '_generated')
+
+    _generated: ModificationSourceType
 
     def __init__(self, value, extra=None, group_id=None, style=None):
         if style is None:
@@ -695,7 +906,11 @@ class ModificationBase(TagBase):
         super(ModificationBase, self).__init__(
             self._tag_type, value, extra, group_id)
         self._definition = None
+        self._generated = ModificationSourceType.Explicit
         self.style = style
+
+    def copy(self):
+        return self.__class__(self.value, [e.copy() for e in self.extra], self.group_id, self.style)
 
     def __reduce__(self):
         return self.__class__, (self.value, self.extra, self.group_id, self.style), self.__getstate__()
@@ -719,7 +934,7 @@ class ModificationBase(TagBase):
         return hash((self.id, self.provider))
 
     @property
-    def key(self):
+    def key(self) -> 'ModificationToken':
         '''Get a safe-to-hash-and-compare :class:`ModificationToken`
         representing this modification without tag-like properties.
 
@@ -730,7 +945,7 @@ class ModificationBase(TagBase):
         return ModificationToken(self.value, self.id, self.provider, self.__class__)
 
     @property
-    def definition(self):
+    def definition(self) -> Dict[str, Any]:
         '''A :class:`dict` of properties describing this modification, given
         by the providing controlled vocabulary. This value is cached, and
         should not be modified.
@@ -744,15 +959,16 @@ class ModificationBase(TagBase):
         return self._definition
 
     @property
-    def mass(self):
+    def mass(self) -> Optional[float]:
         '''The monoisotopic mass shift this modification applies
 
         Returns
-        -------float
+        -------
+        float
         '''
         return self.definition['mass']
 
-    def has_mass(self):
+    def has_mass(self) -> bool:
         """
         Check if this tag carries a mass value.
 
@@ -762,13 +978,20 @@ class ModificationBase(TagBase):
         """
         return True
 
+    def has_composition(self):
+        return True
+
     @property
-    def composition(self):
+    def composition(self) -> Optional[Composition]:
         '''The chemical composition shift this modification applies'''
         return self.definition.get('composition')
 
     @property
-    def id(self):
+    def charge(self) -> Optional[int]:
+        return self.definition.get('charge')
+
+    @property
+    def id(self) -> Optional[int]:
         '''The unique identifier given to this modification by its provider
 
         Returns
@@ -801,7 +1024,7 @@ class ModificationBase(TagBase):
     def _populate_from_definition(self, definition):
         self._definition = definition
 
-    def _format_main(self):
+    def _format_main(self) -> str:
         if self.style == ModificationTagStyle.Unset or self.style is None:
             return "{self.prefix_name}:{self.value}".format(self=self)
         elif self.style == ModificationTagStyle.LongId:
@@ -828,9 +1051,10 @@ class MassModification(TagBase):
 
     The value of a :class:`MassModification` is always a :class:`float`
     '''
-    __slots__ = ('_significant_figures', )
+    __slots__ = ('_significant_figures', '_generated')
 
     prefix_name = "Obs"
+    _generated: ModificationSourceType
 
     def __init__(self, value, extra=None, group_id=None):
         if isinstance(value, str):
@@ -838,8 +1062,12 @@ class MassModification(TagBase):
         else:
             sigfigs = 4
         self._significant_figures = sigfigs
+        self._generated = ModificationSourceType.Explicit
         super(MassModification, self).__init__(
             TagTypeEnum.massmod, float(value), extra, group_id)
+
+    def copy(self):
+        return self.__class__(self.value, [e.copy() for e in self.extra], self.group_id)
 
     def _format_main(self):
         if self.value >= 0:
@@ -856,7 +1084,7 @@ class MassModification(TagBase):
         return self._format_main()
 
     @property
-    def key(self):
+    def key(self) -> "ModificationToken":
         '''Get a safe-to-hash-and-compare :class:`ModificationToken`
         representing this modification without tag-like properties.
 
@@ -867,10 +1095,10 @@ class MassModification(TagBase):
         return ModificationToken(self.value, self.id, self.provider, self.__class__)
 
     @property
-    def mass(self):
+    def mass(self) -> float:
         return self.value
 
-    def has_mass(self):
+    def has_mass(self) -> bool:
         """
         Check if this tag carries a mass value.
 
@@ -879,6 +1107,9 @@ class MassModification(TagBase):
         bool
         """
         return True
+
+    def has_composition(self) -> bool:
+        return False
 
     def __eq__(self, other):
         if isinstance(other, ModificationToken):
@@ -892,10 +1123,12 @@ class MassModification(TagBase):
 class FormulaModification(ModificationBase):
     prefix_name = "Formula"
 
-    isotope_pattern = re.compile(r'\[(?P<isotope>\d+)(?P<element>[A-Z][a-z]*)(?P<quantity>[\-+]?\d+)\]')
+    charge_carrier_pattern: re.Pattern = re.compile(r':z((?:-|\+)?\d*)$')
+    isotope_pattern: re.Pattern = re.compile(r'\[(?P<isotope>\d+)(?P<element>[A-Z][a-z]*)(?P<quantity>[\-+]?\d+)\]')
     _tag_type = TagTypeEnum.formula
 
-    def _normalize_isotope_notation(self, match):
+    @staticmethod
+    def _normalize_isotope_notation(match):
         '''Rewrite ProForma isotope notation to Pyteomics-compatible
         isotope notation.
 
@@ -911,17 +1144,42 @@ class FormulaModification(ModificationBase):
         parts = match.groupdict()
         return "{element}[{isotope}]{quantity}".format(**parts)
 
-    def resolve(self):
-        normalized = self.value.replace(' ', '')
+    @classmethod
+    def parse(cls, value: str):
+        normalized = value.replace(" ", "")
         # If there is a [ character in the formula, we know there are isotopes which
         # need to be normalized.
-        if '[' in normalized:
-            normalized = self.isotope_pattern.sub(self._normalize_isotope_notation, normalized)
+        if "[" in normalized:
+            normalized = cls.isotope_pattern.sub(
+                cls._normalize_isotope_notation, normalized
+            )
+        if ":z" in normalized:
+            matched = cls.charge_carrier_pattern.search(normalized)
+            if not matched:
+                raise ProFormaError(
+                    "{normalized!r} is a malformed formula".format(
+                        normalized=normalized
+                    ),
+                    None,
+                    None,
+                )
+            charge = matched.group(1)
+            charge = int(charge)
+            normalized = cls.charge_carrier_pattern.sub("", normalized)
+        else:
+            charge = None
         composition = Composition(formula=normalized)
+        if charge is not None:
+            composition["e-"] = -charge
+        return composition, charge
+
+    def resolve(self):
+        composition, charge = self.parse(self.value)
         return {
             "mass": composition.mass(),
             "composition": composition,
-            "name": self.value
+            "name": self.value,
+            "charge": charge
         }
 
 
@@ -934,16 +1192,38 @@ class GlycanModification(ModificationBase):
     _tag_type = TagTypeEnum.glycan
 
     valid_monosaccharides = {
-        "Hex": monosaccharide_description(162.0528, Composition("C6H10O5"), 'Hex'),
-        "HexNAc": monosaccharide_description(203.0793, Composition("C8H13N1O5"), 'HexNAc'),
-        "HexS": monosaccharide_description(242.009, Composition("C6H10O8S1"), 'HexS'),
-        "HexP": monosaccharide_description(242.0191, Composition("C6H11O8P1"), 'HexP'),
-        "HexNAcS": monosaccharide_description(283.0361, Composition("C8H13N1O8S1"), 'HexNAcS'),
-        "dHex": monosaccharide_description(146.0579, Composition("C6H10O4"), 'dHex'),
-        "NeuAc": monosaccharide_description(291.0954, Composition("C11H17N1O8"), 'NeuAc'),
-        "NeuGc": monosaccharide_description(307.0903, Composition("C11H17N1O9"), 'NeuGc'),
-        "Pen": monosaccharide_description(132.0422, Composition("C5H8O4"), 'Pen'),
-        "Fuc": monosaccharide_description(146.0579, Composition("C6H10O4"), 'Fuc')
+        "Hex": monosaccharide_description(162.0528, Composition("C6H10O5"), "Hex"),
+        "HexNAc": monosaccharide_description(
+            203.0793, Composition("C8H13N1O5"), "HexNAc"
+        ),
+        "HexS": monosaccharide_description(242.009, Composition("C6H10O8S1"), "HexS"),
+        "HexP": monosaccharide_description(242.0191, Composition("C6H11O8P1"), "HexP"),
+        "HexNAcS": monosaccharide_description(
+            283.0361, Composition("C8H13N1O8S1"), "HexNAcS"
+        ),
+        "dHex": monosaccharide_description(146.0579, Composition("C6H10O4"), "dHex"),
+        "NeuAc": monosaccharide_description(
+            291.0954, Composition("C11H17N1O8"), "NeuAc"
+        ),
+        "NeuGc": monosaccharide_description(
+            307.0903, Composition("C11H17N1O9"), "NeuGc"
+        ),
+        "Pen": monosaccharide_description(132.0422, Composition("C5H8O4"), "Pen"),
+        "Fuc": monosaccharide_description(146.0579, Composition("C6H10O4"), "Fuc"),
+        "Kdn": monosaccharide_description(
+            250.06886740546, Composition({"C": 9, "H": 14, "O": 8}), "Kdn"
+        ),
+        "Kdo": monosaccharide_description(
+            220.05830272176, Composition({"C": 8, "H": 12, "O": 7}), "Kdo"
+        ),
+        "Phospho": monosaccharide_description(
+            79.96633052075, Composition({"P": 1, "O": 3, "H": 1}), "Phospho"
+        ),
+        "Sulfo": monosaccharide_description(
+            79.95681485867999,
+            Composition({"S": 1, "O": 3, "H": 0}),
+            "Sulfo"
+        ),
     }
 
     valid_monosaccharides['Neu5Ac'] = valid_monosaccharides['NeuAc']
@@ -953,7 +1233,18 @@ class GlycanModification(ModificationBase):
 
     monomer_tokenizer = re.compile(
         r"|".join(sorted(valid_monosaccharides.keys(), key=len, reverse=True)))
-    tokenizer = re.compile(r"(%s|[A-Za-z]+)\s*(\d*)\s*" % monomer_tokenizer.pattern)
+    tokenizer = re.compile(
+        r"""(?:
+        (?P<known_name>%s)|
+        (?P<base_name>[A-Za-z]+)|
+        (?P<charged_formula>\{
+                [^\}]+?
+        \})
+        )
+        \s*(?P<count>\d*)\s*"""
+        % monomer_tokenizer.pattern,
+        re.X,
+    )
 
     @property
     def monosaccharides(self):
@@ -961,38 +1252,72 @@ class GlycanModification(ModificationBase):
 
     def resolve(self):
         composite = BasicComposition()
-        for tok, cnt in self.tokenizer.findall(self.value):
+        mass = 0
+        chemcomp = Composition()
+        charge = 0
+        for hit in self.tokenizer.finditer(self.value):
+            hit = hit.groupdict()
+            cnt = hit['count']
+
+            tok = hit.get('known_name')
+            base_name = hit.get('base_name')
+            formula = hit.get('charged_formula')
+
             if cnt:
                 cnt = int(cnt)
             else:
                 cnt = 1
-            if tok not in self.valid_monosaccharides:
-                parts = self.monomer_tokenizer.findall(tok)
+            if tok is not None:
+                if tok not in self.valid_monosaccharides:
+                    parts = self.monomer_tokenizer.findall(tok)
+                    t = 0
+                    for p in parts:
+                        if p not in self.valid_monosaccharides:
+                            break
+                        t += len(p)
+                    if t != len(tok):
+                        raise ValueError("{tok!r} is not a valid monosaccharide name".format(tok=tok))
+                    else:
+                        for p in parts:
+                            if p not in self.valid_monosaccharides:
+                                raise UnknownMonosaccharideError(p)
+                            m, c, sym = self.valid_monosaccharides[p]
+                            mass += m * cnt
+                            chemcomp += c * cnt
+                            composite[sym] += cnt
+                else:
+                    m, c, sym = self.valid_monosaccharides[tok]
+                    mass += m * cnt
+                    chemcomp += c * cnt
+                    composite[sym] += cnt
+            elif formula is not None:
+                inner = FormulaModification(formula[1:-1]).resolve()
+                mass += inner['mass'] * cnt
+                chemcomp += inner['composition'] * cnt
+                composite[formula] += cnt
+                charge += inner['charge'] * cnt
+            elif base_name is not None:
+                parts = self.monomer_tokenizer.findall(base_name)
                 t = 0
                 for p in parts:
                     if p not in self.valid_monosaccharides:
                         break
                     t += len(p)
-                if t != len(tok):
-                    raise ValueError("{tok!r} is not a valid monosaccharide name".format(tok=tok))
+                if t != len(base_name):
+                    raise ValueError(
+                        f"{base_name!r} is not a valid monosaccharide name"
+                    )
                 else:
-                    for p in parts[:-1]:
-                        sym = self.valid_monosaccharides[p].symbol
-                        composite[sym] += 1
-                    sym = self.valid_monosaccharides[parts[-1]].symbol
-                    composite[sym] += cnt
+                    for p in parts:
+                        if p not in self.valid_monosaccharides:
+                            raise UnknownMonosaccharideError(p)
+                        m, c, sym = self.valid_monosaccharides[p]
+                        mass += m * cnt
+                        chemcomp += c * cnt
+                        composite[sym] += cnt
             else:
-                sym = self.valid_monosaccharides[tok].symbol
-                composite[sym] += cnt
-        mass = 0
-        chemcomp = Composition()
-        for key, cnt in composite.items():
-            try:
-                m, c, sym = self.valid_monosaccharides[key]
-            except KeyError:
-                raise UnknownMonosaccharideError(key)
-            mass += m * cnt
-            chemcomp += c * cnt
+                raise NotImplementedError(f"I do not know how to decode the impossible, {hit}")
+
         return {
             "mass": mass,
             "composition": chemcomp,
@@ -1039,10 +1364,22 @@ class XLMODModification(ModificationBase):
     __slots__ = ()
 
     resolver = XLMODResolver()
-
     prefix_name = "XLMOD"
-    # short_prefix = 'XL'
+    short_prefix = 'X'
     _tag_type = TagTypeEnum.xlmod
+
+
+class CustomModification(ModificationBase):
+    __slots__ = ()
+
+    resolver = CustomResolver()
+
+    prefix_name = 'Custom'
+    short_prefix = 'C'
+
+    @classmethod
+    def register(cls, name, state: Dict[str, Any], **kwargs):
+        return cls.resolver.register(name, state, **kwargs)
 
 
 class GenericModification(ModificationBase):
@@ -1129,7 +1466,12 @@ class ModificationToken(object):
     '''
     __slots__ = ('name', 'id', 'provider', 'source_cls')
 
-    def __init__(self, name, id, provider, source_cls):
+    name: str
+    id: int
+    provider: Callable
+    source_cls: Union[Type[ModificationBase], Type[MassModification], Type['ModificationToken']]
+
+    def __init__(self, name: str, id: int, provider: Callable, source_cls: Type):
         self.name = name
         self.id = id
         self.provider = provider
@@ -1164,7 +1506,7 @@ class ModificationToken(object):
         return template.format(self=self)
 
 
-def split_tags(tokens):
+def split_tags(tokens: List[str]) -> List[List[str]]:
     '''Split a token array into discrete sets of tag
     tokens.
 
@@ -1203,7 +1545,7 @@ def split_tags(tokens):
     return out
 
 
-def find_prefix(tokens):
+def find_prefix(tokens: List[str]) -> Tuple[str, str]:
     '''Find the prefix, if any of the tag defined by `tokens`
     delimited by ":".
 
@@ -1225,12 +1567,12 @@ def find_prefix(tokens):
     return None, ''.join(tokens)
 
 
-def process_marker(tokens):
+def process_marker(tokens: Sequence[str]) -> Union[PositionLabelTag, LocalizationMarker]:
     '''Process a marker, which is a tag whose value starts with #.
 
     Parameters
     ----------
-    tokens: list
+    tokens: list or str
         The tag tokens to parse
 
     Returns
@@ -1255,7 +1597,7 @@ def process_marker(tokens):
             return PositionLabelTag(group_id=group_id)
 
 
-def process_tag_tokens(tokens):
+def process_tag_tokens(tokens: List[str]) -> TagBase:
     '''Convert a tag token buffer into a parsed :class:`TagBase` instance
     of the appropriate sub-type with zero or more sub-tags.
 
@@ -1279,7 +1621,11 @@ def process_tag_tokens(tokens):
     else:
         prefix, value = find_prefix(main_tag)
         if prefix is None:
-            main_tag = GenericModification(''.join(value))
+            value = ''.join(value)
+            if value.lower() in TagBase.prefix_map:
+                main_tag = TagBase.prefix_map[value.lower()]()
+            else:
+                main_tag = GenericModification(''.join(value))
         else:
             try:
                 tag_type = TagBase.find_by_tag(prefix)
@@ -1301,7 +1647,12 @@ def process_tag_tokens(tokens):
                         main_tag.group_id = marker.group_id
                         extras.append(marker)
                 else:
-                    extras.append(GenericModification(''.join(value)))
+                    value = ''.join(value)
+                    if value.lower() in TagBase.prefix_map:
+                        extra_tag = TagBase.prefix_map[value.lower()]()
+                    else:
+                        extra_tag = GenericModification("".join(value))
+                    extras.append(extra_tag)
             else:
                 try:
                     tag_type = TagBase.find_by_tag(prefix)
@@ -1315,8 +1666,13 @@ def process_tag_tokens(tokens):
 
 
 class ModificationTarget(object):
+    aa: Optional[str]
+    n_term: bool
+    c_term: bool
+
     def __init__(self, aa, n_term=False, c_term=False):
-        self.aa = aa
+        # Normalize amino acid to uppercase once for faster comparisons
+        self.aa = aa.upper() if aa else None
         self.n_term = n_term
         self.c_term = c_term
 
@@ -1356,12 +1712,65 @@ class ModificationTarget(object):
     def __repr__(self):
         return str(self)
 
-    def is_valid(self, aa, n_term, c_term):
+    def is_valid(self, aa: str, n_term: bool, c_term: bool) -> bool:
+        """Check if this target matches the given amino acid and terminal status.
+
+        Parameters
+        ----------
+        aa : str
+            The amino acid to check (should be pre-uppercased for efficiency)
+        n_term : bool
+            Whether this is an N-terminal position
+        c_term : bool
+            Whether this is a C-terminal position
+
+        Returns
+        -------
+        bool
+            True if this target matches the given criteria
+        """
         if (n_term and self.n_term) or (c_term and self.c_term):
-            if (self.aa and aa == self.aa) or self.aa is None:
+            if (self.aa and aa.upper() == self.aa) or self.aa is None:
                 return True
             return False
         return self.aa == aa or self.aa is None
+
+    @classmethod
+    def from_str(cls, target: str):
+        target_lower = target.lower()
+        if target in VALID_AA:
+            return cls(target, False, False)
+        elif target_lower in ("n-term", "c-term"):
+            n_term = target_lower == "n-term"
+            c_term = target_lower == "c-term"
+            return cls(None, n_term, c_term)
+        elif target_lower.startswith(("n-term:", "c-term:")):
+            tokens = target.split(":")
+            if len(tokens) == 2:
+                if tokens[1] in VALID_AA:
+                    t = tokens[0].lower()
+                    n_term = t == "n-term"
+                    c_term = t == "c-term"
+                    return cls(tokens[1], n_term, c_term)
+                else:
+                    raise PyteomicsError(
+                        "Modification target has an invalid amino acid specific terminal target {1} in {0}".format(
+                            target,
+                            tokens[1]
+                        )
+                    )
+            else:
+                raise PyteomicsError(
+                    "Modification rule target {0} has an empty amino acid specific terminal target".format(
+                        target
+                    )
+                )
+        else:
+            raise PyteomicsError(
+                "Modification rule target {0} is invalid".format(
+                    target
+                )
+            )
 
 
 class ModificationRule(object):
@@ -1377,13 +1786,35 @@ class ModificationRule(object):
     '''
     __slots__ = ('modification_tag', 'targets')
 
-    def __init__(self, modification_tag, targets=None):
+    modification_tag: TagBase
+    targets: List[ModificationTarget]
+
+    def __init__(self, modification_tag: TagBase, targets: Union[ModificationTarget, List[ModificationTarget], List[str], None]=None):
         self.modification_tag = modification_tag
-        self.targets = targets
+        self.targets = targets  # type: ignore
         self._validate_targets()
 
-    def is_valid(self, aa, n_term, c_term):
-        return any(target.is_valid(aa, n_term, c_term) for target in self.targets)
+    def is_not_specific(self) -> bool:
+        '''If there are no explicit targets, this rule might apply everywhere'''
+        return not self.targets
+
+    def is_valid(self, aa: str, n_term: bool, c_term: bool) -> bool:
+
+        for target in self.targets:
+            if target.is_valid(aa, n_term, c_term):
+                return True
+        return False
+
+    def _find_all(self, peptide: Iterable[str], n: int) -> Iterator[int]:
+        '''
+        Tiny helper method to scan over a sequence with an external length
+        and yield matched positions.
+        '''
+        # decrement the length by 1 so that it matches the last position
+        n -= 1
+        for i, aa in enumerate(peptide):
+            if self.is_valid(aa, i == 0, i == n):
+                yield i
 
     def _validate_targets(self):
         validated_targets = []
@@ -1392,39 +1823,13 @@ class ModificationRule(object):
         elif not isinstance(self.targets, list):
             self.targets = [self.targets]
         for target in self.targets:
-            if target in VALID_AA:
-                validated_targets.append(ModificationTarget(target, False, False))
-            elif target in ("N-term", "C-term"):
-                n_term = target == "N-term"
-                c_term = target == "C-term"
-                validated_targets.append(ModificationTarget(None, n_term, c_term))
-            elif target.startswith(("N-term:", "C-term:")):
-                tokens = target.split(":")
-                if len(tokens) == 2:
-                    if tokens[1] in VALID_AA:
-                        n_term = tokens[0] == "N-term"
-                        c_term = tokens[0] == "C-term"
-                        validated_targets.append(ModificationTarget(tokens[1], n_term, c_term))
-                    else:
-                        raise PyteomicsError(
-                            "Modification rule {0} has an invalid amino acid specific terminal target {2} in {1}".format(
-                                self,
-                                target,
-                                tokens[1]
-                            )
-                        )
-                else:
-                    raise PyteomicsError(
-                        "Modification rule {0} has an empty amino acid specific terminal target {1}".format(
-                            self, target
-                        )
-                    )
+            if isinstance(target, ModificationTarget):
+                validated_targets.append(target)
             else:
-                raise PyteomicsError(
-                    "Modification rule {0} has an invalid target {1}".format(
-                        self, target
-                    )
-                )
+                try:
+                    validated_targets.append(ModificationTarget.from_str(target))
+                except PyteomicsError as err:
+                    raise PyteomicsError(f"While parsing {self}, encountered error {err}") from err
 
         self.targets = validated_targets
 
@@ -1445,7 +1850,8 @@ class ModificationRule(object):
 
 
 class StableIsotope(object):
-    '''Define a fixed isotope that is applied globally to all amino acids.
+    '''
+    Define a fixed isotope that is applied globally to all amino acids.
 
     Attributes
     ----------
@@ -1454,9 +1860,13 @@ class StableIsotope(object):
         isotopoform's name.
     '''
     __slots__ = ('isotope', )
+    isotope: str
 
     def __init__(self, isotope):
         self.isotope = isotope
+
+    def copy(self):
+        return self.__class__(self.isotope)
 
     def __eq__(self, other):
         if other is None:
@@ -1498,25 +1908,41 @@ class TaggedInterval(object):
     '''
     __slots__ = ('start', 'end', 'tags', 'ambiguous')
 
+    start: int
+    end: Optional[int]
+    tags: Optional[List[TagBase]]
+    ambiguous: bool
+
     def __init__(self, start, end=None, tags=None, ambiguous=False):
         self.start = start
         self.end = end
         self.tags = tags
         self.ambiguous = ambiguous
 
+    def copy(self):
+        return self.__class__(
+            self.start,
+            self.end,
+            [v.copy() for v in self.tags] if self.tags else [],
+            self.ambiguous
+        )
+
     def __eq__(self, other):
         if other is None:
             return False
         return self.start == other.start and self.end == other.end and self.tags == other.tags
 
+    def __hash__(self):
+        return hash((self.start, self.end, tuple(self.tags or []), self.ambiguous))
+
     def __ne__(self, other):
         return not self == other
 
     def __str__(self):
-        return "({self.start}-{self.end}){self.tags!r}".format(self=self)
+        return f"({'?' if self.ambiguous else ''}{self.start}-{self.end}){self.tags!r}"
 
     def __repr__(self):
-        return "{self.__class__.__name__}({self.start}, {self.end}, {self.tags})".format(self=self)
+        return f"{self.__class__.__name__}({self.start}, {self.end}, {self.tags}, ambiguous={self.ambiguous})"
 
     def as_slice(self):
         return slice(self.start, self.end)
@@ -1526,9 +1952,6 @@ class TaggedInterval(object):
 
     def __contains__(self, i):
         return self.contains(i)
-
-    def copy(self):
-        return self.__class__(self.start, self.end, self.tags)
 
     def _check_slice(self, qstart, qend, warn_ambiguous):
         # Fully contained interval
@@ -1588,38 +2011,189 @@ class TaggedInterval(object):
         return new
 
 
-class ChargeState(object):
-    '''Describes the charge and adduct types of the structure.
+class Adduct(NamedTuple):
+    name: str
+    charge: int
+    count: int
+
+    def __str__(self):
+        base = f"{self.name}:z{'+' if self.charge > 0 else ''}{self.charge}"
+        if self.count > 1:
+            return base + f"^{self.count}"
+        return base
+
+    def composition(self) -> Composition:
+        if self.name == 'e-':
+            return Composition({"e-": self.count})
+        comp = FormulaModification(
+            f"{self.name}:z{'+' if self.charge > 0 else ''}{self.charge}"
+        ).composition * self.count
+        return comp
+
+    def mass(self) -> float:
+        return self.composition().mass()
+
+    def total_charge(self) -> int:
+        return self.charge * self.count
+
+
+class ChargeState:
+    """Describes the charge and adduct types of the structure.
+
+    This type *MAY* be coerced to an :class:`int`, in which case it
+    decays to it's :attr:`charge` attribute, an integer. Common methods
+    like :func:`abs` and arithmetic operators will work on this value.
 
     Attributes
     ----------
     charge : int
         The total charge state as a signed number.
-    adducts : list[str]
+    adducts : list[Adduct]
         Each charge carrier associated with the molecule.
-    '''
+    """
     __slots__ = ("charge", "adducts")
 
-    def __init__(self, charge, adducts=None):
+    charge: int
+    adducts: List[Adduct]
+
+    @classmethod
+    def from_adducts(cls, adducts: List[Adduct]):
+        acc = 0
+        for a in adducts:
+            acc += a.charge * a.count
+        return cls(acc, adducts)
+
+    def __init__(self, charge: int, adducts=None):
         if adducts is None:
-            adducts = []
-        self.charge = charge
+            if charge > 0:
+                adducts = [Adduct("H", 1, charge)]
+            elif charge < 0:
+                adducts = [Adduct("e-", -1, charge)]
+            else:
+                adducts = []
+        self.charge = int(charge)
         self.adducts = adducts
 
-    def __str__(self):
-        tokens = [str(self.charge)]
-        if self.adducts:
+    def is_complete(self) -> bool:
+        """
+        Test if the total charge recorded here is completely explained by the recorded adducts.
+
+        If not, then there is a localized charge somewhere on the source proteoform.
+
+        Returns
+        -------
+        bool
+        """
+        return self.charge == sum(a.charge * a.count for a in self.adducts)
+
+    def __int__(self) -> int:
+        """
+        Get the total charge as number.
+
+        This is equivalent to accessing :attr:`charge`
+
+        .. note::
+            This is technically a lossy operation as it discards the distinction
+            between the different charge carriers.
+
+        """
+        return self.charge
+
+    def __float__(self):
+        '''See :meth:`__int__`'''
+        return float(int(self))
+
+    def __neg__(self):
+        return -int(self)
+
+    def __pos__(self):
+        return +int(self)
+
+    def __abs__(self):
+        """
+        Return the absolute magnitude of the charge state
+
+        See Also
+        --------
+        :meth:`__int__`
+        """
+        return abs(self.charge)
+
+    def __mul__(self, other):
+        return int(self) * other
+
+    def __add__(self, other):
+        return int(self) + other
+
+    def __sub__(self, other):
+        return int(self) - other
+
+    def __div__(self, other):
+        return int(self) / other
+
+    def __rmul__(self, other):
+        return other * int(self)
+
+    def __radd__(self, other):
+        return other + int(self)
+
+    def __rsub__(self, other):
+        return other - int(self)
+
+    def __rdiv__(self, other):
+        return other / int(self)
+
+    def __eq__(self, other):
+        if not isinstance(other, ChargeState):
+            other = ChargeState(other)
+        return self.charge == other.charge and (self.adducts == other.adducts)
+
+    def __ne__(self, other):
+        return not self == other
+
+    def for_mz_calculation(self) -> Tuple[float, int]:
+        """
+        Get the total mass of the charge carrier(s) and their collective charge
+        to plug into the formula for mass-to-charge-ratio, ``(mass of molecule + mass of charge carrier) / charge``
+
+        Returns
+        -------
+        charge_carrier_mass : float
+            The total mass of the charge carriers(s) in the adducting group(s)
+        charge : int
+            The total charge contributed by all the charge carriers
+            in the adducting group(s)
+        """
+        mass = 0.0
+        for a in self.adducts:
+            mass += a.mass()
+        return (mass, self.charge)
+
+    def composition(self):
+        comp = Composition()
+        for a in self.adducts:
+            comp += a.composition()
+        return comp
+
+    def format_local(self, local_charge_to_remove: int=0):
+        if self.adducts and (len(self.adducts) > 1 or self.adducts[0].name != "H"):
+            tokens = []
             tokens.append("[")
-            tokens.append(','.join(str(adduct) for adduct in self.adducts))
+            tokens.append(",".join((map(str, self.adducts))))
             tokens.append("]")
-        return ''.join(tokens)
+            return "".join(tokens)
+        else:
+            return f"{self.charge - local_charge_to_remove:d}"
+
+    def __str__(self):
+        return self.format_local()
 
     def __repr__(self):
         template = "{self.__class__.__name__}({self.charge}, {self.adducts})"
         return template.format(self=self)
 
 
-class TokenBuffer(object):
+class TokenBuffer(Generic[T]):
     '''A token buffer that wraps the accumulation and reset logic
     of a list of :class:`str` objects.
 
@@ -1630,12 +2204,16 @@ class TokenBuffer(object):
     buffer: list
         The list of tokens accumulated since the last parsing.
     '''
+    buffer: List[str]
+    boundaries: List[int]
+
     def __init__(self, initial=None):
         self.buffer = list(initial or [])
         self.boundaries = []
 
-    def append(self, c):
-        '''Append a new character to the buffer.
+    def append(self, c: str):
+        '''
+        Append a new character to the buffer.
 
         Parameters
         ----------
@@ -1643,6 +2221,17 @@ class TokenBuffer(object):
             The character appended
         '''
         self.buffer.append(c)
+
+    def extend(self, cs: str):
+        '''
+        Extend the buffer with additional characters
+
+        Parameters
+        ----------
+        cs: str
+            The chracters to append
+        '''
+        self.buffer.extend(cs)
 
     def reset(self):
         '''Discard the content of the current buffer.
@@ -1664,7 +2253,7 @@ class TokenBuffer(object):
     def __len__(self):
         return len(self.buffer)
 
-    def tokenize(self):
+    def tokenize(self) -> List[str]:
         i = 0
         pieces = []
         for k in self.boundaries + [len(self)]:
@@ -1673,10 +2262,10 @@ class TokenBuffer(object):
             pieces.append(piece)
         return pieces
 
-    def _transform(self, value):
+    def _transform(self, value: T) -> T:
         return value
 
-    def process(self):
+    def process(self) -> Union[T, List[T]]:
         if self.boundaries:
             value = [self._transform(v) for v in self.tokenize()]
         else:
@@ -1684,34 +2273,103 @@ class TokenBuffer(object):
         self.reset()
         return value
 
-    def bound(self):
+    def bound(self) -> int:
         k = len(self)
         self.boundaries.append(k)
         return k
 
-    def __call__(self):
+    def __call__(self) -> Union[T, List[T]]:
         return self.process()
 
 
-class NumberParser(TokenBuffer):
+class NumberParser(TokenBuffer[int]):
     '''A buffer which accumulates tokens until it is asked to parse them into
     :class:`int` instances.
     '''
 
-    def _transform(self, value):
+    def _transform(self, value) -> int:
         return int(''.join(value))
 
 
-class StringParser(TokenBuffer):
+class StringParser(TokenBuffer[str]):
     '''A buffer which accumulates tokens until it is asked to parse them into
     :class:`str` instances.
     '''
 
-    def _transform(self, value):
+    def _transform(self, value) -> str:
         return ''.join(value)
 
 
-class TagParser(TokenBuffer):
+class AdductParser(StringParser):
+    '''A buffer which accumulates tokens related to adducts until it is asked to parse them into
+    a list of [(str, int)] tuples, where the first element is the adduct name
+    and the second element is the number of adducts of that type.
+    '''
+    token_pattern = re.compile(r'(?P<number>[+-]?\d*)(?P<adduct>[A-Za-z]+)(?P<charge>\d*[+-])')
+    token_pattern2 = re.compile(
+        r"(?P<adduct>[0-9A-Za-z\[\]]+):[zZ](?P<charge>(-|\+)\d+)(?:\^(?P<number>\d+))?"
+    )
+
+    def parse_form1(self, token: str) -> Optional[Tuple[str, int, int]]:
+        parsed = self.token_pattern.match(token)
+        if not parsed:
+            return None
+        gdict = parsed.groupdict()
+        if gdict['adduct'] == 'e':
+            adduct = 'e-'
+        else:
+            adduct = gdict['adduct']
+        if gdict['number'] == '+' or gdict['number'] == '':
+            number = 1
+        elif gdict['number'] == '-':
+            number = -1
+        else:
+            number = int(gdict['number'])
+        charge = int(gdict['charge'][:-1]) if gdict['charge'][:-1] else 1
+        if gdict['charge'][-1] == '-':
+            charge = -charge
+        return (adduct, charge, number)
+
+    def parse_form2(self, token: str):
+        parsed = self.token_pattern2.match(token)
+        if not parsed:
+            return None
+        gdict = parsed.groupdict()
+        if gdict['adduct'] == 'e':
+            adduct = 'e-'
+        else:
+            adduct = gdict['adduct']
+        if gdict['number'] == '+' or gdict['number'] == '':
+            number = 1
+        elif gdict['number'] == '-':
+            number = -1
+        elif gdict['number'] is not None:
+            number = int(gdict['number'])
+        else:
+            number = 1
+        charge = int(gdict['charge']) if gdict['charge'] else 1
+        return (adduct, charge, number)
+
+    def process(self):
+        value = []
+        for token in self.tokenize():
+            if not isinstance(token, str):
+                token = ''.join(token)
+            try:
+                adduct = self.parse_form1(token)
+                if not adduct:
+                    adduct = self.parse_form2(token)
+                if not adduct:
+                    raise ProFormaError(
+                        "Invalid adduct token {!r} in {!r}".format(token, self.buffer)
+                    )
+                value.append(Adduct(*adduct))
+            except AttributeError:
+                raise ProFormaError("Invalid adduct token {!r} in {!r}".format(token, self.buffer))
+        return value
+
+
+class TagParser(TokenBuffer[TagBase]):
     '''A buffer which accumulates tokens until it is asked to parse them into
     :class:`TagBase` instances.
 
@@ -1770,6 +2428,12 @@ class ParserStateEnum(Enum):
     chimeric_start = 21
     interval_initial = 22
     post_global_terminal = 23
+
+    peptidoform_name_start = 24
+    peptidoform_name_level = 25
+    peptidoform_name_text = 26
+    peptidoform_name_close = 27
+
     done = 999
 
 
@@ -1787,22 +2451,770 @@ TAG_AFTER = ParserStateEnum.tag_after_sequence
 POST_TAG_BEFORE = ParserStateEnum.post_tag_before
 POST_TAG_AFTER = ParserStateEnum.post_tag_after
 UNLOCALIZED_COUNT = ParserStateEnum.unlocalized_count
+
 POST_GLOBAL = ParserStateEnum.post_global
 POST_GLOBAL_AA = ParserStateEnum.post_global_aa
 POST_GLOBAL_TERM = ParserStateEnum.post_global_terminal
 POST_INTERVAL_TAG = ParserStateEnum.post_interval_tag
+
 CHARGE_START = ParserStateEnum.charge_state_start
 CHARGE_NUMBER = ParserStateEnum.charge_state_number
+
 ADDUCT_START = ParserStateEnum.charge_state_adduct_start
 ADDUCT_END = ParserStateEnum.charge_state_adduct_end
+
+PEPTIDOFORM_NAME_START = ParserStateEnum.peptidoform_name_start
+PEPTIDOFORM_NAME_LEVEL = ParserStateEnum.peptidoform_name_level
+PEPTIDOFORM_NAME_TEXT = ParserStateEnum.peptidoform_name_text
+PEPTIDOFORM_NAME_CLOSE = ParserStateEnum.peptidoform_name_close
+
 DONE = ParserStateEnum.done
 
-VALID_AA = set("QWERTYIPASDFGHKLCVNMXUOJZB")
+VALID_AA_UPPER = set("QWERTYIPASDFGHKLCVNMXUOJZB")
+VALID_AA = {s.lower() for s in VALID_AA_UPPER} | VALID_AA_UPPER
 TERMINAL_SPEC_CHARS = set('N-term') | set('C-term') | set("ncT: ")
 
-def parse(sequence):
+
+def _local_charges(
+    position_list,
+    intervals: List[TaggedInterval],
+    unlocalized_modifications: List[TagBase],
+    labile_modifications: List[TagBase],
+    fixed_modifications: List[TagBase]
+) -> Tuple[int, int]:
+    """
+    Count the number of localized charges that the parsed ProForma
+    sequence has.
+
+    This specifically counts modifications with a registered charge
+    state like charged :class:`FormulaModification` instances.
+
+    Returns
+    -------
+    local_charges : int
+        The total charge state attributable to localized modifications
+    n_charged_modifications : int
+        The number of charged modifications on the sequence
+    """
+    local_charges = 0
+    n_charged_modifications = 0
+    for _, tags in position_list:
+        for tag in tags or (): # tags may be None
+            z_of = getattr(tag, "charge", 0)
+            if z_of:
+                n_charged_modifications += 1
+                local_charges += z_of
+    for iv in intervals:
+        for tag in iv.tags or ():
+            z_of = getattr(tag, "charge", 0)
+            if z_of:
+                n_charged_modifications += 1
+                local_charges += z_of
+    for tag in unlocalized_modifications:
+        z_of = getattr(tag, "charge", 0)
+        if z_of:
+            n_charged_modifications += 1
+            local_charges += z_of
+    for tag in labile_modifications:
+        z_of = getattr(tag, "charge", 0)
+        if z_of:
+            n_charged_modifications += 1
+            local_charges += z_of
+    for fixed_mod in fixed_modifications:
+        z_of = getattr(fixed_mod.modification_tag, "charge", 0)
+        if z_of:
+            for _ in fixed_mod._find_all((aa for aa, _ in position_list), len(position_list)):
+                local_charges += z_of
+                n_charged_modifications += 1
+    return local_charges, n_charged_modifications
+
+
+class Parser:
+    """
+    A parser for the ProForma 2 syntax.
+
+    Attributes
+    ----------
+    sequence : str
+        The sequence to be parsed
+    index : int
+        The current index parsing from
+    depth : int
+        The current depth of the brace type being parsed within
+    length : int
+        The total length in characters of the sequence to parse
+    state : ParserStateEnum
+        The state of the parser is currently in, dictating how it will interpret
+        the next token read.
+    """
+    sequence: str
+    index: int
+    depth: int
+    length: int
+    state: ParserStateEnum
+
+    labile_modifications: List[TagBase]
+    fixed_modifications: List[ModificationRule]
+    unlocalized_modifications: List[TagBase]
+    intervals: List[TaggedInterval]
+    isotopes: List[StableIsotope]
+    n_term: List[TagBase]
+    c_term: List[TagBase]
+    positions: List
+    current_aa: str
+    current_interval: Optional[TaggedInterval]
+    current_tag: TagParser
+    current_unlocalized_count: NumberParser
+    current_aa_targets: StringParser
+    charge_buffer: Optional[NumberParser]
+    adduct_buffer: Optional[AdductParser]
+
+    def __init__(self, sequence: str, case_sensitive_aa: bool=False):
+        """
+        Instantiate a ProForma 2 parser for the specified sequence.
+
+        Parameters
+        ----------
+        sequence : str
+            The sequence to parse
+        case_sensitive_aa : bool
+            Whether to treat amino acids as case sensitive (older behavior) while the specification
+            states they should be handled insensitively.
+        """
+        self.sequence = sequence
+        self.index = 0
+        self.depth = 0
+        self.length = len(sequence)
+        self.state = ParserStateEnum.before_sequence
+        self._VALID_AA = VALID_AA if not case_sensitive_aa else VALID_AA_UPPER
+
+        self.n_term = []
+        self.c_term = []
+        self.intervals = []
+        self.positions = []
+
+        self.adduct_buffer = None
+        self.charge_buffer = None
+        self.current_aa = None
+        self.current_interval = None
+        self.current_tag = TagParser()
+        self.current_aa_targets = StringParser()
+        self.current_unlocalized_count = NumberParser()
+
+        self.unlocalized_modifications = []
+        self.labile_modifications = []
+        self.fixed_modifications = []
+        self.unlocalized_modifications = []
+        self.intervals = []
+        self.isotopes = []
+        self.name_level = None
+        self.name_buffer = StringParser()
+        self.names = {}
+
+    @property
+    def i(self) -> int:
+        return self.index
+
+    @i.setter
+    def i(self, value: int):
+        self.index = value
+
+    @property
+    def n(self) -> int:
+        return self.length
+
+    def pack_sequence_position(self):
+        self.positions.append(
+            (
+                self.current_aa,
+                self.current_tag() if self.current_tag else None,
+            )
+        )
+        self.current_aa = None
+
+    def handle_before(self, c: str):
+        if c == '[':
+            self.state = TAG_BEFORE
+            self.depth = 1
+        elif c == '{':
+            self.state = LABILE
+            self.depth = 1
+        elif c == '<':
+            self.state = FIXED
+        elif c in self._VALID_AA:
+            self.current_aa = c
+            self.state = SEQ
+        elif c == '(':
+            if (self.index + 1) < self.length:
+                if self.sequence[self.index + 1] == '>':
+                    self.index += 1
+                    self.state = PEPTIDOFORM_NAME_LEVEL
+                    self.depth = 1
+                    self.name_level = 1
+                else:
+                    self.state = INTERVAL_INIT
+                    self.current_interval = TaggedInterval(len(self.positions) + 1)
+        else:
+            raise ProFormaError(
+                f"Error In State {self.state}, unexpected {c} found at index {self.i}",
+                self.i,
+                self.state,
+            )
+
+    def handle_seq(self, c: str):
+        state = self.state
+        if state == INTERVAL_INIT:
+            self.state = SEQ
+            if c == '?':
+                if self.current_interval is not None:
+                    self.current_interval.ambiguous = True
+                # continue
+                return True
+        if c in self._VALID_AA:
+            if self.current_aa is not None:
+                self.pack_sequence_position()
+            self.current_aa = c
+        elif c == '[':
+            self.state = TAG
+            if self.current_tag:
+                self.current_tag.bound()
+            self.depth = 1
+        elif c == '(':
+            if self.current_interval is not None:
+                raise ProFormaError(
+                    (
+                        f"Error In State {self.state}, nested range found at index {self.index}. "
+                        "Nested ranges are not yet supported by ProForma."
+                    ),
+                    self.index,
+                    self.state,
+                )
+            self.current_interval = TaggedInterval(len(self.positions) + 1)
+            self.state = INTERVAL_INIT
+        elif c == ')':
+            self.pack_sequence_position()
+            if self.current_interval is None:
+                raise ProFormaError(
+                    f"Error In State {self.state}, unexpected {c} found at index {self.index}",
+                    self.index,
+                    self.state,
+                )
+            else:
+                self.current_interval.end = len(self.positions)
+                if self.i + 1 < self.n and self.sequence[self.i + 1] == "[":
+                    self.i += 1
+                    self.depth = 1
+                    self.state = INTERVAL_TAG
+                else:
+                    self.intervals.append(self.current_interval)
+                    self.current_interval = None
+        elif c == '-':
+            if self.current_aa:
+                self.pack_sequence_position()
+            self.state = TAG_AFTER
+            if self.i >= self.n or self.sequence[self.i + 1] != "[":
+                raise ProFormaError("Missing Opening Tag", self.i, self.state)
+            self.i += 1
+            self.depth = 1
+        elif c == '/':
+            self.state = CHARGE_START
+            self.charge_buffer = NumberParser()
+            self.adduct_buffer = AdductParser()
+        elif c == '+':
+            raise ProFormaError(
+                f"Error In State {self.state}, {c} found at index {self.i}. Chimeric representation not supported",
+                self.i,
+                self.state,
+            )
+        else:
+            raise ProFormaError(
+                f"Error In State {self.state}, unexpected {c} found at index {self.i}",
+                self.i,
+                self.state,
+            )
+
+    def handle_tag(self, c: str):
+        if c == "[":
+            self.depth += 1
+            self.current_tag.append(c)
+        elif c == "]":
+            self.depth -= 1
+            if self.depth <= 0:
+                self.depth = 0
+                if self.state == TAG:
+                    self.state = SEQ
+                elif self.state == TAG_BEFORE:
+                    self.state = POST_TAG_BEFORE
+                elif self.state == TAG_AFTER:
+                    self.c_term = self.current_tag()
+                    self.state = POST_TAG_AFTER
+                elif self.state == GLOBAL:
+                    self.state = POST_GLOBAL
+                elif self.state == INTERVAL_TAG:
+                    self.state = POST_INTERVAL_TAG
+                    # self.current_interval.tags.append(self.current_tag())
+                    self.depth = 0
+            else:
+                self.current_tag.append(c)
+        else:
+            self.current_tag.append(c)
+
+    def handle_fixed(self, c: str):
+        if c == '[':
+            self.state = GLOBAL
+        else:
+            # Do validation here
+            self.state = ISOTOPE
+            self.current_tag.reset()
+            self.current_tag.append(c)
+
+    def handle_isotope(self, c: str):
+        if c != ">":
+            self.current_tag.append(c)
+        else:
+            # Not technically a tag, but exploits the current buffer
+            self.isotopes.append(StableIsotope("".join(self.current_tag)))
+            self.current_tag.reset()
+            self.state = BEFORE
+
+    def handle_labile(self, c: str):
+        if c == "{":
+            self.depth += 1
+        elif c == "}":
+            self.depth -= 1
+            if self.depth <= 0:
+                self.depth = 0
+                self.labile_modifications.append(self.current_tag()[0])
+                self.state = BEFORE
+        else:
+            self.current_tag.append(c)
+
+    def handle_post_interval_tag(self, c: str):
+        if c == "[":
+            self.current_tag.bound()
+            self.state = INTERVAL_TAG
+        elif c in self._VALID_AA:
+            self.current_aa = c
+            self.current_interval.tags = self.current_tag()
+            self.intervals.append(self.current_interval)
+            self.current_interval = None
+            self.state = SEQ
+        elif c == "-":
+            self.state = TAG_AFTER
+            # Unroll next state to immediately fall into a tag parsing state instead of
+            # including a separate post-dash state
+            if self.i >= self.n or self.sequence[self.i] != "[":
+                raise ProFormaError("Missing Closing Tag", self.i, self.state)
+            self.i += 1
+            self.depth = 1
+        elif c == "/":
+            self.state = CHARGE_START
+            self.charge_buffer = NumberParser()
+        elif c == "+":
+            raise ProFormaError(
+                f"Error In State {self.state}, {self.c} found at index {self.i}. Chimeric representation not supported",
+                self.i,
+                self.state,
+            )
+        else:
+            raise ProFormaError(
+                f"Error In State {self.state}, unexpected {self.c} found at index {self.i}",
+                self.i,
+                self.state,
+            )
+
+    def handle_post_tag_before(self, c: str):
+        if c == "?":
+            self.unlocalized_modifications.extend(self.current_tag())
+            self.state = BEFORE
+        elif c == "-":
+            self.n_term = self.current_tag()
+            self.state = BEFORE
+        elif c == "^":
+            self.state = UNLOCALIZED_COUNT
+        elif c == "[":
+            self.current_tag.bound()
+            self.state = TAG_BEFORE
+        else:
+            raise ProFormaError(
+                f"Error In State {self.state}, unexpected {self.c} found at index {self.i}",
+                self.i,
+                self.state,
+            )
+
+    def handle_unlocalized_count(self, c: str):
+        if c.isdigit():
+            self.current_unlocalized_count.append(c)
+        elif c == "[":
+            self.state = TAG_BEFORE
+            self.depth = 1
+            tags = self.current_tag()
+            tags, tag = tags[:-1], tags[-1]
+            self.unlocalized_modifications.extend(tags)
+            multiplicity = self.current_unlocalized_count()
+            for _ in range(multiplicity):
+                self.unlocalized_modifications.append(tag)
+        elif c == "?":
+            self.state = BEFORE
+            tags = self.current_tag()
+            tags, tag = tags[:-1], tags[-1]
+            self.unlocalized_modifications.extend(tags)
+            multiplicity = self.current_unlocalized_count()
+            for _ in range(multiplicity):
+                self.unlocalized_modifications.append(tag)
+        else:
+            raise ProFormaError(
+                f"Error In State {self.state}, unexpected {c} found at index {self.i}",
+                self.i,
+                self.state,
+            )
+
+    def handle_post_global(self, c: str):
+        if c == "@":
+            self.state = POST_GLOBAL_AA
+        else:
+            raise ProFormaError(
+                (
+                    f"Error In State {self.state}, fixed modification detected without "
+                    f"target amino acids found at index {self.i}"
+                ),
+                self.i,
+                self.state,
+            )
+
+    def handle_post_global_aa(self, c: str):
+        if c in self._VALID_AA or c in TERMINAL_SPEC_CHARS:
+            self.current_aa_targets.append(c)
+        elif c == ",":
+            # the next character should be another amino acid
+            self.current_aa_targets.bound()
+        elif c == ">":
+            try:
+                v = self.current_aa_targets()
+                self.fixed_modifications.append(
+                    ModificationRule(self.current_tag()[0], v)
+                )
+            except PyteomicsError as err:
+                raise ProFormaError(
+                    (
+                        f"Error In State {self.state}, fixed modification detected invalid "
+                        f"target found at index {self.i}: {err}"
+                    ),
+                    self.i,
+                    self.state,
+                )
+            self.state = BEFORE
+        else:
+            raise ProFormaError(
+                f"Error In State {self.state}, unclosed fixed modification rule",
+                self.i,
+                self.state,
+            )
+
+    def handle_post_tag_after(self, c: str):
+        if c == "/":
+            self.state = CHARGE_START
+            self.charge_buffer = NumberParser()
+        elif c == "+":
+            raise ProFormaError(
+                f"Error In State {self.state}, {c} found at index {self.i}. Chimeric representation not supported",
+                self.i,
+                self.state,
+            )
+
+    def handle_charge_start(self, c: str):
+        if c in "+-":
+            self.charge_buffer.append(c)
+            self.state = CHARGE_NUMBER
+        elif c.isdigit():
+            self.charge_buffer.append(c)
+            self.state = CHARGE_NUMBER
+        elif c == "/":
+            self.state = ParserStateEnum.inter_chain_cross_link_start
+            raise ProFormaError(
+                "Inter-chain cross-linked peptides are not yet supported",
+                self.i,
+                self.state,
+            )
+        elif c == '[':
+            self.state = ParserStateEnum.charge_state_adduct_start
+        else:
+            raise ProFormaError(
+                f"Error In State {self.state}, unexpected {c} found at index {self.i}",
+                self.i,
+                self.state,
+            )
+
+    def handle_charge_number(self, c: str):
+        if c.isdigit():
+            self.charge_buffer.append(c)
+        elif c == "[":
+            self.state = ADDUCT_START
+            self.depth = 1
+            self.adduct_buffer = AdductParser()
+        else:
+            raise ProFormaError(
+                f"Error In State {self.state}, unexpected {c} found at index {self.i}",
+                self.i,
+                self.state,
+            )
+
+    def handle_adduct_start(self, c: str):
+        if c.isdigit() or c in "^+:-" or c.isalpha():
+            self.adduct_buffer.append(c)
+        elif c == "[":
+            self.depth += 1
+            self.adduct_buffer.append(c)
+        elif c == ",":
+            self.adduct_buffer.bound()
+        elif c == "]":
+            self.depth -= 1
+            if self.depth == 0:
+                self.state = ADDUCT_END
+            else:
+                self.adduct_buffer.append(c)
+
+    def handle_adduct_end(self, c: str):
+        if c == "+":
+            raise ProFormaError(
+                f"Error In State {self.state}, {c} found at index {self.i}. Chimeric representation not supported",
+                self.i,
+                self.state,
+            )
+
+    def handle_name_level(self, c: str):
+        if c == '>' and self.name_level < 3:
+            self.name_level += 1
+        elif c == ')':
+            self.names[self.name_level] = self.name_buffer()
+            self.name_level = 0
+            self.state = BEFORE
+            self.depth = 0
+        else:
+            self.name_buffer.append(c)
+            self.state = PEPTIDOFORM_NAME_TEXT
+
+    def handle_name_text(self, c: str):
+        if c == ')':
+            self.depth -= 1
+            if self.depth <= 0:
+                name = self.name_buffer()
+                self.names[self.name_level] = name
+                self.state = BEFORE
+            else:
+                self.name_buffer.append(c)
+        elif c == '(':
+            self.depth += 1
+            self.name_buffer.append(c)
+        else:
+            self.name_buffer.append(c)
+
+    def step(self) -> bool:
+        if self.index < self.length:
+            c = self.sequence[self.index]
+
+            # Initial state prior to sequence content
+            if self.state == BEFORE:
+                self.handle_before(c)
+            # The body of the amino acid sequence.
+            elif self.state == SEQ or self.state == INTERVAL_INIT:
+                self.handle_seq(c)
+
+            # Tag parsing which rely on `current_tag` to buffer tokens.
+            elif (
+                self.state == TAG
+                or self.state == TAG_BEFORE
+                or self.state == TAG_AFTER
+                or self.state == GLOBAL
+                or self.state == INTERVAL_TAG
+            ):
+                self.handle_tag(c)
+
+            # Handle transition to fixed modifications or isotope labeling from opening signal.
+            elif self.state == FIXED:
+                self.handle_fixed(c)
+            # Handle fixed isotope rules, which rely on `current_tag` to buffer tokens
+            elif self.state == ISOTOPE:
+                self.handle_isotope(c)
+            # Handle labile modifications, which rely on `current_tag` to buffer tokens
+            elif self.state == LABILE:
+                self.handle_labile(c)
+            # The intermediate state between an interval tag and returning to sequence parsing.
+            # A new tag may start immediately, leading to it being appended to the interval instead
+            # instead of returning to the primary sequence. Because this state may also occur at the
+            # end of a sequence, it must also handle sequence-terminal transitions like C-terminal tags,
+            # charge states, and the like.
+            elif self.state == POST_INTERVAL_TAG:
+                self.handle_post_interval_tag(c)
+            # An intermediate state for discriminating which type of tag-before-sequence type
+            # we just finished parsing.
+            elif self.state == POST_TAG_BEFORE:
+                self.handle_post_tag_before(c)
+            elif self.state == UNLOCALIZED_COUNT:
+                self.handle_unlocalized_count(c)
+            elif self.state == POST_GLOBAL:
+                self.handle_post_global(c)
+            elif self.state == POST_GLOBAL_AA:
+                self.handle_post_global_aa(c)
+            elif self.state == POST_TAG_AFTER:
+                self.handle_post_tag_after(c)
+            elif self.state == CHARGE_START:
+                self.handle_charge_start(c)
+            elif self.state == CHARGE_NUMBER:
+                self.handle_charge_number(c)
+            elif self.state == ADDUCT_START:
+                self.handle_adduct_start(c)
+            elif self.state == ADDUCT_END:
+                self.handle_adduct_end(c)
+            elif self.state == PEPTIDOFORM_NAME_LEVEL:
+                self.handle_name_level(c)
+            elif self.state == PEPTIDOFORM_NAME_TEXT:
+                self.handle_name_text(c)
+            else:
+                raise ProFormaError(
+                    f"Error In State {self.state}, unexpected {c} found at index {self.i}",
+                    self.i,
+                    self.state,
+                )
+            self.index += 1
+        return self.index < self.length
+
+    def finish(
+        self,
+    ) -> Tuple[List[Tuple[str, Optional[List[TagBase]]]], Dict[str, Any]]:
+        """
+        Post-process the parser's accumulated parsed token data and return the parsed
+        sequence and metadata.
+
+        Returns
+        -------
+        sequence : List[Tuple[str, Optional[List[TagBase]]]]
+            The primary amino acid sequence of the ProForma string
+        metadata : Dict[str, Any]
+            All other information outside the main sequence, including unlocalized, labile, or global modifications,
+            names, charge states, and more.
+        """
+        if self.charge_buffer:
+            charge_number = self.charge_buffer()
+            if self.adduct_buffer:
+                adducts = self.adduct_buffer()
+            else:
+                adducts = None
+            charge_state = ChargeState(charge_number, adducts)
+        elif self.adduct_buffer:
+            adducts = self.adduct_buffer()
+            charge_state = ChargeState.from_adducts(adducts)
+        else:
+            charge_state = None
+        if self.current_aa:
+            self.pack_sequence_position()
+
+        z, k = self._local_charges()
+        if k:
+            if charge_state is None:
+                charge_state = ChargeState(0)
+            charge_state.charge += z
+
+        if self.state in (
+            ISOTOPE,
+            TAG,
+            TAG_AFTER,
+            TAG_BEFORE,
+            LABILE,
+        ):
+            raise ProFormaError(
+                f"Error In State {self.state}, unclosed group reached end of string!",
+                self.i,
+                self.state,
+            )
+        return self.positions, {
+            "n_term": self.n_term,
+            "c_term": self.c_term,
+            "unlocalized_modifications": self.unlocalized_modifications,
+            "labile_modifications": self.labile_modifications,
+            "fixed_modifications": self.fixed_modifications,
+            "intervals": self.intervals,
+            "isotopes": self.isotopes,
+            "group_ids": sorted(self.current_tag.group_ids),
+            "charge_state": charge_state,
+            "names": self.names
+        }
+
+    def _local_charges(self) -> Tuple[int, int]:
+        return _local_charges(
+            self.positions,
+            self.intervals,
+            self.unlocalized_modifications,
+            self.labile_modifications,
+            self.fixed_modifications
+        )
+
+    def parse(self):
+        while self.step():
+            pass
+        return self.finish()
+
+    def __call__(self, *args, **kwds):
+        return self.parse()
+
+    @staticmethod
+    def empty_properties():
+        return {
+                'n_term': [],
+                'c_term': [],
+                'unlocalized_modifications': [],
+                'labile_modifications': [],
+                'fixed_modifications': [],
+                'intervals': [],
+                'isotopes': [],
+                'group_ids': [],
+                'charge_state': None,
+                'names': {}
+            }
+
+
+def parse(sequence: str, **kwargs) -> Tuple[List[Tuple[str, Optional[List[TagBase]]]], Dict[str, Any]]:
+    """
+    Tokenize a ProForma sequence into a sequence of amino acid+tag positions, and a
+    mapping of sequence-spanning modifiers.
+
+    .. note::
+        This is a state machine parser, but with certain sub-state paths
+        unrolled to avoid an explosion of formal intermediary states.
+
+    Parameters
+    ----------
+    sequence: str
+        The sequence to parse
+    **kwargs :
+        Forwarded to :class:`Parser`
+
+    Returns
+    -------
+    parsed_sequence: list[tuple[str, list[TagBase]]]
+        The (amino acid: str, TagBase or None) pairs denoting the positions along the primary sequence
+    modifiers: dict
+        A mapping listing the labile modifications, fixed modifications, stable isotopes, unlocalized
+        modifications, tagged intervals, and group IDs
+    """
+    # short-circuiting the parser for simple sequences with no tags or modifications to avoid overhead
+    if sequence.isupper() and sequence.isalpha():
+        return (
+            [(aa, None) for aa in sequence],
+            Parser.empty_properties()
+        )
+    parser = Parser(sequence, **kwargs)
+    return parser.parse()
+
+
+def _parse(sequence):
     '''Tokenize a ProForma sequence into a sequence of amino acid+tag positions, and a
     mapping of sequence-spanning modifiers.
+
+    .. warning::
+        This is the older parser which was designed for ProForma v2.0. There are some syntactic
+        constructs that were introduced in v2.1 that are not compatible. This function is retained
+        for handling sequences in the older format only.
 
     .. note::
         This is a state machine parser, but with certain sub-state paths
@@ -1866,7 +3278,7 @@ def parse(sequence):
                 state = SEQ
             else:
                 raise ProFormaError(
-                    "Error In State {state}, unexpected {c} found at index {i}".format(**locals()), i, state)
+                    f"Error In State {state}, unexpected {c} found at index {i}", i, state)
         # The body of the amino acid sequence.
         elif state == SEQ or state == INTERVAL_INIT:
             if state == INTERVAL_INIT:
@@ -2098,12 +3510,12 @@ def parse(sequence):
                 charge_buffer.append(c)
             elif c == "[":
                 state = ADDUCT_START
-                adduct_buffer = StringParser()
+                adduct_buffer = AdductParser()
             else:
                 raise ProFormaError(
                     "Error In State {state}, unexpected {c} found at index {i}".format(**locals()), i, state)
         elif state == ADDUCT_START:
-            if c.isdigit() or c in "+-" or c in element_symbols:
+            if c.isdigit() or c in "+-" or c.isalpha():
                 adduct_buffer.append(c)
             elif c == ',':
                 adduct_buffer.bound()
@@ -2141,9 +3553,19 @@ def parse(sequence):
     }
 
 
-def to_proforma(sequence, n_term=None, c_term=None, unlocalized_modifications=None,
-                labile_modifications=None, fixed_modifications=None, intervals=None,
-                isotopes=None, charge_state=None, group_ids=None):
+def to_proforma(
+    sequence,
+    n_term: Optional[List[TagBase]] = None,
+    c_term: Optional[List[TagBase]] = None,
+    unlocalized_modifications: Optional[List[TagBase]] = None,
+    labile_modifications: Optional[List[TagBase]] = None,
+    fixed_modifications: Optional[List[TagBase]] = None,
+    intervals: Optional[List[TaggedInterval]]=None,
+    isotopes: Optional[List[StableIsotope]] = None,
+    charge_state: Optional[ChargeState]=None,
+    group_ids: Iterable[str]=None,
+    names: Optional[Dict[int, str]] = None,
+):
     '''Convert a sequence plus modifiers into formatted text following the
     ProForma specification.
 
@@ -2174,49 +3596,76 @@ def to_proforma(sequence, n_term=None, c_term=None, unlocalized_modifications=No
     -------
     str
     '''
+    if names is None:
+        names = {}
+    buffer = []
+    if 3 in names:
+        buffer.append("(>>>")
+        buffer.append(names[3])
+        buffer.append(")")
+    if isotopes:
+        for iso in isotopes:
+            buffer.append(str(iso))
+    if fixed_modifications:
+        for rule in fixed_modifications:
+            buffer.append(str(rule))
+    if 2 in names:
+        buffer.append("(>>")
+        buffer.append(names[2])
+        buffer.append(")")
+    if 1 in names:
+        buffer.append("(>")
+        buffer.append(names[1])
+        buffer.append(")")
     primary = deque()
+
     for aa, tags in sequence:
         if not tags:
             primary.append(str(aa))
         else:
-            primary.append(str(aa) + ''.join(['[{0!s}]'.format(t) for t in tags]))
+            primary.append(str(aa) + "".join(["[{0!s}]".format(t) for t in tags]))
     if intervals:
         for iv in sorted(intervals, key=lambda x: x.start):
             if iv.ambiguous:
-                primary[iv.start] = '(?' + primary[iv.start]
+                primary[iv.start] = "(?" + primary[iv.start]
             else:
-                primary[iv.start] = '(' + primary[iv.start]
+                primary[iv.start] = "(" + primary[iv.start]
 
-            terminator = '{0!s})'.format(primary[iv.end - 1])
+            terminator = "{0!s})".format(primary[iv.end - 1])
             if iv.tags:
-                terminator += ''.join('[{!s}]'.format(t) for t in iv.tags)
+                terminator += "".join("[{!s}]".format(t) for t in iv.tags)
             primary[iv.end - 1] = terminator
     if n_term:
-        primary.appendleft(''.join("[{!s}]".format(t) for t in n_term) + '-')
+        primary.appendleft("".join("[{!s}]".format(t) for t in n_term) + "-")
     if c_term:
-        primary.append('-' + ''.join("[{!s}]".format(t) for t in c_term))
+        primary.append("-" + "".join("[{!s}]".format(t) for t in c_term))
     if charge_state:
-        primary.append("/{!s}".format(charge_state))
+        local_charge, _charge_mod_count = _local_charges(
+            sequence,
+            fixed_modifications=fixed_modifications,
+            intervals=intervals,
+            unlocalized_modifications=unlocalized_modifications,
+            labile_modifications=labile_modifications,
+        )
+        if local_charge != charge_state.charge:
+            primary.append("/{!s}".format(charge_state.format_local(local_charge_to_remove=local_charge)))
     if labile_modifications:
-        primary.extendleft(['{{{!s}}}'.format(m) for m in labile_modifications])
+        primary.extendleft(["{{{!s}}}".format(m) for m in labile_modifications])
     if unlocalized_modifications:
         primary.appendleft("?")
-        primary.extendleft(['[{!s}]'.format(m) for m in unlocalized_modifications])
-    if isotopes:
-        primary.extendleft(['{!s}'.format(m) for m in isotopes])
-    if fixed_modifications:
-        primary.extendleft(['{!s}'.format(m) for m in fixed_modifications])
-    return ''.join(primary)
+        primary.extendleft(["[{!s}]".format(m) for m in unlocalized_modifications])
+    primary.appendleft("".join(buffer))
+    return "".join(primary)
 
 
-class _ProFormaProperty(object):
+class _ProFormaProperty(Generic[T]):
     def __init__(self, name):
         self.name = name
 
-    def __get__(self, obj, cls):
+    def __get__(self, obj, cls) -> T:
         return obj.properties[self.name]
 
-    def __set__(self, obj, value):
+    def __set__(self, obj, value: T):
         obj.properties[self.name] = value
 
     def __repr__(self):
@@ -2259,20 +3708,33 @@ class ProForma(object):
         and unlocalized modifications. **Does not include stable isotopes at this time**
     '''
 
+    sequence: List[Tuple[str, Optional[List[TagBase]]]]
+    properties: Dict[str, Any]
+
     def __init__(self, sequence, properties):
+        """
+        Initialize a :class:`ProForma` instance from a parse tree.
+
+        To construct an instance from a string directly, see :meth:`ProForma.parse`.
+
+        See Also
+        --------
+        :meth:`ProForma.parse`
+        """
         self.sequence = sequence
         self.properties = properties
 
-    isotopes = _ProFormaProperty('isotopes')
-    charge_state = _ProFormaProperty('charge_state')
+    isotopes = _ProFormaProperty[List[StableIsotope]]('isotopes')
+    _charge_state = _ProFormaProperty('charge_state')
 
-    intervals = _ProFormaProperty('intervals')
-    fixed_modifications = _ProFormaProperty('fixed_modifications')
-    labile_modifications = _ProFormaProperty('labile_modifications')
-    unlocalized_modifications = _ProFormaProperty('unlocalized_modifications')
+    intervals = _ProFormaProperty[List[TaggedInterval]]('intervals')
+    fixed_modifications = _ProFormaProperty[List[ModificationRule]]("fixed_modifications")
+    labile_modifications = _ProFormaProperty[List[TagBase]]('labile_modifications')
+    unlocalized_modifications = _ProFormaProperty[List[TagBase]]("unlocalized_modifications")
 
-    n_term = _ProFormaProperty('n_term')
-    c_term = _ProFormaProperty('c_term')
+    n_term = _ProFormaProperty[List[TagBase]]("n_term")
+    c_term = _ProFormaProperty[List[TagBase]]("c_term")
+    names = _ProFormaProperty[Dict[int, str]]("names")
 
     group_ids = _ProFormaProperty('group_ids')
 
@@ -2285,7 +3747,7 @@ class ProForma(object):
     def __len__(self):
         return len(self.sequence)
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: Union[int, slice]):
         if isinstance(i, slice):
             props = self.properties.copy()
             ivs = []
@@ -2303,9 +3765,32 @@ class ProForma(object):
             if not (i.stop is None or i.stop >= n):
                 props['c_term'] = None
 
-            return self.__class__(self.sequence[i], props)
+            subseq = self.__class__(self.sequence[i], props)
+            if subseq.group_ids:
+                kept_group_ids = []
+                for group_id in subseq.group_ids:
+                    tag_hits = subseq.find_tags_by_id(group_id, include_position=True)
+                    if not tag_hits:
+                        continue
+                    kept_group_ids.append(group_id)
+                    # We sliced the sequence, but only the localization markers were captured,
+                    # not the actual modification definition. Update the first occurrence of the
+                    # localization marker with a group id marked modification tag.
+                    if all(not isinstance(v, LocalizationMarker) for _, v in tag_hits):
+                        i = tag_hits[0]
+                        val: TagBase
+                        for val in self.find_tags_by_id(group_id, include_position=False):
+                            if not isinstance(val, LocalizationMarker):
+                                val = val.copy()
+                                for j, tag in enumerate(subseq[i][1]):
+                                    if tag.group_id == group_id:
+                                        subseq[i][1][j] = val
+            return subseq
         else:
             return self.sequence[i]
+
+    def __setitem__(self, i, val: Tuple[str, Optional[List[TagBase]]]):
+        self.sequence[i] = val
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -2318,23 +3803,97 @@ class ProForma(object):
     def __ne__(self, other):
         return not self == other
 
+    def __iter__(self):
+        return iter(self.sequence)
+
+    @property
+    def charge_state(self) -> Optional[ChargeState]:
+        """
+        Access the :class:`ChargeState` property of the :class:`ProForma`
+        instance, which includes the total charge state and adduct list.
+
+        This implies that you have a peptidoform *ion*, not a neutral peptide.
+        """
+        z = self._charge_state
+        return z
+
+    def _local_charges(self) -> Tuple[int, int]:
+        """
+        Count the number of localized charges that the :class:`ProForma`
+        sequence has.
+
+        This specifically counts modifications with a registered charge
+        state like charged :class:`FormulaModification` instances.
+
+        Returns
+        -------
+        local_charges : int
+            The total charge state attributable to localized modifications
+        n_charged_modifications : int
+            The number of charged modifications on the sequence
+        """
+        return _local_charges(
+            self.sequence,
+            self.intervals,
+            self.unlocalized_modifications,
+            self.labile_modifications,
+            self.fixed_modifications
+        )
+
+    @charge_state.setter
+    def charge_state(self, value: Union[int, ChargeState, None]):
+        """
+        Sets the charge state of the :class:`ProForma` instance.
+
+        When setting with :const:`None`, this removes any existing charge
+        state information. When setting with an :class:`int`, this removes
+        the adduct information.
+
+        Parameters
+        ----------
+        value : :class:`int`, :class:`ChargeState`, or :const:`None`
+            When setting with :const:`None`, this removes any existing charge
+            state information. When setting with an :class:`int`, this removes
+            the adduct information.
+        """
+        if value is None:
+            self._charge_state = None
+        elif isinstance(value, ChargeState):
+            self._charge_state = value
+        else:
+            value = int(value)
+            existing = self._charge_state
+            new = ChargeState(value)
+            if existing is None:
+                self._charge_state = new
+            else:
+                if len(existing.adducts) > 1 or existing.adducts[0].name != "H":
+                    warnings.warn(f"Overwriting {existing}'s charge value with {value}, replacing adducts with protons")
+                self._charge_state = new
+
     @classmethod
-    def parse(cls, string):
+    def parse(cls, string, **kwargs):
         '''Parse a ProForma string.
 
         Parameters
         ----------
         string : str
             The string to parse
-
+        **kwargs :
+            Forwarded to :class:`Parser`
         Returns
         -------
         ProForma
         '''
-        return cls(*parse(string))
+        return cls(*parse(string, **kwargs))
 
     @property
-    def mass(self):
+    def mass(self) -> float:
+        '''
+        Compute the *total* monoisotopic neutral mass of the peptidoform.
+
+        This does not include the adduct.
+        '''
         mass = 0.0
 
         fixed_modifications = self.properties['fixed_modifications']
@@ -2342,7 +3901,7 @@ class ProForma(object):
         n_term_v = 0
         c_term_v = len(self) - 1
         for i, position in enumerate(self.sequence):
-            aa = position[0]
+            aa = position[0].upper()
             try:
                 mass += std_aa_mass[aa]
             except KeyError:
@@ -2351,8 +3910,9 @@ class ProForma(object):
             c_term = i == c_term_v
             for rule in fixed_modifications:
                 if rule.is_valid(aa, n_term, c_term):
-                    if rule.modification_tag.has_mass():
-                        mass += rule.modification_tag.mass
+                    mod: ModificationBase = rule.modification_tag
+                    if mod.has_mass():
+                        mass += mod.mass
             tags = position[1]
             if tags:
                 for tag in tags:
@@ -2378,6 +3938,62 @@ class ProForma(object):
                 if tag.has_mass():
                     mass += tag.mass
         return mass
+
+    def mz(self, charge: Union[int, ChargeState, None] = None, **kwargs) -> float:
+        """
+        Compute the *total* m/z of the peptidoform in the specified charge state, or fall back
+        to the peptidoform ion's defined charge state and adduction.
+
+        This method first tries to get the composition of the peptidoform ion with :meth:`composition`
+        and then forwards ``kwargs`` to :meth:`Composition.mass` to compute m/z with full flexibility,
+        but if that fails due to missing modification compositions, this method falls back to directly
+        computing monoisotopic mass and uses the charge state to get the m/z.
+
+        .. warning::
+            If no charge state of any kind is available, this will raise a :py:class:`MissingChargeStateError`.
+
+        Parameters
+        ----------
+        charge : int or :class:`ChargeState`, optional
+            The charge state either as in integer number of protons gained/lost,
+            or a :class:`ChargeState` instance. If not provided, :attr:`charge_state`
+            will be used.
+        **kwargs :
+            Forwarded to :meth:`Composition.mass`
+
+        Returns
+        -------
+        float
+        """
+        charge_state = charge
+        if charge_state is None:
+            charge_state = self.charge_state
+        elif isinstance(charge_state, Integral):
+            charge_state = ChargeState(int(charge_state))
+        elif not isinstance(charge_state, ChargeState):
+            raise TypeError(
+                f"Expected a charge state-like type, got {type(charge_state)}"
+            )
+        if charge_state is None:
+            raise MissingChargeStateError(
+                f"Requested an m/z value without providing a charge state and the peptidoform {self!r} does "
+                "not have a charge state itself."
+            )
+
+        if charge_state and self.charge_state is not None and charge_state != self.charge_state:
+            # Alternatively, try to guess from total charge and adducts
+            all_charge_explained_by_adducts = self.charge_state.is_complete()
+            if not all_charge_explained_by_adducts:
+                warnings.warn(
+                    "Overriding charge state on a ProForma sequence with a charged modification. Only the overriding charge state will be used"
+                )
+        try:
+            composition = self.composition(include_charge=False, ignore_missing=False)
+            charge = charge_state.charge
+            return composition.mass(charge=charge, charge_carrier=charge_state.composition(), carrier_charge=charge, **kwargs)
+        except ProFormaError:
+            charge_carrier_mass, charge = charge_state.for_mz_calculation()
+            return (self.mass + charge_carrier_mass) / abs(charge)
 
     def fragments(self, ion_shift, charge=1, reverse=None, include_labile=True, include_unlocalized=True):
         """
@@ -2423,6 +4039,10 @@ class ProForma(object):
                 reverse = True
             ion_shift = std_ion_comp[ion_shift].mass(absolute=False)
 
+        z = self.charge_state
+        if z and not z.is_complete() and charge != 0 and charge != z:
+            warnings.warn("A localized charge modification was detected. Its charge contribution will be ignored")
+
         n = len(self.sequence)
         masses = _array('d')
 
@@ -2433,7 +4053,7 @@ class ProForma(object):
 
         intervals = self.intervals
         if intervals:
-            intervals = sorted(intervals, key=lambda x: x.start)
+            intervals = sorted(intervals, key=lambda x: x.start, reverse=reverse)
         intervals = deque(intervals)
 
         if not include_labile:
@@ -2470,11 +4090,12 @@ class ProForma(object):
         for i in iterator:
             position = self.sequence[i]
 
-            aa = position[0]
-            try:
-                mass += std_aa_mass[aa]
-            except KeyError:
-                warnings.warn("%r does not have an exact mass" % (aa, ))
+            aa = position[0].upper()
+            if aa != 'X':
+                try:
+                    mass += std_aa_mass[aa]
+                except KeyError:
+                    warnings.warn("%r does not have an exact mass" % (aa, ))
 
             n_term = i == n_term_v
             c_term = i == c_term_v
@@ -2549,3 +4170,663 @@ class ProForma(object):
     @property
     def tags(self):
         return [tag for tags_at in [pos[1] for pos in self if pos[1]] for tag in tags_at]
+
+    def proteoforms(self, include_unmodified: bool = False, include_labile: bool = False, strip: bool = False, deepcopy: bool = False) -> Iterator["ProForma"]:
+        """
+        Generate combinatorial localizations of modifications defined on this ProForma sequence.
+
+        Parameters
+        ----------
+        include_unmodified : :class:`bool`
+            For all non-fixed modifications, include the case where the modification is not included anywhere. This is equivalent to
+            how variable modification rules are applied in search engines. It still respects the number of copies of modifications included
+            in the input. See ``expand_rules``.
+        include_labile : :class:`bool`
+            For all labile modifications, include the case where the modification is localized at every possible location or as
+            a remaining labile modification.
+        strip : :class:`bool`
+            If :const:`True`, the generated peptidoforms will have all modification tags stripped of any extra information,
+            leaving only the bare modification definition.
+        deepcopy : :class:`bool`
+            If :const:`True`, the generated peptidoforms will have all tags and modifications deep-copied.
+            This is necessary if the generated peptidoforms will be modified in-place after generation, but adds overhead if they will be treated as immutable.
+            Defaults to :const:`False`.
+
+        Yields
+        ------
+        :class:`ProForma`
+        """
+        return iter(ProteoformCombinator(self, include_unmodified=include_unmodified, include_labile=include_labile, strip=strip, deepcopy=deepcopy))
+
+    peptidoforms = proteoforms
+
+    def copy(self) -> "ProForma":
+        sequence = []
+        for (aa, tags) in self:
+            if tags:
+                tags = [t.copy() for t in tags]
+            sequence.append((aa, tags))
+        properties = self.properties.copy()
+        for k in [
+            "labile_modifications",
+            "n_term",
+            "c_term",
+            "unlocalized_modifications",
+            "fixed_modifications",
+            "isotopes",
+        ]:
+            properties[k] = [v.copy() for v in properties[k]]
+        properties['names'] = properties['names'].copy()
+        return self.__class__(sequence, properties)
+
+    def composition(self, include_charge: Union[bool, ChargeState]=False, aa_comp=None, ignore_missing=False) -> Composition:
+        '''
+        Calculate the elemental composition of the ProForma sequence.
+
+        Parameters
+        ----------
+        include_charge : bool or :class:`ChargeState`, optional
+            If True, then :attr:`charge_state` will be included in the composition.
+            If a :class:`ChargeState` instance is passed, this charge and adduction
+            will be included instead. Otherwise, composition of the neutral molecule
+            will be returned. Defaults to False.
+        aa_comp : dict, optional
+            A dictionary mapping amino acid symbols to their respective
+            compositions. If not provided, the standard amino acid composition
+            will be used. ``X`` *always* has a mass of 0.0, regardless of this
+            argument.
+        ignore_missing : bool, optional
+            If True, tags with missing composition will be silently ignored. If False (default),
+            a :py:class:`CompositionNotFoundError` will be raised.
+
+            .. note::
+                Amino acids not found in `aa_mass` will result in errors even with `ignore_missing=True`.
+
+        Returns
+        -------
+        Composition
+            :py:class:`Composition` object representing the composition of the ProForma sequence.
+        '''
+        if ignore_missing:
+            def get_comp(tag):
+                try:
+                    return tag.composition or Composition({})
+                except AttributeError:
+                    return Composition({})
+        else:
+            def get_comp(tag):
+                try:
+                    comp = tag.composition
+                except AttributeError as e:
+                    raise CompositionNotFoundError(f'No composition found for tag {tag}') from e
+                if comp is None:
+                    raise CompositionNotFoundError(f'No composition found for tag {tag}')
+                return comp
+
+        comp = Composition()
+        if aa_comp is None:
+            aa_comp = std_aa_comp
+        try:
+            for i, (aa, tags) in enumerate(self.sequence):
+                if aa != 'X':
+                    comp += aa_comp[aa]
+                for tag in tags or []:
+                    if not tag.has_composition():
+                        if isinstance(tag, MassModification) and not ignore_missing:
+                            raise CompositionNotFoundError(f"No composition found for tag {tag}")
+                        continue
+                    comp += get_comp(tag)
+                for rule in self.fixed_modifications:
+                    if rule.is_valid(aa, i == 0, i == len(self.sequence) - 1):
+                        comp += get_comp(rule.modification_tag)
+            for tag in chain(self.labile_modifications, self.unlocalized_modifications,
+                             chain.from_iterable(interval.tags for interval in self.intervals)):
+                comp += get_comp(tag)
+        except KeyError as e:
+            raise CompositionNotFoundError(f'No composition found for amino acid {aa}') from e
+        if self.n_term:
+            comp += get_comp(self.n_term)
+        else:
+            comp['H'] += 1  # Add hydrogen for N-terminus
+        if self.c_term:
+            comp += get_comp(self.c_term)
+        else:
+            comp += Composition({'O': 1, 'H': 1})  # Add -OH for C-terminus
+        if include_charge and self.charge_state:
+            comp += self.charge_state.composition()
+        return comp
+
+
+class GeneratorModificationRuleDirective:
+    """
+    A helper for :class:`ProteoformCombinator` that maps modification rules to sequence locations.
+
+    This type probably shouldn't be created directly.
+    """
+    rule: ModificationRule
+    region: Optional[TaggedInterval] = None
+    colocal_known: bool = False
+    colocal_unknown: bool = False
+    limit: int = 1
+    labile: bool = False
+    token: Optional[ModificationToken] = None
+    strip: bool = False
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return (
+            self.rule == other.rule and
+            self.region == other.region and
+            self.colocal_known == other.colocal_known and
+            self.colocal_unknown == other.colocal_unknown and
+            self.limit == other.limit and
+            self.labile == other.labile
+        )
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(self.token)
+
+    def __init__(self, rule, region=None, colocal_known: bool = False, colocal_unknown: bool = False, limit: int = 1, labile: bool = False, strip: bool = False):
+        self.rule = rule
+        self.region = region
+        self.colocal_known = colocal_known
+        self.colocal_unknown = colocal_unknown
+        self.limit = limit
+        self.labile = labile
+        self.strip = strip
+        self.token = getattr(self.rule.modification_tag, "key", None)
+
+    def create(self) -> TagBase:
+        tag = self.rule.modification_tag.copy()
+        if self.strip:
+            tag.extra.clear()
+        return tag
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.rule}, {self.region}, {self.colocal_known}, {self.colocal_unknown})"
+
+    @staticmethod
+    def _extract_rule_features(tag: TagBase) -> Tuple[List[Any], bool, bool]:
+        targets = []
+        colocal_known = False
+        colocal_unknown = False
+        for extra in tag.extra:
+            if extra.type == TagTypeEnum.position_modifier:
+                targets.append(extra.value)
+            elif extra.type == TagTypeEnum.comkp:
+                colocal_known = True
+            elif extra.type == TagTypeEnum.comup:
+                colocal_unknown = True
+        return targets, colocal_known, colocal_unknown
+
+    def _can_apply_with(self, tags) -> bool:
+        if not tags:
+            return True
+        known = []
+        unknown = []
+        for tag in tags:
+            if isinstance(tag, (ModificationBase, MassModification)):
+                if tag._generated in (ModificationSourceType.Explicit, ModificationSourceType.Constant):
+                    known.append(tag)
+                elif tag._generated == ModificationSourceType.Generated:
+                    unknown.append(tag)
+        total_at = len(known) + len(unknown)
+        can_known = bool((known and self.colocal_known) or not known)
+        can_unknown = bool((unknown and self.colocal_unknown) or not unknown)
+        return ((can_known and can_unknown) or (not can_known and not can_unknown)) and total_at < self.limit
+
+    def find_positions(self, sequence: ProForma) -> List[int]:
+        n = len(sequence) - 1
+        positions = []
+        group_id = self.rule.modification_tag.group_id
+        for i, (aa, tags) in enumerate(sequence):
+            if self.region and not self.region.contains(i):
+                continue
+            elif group_id is not None:
+                if not tags:
+                    continue
+                for tag in tags:
+                    # TODO: Implement combinatoric limits here
+                    if tag.group_id == group_id:
+                        positions.append(i)
+            else:
+                if self.rule.is_not_specific() or self.rule.is_valid(aa, i == 0, i == n):
+                    if self._can_apply_with(tags):
+                        positions.append(i)
+        return positions
+
+    @classmethod
+    @memoize()
+    def from_tagged_modification(cls, tag: TagBase, strip: bool = False) -> "GeneratorModificationRuleDirective":
+        mod = tag.find_modification()
+        if not mod:
+            return
+        elif not mod.group_id:
+            return
+        rule = ModificationRule(tag, [])
+        _targets, colocal_known, colocal_unknown = cls._extract_rule_features(tag)
+        return cls(rule, None, colocal_known, colocal_unknown, tag.limit, strip=strip)
+
+    @classmethod
+    @memoize()
+    def from_unlocalized_rule(cls, tag: TagBase, strip: bool = False) -> "GeneratorModificationRuleDirective":
+        mod = tag.find_modification()
+        if not mod:
+            return
+        targets, colocal_known, colocal_unknown = cls._extract_rule_features(tag)
+        rule = ModificationRule(modification_tag=mod, targets=targets)
+        return cls(rule, None, colocal_known, colocal_unknown, tag.limit, strip=strip)
+
+    @classmethod
+    @memoize()
+    def from_region_rule(cls, region: TaggedInterval, strip: bool = False) -> List['GeneratorModificationRuleDirective']:
+        rules = []
+        for tag in (region.tags or []):
+            mod = tag.find_modification()
+            if not mod:
+                continue
+            targets, colocal_known, colocal_unknown = cls._extract_rule_features(tag)
+            rule = ModificationRule(modification_tag=mod, targets=targets)
+            rules.append(cls(rule, region, colocal_known, colocal_unknown, tag.limit, strip=strip))
+        return rules
+
+    @classmethod
+    @memoize()
+    def from_labile_rule(cls, tag: TagBase, strip: bool = False) -> "GeneratorModificationRuleDirective":
+        mod = tag.find_modification()
+        if not mod:
+            return
+        targets, colocal_known, colocal_unknown = cls._extract_rule_features(tag)
+        targets = [ModificationTarget(v) for v in targets]
+        rule = ModificationRule(modification_tag=mod, targets=targets)
+        return cls(rule, None, colocal_known, colocal_unknown, tag.limit, labile=True, strip=strip)
+
+
+def _coerce_string_to_modification(item, copy: bool = False) -> TagBase:
+    if isinstance(item, TagBase):
+        return item.copy() if copy else item
+    elif isinstance(item, str):
+        if copy:
+            return TagParser(item)()[0]
+        return _coerce_string_to_modification_cached(item)
+    else:
+        raise TypeError(f"Don't know how to coerce {item} of type {type(item)} to a modification")
+
+
+@memoize()
+def _coerce_string_to_modification_cached(item: str) -> TagBase:
+    return TagParser(item)()[0]
+
+
+def peptidoforms(
+    peptide: Union[ProForma, str],
+    variable_modifications: Optional[
+        Union[
+            List[Union[TagBase, str]],
+            dict[Union[TagBase, str], List[Union[str, TagBase]]],
+        ]
+    ] = None,
+    fixed_modifications: Optional[
+        Union[
+            List[Union[TagBase, str]],
+            dict[Union[TagBase, str], List[Union[str, TagBase]]],
+        ]
+    ] = None,
+    include_unmodified: bool = True,
+    include_labile: bool = False,
+    expand_rules: bool = False,
+    strip: bool = False,
+    deepcopy: bool = False,
+) -> Iterator[ProForma]:
+    """
+    Generate the combinatorial cross-product of modifications for ``peptide``, given by
+    a set of variable and fixed modification rules, as in a classical peptide search engine.
+
+    This is similar to :func:`parser.peptidoforms`, but using :class:`ProForma` as the representation.
+    This uses ProForma 2.1's position limiting rules to give the caller greater control over how modifications
+    are applied, if desired.
+
+    Internally, this delegates to :class:`ProteoformCombinator` and would mirror the behavior of embedding all
+    of the modification rules directly in the sequence and calling :meth:`ProForma.proteoforms`.
+
+    Parameters
+    ----------
+    peptide : :class:`ProForma` or :class:`str`
+        The base peptide to modify. If a string is provided, it will be parsed with :meth:`ProForma.parse`.
+        If ``peptide`` itself encodes modification rules or unlocalized modifications of any kind, they **will**
+        also be applied.
+    variable_modifications : :class:`list` of :class:`str` or :class:`TagBase` modification rules, or a :class:`dict`
+        mapping :class:`str` or :class:`TagBase` modifications to a list of :class:`str` or :class:`TagBase` targets
+        The variable modifications that will be combined. If a list is provided, the values are assumed to either
+        be strings encoding a modification tag in ProForma notation or pre-parsed :class:`TagBase` modifications
+        with position limiting rules added with ``|`` separators. If a :class:`dict` is provided, keys are assumed
+        to be :class:`TagBase` modifications, as in the list-case, but the values of those keys are expected to be
+        :class:`TagBase` position limiters like :class:`PositionModifierTag`, or strings that will be coerced as
+        such.
+    fixed_modifications : :class:`list` of :class:`str` or :class:`TagBase` modification rules, or a :class:`dict`
+        mapping :class:`str` or :class:`TagBase` modifications to a list of :class:`str` or :class:`TagBase` targets
+        The fixed modifications that will be applied to all combinations, even the unmodified version if ``include_unmodified``
+        is specified. See ``variable_modifications`` for an explanation of type coercion.
+    include_unmodified : :class:`bool`
+        For all non-fixed modifications, include the case where the modification is not included anywhere.
+    include_labile : :class:`bool`
+        For all labile modifications, include the case where the modification is localized at every possible location.
+
+        .. note ::
+            Along with all possible localizations of the labile modifications, the output will contain peptidoform(s)
+            where it is kept as a labile modification without localization.
+
+    expand_rules : :class:`bool`
+        For all variable modifications, allow any number of copies of the modification to be included in the result.
+        This mirrors the expected behavior of many search engines' variable modification rules, though it is not strictly
+        how ProForma's rules work. This forces :attr:`include_unmodified` to be :const:`True`.
+    strip : :class:`bool`
+        If :const:`True`, the generated peptidoforms will have all modification tags stripped of any extra information,
+        leaving only the bare modification definition.
+    deepcopy : :class:`bool`
+        If :const:`True`, the generated peptidoforms will be deep-copied from the original before modifications are applied.
+        This is more expensive, but allows for the generated peptidoforms to be modified independently of the original.
+        If :const:`False`, modifications will be applied in-place on the original and yielded as-is, which is more efficient
+        but means that modifying the generated peptidoforms will have unpredictable side effects.
+
+    Yields
+    ------
+    :class:`ProForma`
+
+    Examples
+    --------
+    This example shows how to use the :class:`dict`-based modification rule approach.
+
+    >>> from pyteomics import proforma
+    >>> isos = proforma.peptidoforms(
+    ... "EMEVTESPEK",
+    ... variable_modifications={"Oxidation": ['M']})
+    >>> for i in isos:
+    ...     print(i)
+    EMEVTESPEK
+    EM[Oxidation|Position:M]EVTESPEK
+
+    Using parsed objects to get the equivalent behavior, and avoids needing to re-parse the rules
+    on every invocation.
+
+    >>> from pyteomics import proforma
+    >>> pforms = proforma.peptidoforms(
+    ... ProForma.parse("EMEVTESPEK"),
+    ... variable_modifications={proforma.GenericModification("Oxidation"): [proforma.PositionModifierTag('M')]})
+    >>> for i in pforms:
+    ...     print(i)
+    EMEVTESPEK
+    EM[Oxidation|Position:M]EVTESPEK
+
+    To expand rules so that they might apply to as many positions as are available, as is often done when
+    build a combinatorial search space, use the ``expand_rules`` argument.
+    >>> from pyteomics import proforma
+    >>> isos = proforma.peptidoforms(
+    ... "EMEVTESPEK",
+    ... variable_modifications={"Oxidation": ['M'], "Phospho": ['S', 'T']}, expand_rules=True)
+    >>> for i in isos:
+    ...     print(i)
+    EM[Oxidation|Position:M]EVT[Phospho|Position:T]S[Phospho|Position:S]ES[Phospho|Position:S]PEK
+    EMEVT[Phospho|Position:T]S[Phospho|Position:S]ES[Phospho|Position:S]PEK
+    EM[Oxidation|Position:M]EVTS[Phospho|Position:S]ES[Phospho|Position:S]PEK
+    EMEVTS[Phospho|Position:S]ES[Phospho|Position:S]PEK
+    EM[Oxidation|Position:M]EVT[Phospho|Position:T]S[Phospho|Position:S]ESPEK
+    EMEVT[Phospho|Position:T]S[Phospho|Position:S]ESPEK
+    EM[Oxidation|Position:M]EVTS[Phospho|Position:S]ESPEK
+    EMEVTS[Phospho|Position:S]ESPEK
+    EM[Oxidation|Position:M]EVT[Phospho|Position:T]SES[Phospho|Position:S]PEK
+    EMEVT[Phospho|Position:T]SES[Phospho|Position:S]PEK
+    EM[Oxidation|Position:M]EVTSES[Phospho|Position:S]PEK
+    EMEVTSES[Phospho|Position:S]PEK
+    EM[Oxidation|Position:M]EVT[Phospho|Position:T]SESPEK
+    EMEVT[Phospho|Position:T]SESPEK
+    EM[Oxidation|Position:M]EVTSESPEK
+    EMEVTSESPEK
+    """
+    if isinstance(peptide, str):
+        peptide = ProForma.parse(peptide)
+    if expand_rules:
+        include_unmodified = True
+    template = peptide.copy()
+    seen = set()
+    if variable_modifications:
+        if isinstance(variable_modifications, list):
+            extra_rules = []
+            for rule in map(partial(_coerce_string_to_modification, copy=deepcopy), variable_modifications):
+                if expand_rules:
+                    parsed_rule = GeneratorModificationRuleDirective.from_unlocalized_rule(
+                        rule, strip=strip
+                    )
+                    extra_rules.extend([rule] * len(parsed_rule.find_positions(template) * parsed_rule.limit))
+                else:
+                    extra_rules.append(rule)
+            template.unlocalized_modifications.extend(extra_rules)
+        elif isinstance(variable_modifications, dict):
+            extra_rules = []
+            for tag, targets in variable_modifications.items():
+                seen.clear()
+                tag = _coerce_string_to_modification(tag, copy=deepcopy)
+                for target in targets:
+                    if isinstance(target, str):
+                        target = PositionModifierTag(target)
+                    if target in seen:
+                        continue
+                    seen.add(target)
+                    tag = tag | target
+                if expand_rules:
+                    rule = GeneratorModificationRuleDirective.from_unlocalized_rule(tag, strip=strip)
+                    n = len(rule.find_positions(peptide)) * rule.limit
+                    extra_rules.extend([tag] * n)
+                else:
+                    extra_rules.append(tag)
+            template.unlocalized_modifications.extend(extra_rules)
+        else:
+            raise TypeError(f"Expected variable_modifications to be a list or a dict, got {type(variable_modifications)}")
+    if fixed_modifications:
+        if isinstance(fixed_modifications, list):
+            template.fixed_modifications.extend(map(partial(_coerce_string_to_modification, copy=deepcopy), fixed_modifications))
+        elif isinstance(fixed_modifications, dict):
+            extra_rules = []
+            for tag, targets in fixed_modifications.items():
+                seen.clear()
+                for target in targets:
+                    if isinstance(target, str):
+                        target = PositionModifierTag(target)
+                    if target in seen:
+                        continue
+                    seen.add(target)
+                    tag = _coerce_string_to_modification(tag, copy=deepcopy)
+                    extra_rules.append(tag | target)
+            template.fixed_modifications.extend(extra_rules)
+        else:
+            raise TypeError(
+                f"Expected fixed_modifications to be a list or a dict, got {type(fixed_modifications)}"
+            )
+
+    return template.proteoforms(
+        include_unmodified=include_unmodified,
+        include_labile=include_labile,
+        strip=strip,
+        deepcopy=deepcopy,
+    )
+
+
+proteoforms = peptidoforms
+
+
+class ProteoformCombinator:
+    """
+    Generate combinations of modification (co)localizations for
+    modifications that aren't at a fixed position specified in
+    the original sequence.
+
+    Attributes
+    ----------
+    template: :class:`ProForma`
+        The template sequence to apply any combination of rules to
+    variable_rules: list[:class:`GeneratorModificationRuleDirective`]
+        The rules to apply in combinations to the template sequence.
+    include_unmodified : :class:`bool`
+        For all non-fixed modifications, include the case where the modification is not included anywhere. This is equivalent to
+        how variable modification rules are applied in search engines. It still respects the number of copies of modifications included
+        in the input. See :attr:`expand_rules`.
+    include_labile : :class:`bool`
+        For all labile modifications, include the case where the modification is localized at every possible location.
+
+        .. note ::
+            Along with all possible localizations of the labile modifications, the output will contain peptidoform(s)
+            where it is kept as a labile modification without localization.
+
+    strip : :class:`bool`
+        If :const:`True`, the generated peptidoforms will have all modification tags stripped of any extra information,
+        leaving only the bare modification definition.
+    deepcopy : :class:`bool`
+        If :const:`True`, the combinator will deepcopy the template for every generated proteoform, which is safer but more computationally expensive.
+        If :const:`False`, the combinator will attempt to reuse the same template and apply modifications in-place, which is faster but
+        may lead to unintended side effects if the generated proteoforms are modified after generation. Defaults to :const:`False`.
+    """
+    template: ProForma
+    include_unmodified: bool
+    include_labile: bool
+    variable_rules: List[GeneratorModificationRuleDirective]
+
+    def __init__(self, base_proteoform: ProForma, include_unmodified: bool=False, include_labile: bool=False, strip: bool=False, deepcopy: bool=False):
+        self.deepcopy = deepcopy
+        if deepcopy:
+            self.template = base_proteoform.copy()
+        else:
+            self.template = ProForma(base_proteoform.sequence.copy(), base_proteoform.properties.copy())
+        self.include_unmodified = include_unmodified
+        self.include_labile = include_labile
+        self.strip = strip
+        self.variable_rules = []
+        self._extract_rules()
+        self._apply_fixed_modifications()
+        self._iter = self.generate()
+
+    def _apply_fixed_modifications(self):
+        for c in self.template.fixed_modifications:
+            rule = GeneratorModificationRuleDirective(c)
+            positions = rule.find_positions(self.template)
+            for i in positions:
+                (aa, tags) = self.template[i]
+                if not tags:
+                    tags = []
+                tag = rule.create()
+                if isinstance(tag, (MassModification, ModificationBase)):
+                    tag._generated = ModificationSourceType.Constant
+                tags.append(tag)
+                self.template[i] = (aa, tags)
+        self.template.fixed_modifications.clear()
+
+    def _extract_rules(self) -> None:
+        rules = []
+        remains = []
+        for iv in self.template.intervals:
+            block = GeneratorModificationRuleDirective.from_region_rule(iv)
+            if block:
+                rules.extend(block)
+                iv = iv.copy()
+                iv.tags = [t for t in iv.tags if not t.is_modification()]
+                remains.append(iv)
+            else:
+                remains.append(iv)
+        self.template.intervals = remains
+
+        remains = []
+        for rule in self.template.unlocalized_modifications:
+            rule_ = GeneratorModificationRuleDirective.from_unlocalized_rule(rule, strip=self.strip)
+            if rule_:
+                rules.append(rule_)
+            else:
+                remains.append(rule)
+        self.template.unlocalized_modifications = remains
+
+        for (_, tags) in self.template:
+            if tags:
+                tmp = []
+                for tag in tags:
+                    if tag.group_id and tag.is_modification():
+                        rule_ = GeneratorModificationRuleDirective.from_tagged_modification(tag, strip=self.strip)
+                        if rule_:
+                            rules.append(rule_)
+                        tmp.append(PositionLabelTag(group_id=tag.group_id))
+                    else:
+                        tmp.append(tag)
+                tags[:] = tmp
+
+        if self.include_labile:
+            remains = []
+            for rule in self.template.labile_modifications:
+                rule_ = GeneratorModificationRuleDirective.from_labile_rule(rule, strip=self.strip)
+                if rule_:
+                    rules.append(rule_)
+                else:
+                    remains.append(rule)
+            self.template.labile_modifications = remains
+
+        self.variable_rules = rules
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return next(self._iter)
+
+    def _build_position_map(self) -> List[List[Optional[int]]]:
+        position_choices = []
+        for rule in self.variable_rules:
+            positions_for = rule.find_positions(self.template)
+            if rule.labile or self.include_unmodified or not positions_for:
+                positions_for = [None] + positions_for
+            position_choices.append(positions_for)
+        return position_choices
+
+    def _build_modification_iter(self) -> Iterator[Iterator[Tuple[Optional[int], GeneratorModificationRuleDirective]]]:
+        position_choices = self._build_position_map()
+        return map(lambda pos: zip(pos, self.variable_rules), itertools.product(*position_choices))
+
+    def generate(self):
+        seen = set()
+        for slots in self._build_modification_iter():
+            state = Counter()
+            if self.deepcopy:
+                template = self.template.copy()
+            else:
+                template = ProForma(self.template.sequence.copy(), self.template.properties.copy())
+            valid = True
+            labile_remaining = []
+
+            for idx, rule in slots:
+                if rule is None:
+                    continue
+                if idx is None:
+                    if rule.labile:
+                        state[((None, rule.token))] += 1
+                        labile_remaining.append(rule.create())
+                    continue
+                if not rule._can_apply_with(template.sequence[idx][1]):
+                    valid = False
+                    break
+                (aa, tags) = template[idx]
+                if not tags:
+                    tags = []
+                tag = rule.create()
+                tag._generated = ModificationSourceType.Generated
+                tags.append(tag)
+                template[idx] = (aa, tags)
+                state[((idx, rule.token))] += 1
+
+            if valid:
+                state = frozenset(state.items())
+                if state in seen:
+                    continue
+                else:
+                    seen.add(state)
+                if labile_remaining:
+                    template.labile_modifications = labile_remaining
+                yield template

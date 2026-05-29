@@ -7,5 +7,6 @@ class ServicesConfig(AppConfig):
     label = 'services'
     verbose_name = _('Services')
 
-    def ready(self):
-        pass
+    def ready(self) -> None:
+        # Connect Services
+        from allianceauth.services import signals  # noqa: F401

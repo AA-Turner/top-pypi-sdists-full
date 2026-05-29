@@ -58,6 +58,16 @@ class DocstringParser:
     # Marker that indicates the start of the attribute table
     TABLE_MARKER = ':widths: auto'
 
+    # Optional dataflow contract markers — captured value must be one of
+    # the IOType enum (none|file|dataframe|recordset|iterator|any).
+    # Example docstring lines:
+    #   :consumes: file
+    #   :produces: dataframe
+    IO_MARKER_PATTERN = re.compile(
+        r'^\s*:(consumes|produces):\s*(none|file|dataframe|recordset|iterator|any)\s*$',
+        re.MULTILINE | re.IGNORECASE,
+    )
+
     def parse(self, docstring: str) -> Optional[ComponentDoc]:
         """Parse a docstring into ComponentDoc.
 
@@ -79,13 +89,36 @@ class DocstringParser:
         description = self._extract_description(docstring)
         attributes = self._parse_attributes(docstring)
         examples = self._extract_examples(docstring)
+        io_overrides = self._extract_io_markers(docstring)
 
-        return ComponentDoc(
+        doc = ComponentDoc(
             name=name,
             description=description,
             attributes=attributes,
-            examples=examples
+            examples=examples,
         )
+        # The cascade resolution (override → category default → "any") lives
+        # in the generator; here we only carry the value the docstring
+        # declares so downstream code can tell "no override" from "explicit
+        # 'any'".
+        for field, value in io_overrides.items():
+            setattr(doc, field, value)
+        return doc
+
+    def _extract_io_markers(self, docstring: str) -> dict:
+        """Find ``:consumes:`` / ``:produces:`` markers in the docstring.
+
+        Returns:
+            Dict with keys ``consumes`` and/or ``produces`` set to the
+            normalised lower-case enum value. Missing markers are omitted so
+            the caller can apply a fallback (category default).
+        """
+        overrides: dict[str, str] = {}
+        for match in self.IO_MARKER_PATTERN.finditer(docstring):
+            field = match.group(1).lower()
+            value = match.group(2).lower()
+            overrides[field] = value
+        return overrides
 
     def _extract_name(self, docstring: str) -> str:
         """Extract the component name from the first non-empty line.

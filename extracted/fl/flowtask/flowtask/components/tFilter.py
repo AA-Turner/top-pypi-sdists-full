@@ -4,10 +4,7 @@ import re
 import pandas as pd
 import numpy as np
 from querysource.types.dt import filters as qsffunctions
-from querysource.queries.multi.operators.filter.flt import (
-    create_filter,
-    valid_operators
-)
+from querysource.queries.multi.operators.filter.flt import create_filter
 from .FilterRows import functions as dffunctions
 # create_filter
 from ..exceptions import (
@@ -15,7 +12,7 @@ from ..exceptions import (
     ComponentError,
     DataNotFound
 )
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class tFilter(FlowComponent):

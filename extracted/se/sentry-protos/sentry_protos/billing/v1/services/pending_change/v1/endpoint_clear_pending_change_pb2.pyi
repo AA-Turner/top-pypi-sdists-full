@@ -20,13 +20,22 @@ class ClearPendingChangeRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ORGANIZATION_ID_FIELD_NUMBER: builtins.int
+    ON_DEMAND_ONLY_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
+    on_demand_only: builtins.bool
+    """If true, only clear the pending PAYG-budget overrides (the payg_budget
+    field on each PendingUserConfig) from the pending change, leaving
+    package_id, month_interval, and pending reservations intact. If this
+    leaves the pending change with no remaining changes, it is removed
+    entirely.
+    """
     def __init__(
         self,
         *,
         organization_id: builtins.int = ...,
+        on_demand_only: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["organization_id", b"organization_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["on_demand_only", b"on_demand_only", "organization_id", b"organization_id"]) -> None: ...
 
 global___ClearPendingChangeRequest = ClearPendingChangeRequest
 

@@ -193,7 +193,7 @@ class GemmBase:
             if const_expr(aux_out_ctx is not None):
                 tRS_rAuxOut_out = self.epi_convert_aux_out(
                     tRS_rAuxOut,
-                    epi_loop_tensors["sr_seed"],
+                    epi_loop_tensors.get("sr_seed"),
                     tidx,
                     tile_coord_mnkl,
                     num_prev_subtiles,
@@ -211,7 +211,9 @@ class GemmBase:
                 tRS_sD_cur = tRS_sD[None, None, None, epi_buffer]
                 if const_expr(use_stochastic_rounding):
                     seed = epilogue_sr_seed(
-                        epi_loop_tensors["sr_seed"], tile_coord_mnkl, num_prev_subtiles + epi_idx
+                        epi_loop_tensors.get("sr_seed"),
+                        tile_coord_mnkl,
+                        num_prev_subtiles + epi_idx,
                     )
                     copy_utils.sr_cvt_copy(tiled_copy_r2s, tRS_rD, tRS_sD_cur, seed, tidx)
                 else:
@@ -678,7 +680,7 @@ class GemmTmaBase(GemmBase):
         op = {
             "load": cpasync.CopyBulkTensorTileG2SOp(),
             "store": cpasync.CopyBulkTensorTileS2GOp(),
-            "add": cpasync.CopyReduceBulkTensorTileS2GOp(cute.ReductionOp.ADD),
+            "add": cpasync.CopyReduceBulkTensorTileS2GOp(cpasync.ReductionOp.ADD),
         }[op_type]
         tma_atom_d, tma_tensor_d = cpasync.make_tiled_tma_atom(
             op, tensor_d, epi_smem_layout, d_cta_v_layout

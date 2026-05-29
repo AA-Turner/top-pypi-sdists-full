@@ -12,7 +12,7 @@ from asyncdb.models import Model
 from dateutil.parser import parse as _dateutil_parse
 from navconfig.logging import logging
 from ..exceptions import FileError, ComponentError, DataNotFound
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.qs import QSSupport
 from ..utils.transformations import (
     is_camelcase,

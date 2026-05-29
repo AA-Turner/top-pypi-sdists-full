@@ -273,6 +273,62 @@ class GpuCameraMap:
             del mapping[camera_id]
             self._write_mapping(mapping)
 
+    def check_file_recreated(self) -> bool:
+        """Return True if the SHM file's on-disk inode no longer matches our open fd.
+
+        When the SHM file is unlinked + recreated (SG restart with external cleanup,
+        operator `rm -f /dev/shm/gpu_camera_map`, or `docker rm` on the SG container),
+        the open fd keeps pointing at the deleted inode while a new inode appears at
+        the same path. Comparing os.fstat(fd).st_ino vs os.stat(path).st_ino detects
+        this. Mirrors CudaShmRingBuffer.check_file_recreated().
+
+        Returns:
+            True if file was recreated (stale) or missing, False if still the same file.
+        """
+        if self._fd is None:
+            return False
+        try:
+            our_inode = os.fstat(self._fd).st_ino
+            disk_inode = os.stat(self.SHM_PATH).st_ino
+            return our_inode != disk_inode
+        except FileNotFoundError:
+            return True
+        except Exception:
+            return False
+
+    def reconnect(self) -> bool:
+        """Close the stale mmap+fd and re-open the current SHM file by path.
+
+        Idempotent: safe to call even when not connected. Returns True on success,
+        False when the file is missing (caller should retry later).
+        """
+        self.close()
+        return self.connect()
+
+    def _ensure_fresh(self) -> None:
+        """Read-path hook: reconnect transparently if the file was recreated.
+
+        Consumer-only. Producers own the file's lifecycle and should not be
+        silently re-attached to a stranger's inode. Cheap (~1 stat syscall);
+        called by get_all_mappings() so consumers self-heal on the next read
+        after an SG restart, without needing external watchdog intervention.
+
+        Two recovery paths:
+          - we have an open fd but the inode changed -> close + reopen
+          - we have no fd (initial connect failed, or a prior reconnect lost it
+            because the file was momentarily missing) and the file now exists
+            -> connect()
+        """
+        if self.is_producer:
+            return
+        if self._fd is not None:
+            if self.check_file_recreated():
+                logger.warning(f"GpuCameraMap: SHM file recreated at {self.SHM_PATH}, reconnecting")
+                self.reconnect()
+        elif os.path.exists(self.SHM_PATH):
+            logger.info(f"GpuCameraMap: SHM file now available at {self.SHM_PATH}, connecting")
+            self.connect()
+
     def get_gpu_id(self, camera_id: str) -> Optional[int]:
         """Get GPU ID for a camera (consumer).
 
@@ -291,6 +347,7 @@ class GpuCameraMap:
         Returns:
             Dict of camera_id -> gpu_id
         """
+        self._ensure_fresh()
         if not self._initialized or self._mmap is None:
             return {}
 

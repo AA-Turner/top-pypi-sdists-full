@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llm-anthropic
-Version: 0.25
+Version: 0.25.1
 Summary: LLM access to models by Anthropic, including the Claude series
 Author: Simon Willison
 License-Expression: Apache-2.0
@@ -61,7 +61,7 @@ Run `llm models` to list the models, and `llm models --options` to include a lis
 
 Run prompts like this:
 ```bash
-llm -m claude-opus-4.7 'Fun facts about walruses'
+llm -m claude-opus-4.8 'Fun facts about walruses'
 llm -m claude-sonnet-4.6 'Fun facts about pelicans'
 llm -m claude-haiku-4.5 'Fun facts about cormorants'
 ```
@@ -91,6 +91,13 @@ Example output:
 Newer models support web search for real-time information:
 ```bash
 llm -m claude-3.5-sonnet -o web_search 1 'What is the current weather in San Francisco?'
+```
+
+## Fast mode
+
+Some models support [fast mode](https://platform.claude.com/docs/en/build-with-claude/fast-mode) for lower latency responses. Enable it with the `-o fast 1` option:
+```bash
+llm -m claude-opus-4.8 -o fast 1 'Fun facts about walruses'
 ```
 
 ## Usage from Python
@@ -206,6 +213,10 @@ cog.out("".join(output))
 - **cache**: `boolean`
 
     Use Anthropic prompt cache for any attachments or fragments
+
+- **fast**: `boolean`
+
+    Use fast mode for lower latency responses: https://platform.claude.com/docs/en/build-with-claude/fast-mode
 
 - **web_search**: `boolean`
 

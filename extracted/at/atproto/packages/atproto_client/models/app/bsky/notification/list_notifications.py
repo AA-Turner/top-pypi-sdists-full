@@ -1,8 +1,8 @@
-##################################################################
+#######################################################################
 # THIS IS THE AUTO-GENERATED CODE. DON'T EDIT IT BY HANDS!
-# Copyright (C) 2024 Ilya (Marshal) <https://github.com/MarshalX>.
+# Copyright (C) 2023-2026 Ilya (Marshal) <https://github.com/MarshalX>.
 # This file is part of Python atproto SDK. Licenced under MIT.
-##################################################################
+#######################################################################
 
 
 import typing as t
@@ -69,6 +69,7 @@ class Notification(base.ModelBase):
         t.Literal['like-via-repost'],
         t.Literal['repost-via-repost'],
         t.Literal['subscribed-post'],
+        t.Literal['contact-match'],
         str,
     ]  #: The reason why this notification was delivered - e.g. your post was liked, or you received a new follower.
     record: 'UnknownType'  #: Record.

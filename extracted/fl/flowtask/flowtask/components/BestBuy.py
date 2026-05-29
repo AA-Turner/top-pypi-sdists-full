@@ -30,7 +30,7 @@ from ..exceptions import (
     NotSupported,
     ConfigError
 )
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces import HTTPService, SeleniumService
 from ..interfaces.http import ua
 
@@ -149,9 +149,11 @@ class BestBuy(FlowComponent, SeleniumService, HTTPService):
             self._logger.info(
                 f"Storage enabled. Data will be saved in: {self.storage_path}"
             )
-        # Always use proxies:
-        self.use_proxy: bool = True
-        self._free_proxy: bool = False
+        # Proxy is opt-in via YAML (`use_proxy: true`). Datacenter/residential
+        # proxies (Decodo, Oxylabs pr.*) are hard-blocked by Akamai on
+        # bestbuy.com, so default to direct connection.
+        self.use_proxy: bool = kwargs.get('use_proxy', False)
+        self._free_proxy: bool = kwargs.get('free_proxy', False)
         ctt_list: list = [
             "f809c975d614934754e4f615db22447f"
         ]
@@ -174,7 +176,13 @@ class BestBuy(FlowComponent, SeleniumService, HTTPService):
             "User-Agent": random.choice(ua),
             **self.headers
         }
-        self.semaphore = asyncio.Semaphore(10)
+        # Cap concurrent storeAvailability requests so the Oxylabs gateway
+        # doesn't return 522 from a single residential exit IP under load.
+        # Each request rotates to a fresh sticky session, so the bottleneck
+        # is gateway capacity rather than per-IP load — 12 is safe and gives
+        # roughly 3x throughput over the original semaphore=10 (which was
+        # bottlenecked by 403s, not network capacity).
+        self.semaphore = asyncio.Semaphore(kwargs.get('concurrency', 12))
         # Selenium driver is not thread-safe: serialize all execute_async_script calls
         self._selenium_semaphore = asyncio.Semaphore(1)
 
@@ -862,119 +870,193 @@ class BestBuy(FlowComponent, SeleniumService, HTTPService):
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
 
-    async def _fetch_store_availability(self, payload: dict, sku: str, zipcode: str) -> Optional[dict]:
-        """Fetch storeAvailability via Selenium browser fetch (same session/IP as cookie origin).
+    async def _fetch_store_availability(self, sku: str, store_id: str, zipcode: str) -> Optional[dict]:
+        """Fetch fulfillment options via the GraphQL endpoint that BestBuy's
+        new PDP uses (`/gateway/graphql/fulfillment`).
 
-        Falls back to HTTPX if the driver is unavailable or the browser fetch fails.
-        Using the browser avoids Akamai Bot Manager rejecting requests made from a
-        different network context (mismatched _abck cookie score).
+        The legacy REST endpoint (`/productfulfillment/c/api/2.0/storeAvailability`)
+        returns sanitized "SOLD_OUT" responses to every automated client —
+        the new PDP UI calls the GraphQL endpoint instead and it returns the
+        real per-store availability data we need.
+
+        Requests go through a per-call Oxylabs US sticky session so each
+        request lands on a fresh US residential IP and we avoid 522s from
+        overloading a single exit IP.
         """
-        driver = getattr(self, '_driver', None)
-        if driver is not None:
-            try:
-                async with self._selenium_semaphore:
-                    result = await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        self._selenium_fetch_availability,
-                        driver,
-                        payload,
-                    )
-                if result is not None:
-                    self._num_iterations += 1
-                    return result
-                self._logger.debug(
-                    f"Selenium fetch returned None for sku={sku}, falling back to HTTPX."
-                )
-            except Exception as exc:
-                self._logger.warning(
-                    f"Selenium fetch failed for sku={sku}: {exc}. Falling back to HTTPX."
-                )
+        import urllib.parse
+        import uuid
 
-        # HTTPX fallback — uses same Decodo exit IP as Selenium session
-        _proxy_url = getattr(self, '_current_proxy_url', None)
+        variables = {
+            "fulfillmentOptionsInput": {
+                "sku": sku,
+                "shipping": {"destinationZipCode": zipcode},
+                "inStorePickup": {"storeId": store_id},
+                "buttonState": {
+                    "storeId": store_id,
+                    "destinationZipCode": zipcode,
+                    "context": "PDP",
+                    "fulfillmentOption": "PICKUP",
+                },
+            }
+        }
+        encoded = urllib.parse.quote(json.dumps(variables, separators=(",", ":")))
+        url = f"https://www.bestbuy.com/gateway/graphql/fulfillment?variables={encoded}"
+
         cookies = httpx.Cookies()
         for key, value in self.cookies.items():
+            if key == '_abck' and value.endswith('~-1'):
+                continue
             cookies.set(key, value, domain='.bestbuy.com', path='/')
-        try:
-            result = await self.api_post(
-                url="https://www.bestbuy.com/productfulfillment/c/api/2.0/storeAvailability",
-                cookies=cookies,
-                payload=payload,
-                proxy_url=_proxy_url,
-            )
-            self._num_iterations += 1
-            return result
-        except (httpx.TimeoutException, httpx.HTTPStatusError, httpx.HTTPError) as ex:
-            status = getattr(getattr(ex, 'response', None), 'status_code', None)
-            if status == 403:
-                self._logger.warning(
-                    f"HTTPX fallback 403 for sku={sku} at zipcode={zipcode}, refreshing cookies."
-                )
-                try:
-                    await self._ensure_cookies(force_refresh=True)
-                    refreshed = httpx.Cookies()
-                    for key, value in self.cookies.items():
-                        refreshed.set(key, value, domain='.bestbuy.com', path='/')
-                    result = await self.api_post(
-                        url="https://www.bestbuy.com/productfulfillment/c/api/2.0/storeAvailability",
-                        cookies=refreshed,
-                        payload=payload,
-                        proxy_url=_proxy_url,
-                    )
+
+        api_headers = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                          "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+            "accept": "*/*",
+            "accept-language": "en-US,en;q=0.9",
+            "referer": f"https://www.bestbuy.com/product/x/{sku}",
+            "x-client-id": "pdp-web",
+            "x-page-request-id": str(uuid.uuid4()),
+            "x-requested-for-operation-name": "PageLoadAnalyticsData_Init_Pdp",
+            "sec-ch-ua": '"Chromium";v="148", "Google Chrome";v="148", "Not?A_Brand";v="99"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Linux"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "priority": "u=1, i",
+        }
+
+        for attempt in (1, 2, 3):
+            proxy_url = self._build_oxylabs_us_proxy_url() or \
+                getattr(self, '_current_proxy_url', None)
+            try:
+                async with httpx.AsyncClient(
+                    proxy=proxy_url,
+                    cookies=cookies,
+                    headers=api_headers,
+                    timeout=httpx.Timeout(connect=10.0, read=20.0, write=10.0, pool=20.0),
+                    verify=False,
+                    follow_redirects=True,
+                ) as client:
+                    r = await client.get(url)
+                if r.status_code == 200:
                     self._num_iterations += 1
-                    return result
-                except Exception as rex:
-                    self._logger.warning(f"HTTPX retry after 403 failed: {rex}")
-            else:
-                self._logger.warning(f"HTTPX fallback failed for sku={sku}: {ex}")
-        except Exception as ex:
-            self._logger.error(f"HTTPX fallback error for sku={sku}: {ex}")
+                    return r.json()
+                if r.status_code in (522, 502, 503, 504) and attempt < 3:
+                    await asyncio.sleep(0.5 * attempt)
+                    continue
+                if r.status_code == 403 and attempt < 3:
+                    self._logger.warning(
+                        f"HTTPX 403 for sku={sku} at store={store_id}, "
+                        "refreshing cookies via HTTPX warm-up."
+                    )
+                    await self._ensure_cookies_httpx(force_refresh=True)
+                    cookies = httpx.Cookies()
+                    for key, value in self.cookies.items():
+                        if key == '_abck' and value.endswith('~-1'):
+                            continue
+                        cookies.set(key, value, domain='.bestbuy.com', path='/')
+                    continue
+                self._logger.warning(
+                    f"GraphQL fulfillment request failed for sku={sku}: HTTP {r.status_code}"
+                )
+                return None
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout,
+                    httpx.RemoteProtocolError) as ex:
+                if attempt < 3:
+                    await asyncio.sleep(0.5 * attempt)
+                    continue
+                self._logger.warning(
+                    f"GraphQL fulfillment network error for sku={sku} after {attempt} tries: {ex}"
+                )
+                return None
+            except Exception as ex:
+                self._logger.warning(
+                    f"GraphQL fulfillment request error for sku={sku}: {ex}"
+                )
+                return None
         return None
 
-    def _selenium_fetch_availability(self, driver, payload: dict) -> Optional[dict]:
-        """Synchronous: run a fetch() inside the Selenium browser for storeAvailability.
+    def _build_oxylabs_us_proxy_url(self) -> Optional[str]:
+        """Build an Oxylabs Residential URL pinned to a US sticky session.
 
-        Executes in the browser's JS context so the request shares the browser session,
-        IP address, and a fully-initialized Akamai _abck cookie.
-        Timeout is 25 s (script timeout).
+        Selenium's --proxy-server flag silently drops in-URL auth credentials,
+        which routes traffic through Oxylabs' default global pool (Bolivia,
+        Brazil, etc.) — Akamai blocks those on bestbuy.com. HTTPX honours the
+        auth, so we build the canonical customer-USER-cc-US-sessid-N format
+        ourselves and use it for every BestBuy request.
         """
-        script = """
-        const payload = arguments[0];
-        const callback = arguments[1];
-        fetch(
-            'https://www.bestbuy.com/productfulfillment/c/api/2.0/storeAvailability',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify(payload)
-            }
+        from ..conf import OXYLABS_USERNAME, OXYLABS_PASSWORD
+        if not OXYLABS_USERNAME or not OXYLABS_PASSWORD:
+            return None
+        session_id = str(random.randint(100000, 999999))
+        user = f"customer-{OXYLABS_USERNAME}-cc-US-sessid-{session_id}"
+        return f"http://{user}:{OXYLABS_PASSWORD}@pr.oxylabs.io:7777"
+
+    async def _ensure_cookies_httpx(self, force_refresh: bool = False) -> None:
+        """Warm up bestbuy.com cookies via HTTPX through an Oxylabs US session.
+
+        Replaces the Selenium-based cookie acquisition for the availability
+        flow — Selenium hits non-US exit IPs (auth drop) and gets Akamai
+        Access-Denied pages, while HTTPX on the same US session loads the
+        home page cleanly and shares cookies with subsequent API calls.
+        """
+        if self.cookies and not force_refresh:
+            return
+
+        proxy_url = self._build_oxylabs_us_proxy_url()
+        if not proxy_url:
+            raise ComponentError(
+                "BestBuy: OXYLABS_USERNAME/OXYLABS_PASSWORD not configured; "
+                "cannot warm up cookies via HTTPX."
+            )
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/148.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                      "image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
+
+        self._logger.info(
+            "BestBuy: warming up cookies via HTTPX through Oxylabs US session."
         )
-        .then(function(r) {
-            if (!r.ok) { callback({'__status': r.status}); return; }
-            return r.json();
-        })
-        .then(function(data) { callback(data || null); })
-        .catch(function(e) { callback({'__error': String(e)}); });
-        """
-        original_timeout = driver.timeouts.script
         try:
-            driver.set_script_timeout(25)
-            result = driver.execute_async_script(script, payload)
-        finally:
-            driver.set_script_timeout(original_timeout)
+            async with httpx.AsyncClient(
+                proxy=proxy_url,
+                verify=False,
+                timeout=30,
+                follow_redirects=True,
+                headers=headers,
+            ) as client:
+                r = await client.get("https://www.bestbuy.com/")
+                if r.status_code != 200 or "Access Denied" in r.text:
+                    raise ComponentError(
+                        f"BestBuy: cookie warm-up failed "
+                        f"(HTTP {r.status_code}, body={len(r.text)} bytes)"
+                    )
+                self.cookies = {c.name: c.value for c in client.cookies.jar}
+        except Exception as exc:
+            raise ComponentError(
+                f"BestBuy: HTTPX warm-up error: {exc}"
+            ) from exc
 
-        if isinstance(result, dict):
-            if '__error' in result:
-                self._logger.warning(f"Browser fetch JS error: {result['__error']}")
-                return None
-            if '__status' in result:
-                self._logger.warning(f"Browser fetch HTTP {result['__status']} for storeAvailability")
-                return None
-        return result
+        if not self.cookies:
+            raise ComponentError(
+                "BestBuy: warm-up returned no cookies; aborting."
+            )
+
+        # Reuse the same proxy URL for all subsequent storeAvailability calls
+        # so cookies and API requests share the same US exit IP.
+        self._current_proxy_url = proxy_url
+        self._logger.info(
+            f"BestBuy: obtained {len(self.cookies)} cookies via HTTPX warm-up."
+        )
 
     @backoff.on_exception(
         backoff.expo,
@@ -984,7 +1066,6 @@ class BestBuy(FlowComponent, SeleniumService, HTTPService):
     )
     async def _check_store_availability(self, idx, row, cookies=None):  # cookies kept for signature compat
         async with self.semaphore:
-            # Prepare payload for the API request
             zipcode = row['zipcode']
             location_code = str(row['location_code'])
             sku = row['sku']
@@ -995,83 +1076,79 @@ class BestBuy(FlowComponent, SeleniumService, HTTPService):
                     f"(sku={sku}, location_code={location_code}, zipcode={zipcode})"
                 )
                 return row
-            payload = ProductPayload.copy()
-            payload["locationId"] = location_code
-            payload["zipCode"] = zipcode
-            for item in payload["items"]:
-                item["sku"] = sku
-
-            # checking if this current store is already marked as checked:
-            matching_store = self.data[
-                (self.data['location_code'] == location_code) & (self.data['sku'] == sku)
-            ]
-            if not matching_store.empty and matching_store.iloc[0]['checked'] is True:
-                # exit without making any HTTP call.
-                return row
-            result = await self._fetch_store_availability(payload, sku, zipcode)
-            if result is None:
+            if self.data.loc[idx, 'checked'] is True:
                 return row
 
+            result = await self._fetch_store_availability(sku, location_code, zipcode)
+            # Periodic progress so long-running tasks don't appear to hang.
+            try:
+                n = self._num_iterations
+                if n and n % 50 == 0:
+                    self._logger.info(
+                        f"BestBuy availability: {n} requests completed."
+                    )
+            except Exception:
+                pass
             if not result:
-                self._logger.warning(
-                    f"No availability data found for {sku} at zipcode {zipcode}"
-                )
                 return row
 
-            # Extract the availability data from the API response
-            items = result.get('ispu', {}).get('items', [])
-            for item in items:
-                # Extract boolean fields from item level
-                in_store_available = item.get('inStoreAvailable', False)
-                pickup_eligible = item.get('pickupEligible', False)
+            # New endpoint shape:
+            #   data.fulfillmentOptions.buttonStates[0].buttonState  ("ADD_TO_CART"/"SOLD_OUT"/...)
+            #   data.fulfillmentOptions.ispuDetails[0].ispuAvailability[0]  (pickup info)
+            #   data.fulfillmentOptions.ispuDetails[0].store               (storeId, name, city, zip)
+            fo = (result.get('data') or {}).get('fulfillmentOptions') or {}
+            button_states = fo.get('buttonStates') or []
+            ispu_details = fo.get('ispuDetails') or []
 
-                locations = item.get('locations', [])
-                for location in locations:
-                    self.data.loc[idx, 'enabled'] = False if result.get('consolidatedButtonState', {}).get('buttonState', '') == 'NOT_AVAILABLE' else True
-                    lid = location.get('locationId')
-                    # Find matching store and SKU in DataFrame
-                    matching_store = self.data[
-                        (self.data['location_code'] == lid) & (self.data['sku'] == sku)
-                    ]
-                    if not matching_store.empty:
-                        idx = matching_store.index[0]
-                        if self.data.loc[idx, 'checked'] is True:
-                            print('Already checked, continue ...')
-                            continue  # Skip this row if it's already marked as checked
-                        if 'availability' not in location:
-                            self.data.loc[idx, 'locationId'] = lid
-                            self.data.loc[idx, 'checked'] = True
-                            continue  # This store doesn't have availability
-                        print(f'Found matching store {lid} for sku {sku}')
+            button_state = ''
+            for bs in button_states:
+                if (bs.get('skuId') or bs.get('sku')) == sku:
+                    button_state = bs.get('buttonState') or ''
+                    break
+            if not button_state and button_states:
+                button_state = button_states[0].get('buttonState') or ''
+            row_enabled = button_state not in ('NOT_AVAILABLE', 'SOLD_OUT', '')
 
-                        # Update the DataFrame row with new availability data
-                        self.data.loc[idx, ['brand', 'location_data']] = [brand, location]
+            ispu = None
+            for d in ispu_details:
+                if (d.get('sku') or '') == sku or (d.get('store') or {}).get('storeId') == location_code:
+                    ispu = d
+                    break
+            if ispu is None and ispu_details:
+                ispu = ispu_details[0]
+            if ispu is None:
+                # No fulfillment info — mark checked and leave defaults
+                self.data.loc[idx, 'enabled'] = row_enabled
+                self.data.loc[idx, 'checked'] = True
+                return row
 
-                        # Set the boolean fields from item level
-                        self.data.loc[idx, 'inStoreAvailable'] = in_store_available
-                        self.data.loc[idx, 'pickupEligible'] = pickup_eligible
+            store = ispu.get('store') or {}
+            avail_list = ispu.get('ispuAvailability') or []
+            avail = avail_list[0] if avail_list else {}
 
-                        for key, val in location.items():
-                            if key in self.data.columns:
-                                self.data.at[idx, key] = val
-                            else:
-                                self.data.at[idx, key] = None
-                            if key == 'inStoreAvailability':
-                                try:
-                                    self.data.loc[idx, 'availableInStoreQuantity'] = val.get(
-                                        'availableInStoreQuantity', 0
-                                    )
-                                except KeyError:
-                                    self.data.loc[idx, 'availableInStoreQuantity'] = None
-                            if key == 'availability':
-                                try:
-                                    self.data.loc[idx, 'availablePickupQuantity'] = val.get(
-                                        'availablePickupQuantity', 0
-                                    )
-                                except KeyError:
-                                    self.data.loc[idx, 'availablePickupQuantity'] = None
-                        # Mark the row as checked
-                        self.data.loc[idx, 'checked'] = True
+            pickup_eligible = bool(avail.get('pickupEligible'))
+            instore_inventory = bool(avail.get('instoreInventoryAvailable'))
+            fulfillment_type = avail.get('fulfillmentType') or ''
+            try:
+                pickup_qty = int(avail.get('quantity') or 0)
+            except (TypeError, ValueError):
+                pickup_qty = 0
+            is_in_store_pickup = (
+                pickup_eligible and instore_inventory and fulfillment_type == 'PICKUP'
+            )
+
+            self.data.loc[idx, 'enabled'] = row_enabled
+            self.data.loc[idx, 'locationId'] = store.get('storeId') or location_code
+            self.data.at[idx, 'brand'] = brand
+            self.data.at[idx, 'location_data'] = store
+            self.data.loc[idx, 'availability'] = fulfillment_type
+            self.data.loc[idx, 'inStoreAvailability'] = is_in_store_pickup
+            self.data.loc[idx, 'inStoreAvailable'] = is_in_store_pickup
+            self.data.loc[idx, 'onShelfDisplay'] = instore_inventory
+            self.data.loc[idx, 'pickupEligible'] = pickup_eligible
+            self.data.loc[idx, 'availablePickupQuantity'] = pickup_qty if pickup_eligible else 0
+            self.data.loc[idx, 'availableInStoreQuantity'] = pickup_qty if is_in_store_pickup else 0
+            self.data.loc[idx, 'checked'] = True
             return row
 
     def column_exists(self, column: str, default_val: Any = None):
@@ -1272,7 +1349,10 @@ class BestBuy(FlowComponent, SeleniumService, HTTPService):
 
         Best Buy Product Availability.
         """
-        await self._ensure_cookies()
+        # Use HTTPX warm-up (Oxylabs US sticky session) instead of Selenium
+        # because Chrome --proxy-server drops the auth credentials and ends
+        # up on global IPs that Akamai blocks.
+        await self._ensure_cookies_httpx()
 
         httpx_cookies = httpx.Cookies()
         for key, value in self.cookies.items():

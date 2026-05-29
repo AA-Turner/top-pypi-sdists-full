@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import threading
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Literal, Optional
 
 from redis.asyncio.multidb.healthcheck import HealthCheck, HealthCheckPolicy
 from redis.background import BackgroundScheduler
@@ -27,6 +27,7 @@ from redis.multidb.exception import (
 from redis.multidb.failure_detector import FailureDetector
 from redis.observability.attributes import GeoFailoverReason
 from redis.retry import Retry
+from redis.typing import ChannelT, PubSubHandler, Subscription
 from redis.utils import experimental
 
 logger = logging.getLogger(__name__)
@@ -439,6 +440,8 @@ class Pipeline(RedisModuleCommands, CoreCommands):
     Pipeline implementation for multiple logical Redis databases.
     """
 
+    _is_async_client: Literal[False] = False
+
     def __init__(self, client: MultiDBClient):
         self._command_stack = []
         self._client = client
@@ -544,7 +547,9 @@ class PubSub:
             "execute_command", *args
         )
 
-    def psubscribe(self, *args, **kwargs):
+    def psubscribe(
+        self, *args: ChannelT | Subscription, **kwargs: PubSubHandler
+    ) -> None:
         """
         Subscribe to channel patterns. Patterns supplied as keyword arguments
         expect a pattern name as the key and a callable as the value. A
@@ -565,7 +570,9 @@ class PubSub:
             "punsubscribe", *args
         )
 
-    def subscribe(self, *args, **kwargs):
+    def subscribe(
+        self, *args: ChannelT | Subscription, **kwargs: PubSubHandler
+    ) -> None:
         """
         Subscribe to channels. Channels supplied as keyword arguments expect
         a channel name as the key and a callable as the value. A channel's
@@ -584,7 +591,9 @@ class PubSub:
         """
         return self._client.command_executor.execute_pubsub_method("unsubscribe", *args)
 
-    def ssubscribe(self, *args, **kwargs):
+    def ssubscribe(
+        self, *args: ChannelT | Subscription, **kwargs: PubSubHandler
+    ) -> None:
         """
         Subscribes the client to the specified shard channels.
         Channels supplied as keyword arguments expect a channel name as the key

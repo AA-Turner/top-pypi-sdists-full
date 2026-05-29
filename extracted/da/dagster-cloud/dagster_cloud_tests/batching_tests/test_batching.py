@@ -41,9 +41,9 @@ class BatchingTestCase(unittest.TestCase):
             "test",
             handler,
         )
-        assert batcher._max_wait_ms == DEFAULT_MAX_WAIT_MS
-        assert batcher._max_batch_size == DEFAULT_MAX_BATCH_SIZE
-        assert batcher._queue.maxsize == DEFAULT_MAX_QUEUE_SIZE
+        assert batcher._max_wait_ms == DEFAULT_MAX_WAIT_MS  # noqa: SLF001
+        assert batcher._max_batch_size == DEFAULT_MAX_BATCH_SIZE  # noqa: SLF001
+        assert batcher._queue.maxsize == DEFAULT_MAX_QUEUE_SIZE  # noqa: SLF001
 
         batcher: Batcher[int, int] = Batcher(
             "test",
@@ -52,9 +52,9 @@ class BatchingTestCase(unittest.TestCase):
             max_batch_size=11,
             max_queue_size=12,
         )
-        assert batcher._max_wait_ms == 10
-        assert batcher._max_batch_size == 11
-        assert batcher._queue.maxsize == 12
+        assert batcher._max_wait_ms == 10  # noqa: SLF001
+        assert batcher._max_batch_size == 11  # noqa: SLF001
+        assert batcher._queue.maxsize == 12  # noqa: SLF001
 
         with patch.dict(
             "os.environ",
@@ -71,9 +71,9 @@ class BatchingTestCase(unittest.TestCase):
                 max_batch_size=11,
                 max_queue_size=12,
             )
-            assert batcher._max_wait_ms == 100
-            assert batcher._max_batch_size == 101
-            assert batcher._queue.maxsize == 102
+            assert batcher._max_wait_ms == 100  # noqa: SLF001
+            assert batcher._max_batch_size == 101  # noqa: SLF001
+            assert batcher._queue.maxsize == 102  # noqa: SLF001
 
 
 def _test(items: list[int], max_batch_size: int | None = None) -> list[list[int]]:

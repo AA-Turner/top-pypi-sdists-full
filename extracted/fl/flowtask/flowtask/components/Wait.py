@@ -1,5 +1,5 @@
 import asyncio
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class Wait(FlowComponent):

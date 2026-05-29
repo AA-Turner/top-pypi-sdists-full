@@ -1,17 +1,35 @@
 import logging
 from random import randint
+from typing import TYPE_CHECKING
 
 from aiopenapi3.errors import HTTPError
 from celery import shared_task
 
-from . import providers
-from .models import EveAllianceInfo, EveCharacter, EveCorporationInfo
+from esi.decorators import rate_limit_retry_task
+
+from allianceauth.eveonline.providers import open_api_provider
+from allianceauth.services.tasks import QueueOnce
+
+from .models import (
+    EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
+)
 
 logger = logging.getLogger(__name__)
 
 TASK_PRIORITY = 7
 CHARACTER_AFFILIATION_CHUNK_SIZE = 500
 EVEONLINE_TASK_JITTER = 600
+
+if TYPE_CHECKING:
+    from celery.result import AsyncResult
+
+    # https://github.com/sbdchd/celery-types
+    classes = [
+        AsyncResult,
+    ]
+
+    for cls in classes:
+        setattr(cls, "__class_getitem__", classmethod(lambda cls, *args, **kwargs: cls))
 
 
 def chunks(lst, n):
@@ -20,75 +38,80 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
-@shared_task
-def update_corp(corp_id: int) -> None:
+@shared_task(bind=True)
+@rate_limit_retry_task
+def update_corp(self, corp_id: int) -> None:
     """Update given corporation from ESI"""
     EveCorporationInfo.objects.update_corporation(corp_id)
 
 
-@shared_task
-def update_alliance(alliance_id: int) -> None:
+@shared_task(bind=True)
+@rate_limit_retry_task
+def update_alliance(self, alliance_id: int) -> None:
     """Update given alliance from ESI"""
-    EveAllianceInfo.objects.update_alliance(alliance_id).populate_alliance()
+    EveAllianceInfo.objects.update_alliance(alliance_id)
+    EveAllianceInfo.objects.get(alliance_id).populate_alliance()
 
 
-@shared_task
-def update_character(character_id: int) -> None:
+@shared_task(bind=True)
+@rate_limit_retry_task
+def update_character(self, character_id: int) -> None:
     """Update given character from ESI."""
     EveCharacter.objects.update_character(character_id)
 
 
-@shared_task
+@shared_task(bind=True)
+@rate_limit_retry_task
+def update_all_factions(self) -> None:
+    """Update given character from ESI."""
+    EveFactionInfo.objects.update_factions()
+
+
+@shared_task(base=QueueOnce)
 def run_model_update() -> None:
     """Update all alliances, corporations and characters from ESI"""
 
-    # Queue update tasks for Known Corporation Models, exluding closed corps (ceo_id=1)
-    for corp in EveCorporationInfo.objects.exclude(ceo_id=1).values('corporation_id'):
+    # Queue update tasks for Known Corporation Models, excluding closed corps (ceo_id=1)
+    for corp in EveCorporationInfo.objects.exclude_closed().values('corporation_id'):
         update_corp.apply_async(
-            args=[corp['corporation_id']],
+            args=(corp['corporation_id'],),
             priority=TASK_PRIORITY,
             countdown=randint(1, EVEONLINE_TASK_JITTER))
 
     # Queue update tasks for Known Alliance Models
     for alliance in EveAllianceInfo.objects.all().values('alliance_id'):
         update_alliance.apply_async(
-            args=[alliance['alliance_id']],
+            args=(alliance['alliance_id'],),
             priority=TASK_PRIORITY,
             countdown=randint(1, EVEONLINE_TASK_JITTER))
 
     # Queue update tasks for Known Character Models, excluding characters in Doomheim (corporation_id=1000001)
-    character_ids = EveCharacter.objects.exclude(corporation_id=1000001).values_list('character_id', flat=True)
+    character_ids = EveCharacter.objects.exclude_biomassed().values_list('character_id', flat=True)
     for character_ids_chunk in chunks(character_ids, CHARACTER_AFFILIATION_CHUNK_SIZE):
         update_character_chunk.apply_async(
-            args=[character_ids_chunk],
+            args=(character_ids_chunk,),
             priority=TASK_PRIORITY,
             countdown=randint(1, EVEONLINE_TASK_JITTER))
 
 
 @shared_task
-def update_character_chunk(character_ids_chunk: list):
+def update_character_chunk(character_ids_chunk: list) -> None:
     """Update a list of character from ESI"""
-    client = providers.open_api_provider.client
+
     try:
-        affiliations_raw = client.Character.PostCharactersAffiliation(
-            body=character_ids_chunk
-        ).result()
-        character_names = client.Universe.PostUniverseNames(
-            body=character_ids_chunk
-        ).result()
+        affiliations_raw = open_api_provider.get_affiliations(character_ids_chunk)
+        character_names = open_api_provider.post_names(character_ids_chunk)
     except HTTPError:
         logger.info("Failed to bulk update characters. Attempting single updates")
         for character_id in character_ids_chunk:
             update_character.apply_async(
-                args=[character_id],
+                args=(character_id,),
                 priority=TASK_PRIORITY,
                 countdown=randint(1, EVEONLINE_TASK_JITTER))
         return
 
-    affiliations = {
-        affiliation.character_id: affiliation
-        for affiliation in affiliations_raw
-    }
+    affiliations = {affiliation.character_id: affiliation for affiliation in affiliations_raw}
+
     # add character names to affiliations
     for character in character_names:
         character_id = character.id
@@ -121,5 +144,5 @@ def update_character_chunk(character_ids_chunk: list):
 
             if corp_changed or alliance_changed or name_changed:
                 update_character.apply_async(
-                    args=[character.get('character_id')],
+                    args=(character.get('character_id'),),
                     priority=TASK_PRIORITY)

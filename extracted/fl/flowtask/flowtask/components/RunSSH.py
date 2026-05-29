@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import Callable
 import logging
 import asyncssh
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.SSHClient import SSHClient
 
 

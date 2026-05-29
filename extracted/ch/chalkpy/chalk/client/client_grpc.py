@@ -3887,7 +3887,7 @@ class ChalkGRPCClient:
         resolver: str | None = None,
         query_tags: list[str] | None = None,
         store_offline: bool | None = None,
-        allow_empty_tiles: bool | None = None,
+        allow_empty_tiles: bool = True,
         exact: bool = False,
         enable_profiling: bool = False,
         resource_group: str | None = None,
@@ -3910,8 +3910,8 @@ class ChalkGRPCClient:
             If `True`, store materialized aggregate values in the offline store.
             Requires both `lower_bound` and `upper_bound`.
         allow_empty_tiles : bool, optional
-            If `True`, allow empty tiles when storing tiles offline.
-            Requires `store_offline=True`.
+            If `True`, empty tile spans are silently skipped instead of raising an error.
+            Defaults to `True`. Set to `False` to raise an error when a backfill produces no tile files.
         exact : bool, optional
             If `True`, execute the underlying SQL source to determine the exact
             number of rows that need to migrate.
@@ -3928,8 +3928,6 @@ class ChalkGRPCClient:
 
         if store_offline is True and (lower_bound is None or upper_bound is None):
             raise ValueError("When `store_offline=True`, both `lower_bound` and `upper_bound` must be specified.")
-        if allow_empty_tiles is True and store_offline is not True:
-            raise ValueError("When `allow_empty_tiles=True`, `store_offline=True` must also be specified.")
 
         plan_request = PlanAggregateBackfillRequest(
             params=AggregateBackfillUserParams(
@@ -3972,8 +3970,15 @@ class ChalkGRPCClient:
                 create_request.upper_bound.CopyFrom(backfill.upper_bound)
             if store_offline is not None:
                 create_request.store_offline = store_offline
-            if allow_empty_tiles is not None:
-                create_request.allow_empty_tiles = allow_empty_tiles
+
+            create_request.allow_empty_tiles = allow_empty_tiles
+            if not store_offline:
+                # the if is added because older servers (pre 2026-05-28) were failing validation on
+                # store_offline=False and allow_empty_tiles=True combination
+                # (and now allow_empty_tiles=True is the default)
+                # TODO remove this after a reasonable grace period
+                create_request.allow_empty_tiles = False
+
             if resource_group is not None:
                 create_request.resource_group = resource_group
 

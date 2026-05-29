@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import Callable
 from typing import Optional, Dict, Any
 import pandas as pd
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.http import HTTPService
 from ..interfaces.cache import CacheSupport
 from ..exceptions import ComponentError

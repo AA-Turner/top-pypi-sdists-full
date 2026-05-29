@@ -127,7 +127,7 @@ DescribeStacksPaginatorName = Literal["describe_stacks"]
 DescribeUserStackAssociationsPaginatorName = Literal["describe_user_stack_associations"]
 DescribeUsersPaginatorName = Literal["describe_users"]
 DynamicAppProvidersEnabledType = Literal["DISABLED", "ENABLED"]
-ExportImageTaskStateType = Literal["COMPLETED", "EXPORTING", "FAILED"]
+ExportImageTaskStateType = Literal["COMPLETED", "EXPORTING", "FAILED", "TIMED_OUT"]
 FleetAttributeType = Literal[
     "DOMAIN_JOIN_INFO",
     "IAM_ROLE_ARN",
@@ -203,7 +203,7 @@ ImageStateChangeReasonCodeType = Literal[
 ImageStateType = Literal[
     "AVAILABLE", "COPYING", "CREATING", "DELETING", "FAILED", "IMPORTING", "PENDING", "VALIDATING"
 ]
-ImageTypeType = Literal["CUSTOM", "NATIVE"]
+ImageTypeType = Literal["BYOL", "CUSTOM", "NATIVE"]
 InstanceDrainStatusType = Literal["ACTIVE", "DRAINING", "NOT_APPLICABLE"]
 LatestAppstreamAgentVersionType = Literal["FALSE", "TRUE"]
 ListAssociatedFleetsPaginatorName = Literal["list_associated_fleets"]
@@ -591,6 +591,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",

@@ -1,6 +1,6 @@
 from tqdm import tqdm
 from ..exceptions import FileError
-from .FileBase import FileBase
+from ..interfaces.file_base import FileBase
 
 
 class FileDelete(FileBase):

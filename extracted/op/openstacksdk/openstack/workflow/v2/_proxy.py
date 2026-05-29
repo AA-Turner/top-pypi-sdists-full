@@ -11,7 +11,7 @@
 # under the License.
 
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 from openstack import proxy
 from openstack import resource
@@ -31,31 +31,33 @@ class Proxy(proxy.Proxy):
     def create_workflow(self, **attrs: Any) -> _workflow.Workflow:
         """Create a new workflow from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.workflow.v2.workflow.Workflow`,
             comprised of the properties on the Workflow class.
 
         :returns: The results of workflow creation
-        :rtype: :class:`~openstack.workflow.v2.workflow.Workflow`
         """
         return self._create(_workflow.Workflow, **attrs)
 
-    def update_workflow(self, workflow, **attrs):
+    def update_workflow(
+        self, workflow: str | _workflow.Workflow, **attrs: Any
+    ) -> _workflow.Workflow:
         """Update workflow from attributes
 
         :param workflow: The value can be either the name of a workflow or a
             :class:`~openstack.workflow.v2.workflow.Workflow`
             instance.
-        :param dict attrs: Keyword arguments which will be used to update
+        :param attrs: Keyword arguments which will be used to update
             a :class:`~openstack.workflow.v2.workflow.Workflow`,
             comprised of the properties on the Workflow class.
 
         :returns: The results of workflow update
-        :rtype: :class:`~openstack.workflow.v2.workflow.Workflow`
         """
         return self._update(_workflow.Workflow, workflow, **attrs)
 
-    def get_workflow(self, *attrs):
+    def get_workflow(
+        self, workflow: str | _workflow.Workflow
+    ) -> _workflow.Workflow:
         """Get a workflow
 
         :param workflow: The value can be the name of a workflow or
@@ -65,12 +67,15 @@ class Proxy(proxy.Proxy):
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             workflow matching the name could be found.
         """
-        return self._get(_workflow.Workflow, *attrs)
+        return self._get(_workflow.Workflow, workflow)
 
-    def workflows(self, **query):
+    def workflows(
+        self,
+        **query: Any,
+    ) -> Generator[_workflow.Workflow, None, None]:
         """Retrieve a generator of workflows
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the workflows to be returned. Available parameters
             include:
 
@@ -85,19 +90,22 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_workflow.Workflow, **query)
 
-    def delete_workflow(self, value, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_workflow(
+        self, value: str | _workflow.Workflow, ignore_missing: bool = True
+    ) -> _workflow.Workflow | None:
         """Delete a workflow
 
         :param value: The value can be either the name of a workflow or a
             :class:`~openstack.workflow.v2.workflow.Workflow`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will
             be raised when the workflow does not exist.
             When set to ``True``, no exception will be set when
             attempting to delete a nonexistent workflow.
 
-        :returns: ``None``
+        :returns: The deleted workflow.
         """
         return self._delete(
             _workflow.Workflow, value, ignore_missing=ignore_missing
@@ -125,7 +133,7 @@ class Proxy(proxy.Proxy):
         """Find a single workflow
 
         :param name_or_id: The name or ID of an workflow.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -141,19 +149,19 @@ class Proxy(proxy.Proxy):
         """Create a new execution from attributes
 
         :param workflow_name: The name of target workflow to execute.
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.workflow.v2.execution.Execution`,
             comprised of the properties on the Execution class.
 
         :returns: The results of execution creation
-        :rtype: :class:`~openstack.workflow.v2.execution.Execution`
         """
         return self._create(_execution.Execution, **attrs)
 
-    def get_execution(self, *attrs):
+    def get_execution(
+        self, execution: str | _execution.Execution
+    ) -> _execution.Execution:
         """Get a execution
 
-        :param workflow_name: The name of target workflow to execute.
         :param execution: The value can be either the ID of a execution or a
             :class:`~openstack.workflow.v2.execution.Execution` instance.
 
@@ -161,12 +169,15 @@ class Proxy(proxy.Proxy):
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             execution matching the criteria could be found.
         """
-        return self._get(_execution.Execution, *attrs)
+        return self._get(_execution.Execution, execution)
 
-    def executions(self, **query):
+    def executions(
+        self,
+        **query: Any,
+    ) -> Generator[_execution.Execution, None, None]:
         """Retrieve a generator of executions
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the executions to be returned. Available parameters
             include:
 
@@ -181,19 +192,22 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_execution.Execution, **query)
 
-    def delete_execution(self, value, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_execution(
+        self, value: str | _execution.Execution, ignore_missing: bool = True
+    ) -> _execution.Execution | None:
         """Delete an execution
 
         :param value: The value can be either the name of a execution or a
             :class:`~openstack.workflow.v2.execute.Execution`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the execution does not exist.
             When set to ``True``, no exception will be set when
             attempting to delete a nonexistent execution.
 
-        :returns: ``None``
+        :returns: The deleted execution.
         """
         return self._delete(
             _execution.Execution, value, ignore_missing=ignore_missing
@@ -221,7 +235,7 @@ class Proxy(proxy.Proxy):
         """Find a single execution
 
         :param name_or_id: The name or ID of an execution.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -236,16 +250,17 @@ class Proxy(proxy.Proxy):
     def create_cron_trigger(self, **attrs: Any) -> _cron_trigger.CronTrigger:
         """Create a new cron trigger from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.workflow.v2.cron_trigger.CronTrigger`,
             comprised of the properties on the CronTrigger class.
 
         :returns: The results of cron trigger creation
-        :rtype: :class:`~openstack.workflow.v2.cron_trigger.CronTrigger`
         """
         return self._create(_cron_trigger.CronTrigger, **attrs)
 
-    def get_cron_trigger(self, cron_trigger):
+    def get_cron_trigger(
+        self, cron_trigger: str | _cron_trigger.CronTrigger
+    ) -> _cron_trigger.CronTrigger:
         """Get a cron trigger
 
         :param cron_trigger: The value can be the name of a cron_trigger or
@@ -257,12 +272,17 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_cron_trigger.CronTrigger, cron_trigger)
 
-    def cron_triggers(self, *, all_projects=False, **query):
+    def cron_triggers(
+        self,
+        *,
+        all_projects: bool = False,
+        **query: Any,
+    ) -> Generator[_cron_trigger.CronTrigger, None, None]:
         """Retrieve a generator of cron triggers
 
-        :param bool all_projects: When set to ``True``, list cron triggers from
+        :param all_projects: When set to ``True``, list cron triggers from
             all projects. Admin-only by default.
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the cron triggers to be returned. Available parameters
             include:
 
@@ -279,19 +299,24 @@ class Proxy(proxy.Proxy):
             query['all_projects'] = True
         return self._list(_cron_trigger.CronTrigger, **query)
 
-    def delete_cron_trigger(self, value, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_cron_trigger(
+        self,
+        value: str | _cron_trigger.CronTrigger,
+        ignore_missing: bool = True,
+    ) -> _cron_trigger.CronTrigger | None:
         """Delete a cron trigger
 
         :param value: The value can be either the name of a cron trigger or a
             :class:`~openstack.workflow.v2.cron_trigger.CronTrigger`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the cron trigger does not exist.
             When set to ``True``, no exception will be set when
             attempting to delete a nonexistent cron trigger.
 
-        :returns: ``None``
+        :returns: The deleted cron trigger.
         """
         return self._delete(
             _cron_trigger.CronTrigger, value, ignore_missing=ignore_missing
@@ -329,14 +354,14 @@ class Proxy(proxy.Proxy):
         """Find a single cron trigger
 
         :param name_or_id: The name or ID of a cron trigger.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist. When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
-        :param bool all_projects: When set to ``True``, search for cron
+        :param all_projects: When set to ``True``, search for cron
             triggers by name across all projects. Note that this will likely
             result in a higher chance of duplicates.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the cron triggers being returned.
 
         :returns: One :class:`~openstack.compute.v2.cron_trigger.CronTrigger`
@@ -383,7 +408,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -398,8 +423,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

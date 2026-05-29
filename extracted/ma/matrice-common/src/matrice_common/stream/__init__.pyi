@@ -601,6 +601,10 @@ class CudaIpcRingBuffer:
     def read_frame(self: Any, slot: int) -> Optional[Any.Any]:
         """
         Read a frame from a specific slot (NO COPY - view).
+        
+                Self-heals on CUDA IPC invalidation: if constructing the view faults
+                because the producer reallocated its GPU buffer, the handle is
+                re-imported once and the read retried. Returns None if recovery fails.
         """
         ...
 
@@ -624,6 +628,17 @@ class CudaIpcRingBuffer:
                     - frame: GPU array view, or None if no new frames
                     - frame_idx: The frame index, or -1 if no new frames
                     - was_skipped: True if frames were skipped (consumer too slow)
+        """
+        ...
+
+    def revalidate(self: Any) -> bool:
+        """
+        Public hook: recover from a CUDA IPC invalidation on demand.
+        
+                Consumers that hold a frame *view* and only dereference it later (e.g.
+                inside a preprocessing kernel) won't fault until that dereference. When
+                they catch a ``CUDA_ERROR_ILLEGAL_ADDRESS`` they should call this to
+                rebuild the mapping, then re-read the frame. Returns True on success.
         """
         ...
 
@@ -1101,7 +1116,7 @@ class EventListener:
     #         listener.start()
     #         ```
 
-    def __init__(self: Any, session: Any, topics: Union[str, List[str]], event_handler: Callable[[Dict[str, Any]], None], filter_field: Optional[str] = None, filter_value: Optional[str] = None, consumer_group_id: Optional[str] = None, offset_reset: str = 'latest') -> None:
+    def __init__(self: Any, session: Any, topics: Union[str, List[str]], event_handler: Callable[[Dict[str, Any]], None], filter_field: Optional[str] = None, filter_value: Optional[str] = None, consumer_group_id: Optional[str] = None, offset_reset: str = 'latest', max_poll_interval_ms: int = 300000, session_timeout_ms: int = 45000, heartbeat_interval_ms: int = 15000) -> None:
         """
         Initialize event listener.
         
@@ -1112,6 +1127,11 @@ class EventListener:
                     filter_field: Optional field name to filter events (e.g., 'streamingGatewayId')
                     filter_value: Optional value to match for filtering
                     consumer_group_id: Optional Kafka consumer group ID (auto-generated if not provided)
+                    max_poll_interval_ms: Max delay between poll() calls before the broker
+                        evicts the consumer (default: 300000). Also drives the time-based
+                        staleness recreate in the listen loop.
+                    session_timeout_ms: Consumer session timeout (default: 45000).
+                    heartbeat_interval_ms: Consumer heartbeat interval (default: 15000).
         """
         ...
 
@@ -1163,6 +1183,21 @@ class GpuCameraMap:
 
     MAX_SIZE: Any
     SHM_PATH: Any
+
+    def check_file_recreated(self: Any) -> bool:
+        """
+        Return True if the SHM file's on-disk inode no longer matches our open fd.
+        
+                When the SHM file is unlinked + recreated (SG restart with external cleanup,
+                operator `rm -f /dev/shm/gpu_camera_map`, or `docker rm` on the SG container),
+                the open fd keeps pointing at the deleted inode while a new inode appears at
+                the same path. Comparing os.fstat(fd).st_ino vs os.stat(path).st_ino detects
+                this. Mirrors CudaShmRingBuffer.check_file_recreated().
+        
+                Returns:
+                    True if file was recreated (stale) or missing, False if still the same file.
+        """
+        ...
 
     def close(self: Any) -> None:
         """
@@ -1226,6 +1261,15 @@ class GpuCameraMap:
         
                 Returns:
                     True if successful, False otherwise.
+        """
+        ...
+
+    def reconnect(self: Any) -> bool:
+        """
+        Close the stale mmap+fd and re-open the current SHM file by path.
+        
+                Idempotent: safe to call even when not connected. Returns True on success,
+                False when the file is missing (caller should retry later).
         """
         ...
 

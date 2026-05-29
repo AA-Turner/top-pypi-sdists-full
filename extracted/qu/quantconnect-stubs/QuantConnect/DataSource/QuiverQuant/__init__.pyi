@@ -7,6 +7,19 @@ import QuantConnect.Orders
 import System
 
 
+class OwnershipType(IntEnum):
+    """SEC Form 4 direct or indirect ownership classification"""
+
+    UNKNOWN = 0
+    """Default value used when no ownership flag is provided or the value is unrecognized"""
+
+    DIRECT = 1
+    """D - Direct ownership of the security by the reporting person"""
+
+    INDIRECT = 2
+    """I - Indirect ownership of the security (e.g., through a trust or family member)"""
+
+
 class TransactionCode(IntEnum):
     """SEC Form 4 transaction codes (see https://www.sec.gov/files/forms-3-4-5.pdf)"""
 
@@ -75,19 +88,6 @@ class TransactionCode(IntEnum):
 
     TENDER_DISPOSITION = 19
     """U - Disposition pursuant to a tender of shares in a change of control transaction"""
-
-
-class OwnershipType(IntEnum):
-    """SEC Form 4 direct or indirect ownership classification"""
-
-    UNKNOWN = 0
-    """Default value used when no ownership flag is provided or the value is unrecognized"""
-
-    DIRECT = 1
-    """D - Direct ownership of the security by the reporting person"""
-
-    INDIRECT = 2
-    """I - Indirect ownership of the security (e.g., through a trust or family member)"""
 
 
 class AcquiredDisposedCode(IntEnum):

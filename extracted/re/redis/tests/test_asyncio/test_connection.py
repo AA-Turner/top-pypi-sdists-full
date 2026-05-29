@@ -13,6 +13,7 @@ from redis._parsers import (
     _AsyncRESP3Parser,
     _AsyncRESPBase,
 )
+from redis._parsers.hiredis import NOT_ENOUGH_DATA
 from redis.asyncio import ConnectionPool, Redis
 from redis.asyncio.connection import (
     Connection,
@@ -27,6 +28,216 @@ from redis.utils import HIREDIS_AVAILABLE
 from tests.conftest import skip_if_server_version_lt
 
 from .mocks import MockStream
+
+
+class DummyHiredisReader:
+    def __init__(self, response=NOT_ENOUGH_DATA, decoded_response=None, has_data=False):
+        self.responses = [response]
+        self.decoded_response = decoded_response
+        self.has_data_value = has_data
+
+    def has_data(self):
+        return self.has_data_value
+
+    def gets(self, *args):
+        if self.responses:
+            response = self.responses.pop(0)
+            if args == (False,) or self.decoded_response is None:
+                return response
+            return self.decoded_response
+        return NOT_ENOUGH_DATA
+
+
+class DummyAsyncStream:
+    def __init__(self, buffer=b"", eof=False):
+        self._buffer = bytearray(buffer)
+        self.eof = eof
+        self.read_called = False
+
+    def at_eof(self):
+        return self.eof and not self._buffer
+
+    async def read(self, _):
+        self.read_called = True
+        raise AssertionError("can_read should not read from the stream")
+
+
+def make_async_hiredis_parser(
+    stream, response=NOT_ENOUGH_DATA, decoded_response=None, has_data=False
+):
+    parser = _AsyncHiredisParser.__new__(_AsyncHiredisParser)
+    parser._connected = True
+    parser._reader = DummyHiredisReader(response, decoded_response, has_data)
+    parser._stream = stream
+    parser._hiredis_PushNotificationType = None
+    return parser
+
+
+def test_connection_default_parser_matches_default_protocol():
+    conn = Connection()
+    expected_parser_class = (
+        _AsyncHiredisParser if HIREDIS_AVAILABLE else _AsyncRESP3Parser
+    )
+    assert isinstance(conn._parser, expected_parser_class)
+    assert conn.protocol == 3
+
+
+@pytest.mark.parametrize(
+    ("buffer", "eof", "expected"),
+    [
+        (b"", False, False),
+        (b"+OK\r\n", False, True),
+        (b"", True, True),
+    ],
+)
+async def test_async_hiredis_can_read_uses_buffer_without_reading(
+    buffer, eof, expected
+):
+    stream = DummyAsyncStream(buffer=buffer, eof=eof)
+    parser = make_async_hiredis_parser(stream)
+
+    assert await parser.can_read() is expected
+    assert stream.read_called is False
+
+
+async def test_async_hiredis_can_read_detects_reader_response():
+    stream = DummyAsyncStream()
+    parser = make_async_hiredis_parser(stream, response=b"OK", has_data=True)
+
+    assert await parser.can_read() is True
+    assert stream.read_called is False
+
+
+async def test_async_hiredis_can_read_detects_real_stream_reader_buffer():
+    payload = b"+OK\r\n"
+    stream = asyncio.StreamReader()
+    stream.feed_data(payload)
+    parser = make_async_hiredis_parser(stream)
+
+    assert await parser.can_read() is True
+    assert await stream.read(len(payload)) == payload
+
+
+async def test_async_hiredis_can_read_preserves_reader_response():
+    stream = DummyAsyncStream()
+    parser = make_async_hiredis_parser(stream, response=b"OK", has_data=True)
+
+    assert await parser.can_read() is True
+    assert await parser.read_response() == b"OK"
+    assert stream.read_called is False
+
+
+async def test_async_hiredis_can_read_does_not_decide_disable_decoding():
+    stream = DummyAsyncStream()
+    raw = b"\xe2\x98\x83"
+    parser = make_async_hiredis_parser(
+        stream,
+        response=raw,
+        decoded_response=raw.decode(),
+        has_data=True,
+    )
+
+    assert await parser.can_read() is True
+    assert await parser.read_response(disable_decoding=True) == raw
+
+
+async def test_async_hiredis_can_read_leaves_decoding_to_read_response():
+    stream = DummyAsyncStream()
+    raw = b"\xe2\x98\x83"
+    parser = make_async_hiredis_parser(
+        stream,
+        response=raw,
+        decoded_response=raw.decode(),
+        has_data=True,
+    )
+
+    assert await parser.can_read() is True
+    assert await parser.read_response() == raw.decode()
+
+
+@pytest.mark.parametrize("parser_class", [_AsyncRESP2Parser, _AsyncRESP3Parser])
+async def test_async_resp_can_read_detects_stream_buffer(parser_class):
+    stream = DummyAsyncStream(buffer=b"+OK\r\n")
+    parser = parser_class(socket_read_size=65536)
+    parser._connected = True
+    parser._stream = stream
+
+    assert await parser.can_read() is True
+    assert stream.read_called is False
+
+
+@pytest.mark.parametrize(
+    ("protocol", "parser_class", "expected_parser_class"),
+    [
+        (None, _AsyncRESP2Parser, _AsyncRESP3Parser),
+        (3, _AsyncRESP2Parser, _AsyncRESP3Parser),
+        (2, _AsyncRESP3Parser, _AsyncRESP2Parser),
+        (2, _AsyncRESP2Parser, _AsyncRESP2Parser),
+        (3, _AsyncRESP3Parser, _AsyncRESP3Parser),
+    ],
+)
+def test_connection_parser_matches_protocol(
+    protocol, parser_class, expected_parser_class
+):
+    kwargs = {"parser_class": parser_class}
+    if protocol is not None:
+        kwargs["protocol"] = protocol
+    conn = Connection(**kwargs)
+    assert isinstance(conn._parser, expected_parser_class)
+
+
+@pytest.mark.fixed_client
+@pytest.mark.parametrize(
+    "client_kwargs",
+    [
+        {"driver_info": None},
+        {"lib_name": None, "lib_version": None},
+    ],
+)
+async def test_redis_client_preserves_explicit_none_driver_info(client_kwargs):
+    if "lib_name" in client_kwargs:
+        with pytest.warns(DeprecationWarning):
+            client = Redis(**client_kwargs)
+    else:
+        client = Redis(**client_kwargs)
+
+    assert client.connection_pool.connection_kwargs["driver_info"] is None
+    await client.aclose()
+
+
+@pytest.mark.fixed_client
+async def test_redis_client_default_driver_info():
+    client = Redis()
+    driver_info = client.connection_pool.connection_kwargs["driver_info"]
+
+    assert driver_info.formatted_name == "redis-py"
+    assert driver_info.lib_version is not None
+    await client.aclose()
+
+
+@pytest.mark.fixed_client
+@pytest.mark.parametrize(
+    "connection_kwargs",
+    [
+        {"driver_info": None},
+        {"lib_name": None, "lib_version": None},
+    ],
+)
+async def test_client_setinfo_skipped_with_explicit_none(connection_kwargs):
+    if "lib_name" in connection_kwargs:
+        with pytest.warns(DeprecationWarning):
+            conn = Connection(protocol=2, **connection_kwargs)
+    else:
+        conn = Connection(protocol=2, **connection_kwargs)
+    conn._parser.on_connect = mock.Mock()
+    conn.send_command = mock.AsyncMock()
+    conn.read_response = mock.AsyncMock(return_value="OK")
+
+    await conn.on_connect_check_health()
+
+    assert conn.driver_info is None
+    conn.send_command.assert_not_awaited()
+    conn.read_response.assert_not_awaited()
 
 
 @pytest.mark.onlynoncluster
@@ -50,7 +261,7 @@ async def test_invalid_response(create_redis):
     await r.connection.disconnect()
 
 
-@pytest.mark.onlynoncluster
+@pytest.mark.fixed_client
 async def test_single_connection():
     """Test that concurrent requests on a single client are synchronised."""
     r = Redis(single_connection_client=True)
@@ -157,6 +368,7 @@ async def test_connect_retry_on_timeout_error(connect_args):
     await conn.disconnect()
 
 
+@pytest.mark.fixed_client
 async def test_connect_without_retry_on_non_retryable_error():
     """
     Test that the _connect function is not being retried in case of a CancelledError -
@@ -169,6 +381,7 @@ async def test_connect_without_retry_on_non_retryable_error():
         assert _connect.call_count == 1
 
 
+@pytest.mark.fixed_client
 async def test_connect_with_retries():
     """
     Test that retries occur for the entire connect+handshake flow when OSError happens during the handshake phase.
@@ -184,6 +397,7 @@ async def test_connect_with_retries():
         assert writelines.call_count == 3
 
 
+@pytest.mark.fixed_client
 async def test_connect_timeout_error_without_retry():
     """Test that the _connect function is not being retried if retry_on_timeout is
     set to False"""
@@ -311,7 +525,7 @@ async def test_connection_disconect_race(parser_class, connect_args):
     assert vals == [b"Hello, World!", None]
 
 
-@pytest.mark.onlynoncluster
+@pytest.mark.fixed_client
 def test_create_single_connection_client_from_url():
     client = Redis.from_url("redis://localhost:6379/0?", single_connection_client=True)
     assert client.single_connection_client is True
@@ -550,6 +764,7 @@ async def test_format_error_message(conn, error, expected_message):
     assert error_message == expected_message
 
 
+@pytest.mark.fixed_client
 async def test_network_connection_failure():
     exp_err = rf"^Error {ECONNREFUSED} connecting to 127.0.0.1:9999.(.+)$"
     with pytest.raises(ConnectionError, match=exp_err):
@@ -557,8 +772,74 @@ async def test_network_connection_failure():
         await redis.set("a", "b")
 
 
+@pytest.mark.fixed_client
 async def test_unix_socket_connection_failure():
     exp_err = "Error 2 connecting to unix:///tmp/a.sock. No such file or directory."
     with pytest.raises(ConnectionError, match=exp_err):
         redis = Redis(unix_socket_path="unix:///tmp/a.sock")
         await redis.set("a", "b")
+
+
+async def test_disconnect_no_current_task(request):
+    """
+    Regression test for issue #3856:
+    On Python 3.13+, asyncio.timeout() raises RuntimeError when called
+    outside a running Task (e.g. during GC finalization or event-loop
+    callbacks where asyncio.current_task() is None).
+
+    disconnect() should fall back to a synchronous _close() in that case,
+    rather than entering async_timeout and raising RuntimeError.
+    """
+    url: str = request.config.getoption("--redis-url")
+    conn = Connection(**parse_url(url))
+    await conn.connect()
+    assert conn.is_connected
+
+    # Invoke disconnect() from a loop.call_soon callback where
+    # asyncio.current_task() returns None — the same context as
+    # GC finalization of a suspended coroutine.
+    loop = asyncio.get_running_loop()
+    error_holder: list = []
+    done = asyncio.Event()
+
+    def _disconnect_without_task():
+        coro = conn.disconnect(nowait=True)
+        try:
+            coro.send(None)
+        except StopIteration:
+            pass
+        except BaseException as exc:
+            error_holder.append(exc)
+        finally:
+            coro.close()
+            done.set()
+
+    loop.call_soon(_disconnect_without_task)
+    await done.wait()
+
+    assert not error_holder, f"disconnect() raised: {error_holder[0]}"
+    assert not conn.is_connected
+
+
+async def test_disconnect_no_current_task_calls_close(request):
+    """
+    Verify that disconnect() outside a task context calls _close()
+    and properly resets parser state.
+    """
+    url: str = request.config.getoption("--redis-url")
+    conn = Connection(**parse_url(url))
+    await conn.connect()
+    assert conn.is_connected
+
+    with mock.patch.object(conn, "_close", wraps=conn._close) as mock_close:
+        with mock.patch.object(
+            conn._parser, "on_disconnect", wraps=conn._parser.on_disconnect
+        ) as mock_on_disconnect:
+            # Simulate the no-task context by patching current_task
+            with mock.patch("asyncio.current_task", return_value=None):
+                await conn.disconnect(nowait=True)
+
+            mock_close.assert_called_once()
+            mock_on_disconnect.assert_called_once()
+
+    assert not conn.is_connected

@@ -21,7 +21,7 @@ from ..conf import (
     FILE_STORAGES,
     TASK_STORAGES
 )
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces import TemplateSupport
 
 
@@ -93,6 +93,7 @@ class QueryToPandas(TemplateSupport, FlowComponent, QSSupport):
         ```
     """
     _version = "1.0.0"
+
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop = None,
@@ -114,6 +115,9 @@ class QueryToPandas(TemplateSupport, FlowComponent, QSSupport):
         self.use_qs_parser: bool = kwargs.get("use_qs_parser", True)
         # Define if SQL files comes from taskstorage or filestore
         self._use_taskstorage = kwargs.get('use_taskstorage', True)
+        # Accept `sql` as an alias for `query` (common in BigQuery-style configs)
+        if 'sql' in kwargs and 'query' not in kwargs:
+            kwargs['query'] = kwargs.pop('sql')
         super().__init__(loop=loop, job=job, stat=stat, **kwargs)
 
     async def open_sqlfile(self, file: PurePath, **kwargs) -> str:

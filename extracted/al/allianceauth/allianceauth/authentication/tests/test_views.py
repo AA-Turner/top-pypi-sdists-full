@@ -111,7 +111,7 @@ class TestEsiCheck(TestCase):
         }
         status_code = 401
         m.get(
-            "https://esi.evetech.net/latest/status/?datasource=tranquility",
+            "https://esi.evetech.net/status",
             text=json.dumps(error_json),
             status_code=status_code
         )
@@ -139,7 +139,7 @@ class TestEsiCheck(TestCase):
         }
         status_code = 504
         m.get(
-            "https://esi.evetech.net/latest/status/?datasource=tranquility",
+            "https://esi.evetech.net/status",
             text=json.dumps(error_json),
             status_code=status_code
         )
@@ -166,7 +166,7 @@ class TestEsiCheck(TestCase):
         }
         status_code = 420
         m.get(
-            "https://esi.evetech.net/latest/status/?datasource=tranquility",
+            "https://esi.evetech.net/status",
             text=json.dumps(error_json),
             status_code=status_code
         )
@@ -202,7 +202,7 @@ class TestEsiCheck(TestCase):
         status_code = 200
 
         m.get(
-            "https://esi.evetech.net/latest/status/?datasource=tranquility",
+            "https://esi.evetech.net/status",
             text=json.dumps(good_json),
             status_code=status_code
         )

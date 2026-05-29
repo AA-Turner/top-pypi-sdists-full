@@ -10,8 +10,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from collections.abc import Callable, Generator, Iterable
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+import warnings
 
 from openstack.clustering.v1 import action as _action
 from openstack.clustering.v1 import build_info
@@ -28,6 +29,7 @@ from openstack.clustering.v1 import receiver as _receiver
 from openstack.clustering.v1 import service as _service
 from openstack import proxy
 from openstack import resource
+from openstack import warnings as os_warnings
 
 
 class Proxy(proxy.Proxy):
@@ -49,14 +51,17 @@ class Proxy(proxy.Proxy):
         "service": _service.Service,
     }
 
-    def get_build_info(self):
+    def get_build_info(self) -> build_info.BuildInfo:
         """Get build info for service engine and API
 
         :returns: A dictionary containing the API and engine revision string.
         """
         return self._get(build_info.BuildInfo, requires_id=False)
 
-    def profile_types(self, **query):
+    def profile_types(
+        self,
+        **query: Any,
+    ) -> Generator[_profile_type.ProfileType, None, None]:
         """Get a generator of profile types.
 
         :returns: A generator of objects that are of type
@@ -64,7 +69,9 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_profile_type.ProfileType, **query)
 
-    def get_profile_type(self, profile_type):
+    def get_profile_type(
+        self, profile_type: str | _profile_type.ProfileType
+    ) -> _profile_type.ProfileType:
         """Get the details about a profile type.
 
         :param profile_type: The name of the profile_type to retrieve or an
@@ -78,7 +85,10 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_profile_type.ProfileType, profile_type)
 
-    def policy_types(self, **query):
+    def policy_types(
+        self,
+        **query: Any,
+    ) -> Generator[_policy_type.PolicyType, None, None]:
         """Get a generator of policy types.
 
         :returns: A generator of objects that are of type
@@ -86,7 +96,9 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_policy_type.PolicyType, **query)
 
-    def get_policy_type(self, policy_type):
+    def get_policy_type(
+        self, policy_type: str | _policy_type.PolicyType
+    ) -> _policy_type.PolicyType:
         """Get the details about a policy type.
 
         :param policy_type: The name of a poicy_type or an object of
@@ -102,21 +114,22 @@ class Proxy(proxy.Proxy):
     def create_profile(self, **attrs: Any) -> _profile.Profile:
         """Create a new profile from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.clustering.v1.profile.Profile`, it is comprised
             of the properties on the Profile class.
 
         :returns: The results of profile creation.
-        :rtype: :class:`~openstack.clustering.v1.profile.Profile`.
         """
         return self._create(_profile.Profile, **attrs)
 
-    def delete_profile(self, profile, ignore_missing=True):
+    def delete_profile(
+        self, profile: str | _profile.Profile, ignore_missing: bool = True
+    ) -> None:
         """Delete a profile.
 
         :param profile: The value can be either the name or ID of a profile or
             a :class:`~openstack.clustering.v1.profile.Profile` instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the profile could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
@@ -147,8 +160,8 @@ class Proxy(proxy.Proxy):
     ) -> _profile.Profile | None:
         """Find a single profile.
 
-        :param str name_or_id: The name or ID of a profile.
-        :param bool ignore_missing: When set to ``False``
+        :param name_or_id: The name or ID of a profile.
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -160,7 +173,7 @@ class Proxy(proxy.Proxy):
             _profile.Profile, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_profile(self, profile):
+    def get_profile(self, profile: str | _profile.Profile) -> _profile.Profile:
         """Get a single profile.
 
         :param profile: The value can be the name or ID of a profile or a
@@ -172,10 +185,13 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_profile.Profile, profile)
 
-    def profiles(self, **query):
+    def profiles(
+        self,
+        **query: Any,
+    ) -> Generator[_profile.Profile, None, None]:
         """Retrieve a generator of profiles.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the profiles to be returned. Available parameters include:
 
             * name: The name of a profile.
@@ -199,7 +215,11 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_profile.Profile, **query)
 
-    def update_profile(self, profile, **attrs):
+    def update_profile(
+        self,
+        profile: str | _profile.Profile,
+        **attrs: Any,
+    ) -> _profile.Profile:
         """Update a profile.
 
         :param profile: Either the name or the ID of the profile, or an
@@ -208,19 +228,17 @@ class Proxy(proxy.Proxy):
             the ``value`` parameter.
 
         :returns: The updated profile.
-        :rtype: :class:`~openstack.clustering.v1.profile.Profile`
         """
         return self._update(_profile.Profile, profile, **attrs)
 
     def validate_profile(self, **attrs):
         """Validate a profile spec.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.clustering.v1.profile.ProfileValidate`, it is
             comprised of the properties on the Profile class.
 
         :returns: The results of profile validation.
-        :rtype: :class:`~openstack.clustering.v1.profile.ProfileValidate`.
         """
         return self._create(_profile.ProfileValidate, **attrs)
 
@@ -228,38 +246,41 @@ class Proxy(proxy.Proxy):
     def create_cluster(self, **attrs: Any) -> _cluster.Cluster:
         """Create a new cluster from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.clustering.v1.cluster.Cluster`, it is comprised
             of the properties on the Cluster class.
 
         :returns: The results of cluster creation.
-        :rtype: :class:`~openstack.clustering.v1.cluster.Cluster`.
         """
         return self._create(_cluster.Cluster, **attrs)
 
-    def delete_cluster(self, cluster, ignore_missing=True, force_delete=False):
+    # TODO(stephenfin): This method should return None
+    def delete_cluster(
+        self,
+        cluster: str | _cluster.Cluster,
+        ignore_missing: bool = True,
+        force_delete: bool = False,
+    ) -> _cluster.Cluster | _action.Action | None:
         """Delete a cluster.
 
         :param cluster: The value can be either the name or ID of a cluster or
             a :class:`~openstack.cluster.v1.cluster.Cluster` instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the cluster could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
             cluster.
-        :param bool force_delete: When set to ``True``, the cluster deletion
+        :param force_delete: When set to ``True``, the cluster deletion
             will be forced immediately.
 
         :returns: The instance of the Cluster which was deleted.
-        :rtype: :class:`~openstack.cluster.v1.cluster.Cluster`.
         """
         if force_delete:
             server = self._get_resource(_cluster.Cluster, cluster)
             return server.force_delete(self)
-        else:
-            return self._delete(
-                _cluster.Cluster, cluster, ignore_missing=ignore_missing
-            )
+        return self._delete(
+            _cluster.Cluster, cluster, ignore_missing=ignore_missing
+        )
 
     @overload
     def find_cluster(
@@ -282,8 +303,8 @@ class Proxy(proxy.Proxy):
     ) -> _cluster.Cluster | None:
         """Find a single cluster.
 
-        :param str name_or_id: The name or ID of a cluster.
-        :param bool ignore_missing: When set to ``False``
+        :param name_or_id: The name or ID of a cluster.
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -295,7 +316,7 @@ class Proxy(proxy.Proxy):
             _cluster.Cluster, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_cluster(self, cluster):
+    def get_cluster(self, cluster: str | _cluster.Cluster) -> _cluster.Cluster:
         """Get a single cluster.
 
         :param cluster: The value can be the name or ID of a cluster or a
@@ -307,10 +328,13 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_cluster.Cluster, cluster)
 
-    def clusters(self, **query):
+    def clusters(
+        self,
+        **query: Any,
+    ) -> Generator[_cluster.Cluster, None, None]:
         """Retrieve a generator of clusters.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the clusters to be returned. Available parameters include:
 
             * name: The name of a cluster.
@@ -332,7 +356,11 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_cluster.Cluster, **query)
 
-    def update_cluster(self, cluster, **attrs):
+    def update_cluster(
+        self,
+        cluster: str | _cluster.Cluster,
+        **attrs: Any,
+    ) -> _cluster.Cluster:
         """Update a cluster.
 
         :param cluster: Either the name or the ID of the cluster, or an
@@ -341,11 +369,12 @@ class Proxy(proxy.Proxy):
             the ``cluster`` parameter.
 
         :returns: The updated cluster.
-        :rtype: :class:`~openstack.clustering.v1.cluster.Cluster`
         """
         return self._update(_cluster.Cluster, cluster, **attrs)
 
-    def get_cluster_metadata(self, cluster):
+    def fetch_cluster_metadata(
+        self, cluster: str | _cluster.Cluster
+    ) -> _cluster.Cluster:
         """Return a dictionary of metadata for a cluster
 
         :param cluster: Either the ID of a cluster or a
@@ -353,37 +382,53 @@ class Proxy(proxy.Proxy):
 
         :returns: A :class:`~openstack.clustering.v3.cluster.Cluster` with the
             cluster's metadata. All keys and values are Unicode text.
-        :rtype: :class:`~openstack.clustering.v3.cluster.Cluster`
         """
         cluster = self._get_resource(_cluster.Cluster, cluster)
         return cluster.fetch_metadata(self)
+
+    # TODO(stephenfin): Remove in 5.0
+    def get_cluster_metadata(
+        self, cluster: str | _cluster.Cluster
+    ) -> _cluster.Cluster:
+        """Return a dictionary of metadata for a cluster
+
+        .. deprecated:: 4.14.0
+            Use :meth:`fetch_cluster_metadata` instead.
+        """
+        warnings.warn(
+            "The 'get_cluster_metadata' method is deprecated; use "
+            "'fetch_cluster_metadata' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.fetch_cluster_metadata(cluster)
 
     def set_cluster_metadata(self, cluster, **metadata):
         """Update metadata for a cluster
 
         :param cluster: Either the ID of a cluster or a
             :class:`~openstack.clustering.v3.cluster.Cluster`.
-        :param kwargs metadata: Key/value pairs to be updated in the cluster's
+        :param metadata: Key/value pairs to be updated in the cluster's
             metadata. No other metadata is modified by this call. All keys
             and values are stored as Unicode.
 
 
         :returns: A :class:`~openstack.clustering.v3.cluster.Cluster` with the
             cluster's metadata. All keys and values are Unicode text.
-        :rtype: :class:`~openstack.clustering.v3.cluster.Cluster`
         """
         cluster = self._get_resource(_cluster.Cluster, cluster)
         return cluster.set_metadata(self, metadata=metadata)
 
-    def delete_cluster_metadata(self, cluster, keys=None):
+    def delete_cluster_metadata(
+        self,
+        cluster: str | _cluster.Cluster,
+        keys: Iterable[str] | None = None,
+    ) -> None:
         """Delete metadata for a cluster
 
         :param cluster: Either the ID of a cluster or a
             :class:`~openstack.clustering.v3.cluster.Cluster`.
-        :param list keys: The keys to delete. If left empty complete
+        :param keys: The keys to delete. If left empty complete
             metadata will be removed.
-
-        :rtype: ``None``
         """
         cluster = self._get_resource(_cluster.Cluster, cluster)
         if keys is not None:
@@ -412,7 +457,7 @@ class Proxy(proxy.Proxy):
         :param cluster: Either the name or the ID of the cluster, or an
             instance of :class:`~openstack.clustering.v1.cluster.Cluster`.
         :param nodes: List of nodes to be removed from the cluster.
-        :param kwargs params: Optional query parameters to be sent to
+        :param params: Optional query parameters to be sent to
             restrict the nodes to be returned. Available parameters include:
 
             * destroy_after_deletion: A boolean value indicating whether the
@@ -474,7 +519,7 @@ class Proxy(proxy.Proxy):
 
         :param cluster: Either the name or the ID of the cluster, or an
             instance of :class:`~openstack.clustering.v1.cluster.Cluster`.
-        :param dict params: A dictionary providing the parameters for the
+        :param params: A dictionary providing the parameters for the
             resize action.
         :returns: A dict containing the action initiated by this operation.
         """
@@ -490,7 +535,7 @@ class Proxy(proxy.Proxy):
         :param cluster: Either the name or the ID of the cluster, or an
             instance of :class:`~openstack.clustering.v1.cluster.Cluster`.
         :param policy: Either the name or the ID of a policy.
-        :param dict params: A dictionary containing the properties for the
+        :param params: A dictionary containing the properties for the
             policy to be attached.
         :returns: A dict containing the action initiated by this operation.
         """
@@ -514,13 +559,18 @@ class Proxy(proxy.Proxy):
             obj = self._find(_cluster.Cluster, cluster, ignore_missing=False)
         return obj.policy_detach(self, policy)
 
-    def update_cluster_policy(self, cluster, policy, **params):
+    def update_cluster_policy(
+        self,
+        cluster: str | _cluster.Cluster,
+        policy: str,
+        **attrs: Any,
+    ) -> dict[str, Any]:
         """Change properties of a policy which is bound to the cluster.
 
         :param cluster: Either the name or the ID of the cluster, or an
             instance of :class:`~openstack.clustering.v1.cluster.Cluster`.
         :param policy: Either the name or the ID of a policy.
-        :param dict params: A dictionary containing the new properties for
+        :param attrs: A dictionary containing the new properties for
             the policy.
         :returns: A dict containing the action initiated by this operation.
         """
@@ -528,9 +578,14 @@ class Proxy(proxy.Proxy):
             obj = cluster
         else:
             obj = self._find(_cluster.Cluster, cluster, ignore_missing=False)
-        return obj.policy_update(self, policy, **params)
+        return obj.policy_update(self, policy, **attrs)
 
-    def collect_cluster_attrs(self, cluster, path, **query):
+    def collect_cluster_attrs(
+        self,
+        cluster: str | _cluster.Cluster,
+        path: str,
+        **query: Any,
+    ) -> Generator[_cluster_attr.ClusterAttr, None, None]:
         """Collect attribute values across a cluster.
 
         :param cluster: The value can be either the ID of a cluster or a
@@ -550,7 +605,7 @@ class Proxy(proxy.Proxy):
 
         :param cluster: The value can be either the ID of a cluster or a
             :class:`~openstack.clustering.v1.cluster.Cluster` instance.
-        :param dict params: A dictionary providing the parameters for the
+        :param params: A dictionary providing the parameters for the
             check action.
 
         :returns: A dictionary containing the action ID.
@@ -563,7 +618,7 @@ class Proxy(proxy.Proxy):
 
         :param cluster: The value can be either the ID of a cluster or a
             :class:`~openstack.clustering.v1.cluster.Cluster` instance.
-        :param dict params: A dictionary providing the parameters for the
+        :param params: A dictionary providing the parameters for the
             recover action.
 
         :returns: A dictionary containing the action ID.
@@ -577,7 +632,7 @@ class Proxy(proxy.Proxy):
         :param cluster: The value can be either the ID of a cluster or a
             :class:`~openstack.clustering.v1.cluster.Cluster` instance.
         :param operation: A string specifying the operation to be performed.
-        :param dict params: A dictionary providing the parameters for the
+        :param params: A dictionary providing the parameters for the
             operation.
 
         :returns: A dictionary containing the action ID.
@@ -588,38 +643,39 @@ class Proxy(proxy.Proxy):
     def create_node(self, **attrs: Any) -> _node.Node:
         """Create a new node from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.clustering.v1.node.Node`, it is comprised
             of the properties on the ``Node`` class.
 
         :returns: The results of node creation.
-        :rtype: :class:`~openstack.clustering.v1.node.Node`.
         """
         return self._create(_node.Node, **attrs)
 
-    def delete_node(self, node, ignore_missing=True, force_delete=False):
+    # TODO(stephenfin): This method should return None
+    def delete_node(
+        self,
+        node: str | _node.Node,
+        ignore_missing: bool = True,
+        force_delete: bool = False,
+    ) -> _node.Node | _action.Action | None:
         """Delete a node.
 
         :param node: The value can be either the name or ID of a node or a
             :class:`~openstack.cluster.v1.node.Node` instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the node could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
             node.
-        :param bool force_delete: When set to ``True``, the node deletion
+        :param force_delete: When set to ``True``, the node deletion
             will be forced immediately.
 
         :returns: The instance of the Node which was deleted.
-        :rtype: :class:`~openstack.cluster.v1.node.Node`.
         """
         if force_delete:
             server = self._get_resource(_node.Node, node)
             return server.force_delete(self)
-        else:
-            return self._delete(
-                _node.Node, node, ignore_missing=ignore_missing
-            )
+        return self._delete(_node.Node, node, ignore_missing=ignore_missing)
 
     @overload
     def find_node(
@@ -642,8 +698,8 @@ class Proxy(proxy.Proxy):
     ) -> _node.Node | None:
         """Find a single node.
 
-        :param str name_or_id: The name or ID of a node.
-        :param bool ignore_missing: When set to "False"
+        :param name_or_id: The name or ID of a node.
+        :param ignore_missing: When set to "False"
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the specified node does not exist.
             when set to "True", None will be returned when
@@ -655,7 +711,11 @@ class Proxy(proxy.Proxy):
             _node.Node, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_node(self, node, details=False):
+    def get_node(
+        self,
+        node: str | _node.Node,
+        details: bool = False,
+    ) -> _node.Node:
         """Get a single node.
 
         :param node: The value can be the name or ID of a node or a
@@ -675,10 +735,10 @@ class Proxy(proxy.Proxy):
             return self._get(_node.NodeDetail, requires_id=False, node_id=node)
         return self._get(_node.Node, node)
 
-    def nodes(self, **query):
+    def nodes(self, **query: Any) -> Generator[_node.Node, None, None]:
         """Retrieve a generator of nodes.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the nodes to be returned. Available parameters include:
 
             * cluster_id: A string including the name or ID of a cluster to
@@ -701,7 +761,11 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_node.Node, **query)
 
-    def update_node(self, node, **attrs):
+    def update_node(
+        self,
+        node: str | _node.Node,
+        **attrs: Any,
+    ) -> _node.Node:
         """Update a node.
 
         :param node: Either the name or the ID of the node, or an instance
@@ -710,7 +774,6 @@ class Proxy(proxy.Proxy):
             the ``node`` parameter.
 
         :returns: The updated node.
-        :rtype: :class:`~openstack.clustering.v1.node.Node`
         """
         return self._update(_node.Node, node, **attrs)
 
@@ -719,7 +782,7 @@ class Proxy(proxy.Proxy):
 
         :param node: The value can be either the ID of a node or a
             :class:`~openstack.clustering.v1.node.Node` instance.
-        :param dict params: A dictionary providing the parametes to the check
+        :param params: A dictionary providing the parametes to the check
             action.
 
         :returns: A dictionary containing the action ID.
@@ -732,7 +795,7 @@ class Proxy(proxy.Proxy):
 
         :param node: The value can be either the ID of a node or a
             :class:`~openstack.clustering.v1.node.Node` instance.
-        :param dict params: A dict supplying parameters to the recover action.
+        :param params: A dict supplying parameters to the recover action.
 
         :returns: A dictionary containing the action ID.
         """
@@ -745,7 +808,7 @@ class Proxy(proxy.Proxy):
         :param preview: A boolean indicating whether this is a "preview"
             operation which means only the profile to be used is returned
             rather than creating a node object using that profile.
-        :param dict attrs: Keyword parameters for node adoption. Valid
+        :param attrs: Keyword parameters for node adoption. Valid
             parameters include:
 
             * type: (Required) A string containing the profile type and
@@ -777,7 +840,7 @@ class Proxy(proxy.Proxy):
         :param node: The value can be either the ID of a node or a
             :class:`~openstack.clustering.v1.node.Node` instance.
         :param operation: A string specifying the operation to be performed.
-        :param dict params: A dictionary providing the parameters for the
+        :param params: A dictionary providing the parameters for the
             operation.
 
         :returns: A dictionary containing the action ID.
@@ -788,21 +851,22 @@ class Proxy(proxy.Proxy):
     def create_policy(self, **attrs: Any) -> _policy.Policy:
         """Create a new policy from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.clustering.v1.policy.Policy`, it is comprised
             of the properties on the ``Policy`` class.
 
         :returns: The results of policy creation.
-        :rtype: :class:`~openstack.clustering.v1.policy.Policy`.
         """
         return self._create(_policy.Policy, **attrs)
 
-    def delete_policy(self, policy, ignore_missing=True):
+    def delete_policy(
+        self, policy: str | _policy.Policy, ignore_missing: bool = True
+    ) -> None:
         """Delete a policy.
 
         :param policy: The value can be either the name or ID of a policy or a
             :class:`~openstack.clustering.v1.policy.Policy` instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the policy could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
@@ -833,36 +897,34 @@ class Proxy(proxy.Proxy):
     ) -> _policy.Policy | None:
         """Find a single policy.
 
-        :param str name_or_id: The name or ID of a policy.
-        :param bool ignore_missing: When set to ``False``
+        :param name_or_id: The name or ID of a policy.
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the specified policy does not exist.
             When set to ``True``, None will be returned when
             attempting to find a nonexistent policy.
         :returns: A policy object or None.
-        :rtype: :class:`~openstack.clustering.v1.policy.Policy`
         """
         return self._find(
             _policy.Policy, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_policy(self, policy):
+    def get_policy(self, policy: str | _policy.Policy) -> _policy.Policy:
         """Get a single policy.
 
         :param policy: The value can be the name or ID of a policy or a
             :class:`~openstack.clustering.v1.policy.Policy` instance.
 
         :returns: A policy object.
-        :rtype: :class:`~openstack.clustering.v1.policy.Policy`
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             policy matching the criteria could be found.
         """
         return self._get(_policy.Policy, policy)
 
-    def policies(self, **query):
+    def policies(self, **query: Any) -> Generator[_policy.Policy, None, None]:
         """Retrieve a generator of policies.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the policies to be returned. Available parameters include:
 
             * name: The name of a policy.
@@ -884,7 +946,11 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_policy.Policy, **query)
 
-    def update_policy(self, policy, **attrs):
+    def update_policy(
+        self,
+        policy: str | _policy.Policy,
+        **attrs: Any,
+    ) -> _policy.Policy:
         """Update a policy.
 
         :param policy: Either the name or the ID of a policy, or an instance
@@ -893,28 +959,30 @@ class Proxy(proxy.Proxy):
             the ``value`` parameter.
 
         :returns: The updated policy.
-        :rtype: :class:`~openstack.clustering.v1.policy.Policy`
         """
         return self._update(_policy.Policy, policy, **attrs)
 
     def validate_policy(self, **attrs):
         """Validate a policy spec.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.clustering.v1.policy.PolicyValidate`, it is
             comprised of the properties on the Policy class.
 
         :returns: The results of Policy validation.
-        :rtype: :class:`~openstack.clustering.v1.policy.PolicyValidate`.
         """
         return self._create(_policy.PolicyValidate, **attrs)
 
-    def cluster_policies(self, cluster, **query):
+    def cluster_policies(
+        self,
+        cluster: str | _cluster.Cluster,
+        **query: Any,
+    ) -> Generator[_cluster_policy.ClusterPolicy, None, None]:
         """Retrieve a generator of cluster-policy bindings.
 
         :param cluster: The value can be the name or ID of a cluster or a
             :class:`~openstack.clustering.v1.cluster.Cluster` instance.
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the policies to be returned. Available parameters include:
 
             * enabled: A boolean value indicating whether the policy is
@@ -926,7 +994,11 @@ class Proxy(proxy.Proxy):
             _cluster_policy.ClusterPolicy, cluster_id=cluster_id, **query
         )
 
-    def get_cluster_policy(self, cluster_policy, cluster):
+    def get_cluster_policy(
+        self,
+        cluster_policy: str | _cluster_policy.ClusterPolicy,
+        cluster: str | _cluster.Cluster,
+    ) -> _cluster_policy.ClusterPolicy:
         """Get a cluster-policy binding.
 
         :param cluster_policy:
@@ -936,7 +1008,6 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.clustering.v1.cluster.Cluster` instance.
 
         :returns: a cluster-policy binding object.
-        :rtype: :class:`~openstack.clustering.v1.cluster_policy.CLusterPolicy`
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             cluster-policy binding matching the criteria could be found.
         """
@@ -947,16 +1018,19 @@ class Proxy(proxy.Proxy):
     def create_receiver(self, **attrs: Any) -> _receiver.Receiver:
         """Create a new receiver from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.clustering.v1.receiver.Receiver`, it is
             comprised of the properties on the Receiver class.
 
         :returns: The results of receiver creation.
-        :rtype: :class:`~openstack.clustering.v1.receiver.Receiver`.
         """
         return self._create(_receiver.Receiver, **attrs)
 
-    def update_receiver(self, receiver, **attrs):
+    def update_receiver(
+        self,
+        receiver: str | _receiver.Receiver,
+        **attrs: Any,
+    ) -> _receiver.Receiver:
         """Update a receiver.
 
         :param receiver: The value can be either the name or ID of a receiver
@@ -964,16 +1038,17 @@ class Proxy(proxy.Proxy):
         :param attrs: The attributes to update on the receiver parameter.
             Valid attribute names include ``name``, ``action`` and ``params``.
         :returns: The updated receiver.
-        :rtype: :class:`~openstack.clustering.v1.receiver.Receiver`
         """
         return self._update(_receiver.Receiver, receiver, **attrs)
 
-    def delete_receiver(self, receiver, ignore_missing=True):
+    def delete_receiver(
+        self, receiver: str | _receiver.Receiver, ignore_missing: bool = True
+    ) -> None:
         """Delete a receiver.
 
         :param receiver: The value can be either the name or ID of a receiver
             or a :class:`~openstack.clustering.v1.receiver.Receiver` instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the receiver could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
@@ -1006,36 +1081,39 @@ class Proxy(proxy.Proxy):
     ) -> _receiver.Receiver | None:
         """Find a single receiver.
 
-        :param str name_or_id: The name or ID of a receiver.
-        :param bool ignore_missing: When set to ``False``
+        :param name_or_id: The name or ID of a receiver.
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the specified receiver does not exist. When
             set to ``True``, None will be returned when attempting to
             find a nonexistent receiver.
         :returns: A receiver object or None.
-        :rtype: :class:`~openstack.clustering.v1.receiver.Receiver`
         """
         return self._find(
             _receiver.Receiver, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_receiver(self, receiver):
+    def get_receiver(
+        self, receiver: str | _receiver.Receiver
+    ) -> _receiver.Receiver:
         """Get a single receiver.
 
         :param receiver: The value can be the name or ID of a receiver or a
             :class:`~openstack.clustering.v1.receiver.Receiver` instance.
 
         :returns: A receiver object.
-        :rtype: :class:`~openstack.clustering.v1.receiver.Receiver`
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             receiver matching the criteria could be found.
         """
         return self._get(_receiver.Receiver, receiver)
 
-    def receivers(self, **query):
+    def receivers(
+        self,
+        **query: Any,
+    ) -> Generator[_receiver.Receiver, None, None]:
         """Retrieve a generator of receivers.
 
-        :param kwargs query: Optional query parameters for restricting the
+        :param query: Optional query parameters for restricting the
             receivers to be returned. Available parameters include:
 
             * name: The name of a receiver object.
@@ -1052,23 +1130,22 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_receiver.Receiver, **query)
 
-    def get_action(self, action):
+    def get_action(self, action: str | _action.Action) -> _action.Action:
         """Get a single action.
 
         :param action: The value can be the name or ID of an action or a
             :class:`~openstack.clustering.v1.action.Action` instance.
 
         :returns: an action object.
-        :rtype: :class:`~openstack.clustering.v1.action.Action`
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             action matching the criteria could be found.
         """
         return self._get(_action.Action, action)
 
-    def actions(self, **query):
+    def actions(self, **query: Any) -> Generator[_action.Action, None, None]:
         """Retrieve a generator of actions.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the actions to be returned. Available parameters include:
 
             * name: name of action for query.
@@ -1090,7 +1167,11 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_action.Action, **query)
 
-    def update_action(self, action, **attrs):
+    def update_action(
+        self,
+        action: str | _action.Action,
+        **attrs: Any,
+    ) -> _action.Action:
         """Update a profile.
 
         :param action: Either the ID of the action, or an
@@ -1099,27 +1180,25 @@ class Proxy(proxy.Proxy):
             the ``value`` parameter.
 
         :returns: The updated action.
-        :rtype: :class:`~openstack.clustering.v1.action.Action`
         """
         return self._update(_action.Action, action, **attrs)
 
-    def get_event(self, event):
+    def get_event(self, event: str | _event.Event) -> _event.Event:
         """Get a single event.
 
         :param event: The value can be the name or ID of an event or a
             :class:`~openstack.clustering.v1.event.Event` instance.
 
         :returns: an event object.
-        :rtype: :class:`~openstack.clustering.v1.event.Event`
         :raises: :class:`~openstack.exceptions.NotFoundException` when no
             event matching the criteria could be found.
         """
         return self._get(_event.Event, event)
 
-    def events(self, **query):
+    def events(self, **query: Any) -> Generator[_event.Event, None, None]:
         """Retrieve a generator of events.
 
-        :param kwargs query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the events to be returned. Available parameters include:
 
             * obj_name: name string of the object associated with an event.
@@ -1146,7 +1225,10 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_event.Event, **query)
 
-    def services(self, **query):
+    def services(
+        self,
+        **query: Any,
+    ) -> Generator[_service.Service, None, None]:
         """Get a generator of services.
 
         :returns: A generator of objects that are of type
@@ -1198,7 +1280,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -1213,8 +1295,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

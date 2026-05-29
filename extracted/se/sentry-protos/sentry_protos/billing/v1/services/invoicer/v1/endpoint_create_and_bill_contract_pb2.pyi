@@ -20,8 +20,10 @@ class CreateAndBillContractRequest(google.protobuf.message.Message):
     ORGANIZATION_ID_FIELD_NUMBER: builtins.int
     PACKAGE_UID_FIELD_NUMBER: builtins.int
     USER_CONFIGS_FIELD_NUMBER: builtins.int
+    MONTH_INTERVAL_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     package_uid: builtins.str
+    month_interval: builtins.int
     @property
     def user_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2.UserConfig]: ...
     def __init__(
@@ -30,8 +32,9 @@ class CreateAndBillContractRequest(google.protobuf.message.Message):
         organization_id: builtins.int = ...,
         package_uid: builtins.str = ...,
         user_configs: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2.UserConfig] | None = ...,
+        month_interval: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["organization_id", b"organization_id", "package_uid", b"package_uid", "user_configs", b"user_configs"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "user_configs", b"user_configs"]) -> None: ...
 
 global___CreateAndBillContractRequest = CreateAndBillContractRequest
 

@@ -1,11 +1,16 @@
 from types import SimpleNamespace
-from typing import Any, NoReturn, Optional, cast
+from typing import Any, NoReturn, cast
 
 from esi.exceptions import HTTPClientError
 
 
 class OpenAPIOperationStub:
     """Stub to simulate aiopenapi3 EsiOperation behavior used in tests."""
+
+    DEFAULT_HEADERS = {
+        "Last-Modified": "Tue, 20 May 2025 13:24:00 GMT",
+        "x-pages": 1,
+    }
 
     class ResponseStub:
         def __init__(self, headers: dict, status_code: int = 200) -> None:
@@ -18,7 +23,7 @@ class OpenAPIOperationStub:
         headers: dict | None = None,
     ):
         self._data = data
-        self._headers = headers if headers else {"x-pages": 1}
+        self._headers = headers if headers else self.DEFAULT_HEADERS.copy()
         self._args = []
         self._kwargs = {}
 
@@ -89,7 +94,11 @@ class EsiClientStub:
                 3001: {
                     "name": "Wayne Enterprises",
                     "ticker": "WYE",
-                    "executor_corporation_id": 2001
+                    "executor_corporation_id": 2001,
+                    "faction_id": None,
+                    "creator_corporation_id": None,
+                    "creator_id": None,
+                    "date_founded": None,
                 }
             }
             try:
@@ -112,14 +121,54 @@ class EsiClientStub:
                 1001: {
                     "corporation_id": 2001,
                     "name": "Bruce Wayne",
+                    "alliance_id": 3001,
+                    "faction_id": None,
+                    "birthday": None,
+                    "bloodline_id": None,
+                    "description": "",
+                    "gender": "",
+                    "race_id": None,
+                    "security_status": 0.0,
+                    "title": "",
                 },
                 1002: {
                     "corporation_id": 2001,
                     "name": "Peter Parker",
+                    "alliance_id": 3001,
+                    "faction_id": None,
+                    "birthday": None,
+                    "bloodline_id": None,
+                    "description": "",
+                    "gender": "",
+                    "race_id": None,
+                    "security_status": 0.0,
+                    "title": "",
                 },
                 1011: {
                     "corporation_id": 2011,
                     "name": "Lex Luthor",
+                    "alliance_id": None,
+                    "faction_id": None,
+                    "birthday": None,
+                    "bloodline_id": None,
+                    "description": "",
+                    "gender": "",
+                    "race_id": None,
+                    "security_status": 0.0,
+                    "title": "",
+                },
+                1666: {
+                    "corporation_id": 1000001,
+                    "name": "Hal Jordan",
+                    "alliance_id": None,
+                    "faction_id": None,
+                    "birthday": None,
+                    "bloodline_id": None,
+                    "description": "",
+                    "gender": "",
+                    "race_id": None,
+                    "security_status": 0.0,
+                    "title": "",
                 }
             }
             try:
@@ -151,38 +200,83 @@ class EsiClientStub:
             data = {
                 2001: {
                     "ceo_id": 1091,
+                    "creator_id": None,
+                    "date_founded": None,
+                    "description": "",
+                    "faction_id": None,
+                    "home_station_id": None,
                     "member_count": 10,
                     "name": "Wayne Technologies",
+                    "shares": None,
+                    "tax_rate": None,
                     "ticker": "WTE",
-                    "alliance_id": 3001
+                    "url": "",
+                    "war_eligible": False,
+                    "alliance_id": 3001,
                 },
                 2002: {
                     "ceo_id": 1092,
+                    "creator_id": None,
+                    "date_founded": None,
+                    "description": "",
+                    "faction_id": None,
+                    "home_station_id": None,
                     "member_count": 10,
                     "name": "Wayne Food",
+                    "shares": None,
+                    "tax_rate": None,
                     "ticker": "WFO",
-                    "alliance_id": 3001
+                    "url": "",
+                    "war_eligible": False,
+                    "alliance_id": 3001,
                 },
                 2003: {
                     "ceo_id": 1093,
+                    "creator_id": None,
+                    "date_founded": None,
+                    "description": "",
+                    "faction_id": None,
+                    "home_station_id": None,
                     "member_count": 10,
                     "name": "Wayne Energy",
+                    "shares": None,
+                    "tax_rate": None,
                     "ticker": "WEG",
-                    "alliance_id": 3001
+                    "url": "",
+                    "war_eligible": False,
+                    "alliance_id": 3001,
                 },
                 2011: {
                     "ceo_id": 1,
+                    "creator_id": None,
+                    "date_founded": None,
+                    "description": "",
+                    "faction_id": None,
+                    "home_station_id": None,
                     "member_count": 3,
                     "name": "LexCorp",
+                    "shares": None,
+                    "tax_rate": None,
                     "ticker": "LC",
+                    "url": "",
+                    "war_eligible": False,
+                    "alliance_id": None,
                 },
                 1000001: {
                     "ceo_id": 3000001,
                     "creator_id": 1,
+                    "date_founded": None,
                     "description": "The internal corporation used for characters in graveyard.",
+                    "faction_id": None,
+                    "home_station_id": None,
                     "member_count": 6329026,
                     "name": "Doomheim",
+                    "shares": None,
+                    "tax_rate": None,
                     "ticker": "666",
+                    "url": "",
+                    "war_eligible": False,
+                    "alliance_id": None,
                 }
             }
             try:
@@ -193,6 +287,23 @@ class EsiClientStub:
         get_corporations_corporation_id = GetCorporationsCorporationId
 
     class Universe:
+        @staticmethod
+        def GetUniverseFactions() -> OpenAPIOperationStub:
+            data = [
+                {
+                    "faction_id": 5001,
+                    "name": "Faction One",
+                    "description": "Faction One",
+                },
+                {
+                    "faction_id": 5002,
+                    "name": "Faction Two",
+                    "description": "Faction Two",
+                    "corporation_id": 2001,
+                },
+            ]
+            return EsiClientStub._operation(data)
+
         @staticmethod
         def PostUniverseNames(body: list) -> OpenAPIOperationStub:
             data = [

@@ -75,7 +75,11 @@ def get_iterable_zip_stream(files: Sequence[Union[str, Dict[str, bytes]]], chunk
                 zip_pointer.close()
         else:
             # generate zip info and prepare zip pointer for writing
-            z_info = zf.ZipInfo.from_file(file_entry)
+            try:
+                z_info = zf.ZipInfo.from_file(file_entry, strict_timestamps=False)
+            except TypeError:
+                # strict_timestamps was added in Python 3.8
+                z_info = zf.ZipInfo.from_file(file_entry)
             zip_pointer = zip_writer.open(z_info, mode='w')
             if Path(file_entry).is_file():
                 # read file chunk by chunk

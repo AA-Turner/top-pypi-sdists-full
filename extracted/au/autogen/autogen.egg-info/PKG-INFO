@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: autogen
-Version: 0.13.1
+Version: 0.13.2
 Summary: Alias package for ag2
 Home-page: https://github.com/ag2ai/ag2
 Author: Chi Wang & Qingyun Wu
@@ -41,7 +41,6 @@ Provides-Extra: retrievechat-couchbase
 Provides-Extra: graph-rag-falkor-db
 Provides-Extra: rag
 Provides-Extra: crawl4ai
-Provides-Extra: tinyfish
 Provides-Extra: quick-research
 Provides-Extra: browser-use
 Provides-Extra: google-client
@@ -72,7 +71,6 @@ Provides-Extra: long-context
 Provides-Extra: cerebras
 Provides-Extra: yepcode
 Provides-Extra: remyx
-Provides-Extra: daytona
 Provides-Extra: cohere
 Provides-Extra: commsagent-discord
 Provides-Extra: commsagent-slack
@@ -80,7 +78,6 @@ Provides-Extra: commsagent-telegram
 Provides-Extra: duckduckgo
 Provides-Extra: ddgs
 Provides-Extra: tavily
-Provides-Extra: exa
 Provides-Extra: perplexity
 Provides-Extra: nlip
 Provides-Extra: test-core

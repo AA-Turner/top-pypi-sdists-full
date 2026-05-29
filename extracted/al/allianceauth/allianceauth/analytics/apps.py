@@ -6,3 +6,6 @@ class AnalyticsConfig(AppConfig):
     name = 'allianceauth.analytics'
     label = 'analytics'
     verbose_name = _('Analytics')
+
+    def ready(self) -> None:
+        pass

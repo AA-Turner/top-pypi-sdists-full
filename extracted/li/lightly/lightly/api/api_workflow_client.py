@@ -183,8 +183,7 @@ class ApiWorkflowClient(
         """
         if not self.dataset_exists(dataset_id):
             raise ValueError(
-                f"A dataset with the id {dataset_id} does not exist on the web"
-                f"platform."
+                f"A dataset with the id {dataset_id} does not exist on the webplatform."
             )
         self._dataset_id = dataset_id
 
@@ -261,7 +260,6 @@ class ApiWorkflowClient(
 
         :meta private:  # Skip docstring generation
         """
-
         # check to see if server side encryption for S3 is desired
         # see https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingServerSideEncryption.html
         # see https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingKMSEncryption.html
@@ -281,9 +279,9 @@ class ApiWorkflowClient(
                 else:
                     # enable SSE with specific customer KMS key
                     headers["x-amz-server-side-encryption"] = "aws:kms"
-                    headers[
-                        "x-amz-server-side-encryption-aws-kms-key-id"
-                    ] = lightly_s3_sse_kms_key
+                    headers["x-amz-server-side-encryption-aws-kms-key-id"] = (
+                        lightly_s3_sse_kms_key
+                    )
 
         # start requests session and make put request
         sess = session or requests

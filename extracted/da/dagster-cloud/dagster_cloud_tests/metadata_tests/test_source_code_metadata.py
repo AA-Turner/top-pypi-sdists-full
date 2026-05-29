@@ -153,7 +153,7 @@ def test_link_code_references_to_git_if_cloud_cloud_context(
                     )
 
                     assert meta.url == (
-                        f"{source_control_branch_base}/dagster-cloud/python_modules/dagster-cloud"
+                        f"{source_control_branch_base}/dagster-oss/python_modules/dagster-cloud"
                         + (expected_file_path[len(DAGSTER_CLOUD_PACKAGE_PATH) :])
                         + f"#L{expected_line_number}"
                     )
@@ -226,7 +226,7 @@ def test_link_code_references_to_git_if_cloud_override_cloud_context() -> None:
                     )
 
                     assert meta.url == (
-                        "https://github.com/dagster-io/other-repo/tree/main/dagster-cloud/python_modules/dagster-cloud"
+                        "https://github.com/dagster-io/other-repo/tree/main/dagster-oss/python_modules/dagster-cloud"
                         + (expected_file_path[len(DAGSTER_CLOUD_PACKAGE_PATH) :])
                         + f"#L{expected_line_number}"
                     )

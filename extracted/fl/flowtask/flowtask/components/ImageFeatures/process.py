@@ -9,7 +9,7 @@ import pyheif
 from pillow_heif import register_heif_opener
 from io import BytesIO
 import filetype
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from ...exceptions import (
     ConfigError,
     ComponentError,
@@ -51,6 +51,7 @@ class ImageFeatures(FlowComponent):
         ```
     """
     _version = "1.0.0"
+
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop = None,

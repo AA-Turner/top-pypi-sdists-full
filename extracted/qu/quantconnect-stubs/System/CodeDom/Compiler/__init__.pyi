@@ -10,21 +10,6 @@ import System.Threading
 import System.Threading.Tasks
 
 
-class GeneratedCodeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def tool(self) -> str:
-        ...
-
-    @property
-    def version(self) -> str:
-        ...
-
-    def __init__(self, tool: str, version: str) -> None:
-        ...
-
-
 class IndentedTextWriter(System.IO.TextWriter):
     """This class has no documentation."""
 
@@ -233,6 +218,21 @@ class IndentedTextWriter(System.IO.TextWriter):
         ...
 
     def write_line_no_tabs_async(self, s: str) -> System.Threading.Tasks.Task:
+        ...
+
+
+class GeneratedCodeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def tool(self) -> str:
+        ...
+
+    @property
+    def version(self) -> str:
+        ...
+
+    def __init__(self, tool: str, version: str) -> None:
         ...
 
 

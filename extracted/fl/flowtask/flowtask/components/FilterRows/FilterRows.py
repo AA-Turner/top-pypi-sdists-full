@@ -6,7 +6,7 @@ import numpy as np
 import pandas
 from querysource.types.dt import filters as qsffunctions
 from . import functions as dffunctions
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from ...utils.functions import check_empty
 from ...exceptions import ComponentError, DataNotFound
 

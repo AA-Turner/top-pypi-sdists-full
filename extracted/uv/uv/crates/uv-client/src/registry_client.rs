@@ -24,7 +24,7 @@ use uv_distribution_types::{
     BuiltDist, File, IndexCapabilities, IndexFormat, IndexLocations, IndexMetadataRef,
     IndexStatusCodeDecision, IndexStatusCodeStrategy, IndexUrl, IndexUrls, Name,
 };
-use uv_git::{GitResolver, Reporter};
+use uv_git::{GIT_LFS, GitError, GitHttpSettings, GitResolver, Reporter};
 use uv_metadata::{read_metadata_async_seek, read_metadata_async_stream};
 use uv_normalize::PackageName;
 use uv_pep440::Version;
@@ -65,7 +65,7 @@ impl<'a> RegistryClientBuilder<'a> {
             index_strategy: IndexStrategy::default(),
             torch_backend: None,
             cache,
-            base_client_builder,
+            base_client_builder: base_client_builder.redirect(RedirectPolicy::RetriggerMiddleware),
         }
     }
 
@@ -170,8 +170,7 @@ impl<'a> RegistryClientBuilder<'a> {
         // Build a base client
         let builder = self
             .base_client_builder
-            .indexes(Indexes::from(&self.index_locations))
-            .redirect(RedirectPolicy::RetriggerMiddleware);
+            .indexes(Indexes::from(&self.index_locations));
 
         let client = builder.build()?;
 
@@ -269,9 +268,9 @@ impl RegistryClient {
         self.client.uncached().for_host(url)
     }
 
-    /// Returns `true` if SSL verification is disabled for the given URL.
-    pub fn disable_ssl(&self, url: &DisplaySafeUrl) -> bool {
-        self.client.uncached().disable_ssl(url)
+    /// Return the [`GitHttpSettings`] for fetching from the given URL.
+    pub fn git_http_settings(&self, url: &DisplaySafeUrl) -> GitHttpSettings {
+        self.client.uncached().git_http_settings(url)
     }
 
     /// Return the [`Connectivity`] mode used by this client.
@@ -994,13 +993,27 @@ impl RegistryClient {
                 let fetch = git
                     .fetch(
                         &wheel.git,
-                        self.disable_ssl(wheel.git.url()),
-                        self.connectivity() == Connectivity::Offline,
+                        self.git_http_settings(wheel.git.url()),
                         self.cache.bucket(CacheBucket::Git),
                         reporter,
                     )
                     .await
                     .map_err(ErrorKind::Git)?;
+
+                if wheel.git.lfs().enabled() && !fetch.lfs_ready() {
+                    if GIT_LFS.is_err() {
+                        return Err(ErrorKind::MissingWheelGitLfsArtifacts(
+                            wheel.url.to_url(),
+                            GitError::GitLfsNotFound,
+                        )
+                        .into());
+                    }
+                    return Err(ErrorKind::MissingWheelGitLfsArtifacts(
+                        wheel.url.to_url(),
+                        GitError::GitLfsNotConfigured,
+                    )
+                    .into());
+                }
 
                 // Read the metadata.
                 let file = fs_err::tokio::File::open(fetch.path().join(&wheel.install_path))

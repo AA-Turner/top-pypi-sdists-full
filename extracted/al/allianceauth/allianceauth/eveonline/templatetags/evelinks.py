@@ -14,8 +14,12 @@
 
 from django import template
 
-from ..evelinks import dotlan, eveimageserver, evewho, zkillboard
-from ..models import EveAllianceInfo, EveCharacter, EveCorporationInfo
+from allianceauth.eveonline.evelinks import (
+    dotlan, eveimageserver, everef, evewho, zkillboard,
+)
+from allianceauth.eveonline.models import (
+    EveAllianceInfo, EveCharacter, EveCorporationInfo,
+)
 
 register = template.Library()
 
@@ -96,8 +100,19 @@ def _generic_evelinks_url(
         return my_func(eve_obj)
 
 
-# evewho
+# everef
+@register.filter
+def everef_type_url(type_id: int) -> str:
+    """generates an everef URL for the given type ID
+    Returns URL or empty string
+    """
+    try:
+        return everef.type_url(type_id)
+    except ValueError:
+        return ''
 
+
+# evewho
 @register.filter
 def evewho_character_url(eve_obj: EveCharacter) -> str:
     """generates an evewho URL for the given object

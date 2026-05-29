@@ -57,7 +57,7 @@ def _download_cli(cfg, is_cli_call=True):
             f.write("%s\n" % item)
 
     filepath = os.path.join(os.getcwd(), filename)
-    msg = f'The list of samples in tag {cfg["tag_name"]} is stored at: {bcolors.OKBLUE}{filepath}{bcolors.ENDC}'
+    msg = f"The list of samples in tag {cfg['tag_name']} is stored at: {bcolors.OKBLUE}{filepath}{bcolors.ENDC}"
     print(msg, flush=True)
 
     if not cfg["input_dir"] and cfg["output_dir"]:
@@ -113,7 +113,7 @@ def download_cli(cfg):
             output_dir.
 
     Examples:
-        >>> # download list of all files in the dataset from the Lightly platform
+        >>> # download list of all files in the dataset from the Lightly platform
         >>> lightly-download token='123' dataset_id='XYZ'
         >>>
         >>> # download list of all files in tag 'my-tag' from the Lightly platform

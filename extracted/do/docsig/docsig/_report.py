@@ -8,8 +8,6 @@ issue), Failures (sequence of failures), and report() to print them and
 return the highest exit code.
 """
 
-from __future__ import annotations as _
-
 import contextlib as _contextlib
 import sys as _sys
 import typing as _t
@@ -324,10 +322,13 @@ class Failure(list[Failed]):
         if self._func.error is _ast.AstroidSyntaxError:
             self._add(_E[901])
             self._retcode = 123
+        # unicode-decode-error
         if self._func.error is UnicodeDecodeError:
             self._add(_E[902])
+        # recursion-error
         if self._func.error is RecursionError:
             self._add(_E[903])
+        # duplicates-found-in-mros
         if self._func.error is _ast.DuplicateBasesError:
             self._add(_E[904])
 

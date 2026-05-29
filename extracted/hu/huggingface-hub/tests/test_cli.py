@@ -11,11 +11,12 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from huggingface_hub import HfApi
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
-from huggingface_hub._jobs_api import _create_job_spec
+from huggingface_hub._jobs_api import JobInfo, _create_job_spec
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
-from huggingface_hub.cli._output import OutputFormatWithAuto, out
+from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
@@ -33,7 +34,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_constants import TOKEN
-from .testing_utils import DUMMY_MODEL_ID, requires, with_production_testing
+from .testing_utils import DUMMY_MODEL_ID, repo_name, requires, with_production_testing
 
 
 @pytest.fixture
@@ -699,7 +700,7 @@ class TestResolveUploadPaths:
 class TestUploadImpl:
     @pytest.fixture(autouse=True)
     def _quiet_mode(self):
-        out.set_mode(OutputFormatWithAuto.quiet)
+        out.set_mode(OutputFormat.quiet)
 
     def test_upload_folder_mock(self, *_: object) -> None:
         api = Mock()
@@ -903,8 +904,6 @@ class TestDownloadCommand:
                     "my-token",
                     "--format",
                     "quiet",
-                    "--local-dir",
-                    ".",
                     "--max-workers",
                     "4",
                 ],
@@ -920,7 +919,6 @@ class TestDownloadCommand:
         assert kwargs["ignore_patterns"] == ["*.log", "*.txt"]
         assert kwargs["force_download"] is True
         assert kwargs["cache_dir"] == "/tmp"
-        assert kwargs["local_dir"] == "."
         assert kwargs["token"] == "my-token"
         assert kwargs["library_name"] == "huggingface-cli"
         assert kwargs["max_workers"] == 4
@@ -956,7 +954,7 @@ class TestDownloadCommand:
 class TestDownloadImpl:
     @pytest.fixture(autouse=True)
     def _quiet_mode(self):
-        out.set_mode(OutputFormatWithAuto.quiet)
+        out.set_mode(OutputFormat.quiet)
 
     @patch("huggingface_hub.cli.download.snapshot_download")
     @patch("huggingface_hub.cli.download.hf_hub_download")
@@ -1631,6 +1629,32 @@ class TestRepoSettingsCommand:
         assert kwargs["repo_type"] == "dataset"
         assert kwargs["visibility"] == "private"
         assert kwargs["gated"] == "manual"
+
+
+class TestRepoListCommand:
+    def test_repo_list(self, runner: CliRunner) -> None:
+        """Integration test: create repos, check `hf repos ls` with search + type filter."""
+        api = HfApi(token=TOKEN)
+        suffix = repo_name("repos-ls")
+        model_id = api.create_repo(suffix, repo_type="model").repo_id
+        dataset_id = api.create_repo(suffix, repo_type="dataset").repo_id
+        space_id = api.create_repo(suffix, repo_type="space", space_sdk="static").repo_id
+
+        api.upload_file(repo_id=model_id, path_in_repo="data.bin", path_or_fileobj=b"x" * 1024)
+
+        with patch("huggingface_hub.cli.repos.get_hf_api", return_value=api):
+            result = runner.invoke(
+                app, ["repos", "ls", "--type", "model", "--search", suffix, "--limit", "0", "--format", "json"]
+            )
+
+        output = json.loads(result.stdout)
+        assert len(output) == 1
+        assert output[0]["id"] == model_id
+        assert output[0]["type"] == "model"
+
+        api.delete_repo(model_id)
+        api.delete_repo(dataset_id, repo_type="dataset")
+        api.delete_repo(space_id, repo_type="space")
 
 
 class TestRepoDeleteCommand:
@@ -3143,29 +3167,6 @@ class TestJobsCommand:
         assert result.exit_code == 0
         assert result.output.strip() == ""
 
-    def test_ps_go_template_format(self, runner: CliRunner) -> None:
-        """Test that `hf jobs ps --format '{{.id}}'` uses legacy Go-template output."""
-        jobs = self._make_mock_jobs()
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a", "--format", "{{.id}}"])
-        assert result.exit_code == 0
-        lines = result.output.strip().split("\n")
-        assert "abc123def456" in lines
-        assert "xyz789ghi012" in lines
-
-    def test_ps_go_template_multiple_fields(self, runner: CliRunner) -> None:
-        """Test that Go-template with multiple fields works."""
-        jobs = self._make_mock_jobs()
-        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_jobs.return_value = jobs
-            result = runner.invoke(app, ["jobs", "ps", "-a", "--format", "{{.id}} {{.status}}"])
-        assert result.exit_code == 0
-        assert "abc123def456 RUNNING" in result.output
-        assert "xyz789ghi012 COMPLETED" in result.output
-
     def test_run_with_volumes(self, runner: CliRunner) -> None:
         job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id")
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
@@ -3362,6 +3363,38 @@ class TestBucketTransport:
         # Volume is scoped to the shared subfolder via Volume.path
         assert len(extra_volumes) == 1
         assert extra_volumes[0].path == upload_prefixes.pop()
+
+    def test_update_job_labels(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_labels.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                labels={"env": "prod", "team": "ml"},
+            )
+            result = runner.invoke(app, ["jobs", "labels", "my-job-id", "--label", "env=prod", "--label", "team=ml"])
+        assert result.exit_code == 0
+        api.update_job_labels.assert_called_once_with(
+            job_id="my-job-id", labels={"env": "prod", "team": "ml"}, namespace=None
+        )
+
+    def test_update_job_labels_clear(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_labels.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                labels={},
+            )
+            result = runner.invoke(app, ["jobs", "labels", "my-job-id", "--clear"])
+        assert result.exit_code == 0
+        api.update_job_labels.assert_called_once_with(job_id="my-job-id", labels={}, namespace=None)
+
+    def test_update_job_labels_no_args_error(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["jobs", "labels", "my-job-id"])
+        assert result.exit_code == 1  # at least one label or clear
 
 
 class TestParseNamespaceFromJobId:
@@ -3758,13 +3791,6 @@ class TestGlobalFormattingFlags:
         assert "--json" in result.output
         assert "--quiet" in result.output
         assert "--no-truncate" in result.output
-
-    def test_help_skips_section_for_legacy_command_with_local_format(self, runner: CliRunner) -> None:
-        """Legacy commands (e.g. 'hf jobs ps') keep their local --format/--quiet
-        and don't get the duplicated 'Formatting options' section."""
-        result = runner.invoke(app, ["jobs", "ps", "--help"])
-        assert result.exit_code == 0, result.output
-        assert "Formatting options:" not in result.output
 
     def test_help_skips_section_for_pass_through_command(self, runner: CliRunner) -> None:
         """Pass-through commands (e.g. `hf extensions exec`) don't show the section either."""

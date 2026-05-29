@@ -1,15 +1,10 @@
 from typing import Union
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-import jsonpickle
 import pandas as pd
 from navconfig import config as ENV
 from navconfig.logging import logging
-
-# Queue Worker Client:
-from qw.client import QClient
-from qw.wrappers import TaskWrapper
-from ...conf import DEBUG, WORKER_LIST, WORKER_HIGH_LIST, WORKERS_LIST
+from ...conf import DEBUG
 from ...exceptions import (
     NotSupported,
     TaskNotFound,
@@ -18,15 +13,6 @@ from ...exceptions import (
     FileNotFound,
     DataNotFound,
 )
-from ...tasks.task import Task
-
-
-if WORKER_LIST:
-    QW = QClient(worker_list=WORKER_LIST)
-    QW_high = QClient(worker_list=WORKER_HIGH_LIST)
-else:
-    QW = QClient()  # auto-discovering of workers
-    QW_high = QW
 
 
 async def launch_task(
@@ -38,136 +24,114 @@ async def launch_task(
     no_worker: bool = False,
     priority: str = "low",
     userid: Union[int, str] = None,
+    executor: str = None,
+    executor_config: dict = None,
     **kwargs,
 ):
     """launch_task.
-    Runs (or queued) a Task from Task Monitor.
-    """
-    state = None
-    result = {}
 
-    if no_worker is True:
-        # Running task in Local
-        print(f"RUNNING TASK {program_slug}.{task_id}")
-        task = Task(
-            task=task_id,
-            program=program_slug,
-            loop=loop,
-            ignore_results=False,
-            ENV=ENV,
-            debug=DEBUG,
-            userid=userid,
-            **kwargs,
-        )
-        try:
-            state = await task.start()
-            if not state:
-                logging.warning(
-                    f"Task {program_slug}.{task_id} return False on Start Time."
-                )
-        except Exception as err:
-            logging.error(err)
-            raise
-        try:
-            state = await task.run()
-            try:
-                result["stats"] = task.stats.stats
-            except Exception as err:
-                result["stats"] = None
-                result["error"] = err
-            ### gettting the result of Task execution
-            if isinstance(state, pd.DataFrame):
-                numrows = len(state.index)
-                columns = list(state.columns)
-                num_cols = len(columns)
-                state = {
-                    "type": "Dataframe",
-                    "numrows": numrows,
-                    "columns": columns,
-                    "num_cols": num_cols,
-                }
-            else:
-                state = f"{state!r}"
-            result["result"] = state
-            return (state, "Executed", result)
-        except DataNotFound as err:
-            raise
-        except NotSupported as err:
-            raise
-        except TaskNotFound as err:
-            raise TaskNotFound(f"Task: {task_id}: {err}") from err
-        except TaskFailed as err:
-            raise TaskFailed(f"Task {task_id} failed: {err}") from err
-        except FileNotFound:
-            raise
-        except FileError as err:
-            raise FileError(f"Task {task_id}, File Not Found error: {err}") from err
-        except Exception as err:
-            raise TaskFailed(f"Error: Task {task_id} failed: {err}") from err
-        finally:
-            await task.close()
+    Runs (or queues) a Task from Task Monitor using the executor framework.
+
+    Args:
+        program_slug: Program (tenant) name.
+        task_id: Task name within the program.
+        loop: Optional asyncio event loop.
+        task_uuid: Unique execution UUID (generated if None).
+        queued: If True, use fire-and-forget dispatch mode.
+        no_worker: Deprecated. If True, resolve to local executor.
+        priority: Queue priority for qworker executor.
+        userid: Optional user identifier forwarded to the task.
+        executor: Explicit executor name (overrides no_worker/queued).
+        executor_config: Optional executor config dict (passed to ExecutorConfig.from_yaml).
+        **kwargs: Additional kwargs forwarded to the executor.
+
+    Returns:
+        Tuple of (state_or_uuid, action_label, result_dict).
+    """
+    from flowtask.executors.resolver import resolve_executor, determine_execution_mode
+    from flowtask.executors.models import ExecutorConfig
+    import uuid as uuid_lib
+
+    result: dict = {}
+
+    if task_uuid is None:
+        task_uuid = str(uuid_lib.uuid4())
+
+    # Build a synthetic options object for the resolver
+    class _Options:
+        pass
+
+    opts = _Options()
+    opts.executor = executor
+    opts.executor_image = None
+    opts.executor_namespace = None
+    opts.no_worker = no_worker
+    opts.queued = queued
+
+    # Build task definition for resolver (priority as executor config if no_worker/queued)
+    if executor_config:
+        task_def = {"executor": executor_config}
+    elif executor:
+        task_def = {"executor": executor}
+    elif no_worker:
+        task_def = {"executor": "local"}
+    elif queued:
+        task_def = {"executor": "qworker"}
     else:
-        if queued:
-            action = "Queued"
-        else:
-            action = "Dispatched"
-    # Task:
-    print(' Pre Wrapper: ', kwargs, type(kwargs))
-    task = TaskWrapper(
-        program=program_slug,
-        task=task_id,
-        ignore_results=True,
-        userid=userid,
-        **kwargs
-    )
-    ### TODO: Add Publish into Broker
+        task_def = {}
+
+    task_executor = resolve_executor(task_def, opts)
+
     logging.info(
-        f":::: Calling Task {program_slug}.{task_id}: priority {priority!s}"
+        f":::: Launching Task {program_slug}.{task_id} via executor "
+        f"'{task_executor.name()}': priority={priority!s}"
     )
-    if action == "Queued":
-        if priority == "high":
-            result = await asyncio.wait_for(QW_high.queue(task), timeout=10)
-        elif priority == "low":
-            result = await asyncio.wait_for(QW.queue(task), timeout=10)
-        elif priority == "pub":
-            result = await asyncio.wait_for(QW.publish(task))
-        else:
-            try:
-                w = WORKERS_LIST[priority]
-                print('W > ', w)
-                worker = QClient(worker_list=w)
-            except KeyError:
-                worker = QW
-            result = await asyncio.wait_for(
-                worker.queue(task),
-                timeout=10
-            )
-        try:
-            result["message"] = result["message"].decode("utf-8")
-        except (TypeError, KeyError):
-            result["message"] = None
-        print(f"Task Queued: {result!s}")
-        return (task_uuid, action, result)
+
+    # Determine dispatch mode
+    if queued:
+        action = "Queued"
+        mode = "dispatch"
+    elif no_worker:
+        action = "Executed"
+        mode = "run"
     else:
-        try:
-            result = await QW_high.run(task) if priority == "high" else await QW.run(task)
-            if isinstance(result, str):
-                # check if can we unserialize the jsonpickle
-                try:
-                    result = jsonpickle.decode(result)
-                except (TypeError, KeyError, ValueError, AttributeError) as ex:
-                    result = {"message": result, "error": ex}
-            logging.debug(f"Executed Task: {result!s}")
-            try:
-                result["message"] = result["message"].decode("utf-8")
-            except (TypeError, KeyError):
-                result["message"] = None
-            except AttributeError:
-                pass
+        action = "Dispatched"
+        mode = "run"
+
+    # Build extra kwargs forwarded to the executor
+    exec_kwargs = {
+        "userid": userid,
+        "priority": priority,
+        "ENV": ENV,
+        "debug": DEBUG,
+        **kwargs,
+    }
+
+    try:
+        if mode == "dispatch":
+            handle = await task_executor.dispatch(
+                program_slug, task_id, task_uuid, **exec_kwargs
+            )
+            result["handle"] = handle.execution_id
+            result["executor"] = task_executor.name()
             return (task_uuid, action, result)
-        except (NotSupported, TaskNotFound, TaskFailed, FileNotFound, FileError) as ex:
-            logging.error(ex)
-            raise
-        except Exception as exc:
-            logging.error(exc)
-            raise TaskFailed(f"Error: Task {task_id} failed: {exc}") from exc
+        else:
+            task_result = await task_executor.run(
+                program_slug, task_id, task_uuid, **exec_kwargs
+            )
+            if task_result.status == "failed":
+                raise TaskFailed(
+                    f"Task {task_id} failed: {task_result.error}"
+                )
+            state = task_result.result
+            result["stats"] = task_result.stats
+            result["result"] = state
+            result["executor"] = task_executor.name()
+            return (state, action, result)
+    except (DataNotFound, NotSupported, TaskNotFound, FileNotFound, FileError):
+        raise
+    except TaskFailed:
+        raise
+    except Exception as exc:
+        logging.error(exc)
+        raise TaskFailed(f"Error: Task {task_id} failed: {exc}") from exc

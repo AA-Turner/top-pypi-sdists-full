@@ -70,7 +70,7 @@ class SimpleAuthManagerRole(namedtuple("SimpleAuthManagerRole", "name order"), E
     # VIEWER role gives all read-only permissions
     VIEWER = "VIEWER", 0
 
-    # USER role gives viewer role permissions + access to DAGs
+    # USER role gives viewer role permissions + access to Dags
     USER = "USER", 1
 
     # OP role gives user role permissions + access to connections, config, pools, variables
@@ -354,8 +354,9 @@ class SimpleAuthManager(BaseAuthManager[SimpleAuthManagerUser]):
         @app.get("/{rest_of_path:path}", response_class=HTMLResponse, include_in_schema=False)
         def webapp(request: Request, rest_of_path: str):
             return templates.TemplateResponse(
+                request,
                 "/index.html",
-                {"request": request, "backend_server_base_url": request.base_url.path},
+                {"backend_server_base_url": request.base_url.path},
                 media_type="text/html",
             )
 

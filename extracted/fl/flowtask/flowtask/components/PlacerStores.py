@@ -4,7 +4,7 @@ import pandas as pd
 from collections.abc import Callable
 from rapidfuzz import process, fuzz
 from ..exceptions import ComponentError, ConfigError
-from .tPandas import tPandas
+from ..interfaces.t_pandas import tPandas
 from ..interfaces.databases import DBSupport
 
 def preprocess_address(address):

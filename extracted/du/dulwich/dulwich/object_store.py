@@ -43,6 +43,7 @@ __all__ = [
     "PackBasedObjectStore",
     "PackCapableObjectStore",
     "PackContainer",
+    "PackInputTooLarge",
     "commit_tree_changes",
     "find_shallow",
     "get_depth",
@@ -54,6 +55,7 @@ __all__ = [
 ]
 
 import binascii
+import logging
 import os
 import stat
 import sys
@@ -124,6 +126,8 @@ if TYPE_CHECKING:
     from .diff_tree import RenameDetector
     from .pack import FilePackIndex, Pack
 
+
+logger = logging.getLogger(__name__)
 
 # Maximum number of times to rescan the pack directory after a pack file
 # disappears between snapshot and lazy open (e.g. concurrent repack).
@@ -216,6 +220,51 @@ PACK_MODE = 0o444 if sys.platform != "win32" else 0o644
 # Grace period for cleaning up temporary pack files (in seconds)
 # Matches git's default of 2 weeks
 DEFAULT_TEMPFILE_GRACE_PERIOD = 14 * 24 * 60 * 60  # 2 weeks
+
+
+class PackInputTooLarge(OSError):
+    """Raised when a received pack exceeds the configured input size cap.
+
+    Mirrors the failure mode of git's ``receive.maxInputSize`` /
+    ``git index-pack --max-input-size``.
+    """
+
+
+def _bound_read_callables(
+    read_all: Callable[[int], bytes],
+    read_some: Callable[[int], bytes] | None,
+    max_input_size: int,
+) -> tuple[Callable[[int], bytes], Callable[[int], bytes] | None]:
+    """Wrap pack-stream read callbacks so total bytes are capped.
+
+    When the cumulative number of bytes returned across ``read_all`` and
+    ``read_some`` exceeds ``max_input_size``, the next read raises
+    ``PackInputTooLarge``. This is the in-process analogue of
+    ``git index-pack --max-input-size``.
+    """
+    bytes_read = [0]
+
+    def _check(n: int) -> None:
+        bytes_read[0] += n
+        if bytes_read[0] > max_input_size:
+            raise PackInputTooLarge(
+                f"pack exceeds maximum input size of {max_input_size} bytes"
+            )
+
+    def wrapped_read_all(n: int) -> bytes:
+        data = read_all(n)
+        _check(len(data))
+        return data
+
+    if read_some is None:
+        return wrapped_read_all, None
+
+    def wrapped_read_some(n: int) -> bytes:
+        data = read_some(n)
+        _check(len(data))
+        return data
+
+    return wrapped_read_all, wrapped_read_some
 
 
 def find_shallow(
@@ -2130,6 +2179,8 @@ class DiskObjectStore(PackBasedObjectStore):
         read_all: Callable[[int], bytes],
         read_some: Callable[[int], bytes] | None,
         progress: Callable[..., None] | None = None,
+        *,
+        max_input_size: int | None = None,
     ) -> "Pack":
         """Add a new thin pack to this object store.
 
@@ -2143,10 +2194,20 @@ class DiskObjectStore(PackBasedObjectStore):
           read_some: Read function that returns at least one byte, but may
             not return the number of bytes requested.
           progress: Optional progress reporting function.
+          max_input_size: Maximum number of bytes that may be read from
+            the wire while ingesting this pack. Matches git's
+            ``receive.maxInputSize`` / ``index-pack --max-input-size``
+            semantics: ``None`` (the default) or ``0`` mean unlimited.
+            Exceeding the cap raises ``PackInputTooLarge``.
         Returns: A Pack object pointing at the now-completed thin pack in the
             objects/pack directory.
         """
         import tempfile
+
+        if max_input_size:
+            read_all, read_some = _bound_read_callables(
+                read_all, read_some, max_input_size
+            )
 
         fd, path = tempfile.mkstemp(dir=self.path, prefix="tmp_pack_")
         with os.fdopen(fd, "w+b") as f:
@@ -2898,8 +2959,6 @@ def _split_commits_and_tags(
       unknown: How to handle unknown objects: "error", "warn", or "ignore"
     Returns: A tuple of (commits, tags, others) SHA1s
     """
-    import logging
-
     if unknown not in ("error", "warn", "ignore"):
         raise ValueError(
             f"unknown must be 'error', 'warn', or 'ignore', got {unknown!r}"
@@ -2915,9 +2974,7 @@ def _split_commits_and_tags(
             if unknown == "error":
                 raise
             elif unknown == "warn":
-                logging.warning(
-                    "Object %s not found in object store", e.decode("ascii")
-                )
+                logger.warning("Object %s not found in object store", e.decode("ascii"))
             # else: ignore
         else:
             if isinstance(o, Commit):

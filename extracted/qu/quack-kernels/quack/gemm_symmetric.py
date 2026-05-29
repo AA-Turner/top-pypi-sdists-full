@@ -24,7 +24,7 @@ from quack.gemm_tvm_ffi_utils import (
     make_fake_scheduler_args,
     compile_gemm_kernel,
 )
-from quack.cache_utils import jit_cache
+from quack.cache import jit_cache
 from quack.tile_scheduler import TriangularTileScheduler
 from quack.varlen_utils import VarlenManager
 import quack.copy_utils as copy_utils
@@ -180,7 +180,7 @@ class GemmSymmetricMixin(GemmActMixin):
             if const_expr(aux_out_ctx is not None):
                 tRS_rAuxOut_out = self.epi_convert_aux_out(
                     tRS_rAuxOut,
-                    epi_loop_tensors["sr_seed"],
+                    epi_loop_tensors.get("sr_seed"),
                     tidx,
                     tile_coord_mnkl,
                     num_prev_subtiles,
@@ -198,7 +198,9 @@ class GemmSymmetricMixin(GemmActMixin):
                 tRS_sD_cur = tRS_sD[None, None, None, epi_buffer]
                 if const_expr(use_stochastic_rounding):
                     seed = epilogue_sr_seed(
-                        epi_loop_tensors["sr_seed"], tile_coord_mnkl, num_prev_subtiles + epi_idx
+                        epi_loop_tensors.get("sr_seed"),
+                        tile_coord_mnkl,
+                        num_prev_subtiles + epi_idx,
                     )
                     copy_utils.sr_cvt_copy(tiled_copy_r2s, tRS_rD, tRS_sD_cur, seed, tidx)
                 else:
@@ -413,9 +415,9 @@ def gemm_symmetric(
         device_capacity,
     )
 
-    from quack.cache_utils import COMPILE_ONLY
+    from quack.cache import is_compile_only
 
-    if COMPILE_ONLY:
+    if is_compile_only():
         return
 
     cluster_size = cluster_M * cluster_N

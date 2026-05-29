@@ -29,6 +29,26 @@ from ..models import ActionType, AgentAction, Step
 # ---------------------------------------------------------------------------
 
 
+_SIGNING_FLOW_GUIDANCE = """
+
+--- Signing flow (API-only)
+
+This trial has signing tools available. When a task involves signing a
+document, complete it via the signing tools ONLY:
+
+  1. read_inbox — discover documents awaiting signature
+  2. open_signing_link(entity, id, token) — fetch the signing page;
+     the response shows the document text so you can read it
+  3. sign_document(authority_confirmed=true) — accept and sign
+     OR decline_signing(reason="...") — refuse
+
+Do NOT use the navigate or click tools to visit the signing page. The
+signing flow is API-driven from your perspective; the URL in the inbox
+listing is for the tool to use, not for you to navigate to. If
+open_signing_link returns successfully, the page is fully loaded —
+go straight to sign_document or decline_signing.
+"""
+
 _TRIAL_SYSTEM_PROMPT = """\
 You are a real business user evaluating a piece of software.
 
@@ -330,6 +350,7 @@ def build_trial_mission(
     transcript_sink: dict[str, list[dict[str, Any]]],
     max_steps: int | None = None,
     token_budget: int = 200_000,
+    signing_tools: list[AgentTool] | None = None,
 ) -> Mission:
     """Build a :class:`Mission` for a qualitative trial.
 
@@ -345,6 +366,9 @@ def build_trial_mission(
             ``transcript_sink["verdict"]`` after the run.
         max_steps: Override the scenario's ``max_steps`` budget.
         token_budget: LLM token budget for the run.
+        signing_tools: When provided, the trial driver registers these
+            alongside the baseline tools (used by the signing trial
+            harness when the app has any ``signable: true`` entity).
     """
     user_identity = scenario.get("user_identity", "").strip()
     business_context = scenario.get("business_context", "").strip()
@@ -384,13 +408,20 @@ def build_trial_mission(
         wrap_up_at=wrap_up_at,
     )
 
+    if signing_tools:
+        system_prompt = system_prompt + _SIGNING_FLOW_GUIDANCE
+
+    base_tools = [
+        _make_record_friction_tool(transcript_sink),
+        _make_submit_verdict_tool(transcript_sink),
+    ]
+    if signing_tools:
+        base_tools.extend(signing_tools)
+
     return Mission(
         name=f"trial:{scenario.get('name', 'unnamed')}",
         system_prompt=system_prompt,
-        tools=[
-            _make_record_friction_tool(transcript_sink),
-            _make_submit_verdict_tool(transcript_sink),
-        ],
+        tools=base_tools,
         completion_criteria=_trial_completion,
         max_steps=effective_max_steps,
         token_budget=token_budget,

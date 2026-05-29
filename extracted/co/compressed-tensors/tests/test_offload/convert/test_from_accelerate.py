@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 import torch
 import torch.distributed as dist
+from compressed_tensors.distributed import is_source_process
 from compressed_tensors.offload import (
     disable_onloading,
     from_accelerate,
-    is_rank0,
     load_offloaded_model,
 )
 from compressed_tensors.offload.cache import CPUCache, DeviceCache, DiskCache
@@ -28,33 +28,37 @@ acclerate = pytest.importorskip("accelerate")
 
 @pytest.mark.unit
 @requires_gpu
-def test_remove_accelerate_from_module_device(cuda_device):
-    # there"s no way to force accelerate to "offload" to cuda. Instead, it just
-    # stays on cuda with no hooks
-    linear = torch.nn.Linear(5, 5, device="cuda:0")
-    assert remove_accelerate_from_module(linear) == (cuda_device, cuda_device, None)
+def test_remove_accelerate_from_module_device(accel_device):
+    # there"s no way to force accelerate to "offload" to Torch accelerator. Instead,
+    # it just stays on Torch accelerator with no hooks
+
+    current_accelerator = torch.accelerator.current_accelerator()
+
+    linear = torch.nn.Linear(5, 5, device=current_accelerator)
+    assert remove_accelerate_from_module(linear) == (accel_device, accel_device, None)
     assert not hasattr(linear, "_hf_hook")
 
     # test idempotency
-    assert remove_accelerate_from_module(linear) == (cuda_device, cuda_device, None)
+    assert remove_accelerate_from_module(linear) == (accel_device, accel_device, None)
     assert not hasattr(linear, "_hf_hook")
 
 
 @pytest.mark.unit
 @requires_gpu
-def test_remove_accelerate_from_module_cpu(cuda_device):
+def test_remove_accelerate_from_module_cpu(accel_device):
     from accelerate.big_modeling import dispatch_model
 
+    current_accelerator = torch.accelerator.current_accelerator()
     linear = torch.nn.Linear(5, 5)
     dispatch_model(
         linear,
         {"": "cpu"},
-        main_device="cuda",
+        main_device=current_accelerator,
         state_dict=linear.state_dict(),
         force_hooks=True,
     )
     assert remove_accelerate_from_module(linear) == (
-        cuda_device,
+        accel_device,
         torch.device("cpu"),
         None,
     )
@@ -64,11 +68,12 @@ def test_remove_accelerate_from_module_cpu(cuda_device):
 @pytest.mark.unit
 @requires_gpu
 @pytest.mark.filterwarnings("ignore::UserWarning")
-def test_remove_accelerate_from_module_disk(cuda_device, tmp_path):
+def test_remove_accelerate_from_module_disk(accel_device, tmp_path):
     # `disk_offload` is a super buggy function, and not reflective of real dispatches
     # `dispatch_model` is also super buggy, and requires at least one cpu device
     from accelerate.big_modeling import dispatch_model
 
+    current_accelerator = torch.accelerator.current_accelerator()
     offload_dir = tmp_path / "offload_dir"
     os.mkdir(offload_dir)
 
@@ -77,17 +82,17 @@ def test_remove_accelerate_from_module_disk(cuda_device, tmp_path):
     dispatch_model(
         model,
         {"0": "disk", "fake_module": "cpu"},
-        main_device="cuda",
+        main_device=current_accelerator,
         force_hooks=True,
         offload_dir=offload_dir,
     )
-    assert remove_accelerate_from_module(linear) == (cuda_device, "disk", offload_dir)
+    assert remove_accelerate_from_module(linear) == (accel_device, "disk", offload_dir)
     assert not hasattr(linear, "_hf_hook")
 
 
 @pytest.mark.unit
 @requires_gpu
-def test_from_accelerate(cuda_device, tmp_path):
+def test_from_accelerate(accel_device, tmp_path):
     from accelerate.big_modeling import dispatch_model
 
     offload_dir = tmp_path / "offload_dir"
@@ -96,11 +101,11 @@ def test_from_accelerate(cuda_device, tmp_path):
     model = torch.nn.Sequential(
         torch.nn.Linear(5, 5), torch.nn.Linear(5, 5), torch.nn.Linear(5, 5)
     )
-    if is_rank0():
+    if is_source_process():
         dispatch_model(
             model,
             {"0": 0, "1": "cpu", "2": "disk"},
-            main_device=str(cuda_device),
+            main_device=str(accel_device),
             force_hooks=True,
             offload_dir=offload_dir,
         )
@@ -112,11 +117,11 @@ def test_from_accelerate(cuda_device, tmp_path):
     # cuda is index agnostic when distributed
     assert device_map == {
         "": (None, None),
-        "0": (cuda_device, cuda_device),
-        "1": (cuda_device, torch.device("cpu")),
-        "2": (cuda_device, "disk"),
+        "0": (accel_device, accel_device),
+        "1": (accel_device, torch.device("cpu")),
+        "2": (accel_device, "disk"),
     }
-    if is_rank0():
+    if is_source_process():
         assert _offload_dir == offload_dir
     assert isinstance(model[0]._parameters, DeviceCache)
     assert isinstance(model[1]._parameters, CPUCache)
@@ -125,14 +130,14 @@ def test_from_accelerate(cuda_device, tmp_path):
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
-def test_from_accelerate_dist(cuda_device, tmp_path):
-    test_from_accelerate(cuda_device, tmp_path)
+@torchrun(world_size=2, init_dist=True)
+def test_from_accelerate_dist(accel_device, tmp_path):
+    test_from_accelerate(accel_device, tmp_path)
 
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 @torch.no_grad()
 def test_dist_disk_safetensors_update(tmp_path):
     offload_folder = tmp_path / "offload_folder"
@@ -151,7 +156,7 @@ def test_dist_disk_safetensors_update(tmp_path):
         if dist.get_rank() == 0:
             checkpoint_files = {}
             for file_path in Path(offload_folder).glob("*.safetensors"):
-                if not file_path.name.startswith(DiskCache._new_file_prefix):
+                if not file_path.name.startswith(DiskCache._ct_file_prefix):
                     with open(file_path, "rb") as f:
                         checkpoint_files[file_path.name] = hashlib.sha256(
                             f.read()

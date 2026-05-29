@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -25,12 +25,15 @@ class ListCustomInstanceDbsResponse200AdditionalProperty:
         success (bool): Whether the operation completed successfully Example: True.
         error (Union[Unset, None, str]): Error message if the operation failed Example: Connection timeout.
         tag (Union[Unset, ListCustomInstanceDbsResponse200AdditionalPropertyTag]):
+        used_by_workspaces (Union[Unset, List[str]]): Workspaces that reference this database via a ducklake catalog or
+            datatable database with resource_type 'instance'. Computed at request time, not persisted.
     """
 
     logs: "ListCustomInstanceDbsResponse200AdditionalPropertyLogs"
     success: bool
     error: Union[Unset, None, str] = UNSET
     tag: Union[Unset, ListCustomInstanceDbsResponse200AdditionalPropertyTag] = UNSET
+    used_by_workspaces: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -41,6 +44,10 @@ class ListCustomInstanceDbsResponse200AdditionalProperty:
         tag: Union[Unset, str] = UNSET
         if not isinstance(self.tag, Unset):
             tag = self.tag.value
+
+        used_by_workspaces: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.used_by_workspaces, Unset):
+            used_by_workspaces = self.used_by_workspaces
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -54,6 +61,8 @@ class ListCustomInstanceDbsResponse200AdditionalProperty:
             field_dict["error"] = error
         if tag is not UNSET:
             field_dict["tag"] = tag
+        if used_by_workspaces is not UNSET:
+            field_dict["used_by_workspaces"] = used_by_workspaces
 
         return field_dict
 
@@ -77,11 +86,14 @@ class ListCustomInstanceDbsResponse200AdditionalProperty:
         else:
             tag = ListCustomInstanceDbsResponse200AdditionalPropertyTag(_tag)
 
+        used_by_workspaces = cast(List[str], d.pop("used_by_workspaces", UNSET))
+
         list_custom_instance_dbs_response_200_additional_property = cls(
             logs=logs,
             success=success,
             error=error,
             tag=tag,
+            used_by_workspaces=used_by_workspaces,
         )
 
         list_custom_instance_dbs_response_200_additional_property.additional_properties = d

@@ -3,7 +3,7 @@ from urllib.parse import urljoin
 import numpy as np
 import orjson
 import pandas as pd
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.http import HTTPService
 from ..exceptions import ComponentError, DataNotFound
 from ..utils.transformations import to_snake_case

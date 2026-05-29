@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING, Any
 from django.db import models
 
 # Alliance Auth
-from allianceauth.eveonline.providers import ObjectNotFound
 from allianceauth.services.hooks import get_extension_logger
 
 # AA Killstats
 from killstats import __title__
 from killstats.app_settings import KILLSTATS_BULK_BATCH_SIZE
+from killstats.errors import ObjectNotFound
 from killstats.providers import AppLogger, esi
 
 logger = AppLogger(get_extension_logger(__name__), __title__)
@@ -72,7 +72,7 @@ class EveEntityManager(models.Manager["EveEntityContext"]):
         """updates or creates entity object with data fetched from ESI"""
         response = esi.client.Universe.PostUniverseNames(body=[eve_id]).results()
         if len(response) != 1:
-            raise ObjectNotFound(eve_id, "unknown_type")
+            raise ObjectNotFound(f"Unknown Type with ID {eve_id} not found.")
         entity_data = response[0]
         return self.update_or_create(
             id=entity_data.id,

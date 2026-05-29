@@ -3,9 +3,23 @@
 This module defines the data structures used to represent parsed component
 documentation, including attributes, examples, and JSON schemas.
 """
-from typing import List, Optional, Dict, Any
+from typing import List, Literal, Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
+
+
+# Enum of values a component can consume or produce through Flowtask's
+# implicit `_result` channel. Used by the factory validator to detect
+# incompatible step boundaries (e.g. Download produces 'file' but the
+# next step expects 'dataframe' — bridge with OpenWithPandas).
+IOType = Literal[
+    "none",      # component does not use _result on this side
+    "file",      # path(s) on disk
+    "dataframe", # pandas DataFrame
+    "recordset", # list of dicts / raw records
+    "iterator",  # iterable that drives downstream loop semantics
+    "any",       # polymorphic / passthrough — disables boundary checks
+]
 
 
 class ComponentAttribute(BaseModel):
@@ -31,15 +45,38 @@ class ComponentDoc(BaseModel):
         version: Component version if available from _version attribute.
         category: High-level grouping (e.g., 'Sources', 'Outputs', 'Filters').
         description: Overview description extracted from docstring.
-        attributes: List of parsed attributes from the documentation table.
         examples: List of YAML/JSON example strings.
+        schema: Final JSON Schema dict for the component, populated by the
+            generator. The schema carries ``properties``, ``required``, and
+            the ``x-flowtask-io`` dataflow contract.
+        attributes: Parsed attributes from the docstring. Kept in-memory for
+            the required-field reconciliation but excluded from the serialised
+            doc.json — consumers should read ``schema`` instead.
+        consumes / produces: Docstring overrides for the dataflow contract.
+            Excluded from serialised doc.json (the cascade-resolved values are
+            embedded in ``schema['x-flowtask-io']``).
     """
     name: str = ""
     version: Optional[str] = None
     category: str = "Other"
     description: str = ""
-    attributes: List[ComponentAttribute] = Field(default_factory=list)
     examples: List[str] = Field(default_factory=list)
+    # Serialised key is "schema"; the Python attribute is `schema_` so it
+    # doesn't shadow Pydantic's BaseModel.schema attribute.
+    schema_: Optional[Dict[str, Any]] = Field(default=None, alias="schema")
+
+    # Internal-only fields — kept on the model so the parser + generator can
+    # cooperate, but excluded from `model_dump()` so they don't leak into the
+    # final doc.json.
+    attributes: List[ComponentAttribute] = Field(
+        default_factory=list, exclude=True
+    )
+    consumes: Optional[IOType] = Field(default=None, exclude=True)
+    produces: Optional[IOType] = Field(default=None, exclude=True)
+
+    model_config = {
+        "populate_by_name": True,
+    }
 
 
 class ComponentSchema(BaseModel):
@@ -51,12 +88,18 @@ class ComponentSchema(BaseModel):
         description: Component description.
         properties: Dict mapping attribute names to their schema definitions.
         required: List of required attribute names.
+        io: Dataflow contract {"consumes": IOType, "produces": IOType} —
+            emitted under the ``x-flowtask-io`` extension key by
+            :meth:`SchemaGenerator.to_dict`.
     """
     type: str = "object"
     title: str
     description: str = ""
     properties: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     required: List[str] = Field(default_factory=list)
+    io: Dict[str, str] = Field(
+        default_factory=lambda: {"consumes": "any", "produces": "any"}
+    )
 
 
 class ComponentDocResponse(BaseModel):
@@ -82,7 +125,9 @@ class DocumentationIndex(BaseModel):
 
     Attributes:
         updated_at: Timestamp of last index update.
-        components: Dict mapping component names to their file references.
+        components: Dict mapping component names to their entry, with keys
+            ``file`` (relative path to the merged doc.json), ``category`` and
+            ``description``.
     """
     updated_at: datetime
     components: Dict[str, Dict[str, str]] = Field(default_factory=dict)

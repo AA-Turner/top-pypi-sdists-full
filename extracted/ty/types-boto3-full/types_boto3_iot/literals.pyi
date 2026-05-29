@@ -72,6 +72,7 @@ __all__ = (
     "EncryptionTypeType",
     "EventTypeType",
     "FieldTypeType",
+    "FleetIndexingApiType",
     "FleetMetricUnitType",
     "GetBehaviorModelTrainingSummariesPaginatorName",
     "IndexStatusType",
@@ -274,6 +275,7 @@ DeviceDefenderIndexingModeType = Literal["OFF", "VIOLATIONS"]
 DimensionTypeType = Literal["TOPIC_FILTER"]
 DimensionValueOperatorType = Literal["IN", "NOT_IN"]
 DisconnectReasonValueType = Literal[
+    "API_INITIATED_DISCONNECT",
     "AUTH_ERROR",
     "CLIENT_ERROR",
     "CLIENT_INITIATED_DISCONNECT",
@@ -308,6 +310,7 @@ EventTypeType = Literal[
     "THING_TYPE_ASSOCIATION",
 ]
 FieldTypeType = Literal["Boolean", "Number", "String"]
+FleetIndexingApiType = Literal["GET_THING_CONNECTIVITY_DATA"]
 FleetMetricUnitType = Literal[
     "Bits",
     "Bits/Second",
@@ -795,6 +798,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",

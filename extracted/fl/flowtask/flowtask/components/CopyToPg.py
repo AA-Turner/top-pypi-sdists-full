@@ -16,8 +16,10 @@ from pandas.api.types import (
     is_bool_dtype
 )
 import numpy as np
+from typing import Optional
 import orjson
 import asyncpg
+from datamodel import Field
 from asyncpg.exceptions import (
     StringDataRightTruncationError,
     UniqueViolationError,
@@ -32,7 +34,7 @@ from ..exceptions import (
     ComponentError,
     DataNotFound,
 )
-from .CopyTo import CopyTo, dtypes
+from ..interfaces.copy_to import CopyTo, dtypes
 from ..utils.json import json_decoder, json_encoder
 
 
@@ -155,19 +157,28 @@ class CopyToPg(CopyTo):
         columns = self.data.columns.tolist()
         cols = []
         for col in columns:
-            datatype = self.data.dtypes[col]
-            try:
-                t = dtypes[str(datatype)]
-            except KeyError:
-                t = str
-            f = (col, t)
+            if col in self._json_columns:
+                f = (col, Optional[dict], Field(default=None, nullable=True, db_type='jsonb'))
+            elif col in self._vector_columns:
+                f = (col, Optional[list], Field(default=None, nullable=True, db_type='vector'))
+            elif col in self._array_columns:
+                f = (col, Optional[list], Field(default=None, nullable=True, db_type='text[]'))
+            elif col in self._binary_columns:
+                f = (col, Optional[bytes], Field(default=None, nullable=True, db_type='bytea'))
+            else:
+                datatype = self.data.dtypes[col]
+                try:
+                    t = dtypes[str(datatype)]
+                except KeyError:
+                    t = str
+                f = (col, t)
             cols.append(f)
         try:
             cls = Model.make_model(
                 name=self.tablename, schema=self.schema, fields=cols
             )
             # Create model instance with None values for all columns
-            init_kwargs = {col: None for col, _ in cols}
+            init_kwargs = {field[0]: None for field in cols}
             mdl = cls(**init_kwargs)
             
             if sql := mdl.model(dialect="sql"):
@@ -502,21 +513,22 @@ class CopyToPg(CopyTo):
                         )
                         await register_vector(conn.engine())
 
-                        def print_types(df):
-                            for c in df.columns:
+                        if self._debug:
+                            for c in self.data.columns:
                                 try:
-                                    print(f"{c:>20}: {df[c].dtype}, sample={type(df[c].dropna().iat[0]).__name__}")
+                                    sample = type(self.data[c].dropna().iat[0]).__name__
                                 except IndexError:
-                                    self._logger.warning(
-                                        f"Column {c} is empty, cannot determine type."
-                                    )
-                                    print(f"{c:>20}: {df[c].dtype}, sample=None")
-                        print_types(self.data)
+                                    sample = "None"
+                                self._logger.debug(
+                                    f"{c:>20}: {self.data[c].dtype}, sample={sample}"
+                                )
 
-                        # show any cell that is still NAType after the scrub
-                        bad = self.data.applymap(lambda v: isinstance(v, type(pd.NA)))
-                        if bad.any().any():
-                            print("found NAType in", bad.columns[bad.any()].tolist())
+                            # show any cell that is still NAType after the scrub
+                            bad = self.data.map(lambda v: isinstance(v, type(pd.NA)))
+                            if bad.any().any():
+                                self._logger.debug(
+                                    f"found NAType in {bad.columns[bad.any()].tolist()}"
+                                )
 
                         rejects = []
                         result = []

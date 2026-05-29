@@ -7,7 +7,7 @@ name = "langchain-protocol"
 description = "Python bindings for the LangChain agent streaming protocol"
 license = { text = "MIT" }
 readme = "README.md"
-version = "0.0.15"
+version = "0.0.16"
 requires-python = ">=3.10.0,<4.0.0"
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -22,7 +22,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["typing-extensions>=4.7.0,<5.0.0"]
+dependencies = ["typing-extensions>=4.13.0,<5.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/langchain-ai/agent-protocol/tree/main/streaming"

@@ -22,10 +22,12 @@ from datetime import datetime
 
 from .literals import (
     ControlBehaviorType,
+    ControlParameterRequirementType,
     ControlRelationTypeType,
     ControlScopeType,
     ControlSeverityType,
     MappingTypeType,
+    ParameterRequirementSummaryType,
 )
 
 if sys.version_info >= (3, 12):
@@ -110,6 +112,7 @@ class ControlMappingFilterTypeDef(TypedDict):
 
 class ControlParameterTypeDef(TypedDict):
     Name: str
+    Requirement: NotRequired[ControlParameterRequirementType]
 
 
 ImplementationSummaryTypeDef = TypedDict(
@@ -205,6 +208,7 @@ class CommonControlFilterTypeDef(TypedDict):
 
 class ControlFilterTypeDef(TypedDict):
     Implementations: NotRequired[ImplementationFilterTypeDef]
+    GovernedProviders: NotRequired[Sequence[str]]
 
 
 class ListControlMappingsRequestTypeDef(TypedDict):
@@ -220,9 +224,11 @@ class ControlSummaryTypeDef(TypedDict):
     Aliases: NotRequired[list[str]]
     Behavior: NotRequired[ControlBehaviorType]
     Severity: NotRequired[ControlSeverityType]
+    ParameterRequirementSummary: NotRequired[ParameterRequirementSummaryType]
     Implementation: NotRequired[ImplementationSummaryTypeDef]
     CreateTime: NotRequired[datetime]
     GovernedResources: NotRequired[list[str]]
+    GovernedProviders: NotRequired[list[str]]
 
 
 class ObjectiveFilterTypeDef(TypedDict):
@@ -238,9 +244,11 @@ class GetControlResponseTypeDef(TypedDict):
     Severity: ControlSeverityType
     RegionConfiguration: RegionConfigurationTypeDef
     Implementation: ImplementationDetailsTypeDef
+    ParameterRequirementSummary: ParameterRequirementSummaryType
     Parameters: list[ControlParameterTypeDef]
     CreateTime: datetime
     GovernedResources: list[str]
+    GovernedProviders: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

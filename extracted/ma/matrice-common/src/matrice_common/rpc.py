@@ -10,9 +10,7 @@ from datetime import datetime, timedelta, timezone
 from importlib.metadata import version
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+import httpx
 
 from .token_auth import (
     AuthToken,
@@ -88,38 +86,27 @@ class RPC:
         # Lock for thread-safe token operations
         self._token_lock: threading.Lock = threading.Lock()
 
-        # Shared HTTP session with connection pooling and retry
-        self._session: requests.Session = self._create_session()
+        # Shared HTTP client with connection pooling. httpx.Timeout(connect=...)
+        # bounds DNS + TCP handshake by construction — no separate DNS executor.
+        self._client: httpx.Client = self._create_client()
 
-    def _create_session(self) -> requests.Session:
-        """Create a requests Session with connection pooling and automatic retries.
+    def _create_client(self) -> httpx.Client:
+        """Create an httpx.Client with connection pooling and a 120s timeout.
 
-        Configures HTTPAdapter with connection pooling to reuse TCP connections
-        and urllib3 Retry for automatic retries on transient server errors.
+        httpx's ``timeout`` covers DNS resolution, TCP handshake, and read/write
+        phases — no separate DNS executor is needed to bound name resolution.
         """
-        session = requests.Session()
-        retry_strategy = Retry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[500, 502, 503, 504],
-            allowed_methods=["GET", "POST", "PUT", "DELETE"],
-            raise_on_status=False,
-        )
-        adapter = HTTPAdapter(
-            pool_connections=20,
-            pool_maxsize=20,
-            max_retries=retry_strategy,
-        )
-        session.mount("https://", adapter)
-        session.mount("http://", adapter)
-        session.max_redirects = 10  # Fail faster on redirect loops (e.g. Cloudflare challenges)
-        session.headers.update(
-            {
+        limits = httpx.Limits(max_connections=20, max_keepalive_connections=20)
+        return httpx.Client(
+            limits=limits,
+            timeout=120.0,
+            max_redirects=10,
+            follow_redirects=True,
+            headers={
                 "User-Agent": "MatriceSDK/1.0 (Python)",
                 "Accept": "application/json",
-            }
+            },
         )
-        return session
 
     @log_errors(default_return=None, raise_exception=True, log_error=True)
     def send_request(
@@ -305,17 +292,21 @@ class RPC:
         for attempt in range(total_attempts):
             response = None
             try:
-                response = self._session.request(
+                # Inject Authorization header inline so the AuthToken (a
+                # requests.AuthBase callable) doesn't need an httpx.Auth shim.
+                self.AUTH_TOKEN.set_bearer_token()
+                if self.AUTH_TOKEN.bearer_token is None:
+                    raise ValueError("Failed to obtain authentication token. Cannot authenticate request.")
+                request_headers = {**headers, "Authorization": self.AUTH_TOKEN.bearer_token}
+
+                response = self._client.request(
                     method,
                     request_url,
-                    # FIX: Ignored arg-type mismatch so mypyc accepts your custom AuthToken here
-                    auth=self.AUTH_TOKEN,  # type: ignore[arg-type]
-                    headers=headers,
+                    headers=request_headers,
                     json=payload if payload else None,
                     data=data,
                     files=files,
-                    timeout=(10, timeout),
-                    allow_redirects=True,
+                    timeout=float(timeout),
                 )
                 # Handle 404 gracefully - return structured error instead of raising
                 if response.status_code == 404:
@@ -928,9 +919,9 @@ class RPC:
         else:
             logging.info("Shutting down without waiting for background requests...")
 
-        # Close the HTTP session to release connection pool
+        # Close the HTTP client to release connection pool
         try:
-            self._session.close()
+            self._client.close()
         except Exception:
             pass
 
@@ -971,7 +962,7 @@ class RPC:
 
         # Remove unpicklable objects before pickling
         state["_executor"] = None
-        state["_session"] = None
+        state["_client"] = None
         state["_futures_lock"] = None
         state["_token_lock"] = None
         state["_background_futures"] = []
@@ -997,7 +988,7 @@ class RPC:
         self._token_lock = threading.Lock()
         self._background_futures = []
         self._shutdown = False
-        self._session = self._create_session()
+        self._client = self._create_client()
 
     def _force_full_token_refresh(self) -> bool:
         """Force complete token regeneration from original credentials.

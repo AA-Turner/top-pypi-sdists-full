@@ -7,7 +7,7 @@ from datetime import datetime
 import json
 from pydantic import ValidationError
 from ..interfaces.ParrotBot import ParrotBot
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import ComponentError, ConfigError
 import re
 from parrot.bots.product import ProductReport, ProductInfoTool

@@ -1,8 +1,8 @@
-##################################################################
+#######################################################################
 # THIS IS THE AUTO-GENERATED CODE. DON'T EDIT IT BY HANDS!
-# Copyright (C) 2024 Ilya (Marshal) <https://github.com/MarshalX>.
+# Copyright (C) 2023-2026 Ilya (Marshal) <https://github.com/MarshalX>.
 # This file is part of Python atproto SDK. Licenced under MIT.
-##################################################################
+#######################################################################
 
 
 import typing as t
@@ -29,7 +29,7 @@ class Image(base.ModelBase):
     """Definition model for :obj:`app.bsky.embed.images`."""
 
     alt: str  #: Alt text description of the image, for accessibility.
-    image: 'BlobRef'  #: Image.
+    image: 'BlobRef'  #: The raw image file. May be up to 2 MB, formerly limited to 1 MB.
     aspect_ratio: t.Optional['models.AppBskyEmbedDefs.AspectRatio'] = None  #: Aspect ratio.
 
     py_type: t.Literal['app.bsky.embed.images#image'] = Field(

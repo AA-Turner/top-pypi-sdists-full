@@ -12,6 +12,7 @@
 
 from calendar import timegm
 import collections
+from collections.abc import Callable, Generator, Iterable
 import functools
 from hashlib import sha1
 import hmac
@@ -19,7 +20,6 @@ import json
 import os
 import time
 from typing import Any, ClassVar, Literal
-from collections.abc import Callable
 from urllib import parse
 
 from openstack import _log
@@ -107,25 +107,21 @@ class Proxy(proxy.Proxy):
         else:
             return ['object']
 
-    def get_account_metadata(self):
-        """Get metadata for this account.
-
-        :rtype:
-            :class:`~openstack.object_store.v1.account.Account`
-        """
+    def get_account_metadata(self) -> _account.Account:
+        """Get metadata for this account."""
         return self._head(_account.Account)
 
     def set_account_metadata(self, **metadata):
         """Set metadata for this account.
 
-        :param kwargs metadata: Key/value pairs to be set as metadata on the
+        :param metadata: Key/value pairs to be set as metadata on the
             container. Custom metadata can be set. Custom metadata are keys and
             values defined by the user.
         """
         account = self._get_resource(_account.Account, None)
         account.set_metadata(self, metadata)
 
-    def delete_account_metadata(self, keys):
+    def delete_account_metadata(self, keys: Iterable[str]) -> None:
         """Delete metadata for this account.
 
         :param keys: The keys of metadata to be deleted.
@@ -133,14 +129,14 @@ class Proxy(proxy.Proxy):
         account = self._get_resource(_account.Account, None)
         account.delete_metadata(self, keys)
 
-    def containers(self, **query):
+    def containers(
+        self,
+        **query: Any,
+    ) -> Generator[_container.Container, None, None]:
         """Obtain Container objects for this account.
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
-
-        :rtype: A generator of
-            :class:`~openstack.object_store.v1.container.Container` objects.
         """
         return self._list(_container.Container, paginated=True, **query)
 
@@ -150,21 +146,24 @@ class Proxy(proxy.Proxy):
         """Create a new container from attributes
 
         :param container: Name of the container to create.
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.object_store.v1.container.Container`,
             comprised of the properties on the Container class.
 
         :returns: The results of container creation
-        :rtype: :class:`~openstack.object_store.v1.container.Container`
         """
         return self._create(_container.Container, name=name, **attrs)
 
-    def delete_container(self, container, ignore_missing=True):
+    def delete_container(
+        self,
+        container: str | _container.Container,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a container
 
         :param container: The value can be either the name of a container or a
             :class:`~openstack.object_store.v1.container.Container` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the container does not exist. When set to ``True``, no
             exception will be set when attempting to delete a nonexistent
@@ -176,7 +175,9 @@ class Proxy(proxy.Proxy):
             _container.Container, container, ignore_missing=ignore_missing
         )
 
-    def get_container_metadata(self, container):
+    def get_container_metadata(
+        self, container: str | _container.Container
+    ) -> _container.Container:
         """Get metadata for a container
 
         :param container: The value can be the name of a container or a
@@ -195,7 +196,7 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.object_store.v1.container.Container`
             instance.
         :param refresh: Flag to trigger refresh of container object re-fetch.
-        :param kwargs metadata: Key/value pairs to be set as metadata on the
+        :param metadata: Key/value pairs to be set as metadata on the
             container. Both custom and system metadata can be set. Custom
             metadata are keys and values defined by the user. System metadata
             are keys defined by the Object Store and values defined by the
@@ -213,7 +214,11 @@ class Proxy(proxy.Proxy):
         res.set_metadata(self, metadata, refresh=refresh)
         return res
 
-    def delete_container_metadata(self, container, keys):
+    def delete_container_metadata(
+        self,
+        container: str | _container.Container,
+        keys: Iterable[str],
+    ) -> None:
         """Delete metadata for a container.
 
         :param container: The value can be the ID of a container or a
@@ -222,20 +227,18 @@ class Proxy(proxy.Proxy):
         """
         res = self._get_resource(_container.Container, container)
         res.delete_metadata(self, keys)
-        return res
 
-    def objects(self, container, **query):
+    def objects(
+        self,
+        container: str | _container.Container,
+        **query: Any,
+    ) -> Generator[_obj.Object, None, None]:
         """Return a generator that yields the Container's objects.
 
         :param container: A container object or the name of a container
             that you want to retrieve objects from.
-        :type container:
-            :class:`~openstack.object_store.v1.container.Container`
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
-
-        :rtype: A generator of
-            :class:`~openstack.object_store.v1.obj.Object` objects.
         """
         container = self._get_container_name(container=container)
 
@@ -262,26 +265,26 @@ class Proxy(proxy.Proxy):
 
     def get_object(
         self,
-        obj,
-        container=None,
-        resp_chunk_size=1024,
-        outfile=None,
-        remember_content=False,
-    ):
+        obj: str | _obj.Object,
+        container: str | _container.Container | None = None,
+        resp_chunk_size: int = 1024,
+        outfile: str | None = None,
+        remember_content: bool = False,
+    ) -> _obj.Object:
         """Get the data associated with an object
 
         :param obj: The value can be the name of an object or a
             :class:`~openstack.object_store.v1.obj.Object` instance.
         :param container: The value can be the name of a container or a
             :class:`~openstack.object_store.v1.container.Container` instance.
-        :param int resp_chunk_size: chunk size of data to read. Only used if
+        :param resp_chunk_size: chunk size of data to read. Only used if
             the results are being written to a file or stream is True.
             (optional, defaults to 1k)
         :param outfile: Write the object to a file instead of returning the
             contents. If this option is given, body in the return tuple will be
             None. outfile can either be a file path given as a string, or a
             File like object.
-        :param bool remember_content: Flag whether object data should be saved
+        :param remember_content: Flag whether object data should be saved
             as `data` property of the Object. When left as `false` and
             `outfile` is not defined data will not be saved and need to be
             fetched separately.
@@ -459,7 +462,7 @@ class Proxy(proxy.Proxy):
         # to be an int
         if segment_size:
             segment_size = int(segment_size)
-        segment_size = self.get_object_segment_size(segment_size)
+        segment_size = self.get_object_segment_size(segment_size)  # type: ignore[assignment]
         file_size = os.path.getsize(filename)
 
         if self.is_object_stale(container_name, name, filename, md5, sha256):
@@ -473,7 +476,7 @@ class Proxy(proxy.Proxy):
                 meta_headers = _obj.Object()._calculate_headers(metadata)
                 headers.update(meta_headers)
 
-            if file_size <= segment_size:
+            if file_size <= segment_size:  # type: ignore[operator]
                 self._upload_object(endpoint, filename, headers)
 
             else:
@@ -495,14 +498,19 @@ class Proxy(proxy.Proxy):
         """Copy an object."""
         raise NotImplementedError
 
-    def delete_object(self, obj, ignore_missing=True, container=None):
+    def delete_object(
+        self,
+        obj: str | _obj.Object,
+        ignore_missing: bool = True,
+        container: str | _container.Container | None = None,
+    ) -> None:
         """Delete an object
 
         :param obj: The value can be either the name of an object or a
             :class:`~openstack.object_store.v1.container.Container` instance.
         :param container: The value can be the ID of a container or a
             :class:`~openstack.object_store.v1.container.Container` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the object does not exist.  When set to ``True``, no exception
             will be set when attempting to delete a nonexistent server.
@@ -518,7 +526,11 @@ class Proxy(proxy.Proxy):
             container=container_name,
         )
 
-    def get_object_metadata(self, obj, container=None):
+    def get_object_metadata(
+        self,
+        obj: str | _obj.Object,
+        container: str | _container.Container | None = None,
+    ) -> _obj.Object:
         """Get metadata for an object.
 
         :param obj: The value can be the name of an object or a
@@ -543,7 +555,7 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.object_store.v1.obj.Object` instance.
         :param container: The value can be the name of a container or a
             :class:`~openstack.object_store.v1.container.Container` instance.
-        :param kwargs metadata: Key/value pairs to be set as metadata
+        :param metadata: Key/value pairs to be set as metadata
             on the container. Both custom and system metadata can be set.
             Custom metadata are keys and values defined by the user. System
             metadata are keys defined by the Object Store and values defined by
@@ -561,7 +573,12 @@ class Proxy(proxy.Proxy):
         res.set_metadata(self, metadata)
         return res
 
-    def delete_object_metadata(self, obj, container=None, keys=None):
+    def delete_object_metadata(
+        self,
+        obj: str | _obj.Object,
+        container: str | _container.Container | None = None,
+        keys: Iterable[str] | None = None,
+    ) -> None:
         """Delete metadata for an object.
 
         :param obj: The value can be the name of an object or a
@@ -573,7 +590,6 @@ class Proxy(proxy.Proxy):
         container_name = self._get_container_name(obj, container)
         res = self._get_resource(_obj.Object, obj, container=container_name)
         res.delete_metadata(self, keys)
-        return res
 
     def is_object_stale(
         self, container, name, filename, file_md5=None, file_sha256=None
@@ -770,7 +786,7 @@ class Proxy(proxy.Proxy):
             segments[name] = segment
         return segments
 
-    def get_object_segment_size(self, segment_size):
+    def get_object_segment_size(self, segment_size: int | None) -> int | float:
         """Get a segment size that will work given capabilities"""
         if segment_size is None:
             segment_size = DEFAULT_OBJECT_SEGMENT_SIZE
@@ -819,7 +835,7 @@ class Proxy(proxy.Proxy):
                 if entry['path'] == f'/{parse.unquote(name)}':
                     entry['etag'] = result.headers['Etag']
 
-    def get_info(self):
+    def get_info(self) -> _info.Info:
         """Get infomation about the object-storage service
 
         The object-storage service publishes a set of capabilities that
@@ -831,7 +847,7 @@ class Proxy(proxy.Proxy):
         """Set the temporary URL key for the account.
 
         :param key: Text of the key to use.
-        :param bool secondary: Whether this should set the secondary key.
+        :param secondary: Whether this should set the secondary key.
             (defaults to False)
         """
         account = self._get_resource(_account.Account, None)
@@ -843,13 +859,15 @@ class Proxy(proxy.Proxy):
         :param container: The value can be the name of a container or a
             :class:`~openstack.object_store.v1.container.Container` instance.
         :param key: Text of the key to use.
-        :param bool secondary: Whether this should set the secondary key.
+        :param secondary: Whether this should set the secondary key.
             (defaults to False)
         """
         res = self._get_resource(_container.Container, container)
         res.set_temp_url_key(self, key, secondary)
 
-    def get_temp_url_key(self, container=None):
+    def get_temp_url_key(
+        self, container: str | _container.Container | None = None
+    ) -> bytes | None:
         """Get the best temporary url key for a given container.
 
         Will first try to return Temp-URL-Key-2 then Temp-URL-Key for the
@@ -987,7 +1005,7 @@ class Proxy(proxy.Proxy):
             Optional, if omitted, the key will be fetched from the container or
             the account.
         :raises ValueError: if timestamp or path is not in valid format.
-        :return: the path portion of a temporary URL
+        :returns: the path portion of a temporary URL
         """
         try:
             try:
@@ -1114,8 +1132,8 @@ class Proxy(proxy.Proxy):
         used to delete any objects that shade has created on the user's behalf
         in service of image uploads.
 
-        :param str container: Name of the container. Defaults to 'images'.
-        :param str segment_prefix: Prefix for the image segment names to
+        :param container: Name of the container. Defaults to 'images'.
+        :param segment_prefix: Prefix for the image segment names to
             delete. If not given, all image upload segments present are
             deleted.
         :returns: True if deletion was succesful, else False.
@@ -1163,7 +1181,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -1178,8 +1196,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
@@ -1252,7 +1270,7 @@ class Proxy(proxy.Proxy):
                             self._bulk_delete(elements)
                             elements.clear()
                     else:
-                        self.delete_object(obj, cont)
+                        self.delete_object(obj, container=cont)
                 else:
                     objects_remaining = True
 

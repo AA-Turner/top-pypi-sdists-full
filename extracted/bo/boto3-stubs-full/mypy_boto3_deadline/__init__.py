@@ -46,6 +46,7 @@ Usage::
         ListStorageProfilesForQueuePaginator,
         ListStorageProfilesPaginator,
         ListTasksPaginator,
+        ListVolumesPaginator,
         ListWorkersPaginator,
         QueueFleetAssociationStoppedWaiter,
         QueueLimitAssociationStoppedWaiter,
@@ -95,6 +96,7 @@ Usage::
     list_storage_profiles_for_queue_paginator: ListStorageProfilesForQueuePaginator = client.get_paginator("list_storage_profiles_for_queue")
     list_storage_profiles_paginator: ListStorageProfilesPaginator = client.get_paginator("list_storage_profiles")
     list_tasks_paginator: ListTasksPaginator = client.get_paginator("list_tasks")
+    list_volumes_paginator: ListVolumesPaginator = client.get_paginator("list_volumes")
     list_workers_paginator: ListWorkersPaginator = client.get_paginator("list_workers")
     ```
 """
@@ -129,6 +131,7 @@ from .paginator import (
     ListStorageProfilesForQueuePaginator,
     ListStorageProfilesPaginator,
     ListTasksPaginator,
+    ListVolumesPaginator,
     ListWorkersPaginator,
 )
 from .waiter import (
@@ -184,6 +187,7 @@ __all__ = (
     "ListStorageProfilesForQueuePaginator",
     "ListStorageProfilesPaginator",
     "ListTasksPaginator",
+    "ListVolumesPaginator",
     "ListWorkersPaginator",
     "QueueFleetAssociationStoppedWaiter",
     "QueueLimitAssociationStoppedWaiter",

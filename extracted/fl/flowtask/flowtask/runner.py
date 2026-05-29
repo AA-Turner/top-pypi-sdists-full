@@ -138,9 +138,6 @@ class TaskRunner:
         if kwargs:
             # remain args go to kwargs:
             self._kwargs = {**kwargs}
-        # Queue Worker (lazy import to avoid loading aiogram at startup):
-        from qw.client import QClient
-        self._qw = QClient()
 
     @property
     def stats(self) -> TaskMonitor:
@@ -233,41 +230,35 @@ class TaskRunner:
         return True
 
     async def run(self):
+        from flowtask.executors.resolver import resolve_executor, determine_execution_mode
         try:
-            if self.no_worker:
-                try:
-                    self._result = await self._task.run()
-                finally:
-                    await self._task.close()
-            else:
-                # sent task to Worker
-                from qw.wrappers import TaskWrapper
-                task = TaskWrapper(
-                    program=self._program,
-                    task_id=self.task_id,
-                    task=self._taskname,
+            # Build a minimal task definition for the resolver
+            task_def = {"executor": getattr(self._options, "executor", None) or "default"}
+            executor = resolve_executor(task_def, self._options)
+            mode = determine_execution_mode(self._options)
+            if mode == "dispatch":
+                handle = await executor.dispatch(
+                    self._program,
+                    self._taskname,
+                    str(self.task_id),
                     debug=self._debug,
-                    parser=self._argparser,
                     no_events=self.no_events,
                     **self._kwargs,
                 )
-                if self._options.queued is True:
-                    task.queued = True
-                    result = await self._qw.queue(task)
-                else:
-                    task.queued = False
-                    result = await self._qw.run(task)
-                if isinstance(result, BaseException):
-                    raise result
-                elif isinstance(result, dict):
-                    if "exception" in result:
-                        ex = result["exception"]
-                        msg = result["error"]
-                        raise ex(f"{msg!s}")
-                    else:
-                        self._result = result
-                else:
-                    self._result = result
+                self._result = {"handle": handle.execution_id}
+            else:
+                task_result = await executor.run(
+                    self._program,
+                    self._taskname,
+                    str(self.task_id),
+                    debug=self._debug,
+                    no_events=self.no_events,
+                    **self._kwargs,
+                )
+                if task_result.status == "failed":
+                    from flowtask.exceptions import TaskFailed
+                    raise TaskFailed(task_result.error or "Task execution failed")
+                self._result = task_result.result
         except Exception as err:
             logging.error(err)
             raise

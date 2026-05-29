@@ -6,10 +6,12 @@ from concurrent.futures import ThreadPoolExecutor
 from navconfig.logging import logging, logger
 from ..exceptions import NotSupported, ComponentError
 from ..download import download_component
-from .abstract import AbstractFlow
-from .flow import FlowComponent
-from .user import UserComponent
-from .group import GroupComponent
+# Back-compat re-exports: these four classes moved to flowtask/interfaces/ in FEAT-023,
+# but they are still importable from flowtask.components for downstream/plugin compatibility.
+from ..interfaces.abstract import AbstractFlow
+from ..interfaces.flow import FlowComponent
+from ..interfaces.user import UserComponent
+from ..interfaces.group import GroupComponent
 
 
 __all__ = (

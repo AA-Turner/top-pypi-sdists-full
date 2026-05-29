@@ -12,7 +12,7 @@ from asyncdb.exceptions import ProviderError
 from ..exceptions import ComponentError
 from ..utils import SafeDict
 from ..conf import default_dsn
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class QueryToInsert(FlowComponent):

@@ -11,7 +11,7 @@
 # under the License.
 
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 from openstack.dns.v2 import blacklist as _blacklist
 from openstack.dns.v2 import floating_ip as _fip
@@ -52,10 +52,10 @@ class Proxy(proxy.Proxy):
     }
 
     # ======== Zones ========
-    def zones(self, **query):
+    def zones(self, **query: Any) -> Generator[_zone.Zone, None, None]:
         """Retrieve a generator of zones
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned.
 
             * `name`: Zone Name field.
@@ -73,41 +73,44 @@ class Proxy(proxy.Proxy):
     def create_zone(self, **attrs: Any) -> _zone.Zone:
         """Create a new zone from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.dns.v2.zone.Zone`,
             comprised of the properties on the Zone class.
         :returns: The results of zone creation.
-        :rtype: :class:`~openstack.dns.v2.zone.Zone`
         """
         if attrs.get('type') == "SECONDARY":
             attrs.pop('email', None)
             attrs.pop('ttl', None)
         return self._create(_zone.Zone, prepend_key=False, **attrs)
 
-    def get_zone(self, zone):
+    def get_zone(self, zone: str | _zone.Zone) -> _zone.Zone:
         """Get a zone
 
         :param zone: The value can be the ID of a zone
             or a :class:`~openstack.dns.v2.zone.Zone` instance.
         :returns: Zone instance.
-        :rtype: :class:`~openstack.dns.v2.zone.Zone`
         """
         return self._get(_zone.Zone, zone)
 
-    def delete_zone(self, zone, ignore_missing=True, delete_shares=False):
+    # TODO(stephenfin): This method should return None
+    def delete_zone(
+        self,
+        zone: str | _zone.Zone,
+        ignore_missing: bool = True,
+        delete_shares: bool = False,
+    ) -> _zone.Zone | None:
         """Delete a zone
 
         :param zone: The value can be the ID of a zone
             or a :class:`~openstack.dns.v2.zone.Zone` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent zone.
-        :param bool delete_shares: When True, delete the zone shares along with
+        :param delete_shares: When True, delete the zone shares along with
                                    the zone.
 
         :returns: Zone been deleted
-        :rtype: :class:`~openstack.dns.v2.zone.Zone`
         """
         return self._delete(
             _zone.Zone,
@@ -116,15 +119,14 @@ class Proxy(proxy.Proxy):
             delete_shares=delete_shares,
         )
 
-    def update_zone(self, zone, **attrs):
+    def update_zone(self, zone: str | _zone.Zone, **attrs: Any) -> _zone.Zone:
         """Update zone attributes
 
         :param zone: The id or an instance of
             :class:`~openstack.dns.v2.zone.Zone`.
-        :param dict attrs: attributes for update on
+        :param attrs: attributes for update on
             :class:`~openstack.dns.v2.zone.Zone`.
 
-        :rtype: :class:`~openstack.dns.v2.zone.Zone`
         """
         return self._update(_zone.Zone, zone, **attrs)
 
@@ -150,7 +152,7 @@ class Proxy(proxy.Proxy):
         """Find a single zone
 
         :param name_or_id: The name or ID of a zone
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone does not exist.
             When set to ``True``, no exception will be set when attempting
@@ -186,12 +188,15 @@ class Proxy(proxy.Proxy):
         return zone.xfr(self)
 
     # ======== Zone nameservers ========
-    def zone_nameservers(self, zone):
+    def zone_nameservers(
+        self,
+        zone: str | _zone.Zone,
+    ) -> Generator[_zone_nameserver.ZoneNameserver, None, None]:
         """Retrieve a generator of nameservers for a zone
 
         :param zone: The value can be the ID of a zone or a
             :class:`~openstack.dns.v2.zone.Zone` instance.
-        :return: A generator of
+        :returns: A generator of
             :class:`~openstack.dns.v2.zone_nameserver.ZoneNameserver`
             instances.
         """
@@ -202,14 +207,18 @@ class Proxy(proxy.Proxy):
         )
 
     # ======== Recordsets ========
-    def recordsets(self, zone=None, **query):
+    def recordsets(
+        self,
+        zone: str | _zone.Zone | None = None,
+        **query: Any,
+    ) -> Generator[_rs.Recordset, None, None]:
         """Retrieve a generator of recordsets
 
         :param zone: The optional value can be the ID of a zone
             or a :class:`~openstack.dns.v2.zone.Zone` instance. If it is not
             given all recordsets for all zones of the tenant would be
             retrieved
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned.
 
             * `name`: Recordset Name field.
@@ -238,28 +247,32 @@ class Proxy(proxy.Proxy):
 
         :param zone: The value can be the ID of a zone
             or a :class:`~openstack.dns.v2.zone.Zone` instance.
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.dns.v2.recordset.Recordset`,
             comprised of the properties on the Recordset class.
         :returns: The results of zone creation
-        :rtype: :class:`~openstack.dns.v2.recordset.Recordset`
         """
         zone = self._get_resource(_zone.Zone, zone)
         attrs.update({'zone_id': zone.id})
         return self._create(_rs.Recordset, prepend_key=False, **attrs)
 
-    def update_recordset(self, recordset, **attrs):
+    def update_recordset(
+        self, recordset: str | _rs.Recordset, **attrs: Any
+    ) -> _rs.Recordset:
         """Update Recordset attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.dns.v2.recordset.Recordset`,
             comprised of the properties on the Recordset class.
         :returns: The results of zone creation
-        :rtype: :class:`~openstack.dns.v2.recordset.Recordset`
         """
         return self._update(_rs.Recordset, recordset, **attrs)
 
-    def get_recordset(self, recordset, zone):
+    def get_recordset(
+        self,
+        recordset: str | _rs.Recordset,
+        zone: str | _zone.Zone,
+    ) -> _rs.Recordset:
         """Get a recordset
 
         :param zone: The value can be the ID of a zone
@@ -267,12 +280,17 @@ class Proxy(proxy.Proxy):
         :param recordset: The value can be the ID of a recordset
             or a :class:`~openstack.dns.v2.recordset.Recordset` instance.
         :returns: Recordset instance
-        :rtype: :class:`~openstack.dns.v2.recordset.Recordset`
         """
         zone = self._get_resource(_zone.Zone, zone)
         return self._get(_rs.Recordset, recordset, zone_id=zone.id)
 
-    def delete_recordset(self, recordset, zone=None, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_recordset(
+        self,
+        recordset: str | _rs.Recordset,
+        zone: str | _zone.Zone | None = None,
+        ignore_missing: bool = True,
+    ) -> _rs.Recordset | None:
         """Delete a zone
 
         :param recordset: The value can be the ID of a recordset
@@ -280,13 +298,12 @@ class Proxy(proxy.Proxy):
             instance.
         :param zone: The value can be the ID of a zone
             or a :class:`~openstack.dns.v2.zone.Zone` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent zone.
 
         :returns: Recordset instance been deleted
-        :rtype: :class:`~openstack.dns.v2.recordset.Recordset`
         """
         if zone:
             zone = self._get_resource(_zone.Zone, zone)
@@ -325,7 +342,7 @@ class Proxy(proxy.Proxy):
         :param zone: The value can be the ID of a zone
             or a :class:`~openstack.dns.v2.zone.Zone` instance.
         :param name_or_id: The name or ID of a zone
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone does not exist.
             When set to ``True``, no exception will be set when attempting
@@ -343,10 +360,13 @@ class Proxy(proxy.Proxy):
         )
 
     # ======== Zone Imports ========
-    def zone_imports(self, **query):
+    def zone_imports(
+        self,
+        **query: Any,
+    ) -> Generator[_zone_import.ZoneImport, None, None]:
         """Retrieve a generator of zone imports
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned.
 
             * `zone_id`: Zone I field.
@@ -361,47 +381,55 @@ class Proxy(proxy.Proxy):
     def create_zone_import(self, **attrs: Any) -> _zone_import.ZoneImport:
         """Create a new zone import from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.dns.v2.zone_import.ZoneImport`,
             comprised of the properties on the ZoneImport class.
         :returns: The results of zone creation.
-        :rtype: :class:`~openstack.dns.v2.zone_import.ZoneImport`
         """
         return self._create(
             _zone_import.ZoneImport, prepend_key=False, **attrs
         )
 
-    def get_zone_import(self, zone_import):
+    def get_zone_import(
+        self, zone_import: str | _zone_import.ZoneImport
+    ) -> _zone_import.ZoneImport:
         """Get a zone import record
 
         :param zone: The value can be the ID of a zone import
             or a :class:`~openstack.dns.v2.zone_import.ZoneImport` instance.
         :returns: ZoneImport instance.
-        :rtype: :class:`~openstack.dns.v2.zone_import.ZoneImport`
         """
         return self._get(_zone_import.ZoneImport, zone_import)
 
-    def delete_zone_import(self, zone_import, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_zone_import(
+        self,
+        zone_import: str | _zone_import.ZoneImport,
+        ignore_missing: bool = True,
+    ) -> _zone_import.ZoneImport | None:
         """Delete a zone import
 
         :param zone_import: The value can be the ID of a zone import
             or a :class:`~openstack.dns.v2.zone_import.ZoneImport` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent zone.
 
-        :returns: None
+        :returns: The deleted zone import.
         """
         return self._delete(
             _zone_import.ZoneImport, zone_import, ignore_missing=ignore_missing
         )
 
     # ======== Zone Exports ========
-    def zone_exports(self, **query):
+    def zone_exports(
+        self,
+        **query: Any,
+    ) -> Generator[_zone_export.ZoneExport, None, None]:
         """Retrieve a generator of zone exports
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned.
 
             * `zone_id`: Zone I field.
@@ -422,11 +450,10 @@ class Proxy(proxy.Proxy):
 
         :param zone: The value can be the ID of a zone to be exported
             or a :class:`~openstack.dns.v2.zone_export.ZoneExport` instance.
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.dns.v2.zone_export.ZoneExport`,
             comprised of the properties on the ZoneExport class.
         :returns: The results of zone creation.
-        :rtype: :class:`~openstack.dns.v2.zone_export.ZoneExport`
         """
         zone = self._get_resource(_zone.Zone, zone)
         return self._create(
@@ -437,23 +464,25 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    def get_zone_export(self, zone_export):
+    def get_zone_export(
+        self, zone_export: str | _zone_export.ZoneExport
+    ) -> _zone_export.ZoneExport:
         """Get a zone export record
 
         :param zone: The value can be the ID of a zone import
             or a :class:`~openstack.dns.v2.zone_export.ZoneExport` instance.
         :returns: ZoneExport instance.
-        :rtype: :class:`~openstack.dns.v2.zone_export.ZoneExport`
         """
         return self._get(_zone_export.ZoneExport, zone_export)
 
-    def get_zone_export_text(self, zone_export):
+    def get_zone_export_text(
+        self, zone_export: str | _zone_export.ZoneExport
+    ) -> _zone_export.ZoneExport:
         """Get a zone export record as text
 
         :param zone: The value can be the ID of a zone import
             or a :class:`~openstack.dns.v2.zone_export.ZoneExport` instance.
         :returns: ZoneExport instance.
-        :rtype: :class:`~openstack.dns.v2.zone_export.ZoneExport`
         """
         return self._get(
             _zone_export.ZoneExport,
@@ -461,27 +490,35 @@ class Proxy(proxy.Proxy):
             base_path='/zones/tasks/export/%(id)s/export',
         )
 
-    def delete_zone_export(self, zone_export, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_zone_export(
+        self,
+        zone_export: str | _zone_export.ZoneExport,
+        ignore_missing: bool = True,
+    ) -> _zone_export.ZoneExport | None:
         """Delete a zone export
 
         :param zone_export: The value can be the ID of a zone import
             or a :class:`~openstack.dns.v2.zone_export.ZoneExport` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent zone.
 
-        :returns: None
+        :returns: The deleted zone export.
         """
         return self._delete(
             _zone_export.ZoneExport, zone_export, ignore_missing=ignore_missing
         )
 
     # ======== FloatingIPs ========
-    def floating_ips(self, **query):
+    def floating_ips(
+        self,
+        **query: Any,
+    ) -> Generator[_fip.FloatingIP, None, None]:
         """Retrieve a generator of recordsets
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned.
 
             * `name`: Recordset Name field.
@@ -495,26 +532,28 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_fip.FloatingIP, **query)
 
-    def get_floating_ip(self, floating_ip):
+    def get_floating_ip(
+        self, floating_ip: str | _fip.FloatingIP
+    ) -> _fip.FloatingIP:
         """Get a Floating IP
 
         :param floating_ip: The value can be the ID of a floating ip
             or a :class:`~openstack.dns.v2.floating_ip.FloatingIP` instance.
             The ID is in format "region_name:floatingip_id"
         :returns: FloatingIP instance.
-        :rtype: :class:`~openstack.dns.v2.floating_ip.FloatingIP`
         """
         return self._get(_fip.FloatingIP, floating_ip)
 
-    def update_floating_ip(self, floating_ip, **attrs):
+    def update_floating_ip(
+        self, floating_ip: str | _fip.FloatingIP, **attrs: Any
+    ) -> _fip.FloatingIP:
         """Update floating ip attributes
 
         :param floating_ip: The id or an instance of
             :class:`~openstack.dns.v2.fip.FloatingIP`.
-        :param dict attrs: attributes for update on
+        :param attrs: attributes for update on
             :class:`~openstack.dns.v2.fip.FloatingIP`.
 
-        :rtype: :class:`~openstack.dns.v2.fip.FloatingIP`
         """
         return self._update(_fip.FloatingIP, floating_ip, **attrs)
 
@@ -523,17 +562,19 @@ class Proxy(proxy.Proxy):
         :param floating_ip: ID for the floatingip associated with the
             project.
         :returns: FloatingIP PTR record.
-        :rtype: :class:`~openstack.dns.v2.fip.FloatipgIP`
         """
         # concat `region:floating_ip_id` as id
         attrs = {'ptrdname': None}
         return self._update(_fip.FloatingIP, floating_ip, **attrs)
 
     # ======== Zone Transfer ========
-    def zone_transfer_requests(self, **query):
+    def zone_transfer_requests(
+        self,
+        **query: Any,
+    ) -> Generator[_zone_transfer.ZoneTransferRequest, None, None]:
         """Retrieve a generator of zone transfer requests
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned.
 
             * `status`: Status of the recordset.
@@ -544,14 +585,15 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_zone_transfer.ZoneTransferRequest, **query)
 
-    def get_zone_transfer_request(self, request):
+    def get_zone_transfer_request(
+        self, request: str | _zone_transfer.ZoneTransferRequest
+    ) -> _zone_transfer.ZoneTransferRequest:
         """Get a ZoneTransfer Request info
 
         :param request: The value can be the ID of a transfer request
             or a :class:`~openstack.dns.v2.zone_transfer.ZoneTransferRequest`
             instance.
         :returns: Zone transfer request instance.
-        :rtype: :class:`~openstack.dns.v2.zone_transfer.ZoneTransferRequest`
         """
         return self._get(_zone_transfer.ZoneTransferRequest, request)
 
@@ -564,11 +606,10 @@ class Proxy(proxy.Proxy):
 
         :param zone: The value can be the ID of a zone to be transferred
             or a :class:`~openstack.dns.v2.zone_export.ZoneExport` instance.
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.dns.v2.zone_transfer.ZoneTransferRequest`,
             comprised of the properties on the ZoneTransferRequest class.
         :returns: The results of zone transfer request creation.
-        :rtype: :class:`~openstack.dns.v2.zone_transfer.ZoneTransferRequest`
         """
         zone = self._get_resource(_zone.Zone, zone)
         return self._create(
@@ -579,32 +620,38 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    def update_zone_transfer_request(self, request, **attrs):
+    def update_zone_transfer_request(
+        self, request: str | _zone_transfer.ZoneTransferRequest, **attrs: Any
+    ) -> _zone_transfer.ZoneTransferRequest:
         """Update ZoneTransfer Request attributes
 
         :param floating_ip: The id or an instance of
             :class:`~openstack.dns.v2.zone_transfer.ZoneTransferRequest`.
-        :param dict attrs: attributes for update on
+        :param attrs: attributes for update on
             :class:`~openstack.dns.v2.zone_transfer.ZoneTransferRequest`.
 
-        :rtype: :class:`~openstack.dns.v2.zone_transfer.ZoneTransferRequest`
         """
         return self._update(
             _zone_transfer.ZoneTransferRequest, request, **attrs
         )
 
-    def delete_zone_transfer_request(self, request, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_zone_transfer_request(
+        self,
+        request: str | _zone_transfer.ZoneTransferRequest,
+        ignore_missing: bool = True,
+    ) -> _zone_transfer.ZoneTransferRequest | None:
         """Delete a ZoneTransfer Request
 
         :param request: The value can be the ID of a zone transfer request
             or a :class:`~openstack.dns.v2.zone_transfer.ZoneTransferRequest`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent zone.
 
-        :returns: None
+        :returns: The deleted zone transfer request.
         """
         return self._delete(
             _zone_transfer.ZoneTransferRequest,
@@ -612,10 +659,13 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def zone_transfer_accepts(self, **query):
+    def zone_transfer_accepts(
+        self,
+        **query: Any,
+    ) -> Generator[_zone_transfer.ZoneTransferAccept, None, None]:
         """Retrieve a generator of zone transfer accepts
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned.
 
             * `status`: Status of the recordset.
@@ -626,14 +676,15 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_zone_transfer.ZoneTransferAccept, **query)
 
-    def get_zone_transfer_accept(self, accept):
+    def get_zone_transfer_accept(
+        self, accept: str | _zone_transfer.ZoneTransferAccept
+    ) -> _zone_transfer.ZoneTransferAccept:
         """Get a ZoneTransfer Accept info
 
         :param request: The value can be the ID of a transfer accept
             or a :class:`~openstack.dns.v2.zone_transfer.ZoneTransferAccept`
             instance.
         :returns: Zone transfer request instance.
-        :rtype: :class:`~openstack.dns.v2.zone_transfer.ZoneTransferAccept`
         """
         return self._get(_zone_transfer.ZoneTransferAccept, accept)
 
@@ -642,21 +693,24 @@ class Proxy(proxy.Proxy):
     ) -> _zone_transfer.ZoneTransferAccept:
         """Create a new ZoneTransfer Accept from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.dns.v2.zone_transfer.ZoneTransferAccept`,
             comprised of the properties on the ZoneTransferAccept class.
         :returns: The results of zone transfer request creation.
-        :rtype: :class:`~openstack.dns.v2.zone_transfer.ZoneTransferAccept`
         """
         return self._create(_zone_transfer.ZoneTransferAccept, **attrs)
 
     # ======== Zone Shares ========
-    def zone_shares(self, zone, **query):
+    def zone_shares(
+        self,
+        zone: str | _zone.Zone,
+        **query: Any,
+    ) -> Generator[_zone_share.ZoneShare, None, None]:
         """Retrieve a generator of zone shares
 
         :param zone: The zone ID or a
             :class:`~openstack.dns.v2.zone.Zone` instance
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
                            resources being returned.
 
                            * `target_project_id`: The target project ID field.
@@ -667,7 +721,11 @@ class Proxy(proxy.Proxy):
         zone_obj = self._get_resource(_zone.Zone, zone)
         return self._list(_zone_share.ZoneShare, zone_id=zone_obj.id, **query)
 
-    def get_zone_share(self, zone, zone_share):
+    def get_zone_share(
+        self,
+        zone: str | _zone.Zone,
+        zone_share: str | _zone_share.ZoneShare,
+    ) -> _zone_share.ZoneShare:
         """Get a zone share
 
         :param zone: The value can be the ID of a zone
@@ -677,7 +735,6 @@ class Proxy(proxy.Proxy):
             that the zone share belongs to.
 
         :returns: ZoneShare instance.
-        :rtype: :class:`~openstack.dns.v2.zone_share.ZoneShare`
         """
         zone_obj = self._get_resource(_zone.Zone, zone)
         return self._get(
@@ -711,7 +768,7 @@ class Proxy(proxy.Proxy):
         :param zone: The value can be the ID of a zone
             or a :class:`~openstack.dns.v2.zone.Zone` instance.
         :param zone_share_id: The zone share ID
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone share does not exist.
             When set to ``True``,  None will be returned when attempting to
@@ -736,19 +793,23 @@ class Proxy(proxy.Proxy):
 
         :param zone: The zone ID or a
             :class:`~openstack.dns.v2.zone.Zone` instance
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.dns.v2.zone_share.ZoneShare`,
             comprised of the properties on the ZoneShare class.
 
         :returns: The results of zone share creation
-        :rtype: :class:`~openstack.dns.v2.zone_share.ZoneShare`
         """
         zone_obj = self._get_resource(_zone.Zone, zone)
         return self._create(
             _zone_share.ZoneShare, zone_id=zone_obj.id, **attrs
         )
 
-    def delete_zone_share(self, zone, zone_share, ignore_missing=True):
+    def delete_zone_share(
+        self,
+        zone: str | _zone.Zone,
+        zone_share: str | _zone_share.ZoneShare,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a zone share
 
         :param zone: The zone ID or a
@@ -756,7 +817,7 @@ class Proxy(proxy.Proxy):
         :param zone_share: The zone_share can be either the ID of the zone
             share or a :class:`~openstack.dns.v2.zone_share.ZoneShare` instance
             that the zone share belongs to.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone share does not exist. When set to ``True``, no
             exception will be set when attempting to delete a nonexistent zone
@@ -773,7 +834,7 @@ class Proxy(proxy.Proxy):
         )
 
     # ======== Limits ========
-    def limits(self, **query):
+    def limits(self, **query: Any) -> Generator[_limit.Limit, None, None]:
         """Retrieve a generator of limits
 
         :returns: A generator of limits
@@ -782,18 +843,17 @@ class Proxy(proxy.Proxy):
         return self._list(_limit.Limit, **query)
 
     # ======== Quotas ========
-    def quotas(self, **query):
+    def quotas(self, **query: Any) -> Generator[_quota.Quota, None, None]:
         """Return a generator of quotas
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned.
 
         :returns: A generator of quota objects
-        :rtype: :class:`~openstack.dns.v2.quota.Quota`
         """
         return self._list(_quota.Quota, **query)
 
-    def get_quota(self, quota):
+    def get_quota(self, quota: str | _quota.Quota) -> _quota.Quota:
         """Get a quota
 
         :param quota: The value can be the ID of a quota or a
@@ -805,38 +865,44 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_quota.Quota, quota)
 
-    def update_quota(self, quota, **attrs):
+    def update_quota(
+        self, quota: str | _quota.Quota, **attrs: Any
+    ) -> _quota.Quota:
         """Update a quota
 
         :param quota: Either the ID of a quota or a
             :class:`~openstack.dns.v2.quota.Quota` instance. The ID of a quota
             is the same as the project ID for the quota.
-        :param dict attrs: The attributes to update on the quota represented
+        :param attrs: The attributes to update on the quota represented
             by ``quota``.
 
         :returns: The updated quota
-        :rtype: :class:`~openstack.dns.v2.quota.Quota`
         """
         return self._update(_quota.Quota, quota, **attrs)
 
-    def delete_quota(self, quota, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_quota(
+        self, quota: str | _quota.Quota, ignore_missing: bool = True
+    ) -> _quota.Quota | None:
         """Delete a quota (i.e. reset to the default quota)
 
         :param quota: The value can be the ID of a quota or a
             :class:`~openstack.dns.v2.quota.Quota` instance.
             The ID of a quota is the same as the project ID for the quota.
-        :param bool ignore_missing: When set to ``False``,
+        :param ignore_missing: When set to ``False``,
             :class:`~openstack.exceptions.ResourceNotFound` will be raised when
             the quota does not exist.
             When set to ``True``, no exception will be set when attempting to
             delete a nonexistent quota.
 
-        :returns: ``None``
+        :returns: The deleted quota.
         """
         return self._delete(_quota.Quota, quota, ignore_missing=ignore_missing)
 
     # ======== Service Statuses ========
-    def service_statuses(self):
+    def service_statuses(
+        self,
+    ) -> Generator[_svc_status.ServiceStatus, None, None]:
         """Retrieve a generator of service statuses
 
         :returns: A generator of service statuses
@@ -844,7 +910,9 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_svc_status.ServiceStatus)
 
-    def get_service_status(self, service):
+    def get_service_status(
+        self, service: str | _svc_status.ServiceStatus
+    ) -> _svc_status.ServiceStatus:
         """Get a status of a service in the Designate system
 
         :param service: The value can be the ID of a service
@@ -852,15 +920,14 @@ class Proxy(proxy.Proxy):
             instance.
 
         :returns: ServiceStatus instance.
-        :rtype: :class:`~openstack.dns.v2.service_status.ServiceStatus`
         """
         return self._get(_svc_status.ServiceStatus, service)
 
     # ======== TLDs ========
-    def tlds(self, **query):
+    def tlds(self, **query: Any) -> Generator[_tld.TLD, None, None]:
         """Retrieve a generator of tlds
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned.
 
             * `name`: TLD Name field.
@@ -873,36 +940,36 @@ class Proxy(proxy.Proxy):
     def create_tld(self, **attrs: Any) -> _tld.TLD:
         """Create a new tld from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.dns.v2.tld.TLD`,
             comprised of the properties on the TLD class.
         :returns: The results of TLD creation.
-        :rtype: :class:`~openstack.dns.v2.tld.TLD`
         """
         return self._create(_tld.TLD, prepend_key=False, **attrs)
 
-    def get_tld(self, tld):
+    def get_tld(self, tld: str | _tld.TLD) -> _tld.TLD:
         """Get a tld
 
         :param tld: The value can be the ID of a tld
             or a :class:`~openstack.dns.v2.tld.TLD` instance.
         :returns: tld instance.
-        :rtype: :class:`~openstack.dns.v2.tld.TLD`
         """
         return self._get(_tld.TLD, tld)
 
-    def delete_tld(self, tld, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_tld(
+        self, tld: str | _tld.TLD, ignore_missing: bool = True
+    ) -> _tld.TLD | None:
         """Delete a tld
 
         :param tld: The value can be the ID of a tld
             or a :class:`~openstack.dns.v2.tld.TLD` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the tld does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent tld.
 
         :returns: TLD been deleted
-        :rtype: :class:`~openstack.dns.v2.tld.TLD`
         """
         return self._delete(
             _tld.TLD,
@@ -910,15 +977,14 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def update_tld(self, tld, **attrs):
+    def update_tld(self, tld: str | _tld.TLD, **attrs: Any) -> _tld.TLD:
         """Update tld attributes
 
         :param tld: The id or an instance of
             :class:`~openstack.dns.v2.tld.TLD`.
-        :param dict attrs: attributes for update on
+        :param attrs: attributes for update on
             :class:`~openstack.dns.v2.tld.TLD`.
 
-        :rtype: :class:`~openstack.dns.v2.tld.TLD`
         """
         return self._update(_tld.TLD, tld, **attrs)
 
@@ -944,7 +1010,7 @@ class Proxy(proxy.Proxy):
         """Find a single tld
 
         :param name_or_id: The name or ID of a tld
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the tld does not exist.
             When set to ``True``, no exception will be set when attempting
@@ -955,10 +1021,13 @@ class Proxy(proxy.Proxy):
         return self._find(_tld.TLD, name_or_id, ignore_missing=ignore_missing)
 
     # ====== TSIG keys ======
-    def tsigkeys(self, **query):
+    def tsigkeys(
+        self,
+        **query: Any,
+    ) -> Generator[_tsigkey.TSIGKey, None, None]:
         """Retrieve a generator of zones
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned.
 
         :returns: A generator of zone
@@ -969,15 +1038,14 @@ class Proxy(proxy.Proxy):
     def create_tsigkey(self, **attrs: Any) -> _tsigkey.TSIGKey:
         """Create a new tsigkey from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.dns.v2.tsigkey.Tsigkey`,
             comprised of the properties on the Tsigkey class.
         :returns: The results of zone creation.
-        :rtype: :class:`~openstack.dns.v2.tsigkey.Tsigkey`
         """
         return self._create(_tsigkey.TSIGKey, prepend_key=False, **attrs)
 
-    def get_tsigkey(self, tsigkey):
+    def get_tsigkey(self, tsigkey: str | _tsigkey.TSIGKey) -> _tsigkey.TSIGKey:
         """Get a zone
 
         :param tsigkey: The value can be the ID of a tsigkey
@@ -988,23 +1056,26 @@ class Proxy(proxy.Proxy):
         return self._get(_tsigkey.TSIGKey, tsigkey)
 
     def delete_tsigkey(
-        self, tsigkey, ignore_missing=True, delete_shares=False
-    ):
+        self,
+        tsigkey: str | _tsigkey.TSIGKey,
+        ignore_missing: bool = True,
+        delete_shares: bool = False,
+    ) -> None:
         """Delete a TSIG key
 
         :param tsigkey: The value can be the ID of a TSIG key
             or a :class:`~openstack.dns.v2.tsigkey.TSIGKey` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.ResourceNotFound` will be raised when
             the TSIG key does not exist.
             When set to ``True``, no exception will be set when attempting to
             delete a nonexistent TSIG key.
+        :param delete_shares: Whether to delete associated shares.
 
         :returns: TSIG Key that has been deleted
-        :rtype: :class:`~openstack.dns.v2.tsigkey.TSIGKey`
         """
 
-        return self._delete(
+        self._delete(
             _tsigkey.TSIGKey,
             tsigkey,
             ignore_missing=ignore_missing,
@@ -1033,7 +1104,7 @@ class Proxy(proxy.Proxy):
         """Find a single tsigkey
 
         :param name_or_id: The name or ID of a tsigkey
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class: `!openstack.exceptions.ResourceNotFound` will be raised
             when the tsigkey does not exit.
             Wehn set to ``True``, no exception will be set when attempting
@@ -1046,7 +1117,10 @@ class Proxy(proxy.Proxy):
         )
 
     # ======== Blacklists ========
-    def blacklists(self, **query):
+    def blacklists(
+        self,
+        **query: Any,
+    ) -> Generator[_blacklist.Blacklist, None, None]:
         """Retrieve a generator of blacklists
 
         :returns: A generator of blacklist
@@ -1054,14 +1128,15 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_blacklist.Blacklist, **query)
 
-    def get_blacklist(self, blacklist):
+    def get_blacklist(
+        self, blacklist: str | _blacklist.Blacklist
+    ) -> _blacklist.Blacklist:
         """Get a blacklist
 
         :param blacklist: The value can be the ID of a blacklist
             or a :class:`~openstack.dns.v2.blacklist.Blacklist` instance.
 
         :returns: Blacklist instance.
-        :rtype: :class:`~openstack.dns.v2.blacklist.Blacklist`
         """
         return self._get(_blacklist.Blacklist, blacklist)
 
@@ -1073,11 +1148,12 @@ class Proxy(proxy.Proxy):
             comprised of the properties on the Blacklist class.
 
         :returns: The results of blacklist creation.
-        :rtype: :class:`~openstack.dns.v2.blacklist.Blacklist`
         """
         return self._create(_blacklist.Blacklist, prepend_key=False, **attrs)
 
-    def update_blacklist(self, blacklist, **attrs):
+    def update_blacklist(
+        self, blacklist: str | _blacklist.Blacklist, **attrs: Any
+    ) -> _blacklist.Blacklist:
         """Update blacklist attributes
 
         :param blacklist: The id or an instance of
@@ -1085,18 +1161,27 @@ class Proxy(proxy.Proxy):
         :param attrs: attributes for update on
             :class: `~openstack.dns.v2.blacklist.Blacklist`.
 
-        :rtype: :class: `~openstack.dns.v2.blacklist.Blacklist`.
+        :returns: The updated blacklist.
         """
         return self._update(_blacklist.Blacklist, blacklist, **attrs)
 
-    def delete_blacklist(self, blacklist, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_blacklist(
+        self,
+        blacklist: str | _blacklist.Blacklist,
+        ignore_missing: bool = True,
+    ) -> _blacklist.Blacklist | None:
         """Delete a blacklist
 
         :param blacklist: The id or an instance of
             :class: `~openstack.dns.v2.blacklist.Blacklist`.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the blacklist does not exist. When set to ``True``, no
+            exception will be set when attempting to delete a nonexistent
+            blacklist.
 
         :returns: Blacklist been deleted
-        :rtype: :class:`~openstack.dns.v2.blacklist.Blacklist`
         """
         return self._delete(
             _blacklist.Blacklist, blacklist, ignore_missing=ignore_missing
@@ -1130,7 +1215,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -1145,8 +1230,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
@@ -1195,10 +1280,10 @@ class Proxy(proxy.Proxy):
         ):
             # Unset all floatingIPs
             # NOTE: FloatingIPs are not cleaned when filters are set
-            for obj in self.floating_ips():
+            for fip_obj in self.floating_ips():
                 self._service_cleanup_del_res(
                     self.unset_floating_ip,
-                    obj,
+                    fip_obj,
                     dry_run=dry_run,
                     client_status_queue=client_status_queue,
                     identified_resources=identified_resources,

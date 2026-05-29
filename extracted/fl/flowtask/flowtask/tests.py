@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from navconfig import BASE_DIR
 from .components import getComponent
-from .components.flow import FlowComponent
+from .interfaces.flow import FlowComponent
 
 
 @pytest.fixture(autouse=True, scope="session")

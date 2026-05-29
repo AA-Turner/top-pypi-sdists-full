@@ -24,7 +24,7 @@ lint = [
   {include-group = "pylint"}
 ]
 pre-commit = [
-  "prek==0.4.0"
+  "prek==0.4.3"
 ]
 pylint = [
   "pylint==4.0.5"
@@ -33,11 +33,11 @@ test = [
   "pytest-cov==7.1.0",
   "pytest-xdist==3.8.0",
   "pytest==9.0.3",
-  "syrupy==5.1.0"
+  "syrupy==5.2.0"
 ]
 types = [
   "setuptools>=61.2",
-  "ty==0.0.35",
+  "ty==0.0.40",
   "types-lxml==2026.2.16"
 ]
 
@@ -495,13 +495,10 @@ extend-ignore-re = [
 plasTeX = "plasTeX"
 
 [tool.typos.default.extend-words]
-# Belarusian/Polish translations in test files
-dni = "dni"
-"dźeń" = "dźeń"
-"dźon" = "dźon"
-elementy = "elementy"
 # Open Document Format acronym
 ODF = "ODF"
+# Wrong replacement
+Replaceables = "Replaceables"
 tamu = "tamu"
 Uniforum = "Uniforum"
 # Author name

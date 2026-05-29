@@ -2,7 +2,7 @@ import asyncio
 import pandas as pd
 from urllib.parse import urljoin
 from xmlrpc.client import ServerProxy
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.http import HTTPService
 from ..exceptions import ComponentError
 

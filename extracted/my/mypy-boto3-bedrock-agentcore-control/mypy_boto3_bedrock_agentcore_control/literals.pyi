@@ -58,6 +58,8 @@ __all__ = (
     "GatewayProtocolTypeType",
     "GatewayRuleStatusType",
     "GatewayStatusType",
+    "HarnessBedrockApiFormatType",
+    "HarnessOpenAiApiFormatType",
     "HarnessStatusType",
     "HarnessToolTypeType",
     "HarnessTruncationStrategyType",
@@ -241,6 +243,8 @@ GatewayRuleStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 GatewayStatusType = Literal[
     "CREATING", "DELETING", "FAILED", "READY", "UPDATE_UNSUCCESSFUL", "UPDATING"
 ]
+HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "responses"]
+HarnessOpenAiApiFormatType = Literal["chat_completions", "responses"]
 HarnessStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
@@ -699,6 +703,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",

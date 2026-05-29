@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harbor
-Version: 0.8.0
+Version: 0.9.0
 Summary: A framework for evaluating and optimizing agents and models using sandboxed environments.
 Author: Alex Shaw
 Author-email: Alex Shaw <alexgshaw64@gmail.com>
@@ -29,6 +29,8 @@ Requires-Dist: supabase>=2.28.2
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: harbor[cloud] ; extra == 'all'
 Requires-Dist: harbor[tinker] ; extra == 'all'
+Requires-Dist: harbor[cwsandbox] ; extra == 'cloud'
+Requires-Dist: harbor[wandb] ; extra == 'cloud'
 Requires-Dist: harbor[e2b] ; extra == 'cloud'
 Requires-Dist: harbor[daytona] ; extra == 'cloud'
 Requires-Dist: harbor[islo] ; extra == 'cloud'
@@ -37,6 +39,7 @@ Requires-Dist: harbor[runloop] ; extra == 'cloud'
 Requires-Dist: harbor[gke] ; extra == 'cloud'
 Requires-Dist: harbor[tensorlake] ; extra == 'cloud'
 Requires-Dist: harbor[novita] ; extra == 'cloud'
+Requires-Dist: cwsandbox>=0.23.3 ; extra == 'cwsandbox'
 Requires-Dist: daytona>=0.165.0 ; extra == 'daytona'
 Requires-Dist: e2b>=2.4.2 ; extra == 'e2b'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'e2b'
@@ -47,12 +50,16 @@ Requires-Dist: modal>=1.4.0 ; extra == 'modal'
 Requires-Dist: novita-sandbox==2.0.0a3 ; extra == 'novita'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'novita'
 Requires-Dist: runloop-api-client>=1.2.0 ; extra == 'runloop'
-Requires-Dist: tensorlake>=0.5.8 ; extra == 'tensorlake'
+Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'runloop'
+Requires-Dist: tensorlake>=0.5.18 ; extra == 'tensorlake'
 Requires-Dist: tinker>=0.14.0 ; extra == 'tinker'
 Requires-Dist: tinker-cookbook>=0.1.0 ; extra == 'tinker'
+Requires-Dist: wandb>=0.27 ; extra == 'wandb'
+Requires-Dist: cwsandbox>=0.23.3 ; extra == 'wandb'
 Requires-Python: >=3.12
 Provides-Extra: all
 Provides-Extra: cloud
+Provides-Extra: cwsandbox
 Provides-Extra: daytona
 Provides-Extra: e2b
 Provides-Extra: gke
@@ -62,6 +69,7 @@ Provides-Extra: novita
 Provides-Extra: runloop
 Provides-Extra: tensorlake
 Provides-Extra: tinker
+Provides-Extra: wandb
 Description-Content-Type: text/markdown
 
 # Harbor

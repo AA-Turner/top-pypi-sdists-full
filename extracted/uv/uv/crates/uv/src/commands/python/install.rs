@@ -17,6 +17,7 @@ use tracing::{debug, trace, warn};
 use uv_cache::Cache;
 use uv_client::BaseClientBuilder;
 use uv_configuration::Concurrency;
+use uv_errors::{ErrorOptions, write_error_chain_with_options};
 use uv_fs::Simplified;
 use uv_platform::{Arch, Libc};
 use uv_preview::{Preview, PreviewFeature};
@@ -35,7 +36,7 @@ use uv_python::{
 };
 use uv_shell::Shell;
 use uv_trampoline_builder::{Launcher, LauncherKind};
-use uv_warnings::{warn_user, write_error_chain};
+use uv_warnings::warn_user;
 
 use crate::commands::python::{ChangeEvent, ChangeEventKind};
 use crate::commands::reporters::PythonDownloadReporter;
@@ -914,11 +915,9 @@ async fn perform_install(
         {
             match kind {
                 InstallErrorKind::DownloadUnpack => {
-                    write_error_chain(
+                    write_error_chain_with_options(
                         err.context(format!("Failed to install {key}")).as_ref(),
-                        printer.stderr(),
-                        "error",
-                        AnsiColors::Red,
+                        ErrorOptions::default().with_stream(printer.stderr()),
                     )?;
                 }
                 InstallErrorKind::Bin => {
@@ -928,12 +927,13 @@ async fn perform_install(
                         Some(true) => ("error", AnsiColors::Red),
                     };
 
-                    write_error_chain(
+                    write_error_chain_with_options(
                         err.context(format!("Failed to install executable for {key}"))
                             .as_ref(),
-                        printer.stderr(),
-                        level,
-                        color,
+                        ErrorOptions::default()
+                            .with_level(level)
+                            .with_color(color)
+                            .with_stream(printer.stderr()),
                     )?;
                 }
                 InstallErrorKind::Registry => {
@@ -944,12 +944,13 @@ async fn perform_install(
                     };
 
                     trace!("Error trace: {err:?}");
-                    write_error_chain(
+                    write_error_chain_with_options(
                         err.context(format!("Failed to create registry entry for {key}"))
                             .as_ref(),
-                        printer.stderr(),
-                        level,
-                        color,
+                        ErrorOptions::default()
+                            .with_level(level)
+                            .with_color(color)
+                            .with_stream(printer.stderr()),
                     )?;
                 }
             }

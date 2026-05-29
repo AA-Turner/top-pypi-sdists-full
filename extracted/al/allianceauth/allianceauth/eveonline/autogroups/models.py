@@ -1,23 +1,24 @@
 import logging
 from typing import ClassVar
-from django.db import models, transaction
-from django.contrib.auth.models import Group, User
+
+from django.contrib.auth.models import Group, UserManager
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 
-from allianceauth.authentication.models import State
+from allianceauth.authentication.models import State, User
 from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 
 logger = logging.getLogger(__name__)
 
 
-def get_users_for_state(state: State):
-    return User.objects.select_related('profile').prefetch_related('profile__main_character')\
-            .filter(profile__state_id=state.pk)
+def get_users_for_state(state: State) -> UserManager[User]:
+    return User.objects.select_related('profile')\
+        .prefetch_related('profile__main_character')\
+        .filter(profile__state_id=state.pk)
 
 
 class AutogroupsConfigManager(models.Manager):
-    def update_groups_for_state(self, state: State):
+    def update_groups_for_state(self, state: State) -> None:
         """
         Update all the Group memberships for the users
         who have State
@@ -31,7 +32,7 @@ class AutogroupsConfigManager(models.Manager):
                 logger.debug(f"in user loop for {user}")
                 config.update_group_membership_for_user(user)
 
-    def update_groups_for_user(self, user: User, state: State = None):
+    def update_groups_for_user(self, user: User, state: State | None = None) -> None:
         """
         Update the Group memberships for the given users state
         :param user: User to update for
@@ -59,28 +60,34 @@ class AutogroupsConfig(models.Model):
 
     states = models.ManyToManyField(State, related_name='autogroups')
 
-    corp_groups = models.BooleanField(default=False, help_text="Setting this to false will delete all the created groups.")
+    corp_groups = models.BooleanField(
+        help_text="Setting this to false will delete all the created groups.",
+        default=False, )
     corp_group_prefix = models.CharField(max_length=50, default='Corp ', blank=True)
     corp_name_source = models.CharField(max_length=20, choices=NAME_OPTIONS, default=OPT_NAME)
 
-    alliance_groups = models.BooleanField(default=False, help_text="Setting this to false will delete all the created groups.")
+    alliance_groups = models.BooleanField(
+        help_text="Setting this to false will delete all the created groups.",
+        default=False, )
     alliance_group_prefix = models.CharField(max_length=50, default='Alliance ', blank=True)
     alliance_name_source = models.CharField(max_length=20, choices=NAME_OPTIONS, default=OPT_NAME)
 
     corp_managed_groups = models.ManyToManyField(
-        Group, through='ManagedCorpGroup', related_name='corp_managed_config',
+        Group,
+        through='ManagedCorpGroup', related_name='corp_managed_config',
         help_text='A list of corporation groups created and maintained by this AutogroupConfig. You should not edit this list unless you know what you\'re doing.')
 
     alliance_managed_groups = models.ManyToManyField(
-        Group, through='ManagedAllianceGroup', related_name='alliance_managed_config',
+        Group,
+        through='ManagedAllianceGroup', related_name='alliance_managed_config',
         help_text='A list of alliance groups created and maintained by this AutogroupConfig. You should not edit this list unless you know what you\'re doing.')
 
     replace_spaces = models.BooleanField(default=False)
     replace_spaces_with = models.CharField(
-        max_length=10, default='', blank=True,
-        help_text='Any spaces in the group name will be replaced with this.')
+        help_text='Any spaces in the group name will be replaced with this.',
+        max_length=10, default='', blank=True,)
 
-    objects: ClassVar[AutogroupsConfigManager] = AutogroupsConfigManager()
+    objects: ClassVar[AutogroupsConfigManager] = AutogroupsConfigManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
     def __str__(self) -> str:
         return 'States: ' + (' '.join(list(self.states.all().values_list('name', flat=True))) if self.pk else str(None))
@@ -109,7 +116,7 @@ class AutogroupsConfig(models.Model):
             return False
 
     @transaction.atomic
-    def update_alliance_group_membership(self, user: User):
+    def update_alliance_group_membership(self, user: User) -> None:
         group = None
         try:
             if not self.alliance_groups or not self.user_entitled_to_groups(user):
@@ -134,7 +141,7 @@ class AutogroupsConfig(models.Model):
                 user.groups.add(group)
 
     @transaction.atomic
-    def update_corp_group_membership(self, user: User):
+    def update_corp_group_membership(self, user: User) -> None:
         group = None
         try:
             if not self.corp_groups or not self.user_entitled_to_groups(user):
@@ -145,7 +152,7 @@ class AutogroupsConfig(models.Model):
         except EveCorporationInfo.DoesNotExist:
             logger.debug(f'User {user} main characters corporation does not exist in the database. Creating.')
             corp = EveCorporationInfo.objects.create_corporation(
-                corp_id=user.profile.main_character.corporation_id, use_etag=False
+                corporation_id=user.profile.main_character.corporation_id
             )
             group = self.get_corp_group(corp)
         except AttributeError:
@@ -157,14 +164,14 @@ class AutogroupsConfig(models.Model):
                 user.groups.add(group)
 
     @transaction.atomic
-    def remove_user_from_alliance_groups(self, user: User, except_group: Group = None):
+    def remove_user_from_alliance_groups(self, user: User, except_group: Group | None = None) -> None:
         remove_groups = user.groups.filter(pk__in=self.alliance_managed_groups.all().values_list('pk', flat=True))
         if except_group is not None:
             remove_groups = remove_groups.exclude(pk=except_group.pk)
         list(map(user.groups.remove, remove_groups))
 
     @transaction.atomic
-    def remove_user_from_corp_groups(self, user: User, except_group: Group = None):
+    def remove_user_from_corp_groups(self, user: User, except_group: Group | None = None) -> None:
         remove_groups = user.groups.filter(pk__in=self.corp_managed_groups.all().values_list('pk', flat=True))
         if except_group is not None:
             remove_groups = remove_groups.exclude(pk=except_group.pk)
@@ -188,14 +195,14 @@ class AutogroupsConfig(models.Model):
         ManagedCorpGroup.objects.get_or_create(group=group, config=self, corp=corp)
         return group
 
-    def delete_alliance_managed_groups(self):
+    def delete_alliance_managed_groups(self) -> None:
         """
         Deletes ALL managed alliance groups
         """
         for g in self.alliance_managed_groups.all():
             g.delete()
 
-    def delete_corp_managed_groups(self):
+    def delete_corp_managed_groups(self) -> None:
         """
         Deletes ALL managed corp groups
         """
@@ -243,11 +250,15 @@ class ManagedGroup(models.Model):
 
 
 class ManagedCorpGroup(ManagedGroup):
-    corp = models.ForeignKey(EveCorporationInfo, on_delete=models.CASCADE)
+    corp = models.ForeignKey(
+        EveCorporationInfo,
+        on_delete=models.CASCADE)
 
 
 class ManagedAllianceGroup(ManagedGroup):
-    alliance = models.ForeignKey(EveAllianceInfo, on_delete=models.CASCADE)
+    alliance = models.ForeignKey(
+        EveAllianceInfo,
+        on_delete=models.CASCADE)
 
 
 class NameSourceException(Exception):

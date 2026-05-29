@@ -1541,7 +1541,7 @@ def _compute_item(
     expr: UnderscoreItem,
     current: _NamespaceRef,
     state: _EvalState,
-) -> _Scalar:
+) -> _Scalar | _NamespaceRef:
     """Evaluate `<receiver>[k1, k2, ...]`.
 
     The receiver must be a `_NamespaceRef` (typically a has_many namespace
@@ -1566,7 +1566,7 @@ def _compute_item(
 
     value_keys, filter_keys = _classify_subscript_keys(expr, expr)
 
-    if len(value_keys) != 1:
+    if len(value_keys) >= 2:
         raise ValueError(
             (
                 f"`{expr}` must reference exactly one value column, found "
@@ -1578,6 +1578,10 @@ def _compute_item(
 
     filter_scalars = [_evaluate_filter(fk, parent, state, expr) for fk in filter_keys]
     filtered_parent = _apply_filters_to_namespace(parent, filter_scalars, expr)
+
+    if len(value_keys) == 0:
+        # We have begun to filter the namespace, but we have not yet selected a scalar value.
+        return filtered_parent
 
     value = _compute(value_keys[0], filtered_parent, state)
     if not isinstance(value, _Scalar):
@@ -1716,7 +1720,9 @@ def _evaluate_filter(
         )
     value_dtype = result.df.schema[VALUE_COL_NAME]
     if value_dtype != pa.bool_():
-        raise ValueError(f"Filter key `{key}` in `{expr}` must evaluate to a boolean, got dtype {value_dtype}")
+        raise ValueError(
+            f"Filter expression `{key}` in `{expr}` must evaluate to a boolean, got dtype {value_dtype}. If you meant to compute this as a column, select it via `F.select({key})`, otherwise it will be interpreted as a filter expression in this context."
+        )
     return result
 
 

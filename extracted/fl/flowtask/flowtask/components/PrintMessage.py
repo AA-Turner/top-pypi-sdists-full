@@ -2,7 +2,7 @@ from collections.abc import Callable
 import asyncio
 from asyncdb.utils.functions import colors, cPrint
 from ..utils import SafeDict
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class PrintMessage(FlowComponent):

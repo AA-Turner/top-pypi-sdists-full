@@ -2,16 +2,14 @@ from typing import Any
 from pathlib import PurePath
 from io import BytesIO
 import aiofiles
-from xml.sax import parse
 import warnings
 import pandas
 from pandas._libs.parsers import STR_NA_VALUES
 import orjson
-import xlrd
 import numpy as np
 from ..utils import check_empty
 from ..exceptions import ComponentError, DataNotFound, EmptyFile
-from .OpenWithBase import OpenWithBase, detect_encoding, excel_based, ExcelHandler
+from .OpenWithBase import OpenWithBase, excel_based
 
 
 # Suppress specific warning
@@ -24,6 +22,9 @@ class OpenWithPandas(OpenWithBase):
     Overview
 
             This component opens various file types (CSV, Excel, HTML, JSON) into Pandas DataFrames.
+
+    :consumes: file
+    :produces: dataframe
 
        :widths: auto
 
@@ -85,6 +86,9 @@ class OpenWithPandas(OpenWithBase):
     Overview
 
         This component opens various file types (CSV, Excel, HTML, JSON) into Pandas DataFrames.
+
+    :consumes: file
+    :produces: dataframe
 
     .. table:: Properties
     :widths: auto
@@ -227,96 +231,42 @@ class OpenWithPandas(OpenWithBase):
         self._logger.debug(
             f"Opening Excel file {filename} with Pandas, encoding: {encoding}"
         )
-        if self.mime == "text/xml":
-            xmlparser = ExcelHandler()
-            parse(filename, xmlparser)
-            if hasattr(self, "skiprows"):
-                row = self.skiprows
-                columns = self.skiprows + 1
-                start = columns + 1
-            else:
-                row = 0
-                columns = 0
-                start = columns + 1
-            try:
-                if (
-                    hasattr(self, "add_columns") and hasattr(self, "rename")
-                    and self.rename is True
-                ):
-                    cols = add_columns
-                else:
-                    cols = xmlparser.tables[0][columns]
-                df = pandas.DataFrame(data=xmlparser.tables[0][start:], columns=cols)
-                return df
-            except pandas.errors.EmptyDataError as err:
-                raise EmptyFile(f"Empty File {filename}: {err}") from err
-            except pandas.errors.ParserError as err:
-                raise ComponentError(f"Parsing File {filename}: {err}") from err
-            except Exception as err:
-                raise ComponentError(
-                    f"Generic Error on file {filename}, error: {err}"
-                ) from err
+        from .pandas_io import read_to_dataframe
+        # Determine file_engine exactly as before (mime-based, then extension fallback)
+        if self.mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+            file_engine = self._params.get("file_engine", "openpyxl")
+        elif self.mime == "application/vnd.ms-excel.sheet.binary.macroEnabled.12":
+            file_engine = self._params.get("file_engine", "pyxlsb")
+        elif self.mime == "text/xml":
+            file_engine = None  # xml branch handled inside read_to_dataframe
         else:
-            if (
-                self.mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            ):
-                # xlsx or any openxml based document
-                file_engine = self._params.get("file_engine", "openpyxl")
-            elif self.mime == "application/vnd.ms-excel.sheet.binary.macroEnabled.12":
-                file_engine = self._params.get("file_engine", "pyxlsb")
-            else:
-                try:
-                    ext = filename.suffix
-                except (AttributeError, ValueError) as e:
-                    print(f"Error detecting extension: {e}")
-                    ext = ".xls"
-                if ext == ".xls":
-                    file_engine = self._params.get("file_engine", "xlrd")
-                else:
-                    file_engine = self._params.get("file_engine", "calamine")
             try:
-                arguments = {**self.args, **add_columns, **self.parse_dates}
-                if self._limit is not None and isinstance(self._limit, int):
-                    arguments["nrows"] = self._limit
-                if self.sheet_name is not None:
-                    arguments["sheet_name"] = self.sheet_name
-                # TODO: if sheet_name is None, then open all worksheets
-                # work with the dictionary of dataframes.
-                df = pandas.read_excel(
-                    filename,
-                    na_values=self.na_values,
-                    na_filter=self.filter_nan,
-                    engine=file_engine,
-                    keep_default_na=False,
-                    **arguments,
+                ext = filename.suffix
+            except (AttributeError, ValueError) as e:
+                self._logger.warning(
+                    "Error detecting extension for file %s: %s", filename, e
                 )
-                return df
-            except (IndexError, xlrd.biffh.XLRDError) as err:
-                raise ComponentError(
-                    f"Excel Index error on File {filename}: {err}"
-                ) from err
-            except pandas.errors.EmptyDataError as err:
-                raise EmptyFile(f"Empty File {filename}: {err}") from err
-            except pandas.errors.ParserError as err:
-                raise ComponentError(f"Error Parsing File {filename}: {err}") from err
-            except TypeError as err:
-                err_msg = str(err)
-                if "NoneType" in err_msg or "expected str" in err_msg:
-                    raise ComponentError(
-                        f"Error reading Excel file {filename}: the file may be "
-                        f"corrupted, empty, or not a valid Excel format "
-                        f"(engine={file_engine}). "
-                        f"Verify the file is a genuine .xls/.xlsx file "
-                        f"and not an HTML or CSV file saved with an Excel extension. "
-                        f"Detail: {err}"
-                    ) from err
-                raise ComponentError(
-                    f"Type error opening Excel file {filename}: {err}"
-                ) from err
-            except Exception as err:
-                raise ComponentError(
-                    f"Error opening Excel file {filename}: {err}"
-                ) from err
+                ext = ".xls"
+            if ext == ".xls":
+                file_engine = self._params.get("file_engine", "xlrd")
+            else:
+                file_engine = self._params.get("file_engine", "calamine")
+        skiprows = getattr(self, "skiprows", 0)
+        rename = getattr(self, "rename", False)
+        return read_to_dataframe(
+            filename,
+            mime=self.mime,
+            file_engine=file_engine,
+            sheet_name=self.sheet_name,
+            dtypes=self.args.get("dtype"),
+            parse_dates=self.parse_dates,
+            na_values=self.na_values,
+            filter_nan=self.filter_nan,
+            add_columns=add_columns,
+            limit=self._limit,
+            skiprows=skiprows,
+            rename=(hasattr(self, "add_columns") and rename is True),
+        )
 
     async def open_html(
         self, filename: str, add_columns: dict, encoding: str
@@ -324,40 +274,34 @@ class OpenWithPandas(OpenWithBase):
         self._logger.debug(
             f"Opening an HTML file {filename} with Pandas, encoding={encoding}"
         )
-        if "dtype" in self.args:
-            del self.args["dtype"]
-        if "skiprows" in self.args:
-            del self.args["skiprows"]
-        try:
-            dfs = pandas.read_html(
-                filename,
-                keep_default_na=False,
-                flavor="html5lib",
-                na_values=self.na_values,
-                encoding=encoding,
-                **self.parse_dates,
-                **self.args,
-            )
-            if dfs:
-                df = dfs[0]
-            else:
-                df = None
-            if "names" in add_columns:
-                df.columns = add_columns["names"]
-            return df
-        except pandas.errors.EmptyDataError as err:
-            raise EmptyFile(message=f"Empty File {filename}: {err}") from err
-        except pandas.errors.ParserError as err:
-            raise ComponentError(message=f"Parsing File {filename}: {err}") from err
-        except Exception as err:
-            raise ComponentError(
-                message=f"Generic Error on file {filename}: {err}"
-            ) from err
+        from .pandas_io import read_to_dataframe
+        # Strip kwargs that read_html does not accept (mirrors original behaviour)
+        args = {k: v for k, v in self.args.items() if k not in ("dtype", "skiprows")}
+        return read_to_dataframe(
+            filename,
+            mime="text/html",
+            encoding=encoding,
+            na_values=self.na_values,
+            parse_dates=self.parse_dates,
+            add_columns=add_columns,
+            **args,
+        )
 
     async def open_parquet(
         self, filename: str, add_columns: dict, encoding
     ) -> pandas.DataFrame:
-        pass
+        """Read a Parquet file into a DataFrame via pandas_io.
+
+        Args:
+            filename: Path to the Parquet file.
+            add_columns: Unused; accepted for API parity with other open_* methods.
+            encoding: Unused; Parquet is binary.
+
+        Returns:
+            A ``pandas.DataFrame``.
+        """
+        from .pandas_io import _read_parquet
+        return _read_parquet(filename)
 
     async def open_sql(
         self, filename: str, add_columns: dict, encoding
@@ -370,22 +314,14 @@ class OpenWithPandas(OpenWithBase):
         self._logger.debug(
             f"Opening a JSON file {filename} with Pandas, encoding={encoding}"
         )
+        from .pandas_io import read_to_dataframe
         # TODO: add columns functionality.
-        try:
-            df = pandas.read_json(
-                filename, orient="records", encoding=encoding, **self.args
-            )
-            return df
-        except pandas.errors.EmptyDataError as err:
-            raise EmptyFile(message=f"Empty File {filename}: {err}") from err
-        except pandas.errors.ParserError as err:
-            raise ComponentError(
-                message=f"Error Parsing File {filename}: {err}"
-            ) from err
-        except Exception as err:
-            raise ComponentError(
-                message=f"Generic Error on file {filename}: {err}"
-            ) from err
+        return read_to_dataframe(
+            filename,
+            mime="application/json",
+            encoding=encoding,
+            **self.args,
+        )
 
     async def open_csv(
         self, filename: str, add_columns: dict, encoding
@@ -393,28 +329,19 @@ class OpenWithPandas(OpenWithBase):
         self._logger.debug(
             f"Opening CSV file {filename} with Pandas, encoding={encoding}"
         )
+        from .pandas_io import read_to_dataframe
         try:
             add_columns["low_memory"] = False
             add_columns["float_precision"] = "high"
         except KeyError:
             pass
         try:
-            # can we use pyarrow.
             engine = self.args["engine"]
             del self.args["engine"]
         except KeyError:
             engine = "c"
-        if self._limit is not None and isinstance(self._limit, int):
-            add_columns["nrows"] = self._limit
-        # try to fix the encoding problem on files:
-        _, new_encoding = detect_encoding(filename, encoding)
-        if new_encoding != encoding:
-            self._logger.warning(
-                f"Encoding on file: {new_encoding} and \
-                declared by Task ({encoding}) are different"
-            )
-            # encoding = new_encoding
-        # open file:
+        # bigfile path: chunked reading (not delegated to pandas_io since it
+        # uses async aiofiles and a chunked iterator — kept inline).
         if hasattr(self, "bigfile"):
             try:
                 tp = pandas.read_csv(
@@ -442,130 +369,30 @@ class OpenWithPandas(OpenWithBase):
                 raise ComponentError(
                     f"Generic Error on file: {filename}, error: {err}"
                 ) from err
-        else:
-            try:
-                return pandas.read_csv(
-                    filename,
-                    sep=self.separator,
-                    quotechar='"',
-                    decimal=",",
-                    engine=engine,
-                    keep_default_na=False,
-                    na_values=self.na_values,
-                    na_filter=self.filter_nan,
-                    encoding=encoding,
-                    skipinitialspace=True,
-                    **add_columns,
-                    **self.parse_dates,
-                    **self.args,
-                )
-            except UnicodeDecodeError as exc:
-                self._logger.warning(
-                    f"Invalid Encoding {encoding}: {exc}"
-                )
-                # fallback to a default unicode:
-                _, encoding = detect_encoding(filename, encoding)
-                self._logger.debug(f"Detected Encoding > {encoding!s}")
-                last_encoding = None
-                fname = filename
-                if hasattr(self, 'clean_null_bytes'):
-                    async with aiofiles.open(filename, 'rb') as file:
-                        # Removing all null bytes
-                        content = await file.read()
-                        content = content.replace(b'\x00', b'')
-                    fname = BytesIO(content)
-                for enc in ('utf-8', 'latin1', 'ascii'):
-                    last_encoding = enc
-                    try:
-                        return pandas.read_csv(
-                            fname,
-                            sep=self.separator,
-                            quotechar='"',
-                            decimal=",",
-                            engine=engine,
-                            keep_default_na=False,
-                            na_values=self.na_values,
-                            na_filter=self.filter_nan,
-                            encoding=enc,
-                            skipinitialspace=True,
-                            on_bad_lines='warn',
-                            **add_columns,
-                            **self.parse_dates,
-                            **self.args,
-                        )
-                    except Exception as e:
-                        print(e)
-                        continue
-                else:
-                    # No encoding match
-                    raise ComponentError(
-                        f"Cannot Open the file with encoding {last_encoding}"
-                    )
-            except ValueError as exc:
-                # Open Pandas with default settings for detect discrepancies
-                df = pandas.read_csv(
-                    filename,
-                    sep=self.separator,
-                    quotechar='"',
-                    decimal=",",
-                    engine=engine,
-                    encoding=encoding,
-                    dtype=str,
-                    header=None,
-                )
-                # columns in Pandas:
-                num_cols = int(df.shape[1])
-                expected = len(add_columns.get('names', []))
-                if expected > 0 and num_cols - expected > 0:
-                    # some extra columns were found:
-                    raise ComponentError(
-                        (
-                            f"There are more columns in FILE than expected. "
-                            f"There are {num_cols} in File received vs "
-                            f"{expected} columns in Mapping definition."
-                        )
-                    )
-                try:
-                    del self.args['dtype']
-                except KeyError:
-                    pass
-                self._logger.error(
-                    (
-                        f"Some columns have wrong type in Model: {exc}, "
-                        "Opening file with default settings (str)"
-                    )
-                )
-                try:
-                    return pandas.read_csv(
-                        filename,
-                        sep=self.separator,
-                        quotechar='"',
-                        decimal=",",
-                        engine=engine,
-                        keep_default_na=False,
-                        na_values=self.na_values,
-                        na_filter=self.filter_nan,
-                        encoding=encoding,
-                        **add_columns,
-                        **self.parse_dates,
-                        **self.args,
-                    )
-                except Exception as ex:
-                    raise ComponentError(
-                        f"Invalid types of columns found on file {filename}, {ex}"
-                    )
-            except pandas.errors.EmptyDataError as err:
-                raise ComponentError(
-                    f"Empty Data in file: {filename}, error: {err}"
-                ) from err
-            except pandas.errors.ParserError as err:
-                raise ComponentError(
-                    f"Error parsing File: {filename}, error: {err}"
-                ) from err
-            except Exception as err:
-                raise ComponentError(
-                    f"Generic Error on file: {filename}, error: {err}"
-                ) from err
+
+        # Standard (non-chunked) path — delegate to pandas_io helper.
+        # clean_null_bytes handling stays here because it requires async aiofiles.
+        buf = filename
+        if hasattr(self, "clean_null_bytes"):
+            async with aiofiles.open(filename, "rb") as file:
+                content = await file.read()
+                content = content.replace(b"\x00", b"")
+            buf = BytesIO(content)
+
+        return read_to_dataframe(
+            buf,
+            mime="text/csv",
+            separator=self.separator,
+            encoding=encoding,
+            dtypes=self.args.get("dtype"),
+            parse_dates=self.parse_dates,
+            na_values=self.na_values,
+            filter_nan=self.filter_nan,
+            add_columns=add_columns,
+            limit=self._limit,
+            engine=engine,
+            **{k: v for k, v in self.args.items() if k != "dtype"},
+        )
 
     async def run(self) -> Any:
         await super(OpenWithPandas, self).run()
@@ -740,9 +567,9 @@ class OpenWithPandas(OpenWithBase):
                     elif dtype == "object":
                         df[column] = df[column].replace([np.nan], "", regex=True)
                 except Exception as err:
-                    print("ERR ::", column, dtype, err, type(err))
                     self._logger.warning(
-                        f"Cannot set data type for column {column}: {err}"
+                        "Cannot coerce column %s to dtype %s: %s (%s)",
+                        column, dtype, err, type(err).__name__,
                     )
                     continue
         self._result = df
@@ -752,10 +579,11 @@ class OpenWithPandas(OpenWithBase):
         self.add_metric("NUMROWS", numrows)
         self.add_metric("OPENED_FILES", self._filenames)
         if self._debug is True:
-            print(df)
-            print("::: Printing Column Information === ")
-            columns = list(df.columns)
+            self._logger.debug("DataFrame result:\n%s", df.to_string())
+            self._logger.debug("::: Column Information ===")
             for column, t in df.dtypes.items():
-                print(column, "->", t, "->", df[column].iloc[0])
-            self._logger.debug(f"Opened File(s) with Pandas {self._filenames}")
+                self._logger.debug(
+                    "%s -> %s -> %s", column, t, df[column].iloc[0]
+                )
+            self._logger.debug("Opened File(s) with Pandas %s", self._filenames)
         return self._result

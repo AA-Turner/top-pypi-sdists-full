@@ -5,8 +5,8 @@ from navconfig.logging import logging
 from asyncdb.exceptions import ProviderError
 from ..exceptions import DataNotFound, ComponentError
 from ..conf import TASK_PATH
-from .flow import FlowComponent
-from .DbClient import DbClient
+from ..interfaces.flow import FlowComponent
+from ..interfaces.db_client import DbClient
 from ..interfaces import TemplateSupport
 
 

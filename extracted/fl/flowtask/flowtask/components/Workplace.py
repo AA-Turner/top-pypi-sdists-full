@@ -1,5 +1,5 @@
 from asyncdb.utils.types import SafeDict
-from .user import UserComponent
+from ..interfaces.user import UserComponent
 from ..conf import WORKPLACE_ACCESS_TOKEN
 
 

@@ -1,6 +1,8 @@
 import logging
 
-from django.db.models.signals import m2m_changed, post_save, pre_delete, pre_save
+from django.db.models.signals import (
+    m2m_changed, post_save, pre_delete, pre_save,
+)
 from django.dispatch import receiver
 
 from allianceauth.authentication.models import State, UserProfile
@@ -12,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 @receiver(pre_save, sender=AutogroupsConfig)
-def pre_save_config(sender, instance, *args, **kwargs):
+def pre_save_config(sender: AutogroupsConfig, instance: AutogroupsConfig, *args, **kwargs) -> None:
     """
     Checks if enable was toggled on group config and
     deletes groups if necessary.
@@ -35,7 +37,7 @@ def pre_save_config(sender, instance, *args, **kwargs):
 
 
 @receiver(pre_delete, sender=AutogroupsConfig)
-def pre_delete_config(sender, instance, *args, **kwargs):
+def pre_delete_config(sender: AutogroupsConfig, instance: AutogroupsConfig, *args, **kwargs) -> None:
     """
     Delete groups on deleting config
     """
@@ -44,7 +46,7 @@ def pre_delete_config(sender, instance, *args, **kwargs):
 
 
 @receiver(post_save, sender=UserProfile)
-def check_groups_on_profile_update(sender, instance, created, *args, **kwargs):
+def check_groups_on_profile_update(sender: UserProfile, instance: UserProfile, created: bool, *args, **kwargs) -> None:
     """
     Trigger check when main character or state changes.
     """
@@ -52,7 +54,7 @@ def check_groups_on_profile_update(sender, instance, created, *args, **kwargs):
 
 
 @receiver(m2m_changed, sender=AutogroupsConfig.states.through)
-def autogroups_states_changed(sender, instance, action, reverse, model, pk_set, *args, **kwargs):
+def autogroups_states_changed(sender, instance, action, reverse, model, pk_set, *args, **kwargs) -> None:
     """
     Trigger group membership update when a state is added or removed from
     an autogroup config.
@@ -68,7 +70,7 @@ def autogroups_states_changed(sender, instance, action, reverse, model, pk_set, 
 
 
 @receiver(post_save, sender=EveCharacter)
-def check_groups_on_character_update(sender, instance, created, *args, **kwargs):
+def check_groups_on_character_update(sender, instance, created, *args, **kwargs) -> None:
     if not created:
         try:
             profile = UserProfile.objects.prefetch_related('user').get(main_character_id=instance.pk)

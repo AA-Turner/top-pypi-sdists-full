@@ -76,6 +76,32 @@ def test_repl_thinking_status_cleared_on_stream(monkeypatch):
     # Cleanup
     set_repl_active(False)
 
+def test_repl_status_ui_hides_when_message_cleared(monkeypatch):
+    """Test that get_status_text in repl.py returns HTML('') when status message is cleared."""
+    from sage.core.repl import SageREPL
+    from sage.core.renderer import clear_repl_status, set_repl_status
+    
+    class DummyAgent:
+        def __init__(self):
+            self._is_running = True
+            
+    dummy_agent = DummyAgent()
+    repl = SageREPL(agent=dummy_agent, execute_fn=lambda x: None)
+    
+    # Get the get_status_text function from FormattedTextControl
+    get_status_text = repl.session.layout.container.children[0].content.content.text
+    
+    # 1. Setup active message
+    set_repl_status("Loading...", "thinking")
+    text = get_status_text()
+    # The formatted HTML contains styling tags but should render 'Loading...'
+    assert "Loading..." in text.value
+    
+    # 2. Clear status message
+    clear_repl_status()
+    text_cleared = get_status_text()
+    assert text_cleared.value == ""
+
 def test_strip_markdown_fences():
     """Verify that strip_markdown_fences correctly strips code block fences from content."""
     from sage.core.tools import strip_markdown_fences

@@ -1,25 +1,29 @@
 from django import forms
 from django.contrib import admin
+from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import QuerySet
+from django.http import HttpRequest
 
-from esi.exceptions import HTTPNotModified
+from esi.exceptions import HTTPClientError, HTTPNotModified
 
-from .models import (
+from allianceauth.eveonline.models import (
     EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
 )
-from .providers import ObjectNotFound
+from allianceauth.eveonline.providers import open_api_provider
+from allianceauth.eveonline.tasks import (
+    update_all_factions, update_alliance, update_character, update_corp,
+)
 
 
 class EveEntityExistsError(forms.ValidationError):
-    def __init__(self, entity_type_name, id):
-        super().__init__(
-            message=f'{entity_type_name} with ID {id} already exists.')
+    def __init__(self, entity_type_name, id) -> None:
+        super().__init__(message=f'{entity_type_name} with ID {id} already exists.')
 
 
 class EveEntityNotFoundError(forms.ValidationError):
-    def __init__(self, entity_type_name, id):
-        super().__init__(
-            message=f'{entity_type_name} with ID {id} not found.')
+    def __init__(self, entity_type_name, id) -> None:
+        super().__init__(message=f'{entity_type_name} with ID {id} not found.')
 
 
 class EveEntityForm(forms.ModelForm):
@@ -36,33 +40,35 @@ class EveEntityForm(forms.ModelForm):
         pass
 
 
-def get_faction_choices():
-    # use a method to avoid making an ESI call when the app loads
+def get_faction_choices() -> list[tuple[int, str]]:
     # restrict to only those factions a player can join for faction warfare
-    player_factions = [x for x in EveFactionInfo.provider.get_all_factions(use_etag=False) if x.militia_corporation_id]
+    factions, response = open_api_provider.get_all_factions()
+    player_factions = [x for x in factions if x.militia_corporation_id]
     return [(x.faction_id, x.name) for x in player_factions]
 
 
 class EveFactionForm(EveEntityForm):
+    entity_type_name = 'faction'
     id = forms.ChoiceField(
         choices=get_faction_choices,
         label="Name"
     )
 
-    def clean_id(self):
+    def clean_id(self) -> int:
         try:
-            assert self.Meta.model.provider.get_faction(self.cleaned_data['id'])
-        except (AssertionError, ObjectNotFound) as e:
-            raise EveEntityNotFoundError('faction', self.cleaned_data['id']) from e
+            open_api_provider.get_faction(int(self.cleaned_data['id']))
+        except (AssertionError, HTTPClientError) as e:
+            raise EveEntityNotFoundError(self.entity_type_name, self.cleaned_data['id']) from e
         except HTTPNotModified:
             pass  # If ETAG It exists its a valid faction right?
-        if self.Meta.model.objects.filter(faction_id=self.cleaned_data['id']).exists():
-            raise EveEntityExistsError('faction', self.cleaned_data['id'])
-        return self.cleaned_data['id']
 
-    def save(self, commit=True):
-        faction = self.Meta.model.provider.get_faction(self.cleaned_data['id'])
-        return self.Meta.model.objects.create(faction_id=faction.id, faction_name=faction.name)
+        if self.Meta.model.objects.filter(faction_id=int(self.cleaned_data['id'])).exists():
+            raise EveEntityExistsError(self.entity_type_name, self.cleaned_data['id'])
+
+        return int(self.cleaned_data['id'])
+
+    def save(self, commit=True) -> EveFactionInfo:
+        return self.Meta.model.objects.create_faction(faction_id=self.clean_id())
 
     class Meta:
         fields = ['id']
@@ -72,19 +78,21 @@ class EveFactionForm(EveEntityForm):
 class EveCharacterForm(EveEntityForm):
     entity_type_name = 'character'
 
-    def clean_id(self):
+    def clean_id(self) -> int:
         try:
-            assert self.Meta.model.provider.get_character(self.cleaned_data['id'])
-        except (AssertionError, ObjectNotFound) as e:
+            open_api_provider.get_character(int(self.cleaned_data['id']))
+        except (AssertionError, HTTPClientError) as e:
             raise EveEntityNotFoundError(self.entity_type_name, self.cleaned_data['id']) from e
         except HTTPNotModified:
             pass  # If ETAG It exists its a valid character right?
-        if self.Meta.model.objects.filter(character_id=self.cleaned_data['id']).exists():
+
+        if self.Meta.model.objects.filter(character_id=int(self.cleaned_data['id'])).exists():
             raise EveEntityExistsError(self.entity_type_name, self.cleaned_data['id'])
-        return self.cleaned_data['id']
+
+        return int(self.cleaned_data['id'])
 
     def save(self, commit=True) -> EveCharacter:
-        return self.Meta.model.objects.create_character(self.cleaned_data['id'])
+        return self.Meta.model.objects.create_character(character_id=self.clean_id())
 
     class Meta:
         fields = ['id']
@@ -94,19 +102,21 @@ class EveCharacterForm(EveEntityForm):
 class EveCorporationForm(EveEntityForm):
     entity_type_name = 'corporation'
 
-    def clean_id(self):
+    def clean_id(self) -> int:
         try:
-            assert self.Meta.model.provider.get_corporation(self.cleaned_data['id'])
-        except (AssertionError, ObjectNotFound) as e:
+            open_api_provider.get_corporation(int(self.cleaned_data['id']))
+        except (AssertionError, HTTPClientError) as e:
             raise EveEntityNotFoundError(self.entity_type_name, self.cleaned_data['id']) from e
         except HTTPNotModified:
             pass  # If ETAG It exists its a valid corporation right?
-        if self.Meta.model.objects.filter(corporation_id=self.cleaned_data['id']).exists():
-            raise EveEntityExistsError(self.entity_type_name, self.cleaned_data['id'])
-        return self.cleaned_data['id']
 
-    def save(self, commit=True):
-        return self.Meta.model.objects.create_corporation(corp_id=self.cleaned_data['id'], use_etag=False)
+        if self.Meta.model.objects.filter(corporation_id=int(self.cleaned_data['id'])).exists():
+            raise EveEntityExistsError(self.entity_type_name, self.cleaned_data['id'])
+
+        return int(self.cleaned_data['id'])
+
+    def save(self, commit=True) -> EveCorporationInfo:
+        return self.Meta.model.objects.create_corporation(corporation_id=self.clean_id())
 
     class Meta:
         fields = ['id']
@@ -116,39 +126,82 @@ class EveCorporationForm(EveEntityForm):
 class EveAllianceForm(EveEntityForm):
     entity_type_name = 'alliance'
 
-    def clean_id(self):
+    def clean_id(self) -> int:
         try:
-            assert self.Meta.model.provider.get_alliance(self.cleaned_data['id'])
-        except (AssertionError, ObjectNotFound) as e:
+            open_api_provider.get_alliance(int(self.cleaned_data['id']))
+        except (AssertionError, HTTPClientError) as e:
             raise EveEntityNotFoundError(self.entity_type_name, self.cleaned_data['id']) from e
         except HTTPNotModified:
             pass  # If ETAG It exists its a valid alliance right?
-        if self.Meta.model.objects.filter(alliance_id=self.cleaned_data['id']).exists():
+
+        if self.Meta.model.objects.filter(alliance_id=int(self.cleaned_data['id'])).exists():
             raise EveEntityExistsError(self.entity_type_name, self.cleaned_data['id'])
-        return self.cleaned_data['id']
+
+        return int(self.cleaned_data['id'])
 
     def save(self, commit=True) -> EveAllianceInfo:
-        return self.Meta.model.objects.create_alliance(self.cleaned_data['id'])
+        return self.Meta.model.objects.create_alliance(alliance_id=self.clean_id())
 
     class Meta:
         fields = ['id']
         model = EveAllianceInfo
 
 
+@admin.action(description="Update all factions from ESI immediately, blocking the request until done")
+def update_factions_blocking(modeladmin: "EveFactionInfoAdmin", request: HttpRequest, queryset: QuerySet[EveFactionInfo]) -> None:
+    EveFactionInfo.objects.update_factions()
+
+    modeladmin.message_user(
+        request, f'Update from ESI performed for all factions'
+    )
+
+
+@admin.action(description="Update all factions from ESI (queued task)")
+def update_factions_queued(modeladmin: "EveFactionInfoAdmin", request: HttpRequest, queryset: QuerySet[EveFactionInfo]) -> None:
+    update_all_factions.delay()
+
+    modeladmin.message_user(
+        request, f'Update from ESI queued for all factions'
+    )
+
+
 @admin.register(EveFactionInfo)
 class EveFactionInfoAdmin(admin.ModelAdmin):
     search_fields = ['faction_name']
-    list_display = ('faction_name','last_updated')
+    list_display = ('faction_name', 'last_updated')
     ordering = ('faction_name',)
+    actions = [update_factions_blocking, update_factions_queued]
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request, obj=None) -> bool:
         return False
 
-    def get_form(self, request, obj=None, **kwargs):
+    def get_form(self, request, obj=None, change=False, **kwargs) -> type[forms.ModelForm]:
         if not obj or not obj.pk:
             return EveFactionForm
-        return super().get_form(request, obj=obj, **kwargs)
+        return super().get_form(request, obj, change, **kwargs)
 
+
+@admin.action(description="Update Corporations from ESI, immediately blocking the request until done")
+def update_corporations_blocking(modeladmin: "EveCorporationInfoAdmin", request: HttpRequest, queryset: QuerySet[EveCorporationInfo]) :
+    tasks_count = 0
+    for obj in queryset:
+        obj.update_corporation()
+        tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI performed for {tasks_count} corporations'
+    )
+
+@admin.action(description="Update Corporations from ESI (queued task)")
+def update_corporations_queued(modeladmin: "EveCorporationInfoAdmin", request: HttpRequest, queryset: QuerySet[EveCorporationInfo]) :
+    tasks_count = 0
+    for obj in queryset:
+        update_corp.delay(obj.corporation_id)
+        tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI queued for {tasks_count} corporations'
+    )
 
 @admin.register(EveCorporationInfo)
 class EveCorporationInfoAdmin(admin.ModelAdmin):
@@ -157,29 +210,76 @@ class EveCorporationInfoAdmin(admin.ModelAdmin):
     list_select_related = ('alliance',)
     list_filter = (('alliance', admin.RelatedOnlyFieldListFilter),)
     ordering = ('corporation_name',)
+    actions = [update_corporations_blocking, update_corporations_queued]
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request, obj=None) -> bool:
         return False
 
-    def get_form(self, request, obj=None, **kwargs):
+    def get_form(self, request, obj=None, change=False, **kwargs) -> type[forms.ModelForm]:
         if not obj or not obj.pk:
             return EveCorporationForm
-        return super().get_form(request, obj=obj, **kwargs)
+        return super().get_form(request, obj, change, **kwargs)
 
+
+@admin.action(description="Update Alliances from ESI, immediately blocking the request until done")
+def update_alliances_blocking(modeladmin: "EveAllianceInfoAdmin", request: HttpRequest, queryset: QuerySet[EveAllianceInfo]) :
+    tasks_count = 0
+    for obj in queryset:
+        obj.update_alliance()
+        tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI performed for {tasks_count} alliances'
+    )
+
+@admin.action(description="Update Alliances from ESI (queued task)")
+def update_alliances_queued(modeladmin: "EveAllianceInfoAdmin", request: HttpRequest, queryset: QuerySet[EveAllianceInfo]) :
+    tasks_count = 0
+    for obj in queryset:
+        update_alliance.delay(obj.alliance_id)
+        tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI queued for {tasks_count} alliances'
+    )
 
 @admin.register(EveAllianceInfo)
 class EveAllianceInfoAdmin(admin.ModelAdmin):
     search_fields = ['alliance_name']
     list_display = ('alliance_name', 'last_updated')
     ordering = ('alliance_name',)
+    actions = [update_alliances_blocking, update_alliances_queued]
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request, obj=None) -> bool:
         return False
 
-    def get_form(self, request, obj=None, **kwargs):
+    def get_form(self, request, obj=None, change=False, **kwargs) -> type[forms.ModelForm]:
         if not obj or not obj.pk:
             return EveAllianceForm
-        return super().get_form(request, obj=obj, **kwargs)
+        return super().get_form(request, obj, change, **kwargs)
+
+
+@admin.action(description="Update Characters from ESI, immediately blocking the request until done")
+def update_characters_blocking(modeladmin: "EveCharacterAdmin", request: HttpRequest, queryset: QuerySet[EveCharacter]) :
+    tasks_count = 0
+    for obj in queryset:
+        obj.update_character()
+        tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI performed for {tasks_count} characters'
+    )
+
+@admin.action(description="Update Characters from ESI (queued task)")
+def update_characters_queued(modeladmin: "EveCharacterAdmin", request: HttpRequest, queryset: QuerySet[EveCharacter]) :
+    tasks_count = 0
+    for obj in queryset:
+        update_character.delay(obj.character_id)
+        tasks_count += 1
+
+    modeladmin.message_user(
+        request, f'Update from ESI queued for {tasks_count} characters'
+    )
 
 
 @admin.register(EveCharacter)
@@ -212,25 +312,26 @@ class EveCharacterAdmin(admin.ModelAdmin):
         ),
     )
     ordering = ('character_name', )
+    actions = [update_characters_blocking, update_characters_queued]
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request, obj=None) -> bool:
         return False
 
     @staticmethod
-    def user(obj):
+    def user(obj) -> User | None:
         try:
             return obj.character_ownership.user
         except (AttributeError, ObjectDoesNotExist):
             return None
 
     @staticmethod
-    def main_character(obj):
+    def main_character(obj) -> EveCharacter | None:
         try:
             return obj.character_ownership.user.profile.main_character
         except (AttributeError, ObjectDoesNotExist):
             return None
 
-    def get_form(self, request, obj=None, **kwargs):
+    def get_form(self, request, obj=None, change=False, **kwargs) -> type[forms.ModelForm]:
         if not obj or not obj.pk:
             return EveCharacterForm
-        return super().get_form(request, obj=obj, **kwargs)
+        return super().get_form(request, obj, change, **kwargs)

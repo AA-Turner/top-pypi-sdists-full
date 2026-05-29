@@ -6,7 +6,7 @@ from lxml import html, etree
 # aiofiles:
 import aiofiles
 
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class ParseHTML(FlowComponent):

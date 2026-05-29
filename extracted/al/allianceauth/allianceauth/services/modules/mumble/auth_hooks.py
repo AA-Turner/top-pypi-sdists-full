@@ -81,7 +81,7 @@ class MumbleMenuItem(MenuItemHook):
         )
 
     def render(self, request) -> str:
-        if request.user.has_perm("mumble.create_new_templinks"):
+        if request.user.has_perm("mumble.create_new_links"):
             return MenuItemHook.render(self, request)
         return ""
 
@@ -99,4 +99,5 @@ def register_urls() -> UrlHook:
         excluded_views=[
             "allianceauth.services.modules.mumble.views.link",
             "allianceauth.services.modules.mumble.views.link_sso"
-        ])
+        ]
+    )

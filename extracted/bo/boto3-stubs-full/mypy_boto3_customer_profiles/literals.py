@@ -251,7 +251,7 @@ OperatorPropertiesKeysType = Literal[
 ]
 OperatorType = Literal["EQUAL_TO", "GREATER_THAN", "LESS_THAN", "NOT_EQUAL_TO"]
 PartyTypeType = Literal["BUSINESS", "INDIVIDUAL", "OTHER"]
-PeriodUnitType = Literal["DAYS", "HOURS", "MONTHS", "WEEKS"]
+PeriodUnitType = Literal["DAYS", "HOURS", "MINUTES", "MONTHS", "WEEKS"]
 ProfileTypeDimensionTypeType = Literal["EXCLUSIVE", "INCLUSIVE"]
 ProfileTypeType = Literal["ACCOUNT_PROFILE", "PROFILE"]
 QueryResultType = Literal["ABSENT", "PRESENT"]
@@ -747,6 +747,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",

@@ -1,7 +1,7 @@
 from navconfig.logging import logging
 from querysource.exceptions import DataNotFound as QSNotFound
 from ..exceptions import ComponentError, DataNotFound
-from .QSBase import QSBase
+from ..interfaces.qs_base import QSBase
 
 
 class ICIMS(QSBase):

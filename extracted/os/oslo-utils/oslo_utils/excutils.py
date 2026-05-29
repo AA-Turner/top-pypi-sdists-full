@@ -26,7 +26,7 @@ import sys
 import time
 import traceback
 import types
-from typing import Any, TYPE_CHECKING, NoReturn
+from typing import Any, overload, NoReturn, TYPE_CHECKING, TypeVar
 
 from oslo_utils import encodeutils
 from oslo_utils import reflection
@@ -218,23 +218,18 @@ class save_and_reraise_exception:
         self.tb: types.TracebackType | None = None
 
     def force_reraise(self) -> NoReturn:
-        if self.type_ is None and self.value is None:
-            raise RuntimeError(
-                "There is no (currently) captured exception"
-                " to force the reraising of"
-            )
-        try:
-            if self.value is None and self.type_ is not None:
-                self.value = self.type_()
+        if self.value is None:
+            if self.type_ is None:
+                raise RuntimeError(
+                    "There is no (currently) captured exception"
+                    " to force the reraising of"
+                )
+            self.value = self.type_()
 
-            if self.value is not None:
-                if self.value.__traceback__ is not self.tb:
-                    raise self.value.with_traceback(self.tb)
-                raise self.value
-            raise RuntimeError(
-                "There is no (currently) captured exception"
-                " to force the reraising of"
-            )
+        try:
+            if self.value.__traceback__ is not self.tb:
+                raise self.value.with_traceback(self.tb)
+            raise self.value
         finally:
             self.value = None
             self.tb = None
@@ -272,9 +267,24 @@ class save_and_reraise_exception:
         return None
 
 
+_CallableT = TypeVar('_CallableT', bound=Callable[..., Any])
+
+
+@overload
 def forever_retry_uncaught_exceptions(
-    *args: Any, **kwargs: Any
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    __func: _CallableT,
+) -> _CallableT: ...
+
+
+@overload
+def forever_retry_uncaught_exceptions(
+    *,
+    retry_delay: float = ...,
+    same_log_delay: float = ...,
+) -> Callable[[_CallableT], _CallableT]: ...
+
+
+def forever_retry_uncaught_exceptions(*args: Any, **kwargs: Any) -> Any:
     """Decorates provided function with infinite retry behavior.
 
     The function retry delay is **always** one second unless

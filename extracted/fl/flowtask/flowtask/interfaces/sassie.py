@@ -5,6 +5,7 @@ Making operations over Sassie API.
 
 """
 
+import copy
 import re
 import html
 import urllib
@@ -15,6 +16,9 @@ from ..exceptions import (
 import random
 from .http import HTTPService, ua
 from .cache import CacheSupport
+
+_DYNAMIC_VALUE_RE = re.compile(r'^\{\{(\w+)\}\}$')
+
 
 class SassieClient(CacheSupport, HTTPService):
     '''
@@ -29,16 +33,17 @@ class SassieClient(CacheSupport, HTTPService):
         super().__init__(*args, **kwargs)
         self.filters = kwargs.get('filter', [])
 
-    def _build_filter_string(self):
+    def _build_filter_string(self, filters=None):
         """
         Build filter string for API URL
         Format: column,operator,value;column,operator,value
         """
-        if not self.filters:
+        active_filters = filters if filters is not None else self.filters
+        if not active_filters:
             return None
 
         filter_parts = []
-        for filter_item in self.filters:
+        for filter_item in active_filters:
             column = filter_item.get('column')
             operator = filter_item.get('operator')
             value = filter_item.get('value')
@@ -56,6 +61,70 @@ class SassieClient(CacheSupport, HTTPService):
             filter_parts.append(f"{column},{operator},{value}")
 
         return ';'.join(filter_parts) if filter_parts else None
+
+    def _resolve_filter_values(
+        self,
+        filters: list[dict],
+        input_df,
+    ) -> list[list[dict]]:
+        """Expand dynamic filter values into a list of concrete filter sets.
+
+        - ``{{column_name}}`` → unique non-null values from input_df column
+        - ``[v1, v2, ...]``   → iterate over the list elements
+        - scalar              → single-element list (no fan-out)
+
+        Returns one filter set per iteration value.
+        Raises ComponentError if a column reference is missing or if more than
+        one filter has a multi-value (dynamic or list) expansion.
+        """
+        if not filters:
+            return [[]]
+
+        dynamic_indices: list[int] = []
+        expansion_values: list[list] = []
+
+        for i, f in enumerate(filters):
+            value = f.get('value')
+            match = _DYNAMIC_VALUE_RE.match(str(value)) if isinstance(value, str) else None
+
+            if match:
+                col = match.group(1)
+                if input_df is None:
+                    raise ComponentError(
+                        f"{self.__class__.__name__}: filter references column "
+                        f"'{col}' but no input DataFrame is available."
+                    )
+                if col not in input_df.columns:
+                    raise ComponentError(
+                        f"{self.__class__.__name__}: filter references column "
+                        f"'{col}' which does not exist in the input DataFrame. "
+                        f"Available columns: {list(input_df.columns)}"
+                    )
+                unique_vals = input_df[col].dropna().unique().tolist()
+                dynamic_indices.append(i)
+                expansion_values.append(unique_vals)
+
+            elif isinstance(value, list):
+                dynamic_indices.append(i)
+                expansion_values.append(value)
+
+        if len(dynamic_indices) > 1:
+            raise ComponentError(
+                f"{self.__class__.__name__}: only one filter may use a dynamic "
+                f"({{{{column_name}}}}) or list value at a time; "
+                f"found {len(dynamic_indices)} such filters."
+            )
+
+        if not dynamic_indices:
+            return [copy.deepcopy(filters)]
+
+        idx = dynamic_indices[0]
+        result = []
+        for val in expansion_values[0]:
+            set_copy = copy.deepcopy(filters)
+            set_copy[idx]['value'] = val
+            result.append(set_copy)
+        return result
 
     async def get_bearer_token(self):
         # Try to get API Key from REDIS
@@ -86,14 +155,14 @@ class SassieClient(CacheSupport, HTTPService):
                 f"Sassie: Error getting data from URL {err}"
             )
 
-    async def request_iterate(self, url_base, args, item, subitem):
+    async def request_iterate(self, url_base, args, item, subitem, filters_override=None):
         has_more_items = True
         resultset = []
         offset = 0
         limit = 500
 
         # Add filter to args if present
-        filter_str = self._build_filter_string()
+        filter_str = self._build_filter_string(filters=filters_override)
         if filter_str:
             args['filterby'] = filter_str
 
@@ -119,16 +188,16 @@ class SassieClient(CacheSupport, HTTPService):
             offset += limit
         return resultset
 
-    async def get_surveys(self):
-        result = await self.request_iterate(f'{self.domain}/surveys', {}, 'surveys', 'survey')
+    async def get_surveys(self, filters_override=None):
+        result = await self.request_iterate(f'{self.domain}/surveys', {}, 'surveys', 'survey', filters_override=filters_override)
         return result
 
-    async def get_questions(self):
+    async def get_questions(self, filters_override=None):
         result = []
         args = {
             'relatives': 'questions,questions.question_sections,questions.answer_options,survey_question_sets,questions.question_properties'
         }
-        data = await self.request_iterate(f'{self.domain}/surveys', args, 'surveys', 'survey')
+        data = await self.request_iterate(f'{self.domain}/surveys', args, 'surveys', 'survey', filters_override=filters_override)
         for survey in data:
             survey_id = survey['survey_id']
             #survey_info = {k: v for k, v in survey.items() if k != "questions"}
@@ -145,12 +214,12 @@ class SassieClient(CacheSupport, HTTPService):
                 result.append(merged)
         return result
     
-    async def get_jobs(self):
+    async def get_jobs(self, filters_override=None):
         result = []
         args = {
             'relatives': 'wave,responses,job_detail'
         }
-        data = await self.request_iterate(f'{self.domain}/jobs', args, 'jobs', 'job')
+        data = await self.request_iterate(f'{self.domain}/jobs', args, 'jobs', 'job', filters_override=filters_override)
         for job in data:
             job_detail = job.get('job_detail', [])
             wave = job.get('wave', [])
@@ -159,33 +228,33 @@ class SassieClient(CacheSupport, HTTPService):
             result.append(job)
         return result
 
-    async def get_responses(self):
+    async def get_responses(self, filters_override=None):
         result = []
         args = {
             'relatives': 'responses'
         }
-        data = await self.request_iterate(f'{self.domain}/jobs', args, 'jobs', 'job')
+        data = await self.request_iterate(f'{self.domain}/jobs', args, 'jobs', 'job', filters_override=filters_override)
         result = [response for job in data for response in job.get("responses", [])]
         return result
 
-    async def get_waves(self):
-        result = await self.request_iterate(f'{self.domain}/waves', {}, 'waves', 'wave')
+    async def get_waves(self, filters_override=None):
+        result = await self.request_iterate(f'{self.domain}/waves', {}, 'waves', 'wave', filters_override=filters_override)
         return result
 
-    async def get_locations(self):
-        result = await self.request_iterate(f'{self.domain}/locations', {}, 'locations', 'location')
+    async def get_locations(self, filters_override=None):
+        result = await self.request_iterate(f'{self.domain}/locations', {}, 'locations', 'location', filters_override=filters_override)
         return result
 
-    async def get_clients(self):
-        result = await self.request_iterate(f'{self.domain}/clients', {}, 'clients', 'client')
+    async def get_clients(self, filters_override=None):
+        result = await self.request_iterate(f'{self.domain}/clients', {}, 'clients', 'client', filters_override=filters_override)
         return result
 
-    async def get_question_sections(self):
+    async def get_question_sections(self, filters_override=None):
         result = []
         args = {
             'relatives': 'questions.question_sections'
         }
-        data = await self.request_iterate(f'{self.domain}/surveys', args, 'surveys', 'survey')
+        data = await self.request_iterate(f'{self.domain}/surveys', args, 'surveys', 'survey', filters_override=filters_override)
         result = [
             section
             for survey in data
@@ -194,12 +263,12 @@ class SassieClient(CacheSupport, HTTPService):
         ]
         return result
 
-    async def get_question_properties(self):
+    async def get_question_properties(self, filters_override=None):
         result = []
         args = {
             'relatives': 'questions.question_properties'
         }
-        data = await self.request_iterate(f'{self.domain}/surveys', args, 'surveys', 'survey')
+        data = await self.request_iterate(f'{self.domain}/surveys', args, 'surveys', 'survey', filters_override=filters_override)
         result = [
             section
             for survey in data
@@ -208,7 +277,7 @@ class SassieClient(CacheSupport, HTTPService):
         ]
         return result
 
-    async def get_custom(self):
+    async def get_custom(self, filters_override=None):
         result = []
         args = {}
         merged_columns = self.merged_columns if hasattr(self, 'merged_columns') else None
@@ -218,7 +287,7 @@ class SassieClient(CacheSupport, HTTPService):
             return []
         if hasattr(self, 'relatives'):
             args['relatives'] = self.relatives
-        data = await self.request_iterate(f'{self.domain}/{endpoint}', args, endpoint, endpoint[:-1])
+        data = await self.request_iterate(f'{self.domain}/{endpoint}', args, endpoint, endpoint[:-1], filters_override=filters_override)
         if subgroup:
             result = [response for row in data for response in row.get(subgroup, [])]
         elif merged_columns:

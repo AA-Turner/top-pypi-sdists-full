@@ -12,26 +12,6 @@ import System
 QuantConnect_DownloaderDataProvider_Launcher_Models_BaseDataDownloadConfig_ParseEnum_TEnum = typing.TypeVar("QuantConnect_DownloaderDataProvider_Launcher_Models_BaseDataDownloadConfig_ParseEnum_TEnum")
 
 
-class BrokerageDataDownloader(System.Object, QuantConnect.IDataDownloader, System.IDisposable):
-    """Class for downloading data from a brokerage."""
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the BrokerageDataDownloader class."""
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Sequence[QuantConnect.Data.BaseData]:
-        """
-        Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
-        
-        :param data_downloader_get_parameters: model class for passing in parameters for historical data
-        :returns: Enumerable of base data for this symbol.
-        """
-        ...
-
-
 class _Typed_BaseDataDownloadConfig_ParseEnum(typing.Generic[QuantConnect_DownloaderDataProvider_Launcher_Models_BaseDataDownloadConfig_ParseEnum_TEnum]):
     """"""
 
@@ -168,6 +148,26 @@ class BaseDataDownloadConfig(System.Object, metaclass=abc.ABCMeta):
         
         :param date: The date string to parse.
         :returns: The parsed DateTime value.
+        """
+        ...
+
+
+class BrokerageDataDownloader(System.Object, QuantConnect.IDataDownloader, System.IDisposable):
+    """Class for downloading data from a brokerage."""
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the BrokerageDataDownloader class."""
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Sequence[QuantConnect.Data.BaseData]:
+        """
+        Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
+        
+        :param data_downloader_get_parameters: model class for passing in parameters for historical data
+        :returns: Enumerable of base data for this symbol.
         """
         ...
 

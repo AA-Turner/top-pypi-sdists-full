@@ -1,7 +1,7 @@
 from collections.abc import Callable
 import asyncio
 from ...interfaces.zammad import zammad
-from ..BaseAction import BaseAction
+from ...interfaces.base_action import BaseAction
 
 
 class Zammad(BaseAction, zammad):

@@ -34,7 +34,7 @@ import pandas as pd
 
 from ..exceptions import ComponentError
 from ..utils import SafeDict
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from .gendata import get_rule_handler
 
 

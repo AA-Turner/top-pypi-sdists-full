@@ -14,7 +14,7 @@ import pandas as pd
 
 from ..exceptions import ComponentError, ConfigError
 from ..interfaces.credentials import CredentialsInterface
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 try:
     from parrot.tools.scraping import WebScrapingTool

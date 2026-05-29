@@ -25,6 +25,7 @@ else:
 __all__ = (
     "IoTDataPlaneServiceName",
     "ListRetainedMessagesPaginatorName",
+    "ListSubscriptionsPaginatorName",
     "PaginatorName",
     "PayloadFormatIndicatorType",
     "RegionName",
@@ -34,6 +35,7 @@ __all__ = (
 
 
 ListRetainedMessagesPaginatorName = Literal["list_retained_messages"]
+ListSubscriptionsPaginatorName = Literal["list_subscriptions"]
 PayloadFormatIndicatorType = Literal["UNSPECIFIED_BYTES", "UTF8_DATA"]
 IoTDataPlaneServiceName = Literal["iot-data"]
 ServiceName = Literal[
@@ -360,6 +362,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -464,7 +467,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_retained_messages"]
+PaginatorName = Literal["list_retained_messages", "list_subscriptions"]
 RegionName = Literal[
     "ap-east-1",
     "ap-northeast-1",

@@ -5,7 +5,7 @@ import pandas
 from pandas import DataFrame
 from asyncdb.exceptions import NoDataFound
 from ..exceptions import ComponentError, DataNotFound
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class tJoin(FlowComponent):

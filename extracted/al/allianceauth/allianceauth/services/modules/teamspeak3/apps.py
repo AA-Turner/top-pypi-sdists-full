@@ -8,4 +8,5 @@ class Teamspeak3ServiceConfig(AppConfig):
     verbose_name = _('TeamSpeak 3 Service')
 
     def ready(self):
-        pass
+        from allianceauth.services.modules.teamspeak3 import \
+            signals  # noqa: F401

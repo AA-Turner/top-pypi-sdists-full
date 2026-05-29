@@ -3,7 +3,7 @@ import pandas as pd
 from collections.abc import Callable
 from ..utils import is_empty
 from ..exceptions import ComponentError, DataNotFound
-from .DownloadFrom import DownloadFromBase
+from ..interfaces.download_from import DownloadFromBase
 from ..interfaces.d2l import D2LClient
 
 class DownloadFromD2L(D2LClient, DownloadFromBase):

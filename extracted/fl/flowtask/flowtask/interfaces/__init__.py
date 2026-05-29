@@ -18,6 +18,32 @@ from .stat import StatSupport
 from .locale import LocaleSupport
 from .template import TemplateSupport
 
+# FEAT-023: Interface base classes relocated from flowtask/components/.
+# Canonical homes are now flowtask/interfaces/<module_name>.py.
+#
+# Eager imports (lightweight, no heavy optional deps):
+from .abstract import AbstractFlow
+from .flow import FlowComponent
+from .user import UserComponent
+from .group import GroupComponent
+from .base_action import BaseAction
+from .base_loop import BaseLoop
+from .download_from import DownloadFromBase
+from .upload_to import UploadToBase
+from .file_base import FileBase
+from .copy_to import CopyTo
+from .copy_from_base import CopyFromBase
+from .copy_to_file_base import CopyToFileBase
+from .t_pandas import tPandas
+#
+# Heavy-dep interface bases (lazy-loaded to avoid pulling in optional deps
+# like google-cloud-*, sqlalchemy, azure-* at startup):
+#   GoogleBase → flowtask.interfaces.google_base
+#   DbClient   → flowtask.interfaces.db_client
+#   TableBase  → flowtask.interfaces.table_base
+#   QSBase     → flowtask.interfaces.qs_base
+#   Azure      → flowtask.interfaces.azure_component
+
 # Lazy-loaded modules and their import paths.
 _LAZY_IMPORTS = {
     "DBSupport": (".databases", "DBSupport"),
@@ -27,6 +53,12 @@ _LAZY_IMPORTS = {
     "DBInterface": (".db", "DBInterface"),
     "ParrotTool": (".ParrotTool", "ParrotTool"),
     "LLMClient": (".LLMClient", "LLMClient"),
+    # FEAT-023: heavy-dep interface bases (lazy-loaded):
+    "GoogleBase": (".google_base", "GoogleBase"),
+    "DbClient": (".db_client", "DbClient"),
+    "TableBase": (".table_base", "TableBase"),
+    "QSBase": (".qs_base", "QSBase"),
+    "Azure": (".azure_component", "Azure"),
 }
 
 
@@ -43,19 +75,42 @@ def __getattr__(name: str):
 
 
 __all__ = (
+    # Support mixins (lightweight, always eager):
     "FuncSupport",
     "MaskSupport",
-    "DBSupport",
     "LogSupport",
+    "SkipErrors",
     "ResultSupport",
     "StatSupport",
     "LocaleSupport",
     "TemplateSupport",
-    "SkipErrors",
-    # interfaces:
+    "CacheSupport",
+    # Service interfaces (lazy-loaded):
+    "DBSupport",
     "DBInterface",
     "ClientInterface",
     "HTTPService",
+    "SeleniumService",
     "ParrotTool",
     "LLMClient",
+    # FEAT-023: Interface base classes (eager, lightweight):
+    "AbstractFlow",
+    "FlowComponent",
+    "UserComponent",
+    "GroupComponent",
+    "BaseAction",
+    "BaseLoop",
+    "DownloadFromBase",
+    "UploadToBase",
+    "FileBase",
+    "CopyTo",
+    "CopyFromBase",
+    "CopyToFileBase",
+    "tPandas",
+    # FEAT-023: Interface base classes (lazy, heavy-dep):
+    "GoogleBase",
+    "DbClient",
+    "TableBase",
+    "QSBase",
+    "Azure",
 )

@@ -11,12 +11,16 @@
 # under the License.
 
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
+from openstack._utils import renamed_param
+from openstack.identity.v3 import project as _project
 from openstack.key_manager.v1 import container as _container
 from openstack.key_manager.v1 import order as _order
 from openstack.key_manager.v1 import project_quota as _project_quota
+from openstack.key_manager.v1 import quota as _quota
 from openstack.key_manager.v1 import secret as _secret
+from openstack.key_manager.v1 import secret_acl as _secret_acl
 from openstack.key_manager.v1 import secret_store as _secret_store
 from openstack import proxy
 from openstack import resource
@@ -30,28 +34,32 @@ class Proxy(proxy.Proxy):
         "order": _order.Order,
         "project_quota": _project_quota.ProjectQuota,
         "secret": _secret.Secret,
+        "secret_acl": _secret_acl.SecretACL,
         "secret_store": _secret_store.SecretStore,
     }
 
     def create_container(self, **attrs: Any) -> _container.Container:
         """Create a new container from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.key_manager.v1.container.Container`,
             comprised of the properties on the Container class.
 
         :returns: The results of container creation
-        :rtype: :class:`~openstack.key_manager.v1.container.Container`
         """
         return self._create(_container.Container, **attrs)
 
-    def delete_container(self, container, ignore_missing=True):
+    def delete_container(
+        self,
+        container: str | _container.Container,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a container
 
         :param container: The value can be either the ID of a container or a
             :class:`~openstack.key_manager.v1.container.Container`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the container does not exist.
             When set to ``True``, no exception will be set when
@@ -85,7 +93,7 @@ class Proxy(proxy.Proxy):
         """Find a single container
 
         :param name_or_id: The name or ID of a container.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -97,7 +105,9 @@ class Proxy(proxy.Proxy):
             _container.Container, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_container(self, container):
+    def get_container(
+        self, container: str | _container.Container
+    ) -> _container.Container:
         """Get a single container
 
         :param container: The value can be the ID of a container or a
@@ -110,18 +120,22 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_container.Container, container)
 
-    def containers(self, **query):
+    def containers(
+        self,
+        **query: Any,
+    ) -> Generator[_container.Container, None, None]:
         """Return a generator of containers
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of container objects
-        :rtype: :class:`~openstack.key_manager.v1.container.Container`
         """
         return self._list(_container.Container, **query)
 
-    def update_container(self, container, **attrs):
+    def update_container(
+        self, container: str | _container.Container, **attrs: Any
+    ) -> _container.Container:
         """Update a container
 
         :param container: Either the id of a container or a
@@ -130,29 +144,29 @@ class Proxy(proxy.Proxy):
             by ``container``.
 
         :returns: The updated container
-        :rtype: :class:`~openstack.key_manager.v1.container.Container`
         """
         return self._update(_container.Container, container, **attrs)
 
     def create_order(self, **attrs: Any) -> _order.Order:
         """Create a new order from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.key_manager.v1.order.Order`,
             comprised of the properties on the Order class.
 
         :returns: The results of order creation
-        :rtype: :class:`~openstack.key_manager.v1.order.Order`
         """
         return self._create(_order.Order, **attrs)
 
-    def delete_order(self, order, ignore_missing=True):
+    def delete_order(
+        self, order: str | _order.Order, ignore_missing: bool = True
+    ) -> None:
         """Delete an order
 
         :param order: The value can be either the ID of a order or a
             :class:`~openstack.key_manager.v1.order.Order`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the order does not exist.
             When set to ``True``, no exception will be set when
@@ -184,7 +198,7 @@ class Proxy(proxy.Proxy):
         """Find a single order
 
         :param name_or_id: The name or ID of a order.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -195,7 +209,7 @@ class Proxy(proxy.Proxy):
             _order.Order, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_order(self, order):
+    def get_order(self, order: str | _order.Order) -> _order.Order:
         """Get a single order
 
         :param order: The value can be the ID of an order or a
@@ -208,18 +222,19 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_order.Order, order)
 
-    def orders(self, **query):
+    def orders(self, **query: Any) -> Generator[_order.Order, None, None]:
         """Return a generator of orders
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of order objects
-        :rtype: :class:`~openstack.key_manager.v1.order.Order`
         """
         return self._list(_order.Order, **query)
 
-    def update_order(self, order, **attrs):
+    def update_order(
+        self, order: str | _order.Order, **attrs: Any
+    ) -> _order.Order:
         """Update a order
 
         :param order: Either the id of a order or a
@@ -228,29 +243,29 @@ class Proxy(proxy.Proxy):
             by ``order``.
 
         :returns: The updated order
-        :rtype: :class:`~openstack.key_manager.v1.order.Order`
         """
         return self._update(_order.Order, order, **attrs)
 
     def create_secret(self, **attrs: Any) -> _secret.Secret:
         """Create a new secret from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.key_manager.v1.secret.Secret`,
             comprised of the properties on the Order class.
 
         :returns: The results of secret creation
-        :rtype: :class:`~openstack.key_manager.v1.secret.Secret`
         """
         return self._create(_secret.Secret, **attrs)
 
-    def delete_secret(self, secret, ignore_missing=True):
+    def delete_secret(
+        self, secret: str | _secret.Secret, ignore_missing: bool = True
+    ) -> None:
         """Delete a secret
 
         :param secret: The value can be either the ID of a secret or a
             :class:`~openstack.key_manager.v1.secret.Secret`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the secret does not exist.
             When set to ``True``, no exception will be set when
@@ -282,7 +297,7 @@ class Proxy(proxy.Proxy):
         """Find a single secret
 
         :param name_or_id: The name or ID of a secret.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -294,7 +309,7 @@ class Proxy(proxy.Proxy):
             _secret.Secret, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_secret(self, secret):
+    def get_secret(self, secret: str | _secret.Secret) -> _secret.Secret:
         """Get a single secret
 
         :param secret: The value can be the ID of a secret or a
@@ -307,18 +322,19 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_secret.Secret, secret)
 
-    def secrets(self, **query):
+    def secrets(self, **query: Any) -> Generator[_secret.Secret, None, None]:
         """Return a generator of secrets
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of secret objects
-        :rtype: :class:`~openstack.key_manager.v1.secret.Secret`
         """
         return self._list(_secret.Secret, **query)
 
-    def update_secret(self, secret, **attrs):
+    def update_secret(
+        self, secret: str | _secret.Secret, **attrs: Any
+    ) -> _secret.Secret:
         """Update a secret
 
         :param secret: Either the id of a secret or a
@@ -327,24 +343,25 @@ class Proxy(proxy.Proxy):
             by ``secret``.
 
         :returns: The updated secret
-        :rtype: :class:`~openstack.key_manager.v1.secret.Secret`
         """
         return self._update(_secret.Secret, secret, **attrs)
 
     # ========== Secret Store Operations ==========
 
-    def secret_stores(self, **query):
+    def secret_stores(
+        self,
+        **query: Any,
+    ) -> Generator[_secret_store.SecretStore, None, None]:
         """Return a generator of secret stores
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of secret store objects
-        :rtype: :class:`~openstack.key_manager.v1.secret_store.SecretStore`
         """
         return self._list(_secret_store.SecretStore, **query)
 
-    def get_global_default_secret_store(self):
+    def get_global_default_secret_store(self) -> _secret_store.SecretStore:
         """Get the global default secret store
 
         :returns: One
@@ -354,7 +371,7 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_secret_store.SecretStore, 'global-default')
 
-    def get_preferred_secret_store(self):
+    def get_preferred_secret_store(self) -> _secret_store.SecretStore:
         """Get the preferred secret store for the current project
 
         :returns: One
@@ -364,11 +381,17 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_secret_store.SecretStore, 'preferred')
 
-    def delete_project_quota(self, project_id, ignore_missing=True):
+    @renamed_param('project_id', 'project')
+    def delete_project_quota(
+        self,
+        project: str | _project.Project,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a project quota
 
-        :param project_id: A project ID.
-        :param bool ignore_missing: When set to ``False``
+        :param project: A project ID or
+            :class:`~openstack.identity.v3.project.Project` instance.
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the project quota does not exist.
             When set to ``True``, no exception will be set when
@@ -378,33 +401,128 @@ class Proxy(proxy.Proxy):
         """
         self._delete(
             _project_quota.ProjectQuota,
-            project_id,
+            resource.Resource._get_id(project),
             ignore_missing=ignore_missing,
         )
 
-    def get_project_quota(self, project_id):
+    @renamed_param('project_id', 'project')
+    def get_project_quota(
+        self, project: str | _project.Project
+    ) -> _project_quota.ProjectQuota:
         """Get a single project quota
 
-        :param project_id: A project ID.
+        :param project: A project ID or
+            :class:`~openstack.identity.v3.project.Project` instance.
 
         :returns: One
             :class:`~openstack.key_manager.v1.project_quota.ProjectQuota`
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
-        return self._get(_project_quota.ProjectQuota, project_id)
+        return self._get(
+            _project_quota.ProjectQuota, resource.Resource._get_id(project)
+        )
 
-    def update_project_quota(self, project_id, **attrs):
+    @renamed_param('project_id', 'project')
+    def update_project_quota(
+        self, project: str | _project.Project, **attrs: Any
+    ) -> _project_quota.ProjectQuota:
         """Update a project quota
 
-        :param project_id: A project ID.
+        :param project: A project ID or
+            :class:`~openstack.identity.v3.project.Project` instance.
         :param attrs: The attributes to update on the project quota represented
             by ``project quota``.
 
         :returns: The updated project quota
-        :rtype: :class:`~openstack.key_manager.v1.project_quota.ProjectQuota`
         """
-        return self._update(_project_quota.ProjectQuota, project_id, **attrs)
+        return self._update(
+            _project_quota.ProjectQuota,
+            resource.Resource._get_id(project),
+            **attrs,
+        )
+
+    def get_quota(self) -> _quota.Quota:
+        """Get the effective quotas for the current project
+
+        :returns: One :class:`~openstack.key_manager.v1.quota.Quota`
+        :raises: :class:`~openstack.exceptions.NotFoundException`
+            when no resource can be found.
+        """
+        return self._get(_quota.Quota, requires_id=False)
+
+    # ========== Secret ACL Operations ==========
+
+    def get_secret_acl(self, secret):
+        """Get the ACL of a secret.
+
+        :param secret: Secret ID or a
+            :class:`~openstack.key_manager.v1.secret.Secret` instance.
+        :returns: :class:`~openstack.key_manager.v1.secret_acl.SecretACL`
+            whose ``read`` contains the ACL. If no explicit ACL exists,
+            the default ACL is returned.
+        :raises: :class:`~openstack.exceptions.NotFoundException`
+        """
+        sid = resource.Resource._get_id(secret)
+        return self._get(
+            _secret_acl.SecretACL,
+            None,
+            requires_id=False,
+            path_args={"secret_id": sid},
+        )
+
+    def set_secret_acl(self, secret, **attrs):
+        """Set (replace) the ACL of a secret (PUT).
+
+        :param secret: Secret ID or Secret instance.
+        :param dict attrs: ACL body, typically a ``read`` dict.
+        :returns: :class:`~openstack.key_manager.v1.secret_acl.SecretACL`
+            whose ``acl_ref`` references the ACL URL.
+        """
+        sid = resource.Resource._get_id(secret)
+        return self._update(
+            _secret_acl.SecretACL,
+            None,
+            requires_id=False,
+            path_args={"secret_id": sid},
+            method="PUT",
+            **attrs,
+        )
+
+    def update_secret_acl(self, secret, **attrs):
+        """Partially update the ACL of a secret (PATCH).
+
+        :param secret: Secret ID or Secret instance.
+        :param dict attrs: Partial ACL body, typically a ``read`` dict.
+        :returns: :class:`~openstack.key_manager.v1.secret_acl.SecretACL`
+            whose ``acl_ref`` references the ACL URL.
+        """
+        sid = resource.Resource._get_id(secret)
+        return self._update(
+            _secret_acl.SecretACL,
+            None,
+            requires_id=False,
+            path_args={"secret_id": sid},
+            method="PATCH",
+            **attrs,
+        )
+
+    def delete_secret_acl(self, secret, ignore_missing=True):
+        """Delete the ACL of a secret.
+
+        :param secret: Secret ID or Secret instance.
+        :param bool ignore_missing: When set to False, raise if not found.
+        :returns: ``None``
+        :raises: :class:`~openstack.exceptions.NotFoundException`
+        """
+        sid = resource.Resource._get_id(secret)
+        return self._delete(
+            _secret_acl.SecretACL,
+            None,
+            requires_id=False,
+            path_args={"secret_id": sid},
+            ignore_missing=ignore_missing,
+        )
 
     # ========== Utilities ==========
 
@@ -435,7 +553,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -450,8 +568,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

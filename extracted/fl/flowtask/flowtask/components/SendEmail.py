@@ -7,7 +7,7 @@ from email.header import Header
 from navconfig.logging import logging
 from notify.providers.email import Email
 from notify.models import Actor
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import ComponentError, FileNotFound
 from ..interfaces import TemplateSupport
 from ..interfaces.credentials import CredentialsInterface

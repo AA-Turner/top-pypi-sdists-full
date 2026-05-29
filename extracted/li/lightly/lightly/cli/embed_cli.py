@@ -82,9 +82,9 @@ def _embed_cli(
         path = os.path.join(os.getcwd(), "embeddings.csv")
         save_embeddings(path, embeddings, labels, filenames)
         print(f"Embeddings are stored at {bcolors.OKBLUE}{path}{bcolors.ENDC}")
-        os.environ[
-            cfg["environment_variable_names"]["lightly_last_embedding_path"]
-        ] = path
+        os.environ[cfg["environment_variable_names"]["lightly_last_embedding_path"]] = (
+            path
+        )
         return path
 
     return embeddings, labels, filenames
@@ -111,7 +111,7 @@ def embed_cli(cfg) -> str:
         The path to the created embeddings file.
 
     Examples:
-        >>> # embed images with default settings and a lightly model
+        >>> # embed images with default settings and a lightly model
         >>> lightly-embed input_dir=data/
         >>>
         >>> # embed images with default settings and a custom checkpoint

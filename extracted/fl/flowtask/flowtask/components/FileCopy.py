@@ -5,7 +5,7 @@ import glob
 from pathlib import Path
 from tqdm import tqdm
 from ..exceptions import FileNotFound, FileError, ComponentError
-from .FileBase import FileBase
+from ..interfaces.file_base import FileBase
 from ..utils import check_empty
 from .FileList import FileList
 

@@ -14,7 +14,7 @@ from ..conf import (
     OXYLABS_ENDPOINT
 )
 from ..exceptions import ComponentError
-from .google import GoogleBase
+from ..interfaces.google_base import GoogleBase
 from bs4 import BeautifulSoup
 import random
 from urllib.parse import quote

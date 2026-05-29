@@ -1,1 +1,0 @@
-import{j as e,n,P as o}from"./index-C6ay4Mpi.js";const p=r=>e.jsx("div",{children:"hi from grid"}),t=r=>e.jsx("div",{children:"hi from modal"});n({name:"McapRenderer",label:"Mcap Renderer",component:t,type:o.SampleRenderer,activator:()=>!0,sampleRendererOptions:{supports:{extensions:["mcap"]},grid:{enabled:!0,overrideComponent:p}}});

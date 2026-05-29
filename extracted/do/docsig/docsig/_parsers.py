@@ -3,8 +3,6 @@ docsig._parsers
 ===============
 """
 
-from __future__ import annotations as _
-
 import logging as _logging
 import os as _os
 from pathlib import Path as _Path
@@ -79,11 +77,16 @@ def parse_from_file(file: _Path, config: _Config) -> _Parent:
         code = file.read_text(encoding="utf-8")
         module_name = str(file)[:-3].replace(_os.sep, ".").replace("-", "_")
         parent = parse_from_string(code, config, module_name, file)
+
     except UnicodeDecodeError as err:
         logger = _logging.getLogger(__package__)
         logger.debug(_FILE_INFO, file, str(err).replace("\n", " "))
         parent = _Parent(error=type(err))
 
+    # not all python files end with .py, but considering this isn't a
+    # *.py file and there was an error parsing the file it's likely not
+    # meant to bea a python file
+    # return empty parent without the error
     if parent.error is not None and not file.name.endswith(".py"):
         parent = _Parent()
 

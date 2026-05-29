@@ -8,7 +8,13 @@ from .filesystem import FileTaskStorage
 
 def _get_git():
     """Lazy-load GitPython to avoid importing it at module level."""
-    import git  # noqa: E401
+    try:
+        import git  # noqa: E401
+    except ImportError as exc:
+        raise ImportError(
+            "GitTaskStorage requires the optional 'git' extra. "
+            "Install it with: pip install 'flowtask[git]'"
+        ) from exc
     logging.getLogger("git").setLevel(logging.WARNING)
     return git.Repo, git.GitCommandError
 

@@ -76,6 +76,48 @@ mobile_devices = [
     'Nexus 5',
 ]
 
+# CDP script injected on every new document to defeat Akamai/PerimeterX
+# bot detection. Runs before any page JS so the challenge sees a
+# human-like browser environment.
+_STEALTH_SCRIPT = """
+(function() {
+    // Hide webdriver property
+    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+
+    // Restore chrome object removed in headless mode
+    if (!window.chrome) {
+        window.chrome = {app: {}, runtime: {}, loadTimes: function(){}, csi: function(){}};
+    }
+
+    // Spoof plugins (headless has 0)
+    Object.defineProperty(navigator, 'plugins', {
+        get: () => {
+            const arr = [1, 2, 3, 4, 5];
+            arr.item = (i) => arr[i];
+            arr.namedItem = (n) => null;
+            arr.refresh = () => {};
+            return arr;
+        }
+    });
+
+    // Restore languages
+    Object.defineProperty(navigator, 'languages', {
+        get: () => ['en-US', 'en']
+    });
+
+    // Fix permissions — headless throws on 'notifications'
+    const _origPermQuery = window.navigator.permissions.query.bind(navigator.permissions);
+    window.navigator.permissions.query = (p) =>
+        p.name === 'notifications'
+            ? Promise.resolve({state: Notification.permission})
+            : _origPermQuery(p);
+
+    // Remove HeadlessChrome from UA reported to JS
+    const _ua = navigator.userAgent.replace('HeadlessChrome', 'Chrome');
+    Object.defineProperty(navigator, 'userAgent', {get: () => _ua});
+})();
+"""
+
 
 class VirtualDisplay:
     """Context manager that starts a single Xvfb virtual display for its lifetime.
@@ -218,11 +260,11 @@ class SeleniumService(ABC):
         # "--headless=new",
         "--disable-gpu",
         "--no-sandbox",
-        "--enable-automation",
         "--lang=en",
         "--disable-dev-shm-usage",
         "--disable-features=VizDisplayCompositor",
         "--disable-features=IsolateOrigins",
+        "--disable-blink-features=AutomationControlled",
         # "--disable-extensions",
         # "--disable-features=NetworkService,NetworkServiceInProcess",
         # "--ignore-certificate-errors-spki-list",
@@ -234,7 +276,6 @@ class SeleniumService(ABC):
     undetected_options = [
         "--disable-gpu",
         "--no-sandbox",
-        "--enable-automation",
         "--disable-blink-features=AutomationControlled",
         "--disable-features=NetworkService,NetworkServiceInProcess",
         "--disable-dev-shm-usage",
@@ -639,6 +680,9 @@ class SeleniumService(ABC):
                 self._logger.debug(
                     f"Running in mobile emulation mode as {self.mobile_device}"
                 )
+            # Suppress automation indicators detected by Akamai/PerimeterX
+            self._options.add_experimental_option('excludeSwitches', ['enable-automation'])
+            self._options.add_experimental_option('useAutomationExtension', False)
             # Explicitly disable HTTP/2
             if self.enable_http2 is False:
                 self._options.add_experimental_option(
@@ -648,6 +692,15 @@ class SeleniumService(ABC):
                 service=service,
                 options=self._options
             )
+            # Inject stealth patches via CDP before any page loads so
+            # Akamai/PerimeterX challenge JS sees a human-like environment.
+            try:
+                self._driver.execute_cdp_cmd(
+                    "Page.addScriptToEvaluateOnNewDocument",
+                    {"source": _STEALTH_SCRIPT}
+                )
+            except Exception:
+                pass
         # Creating the WebDriverWait and Return the Driver:
         self._wait = WebDriverWait(self._driver, self.timeout)
         return self._driver

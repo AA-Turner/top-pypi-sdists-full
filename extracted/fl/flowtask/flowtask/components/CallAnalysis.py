@@ -4,7 +4,7 @@ import pandas as pd
 import orjson
 from ..exceptions import DataNotFound
 from ..interfaces.ParrotBot import ParrotBot
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class CallAnalysis(ParrotBot, FlowComponent):

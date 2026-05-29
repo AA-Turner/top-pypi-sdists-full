@@ -635,6 +635,7 @@ impl RunSettings {
             only_dev,
             editable,
             no_editable,
+            no_editable_package,
             inexact,
             exact,
             script: _,
@@ -725,7 +726,10 @@ impl RunSettings {
                 only_group,
                 all_groups,
             ),
-            editable: flag(editable.into(), no_editable.into(), "editable").map(EditableMode::from),
+            editable: EditableMode::from_args(
+                flag(editable.into(), no_editable.into(), "editable"),
+                no_editable_package,
+            ),
             modifications: if flag(exact, inexact, "inexact").unwrap_or(false) {
                 Modifications::Exact
             } else {
@@ -1718,6 +1722,7 @@ impl SyncSettings {
             all_groups,
             editable,
             no_editable,
+            no_editable_package,
             inexact,
             exact,
             no_install_project,
@@ -1819,7 +1824,10 @@ impl SyncSettings {
                 only_group,
                 all_groups,
             ),
-            editable: flag(editable.into(), no_editable.into(), "editable").map(EditableMode::from),
+            editable: EditableMode::from_args(
+                flag(editable.into(), no_editable.into(), "editable"),
+                no_editable_package,
+            ),
             install_options: InstallOptions::new(
                 no_install_project,
                 only_install_project,
@@ -1923,10 +1931,12 @@ pub(crate) struct MetadataSettings {
     pub(crate) lock_check: LockCheck,
     pub(crate) frozen: Option<FrozenSource>,
     pub(crate) dry_run: DryRun,
+    pub(crate) sync: bool,
     pub(crate) python: Option<String>,
     pub(crate) install_mirrors: PythonInstallMirrors,
     pub(crate) refresh: Refresh,
     pub(crate) settings: ResolverSettings,
+    pub(crate) malware_settings: MalwareCheckSettings,
 }
 
 impl MetadataSettings {
@@ -1943,6 +1953,7 @@ impl MetadataSettings {
             resolver,
             build,
             refresh,
+            sync,
             python,
         } = *args;
 
@@ -1958,10 +1969,13 @@ impl MetadataSettings {
         // Check for conflicts between locked and frozen.
         check_conflicts(locked, frozen);
 
+        let malware_settings = MalwareCheckSettings::from(&environment);
+
         Self {
             lock_check: resolve_lock_check(locked),
             frozen: resolve_frozen(frozen),
             dry_run: DryRun::from_args(dry_run),
+            sync,
             python: python.and_then(Maybe::into_option),
             refresh: Refresh::from(refresh),
             settings: ResolverSettings::combine(
@@ -1972,6 +1986,7 @@ impl MetadataSettings {
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
+            malware_settings,
         }
     }
 }
@@ -1989,7 +2004,7 @@ pub(crate) struct AddSettings {
     pub(crate) constraints: Vec<PathBuf>,
     pub(crate) marker: Option<MarkerTree>,
     pub(crate) dependency_type: DependencyType,
-    pub(crate) editable: Option<bool>,
+    pub(crate) editable: Option<EditableMode>,
     pub(crate) extras: Vec<ExtraName>,
     pub(crate) raw: bool,
     pub(crate) bounds: Option<AddBoundsKind>,
@@ -2033,6 +2048,7 @@ impl AddSettings {
             group,
             editable,
             no_editable,
+            no_editable_package,
             extra,
             raw,
             bounds,
@@ -2196,7 +2212,10 @@ impl AddSettings {
             only_install_local,
             no_install_package,
             only_install_package,
-            editable: flag(editable.into(), no_editable.into(), "editable"),
+            editable: EditableMode::from_args(
+                flag(editable.into(), no_editable.into(), "editable"),
+                no_editable_package,
+            ),
             extras: extra.unwrap_or_default(),
             refresh: Refresh::from(refresh),
             indexes,
@@ -2574,6 +2593,7 @@ impl ExportSettings {
             no_header,
             editable,
             no_editable,
+            no_editable_package,
             hashes,
             no_hashes,
             output_file,
@@ -2650,7 +2670,10 @@ impl ExportSettings {
                 only_group,
                 all_groups,
             ),
-            editable: flag(editable.into(), no_editable.into(), "editable").map(EditableMode::from),
+            editable: EditableMode::from_args(
+                flag(editable.into(), no_editable.into(), "editable"),
+                no_editable_package,
+            ),
             hashes: flag(hashes, no_hashes, "hashes").unwrap_or(true),
             install_options: InstallOptions::new(
                 no_emit_project,
@@ -3198,6 +3221,7 @@ impl PipInstallSettings {
             requirements,
             editable,
             no_editable,
+            no_editable_package,
             constraints,
             overrides,
             excludes,
@@ -3317,11 +3341,14 @@ impl PipInstallSettings {
             } else {
                 Modifications::Sufficient
             },
-            editable: if no_editable || environment.no_editable.value == Some(true) {
-                Some(EditableMode::NonEditable)
-            } else {
-                None
-            },
+            editable: EditableMode::from_args(
+                if no_editable || environment.no_editable.value == Some(true) {
+                    Some(false)
+                } else {
+                    None
+                },
+                no_editable_package,
+            ),
             refresh: Refresh::from(refresh),
             settings: PipSettings::combine(
                 PipOptions {
@@ -3770,6 +3797,7 @@ pub(crate) struct VenvSettings {
     pub(crate) seed: bool,
     pub(crate) allow_existing: bool,
     pub(crate) clear: bool,
+    pub(crate) force: bool,
     pub(crate) no_clear: bool,
     pub(crate) path: Option<PathBuf>,
     pub(crate) prompt: Option<String>,
@@ -3795,6 +3823,7 @@ impl VenvSettings {
             seed,
             allow_existing,
             clear,
+            force,
             no_clear,
             path,
             prompt,
@@ -3835,6 +3864,7 @@ impl VenvSettings {
             seed,
             allow_existing,
             clear: clear.into(),
+            force,
             no_clear: no_clear.into(),
             path,
             prompt,

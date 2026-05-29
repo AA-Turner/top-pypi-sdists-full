@@ -355,6 +355,10 @@ __all__ = [
     'GetMulticloudExternalLocationSummariesMetadataFilterArgsDict',
     'GetMulticloudExternalLocationsMetadataFilterArgs',
     'GetMulticloudExternalLocationsMetadataFilterArgsDict',
+    'GetMulticloudMulticloudalertsFilterArgs',
+    'GetMulticloudMulticloudalertsFilterArgsDict',
+    'GetMulticloudMulticloudpoliciesFilterArgs',
+    'GetMulticloudMulticloudpoliciesFilterArgsDict',
     'GetMulticloudMulticloudsubscriptionsFilterArgs',
     'GetMulticloudMulticloudsubscriptionsFilterArgsDict',
     'GetMulticloudOmHubMulticloudResourcesFilterArgs',
@@ -1132,7 +1136,7 @@ class BatchBatchContextNetworkArgsDict(TypedDict):
     """
     A list of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of associated network security groups.
     """
-    vnics: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['BatchBatchContextNetworkVnicArgs']]]]]
+    vnics: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['BatchBatchContextNetworkVnicArgsDict']]]]]
     """
     A list of private endpoint's VNICs.
     """
@@ -1720,7 +1724,7 @@ class DbmulticloudOracleDbAwsIdentityConnectorServiceRoleDetailArgsDict(TypedDic
     """
     Assume role  status.
     """
-    aws_nodes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DbmulticloudOracleDbAwsIdentityConnectorServiceRoleDetailAwsNodeArgs']]]]]
+    aws_nodes: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DbmulticloudOracleDbAwsIdentityConnectorServiceRoleDetailAwsNodeArgsDict']]]]]
     """
     List of all VMs where AWS Identity Connector is configured for Oracle DB Cloud VM Cluster.
     """
@@ -1907,7 +1911,7 @@ class DbmulticloudOracleDbAwsIdentityConnectorServiceRoleDetailAwsNodeArgs:
 
 
 class DbmulticloudOracleDbAwsKeyReplicationMetadataArgsDict(TypedDict):
-    replication_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DbmulticloudOracleDbAwsKeyReplicationMetadataReplicationDetailArgs']]]]]
+    replication_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DbmulticloudOracleDbAwsKeyReplicationMetadataReplicationDetailArgsDict']]]]]
     """
     List of all regions and their respective resource ID.
     """
@@ -2134,7 +2138,7 @@ class DbmulticloudOracleDbAzureConnectorArcAgentNodeArgs:
 
 
 class DbmulticloudOracleDbAzureVaultReplicationMetadataArgsDict(TypedDict):
-    replication_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DbmulticloudOracleDbAzureVaultReplicationMetadataReplicationDetailArgs']]]]]
+    replication_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DbmulticloudOracleDbAzureVaultReplicationMetadataReplicationDetailArgsDict']]]]]
     """
     List of all regions and their respective resource ID.
     """
@@ -2341,7 +2345,7 @@ class DbmulticloudOracleDbGcpIdentityConnectorGcpNodeArgs:
 
 
 class DbmulticloudOracleDbGcpKeyRingReplicationMetadataArgsDict(TypedDict):
-    replication_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DbmulticloudOracleDbGcpKeyRingReplicationMetadataReplicationDetailArgs']]]]]
+    replication_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DbmulticloudOracleDbGcpKeyRingReplicationMetadataReplicationDetailArgsDict']]]]]
     """
     List of all regions and their respective resource ID.
     """
@@ -2484,7 +2488,7 @@ class DifStackAdbArgsDict(TypedDict):
     Id for the adw instance.
     """
     artifact_object_storage_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    db_credentials: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackAdbDbCredentialArgs']]]]]
+    db_credentials: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackAdbDbCredentialArgsDict']]]]]
     """
     DB credential details.
     """
@@ -2836,11 +2840,11 @@ class DifStackDataflowArgsDict(TypedDict):
     """
     Contains the archive from object storage bucket which can be added as dependency to data flow application.
     """
-    connections: NotRequired[pulumi.Input[Optional['DifStackDataflowConnectionsArgs']]]
+    connections: NotRequired[pulumi.Input[Optional['DifStackDataflowConnectionsArgsDict']]]
     """
     (Updatable) Details for connections to other services from Dataflow.
     """
-    driver_shape_config: NotRequired[pulumi.Input[Optional['DifStackDataflowDriverShapeConfigArgs']]]
+    driver_shape_config: NotRequired[pulumi.Input[Optional['DifStackDataflowDriverShapeConfigArgsDict']]]
     """
     (Updatable) This is used to configure the shape of the driver or executor if a flexible shape is used.
     """
@@ -2848,7 +2852,7 @@ class DifStackDataflowArgsDict(TypedDict):
     """
     Contains the main file (py/jar) along with parameters & configuration to be passed to the DataFlow run.
     """
-    executor_shape_config: NotRequired[pulumi.Input[Optional['DifStackDataflowExecutorShapeConfigArgs']]]
+    executor_shape_config: NotRequired[pulumi.Input[Optional['DifStackDataflowExecutorShapeConfigArgsDict']]]
     """
     (Updatable) This is used to configure the shape of the driver or executor if a flexible shape is used.
     """
@@ -3118,7 +3122,7 @@ class DifStackDataflowConnectionsArgs:
 
 
 class DifStackDataflowConnectionsConnectionDetailsArgsDict(TypedDict):
-    dif_dependencies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackDataflowConnectionsConnectionDetailsDifDependencyArgs']]]]]
+    dif_dependencies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackDataflowConnectionsConnectionDetailsDifDependencyArgsDict']]]]]
     """
     (Updatable) List of DIF Service Dependency Details to create private endpoint.
     """
@@ -3328,7 +3332,7 @@ class DifStackGenaiArgsDict(TypedDict):
     """
     (Updatable) No of replicas of base model to be used for hosting.
     """
-    endpoints: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGenaiEndpointArgs']]]]]
+    endpoints: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGenaiEndpointArgsDict']]]]]
     """
     (Updatable) List of endpoints to provision for the GENAI cluster.
     """
@@ -3496,7 +3500,7 @@ class DifStackGgcArgsDict(TypedDict):
     The OCID of the subnet of the GGCS deployment's private endpoint.
     """
     artifact_object_storage_path: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    connections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGgcConnectionArgs']]]]]
+    connections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGgcConnectionArgsDict']]]]]
     """
     (Updatable) Connection details to be associated with the Goldengate deployment.
     """
@@ -3508,15 +3512,15 @@ class DifStackGgcArgsDict(TypedDict):
     """
     (Updatable) The OCID of a public subnet in the customer tenancy. Can be provided only for public GGCS deployments.
     """
-    sources: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGgcSourceArgs']]]]]
+    sources: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGgcSourceArgsDict']]]]]
     """
     Source Detail to configure existing or new datasource.
     """
-    targets: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGgcTargetArgs']]]]]
+    targets: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGgcTargetArgsDict']]]]]
     """
     Target Detail to configure existing or new datasource.
     """
-    users: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGgcUserArgs']]]]]
+    users: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGgcUserArgsDict']]]]]
     """
     Ggcs user details to be created or updated.
     """
@@ -3705,7 +3709,7 @@ class DifStackGgcConnectionArgsDict(TypedDict):
     """
     (Updatable) OCID of pre-created Oracle GoldenGate connection.
     """
-    dif_dependencies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGgcConnectionDifDependencyArgs']]]]]
+    dif_dependencies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackGgcConnectionDifDependencyArgsDict']]]]]
     """
     (Updatable) List of Service Dependency Details for connection creation.
     """
@@ -4206,7 +4210,7 @@ class DifStackOkeArgsDict(TypedDict):
     """
     Kubernetes namespace-name of OKE cluster.
     """
-    component_value_overrides: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackOkeComponentValueOverrideArgs']]]]]
+    component_value_overrides: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackOkeComponentValueOverrideArgsDict']]]]]
     """
     Component overrides for stack specific parameters applied during artifact template rendering.
     """
@@ -4214,7 +4218,7 @@ class DifStackOkeArgsDict(TypedDict):
     """
     Object storage path for the deployment manifest.
     """
-    secrets: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackOkeSecretArgs']]]]]
+    secrets: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackOkeSecretArgsDict']]]]]
     """
     List of kubernetes secrets to create or update in the namespace-name of the target cluster. Each entry source secret values from OCI vault.
     """
@@ -4503,7 +4507,7 @@ class DifStackOmkArgsDict(TypedDict):
     """
     Kubernetes namespace-name of OMK cluster-namespace.
     """
-    component_value_overrides: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackOmkComponentValueOverrideArgs']]]]]
+    component_value_overrides: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackOmkComponentValueOverrideArgsDict']]]]]
     """
     Component overrides for stack specific parameters applied during artifact template rendering.
     """
@@ -4511,7 +4515,7 @@ class DifStackOmkArgsDict(TypedDict):
     """
     Object storage path for the deployment manifest.
     """
-    secrets: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackOmkSecretArgs']]]]]
+    secrets: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackOmkSecretArgsDict']]]]]
     """
     List of kubernetes secrets to create or update in the namespace-name of target cluster-namespace. Each entry source secret values from OCI vault.
     """
@@ -4799,7 +4803,7 @@ class DifStackOmkSecretSecretDataArgs:
 
 
 class DifStackServiceDetailArgsDict(TypedDict):
-    additional_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackServiceDetailAdditionalDetailArgs']]]]]
+    additional_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackServiceDetailAdditionalDetailArgsDict']]]]]
     """
     Additional details about the provisioned services
     """
@@ -4968,7 +4972,7 @@ class DifStackServiceDetailArgs:
 
 
 class DifStackServiceDetailAdditionalDetailArgsDict(TypedDict):
-    assigned_connections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackServiceDetailAdditionalDetailAssignedConnectionArgs']]]]]
+    assigned_connections: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackServiceDetailAdditionalDetailAssignedConnectionArgsDict']]]]]
     """
     connections assigned to Golden Gate deployment
     """
@@ -4976,7 +4980,7 @@ class DifStackServiceDetailAdditionalDetailArgsDict(TypedDict):
     """
     OCID of cluster assigned to OMK cluster-namespace.
     """
-    endpoint_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackServiceDetailAdditionalDetailEndpointDetailArgs']]]]]
+    endpoint_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DifStackServiceDetailAdditionalDetailEndpointDetailArgsDict']]]]]
     """
     details of all endpoints assigned to cluster
     """
@@ -5291,7 +5295,7 @@ class DistributedDatabaseDistributedAutonomousDatabaseCatalogDetailArgsDict(Type
     """
     The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions.
     """
-    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseCatalogDetailMetadataArgs']]]]]
+    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseCatalogDetailMetadataArgsDict']]]]]
     """
     Additional metadata related to Globally distributed autonomous database resources.
     """
@@ -5311,7 +5315,7 @@ class DistributedDatabaseDistributedAutonomousDatabaseCatalogDetailArgsDict(Type
     """
     This field is deprecated. This should not be used while creation of new distributed autonomous database. To set the peers on catalog of distributed autonomous database please use peerDetails.
     """
-    peer_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseCatalogDetailPeerDetailArgs']]]]]
+    peer_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseCatalogDetailPeerDetailArgsDict']]]]]
     """
     The details required for creation of the peer for the autonomous dedicated infrastructure based catalog.
     """
@@ -5723,7 +5727,7 @@ class DistributedDatabaseDistributedAutonomousDatabaseCatalogDetailPeerDetailArg
     """
     This field is deprecated. Support for this field will be removed after one year of deprecation cycle.
     """
-    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseCatalogDetailPeerDetailMetadataArgs']]]]]
+    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseCatalogDetailPeerDetailMetadataArgsDict']]]]]
     """
     Additional metadata related to Globally distributed autonomous database resources.
     """
@@ -6013,7 +6017,7 @@ class DistributedDatabaseDistributedAutonomousDatabaseConnectionStringArgs:
 
 
 class DistributedDatabaseDistributedAutonomousDatabaseDbBackupConfigArgsDict(TypedDict):
-    backup_destination_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseDbBackupConfigBackupDestinationDetailArgs']]]]]
+    backup_destination_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseDbBackupConfigBackupDestinationDetailArgsDict']]]]]
     """
     Backup destination details.
     """
@@ -6238,11 +6242,11 @@ class DistributedDatabaseDistributedAutonomousDatabaseGsmDetailArgsDict(TypedDic
     """
     The data disk group size to be allocated in GBs for the shard database.
     """
-    gsm_image_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseGsmDetailGsmImageDetailArgs']]]]]
+    gsm_image_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseGsmDetailGsmImageDetailArgsDict']]]]]
     """
     The Global service manager image details.
     """
-    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseGsmDetailMetadataArgs']]]]]
+    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseGsmDetailMetadataArgsDict']]]]]
     """
     Additional metadata related to Globally distributed autonomous database resources.
     """
@@ -6697,7 +6701,7 @@ class DistributedDatabaseDistributedAutonomousDatabaseShardDetailArgsDict(TypedD
     """
     The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions.
     """
-    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseShardDetailMetadataArgs']]]]]
+    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseShardDetailMetadataArgsDict']]]]]
     """
     Additional metadata related to Globally distributed autonomous database resources.
     """
@@ -6717,7 +6721,7 @@ class DistributedDatabaseDistributedAutonomousDatabaseShardDetailArgsDict(TypedD
     """
     This field is deprecated. This should not be used while creation of new distributed autonomous database. To set the peers on new shards of distributed autonomous database please use peerDetails.
     """
-    peer_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseShardDetailPeerDetailArgs']]]]]
+    peer_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseShardDetailPeerDetailArgsDict']]]]]
     """
     The details required for creation of the peer for the autonomous dedicated infrastructure based shard.
     """
@@ -7150,7 +7154,7 @@ class DistributedDatabaseDistributedAutonomousDatabaseShardDetailPeerDetailArgsD
     """
     This field is deprecated. Support for this field will be removed after one year of deprecation cycle.
     """
-    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseShardDetailPeerDetailMetadataArgs']]]]]
+    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedAutonomousDatabaseShardDetailPeerDetailMetadataArgsDict']]]]]
     """
     Additional metadata related to Globally distributed autonomous database resources.
     """
@@ -7486,7 +7490,7 @@ class DistributedDatabaseDistributedDatabaseCatalogDetailArgsDict(TypedDict):
     """
     The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Database Home.
     """
-    db_storage_vault_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseCatalogDetailDbStorageVaultDetailsArgs']]]
+    db_storage_vault_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseCatalogDetailDbStorageVaultDetailsArgsDict']]]
     """
     Details of the request to create exascale db vault storage for shard or catalog of the distributed database.
     """
@@ -7498,7 +7502,7 @@ class DistributedDatabaseDistributedDatabaseCatalogDetailArgsDict(TypedDict):
     """
     The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions.
     """
-    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseCatalogDetailMetadataArgs']]]]]
+    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseCatalogDetailMetadataArgsDict']]]]]
     """
     Additional metadata related to Globally distributed database resources.
     """
@@ -7506,7 +7510,7 @@ class DistributedDatabaseDistributedDatabaseCatalogDetailArgsDict(TypedDict):
     """
     Name of the shard.
     """
-    peer_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseCatalogDetailPeerDetailArgs']]]]]
+    peer_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseCatalogDetailPeerDetailArgsDict']]]]]
     """
     The details required for creation of the peer for the ExadbXs infrastructure based catalog.
     """
@@ -7542,7 +7546,7 @@ class DistributedDatabaseDistributedDatabaseCatalogDetailArgsDict(TypedDict):
     """
     The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Oracle Cloud Infrastructure [vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts). This parameter and `kmsKeyId` are required for Customer Managed Keys.
     """
-    vm_cluster_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseCatalogDetailVmClusterDetailsArgs']]]
+    vm_cluster_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseCatalogDetailVmClusterDetailsArgsDict']]]
     """
     Details of the request to create exadb vm cluster for shard or catalog of the distributed database.
     """
@@ -8019,11 +8023,11 @@ class DistributedDatabaseDistributedDatabaseCatalogDetailPeerDetailArgsDict(Type
     """
     the identifier of the container database for underlying supporting resource.
     """
-    db_storage_vault_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseCatalogDetailPeerDetailDbStorageVaultDetailsArgs']]]
+    db_storage_vault_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseCatalogDetailPeerDetailDbStorageVaultDetailsArgsDict']]]
     """
     Details of the request to create exascale db vault storage for shard or catalog of the distributed database.
     """
-    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseCatalogDetailPeerDetailMetadataArgs']]]]]
+    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseCatalogDetailPeerDetailMetadataArgsDict']]]]]
     """
     Additional metadata related to Globally distributed database resources.
     """
@@ -8055,7 +8059,7 @@ class DistributedDatabaseDistributedDatabaseCatalogDetailPeerDetailArgsDict(Type
     """
     The redo transport type to use for this Data Guard association.
     """
-    vm_cluster_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseCatalogDetailPeerDetailVmClusterDetailsArgs']]]
+    vm_cluster_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseCatalogDetailPeerDetailVmClusterDetailsArgsDict']]]
     """
     Details of the request to create exadb vm cluster for shard or catalog of the distributed database.
     """
@@ -9101,7 +9105,7 @@ class DistributedDatabaseDistributedDatabaseDbBackupConfigArgsDict(TypedDict):
     """
     This defines when the backups will be deleted. - IMMEDIATE option keep the backup for predefined time i.e 72 hours and then delete permanently... - RETAIN will keep the backups as per the policy defined for database backups.
     """
-    backup_destination_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseDbBackupConfigBackupDestinationDetailArgs']]]]]
+    backup_destination_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseDbBackupConfigBackupDestinationDetailArgsDict']]]]]
     """
     Backup destination details.
     """
@@ -9490,11 +9494,11 @@ class DistributedDatabaseDistributedDatabaseGsmDetailArgsDict(TypedDict):
     """
     The data disk group size to be allocated in GBs for the Global service manager instance.
     """
-    gsm_image_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseGsmDetailGsmImageDetailArgs']]]]]
+    gsm_image_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseGsmDetailGsmImageDetailArgsDict']]]]]
     """
     The Global service manager image details
     """
-    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseGsmDetailMetadataArgs']]]]]
+    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseGsmDetailMetadataArgsDict']]]]]
     """
     Additional metadata related to Globally distributed database resources.
     """
@@ -10032,7 +10036,7 @@ class DistributedDatabaseDistributedDatabaseShardDetailArgsDict(TypedDict):
     """
     The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Database Home.
     """
-    db_storage_vault_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseShardDetailDbStorageVaultDetailsArgs']]]
+    db_storage_vault_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseShardDetailDbStorageVaultDetailsArgsDict']]]
     """
     Details of the request to create exascale db vault storage for shard or catalog of the distributed database.
     """
@@ -10044,7 +10048,7 @@ class DistributedDatabaseDistributedDatabaseShardDetailArgsDict(TypedDict):
     """
     The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions.
     """
-    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseShardDetailMetadataArgs']]]]]
+    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseShardDetailMetadataArgsDict']]]]]
     """
     Additional metadata related to Globally distributed database resources.
     """
@@ -10052,7 +10056,7 @@ class DistributedDatabaseDistributedDatabaseShardDetailArgsDict(TypedDict):
     """
     Name of the shard.
     """
-    peer_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseShardDetailPeerDetailArgs']]]]]
+    peer_details: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseShardDetailPeerDetailArgsDict']]]]]
     """
     The details required for creation of the peer for the ExadbXs infrastructure based shard.
     """
@@ -10088,7 +10092,7 @@ class DistributedDatabaseDistributedDatabaseShardDetailArgsDict(TypedDict):
     """
     The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Oracle Cloud Infrastructure [vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts). This parameter and `kmsKeyId` are required for Customer Managed Keys.
     """
-    vm_cluster_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseShardDetailVmClusterDetailsArgs']]]
+    vm_cluster_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseShardDetailVmClusterDetailsArgsDict']]]
     """
     Details of the request to create exadb vm cluster for shard or catalog of the distributed database.
     """
@@ -10565,11 +10569,11 @@ class DistributedDatabaseDistributedDatabaseShardDetailPeerDetailArgsDict(TypedD
     """
     the identifier of the container database for underlying supporting resource.
     """
-    db_storage_vault_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseShardDetailPeerDetailDbStorageVaultDetailsArgs']]]
+    db_storage_vault_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseShardDetailPeerDetailDbStorageVaultDetailsArgsDict']]]
     """
     Details of the request to create exascale db vault storage for shard or catalog of the distributed database.
     """
-    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseShardDetailPeerDetailMetadataArgs']]]]]
+    metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DistributedDatabaseDistributedDatabaseShardDetailPeerDetailMetadataArgsDict']]]]]
     """
     Additional metadata related to Globally distributed database resources.
     """
@@ -10601,7 +10605,7 @@ class DistributedDatabaseDistributedDatabaseShardDetailPeerDetailArgsDict(TypedD
     """
     The redo transport type to use for this Data Guard association.
     """
-    vm_cluster_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseShardDetailPeerDetailVmClusterDetailsArgs']]]
+    vm_cluster_details: NotRequired[pulumi.Input[Optional['DistributedDatabaseDistributedDatabaseShardDetailPeerDetailVmClusterDetailsArgsDict']]]
     """
     Details of the request to create exadb vm cluster for shard or catalog of the distributed database.
     """
@@ -11746,11 +11750,11 @@ class IotDigitalTwinAdapterInboundEnvelopeArgsDict(TypedDict):
     """
     (Updatable) The device endpoint.
     """
-    envelope_mapping: NotRequired[pulumi.Input[Optional['IotDigitalTwinAdapterInboundEnvelopeEnvelopeMappingArgs']]]
+    envelope_mapping: NotRequired[pulumi.Input[Optional['IotDigitalTwinAdapterInboundEnvelopeEnvelopeMappingArgsDict']]]
     """
     (Updatable) Maps the metadata fields from the inbound payload using JQ. These mappings allow you to extract specific metadata such as timestamps using JQ expressions.
     """
-    reference_payload: NotRequired[pulumi.Input[Optional['IotDigitalTwinAdapterInboundEnvelopeReferencePayloadArgs']]]
+    reference_payload: NotRequired[pulumi.Input[Optional['IotDigitalTwinAdapterInboundEnvelopeReferencePayloadArgsDict']]]
     """
     (Updatable) Reference payload structure template received from IoT device. This payload must specify its content type using the `dataFormat` property.
     """
@@ -11942,7 +11946,7 @@ class IotDigitalTwinAdapterInboundRouteArgsDict(TypedDict):
 
     Example: Given payload: { "time": "<timestamp>", "temp": 65, "hum": 55 } And mapping: { "temperature": "$.temp", "humidity": "$.hum", "timeObserved": "$.time" } The output will be: { "temperature": 65, "humidity": 55, "timeObserved": "<timestamp>" }
     """
-    reference_payload: NotRequired[pulumi.Input[Optional['IotDigitalTwinAdapterInboundRouteReferencePayloadArgs']]]
+    reference_payload: NotRequired[pulumi.Input[Optional['IotDigitalTwinAdapterInboundRouteReferencePayloadArgsDict']]]
     """
     (Updatable) Reference payload structure template received from IoT device. This payload must specify its content type using the `dataFormat` property.
     """
@@ -12510,7 +12514,7 @@ class ResourceAnalyticsResourceAnalyticsInstanceOacManagementAttachmentDetailsAr
     """
     The Oracle license model that applies to the OAC instance.
     """
-    network_details: NotRequired[pulumi.Input[Optional['ResourceAnalyticsResourceAnalyticsInstanceOacManagementAttachmentDetailsNetworkDetailsArgs']]]
+    network_details: NotRequired[pulumi.Input[Optional['ResourceAnalyticsResourceAnalyticsInstanceOacManagementAttachmentDetailsNetworkDetailsArgsDict']]]
     """
     Details required when provisioning OAC on a private network.  Example: `{"subnetId":"ocid...", ...}`
     """
@@ -12716,7 +12720,7 @@ class ResourceAnalyticsResourceAnalyticsInstanceOacManagementAttachmentDetailsNe
 
 
 class ResourceAnalyticsTenancyAttachmentMonitoredRegionArgsDict(TypedDict):
-    data_populations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ResourceAnalyticsTenancyAttachmentMonitoredRegionDataPopulationArgs']]]]]
+    data_populations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['ResourceAnalyticsTenancyAttachmentMonitoredRegionDataPopulationArgsDict']]]]]
     """
     Data population status for a monitored region in the tenancy.
     """
@@ -13180,7 +13184,7 @@ class SelfSubscriptionSubscriptionDetailsBillingDetailsMeterArgsDict(TypedDict):
     """
     Tha rate of this sku meter.
     """
-    extended_metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['SelfSubscriptionSubscriptionDetailsBillingDetailsMeterExtendedMetadataArgs']]]]]
+    extended_metadatas: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['SelfSubscriptionSubscriptionDetailsBillingDetailsMeterExtendedMetadataArgsDict']]]]]
     """
     Additional data give by sku.
     """
@@ -15545,6 +15549,103 @@ class GetMulticloudExternalLocationsMetadataFilterArgs:
     @_builtins.property
     @pulumi.getter
     def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: _builtins.str):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "values")
+
+    @values.setter
+    def values(self, value: Sequence[_builtins.str]):
+        pulumi.set(self, "values", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "regex")
+
+    @regex.setter
+    def regex(self, value: Optional[_builtins.bool]):
+        pulumi.set(self, "regex", value)
+
+
+class GetMulticloudMulticloudalertsFilterArgsDict(TypedDict):
+    name: _builtins.str
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
+
+@pulumi.input_type
+class GetMulticloudMulticloudalertsFilterArgs:
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str],
+                 regex: Optional[_builtins.bool] = None):
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+        if regex is not None:
+            pulumi.set(__self__, "regex", regex)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: _builtins.str):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "values")
+
+    @values.setter
+    def values(self, value: Sequence[_builtins.str]):
+        pulumi.set(self, "values", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "regex")
+
+    @regex.setter
+    def regex(self, value: Optional[_builtins.bool]):
+        pulumi.set(self, "regex", value)
+
+
+class GetMulticloudMulticloudpoliciesFilterArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    Name of the missing policy.
+    """
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
+
+@pulumi.input_type
+class GetMulticloudMulticloudpoliciesFilterArgs:
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str],
+                 regex: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.str name: Name of the missing policy.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+        if regex is not None:
+            pulumi.set(__self__, "regex", regex)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the missing policy.
+        """
         return pulumi.get(self, "name")
 
     @name.setter

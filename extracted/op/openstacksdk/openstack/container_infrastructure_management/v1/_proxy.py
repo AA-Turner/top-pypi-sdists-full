@@ -11,7 +11,7 @@
 # under the License.
 
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 from openstack.container_infrastructure_management.v1 import (
     cluster as _cluster,
@@ -43,22 +43,22 @@ class Proxy(proxy.Proxy):
     def create_cluster(self, **attrs: Any) -> _cluster.Cluster:
         """Create a new cluster from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.container_infrastructure_management.v1.cluster.Cluster`,
             comprised of the properties on the Cluster class.
         :returns: The results of cluster creation
-        :rtype:
-            :class:`~openstack.container_infrastructure_management.v1.cluster.Cluster`
         """
         return self._create(_cluster.Cluster, **attrs)
 
-    def delete_cluster(self, cluster, ignore_missing=True):
+    def delete_cluster(
+        self, cluster: str | _cluster.Cluster, ignore_missing: bool = True
+    ) -> None:
         """Delete a cluster
 
         :param cluster: The value can be either the ID of a cluster or a
             :class:`~openstack.container_infrastructure_management.v1.cluster.Cluster`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the cluster does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent cluster.
@@ -88,7 +88,7 @@ class Proxy(proxy.Proxy):
         """Find a single cluster
 
         :param name_or_id: The name or ID of a cluster.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -103,7 +103,7 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_cluster(self, cluster):
+    def get_cluster(self, cluster: str | _cluster.Cluster) -> _cluster.Cluster:
         """Get a single cluster
 
         :param cluster: The value can be the ID of a cluster or a
@@ -117,19 +117,23 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_cluster.Cluster, cluster)
 
-    def clusters(self, **query):
+    def clusters(
+        self,
+        **query: Any,
+    ) -> Generator[_cluster.Cluster, None, None]:
         """Return a generator of clusters
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of cluster objects
-        :rtype:
             :class:`~openstack.container_infrastructure_management.v1.cluster.Cluster`
         """
         return self._list(_cluster.Cluster, **query)
 
-    def update_cluster(self, cluster, **attrs):
+    def update_cluster(
+        self, cluster: str | _cluster.Cluster, **attrs: Any
+    ) -> _cluster.Cluster:
         """Update a cluster
 
         :param cluster: Either the id of a cluster or a
@@ -139,8 +143,6 @@ class Proxy(proxy.Proxy):
             by ``cluster``.
 
         :returns: The updated cluster
-        :rtype:
-            :class:`~openstack.container_infrastructure_management.v1.cluster.Cluster`
         """
         return self._update(_cluster.Cluster, cluster, **attrs)
 
@@ -151,23 +153,25 @@ class Proxy(proxy.Proxy):
     ) -> _cluster_template.ClusterTemplate:
         """Create a new cluster_template from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.container_infrastructure_management.v1.cluster_template.ClusterTemplate`,
             comprised of the properties on the ClusterTemplate class.
         :returns: The results of cluster_template creation
-        :rtype:
-            :class:`~openstack.container_infrastructure_management.v1.cluster_template.ClusterTemplate`
         """
         return self._create(_cluster_template.ClusterTemplate, **attrs)
 
-    def delete_cluster_template(self, cluster_template, ignore_missing=True):
+    def delete_cluster_template(
+        self,
+        cluster_template: str | _cluster_template.ClusterTemplate,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a cluster_template
 
         :param cluster_template: The value can be either the ID of a
             cluster_template or a
             :class:`~openstack.container_infrastructure_management.v1.cluster_template.ClusterTemplate`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the cluster_template does not exist. When set to ``True``, no
             exception will be set when attempting to delete a nonexistent
@@ -202,7 +206,7 @@ class Proxy(proxy.Proxy):
         """Find a single cluster_template
 
         :param name_or_id: The name or ID of a cluster_template.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -217,7 +221,9 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_cluster_template(self, cluster_template):
+    def get_cluster_template(
+        self, cluster_template: str | _cluster_template.ClusterTemplate
+    ) -> _cluster_template.ClusterTemplate:
         """Get a single cluster_template
 
         :param cluster_template: The value can be the ID of a cluster_template
@@ -232,19 +238,25 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_cluster_template.ClusterTemplate, cluster_template)
 
-    def cluster_templates(self, **query):
+    def cluster_templates(
+        self,
+        **query: Any,
+    ) -> Generator[_cluster_template.ClusterTemplate, None, None]:
         """Return a generator of cluster_templates
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of cluster_template objects
-        :rtype:
             :class:`~openstack.container_infrastructure_management.v1.cluster_template.ClusterTemplate`
         """
         return self._list(_cluster_template.ClusterTemplate, **query)
 
-    def update_cluster_template(self, cluster_template, **attrs):
+    def update_cluster_template(
+        self,
+        cluster_template: str | _cluster_template.ClusterTemplate,
+        **attrs: Any,
+    ) -> _cluster_template.ClusterTemplate:
         """Update a cluster_template
 
         :param cluster_template: Either the id of a cluster_template or a
@@ -254,8 +266,6 @@ class Proxy(proxy.Proxy):
             represented by ``cluster_template``.
 
         :returns: The updated cluster_template
-        :rtype:
-            :class:`~openstack.container_infrastructure_management.v1.cluster_template.ClusterTemplate`
         """
         return self._update(
             _cluster_template.ClusterTemplate, cluster_template, **attrs
@@ -268,16 +278,17 @@ class Proxy(proxy.Proxy):
     ) -> _cluster_cert.ClusterCertificate:
         """Create a new cluster_certificate from CSR
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.container_infrastructure_management.v1.cluster_certificate.ClusterCertificate`,
             comprised of the properties on the ClusterCertificate class.
         :returns: The results of cluster_certificate creation
-        :rtype:
-            :class:`~openstack.container_infrastructure_management.v1.cluster_certificate.ClusterCertificate`
         """
         return self._create(_cluster_cert.ClusterCertificate, **attrs)
 
-    def get_cluster_certificate(self, cluster_certificate):
+    def get_cluster_certificate(
+        self,
+        cluster_certificate: str | _cluster_cert.ClusterCertificate,
+    ) -> _cluster_cert.ClusterCertificate:
         """Get a single cluster_certificate
 
         :param cluster_certificate: The value can be the ID of a
@@ -294,11 +305,10 @@ class Proxy(proxy.Proxy):
 
     # ============== Services ==============
 
-    def services(self):
+    def services(self) -> Generator[_service.Service, None, None]:
         """Return a generator of services
 
         :returns: A generator of service objects
-        :rtype:
             :class:`~openstack.container_infrastructure_management.v1.service.Service`
         """
         return self._list(_service.Service)
@@ -332,7 +342,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -347,8 +357,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

@@ -5,4 +5,4 @@ class AllianceAuthConfig(AppConfig):
     name = 'allianceauth'
 
     def ready(self) -> None:
-        import allianceauth.checks # noqa
+        import allianceauth.checks  # noqa: F401

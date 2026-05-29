@@ -7,7 +7,7 @@ import yaml
 from pathlib import Path
 import pandas as pd
 from ..interfaces.powerpoint import PowerPointClient
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import DataNotFound
 
 

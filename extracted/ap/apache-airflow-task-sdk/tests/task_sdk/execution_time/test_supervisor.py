@@ -64,7 +64,7 @@ from airflow.sdk.api.datamodels._generated import (
     TaskInstanceState,
 )
 from airflow.sdk.exceptions import AirflowRuntimeError, ErrorType, TaskAlreadyRunningError
-from airflow.sdk.execution_time import task_runner
+from airflow.sdk.execution_time import supervisor, task_runner
 from airflow.sdk.execution_time.comms import (
     AssetEventsResult,
     AssetResult,
@@ -516,11 +516,21 @@ class TestWatchedSubprocess:
 
         assert rc == -9
 
-    def test_last_chance_exception_handling(self, capfd):
+    @pytest.mark.parametrize(
+        "start_date",
+        [
+            pytest.param(None, id="start_date_is_none"),
+            pytest.param(timezone.datetime(2025, 3, 28, tzinfo=timezone.utc), id="start_date_from_context"),
+        ],
+    )
+    def test_last_chance_exception_handling(self, capfd, start_date, make_ti_context):
         def subprocess_main():
             # The real main() in task_runner catches exceptions! This is what would happen if we had a syntax
             # or import error for instance - a very early exception
             raise RuntimeError("Fake syntax error")
+
+        mock_client = MagicMock(spec=sdk_client.Client)
+        mock_client.task_instances.start.return_value = make_ti_context(start_date=start_date)
 
         proc = ActivitySubprocess.start(
             dag_rel_path=os.devnull,
@@ -528,7 +538,7 @@ class TestWatchedSubprocess:
             what=TaskInstance(
                 id=uuid7(), task_id="b", dag_id="c", run_id="d", try_number=1, dag_version_id=uuid7()
             ),
-            client=MagicMock(spec=sdk_client.Client),
+            client=mock_client,
             target=subprocess_main,
         )
 
@@ -539,6 +549,53 @@ class TestWatchedSubprocess:
         captured = capfd.readouterr()
         assert "Last chance exception handler" in captured.err
         assert "RuntimeError: Fake syntax error" in captured.err
+
+    @pytest.mark.parametrize(
+        "start_date",
+        [
+            pytest.param(timezone.datetime(2025, 3, 28, tzinfo=timezone.utc), id="start_date_from_context"),
+            pytest.param(None, id="start_date_missing_in_context"),
+        ],
+    )
+    def test_resume_start_date_from_context(self, mocker, make_ti_context, start_date, time_machine):
+        """Verify that start_date from ti_context (e.g. for deferral resume) is used in the
+        StartupDetails message instead of computing a new datetime.now(). This test is kept
+        separate from test_last_chance_exception_handling as their purposes do not overlap.
+        """
+        fallback_now = timezone.datetime(2026, 1, 1, tzinfo=timezone.utc)
+        time_machine.move_to(fallback_now, tick=False)
+
+        mock_client = MagicMock(spec=sdk_client.Client)
+        ti_context = make_ti_context()
+        ti_context.start_date = start_date
+        mock_client.task_instances.start.return_value = ti_context
+
+        mock_send = mocker.patch.object(ActivitySubprocess, "send_msg", autospec=True)
+        proc = ActivitySubprocess.start(
+            dag_rel_path=os.devnull,
+            bundle_info=FAKE_BUNDLE,
+            what=TaskInstance(
+                id=uuid7(),
+                task_id="b",
+                dag_id="c",
+                run_id="d",
+                try_number=1,
+                dag_version_id=uuid7(),
+            ),
+            client=mock_client,
+            target=lambda: None,
+        )
+        rc = proc.wait()
+        assert rc == 0
+
+        # The startup message is sent via send_msg(StartupDetails(...), request_id=0)
+        startup_calls = [
+            c for c in mock_send.call_args_list if len(c.args) > 1 and hasattr(c.args[1], "start_date")
+        ]
+        assert len(startup_calls) >= 1
+        msg = startup_calls[0].args[1]
+        expected_start_date = start_date or fallback_now
+        assert msg.start_date == expected_start_date
 
     def test_regular_heartbeat(self, spy_agency: kgb.SpyAgency, monkeypatch, mocker, make_ti_context):
         """Test that the WatchedSubprocess class regularly sends heartbeat requests, up to a certain frequency"""
@@ -1084,14 +1141,12 @@ class TestWatchedSubprocess:
         assert rc == -signal_to_raise
 
     @pytest.mark.execution_timeout(3)
-    def test_cleanup_sockets_after_delay(self, monkeypatch, mocker, time_machine):
+    def test_cleanup_sockets_after_delay(self, monkeypatch, mocker):
         """Supervisor should close sockets if EOF events are missed."""
 
         monkeypatch.setattr("airflow.sdk.execution_time.supervisor.SOCKET_CLEANUP_TIMEOUT", 1.0)
 
         mock_process = mocker.Mock(pid=12345)
-
-        time_machine.move_to(time.time(), tick=False)
 
         proc = ActivitySubprocess(
             process_log=mocker.MagicMock(),
@@ -1107,19 +1162,15 @@ class TestWatchedSubprocess:
 
         proc._exit_code = 0
         # Create a fake placeholder in the open socket weakref
-        proc._open_sockets[mocker.MagicMock()] = "test placeholder"
-        proc._process_exit_monotonic = time.time()
-
-        mocker.patch.object(
-            ActivitySubprocess,
-            "_cleanup_open_sockets",
-            side_effect=lambda: setattr(proc, "_open_sockets", {}),
-        )
-
-        time_machine.shift(2)
+        mock_socket = mocker.MagicMock(spec=socket.socket)
+        proc._open_sockets[mock_socket] = "test placeholder"
+        proc._process_exit_monotonic = time.monotonic() - 2
 
         proc._monitor_subprocess()
         assert len(proc._open_sockets) == 0
+        mock_socket.close.assert_called_once()
+        proc.selector.close.assert_called_once()
+        proc.stdin.close.assert_called_once()
 
 
 class TestWatchedSubprocessKill:
@@ -2702,6 +2753,177 @@ class TestHandleRequest:
             "detail": error.response.json(),
         }
 
+    def test_handle_requests_network_exception_does_not_crash_loop(self, watched_subprocess, mocker):
+        """A transient network error must not crash the IPC generator.
+
+        Without the catch-all in handle_requests, an httpx.ConnectError would
+        propagate, the generator would terminate, the task subprocess would
+        get EOFError on every subsequent send, and the worker would be stuck.
+        Verify that the error is reported back to the task as an
+        API_SERVER_ERROR ErrorResponse and that the loop stays alive for the
+        next request.
+        """
+        watched_subprocess, read_socket = watched_subprocess
+
+        # First request raises a network exception, second succeeds.
+        first_call = httpx.ConnectError("connection refused")
+        watched_subprocess.client.task_instances.succeed = mocker.Mock(side_effect=[first_call, None])
+
+        generator = watched_subprocess.handle_requests(log=mocker.Mock())
+        next(generator)
+
+        # First request — should produce an ErrorResponse, not crash the generator.
+        msg1 = SucceedTask(end_date=timezone.parse("2024-10-31T12:00:00Z"))
+        req1 = _RequestFrame(id=randint(1, 2**32 - 1), body=msg1.model_dump())
+        generator.send(req1)
+
+        read_socket.settimeout(0.5)
+        frame_len = int.from_bytes(read_socket.recv(4), "big")
+        bytes_ = read_socket.recv(frame_len)
+        frame = msgspec.msgpack.Decoder(_ResponseFrame).decode(bytes_)
+
+        assert frame.id == req1.id
+        assert frame.error is not None
+        assert frame.error["error"] == "API_SERVER_ERROR"
+        assert frame.error["detail"]["exception_type"] == "ConnectError"
+
+        # Second request — generator must still be alive and process it normally.
+        msg2 = SucceedTask(end_date=timezone.parse("2024-10-31T12:01:00Z"))
+        req2 = _RequestFrame(id=randint(1, 2**32 - 1), body=msg2.model_dump())
+        # Should not raise StopIteration (which would mean the loop crashed).
+        generator.send(req2)
+
+    @pytest.mark.parametrize(
+        ("msg", "api_method", "expected_state"),
+        [
+            pytest.param(
+                SucceedTask(end_date=timezone.parse("2024-10-31T12:00:00Z")),
+                "succeed",
+                TaskInstanceState.SUCCESS,
+                id="succeed",
+            ),
+            pytest.param(
+                RetryTask(end_date=timezone.parse("2024-10-31T12:00:00Z")),
+                "retry",
+                TaskInstanceState.UP_FOR_RETRY,
+                id="retry",
+            ),
+            pytest.param(
+                DeferTask(
+                    next_method="execute_complete",
+                    classpath="airflow.providers.standard.triggers.external_task.WorkflowTrigger",
+                    trigger_kwargs={},
+                ),
+                "defer",
+                TaskInstanceState.DEFERRED,
+                id="defer",
+            ),
+            pytest.param(
+                RescheduleTask(
+                    reschedule_date=timezone.parse("2024-10-31T12:00:00Z"),
+                    end_date=timezone.parse("2024-10-31T12:00:00Z"),
+                ),
+                "reschedule",
+                TaskInstanceState.UP_FOR_RESCHEDULE,
+                id="reschedule",
+            ),
+        ],
+    )
+    def test_terminal_state_not_set_when_direct_api_fails(
+        self, watched_subprocess, mocker, msg, api_method, expected_state
+    ):
+        """`_terminal_state` must NOT be set when the dedicated terminal-state
+        API raises.
+
+        The original message is captured in `_pending_terminal_state_msg`
+        BEFORE the API call so the recovery dispatcher in
+        `update_task_state_if_needed` can re-issue it on subprocess exit.
+        Covers all four terminal-state message types.
+        """
+        watched_subprocess, _ = watched_subprocess
+        setattr(
+            watched_subprocess.client.task_instances,
+            api_method,
+            mocker.Mock(side_effect=httpx.ConnectError("connection refused")),
+        )
+
+        with pytest.raises(httpx.ConnectError):
+            watched_subprocess._handle_request(msg, mocker.Mock(), req_id=1)
+
+        assert watched_subprocess._terminal_state is None
+        # Pending msg preserved so the recovery dispatcher can re-issue.
+        assert watched_subprocess._pending_terminal_state_msg is msg
+
+    @pytest.mark.parametrize(
+        ("msg", "api_method", "expected_state"),
+        [
+            pytest.param(
+                SucceedTask(end_date=timezone.parse("2024-10-31T12:00:00Z")),
+                "succeed",
+                TaskInstanceState.SUCCESS,
+                id="succeed",
+            ),
+            pytest.param(
+                RetryTask(end_date=timezone.parse("2024-10-31T12:00:00Z")),
+                "retry",
+                TaskInstanceState.UP_FOR_RETRY,
+                id="retry",
+            ),
+            pytest.param(
+                DeferTask(
+                    next_method="execute_complete",
+                    classpath="airflow.providers.standard.triggers.external_task.WorkflowTrigger",
+                    trigger_kwargs={},
+                ),
+                "defer",
+                TaskInstanceState.DEFERRED,
+                id="defer",
+            ),
+            pytest.param(
+                RescheduleTask(
+                    reschedule_date=timezone.parse("2024-10-31T12:00:00Z"),
+                    end_date=timezone.parse("2024-10-31T12:00:00Z"),
+                ),
+                "reschedule",
+                TaskInstanceState.UP_FOR_RESCHEDULE,
+                id="reschedule",
+            ),
+        ],
+    )
+    def test_update_task_state_replays_pending_terminal_state_call(
+        self, watched_subprocess, mocker, msg, api_method, expected_state
+    ):
+        """If a direct terminal-state API call was attempted and raised, the
+        recovery dispatcher must re-issue the dedicated endpoint (not
+        `finish()`, which the server-side endpoint refuses for SUCCESS /
+        DEFERRED / SERVER_TERMINATED). Covers all four message types.
+        """
+        watched_subprocess, _ = watched_subprocess
+        watched_subprocess._exit_code = 0
+        # Simulate the failure scenario: original API call raised, msg preserved.
+        watched_subprocess._pending_terminal_state_msg = msg
+
+        watched_subprocess.update_task_state_if_needed()
+
+        # Recovery re-issues the dedicated endpoint, NOT finish().
+        getattr(watched_subprocess.client.task_instances, api_method).assert_called_once()
+        watched_subprocess.client.task_instances.finish.assert_not_called()
+        assert watched_subprocess._terminal_state == expected_state
+        assert watched_subprocess._pending_terminal_state_msg is None
+
+    def test_update_task_state_no_recovery_without_pending_msg(self, watched_subprocess, mocker):
+        """No replay when nothing was pending — preserves the original
+        STATES_SENT_DIRECTLY short-circuit for the happy path."""
+        watched_subprocess, _ = watched_subprocess
+        watched_subprocess._exit_code = 0
+        watched_subprocess._terminal_state = TaskInstanceState.SUCCESS
+        watched_subprocess._pending_terminal_state_msg = None
+
+        watched_subprocess.update_task_state_if_needed()
+
+        watched_subprocess.client.task_instances.finish.assert_not_called()
+        watched_subprocess.client.task_instances.succeed.assert_not_called()
+
 
 class TestSetSupervisorComms:
     class DummyComms:
@@ -2887,6 +3109,31 @@ def test_remote_logging_conn(remote_logging, remote_conn, expected_env, monkeypa
                     f"Connection {expected_env} was not available during upload_to_remote call"
                 )
                 assert connection_available["conn_uri"] is not None, "Connection URI was None during upload"
+
+
+def test_log_upload_failures_are_non_fatal(mocker):
+    proc = ActivitySubprocess(
+        process_log=mocker.MagicMock(),
+        id=TI_ID,
+        pid=12345,
+        stdin=mocker.MagicMock(),
+        client=mocker.MagicMock(),
+        process=mocker.MagicMock(),
+    )
+    proc.ti = mocker.MagicMock()
+
+    mocker.patch(
+        "airflow.sdk.execution_time.supervisor._remote_logging_conn",
+        side_effect=RuntimeError("upload failed"),
+    )
+
+    proc._upload_logs()
+
+    proc.process_log.exception.assert_called_once_with(
+        "Failed to upload remote logs",
+        ti_id=TI_ID,
+        pid=12345,
+    )
 
 
 def test_remote_logging_conn_sets_process_context(monkeypatch, mocker):
@@ -3273,3 +3520,64 @@ def test_nondumpable_noop_on_non_linux():
     """On non-Linux, _make_process_nondumpable returns without error."""
 
     _make_process_nondumpable()
+
+
+@pytest.mark.usefixtures("disable_capturing")
+class TestChildExecMain:
+    """Test the macOS fork+exec child entry point."""
+
+    def test_uses_fds_012_and_requests_log_channel(self, monkeypatch):
+        """_child_exec_main wraps FDs 0/1/2 as sockets, passes log_fd=0, sets _AIRFLOW_FORK_EXEC."""
+        # _child_exec_main expects FDs 0/1/2 to be sockets (dup2'd by the
+        # parent before exec).  It passes log_fd=0 to _fork_main (structured
+        # logging is requested later via ResendLoggingFD).
+        req_a, req_b = socket.socketpair()
+        out_a, out_b = socket.socketpair()
+        err_a, err_b = socket.socketpair()
+
+        # Save originals so we can restore after the test.
+        saved_0 = os.dup(0)
+        saved_1 = os.dup(1)
+        saved_2 = os.dup(2)
+
+        try:
+            os.dup2(req_a.fileno(), 0)
+            os.dup2(out_a.fileno(), 1)
+            os.dup2(err_a.fileno(), 2)
+
+            captured = {}
+
+            def mock_fork_main(requests, stdout, stderr, log_fd, target):
+                captured["requests_fd"] = requests.fileno()
+                captured["stdout_fd"] = stdout.fileno()
+                captured["stderr_fd"] = stderr.fileno()
+                captured["log_fd"] = log_fd
+                captured["target"] = target
+                # Detach so the mock return doesn't double-close FDs that
+                # _child_exec_main's socket objects also own.
+                requests.detach()
+                stdout.detach()
+                stderr.detach()
+
+            monkeypatch.setattr(supervisor, "_fork_main", mock_fork_main)
+
+            supervisor._child_exec_main()
+
+            assert captured["requests_fd"] == 0
+            assert captured["stdout_fd"] == 1
+            assert captured["stderr_fd"] == 2
+            assert captured["log_fd"] == 0
+            assert captured["target"] is supervisor._subprocess_main
+            # _child_exec_main sets this so the task runner knows to request
+            # the log channel via ResendLoggingFD.
+            assert os.environ.pop("_AIRFLOW_FORK_EXEC") == "1"
+        finally:
+            # Restore original FDs.
+            os.dup2(saved_0, 0)
+            os.dup2(saved_1, 1)
+            os.dup2(saved_2, 2)
+            os.close(saved_0)
+            os.close(saved_1)
+            os.close(saved_2)
+            for s in [req_a, req_b, out_a, out_b, err_a, err_b]:
+                s.close()

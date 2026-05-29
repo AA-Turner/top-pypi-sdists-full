@@ -7,7 +7,7 @@ import pandas as pd
 from PIL import Image
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.ppt import PowerPointFile
 from ..exceptions import ComponentError, ConfigError, DataNotFound
 from ..utils.functions import is_empty

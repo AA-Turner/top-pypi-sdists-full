@@ -15,6 +15,7 @@ from sqlalchemy.sql.elements import TextClause
 from fides.api.common_exceptions import PrivacyRequestError
 from fides.api.graph.config import ROOT_COLLECTION_ADDRESS, TERMINATOR_ADDRESS
 from fides.api.models.audit_log import AuditLog
+from fides.api.models.connectionconfig import ConnectionConfig
 from fides.api.models.privacy_request import (
     COMPLETED_EXECUTION_LOG_STATUSES,
     EXITED_EXECUTION_LOG_STATUSES,
@@ -499,6 +500,7 @@ def _get_request_task_ids_in_progress(
         if task.status not in (
             ExecutionLogStatus.in_processing,
             ExecutionLogStatus.pending,
+            ExecutionLogStatus.awaiting_processing,
         ):
             continue
         awaiting_upstream = False
@@ -535,9 +537,40 @@ def _has_async_tasks_awaiting_external_completion(
         .filter(
             RequestTask.privacy_request_id == privacy_request_id,
             RequestTask.async_type.in_([AsyncTaskType.polling, AsyncTaskType.callback]),
+            RequestTask.status.notin_(EXITED_EXECUTION_LOG_STATUSES),
         )
         .exists()
     ).scalar()
+
+
+def _task_is_orphaned(db: Session, request_task_id: str) -> bool:
+    """Check if a request task's ConnectionConfig has been deleted or disabled.
+
+    A task is orphaned when its ConnectionConfig either no longer exists
+    (hard-deleted) or has been disabled.  In both cases the task can never
+    complete and should be skipped.
+    """
+    connection_key = (
+        db.query(RequestTask.traversal_details["dataset_connection_key"].as_string())
+        .filter(RequestTask.id == request_task_id)
+        .scalar()
+    )
+    if not connection_key:
+        logger.warning(
+            f"Request task {request_task_id} has no dataset_connection_key "
+            f"in traversal_details — possible data integrity issue"
+        )
+        return False
+
+    has_enabled_connection = db.query(
+        db.query(ConnectionConfig)
+        .filter(
+            ConnectionConfig.key == connection_key,
+            ConnectionConfig.disabled.is_(False),
+        )
+        .exists()
+    ).scalar()
+    return not has_enabled_connection
 
 
 # pylint: disable=too-many-branches
@@ -621,6 +654,18 @@ def requeue_interrupted_tasks(self: DatabaseTask) -> None:
                 # If the task ID is not cached, we can't check if it's running
                 # This means the request is stuck - cancel it
                 if not task_id:
+                    # Paused requests (manual webhook, manual task, Jira) have
+                    # no running Celery task by design — don't cancel them.
+                    if privacy_request.status in (
+                        PrivacyRequestStatus.requires_input,
+                        PrivacyRequestStatus.pending_external,
+                    ):
+                        logger.debug(
+                            f"Skipping privacy request {privacy_request.id} in "
+                            f"{privacy_request.status.value} status with no cached "
+                            f"task ID - intentionally paused"
+                        )
+                        continue
                     _cancel_interrupted_tasks_and_error_privacy_request(
                         db,
                         privacy_request,
@@ -643,6 +688,29 @@ def requeue_interrupted_tasks(self: DatabaseTask) -> None:
                             f"The task for privacy request {privacy_request.id} was terminated before it could schedule any request tasks, requeueing privacy request"
                         )
                         should_requeue = True
+                    elif request_tasks_count > 0:
+                        # Check for missing erasure tasks: if access tasks
+                        # exist and the policy has erasure rules, erasure
+                        # tasks should have been created alongside them.
+                        # Zero erasure tasks means creation failed.
+                        pr_policy = privacy_request.policy
+                        if pr_policy and pr_policy.get_rules_for_action(
+                            action_type=ActionType.erasure
+                        ):
+                            erasure_count = (
+                                db.query(RequestTask)
+                                .filter(
+                                    RequestTask.privacy_request_id
+                                    == privacy_request.id,
+                                    RequestTask.action_type == ActionType.erasure,
+                                )
+                                .count()
+                            )
+                            if erasure_count == 0:
+                                logger.warning(
+                                    f"Privacy request {privacy_request.id} has access tasks but zero erasure tasks despite having erasure rules, requeueing"
+                                )
+                                should_requeue = True
 
                     request_tasks_in_progress = _get_request_task_ids_in_progress(
                         db, privacy_request.id
@@ -668,23 +736,23 @@ def requeue_interrupted_tasks(self: DatabaseTask) -> None:
                             break
 
                         # If the task ID is not cached, we can't check if it's running
-                        # This means the subtask is stuck - but we need to handle this differently
-                        # based on the privacy request status
                         if not subtask_id:
+                            # Paused requests may have request tasks with no
+                            # cached subtask ID — this is expected when the
+                            # Celery worker completed and the DSR is waiting
+                            # for manual input or an external system. Don't
+                            # requeue or cancel these.
                             if privacy_request.status in (
                                 PrivacyRequestStatus.requires_input,
                                 PrivacyRequestStatus.pending_external,
                             ):
-                                # For requires_input / pending_external status, don't
-                                # automatically error the request as it's intentionally
-                                # waiting for user input or an external system (e.g. Jira)
-                                logger.warning(
-                                    f"No task ID found for request task {request_task_id} "
-                                    f"(privacy request {privacy_request.id}) in {privacy_request.status.value} status - "
-                                    f"keeping request in current status as it may be waiting for input or an external system"
+                                logger.debug(
+                                    f"Request task {request_task_id} "
+                                    f"(privacy request {privacy_request.id}) has no "
+                                    f"cached subtask ID in {privacy_request.status.value} "
+                                    f"status - intentionally paused, skipping"
                                 )
-                                should_requeue = False
-                                break
+                                continue
 
                             # A pending task awaiting upstream is not stuck — it was
                             # never dispatched because its prerequisites aren't done.
@@ -757,9 +825,31 @@ def requeue_interrupted_tasks(self: DatabaseTask) -> None:
                             subtask_id not in queued_tasks_ids
                             and not celery_tasks_in_flight([subtask_id])
                         ):
-                            logger.warning(
-                                f"Request task {request_task_id} is not in the queue or running, requeueing privacy request"
-                            )
+                            # awaiting_processing tasks have a cached subtask ID
+                            # from their initial execution, but the Celery task
+                            # has finished (the task is waiting for an external
+                            # event).  Only requeue if the connection is gone —
+                            # otherwise the task is legitimately waiting.
+                            #
+                            # NOTE: For requires_input / pending_external PRs,
+                            # requeue is safe for DB-backed ManualTask input
+                            # (survives restart).  Old manual-webhook input is
+                            # Redis-only and may require re-submission if the
+                            # cache TTL expires before the requeued task runs.
+                            if task_status == ExecutionLogStatus.awaiting_processing:
+                                if not _task_is_orphaned(db, request_task_id):
+                                    continue
+                                logger.warning(
+                                    f"Request task {request_task_id} "
+                                    f"(privacy request {privacy_request.id}) is "
+                                    f"awaiting_processing but connection is "
+                                    f"deleted or disabled — requeueing"
+                                )
+
+                            else:
+                                logger.warning(
+                                    f"Request task {request_task_id} is not in the queue or running, requeueing privacy request"
+                                )
                             should_requeue = True
                             break
 

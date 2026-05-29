@@ -52,7 +52,10 @@ from dstack._internal.server.services.jobs import (
     is_multinode_job,
     remove_job_spec_sensitive_info,
 )
-from dstack._internal.server.services.offers import get_offers_by_requirements
+from dstack._internal.server.services.offers import (
+    get_offers_by_requirements,
+    merge_offer_iterables,
+)
 from dstack._internal.server.services.requirements.combine import (
     combine_fleet_and_run_profiles,
     combine_fleet_and_run_requirements,
@@ -104,77 +107,36 @@ async def get_job_plans(
 
     job_plans = []
 
-    if run_spec.configuration.type == "service":
-        volumes = await get_job_configured_volumes(
-            session=session,
-            project=project,
-            run_spec=run_spec,
-            job_num=0,
-        )
+    volumes = await get_job_configured_volumes(
+        session=session,
+        project=project,
+        run_spec=run_spec,
+        job_num=0,
+    )
+
+    if _should_select_best_fleet_candidate(run_spec):
         candidate_fleet_models = await _select_candidate_fleet_models(
             session=session,
             project=project,
             run_model=None,
             run_spec=run_spec,
         )
-        for replica_group in run_spec.configuration.replica_groups:
-            jobs = await get_jobs_from_run_spec(
-                run_spec=run_spec,
-                secrets=secrets,
-                replica_num=0,
-                replica_group_name=replica_group.name,
-            )
-            fleet_model, instance_offers, backend_offers = await find_optimal_fleet_with_offers(
-                project=project,
-                fleet_models=candidate_fleet_models,
-                run_model=None,
-                run_spec=run_spec,
-                job=jobs[0],
-                master_job_provisioning_data=None,
-                volumes=volumes,
-                exclude_not_available=False,
-            )
-            if not _should_select_best_fleet_candidate(run_spec):
-                if profile.fleets is None:
-                    instance_offers, backend_offers = await _get_non_fleet_offers(
-                        session=session,
-                        project=project,
-                        profile=profile,
-                        run_spec=run_spec,
-                        job=jobs[0],
-                        volumes=volumes,
-                    )
-                else:
-                    instance_offers, backend_offers = await _get_offers_in_run_candidate_fleets(
-                        session=session,
-                        project=project,
-                        run_spec=run_spec,
-                        job=jobs[0],
-                        volumes=volumes,
-                    )
-
-            for job in jobs:
-                job_plan = _get_job_plan(
-                    instance_offers=instance_offers,
-                    backend_offers=backend_offers,
-                    profile=profile,
-                    job=job,
-                    max_offers=max_offers,
-                )
-                job_plans.append(job_plan)
     else:
+        candidate_fleet_models = None
+
+    if run_spec.configuration.type == "service":
+        replica_group_names = [g.name for g in run_spec.configuration.replica_groups]
+    else:
+        replica_group_names = [None]
+
+    for replica_group_name in replica_group_names:
         jobs = await get_jobs_from_run_spec(
             run_spec=run_spec,
             secrets=secrets,
             replica_num=0,
+            replica_group_name=replica_group_name,
         )
-        volumes = await get_job_configured_volumes(
-            session=session,
-            project=project,
-            run_spec=run_spec,
-            job_num=0,
-        )
-        if not _should_select_best_fleet_candidate(run_spec):
+        if candidate_fleet_models is None:  # `dstack offer` path
             if profile.fleets is None:
                 instance_offers, backend_offers = await _get_non_fleet_offers(
                     session=session,
@@ -193,12 +155,6 @@ async def get_job_plans(
                     volumes=volumes,
                 )
         else:
-            candidate_fleet_models = await _select_candidate_fleet_models(
-                session=session,
-                project=project,
-                run_model=None,
-                run_spec=run_spec,
-            )
             fleet_model, instance_offers, backend_offers = await find_optimal_fleet_with_offers(
                 project=project,
                 fleet_models=candidate_fleet_models,
@@ -711,11 +667,10 @@ async def get_backend_offers_in_run_candidate_fleets(
         run_model=None,
         run_spec=run_spec,
     )
-    deduplicated_backend_offers: dict[
-        Hashable,
-        tuple[Backend, InstanceOfferWithAvailability],
-    ] = {}
+    seen_offer_identities = set()
+    offers: list[tuple[Backend, InstanceOfferWithAvailability]] = []
     for candidate_fleet_model in candidate_fleet_models:
+        offers_from_fleet = []
         for backend, offer in await _get_backend_offers_in_fleet(
             project=project,
             fleet_model=candidate_fleet_model,
@@ -724,13 +679,12 @@ async def get_backend_offers_in_run_candidate_fleets(
             volumes=volumes,
             max_offers=max_offers_per_fleet,
         ):
-            deduplicated_backend_offers.setdefault(
-                _get_backend_offer_identity(offer),
-                (backend, offer),
-            )
-    backend_offers = list(deduplicated_backend_offers.values())
-    backend_offers.sort(key=lambda offer: offer[1].price)
-    return backend_offers
+            offer_identity = _get_backend_offer_identity(offer)
+            if offer_identity not in seen_offer_identities:
+                offers_from_fleet.append((backend, offer))
+                seen_offer_identities.add(offer_identity)
+        offers = list(merge_offer_iterables(offers, offers_from_fleet))
+    return offers
 
 
 async def _get_offers_in_run_candidate_fleets(

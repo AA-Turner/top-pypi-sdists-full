@@ -3,7 +3,7 @@ from typing import Any
 from collections.abc import Callable
 import pandas
 from ..exceptions import ComponentError, DataNotFound
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class tConcat(FlowComponent):

@@ -27,6 +27,7 @@ import logging
 import time
 import types
 from typing import TYPE_CHECKING, Any, Literal, overload
+import warnings
 import zoneinfo
 
 import iso8601
@@ -98,30 +99,29 @@ def normalize_time(timestamp: datetime.datetime) -> datetime.datetime:
     return timestamp.replace(tzinfo=None) - offset
 
 
-# https://github.com/python/mypy/issues/2087
-class _UTCNow:
-    override_time: None | datetime.datetime | list[datetime.datetime] = None
-
-    def __call__(self, with_timezone: bool = False) -> datetime.datetime:
-        """Overridable version of utils.utcnow that can return a TZ-aware datetime.
-
-        See :py:class:`oslo_utils.fixture.TimeFixture`.
-
-        .. versionchanged:: 1.6
-           Added *with_timezone* parameter.
-        """  # noqa: E501
-        if self.override_time:
-            if isinstance(self.override_time, datetime.datetime):
-                return self.override_time
-            return self.override_time.pop(0)
-        if with_timezone:
-            return datetime.datetime.now(tz=iso8601.iso8601.UTC)
-        return datetime.datetime.now(datetime.timezone.utc).replace(
-            tzinfo=None
-        )
+# NOTE(hberaud): Module-level variable for deprecated time override functions.
+# This will be removed when the deprecated functions are removed.
+_override_time: None | datetime.datetime | list[datetime.datetime] = None
 
 
-utcnow = _UTCNow()
+def utcnow(with_timezone: bool = False) -> datetime.datetime:
+    """Get current UTC time.
+
+    :param with_timezone: If True, return a timezone-aware datetime with UTC
+                          timezone. If False (default), return a naive datetime
+                          representing UTC time.
+    :returns: Current UTC time as a datetime object
+    """
+    # NOTE(hberaud): Support for deprecated override mechanism.
+    # This check will be removed when deprecated functions are removed.
+    if _override_time:
+        if isinstance(_override_time, datetime.datetime):
+            return _override_time
+        return _override_time.pop(0)
+
+    if with_timezone:
+        return datetime.datetime.now(tz=iso8601.iso8601.UTC)
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 
 def is_older_than(
@@ -166,7 +166,7 @@ def utcnow_ts(microsecond: bool = False) -> float:
     .. versionchanged:: 1.3
        Added optional *microsecond* parameter.
     """
-    if utcnow.override_time is None:
+    if _override_time is None:
         # NOTE(kgriffs): This is several times faster
         # than going through calendar.timegm(...)
         timestamp = time.time()
@@ -192,8 +192,19 @@ def set_time_override(override_time: datetime.datetime | None = None) -> None:
 
     :param override_time: datetime instance or list thereof. If not
                           given, defaults to the current UTC time.
+
+    .. deprecated::
+       Use unittest.mock.patch() to mock timeutils.utcnow instead.
+       This function will be removed in a future release.
     """
-    utcnow.override_time = override_time or datetime.datetime.now(
+    global _override_time
+    warnings.warn(
+        "set_time_override is deprecated. Use unittest.mock.patch() "
+        "to mock timeutils.utcnow instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    _override_time = override_time or datetime.datetime.now(
         datetime.timezone.utc
     ).replace(tzinfo=None)
 
@@ -203,14 +214,24 @@ def advance_time_delta(timedelta: datetime.timedelta) -> None:
 
     See :py:class:`oslo_utils.fixture.TimeFixture`.
 
+    .. deprecated::
+       Use unittest.mock.patch() to mock timeutils.utcnow instead.
+       This function will be removed in a future release.
     """
-    if utcnow.override_time is None:
+    global _override_time
+    warnings.warn(
+        "advance_time_delta is deprecated. Use unittest.mock.patch() "
+        "to mock timeutils.utcnow instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    if _override_time is None:
         raise RuntimeError('override_time must be configured')
 
-    if isinstance(utcnow.override_time, datetime.datetime):
-        utcnow.override_time += timedelta
+    if isinstance(_override_time, datetime.datetime):
+        _override_time += timedelta
     else:
-        for dt in utcnow.override_time:
+        for dt in _override_time:
             dt += timedelta
 
 
@@ -219,7 +240,16 @@ def advance_time_seconds(seconds: int | float) -> None:
 
     See :py:class:`oslo_utils.fixture.TimeFixture`.
 
+    .. deprecated::
+       Use unittest.mock.patch() to mock timeutils.utcnow instead.
+       This function will be removed in a future release.
     """
+    warnings.warn(
+        "advance_time_seconds is deprecated. Use unittest.mock.patch() "
+        "to mock timeutils.utcnow instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     advance_time_delta(datetime.timedelta(0, seconds))
 
 
@@ -228,8 +258,18 @@ def clear_time_override() -> None:
 
     See :py:class:`oslo_utils.fixture.TimeFixture`.
 
+    .. deprecated::
+       Use unittest.mock.patch() to mock timeutils.utcnow instead.
+       This function will be removed in a future release.
     """
-    utcnow.override_time = None
+    global _override_time
+    warnings.warn(
+        "clear_time_override is deprecated. Use unittest.mock.patch() "
+        "to mock timeutils.utcnow instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    _override_time = None
 
 
 def marshall_now(now: datetime.datetime | None = None) -> dict[str, Any]:

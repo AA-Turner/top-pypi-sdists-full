@@ -5,16 +5,14 @@ __all__ = ['AutoRNN', 'AutoLSTM', 'AutoGRU', 'AutoTCN', 'AutoDeepAR', 'AutoDilat
            'AutoNBEATS', 'AutoNBEATSx', 'AutoNHITS', 'AutoDLinear', 'AutoNLinear', 'AutoTiDE', 'AutoDeepNPTS',
            'AutoKAN', 'AutoTFT', 'AutoVanillaTransformer', 'AutoInformer', 'AutoAutoformer', 'AutoFEDformer',
            'AutoPatchTST', 'AutoiTransformer', 'AutoTimeXer', 'AutoTimesNet', 'AutoStemGNN', 'AutoHINT', 'AutoTSMixer',
-           'AutoTSMixerx', 'AutoMLPMultivariate', 'AutoSOFTS', 'AutoTimeMixer', 'AutoRMoK', 'AutoXLinear']
+           'AutoTSMixerx', 'AutoMLPMultivariate', 'AutoSOFTS', 'AutoSOFTSSharp', 'AutoTimeMixer', 'AutoRMoK',
+           'AutoXLinear', 'RayOptions', 'OptunaOptions']
 
 
-from os import cpu_count
-
-import torch
 from ray import tune
 from ray.tune.search.basic_variant import BasicVariantGenerator
 
-from .common._base_auto import BaseAuto, MockTrial
+from .common._base_auto import BaseAuto, MockTrial, OptunaOptions, RayOptions
 from .losses.pytorch import MAE, DistributionLoss, MQLoss
 from .models.autoformer import Autoformer
 from .models.bitcn import BiTCN
@@ -39,6 +37,7 @@ from .models.patchtst import PatchTST
 from .models.rmok import RMoK
 from .models.rnn import RNN
 from .models.softs import SOFTS
+from .models.softssharp import SOFTSSharp
 from .models.stemgnn import StemGNN
 from .models.tcn import TCN
 from .models.tft import TFT
@@ -79,12 +78,14 @@ class AutoRNN(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
         # Define search space, input/output sizes
         if config is None:
@@ -106,6 +107,8 @@ class AutoRNN(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -151,12 +154,14 @@ class AutoLSTM(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -179,6 +184,8 @@ class AutoLSTM(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -224,12 +231,14 @@ class AutoGRU(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -252,6 +261,8 @@ class AutoGRU(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -296,12 +307,14 @@ class AutoTCN(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -324,6 +337,8 @@ class AutoTCN(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -371,12 +386,14 @@ class AutoDeepAR(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -399,6 +416,8 @@ class AutoDeepAR(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -443,12 +462,14 @@ class AutoDilatedRNN(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -471,6 +492,8 @@ class AutoDilatedRNN(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -515,12 +538,14 @@ class AutoBiTCN(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -543,6 +568,8 @@ class AutoBiTCN(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -587,12 +614,14 @@ class AutoxLSTM(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -615,6 +644,8 @@ class AutoxLSTM(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -657,12 +688,14 @@ class AutoMLP(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -685,6 +718,8 @@ class AutoMLP(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -725,12 +760,14 @@ class AutoNBEATS(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -753,6 +790,8 @@ class AutoNBEATS(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -793,12 +832,14 @@ class AutoNBEATSx(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -821,6 +862,8 @@ class AutoNBEATSx(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -874,12 +917,14 @@ class AutoNHITS(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -902,6 +947,8 @@ class AutoNHITS(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -943,12 +990,14 @@ class AutoDLinear(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -971,6 +1020,8 @@ class AutoDLinear(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1011,12 +1062,14 @@ class AutoNLinear(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1039,6 +1092,8 @@ class AutoNLinear(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1087,12 +1142,14 @@ class AutoTiDE(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1115,6 +1172,8 @@ class AutoTiDE(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1158,12 +1217,14 @@ class AutoDeepNPTS(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1186,6 +1247,8 @@ class AutoDeepNPTS(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1229,12 +1292,14 @@ class AutoKAN(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1257,6 +1322,8 @@ class AutoKAN(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1299,12 +1366,14 @@ class AutoTFT(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1327,6 +1396,8 @@ class AutoTFT(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1369,12 +1440,14 @@ class AutoVanillaTransformer(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1397,6 +1470,8 @@ class AutoVanillaTransformer(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1439,12 +1514,14 @@ class AutoInformer(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1467,6 +1544,8 @@ class AutoInformer(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1509,12 +1588,14 @@ class AutoAutoformer(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1537,6 +1618,8 @@ class AutoAutoformer(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1578,12 +1661,14 @@ class AutoFEDformer(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1606,6 +1691,8 @@ class AutoFEDformer(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1650,12 +1737,14 @@ class AutoPatchTST(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1678,6 +1767,8 @@ class AutoPatchTST(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1721,12 +1812,14 @@ class AutoiTransformer(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1760,6 +1853,8 @@ class AutoiTransformer(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1808,12 +1903,14 @@ class AutoTimeXer(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1847,6 +1944,8 @@ class AutoTimeXer(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1894,12 +1993,14 @@ class AutoTimesNet(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -1922,6 +2023,8 @@ class AutoTimesNet(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -1965,12 +2068,14 @@ class AutoStemGNN(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -2004,6 +2109,8 @@ class AutoStemGNN(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -2038,13 +2145,15 @@ class AutoHINT(BaseAuto):
         search_alg=BasicVariantGenerator(random_state=1),
         num_samples=10,
         time_budget=None,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         refit_with_val=False,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         super(AutoHINT, self).__init__(
@@ -2063,6 +2172,8 @@ class AutoHINT(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
         if backend == "optuna":
             raise Exception("Optuna is not supported for AutoHINT.")
@@ -2127,12 +2238,14 @@ class AutoTSMixer(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -2166,6 +2279,8 @@ class AutoTSMixer(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -2215,12 +2330,14 @@ class AutoTSMixerx(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -2254,6 +2371,8 @@ class AutoTSMixerx(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -2302,12 +2421,14 @@ class AutoMLPMultivariate(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -2341,6 +2462,8 @@ class AutoMLPMultivariate(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -2389,12 +2512,14 @@ class AutoSOFTS(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -2428,6 +2553,8 @@ class AutoSOFTS(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -2443,6 +2570,92 @@ class AutoSOFTS(BaseAuto):
         del config["input_size_multiplier"]
         if backend == "optuna":
             # Always use n_series from parameters
+            config["n_series"] = n_series
+            config = cls._ray_config_to_optuna(config)
+
+        return config
+
+
+class AutoSOFTSSharp(BaseAuto):
+
+    default_config = {
+        "input_size_multiplier": [1, 2, 3, 4, 5],
+        "h": None,
+        "n_series": None,
+        "hidden_size": tune.choice([64, 128, 256, 512]),
+        "d_core": tune.choice([64, 128, 256, 512]),
+        "pe_keep_prob": tune.choice([0.25, 0.5, 0.75, 1.0]),
+        "learning_rate": tune.loguniform(1e-4, 1e-1),
+        "scaler_type": tune.choice([None, "robust", "standard", "identity"]),
+        "max_steps": tune.choice([500, 1000, 2000]),
+        "batch_size": tune.choice([32, 64, 128, 256]),
+        "loss": None,
+        "random_seed": tune.randint(1, 20),
+    }
+
+    def __init__(
+        self,
+        h,
+        n_series,
+        loss=MAE(),
+        valid_loss=None,
+        config=None,
+        search_alg=BasicVariantGenerator(random_state=1),
+        num_samples=10,
+        time_budget=None,
+        refit_with_val=False,
+        cpus=None,
+        gpus=None,
+        verbose=False,
+        alias=None,
+        backend="ray",
+        callbacks=None,
+        ray_options=None,
+        optuna_options=None,
+    ):
+
+        if config is None:
+            config = self.get_default_config(h=h, backend=backend, n_series=n_series)
+
+        if backend == "ray":
+            config["n_series"] = n_series
+        elif backend == "optuna":
+            mock_trial = MockTrial()
+            if (
+                "n_series" in config(mock_trial)
+                and config(mock_trial)["n_series"] != n_series
+            ) or ("n_series" not in config(mock_trial)):
+                raise Exception(f"config needs 'n_series': {n_series}")
+
+        super(AutoSOFTSSharp, self).__init__(
+            cls_model=SOFTSSharp,
+            h=h,
+            loss=loss,
+            valid_loss=valid_loss,
+            config=config,
+            search_alg=search_alg,
+            num_samples=num_samples,
+            time_budget=time_budget,
+            refit_with_val=refit_with_val,
+            cpus=cpus,
+            gpus=gpus,
+            verbose=verbose,
+            alias=alias,
+            backend=backend,
+            callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
+        )
+
+    @classmethod
+    def get_default_config(cls, h, backend, n_series):
+        config = cls.default_config.copy()
+        config["input_size"] = tune.choice(
+            [h * x for x in config["input_size_multiplier"]]
+        )
+        config["step_size"] = tune.choice([1, h])
+        del config["input_size_multiplier"]
+        if backend == "optuna":
             config["n_series"] = n_series
             config = cls._ray_config_to_optuna(config)
 
@@ -2477,12 +2690,14 @@ class AutoTimeMixer(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -2516,6 +2731,8 @@ class AutoTimeMixer(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -2567,12 +2784,14 @@ class AutoRMoK(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -2606,6 +2825,8 @@ class AutoRMoK(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod
@@ -2654,12 +2875,14 @@ class AutoXLinear(BaseAuto):
         num_samples=10,
         time_budget=None,
         refit_with_val=False,
-        cpus=cpu_count(),
-        gpus=torch.cuda.device_count(),
+        cpus=None,
+        gpus=None,
         verbose=False,
         alias=None,
         backend="ray",
         callbacks=None,
+        ray_options=None,
+        optuna_options=None,
     ):
 
         # Define search space, input/output sizes
@@ -2693,6 +2916,8 @@ class AutoXLinear(BaseAuto):
             alias=alias,
             backend=backend,
             callbacks=callbacks,
+            ray_options=ray_options,
+            optuna_options=optuna_options,
         )
 
     @classmethod

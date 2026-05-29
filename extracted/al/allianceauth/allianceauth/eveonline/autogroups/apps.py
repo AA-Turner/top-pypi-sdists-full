@@ -7,5 +7,6 @@ class EveAutogroupsConfig(AppConfig):
     label = 'eve_autogroups'
     verbose_name = _('EVE Online Autogroups')
 
-    def ready(self):
-        pass
+    def ready(self) -> None:
+        # Connect Signals
+        from allianceauth.eveonline.autogroups import signals  # noqa:F401

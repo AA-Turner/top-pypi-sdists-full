@@ -1,4 +1,4 @@
-""" CO2 Regularizer """
+"""CO2 Regularizer"""
 
 # Copyright (c) 2020. Lightly AG and its affiliates.
 # All Rights Reserved
@@ -89,7 +89,6 @@ class CO2Regularizer(Module):
         Returns:
             The regularization term multiplied by the weight factor alpha.
         """
-
         # Normalize the output to length 1
         out0 = torch.nn.functional.normalize(out0, dim=1)
         out1 = torch.nn.functional.normalize(out1, dim=1)

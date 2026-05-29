@@ -1,8 +1,8 @@
-##################################################################
+#######################################################################
 # THIS IS THE AUTO-GENERATED CODE. DON'T EDIT IT BY HANDS!
-# Copyright (C) 2024 Ilya (Marshal) <https://github.com/MarshalX>.
+# Copyright (C) 2023-2026 Ilya (Marshal) <https://github.com/MarshalX>.
 # This file is part of Python atproto SDK. Licenced under MIT.
-##################################################################
+#######################################################################
 
 
 import typing as t
@@ -34,8 +34,15 @@ class Response(base.ResponseModelBase):
 
     messages: t.List[
         te.Annotated[
-            t.Union['models.ChatBskyConvoDefs.MessageView', 'models.ChatBskyConvoDefs.DeletedMessageView'],
+            t.Union[
+                'models.ChatBskyConvoDefs.MessageView',
+                'models.ChatBskyConvoDefs.DeletedMessageView',
+                'models.ChatBskyConvoDefs.SystemMessageView',
+            ],
             Field(discriminator='py_type'),
         ]
     ]  #: Messages.
     cursor: t.Optional[str] = None  #: Cursor.
+    related_profiles: t.Optional[t.List['models.ChatBskyActorDefs.ProfileViewBasic']] = (
+        None  #: Set of all members who authored or reacted to the returned messages. Members referred to by system messages are also included.
+    )

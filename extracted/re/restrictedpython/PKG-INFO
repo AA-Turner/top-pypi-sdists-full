@@ -1,21 +1,19 @@
 Metadata-Version: 2.4
 Name: RestrictedPython
-Version: 8.1
+Version: 8.2
 Summary: RestrictedPython is a defined subset of the Python language which allows to provide a program input into a trusted environment.
-Home-page: https://github.com/zopefoundation/RestrictedPython
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
 Project-URL: Documentation, https://restrictedpython.readthedocs.io/
+Project-URL: Issues, https://github.com/zopefoundation/RestrictedPython/issues
 Project-URL: Source, https://github.com/zopefoundation/RestrictedPython
-Project-URL: Tracker, https://github.com/zopefoundation/RestrictedPython/issues
-Keywords: restricted execution security untrusted code
+Project-URL: Changelog, https://github.com/zopefoundation/RestrictedPython/blob/master/CHANGES.rst
+Keywords: restricted,execution,security,untrusted,code
 Classifier: Development Status :: 6 - Mature
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -23,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Security
-Requires-Python: >=3.9, <3.15
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Provides-Extra: test
@@ -32,19 +30,7 @@ Requires-Dist: pytest-mock; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: furo; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-python
-Dynamic: summary
 
 .. image:: https://github.com/zopefoundation/RestrictedPython/actions/workflows/tests.yml/badge.svg
     :target: https://github.com/zopefoundation/RestrictedPython/actions/workflows/tests.yml
@@ -137,17 +123,22 @@ the documentation `Contributing page
 Changes
 =======
 
+8.2 (2026-05-29)
+----------------
+
+- Remove documentation that appears to promote unsupported direct guards usage.
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Drop support for Python 3.9.
+
+- Allow the ``...`` (Ellipsis) statement.
+
+
 8.1 (2025-10-19)
 ----------------
 
 - Allow to use the package with Python 3.14 including t-string support.
-
-
-8.1a1.dev0 (2025-03-20)
------------------------
-
-- Allow to use the package with Python 3.14 -- Caution: No security
-  audit has been done so far.
 
 
 8.0 (2025-01-23)

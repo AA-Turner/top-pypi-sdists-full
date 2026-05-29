@@ -4,7 +4,7 @@ from typing import List, Dict, Union
 from collections.abc import Callable
 import rethinkdb as r
 from ..exceptions import ComponentError, DataNotFound, ConfigError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.dataframes import PandasDataframe
 from ..interfaces import TemplateSupport
 from ..interfaces.databases.rethink import RethinkDBSupport

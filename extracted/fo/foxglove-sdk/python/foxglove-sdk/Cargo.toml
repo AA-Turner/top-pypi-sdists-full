@@ -19,6 +19,10 @@ default = ["aws-lc-rs"]
 remote-access = ["foxglove/remote-access"]
 aws-lc-rs = ["foxglove/aws-lc-rs"]
 ring = ["foxglove/ring"]
+# Opts into a build-time check that NVENC hardware acceleration for video
+# encoding will be available. Only meaningful in combination with
+# `remote-access`. See foxglove crate docs for details.
+require-cuda = ["foxglove/require-cuda"]
 
 # The full set of supported features, with opinionated choices for mutually-
 # exclusive feature sets.
@@ -53,6 +57,3 @@ foxglove = { path = "../../rust/foxglove", default-features = false, features = 
 
 [build-dependencies]
 walkdir = "2.5.0"
-
-[dev-dependencies]
-maplit = "1.0.2"

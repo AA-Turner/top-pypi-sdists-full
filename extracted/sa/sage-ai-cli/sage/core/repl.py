@@ -57,7 +57,9 @@ class SageREPL:
             if not is_running:
                 return HTML("")
                 
-            msg = status.get("message") or "Thinking..."
+            msg = status.get("message")
+            if not msg:
+                return HTML("")
             model_id = status.get("model_id", "")
             elapsed = status.get("elapsed", 0.0)
             if not elapsed and status.get("start_time"):

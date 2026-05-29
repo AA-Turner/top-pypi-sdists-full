@@ -1,4 +1,5 @@
-from collections.abc import Callable, List
+from collections.abc import Callable
+from typing import List
 import asyncio
 import random
 import pandas as pd
@@ -6,7 +7,7 @@ from tqdm.asyncio import tqdm
 from ...exceptions import ComponentError, ConfigError
 from ...interfaces import HTTPService, SeleniumService
 from ...interfaces.http import ua
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from .parsers import (
     BestBuyScrapper,
     LowesScrapper,

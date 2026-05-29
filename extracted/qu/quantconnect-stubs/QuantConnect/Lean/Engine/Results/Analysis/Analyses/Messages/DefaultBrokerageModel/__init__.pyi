@@ -7,8 +7,29 @@ import QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages
 import QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.DefaultBrokerageModel
 
 
-class OrderUpdateNotSupportedAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where the brokerage does not support updating orders."""
+class UnsupportedTimeInForceAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where the order's time-in-force setting is not supported."""
+
+    @property
+    def issue(self) -> str:
+        ...
+
+    @property
+    def weight(self) -> int:
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """This Property is protected."""
+        ...
+
+    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
+        """This Class is protected."""
+        ...
+
+
+class UnsupportedMarketOnOpenOrdersForFutureAndFutureOptionsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where a MarketOnOpen order was placed for a Futures or Future Options contract."""
 
     @property
     def issue(self) -> str:
@@ -52,8 +73,8 @@ class UnsupportedMarketOnOpenOrderTimeAnalysis(QuantConnect.Lean.Engine.Results.
         ...
 
 
-class InvalidOrderQuantityAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where the order quantity (in quote currency) is below the security's minimum order size."""
+class UnsupportedUpdateQuantityOrderAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where the order type does not allow its quantity to be updated."""
 
     @property
     def issue(self) -> str:
@@ -68,97 +89,34 @@ class InvalidOrderQuantityAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Ana
         """This Property is protected."""
         ...
 
-    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
+    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
+        """This Class is protected."""
+        ...
+
+
+class UnsupportedCrossZeroOrderUpdateAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where an order update would cause the position to cross zero."""
+
+    @property
+    def issue(self) -> str:
+        ...
+
+    @property
+    def weight(self) -> int:
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """This Property is protected."""
+        ...
+
+    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
         """This Class is protected."""
         ...
 
 
 class UnsupportedOrderTypeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
     """Detects brokerage model rejections where the submitted or updated order type is not supported."""
-
-    @property
-    def issue(self) -> str:
-        ...
-
-    @property
-    def weight(self) -> int:
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """This Property is protected."""
-        ...
-
-    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This Class is protected."""
-        ...
-
-
-class NoDataForSymbolAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where no data is available for the ordered security."""
-
-    @property
-    def issue(self) -> str:
-        ...
-
-    @property
-    def weight(self) -> int:
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """This Property is protected."""
-        ...
-
-    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This Class is protected."""
-        ...
-
-
-class UnsupportedCrossZeroByOrderTypeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where the order type does not support crossing zero (flipping position direction in a single order)."""
-
-    @property
-    def issue(self) -> str:
-        ...
-
-    @property
-    def weight(self) -> int:
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """This Property is protected."""
-        ...
-
-    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This Class is protected."""
-        ...
-
-
-class UnsupportedMarketOnOpenOrdersForFutureAndFutureOptionsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where a MarketOnOpen order was placed for a Futures or Future Options contract."""
-
-    @property
-    def issue(self) -> str:
-        ...
-
-    @property
-    def weight(self) -> int:
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """This Property is protected."""
-        ...
-
-    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This Class is protected."""
-        ...
-
-
-class UnsupportedUpdateQuantityOrderAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where the order type does not allow its quantity to be updated."""
 
     @property
     def issue(self) -> str:
@@ -199,8 +157,8 @@ class InvalidOrderSizeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyse
         ...
 
 
-class UnsupportedTimeInForceAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where the order's time-in-force setting is not supported."""
+class OrderUpdateNotSupportedAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where the brokerage does not support updating orders."""
 
     @property
     def issue(self) -> str:
@@ -216,6 +174,48 @@ class UnsupportedTimeInForceAnalysis(QuantConnect.Lean.Engine.Results.Analysis.A
         ...
 
     def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
+        """This Class is protected."""
+        ...
+
+
+class NoDataForSymbolAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where no data is available for the ordered security."""
+
+    @property
+    def issue(self) -> str:
+        ...
+
+    @property
+    def weight(self) -> int:
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """This Property is protected."""
+        ...
+
+    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
+        """This Class is protected."""
+        ...
+
+
+class InvalidOrderQuantityAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where the order quantity (in quote currency) is below the security's minimum order size."""
+
+    @property
+    def issue(self) -> str:
+        ...
+
+    @property
+    def weight(self) -> int:
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """This Property is protected."""
+        ...
+
+    def solutions(self, language: QuantConnect.Language) -> typing.List[str]:
         """This Class is protected."""
         ...
 
@@ -241,8 +241,8 @@ class UnsupportedSecurityTypeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.
         ...
 
 
-class UnsupportedCrossZeroOrderUpdateAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where an order update would cause the position to cross zero."""
+class UnsupportedCrossZeroByOrderTypeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects brokerage model rejections where the order type does not support crossing zero (flipping position direction in a single order)."""
 
     @property
     def issue(self) -> str:

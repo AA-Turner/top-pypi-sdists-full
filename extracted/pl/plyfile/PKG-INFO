@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: plyfile
-Version: 1.1.3
+Version: 1.1.4
 Summary: PLY file reader/writer
 Keywords: ply,numpy
 Author-Email: Darsh Ranjan <dranjan@berkeley.edu>
@@ -683,17 +683,17 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Project-URL: Homepage, https://github.com/dranjan/python-plyfile
 Project-URL: Documentation, https://python-plyfile.readthedocs.io
 Project-URL: Repository, https://github.com/dranjan/python-plyfile
-Requires-Python: >=3.9
-Requires-Dist: numpy>=1.21
+Requires-Python: >=3.10
+Requires-Dist: numpy>=2.0
 Description-Content-Type: text/markdown
 
 ![Build Status](https://github.com/dranjan/python-plyfile/actions/workflows/python-package.yml/badge.svg)

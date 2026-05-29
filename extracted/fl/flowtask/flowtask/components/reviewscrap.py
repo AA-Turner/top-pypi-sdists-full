@@ -10,7 +10,7 @@ from ..exceptions import (
     NotSupported,
 )
 
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces import SeleniumService
 from ..interfaces import HTTPService
 

@@ -9,7 +9,7 @@ import numpy as np
 import cchardet as chardet
 from ..exceptions import ComponentError
 from ..parsers.maps import open_model
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from .OpenWithBase import detect_encoding, excel_based
 
 

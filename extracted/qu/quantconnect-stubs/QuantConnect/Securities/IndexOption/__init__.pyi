@@ -49,38 +49,6 @@ class IndexOptionSymbolProperties(QuantConnect.Securities.Option.OptionSymbolPro
         ...
 
 
-class IndexOption(QuantConnect.Securities.Option.Option):
-    """Index Options security"""
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.IndexOption.IndexOptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security, settlement_type: QuantConnect.SettlementType = ..., price_model_provider: QuantConnect.Securities.Option.IOptionPriceModelProvider = None) -> None:
-        """
-        Constructor for the index option security
-        
-        :param symbol: Symbol of the index option
-        :param exchange_hours: Exchange hours of the index option
-        :param quote_currency: Quoted currency of the index option
-        :param symbol_properties: Symbol properties of the index option
-        :param currency_converter: Currency converter
-        :param registered_types: Provides all data types registered to the algorithm
-        :param security_cache: Cache of security objects
-        :param underlying: Future underlying security
-        :param settlement_type: Settlement type for the index option. Most index options are cash-settled.
-        :param price_model_provider: The option price model provider
-        """
-        ...
-
-    def update_consumers_market_price(self, data: QuantConnect.Data.BaseData) -> None:
-        """
-        Consumes market price data and updates the minimum price variation
-        
-        
-        This Class is protected.
-        
-        :param data: Market price data
-        """
-        ...
-
-
 class IndexOptionSymbol(System.Object):
     """Index Option Symbol"""
 
@@ -95,6 +63,11 @@ class IndexOptionSymbol(System.Object):
     @staticmethod
     def get_last_trading_date(ticker: str, expiration_date: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
         """Returns the last trading date for the given index option ticker and expiration date"""
+        ...
+
+    @staticmethod
+    def is_am_settled(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """Returns true if the index option is AM settled"""
         ...
 
     @staticmethod
@@ -124,6 +97,38 @@ class IndexOptionSymbol(System.Object):
         
         :param index_option: Index option ticker to map to the underlying
         :returns: Index ticker.
+        """
+        ...
+
+
+class IndexOption(QuantConnect.Securities.Option.Option):
+    """Index Options security"""
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.IndexOption.IndexOptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security, settlement_type: QuantConnect.SettlementType = ..., price_model_provider: QuantConnect.Securities.Option.IOptionPriceModelProvider = None) -> None:
+        """
+        Constructor for the index option security
+        
+        :param symbol: Symbol of the index option
+        :param exchange_hours: Exchange hours of the index option
+        :param quote_currency: Quoted currency of the index option
+        :param symbol_properties: Symbol properties of the index option
+        :param currency_converter: Currency converter
+        :param registered_types: Provides all data types registered to the algorithm
+        :param security_cache: Cache of security objects
+        :param underlying: Future underlying security
+        :param settlement_type: Settlement type for the index option. Most index options are cash-settled.
+        :param price_model_provider: The option price model provider
+        """
+        ...
+
+    def update_consumers_market_price(self, data: QuantConnect.Data.BaseData) -> None:
+        """
+        Consumes market price data and updates the minimum price variation
+        
+        
+        This Class is protected.
+        
+        :param data: Market price data
         """
         ...
 

@@ -4,7 +4,7 @@ from typing import Any
 import pandas as pd
 # Bot Infraestructure:
 from parrot.bots.basic import BasicBot
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import ComponentError, ConfigError
 
 class EmployeeEvaluation(FlowComponent):

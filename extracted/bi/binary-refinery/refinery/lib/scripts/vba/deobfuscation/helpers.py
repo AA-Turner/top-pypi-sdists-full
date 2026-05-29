@@ -4,10 +4,7 @@ Shared AST utilities for VBA deobfuscation transforms.
 from __future__ import annotations
 
 from operator import itemgetter
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
+from typing import Generator
 
 from refinery.lib.scripts import Expression, Kind, Statement, _classify_fields
 from refinery.lib.scripts.vba.deobfuscation.names import CHR_NAMES, Value
@@ -17,6 +14,7 @@ from refinery.lib.scripts.vba.model import (
     VbaCallExpression,
     VbaConstDeclaration,
     VbaConstDeclarator,
+    VbaEmptyLiteral,
     VbaExpressionStatement,
     VbaFloatLiteral,
     VbaForEachStatement,
@@ -29,7 +27,7 @@ from refinery.lib.scripts.vba.model import (
     VbaUnaryExpression,
 )
 
-LITERAL_TYPES = (VbaStringLiteral, VbaIntegerLiteral, VbaFloatLiteral, VbaBooleanLiteral)
+LITERAL_TYPES = (VbaStringLiteral, VbaIntegerLiteral, VbaFloatLiteral, VbaBooleanLiteral, VbaEmptyLiteral)
 
 
 def make_string_literal(value: str) -> VbaStringLiteral:
@@ -169,14 +167,16 @@ def string_to_expr(value: str) -> Expression:
     return result
 
 
-def value_to_node(value: Value) -> Expression | None:
+def value_to_node(value: Value) -> Expression:
+    if value is None:
+        return VbaEmptyLiteral()
+    if isinstance(value, bool):
+        return VbaBooleanLiteral(value=value)
     if isinstance(value, str):
         return string_to_expr(value)
-    if isinstance(value, int) and not isinstance(value, bool):
+    if isinstance(value, int):
         return make_integer_literal(value)
-    if isinstance(value, float):
-        return make_numeric_literal(value)
-    return None
+    return make_numeric_literal(value)
 
 
 def body_lists(module: VbaModule) -> Generator[list[Statement]]:
@@ -197,7 +197,9 @@ def apply_removals(removals: list[tuple[int, list[Statement]]]) -> bool:
     Delete statements at the given (body, index) positions in reverse index order so that earlier
     deletions do not invalidate later indices. Returns whether any removals occurred.
     """
+    if not removals:
+        return False
     removals.sort(key=itemgetter(0), reverse=True)
     for pos, body in removals:
         del body[pos]
-    return bool(removals)
+    return True

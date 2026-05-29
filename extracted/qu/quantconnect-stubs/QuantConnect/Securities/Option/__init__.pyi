@@ -200,206 +200,6 @@ class OptionPriceModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantC
         ...
 
 
-class OptionMarginModel(QuantConnect.Securities.SecurityMarginModel):
-    """Represents a simple option margin model."""
-
-    def __init__(self, required_free_buying_power_percent: float = 0) -> None:
-        """
-        Initializes a new instance of the OptionMarginModel
-        
-        :param required_free_buying_power_percent: The percentage used to determine the required unused buying power for the account.
-        """
-        ...
-
-    def get_initial_margin_required_for_order(self, parameters: QuantConnect.Securities.InitialMarginRequiredForOrderParameters) -> QuantConnect.Securities.InitialMargin:
-        """
-        Gets the total margin required to execute the specified order in units of the account currency including fees
-        
-        :param parameters: An object containing the portfolio, the security and the order
-        :returns: The total margin in terms of the currency quoted in the order.
-        """
-        ...
-
-    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
-        """
-        The margin that must be held in order to increase the position by the provided quantity
-        
-        :returns: The initial margin required for the provided security and quantity.
-        """
-        ...
-
-    def get_leverage(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the current leverage of the security
-        
-        :param security: The security to get leverage for
-        :returns: The current leverage in the security.
-        """
-        ...
-
-    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
-        """
-        Gets the margin currently alloted to the specified holding
-        
-        :param parameters: An object containing the security
-        :returns: The maintenance margin required for the provided holdings quantity/cost/value.
-        """
-        ...
-
-    def set_leverage(self, security: QuantConnect.Securities.Security, leverage: float) -> None:
-        """
-        Sets the leverage for the applicable securities, i.e, options.
-        
-        :param security: 
-        :param leverage: The new leverage
-        """
-        ...
-
-
-class IOptionPriceModelProvider(metaclass=abc.ABCMeta):
-    """Provides option price models for option securities"""
-
-    def get_option_price_model(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], pricing_model_type: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None) -> QuantConnect.Securities.Option.IOptionPriceModel:
-        """
-        Gets the option price model for the specified option symbol.
-        If no pricing model is specified, the default option price model for the symbol security type will be returned.
-        
-        :param symbol: The symbol
-        :param pricing_model_type: The option pricing model type to use
-        :returns: The option price model for the given symbol.
-        """
-        ...
-
-
-class QLOptionPriceModelProvider(System.Object, QuantConnect.Securities.Option.IOptionPriceModelProvider):
-    """Provides option price models for option securities based on QuantLib implementations"""
-
-    INSTANCE: QuantConnect.Securities.Option.QLOptionPriceModelProvider
-    """Singleton instance of the QLOptionPriceModelProvider"""
-
-    def get_option_price_model(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], pricing_model_type: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None) -> QuantConnect.Securities.Option.IOptionPriceModel:
-        """
-        Gets the option price model for the specified option symbol
-        
-        :param symbol: The symbol
-        :param pricing_model_type: The option pricing model type to use
-        :returns: The option price model for the given symbol.
-        """
-        ...
-
-
-class IQLRiskFreeRateEstimator(metaclass=abc.ABCMeta):
-    """Defines QuantLib risk free rate estimator for option pricing model."""
-
-    def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
-        """
-        Returns current estimate of the risk free rate
-        
-        :param security: The option security object
-        :param slice: The current data slice. This can be used to access other information
-        available to the algorithm
-        :param contract: The option contract to evaluate
-        :returns: Risk free rate.
-        """
-        ...
-
-
-class ConstantQLRiskFreeRateEstimator(System.Object, QuantConnect.Securities.Option.IQLRiskFreeRateEstimator):
-    """Class implements default flat risk free curve, implementing IQLRiskFreeRateEstimator."""
-
-    def __init__(self, risk_free_rate: float = 0.01) -> None:
-        """
-        Constructor initializes class with risk free rate constant
-        
-        :param risk_free_rate: 
-        """
-        ...
-
-    def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
-        """
-        Returns current flat estimate of the risk free rate
-        
-        :param security: The option security object
-        :param slice: The current data slice. This can be used to access other information
-        available to the algorithm
-        :param contract: The option contract to evaluate
-        :returns: The estimate.
-        """
-        ...
-
-
-class OptionSymbol(System.Object):
-    """Static class contains common utility methods specific to symbols representing the option contracts"""
-
-    @staticmethod
-    def get_last_day_of_trading(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> datetime.datetime:
-        """
-        Returns the last trading date for the option contract
-        
-        :param symbol: Option symbol
-        """
-        ...
-
-    @staticmethod
-    def get_settlement_date_time(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> datetime.datetime:
-        """
-        Returns the settlement date time of the option contract.
-        
-        :param symbol: The option contract symbol
-        :returns: The settlement date time.
-        """
-        ...
-
-    @staticmethod
-    def is_option_contract_expired(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], current_time_utc: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        """
-        Returns true if the option contract is expired at the specified time
-        
-        :param symbol: The option contract symbol
-        :param current_time_utc: The current time (UTC)
-        :returns: True if the option contract is expired at the specified time, false otherwise.
-        """
-        ...
-
-    @staticmethod
-    def is_standard(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Returns true if the option is a standard contract that expires 3rd Friday of the month
-        
-        :param symbol: Option symbol
-        """
-        ...
-
-    @staticmethod
-    def is_standard_contract(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Returns true if the option is a standard contract that expires 3rd Friday of the month
-        
-        :param symbol: Option symbol
-        """
-        ...
-
-    @staticmethod
-    def is_weekly(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Returns true if the option is a weekly contract that expires on Friday , except 3rd Friday of the month
-        
-        :param symbol: Option symbol
-        """
-        ...
-
-    @staticmethod
-    def map_to_underlying(option_ticker: str, security_type: QuantConnect.SecurityType) -> str:
-        """
-        Maps the option ticker to it's underlying
-        
-        :param option_ticker: The option ticker to map
-        :param security_type: The security type of the option or underlying
-        :returns: The underlying ticker.
-        """
-        ...
-
-
 class OptionAssignmentResult(System.Object):
     """Data transfer object class"""
 
@@ -468,109 +268,6 @@ class IOptionAssignmentModel(metaclass=abc.ABCMeta):
         ...
 
 
-class DefaultOptionAssignmentModel(System.Object, QuantConnect.Securities.Option.IOptionAssignmentModel):
-    """
-    The option assignment model emulates exercising of short option positions in the portfolio.
-    Simulator implements basic no-arb argument: when time value of the option contract is close to zero
-    it assigns short legs getting profit close to expiration dates in deep ITM positions. User algorithm then receives
-    assignment event from LEAN. Simulator randomly scans for arbitrage opportunities every two hours or so.
-    """
-
-    def __init__(self, required_in_the_money_percent: float = 0.05, prior_expiration: typing.Optional[datetime.timedelta] = None) -> None:
-        """
-        Creates a new instance
-        
-        :param required_in_the_money_percent: The percent in the money the option has to be to trigger the option assignment
-        :param prior_expiration: For OptionStyle.AMERICAN, the time span prior to expiration were we will try to evaluate option assignment
-        """
-        ...
-
-    def get_assignment(self, parameters: QuantConnect.Securities.Option.OptionAssignmentParameters) -> QuantConnect.Securities.Option.OptionAssignmentResult:
-        """
-        Get's the option assignments to generate if any
-        
-        :param parameters: The option assignment parameters data transfer class
-        :returns: The option assignment result.
-        """
-        ...
-
-
-class OptionPriceModel(System.Object, QuantConnect.Securities.Option.IOptionPriceModel, metaclass=abc.ABCMeta):
-    """Base class for option price models, computing theoretical price, IV, and Greeks."""
-
-    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
-        """
-        Evaluates the specified option contract to compute a theoretical price, IV and greeks
-        
-        :param parameters: A OptionPriceModelParameters object
-        containing the security, slice and contract
-        :returns: An instance of OptionPriceModelResult containing the theoretical
-        price of the specified option contract.
-        """
-        ...
-
-
-class CurrentPriceOptionPriceModel(QuantConnect.Securities.Option.OptionPriceModel):
-    """
-    Provides a default implementation of IOptionPriceModel that does not compute any
-    greeks and uses the current price for the theoretical price.
-    This is a stub implementation until the real models are implemented
-    """
-
-    @overload
-    def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
-        """
-        Creates a new OptionPriceModelResult containing the current Security.price
-        and a default, empty instance of first Order Greeks
-        
-        :param security: The option security object
-        :param slice: The current data slice. This can be used to access other information
-        available to the algorithm
-        :param contract: The option contract to evaluate
-        :returns: An instance of OptionPriceModelResult containing the theoretical
-        price of the specified option contract.
-        """
-        ...
-
-    @overload
-    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
-        """
-        Evaluates the specified option contract to compute a theoretical price, IV and greeks
-        
-        :param parameters: A OptionPriceModelParameters object
-        containing the security, slice and contract
-        :returns: An instance of OptionPriceModelResult containing the theoretical
-        price of the specified option contract.
-        """
-        ...
-
-
-class OptionPortfolioModel(QuantConnect.Securities.SecurityPortfolioModel):
-    """
-    Provides an implementation of ISecurityPortfolioModel for options that supports
-    default fills as well as option exercising.
-    """
-
-    def process_close_trade_profit(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, fill: QuantConnect.Orders.OrderEvent) -> QuantConnect.Securities.ConvertibleCashAmount:
-        """
-        Helper method to determine the close trade profit
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    def process_fill(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, fill: QuantConnect.Orders.OrderEvent) -> None:
-        """
-        Performs application of an OrderEvent to the portfolio
-        
-        :param portfolio: The algorithm's portfolio
-        :param security: Option security
-        :param fill: The order event fill object to be applied
-        """
-        ...
-
-
 class OptionSymbolProperties(QuantConnect.Securities.ContractSymbolProperties):
     """Represents common properties for a specific option contract"""
 
@@ -594,6 +291,21 @@ class OptionSymbolProperties(QuantConnect.Securities.ContractSymbolProperties):
     @overload
     def __init__(self, properties: QuantConnect.Securities.SymbolProperties) -> None:
         """Creates an instance of the OptionSymbolProperties class from SymbolProperties class"""
+        ...
+
+
+class IOptionPriceModelProvider(metaclass=abc.ABCMeta):
+    """Provides option price models for option securities"""
+
+    def get_option_price_model(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], pricing_model_type: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None) -> QuantConnect.Securities.Option.IOptionPriceModel:
+        """
+        Gets the option price model for the specified option symbol.
+        If no pricing model is specified, the default option price model for the symbol security type will be returned.
+        
+        :param symbol: The symbol
+        :param pricing_model_type: The option pricing model type to use
+        :returns: The option price model for the given symbol.
+        """
         ...
 
 
@@ -991,6 +703,515 @@ class Option(QuantConnect.Securities.Security, QuantConnect.Securities.IDerivati
         ...
 
 
+class FuturesOptionsMarginModel(QuantConnect.Securities.Future.FutureMarginModel):
+    """
+    Defines a margin model for future options (an option with a future as its underlying).
+    We re-use the FutureMarginModel implementation and multiply its results
+    by 1.5x to simulate the increased margins seen for future options.
+    """
+
+    @property
+    def initial_overnight_margin_requirement(self) -> float:
+        """Initial Overnight margin requirement for the contract effective from the date of change"""
+        ...
+
+    @property
+    def maintenance_overnight_margin_requirement(self) -> float:
+        """Maintenance Overnight margin requirement for the contract effective from the date of change"""
+        ...
+
+    @property
+    def initial_intraday_margin_requirement(self) -> float:
+        """Initial Intraday margin for the contract effective from the date of change"""
+        ...
+
+    @property
+    def maintenance_intraday_margin_requirement(self) -> float:
+        """Maintenance Intraday margin requirement for the contract effective from the date of change"""
+        ...
+
+    def __init__(self, required_free_buying_power_percent: float = 0, future_option: QuantConnect.Securities.Option.Option = None) -> None:
+        """
+        Creates an instance of FutureOptionMarginModel
+        
+        :param required_free_buying_power_percent: The percentage used to determine the required unused buying power for the account.
+        :param future_option: Option Security containing a Future security as the underlying
+        """
+        ...
+
+    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
+        """
+        The margin that must be held in order to increase the position by the provided quantity
+        
+        :param parameters: An object containing the security and quantity of shares
+        :returns: The initial margin required for the option (i.e. the equity required to enter a position for this option).
+        """
+        ...
+
+    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
+        """
+        Gets the margin currently alloted to the specified holding.
+        
+        :param parameters: An object containing the security
+        :returns: The maintenance margin required for the option.
+        """
+        ...
+
+    @staticmethod
+    def get_margin_requirement(option: QuantConnect.Securities.Option.Option, underlying_requirement: float, position_side: QuantConnect.PositionSide = ...) -> int:
+        """
+        Get's the margin requirement for a future option based on the underlying future margin requirement and the position side to trade.
+        FOPs margin requirement is an 'S' curve based on the underlying requirement around it's current price, see https://en.wikipedia.org/wiki/Logistic_function
+        
+        :param option: The future option contract to trade
+        :param underlying_requirement: The underlying future associated margin requirement
+        :param position_side: The position side to trade, long by default. This is because short positions require higher margin requirements
+        """
+        ...
+
+
+class OptionExchange(QuantConnect.Securities.SecurityExchange):
+    """Option exchange class - information and helper tools for option exchange properties"""
+
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days per year for this security, 252."""
+        ...
+
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the OptionExchange class using the specified
+        exchange hours to determine open/close times
+        
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
+        """
+        ...
+
+
+class OptionPriceModel(System.Object, QuantConnect.Securities.Option.IOptionPriceModel, metaclass=abc.ABCMeta):
+    """Base class for option price models, computing theoretical price, IV, and Greeks."""
+
+    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
+        """
+        Evaluates the specified option contract to compute a theoretical price, IV and greeks
+        
+        :param parameters: A OptionPriceModelParameters object
+        containing the security, slice and contract
+        :returns: An instance of OptionPriceModelResult containing the theoretical
+        price of the specified option contract.
+        """
+        ...
+
+
+class CurrentPriceOptionPriceModel(QuantConnect.Securities.Option.OptionPriceModel):
+    """
+    Provides a default implementation of IOptionPriceModel that does not compute any
+    greeks and uses the current price for the theoretical price.
+    This is a stub implementation until the real models are implemented
+    """
+
+    @overload
+    def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
+        """
+        Creates a new OptionPriceModelResult containing the current Security.price
+        and a default, empty instance of first Order Greeks
+        
+        :param security: The option security object
+        :param slice: The current data slice. This can be used to access other information
+        available to the algorithm
+        :param contract: The option contract to evaluate
+        :returns: An instance of OptionPriceModelResult containing the theoretical
+        price of the specified option contract.
+        """
+        ...
+
+    @overload
+    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
+        """
+        Evaluates the specified option contract to compute a theoretical price, IV and greeks
+        
+        :param parameters: A OptionPriceModelParameters object
+        containing the security, slice and contract
+        :returns: An instance of OptionPriceModelResult containing the theoretical
+        price of the specified option contract.
+        """
+        ...
+
+
+class OptionDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """Option packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+
+class OptionPortfolioModel(QuantConnect.Securities.SecurityPortfolioModel):
+    """
+    Provides an implementation of ISecurityPortfolioModel for options that supports
+    default fills as well as option exercising.
+    """
+
+    def process_close_trade_profit(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, fill: QuantConnect.Orders.OrderEvent) -> QuantConnect.Securities.ConvertibleCashAmount:
+        """
+        Helper method to determine the close trade profit
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def process_fill(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, fill: QuantConnect.Orders.OrderEvent) -> None:
+        """
+        Performs application of an OrderEvent to the portfolio
+        
+        :param portfolio: The algorithm's portfolio
+        :param security: Option security
+        :param fill: The order event fill object to be applied
+        """
+        ...
+
+
+class OptionStrategy(System.Object):
+    """Option strategy specification class. Describes option strategy and its parameters for trading."""
+
+    class OptionLegData(QuantConnect.Orders.Leg):
+        """This class is a POCO containing basic data for the option legs of the strategy"""
+
+        @property
+        def right(self) -> QuantConnect.OptionRight:
+            """Option right (type) of the option leg"""
+            ...
+
+        @right.setter
+        def right(self, value: QuantConnect.OptionRight) -> None:
+            ...
+
+        @property
+        def expiration(self) -> datetime.datetime:
+            """Expiration date of the leg"""
+            ...
+
+        @expiration.setter
+        def expiration(self, value: datetime.datetime) -> None:
+            ...
+
+        @property
+        def strike(self) -> float:
+            """Strike price of the leg"""
+            ...
+
+        @strike.setter
+        def strike(self, value: float) -> None:
+            ...
+
+        @staticmethod
+        def create(quantity: int, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], order_price: typing.Optional[float] = None) -> QuantConnect.Securities.Option.OptionStrategy.OptionLegData:
+            """Creates a new instance of OptionLegData from the specified parameters"""
+            ...
+
+        def to_string(self) -> str:
+            """Returns a string that represents the option leg"""
+            ...
+
+    class UnderlyingLegData(QuantConnect.Orders.Leg):
+        """This class is a POCO containing basic data for the underlying leg of the strategy"""
+
+        @staticmethod
+        @overload
+        def create(quantity: int, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], order_price: typing.Optional[float] = None) -> QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData:
+            """Creates a new instance of UnderlyingLegData for the specified quantity of underlying shares."""
+            ...
+
+        @staticmethod
+        @overload
+        def create(quantity: int, order_price: typing.Optional[float] = None) -> QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData:
+            """Creates a new instance of UnderlyingLegData for the specified quantity of underlying shares."""
+            ...
+
+        def to_string(self) -> str:
+            """Returns a string that represents the underlying leg."""
+            ...
+
+    @property
+    def name(self) -> str:
+        """Option strategy name"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def canonical_option(self) -> QuantConnect.Symbol:
+        """The canonical Option symbol of the strategy"""
+        ...
+
+    @canonical_option.setter
+    def canonical_option(self, value: QuantConnect.Symbol) -> None:
+        ...
+
+    @property
+    def underlying(self) -> QuantConnect.Symbol:
+        """Underlying symbol of the strategy"""
+        ...
+
+    @underlying.setter
+    def underlying(self, value: QuantConnect.Symbol) -> None:
+        ...
+
+    @property
+    def option_legs(self) -> typing.List[QuantConnect.Securities.Option.OptionStrategy.OptionLegData]:
+        """Option strategy legs"""
+        ...
+
+    @option_legs.setter
+    def option_legs(self, value: typing.List[QuantConnect.Securities.Option.OptionStrategy.OptionLegData]) -> None:
+        ...
+
+    @property
+    def underlying_legs(self) -> typing.List[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData]:
+        """Option strategy underlying legs (usually 0 or 1 legs)"""
+        ...
+
+    @underlying_legs.setter
+    def underlying_legs(self, value: typing.List[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData]) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, canonical_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], option_legs: typing.List[QuantConnect.Securities.Option.OptionStrategy.OptionLegData] = None, underlying_legs: typing.List[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData] = None) -> None:
+        """
+        Creates a new instance of OptionStrategy with the specified parameters
+        
+        :param name: The strategy name
+        :param canonical_symbol: The canonical option symbol
+        :param option_legs: The option legs data
+        :param underlying_legs: The underlying legs data
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance of OptionStrategy with default parameters"""
+        ...
+
+    @staticmethod
+    def create(name: str, legs: typing.List[QuantConnect.Orders.Leg]) -> QuantConnect.Securities.Option.OptionStrategy:
+        """
+        Creates a new instance of OptionStrategy with the specified name and legs data.
+        The method will try to infer the canonical symbol and underlying symbol from the legs data, but they can also be set manually after the strategy creation.
+        """
+        ...
+
+    def set_symbols(self) -> None:
+        """
+        Sets the option legs symbols based on the canonical symbol and the leg data.
+        If the canonical symbol is not set, it will be created using the underlying symbol.
+        """
+        ...
+
+
+class NullOptionAssignmentModel(System.Object, QuantConnect.Securities.Option.IOptionAssignmentModel):
+    """The null option assignment model, that will disable automatic order assignment"""
+
+    def get_assignment(self, parameters: QuantConnect.Securities.Option.OptionAssignmentParameters) -> QuantConnect.Securities.Option.OptionAssignmentResult:
+        """
+        Get's the option assignments to generate if any
+        
+        :param parameters: The option assignment parameters data transfer object
+        :returns: The option assignment result.
+        """
+        ...
+
+
+class IQLUnderlyingVolatilityEstimator(metaclass=abc.ABCMeta):
+    """
+    Defines QuantLib underlying volatility estimator for option pricing model. User may define his own estimators,
+    including those forward and backward looking ones.
+    """
+
+    @property
+    @abc.abstractmethod
+    def is_ready(self) -> bool:
+        """Indicates whether volatility model is warmed up or no"""
+        ...
+
+    def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
+        """
+        Returns current estimate of the underlying volatility
+        
+        :param security: The option security object
+        :param slice: The current data slice. This can be used to access other information
+        available to the algorithm
+        :param contract: The option contract to evaluate
+        :returns: Volatility.
+        """
+        ...
+
+
+class QLOptionPriceModelProvider(System.Object, QuantConnect.Securities.Option.IOptionPriceModelProvider):
+    """Provides option price models for option securities based on QuantLib implementations"""
+
+    INSTANCE: QuantConnect.Securities.Option.QLOptionPriceModelProvider
+    """Singleton instance of the QLOptionPriceModelProvider"""
+
+    def get_option_price_model(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], pricing_model_type: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None) -> QuantConnect.Securities.Option.IOptionPriceModel:
+        """
+        Gets the option price model for the specified option symbol
+        
+        :param symbol: The symbol
+        :param pricing_model_type: The option pricing model type to use
+        :returns: The option price model for the given symbol.
+        """
+        ...
+
+
+class IQLDividendYieldEstimator(metaclass=abc.ABCMeta):
+    """
+    Defines QuantLib dividend yield estimator for option pricing model. User may define his own estimators,
+    including those forward and backward looking ones.
+    """
+
+    def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
+        """
+        Returns current estimate of the stock dividend yield
+        
+        :param security: The option security object
+        :param slice: The current data slice. This can be used to access other information
+        available to the algorithm
+        :param contract: The option contract to evaluate
+        :returns: Dividend yield.
+        """
+        ...
+
+
+class DefaultOptionAssignmentModel(System.Object, QuantConnect.Securities.Option.IOptionAssignmentModel):
+    """
+    The option assignment model emulates exercising of short option positions in the portfolio.
+    Simulator implements basic no-arb argument: when time value of the option contract is close to zero
+    it assigns short legs getting profit close to expiration dates in deep ITM positions. User algorithm then receives
+    assignment event from LEAN. Simulator randomly scans for arbitrage opportunities every two hours or so.
+    """
+
+    def __init__(self, required_in_the_money_percent: float = 0.05, prior_expiration: typing.Optional[datetime.timedelta] = None) -> None:
+        """
+        Creates a new instance
+        
+        :param required_in_the_money_percent: The percent in the money the option has to be to trigger the option assignment
+        :param prior_expiration: For OptionStyle.AMERICAN, the time span prior to expiration were we will try to evaluate option assignment
+        """
+        ...
+
+    def get_assignment(self, parameters: QuantConnect.Securities.Option.OptionAssignmentParameters) -> QuantConnect.Securities.Option.OptionAssignmentResult:
+        """
+        Get's the option assignments to generate if any
+        
+        :param parameters: The option assignment parameters data transfer class
+        :returns: The option assignment result.
+        """
+        ...
+
+
+class IQLRiskFreeRateEstimator(metaclass=abc.ABCMeta):
+    """Defines QuantLib risk free rate estimator for option pricing model."""
+
+    def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
+        """
+        Returns current estimate of the risk free rate
+        
+        :param security: The option security object
+        :param slice: The current data slice. This can be used to access other information
+        available to the algorithm
+        :param contract: The option contract to evaluate
+        :returns: Risk free rate.
+        """
+        ...
+
+
+class FedRateQLRiskFreeRateEstimator(System.Object, QuantConnect.Securities.Option.IQLRiskFreeRateEstimator):
+    """Class implements Fed's US primary credit rate as risk free rate, implementing IQLRiskFreeRateEstimator."""
+
+    def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
+        """
+        Returns current flat estimate of the risk free rate
+        
+        :param security: The option security object
+        :param slice: The current data slice. This can be used to access other information
+        available to the algorithm
+        :param contract: The option contract to evaluate
+        :returns: The estimate.
+        """
+        ...
+
+
+class OptionSymbol(System.Object):
+    """Static class contains common utility methods specific to symbols representing the option contracts"""
+
+    @staticmethod
+    def get_last_day_of_trading(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> datetime.datetime:
+        """
+        Returns the last trading date for the option contract
+        
+        :param symbol: Option symbol
+        """
+        ...
+
+    @staticmethod
+    def get_settlement_date_time(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> datetime.datetime:
+        """
+        Returns the settlement date time of the option contract.
+        
+        :param symbol: The option contract symbol
+        :returns: The settlement date time.
+        """
+        ...
+
+    @staticmethod
+    def is_option_contract_expired(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], current_time_utc: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        """
+        Returns true if the option contract is expired at the specified time
+        
+        :param symbol: The option contract symbol
+        :param current_time_utc: The current time (UTC)
+        :returns: True if the option contract is expired at the specified time, false otherwise.
+        """
+        ...
+
+    @staticmethod
+    def is_standard(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Returns true if the option is a standard contract that expires 3rd Friday of the month
+        
+        :param symbol: Option symbol
+        """
+        ...
+
+    @staticmethod
+    def is_standard_contract(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Returns true if the option is a standard contract that expires 3rd Friday of the month
+        
+        :param symbol: Option symbol
+        """
+        ...
+
+    @staticmethod
+    def is_weekly(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Returns true if the option is a weekly contract that expires on Friday , except 3rd Friday of the month
+        
+        :param symbol: Option symbol
+        """
+        ...
+
+    @staticmethod
+    def map_to_underlying(option_ticker: str, security_type: QuantConnect.SecurityType) -> str:
+        """
+        Maps the option ticker to it's underlying
+        
+        :param option_ticker: The option ticker to map
+        :param security_type: The security type of the option or underlying
+        :returns: The underlying ticker.
+        """
+        ...
+
+
 class OptionPriceModels(System.Object):
     """Static class contains definitions of major option pricing models that can be used in LEAN"""
 
@@ -1168,234 +1389,101 @@ class OptionPriceModels(System.Object):
         ...
 
 
-class OptionStrategy(System.Object):
-    """Option strategy specification class. Describes option strategy and its parameters for trading."""
-
-    class OptionLegData(QuantConnect.Orders.Leg):
-        """This class is a POCO containing basic data for the option legs of the strategy"""
-
-        @property
-        def right(self) -> QuantConnect.OptionRight:
-            """Option right (type) of the option leg"""
-            ...
-
-        @right.setter
-        def right(self, value: QuantConnect.OptionRight) -> None:
-            ...
-
-        @property
-        def expiration(self) -> datetime.datetime:
-            """Expiration date of the leg"""
-            ...
-
-        @expiration.setter
-        def expiration(self, value: datetime.datetime) -> None:
-            ...
-
-        @property
-        def strike(self) -> float:
-            """Strike price of the leg"""
-            ...
-
-        @strike.setter
-        def strike(self, value: float) -> None:
-            ...
-
-        @staticmethod
-        def create(quantity: int, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], order_price: typing.Optional[float] = None) -> QuantConnect.Securities.Option.OptionStrategy.OptionLegData:
-            """Creates a new instance of OptionLegData from the specified parameters"""
-            ...
-
-        def to_string(self) -> str:
-            """Returns a string that represents the option leg"""
-            ...
-
-    class UnderlyingLegData(QuantConnect.Orders.Leg):
-        """This class is a POCO containing basic data for the underlying leg of the strategy"""
-
-        @staticmethod
-        @overload
-        def create(quantity: int, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], order_price: typing.Optional[float] = None) -> QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData:
-            """Creates a new instance of UnderlyingLegData for the specified quantity of underlying shares."""
-            ...
-
-        @staticmethod
-        @overload
-        def create(quantity: int, order_price: typing.Optional[float] = None) -> QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData:
-            """Creates a new instance of UnderlyingLegData for the specified quantity of underlying shares."""
-            ...
-
-        def to_string(self) -> str:
-            """Returns a string that represents the underlying leg."""
-            ...
+class QLOptionPriceModel(QuantConnect.Securities.Option.OptionPriceModel):
+    """Provides QuantLib(QL) implementation of IOptionPriceModel to support major option pricing models, available in QL."""
 
     @property
-    def name(self) -> str:
-        """Option strategy name"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def canonical_option(self) -> QuantConnect.Symbol:
-        """The canonical Option symbol of the strategy"""
-        ...
-
-    @canonical_option.setter
-    def canonical_option(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-    @property
-    def underlying(self) -> QuantConnect.Symbol:
-        """Underlying symbol of the strategy"""
-        ...
-
-    @underlying.setter
-    def underlying(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-    @property
-    def option_legs(self) -> typing.List[QuantConnect.Securities.Option.OptionStrategy.OptionLegData]:
-        """Option strategy legs"""
-        ...
-
-    @option_legs.setter
-    def option_legs(self, value: typing.List[QuantConnect.Securities.Option.OptionStrategy.OptionLegData]) -> None:
-        ...
-
-    @property
-    def underlying_legs(self) -> typing.List[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData]:
-        """Option strategy underlying legs (usually 0 or 1 legs)"""
-        ...
-
-    @underlying_legs.setter
-    def underlying_legs(self, value: typing.List[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData]) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, canonical_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], option_legs: typing.List[QuantConnect.Securities.Option.OptionStrategy.OptionLegData] = None, underlying_legs: typing.List[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData] = None) -> None:
+    def enable_greek_approximation(self) -> bool:
         """
-        Creates a new instance of OptionStrategy with the specified parameters
-        
-        :param name: The strategy name
-        :param canonical_symbol: The canonical option symbol
-        :param option_legs: The option legs data
-        :param underlying_legs: The underlying legs data
+        When enabled, approximates Greeks if corresponding pricing model didn't calculate exact numbers.
+        The default value is true.
+        """
+        ...
+
+    @enable_greek_approximation.setter
+    def enable_greek_approximation(self, value: bool) -> None:
+        ...
+
+    @property
+    def volatility_estimator_warmed_up(self) -> bool:
+        """True if volatility model is warmed up, i.e. has generated volatility value different from zero, otherwise false."""
+        ...
+
+    @property
+    def allowed_option_styles(self) -> typing.Sequence[QuantConnect.OptionStyle]:
+        """
+        List of option styles supported by the pricing model.
+        By default, both American and European option styles are supported.
         """
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Creates a new instance of OptionStrategy with default parameters"""
-        ...
-
-    @staticmethod
-    def create(name: str, legs: typing.List[QuantConnect.Orders.Leg]) -> QuantConnect.Securities.Option.OptionStrategy:
+    def __init__(self, pricing_engine_func: typing.Callable[[GeneralizedBlackScholesProcess], IPricingEngine], underlying_vol_estimator: QuantConnect.Securities.Option.IQLUnderlyingVolatilityEstimator = None, risk_free_rate_estimator: QuantConnect.Securities.Option.IQLRiskFreeRateEstimator = None, dividend_yield_estimator: QuantConnect.Securities.Option.IQLDividendYieldEstimator = None, allowed_option_styles: typing.List[QuantConnect.OptionStyle] = None) -> None:
         """
-        Creates a new instance of OptionStrategy with the specified name and legs data.
-        The method will try to infer the canonical symbol and underlying symbol from the legs data, but they can also be set manually after the strategy creation.
-        """
-        ...
-
-    def set_symbols(self) -> None:
-        """
-        Sets the option legs symbols based on the canonical symbol and the leg data.
-        If the canonical symbol is not set, it will be created using the underlying symbol.
-        """
-        ...
-
-
-class OptionStrategyPositionGroupBuyingPowerModel(QuantConnect.Securities.Positions.PositionGroupBuyingPowerModel):
-    """Option strategy buying power model"""
-
-    def __init__(self, option_strategy: QuantConnect.Securities.Option.OptionStrategy) -> None:
-        """
-        Creates a new instance for a target option strategy
+        Method constructs QuantLib option price model with necessary estimators of underlying volatility, risk free rate, and underlying dividend yield
         
-        :param option_strategy: The option strategy to model
+        :param pricing_engine_func: Function modeled stochastic process, and returns new pricing engine to run calculations for that option
+        :param underlying_vol_estimator: The underlying volatility estimator
+        :param risk_free_rate_estimator: The risk free rate estimator
+        :param dividend_yield_estimator: The underlying dividend yield estimator
+        :param allowed_option_styles: List of option styles supported by the pricing model. It defaults to both American and European option styles
         """
         ...
 
-    def get_contemplated_groups_initial_margin(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, contemplated_groups: QuantConnect.Securities.Positions.PositionGroupCollection, orders_positions: typing.List[QuantConnect.Securities.Positions.IPosition]) -> float:
+    @overload
+    def __init__(self, pricing_engine_func: typing.Callable[[QuantConnect.Symbol, GeneralizedBlackScholesProcess], IPricingEngine], underlying_vol_estimator: QuantConnect.Securities.Option.IQLUnderlyingVolatilityEstimator = None, risk_free_rate_estimator: QuantConnect.Securities.Option.IQLRiskFreeRateEstimator = None, dividend_yield_estimator: QuantConnect.Securities.Option.IQLDividendYieldEstimator = None, allowed_option_styles: typing.List[QuantConnect.OptionStyle] = None) -> None:
         """
-        Gets the initial margin required for the specified contemplated position group.
-        Used by QuantConnect.Securities.Positions.PositionGroupBuyingPowerModel.GetReservedBuyingPowerImpact to get the contemplated groups margin.
+        Method constructs QuantLib option price model with necessary estimators of underlying volatility, risk free rate, and underlying dividend yield
         
-        
-        This Class is protected.
+        :param pricing_engine_func: Function takes option and modeled stochastic process, and returns new pricing engine to run calculations for that option
+        :param underlying_vol_estimator: The underlying volatility estimator
+        :param risk_free_rate_estimator: The risk free rate estimator
+        :param dividend_yield_estimator: The underlying dividend yield estimator
+        :param allowed_option_styles: List of option styles supported by the pricing model. It defaults to both American and European option styles
         """
         ...
 
-    def get_initial_margin_required_for_order(self, parameters: QuantConnect.Securities.Positions.PositionGroupInitialMarginForOrderParameters) -> QuantConnect.Securities.InitialMargin:
+    @overload
+    def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
         """
-        Gets the total margin required to execute the specified order in units of the account currency including fees
-        
-        :param parameters: An object containing the portfolio, the security and the order
-        :returns: The total margin in terms of the currency quoted in the order.
-        """
-        ...
-
-    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.Positions.PositionGroupInitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
-        """
-        The margin that must be held in order to increase the position by the provided quantity
-        
-        :param parameters: An object containing the security and quantity
-        """
-        ...
-
-    def get_maintenance_margin(self, parameters: QuantConnect.Securities.Positions.PositionGroupMaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
-        """
-        Gets the margin currently allocated to the specified holding
-        
-        :param parameters: An object containing the security
-        :returns: The maintenance margin required for the.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
-class OptionExchange(QuantConnect.Securities.SecurityExchange):
-    """Option exchange class - information and helper tools for option exchange properties"""
-
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days per year for this security, 252."""
-        ...
-
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the OptionExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
-class IQLDividendYieldEstimator(metaclass=abc.ABCMeta):
-    """
-    Defines QuantLib dividend yield estimator for option pricing model. User may define his own estimators,
-    including those forward and backward looking ones.
-    """
-
-    def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
-        """
-        Returns current estimate of the stock dividend yield
+        Evaluates the specified option contract to compute a theoretical price, IV and greeks
         
         :param security: The option security object
         :param slice: The current data slice. This can be used to access other information
         available to the algorithm
         :param contract: The option contract to evaluate
-        :returns: Dividend yield.
+        :returns: An instance of OptionPriceModelResult containing the theoretical
+        price of the specified option contract.
+        """
+        ...
+
+    @overload
+    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
+        """
+        Evaluates the specified option contract to compute a theoretical price, IV and greeks
+        
+        :param parameters: A OptionPriceModelParameters object
+        containing the security, slice and contract
+        :returns: An instance of OptionPriceModelResult containing the theoretical
+        price of the specified option contract.
+        """
+        ...
+
+    def implied_volatility_estimation(self, price: float, initial_guess: float, time_till_expiry: float, risk_free_discount: float, forward_price: float, payoff: typing.Any, black: typing.Optional[typing.Any]) -> typing.Tuple[float, typing.Any]:
+        """
+        An implied volatility approximation by Newton-Raphson method. Return 0 if result is not converged
+        
+        
+        This Class is protected.
+        
+        :param price: current price of the option
+        :param initial_guess: initial guess of the IV
+        :param time_till_expiry: time till option contract expiry
+        :param risk_free_discount: risk free rate discount factor
+        :param forward_price: future value of underlying price
+        :param payoff: payoff structure of the option contract
+        :param black: black calculator instance
+        :returns: implied volatility estimation.
         """
         ...
 
@@ -2013,164 +2101,30 @@ class OptionStrategies(System.Object):
         ...
 
 
-class IQLUnderlyingVolatilityEstimator(metaclass=abc.ABCMeta):
-    """
-    Defines QuantLib underlying volatility estimator for option pricing model. User may define his own estimators,
-    including those forward and backward looking ones.
-    """
+class OptionCache(QuantConnect.Securities.SecurityCache):
+    """Option specific caching support"""
 
-    @property
-    @abc.abstractmethod
-    def is_ready(self) -> bool:
-        """Indicates whether volatility model is warmed up or no"""
-        ...
 
-    def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
+class ConstantQLRiskFreeRateEstimator(System.Object, QuantConnect.Securities.Option.IQLRiskFreeRateEstimator):
+    """Class implements default flat risk free curve, implementing IQLRiskFreeRateEstimator."""
+
+    def __init__(self, risk_free_rate: float = 0.01) -> None:
         """
-        Returns current estimate of the underlying volatility
+        Constructor initializes class with risk free rate constant
         
-        :param security: The option security object
-        :param slice: The current data slice. This can be used to access other information
-        available to the algorithm
-        :param contract: The option contract to evaluate
-        :returns: Volatility.
+        :param risk_free_rate: 
         """
-        ...
-
-
-class ConstantQLUnderlyingVolatilityEstimator(System.Object, QuantConnect.Securities.Option.IQLUnderlyingVolatilityEstimator):
-    """
-    Class implements default underlying constant volatility estimator (IQLUnderlyingVolatilityEstimator.), that projects the underlying own volatility
-    model into corresponding option pricing model.
-    """
-
-    @property
-    def is_ready(self) -> bool:
-        """Indicates whether volatility model has been warmed ot not"""
         ...
 
     def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
         """
-        Returns current estimate of the underlying volatility
+        Returns current flat estimate of the risk free rate
         
         :param security: The option security object
         :param slice: The current data slice. This can be used to access other information
         available to the algorithm
         :param contract: The option contract to evaluate
         :returns: The estimate.
-        """
-        ...
-
-
-class QLOptionPriceModel(QuantConnect.Securities.Option.OptionPriceModel):
-    """Provides QuantLib(QL) implementation of IOptionPriceModel to support major option pricing models, available in QL."""
-
-    @property
-    def enable_greek_approximation(self) -> bool:
-        """
-        When enabled, approximates Greeks if corresponding pricing model didn't calculate exact numbers.
-        The default value is true.
-        """
-        ...
-
-    @enable_greek_approximation.setter
-    def enable_greek_approximation(self, value: bool) -> None:
-        ...
-
-    @property
-    def volatility_estimator_warmed_up(self) -> bool:
-        """True if volatility model is warmed up, i.e. has generated volatility value different from zero, otherwise false."""
-        ...
-
-    @property
-    def allowed_option_styles(self) -> typing.Sequence[QuantConnect.OptionStyle]:
-        """
-        List of option styles supported by the pricing model.
-        By default, both American and European option styles are supported.
-        """
-        ...
-
-    @overload
-    def __init__(self, pricing_engine_func: typing.Callable[[GeneralizedBlackScholesProcess], IPricingEngine], underlying_vol_estimator: QuantConnect.Securities.Option.IQLUnderlyingVolatilityEstimator = None, risk_free_rate_estimator: QuantConnect.Securities.Option.IQLRiskFreeRateEstimator = None, dividend_yield_estimator: QuantConnect.Securities.Option.IQLDividendYieldEstimator = None, allowed_option_styles: typing.List[QuantConnect.OptionStyle] = None) -> None:
-        """
-        Method constructs QuantLib option price model with necessary estimators of underlying volatility, risk free rate, and underlying dividend yield
-        
-        :param pricing_engine_func: Function modeled stochastic process, and returns new pricing engine to run calculations for that option
-        :param underlying_vol_estimator: The underlying volatility estimator
-        :param risk_free_rate_estimator: The risk free rate estimator
-        :param dividend_yield_estimator: The underlying dividend yield estimator
-        :param allowed_option_styles: List of option styles supported by the pricing model. It defaults to both American and European option styles
-        """
-        ...
-
-    @overload
-    def __init__(self, pricing_engine_func: typing.Callable[[QuantConnect.Symbol, GeneralizedBlackScholesProcess], IPricingEngine], underlying_vol_estimator: QuantConnect.Securities.Option.IQLUnderlyingVolatilityEstimator = None, risk_free_rate_estimator: QuantConnect.Securities.Option.IQLRiskFreeRateEstimator = None, dividend_yield_estimator: QuantConnect.Securities.Option.IQLDividendYieldEstimator = None, allowed_option_styles: typing.List[QuantConnect.OptionStyle] = None) -> None:
-        """
-        Method constructs QuantLib option price model with necessary estimators of underlying volatility, risk free rate, and underlying dividend yield
-        
-        :param pricing_engine_func: Function takes option and modeled stochastic process, and returns new pricing engine to run calculations for that option
-        :param underlying_vol_estimator: The underlying volatility estimator
-        :param risk_free_rate_estimator: The risk free rate estimator
-        :param dividend_yield_estimator: The underlying dividend yield estimator
-        :param allowed_option_styles: List of option styles supported by the pricing model. It defaults to both American and European option styles
-        """
-        ...
-
-    @overload
-    def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
-        """
-        Evaluates the specified option contract to compute a theoretical price, IV and greeks
-        
-        :param security: The option security object
-        :param slice: The current data slice. This can be used to access other information
-        available to the algorithm
-        :param contract: The option contract to evaluate
-        :returns: An instance of OptionPriceModelResult containing the theoretical
-        price of the specified option contract.
-        """
-        ...
-
-    @overload
-    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
-        """
-        Evaluates the specified option contract to compute a theoretical price, IV and greeks
-        
-        :param parameters: A OptionPriceModelParameters object
-        containing the security, slice and contract
-        :returns: An instance of OptionPriceModelResult containing the theoretical
-        price of the specified option contract.
-        """
-        ...
-
-    def implied_volatility_estimation(self, price: float, initial_guess: float, time_till_expiry: float, risk_free_discount: float, forward_price: float, payoff: typing.Any, black: typing.Optional[typing.Any]) -> typing.Tuple[float, typing.Any]:
-        """
-        An implied volatility approximation by Newton-Raphson method. Return 0 if result is not converged
-        
-        
-        This Class is protected.
-        
-        :param price: current price of the option
-        :param initial_guess: initial guess of the IV
-        :param time_till_expiry: time till option contract expiry
-        :param risk_free_discount: risk free rate discount factor
-        :param forward_price: future value of underlying price
-        :param payoff: payoff structure of the option contract
-        :param black: black calculator instance
-        :returns: implied volatility estimation.
-        """
-        ...
-
-
-class EmptyOptionChainProvider(System.Object, QuantConnect.Interfaces.IOptionChainProvider):
-    """An implementation of IOptionChainProvider that always returns an empty list of contracts"""
-
-    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
-        """
-        Gets the list of option contracts for a given underlying symbol
-        
-        :param symbol: The underlying symbol
-        :param date: The date for which to request the option chain (only used in backtesting)
-        :returns: The list of option contracts.
         """
         ...
 
@@ -2199,21 +2153,154 @@ class ConstantQLDividendYieldEstimator(System.Object, QuantConnect.Securities.Op
         ...
 
 
-class NullOptionAssignmentModel(System.Object, QuantConnect.Securities.Option.IOptionAssignmentModel):
-    """The null option assignment model, that will disable automatic order assignment"""
+class OptionStrategyPositionGroupBuyingPowerModel(QuantConnect.Securities.Positions.PositionGroupBuyingPowerModel):
+    """Option strategy buying power model"""
 
-    def get_assignment(self, parameters: QuantConnect.Securities.Option.OptionAssignmentParameters) -> QuantConnect.Securities.Option.OptionAssignmentResult:
+    def __init__(self, option_strategy: QuantConnect.Securities.Option.OptionStrategy) -> None:
         """
-        Get's the option assignments to generate if any
+        Creates a new instance for a target option strategy
         
-        :param parameters: The option assignment parameters data transfer object
-        :returns: The option assignment result.
+        :param option_strategy: The option strategy to model
+        """
+        ...
+
+    def get_contemplated_groups_initial_margin(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, contemplated_groups: QuantConnect.Securities.Positions.PositionGroupCollection, orders_positions: typing.List[QuantConnect.Securities.Positions.IPosition]) -> float:
+        """
+        Gets the initial margin required for the specified contemplated position group.
+        Used by QuantConnect.Securities.Positions.PositionGroupBuyingPowerModel.GetReservedBuyingPowerImpact to get the contemplated groups margin.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_initial_margin_required_for_order(self, parameters: QuantConnect.Securities.Positions.PositionGroupInitialMarginForOrderParameters) -> QuantConnect.Securities.InitialMargin:
+        """
+        Gets the total margin required to execute the specified order in units of the account currency including fees
+        
+        :param parameters: An object containing the portfolio, the security and the order
+        :returns: The total margin in terms of the currency quoted in the order.
+        """
+        ...
+
+    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.Positions.PositionGroupInitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
+        """
+        The margin that must be held in order to increase the position by the provided quantity
+        
+        :param parameters: An object containing the security and quantity
+        """
+        ...
+
+    def get_maintenance_margin(self, parameters: QuantConnect.Securities.Positions.PositionGroupMaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
+        """
+        Gets the margin currently allocated to the specified holding
+        
+        :param parameters: An object containing the security
+        :returns: The maintenance margin required for the.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
         """
         ...
 
 
-class OptionDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """Option packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+class ConstantQLUnderlyingVolatilityEstimator(System.Object, QuantConnect.Securities.Option.IQLUnderlyingVolatilityEstimator):
+    """
+    Class implements default underlying constant volatility estimator (IQLUnderlyingVolatilityEstimator.), that projects the underlying own volatility
+    model into corresponding option pricing model.
+    """
+
+    @property
+    def is_ready(self) -> bool:
+        """Indicates whether volatility model has been warmed ot not"""
+        ...
+
+    def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
+        """
+        Returns current estimate of the underlying volatility
+        
+        :param security: The option security object
+        :param slice: The current data slice. This can be used to access other information
+        available to the algorithm
+        :param contract: The option contract to evaluate
+        :returns: The estimate.
+        """
+        ...
+
+
+class OptionMarginModel(QuantConnect.Securities.SecurityMarginModel):
+    """Represents a simple option margin model."""
+
+    def __init__(self, required_free_buying_power_percent: float = 0) -> None:
+        """
+        Initializes a new instance of the OptionMarginModel
+        
+        :param required_free_buying_power_percent: The percentage used to determine the required unused buying power for the account.
+        """
+        ...
+
+    def get_initial_margin_required_for_order(self, parameters: QuantConnect.Securities.InitialMarginRequiredForOrderParameters) -> QuantConnect.Securities.InitialMargin:
+        """
+        Gets the total margin required to execute the specified order in units of the account currency including fees
+        
+        :param parameters: An object containing the portfolio, the security and the order
+        :returns: The total margin in terms of the currency quoted in the order.
+        """
+        ...
+
+    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
+        """
+        The margin that must be held in order to increase the position by the provided quantity
+        
+        :returns: The initial margin required for the provided security and quantity.
+        """
+        ...
+
+    def get_leverage(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the current leverage of the security
+        
+        :param security: The security to get leverage for
+        :returns: The current leverage in the security.
+        """
+        ...
+
+    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
+        """
+        Gets the margin currently alloted to the specified holding
+        
+        :param parameters: An object containing the security
+        :returns: The maintenance margin required for the provided holdings quantity/cost/value.
+        """
+        ...
+
+    def set_leverage(self, security: QuantConnect.Securities.Security, leverage: float) -> None:
+        """
+        Sets the leverage for the applicable securities, i.e, options.
+        
+        :param security: 
+        :param leverage: The new leverage
+        """
+        ...
+
+
+class EmptyOptionChainProvider(System.Object, QuantConnect.Interfaces.IOptionChainProvider):
+    """An implementation of IOptionChainProvider that always returns an empty list of contracts"""
+
+    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Symbol]:
+        """
+        Gets the list of option contracts for a given underlying symbol
+        
+        :param symbol: The underlying symbol
+        :param date: The date for which to request the option chain (only used in backtesting)
+        :returns: The list of option contracts.
+        """
+        ...
 
 
 class OptionHolding(QuantConnect.Securities.SecurityHolding):
@@ -2225,93 +2312,6 @@ class OptionHolding(QuantConnect.Securities.SecurityHolding):
         
         :param security: The option security being held
         :param currency_converter: A currency converter instance
-        """
-        ...
-
-
-class OptionCache(QuantConnect.Securities.SecurityCache):
-    """Option specific caching support"""
-
-
-class FedRateQLRiskFreeRateEstimator(System.Object, QuantConnect.Securities.Option.IQLRiskFreeRateEstimator):
-    """Class implements Fed's US primary credit rate as risk free rate, implementing IQLRiskFreeRateEstimator."""
-
-    def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
-        """
-        Returns current flat estimate of the risk free rate
-        
-        :param security: The option security object
-        :param slice: The current data slice. This can be used to access other information
-        available to the algorithm
-        :param contract: The option contract to evaluate
-        :returns: The estimate.
-        """
-        ...
-
-
-class FuturesOptionsMarginModel(QuantConnect.Securities.Future.FutureMarginModel):
-    """
-    Defines a margin model for future options (an option with a future as its underlying).
-    We re-use the FutureMarginModel implementation and multiply its results
-    by 1.5x to simulate the increased margins seen for future options.
-    """
-
-    @property
-    def initial_overnight_margin_requirement(self) -> float:
-        """Initial Overnight margin requirement for the contract effective from the date of change"""
-        ...
-
-    @property
-    def maintenance_overnight_margin_requirement(self) -> float:
-        """Maintenance Overnight margin requirement for the contract effective from the date of change"""
-        ...
-
-    @property
-    def initial_intraday_margin_requirement(self) -> float:
-        """Initial Intraday margin for the contract effective from the date of change"""
-        ...
-
-    @property
-    def maintenance_intraday_margin_requirement(self) -> float:
-        """Maintenance Intraday margin requirement for the contract effective from the date of change"""
-        ...
-
-    def __init__(self, required_free_buying_power_percent: float = 0, future_option: QuantConnect.Securities.Option.Option = None) -> None:
-        """
-        Creates an instance of FutureOptionMarginModel
-        
-        :param required_free_buying_power_percent: The percentage used to determine the required unused buying power for the account.
-        :param future_option: Option Security containing a Future security as the underlying
-        """
-        ...
-
-    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
-        """
-        The margin that must be held in order to increase the position by the provided quantity
-        
-        :param parameters: An object containing the security and quantity of shares
-        :returns: The initial margin required for the option (i.e. the equity required to enter a position for this option).
-        """
-        ...
-
-    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
-        """
-        Gets the margin currently alloted to the specified holding.
-        
-        :param parameters: An object containing the security
-        :returns: The maintenance margin required for the option.
-        """
-        ...
-
-    @staticmethod
-    def get_margin_requirement(option: QuantConnect.Securities.Option.Option, underlying_requirement: float, position_side: QuantConnect.PositionSide = ...) -> int:
-        """
-        Get's the margin requirement for a future option based on the underlying future margin requirement and the position side to trade.
-        FOPs margin requirement is an 'S' curve based on the underlying requirement around it's current price, see https://en.wikipedia.org/wiki/Logistic_function
-        
-        :param option: The future option contract to trade
-        :param underlying_requirement: The underlying future associated margin requirement
-        :param position_side: The position side to trade, long by default. This is because short positions require higher margin requirements
         """
         ...
 

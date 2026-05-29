@@ -112,6 +112,11 @@ def _tts_audio_frame(
     return TTSAudioRawFrame(**kwargs)
 
 
+def _is_ws_connection_closed_error(exc: BaseException) -> bool:
+    """Return whether an exception is a raw websockets connection close."""
+    return "ConnectionClosed" in type(exc).__name__
+
+
 @dataclass
 class _TTSOptions:
     model: TTSModels | str
@@ -249,6 +254,18 @@ class KugelAudioTTSService(TTSService):
         self._multi_session: Optional[MultiContextSession] = None
         self._multi_session_lock = asyncio.Lock()
         self._multi_session_needs_reset = False
+        # Pipecat 0.x calls run_tts(text) with no context_id, so the wrapper
+        # owns context identity. We reuse ONE stable context for the whole WS
+        # session instead of minting a fresh one per turn: a per-turn context
+        # is never closed by this wrapper and the server hard-caps a session
+        # at 5 concurrent contexts (the 6th create raises and tears the WS
+        # down ~30-40s into a call). Reusing one context also lets the server
+        # keep its KV cache warm across turns, lowering follow-up TTFA.
+        # ``_session_context_needs_reset`` rotates the context after a turn
+        # that didn't finish cleanly (barge-in cancel / mid-stream error) so
+        # its un-drained tail can't bleed into the next turn.
+        self._session_context_id: Optional[str] = None
+        self._session_context_needs_reset = False
         self._closed = False
 
     def _create_multi_session(self) -> MultiContextSession:
@@ -285,8 +302,45 @@ class KugelAudioTTSService(TTSService):
         session = self._multi_session
         self._multi_session = None
         self._multi_session_needs_reset = False
+        # The reused context lived on this WS; a fresh connection starts with
+        # no server-side contexts, so forget our id and mint a new one lazily.
+        self._session_context_id = None
+        self._session_context_needs_reset = False
         if session is not None:
             await session.close()
+
+    async def _resolve_turn_context_id(
+        self, session: MultiContextSession, caller_context_id: Optional[str]
+    ) -> str:
+        """Pick the context_id for this turn.
+
+        When the caller supplies one (Pipecat 1.x AudioContext API), honour it
+        verbatim — the caller owns context creation and teardown. Otherwise use
+        the wrapper-owned stable session context, rotating it first if the
+        previous turn left it dirty (see ``_session_context_needs_reset``).
+        """
+        if caller_context_id:
+            return caller_context_id
+
+        if self._session_context_needs_reset and self._session_context_id:
+            old = self._session_context_id
+            self._session_context_id = None
+            try:
+                async for _ in session.close_context(old):
+                    pass
+            except Exception:
+                # KEEP-JUSTIFIED: best-effort release of an interrupted/failed
+                # context. If the WS is already gone the upcoming send() will
+                # surface that and trigger the normal reconnect path; there is
+                # no correctness value in propagating a cleanup failure here.
+                logger.debug(
+                    "Failed to close rotated context %s", old, exc_info=True
+                )
+        self._session_context_needs_reset = False
+
+        if self._session_context_id is None:
+            self._session_context_id = f"kugelaudio-{uuid.uuid4()}"
+        return self._session_context_id
 
     async def _close_multi_session_locked(self) -> None:
         async with self._multi_session_lock:
@@ -394,61 +448,79 @@ class KugelAudioTTSService(TTSService):
             Frame: TTSStartedFrame, TTSAudioRawFrame chunks, and TTSStoppedFrame.
         """
         logger.debug(f"Generating TTS [{text}]")
-        effective_context_id = context_id or f"kugelaudio-{uuid.uuid4()}"
         error_frame: Optional[ErrorFrame] = None
+        completed_cleanly = False
 
         await self.start_ttfb_metrics()
         await self.start_tts_usage_metrics(text)
         yield _tts_started_frame(context_id)
 
-        # Try once, then retry once on a connection drop. The retry path
-        # exists because a NAT/proxy can quietly drop the WS during the
-        # user's think-time between turns, and we'd rather give the
-        # conversation one transparent reconnect than a hard error frame.
-        for attempt in (1, 2):
-            t0 = time.perf_counter()
-            first_chunk = True
-            yielded_audio = False
-            try:
-                async with self._multi_session_lock:
-                    session = await self._get_multi_session()
-                    async for item in session.send(
-                        effective_context_id,
-                        text,
-                        flush=True,
-                        chunk_complete_idle_timeout=0.0,
-                    ):
-                        if first_chunk:
-                            ttfa_ms = (time.perf_counter() - t0) * 1000
-                            logger.info(f"KugelAudio TTFA: {ttfa_ms:.0f}ms")
-                            first_chunk = False
-                        await self.stop_ttfb_metrics()
-                        yielded_audio = True
-                        yield _tts_audio_frame(
-                            audio=item.audio,
-                            sample_rate=self._opts.sample_rate,
-                            num_channels=1,
-                            context_id=context_id,
+        try:
+            # Try once, then retry once on a connection drop. The retry path
+            # exists because a NAT/proxy can quietly drop the WS during the
+            # user's think-time between turns, and we'd rather give the
+            # conversation one transparent reconnect than a hard error frame.
+            for attempt in (1, 2):
+                t0 = time.perf_counter()
+                first_chunk = True
+                yielded_audio = False
+                try:
+                    async with self._multi_session_lock:
+                        session = await self._get_multi_session()
+                        effective_context_id = await self._resolve_turn_context_id(
+                            session, context_id
                         )
-                error_frame = None
-                break
-            except KugelAudioConnectionError as e:
-                # WS is dead. If nothing was streamed yet on this attempt and
-                # we have a retry budget, drop the cached session and try once
-                # more with a fresh connection. After that, give up loudly.
-                if attempt == 1 and not yielded_audio:
-                    logger.warning(
-                        "KugelAudio WS dropped; reconnecting and retrying once"
-                    )
-                    self._multi_session_needs_reset = True
-                    continue
-                logger.error(f"TTS error: {e}")
-                error_frame = ErrorFrame(error=f"KugelAudio error: {e}")
-                break
-            except Exception as e:
-                logger.error(f"TTS error: {e}")
-                error_frame = ErrorFrame(error=f"KugelAudio error: {e}")
-                break
+                        async for item in session.send(
+                            effective_context_id,
+                            text,
+                            flush=True,
+                            chunk_complete_idle_timeout=0.0,
+                        ):
+                            if first_chunk:
+                                ttfa_ms = (time.perf_counter() - t0) * 1000
+                                logger.info(f"KugelAudio TTFA: {ttfa_ms:.0f}ms")
+                                first_chunk = False
+                            await self.stop_ttfb_metrics()
+                            yielded_audio = True
+                            yield _tts_audio_frame(
+                                audio=item.audio,
+                                sample_rate=self._opts.sample_rate,
+                                num_channels=1,
+                                context_id=context_id,
+                            )
+                    error_frame = None
+                    completed_cleanly = True
+                    break
+                except Exception as e:
+                    # WS is dead. If nothing was streamed yet on this attempt
+                    # and we have a retry budget, drop the cached session and
+                    # try once more with a fresh connection. After that, give
+                    # up loudly.
+                    if isinstance(
+                        e, KugelAudioConnectionError
+                    ) or _is_ws_connection_closed_error(e):
+                        self._multi_session_needs_reset = True
+                        if attempt == 1 and not yielded_audio:
+                            logger.warning(
+                                "KugelAudio WS dropped; reconnecting and retrying once"
+                            )
+                            continue
+                        logger.error(f"TTS error: {e}")
+                        error_frame = ErrorFrame(error=f"KugelAudio error: {e}")
+                        break
+
+                    logger.error(f"TTS error: {e}")
+                    error_frame = ErrorFrame(error=f"KugelAudio error: {e}")
+                    break
+        finally:
+            # A turn that didn't finish cleanly — barge-in cancellation
+            # (CancelledError unwinds through here) or a mid-stream error —
+            # may have left un-drained audio on our reused context. Mark it so
+            # the next turn rotates to a fresh context and that tail can't
+            # bleed into the next utterance. Only applies to the wrapper-owned
+            # context; a caller-supplied context_id is the caller's to manage.
+            if not completed_cleanly and context_id is None:
+                self._session_context_needs_reset = True
 
         await self.stop_ttfb_metrics()
         logger.debug(f"Finished TTS [{text}]")

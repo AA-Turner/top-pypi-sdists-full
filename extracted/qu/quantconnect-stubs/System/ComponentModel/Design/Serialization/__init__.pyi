@@ -28,20 +28,25 @@ class IDesignerLoaderHost(System.ComponentModel.Design.IDesignerHost, metaclass=
         ...
 
 
-class DesignerLoader(System.Object, metaclass=abc.ABCMeta):
+class IDesignerLoaderHost2(System.ComponentModel.Design.Serialization.IDesignerLoaderHost, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def loading(self) -> bool:
+    @abc.abstractmethod
+    def ignore_errors_during_reload(self) -> bool:
         ...
 
-    def begin_load(self, host: System.ComponentModel.Design.Serialization.IDesignerLoaderHost) -> None:
+    @ignore_errors_during_reload.setter
+    def ignore_errors_during_reload(self, value: bool) -> None:
         ...
 
-    def dispose(self) -> None:
+    @property
+    @abc.abstractmethod
+    def can_reload_with_errors(self) -> bool:
         ...
 
-    def flush(self) -> None:
+    @can_reload_with_errors.setter
+    def can_reload_with_errors(self, value: bool) -> None:
         ...
 
 
@@ -67,22 +72,6 @@ class ContextStack(System.Object):
         ...
 
     def push(self, context: typing.Any) -> None:
-        ...
-
-
-class DefaultSerializationProviderAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def provider_type_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, provider_type: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, provider_type_name: str) -> None:
         ...
 
 
@@ -171,25 +160,76 @@ class IDesignerSerializationManager(IServiceProvider, metaclass=abc.ABCMeta):
         ...
 
 
-class IDesignerLoaderHost2(System.ComponentModel.Design.Serialization.IDesignerLoaderHost, metaclass=abc.ABCMeta):
+class IDesignerLoaderService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def add_load_dependency(self) -> None:
+        ...
+
+    def dependent_load_complete(self, successful: bool, error_collection: System.Collections.ICollection) -> None:
+        ...
+
+    def reload(self) -> bool:
+        ...
+
+
+class SerializationStore(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
     @abc.abstractmethod
-    def ignore_errors_during_reload(self) -> bool:
+    def errors(self) -> System.Collections.ICollection:
         ...
 
-    @ignore_errors_during_reload.setter
-    def ignore_errors_during_reload(self, value: bool) -> None:
+    def close(self) -> None:
         ...
 
-    @property
-    @abc.abstractmethod
-    def can_reload_with_errors(self) -> bool:
+    def dispose(self, disposing: bool) -> None:
         ...
 
-    @can_reload_with_errors.setter
-    def can_reload_with_errors(self, value: bool) -> None:
+    def save(self, stream: System.IO.Stream) -> None:
+        ...
+
+
+class ComponentSerializationService(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def create_store(self) -> System.ComponentModel.Design.Serialization.SerializationStore:
+        ...
+
+    @overload
+    def deserialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore) -> System.Collections.ICollection:
+        ...
+
+    @overload
+    def deserialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer) -> System.Collections.ICollection:
+        ...
+
+    @overload
+    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer, validate_recycled_types: bool, apply_defaults: bool) -> None:
+        ...
+
+    @overload
+    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer) -> None:
+        ...
+
+    @overload
+    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer, validate_recycled_types: bool) -> None:
+        ...
+
+    def load_store(self, stream: System.IO.Stream) -> System.ComponentModel.Design.Serialization.SerializationStore:
+        ...
+
+    def serialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore, value: typing.Any) -> None:
+        ...
+
+    def serialize_absolute(self, store: System.ComponentModel.Design.Serialization.SerializationStore, value: typing.Any) -> None:
+        ...
+
+    def serialize_member(self, store: System.ComponentModel.Design.Serialization.SerializationStore, owning_object: typing.Any, member: System.ComponentModel.MemberDescriptor) -> None:
+        ...
+
+    def serialize_member_absolute(self, store: System.ComponentModel.Design.Serialization.SerializationStore, owning_object: typing.Any, member: System.ComponentModel.MemberDescriptor) -> None:
         ...
 
 
@@ -220,16 +260,13 @@ class InstanceDescriptor(System.Object):
         ...
 
 
-class IDesignerLoaderService(metaclass=abc.ABCMeta):
+class IDesignerSerializationService(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    def add_load_dependency(self) -> None:
+    def deserialize(self, serialization_data: typing.Any) -> System.Collections.ICollection:
         ...
 
-    def dependent_load_complete(self, successful: bool, error_collection: System.Collections.ICollection) -> None:
-        ...
-
-    def reload(self) -> bool:
+    def serialize(self, objects: System.Collections.ICollection) -> System.Object:
         ...
 
 
@@ -313,34 +350,6 @@ class MemberRelationshipService(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class IDesignerSerializationService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def deserialize(self, serialization_data: typing.Any) -> System.Collections.ICollection:
-        ...
-
-    def serialize(self, objects: System.Collections.ICollection) -> System.Object:
-        ...
-
-
-class SerializationStore(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def errors(self) -> System.Collections.ICollection:
-        ...
-
-    def close(self) -> None:
-        ...
-
-    def dispose(self, disposing: bool) -> None:
-        ...
-
-    def save(self, stream: System.IO.Stream) -> None:
-        ...
-
-
 class RootDesignerSerializerAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -373,45 +382,36 @@ class RootDesignerSerializerAttribute(System.Attribute):
         ...
 
 
-class ComponentSerializationService(System.Object, metaclass=abc.ABCMeta):
+class DefaultSerializationProviderAttribute(System.Attribute):
     """This class has no documentation."""
 
-    def create_store(self) -> System.ComponentModel.Design.Serialization.SerializationStore:
+    @property
+    def provider_type_name(self) -> str:
         ...
 
     @overload
-    def deserialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore) -> System.Collections.ICollection:
+    def __init__(self, provider_type: typing.Type) -> None:
         ...
 
     @overload
-    def deserialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer) -> System.Collections.ICollection:
+    def __init__(self, provider_type_name: str) -> None:
         ...
 
-    @overload
-    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer, validate_recycled_types: bool, apply_defaults: bool) -> None:
+
+class DesignerLoader(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def loading(self) -> bool:
         ...
 
-    @overload
-    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer) -> None:
+    def begin_load(self, host: System.ComponentModel.Design.Serialization.IDesignerLoaderHost) -> None:
         ...
 
-    @overload
-    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer, validate_recycled_types: bool) -> None:
+    def dispose(self) -> None:
         ...
 
-    def load_store(self, stream: System.IO.Stream) -> System.ComponentModel.Design.Serialization.SerializationStore:
-        ...
-
-    def serialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore, value: typing.Any) -> None:
-        ...
-
-    def serialize_absolute(self, store: System.ComponentModel.Design.Serialization.SerializationStore, value: typing.Any) -> None:
-        ...
-
-    def serialize_member(self, store: System.ComponentModel.Design.Serialization.SerializationStore, owning_object: typing.Any, member: System.ComponentModel.MemberDescriptor) -> None:
-        ...
-
-    def serialize_member_absolute(self, store: System.ComponentModel.Design.Serialization.SerializationStore, owning_object: typing.Any, member: System.ComponentModel.MemberDescriptor) -> None:
+    def flush(self) -> None:
         ...
 
 

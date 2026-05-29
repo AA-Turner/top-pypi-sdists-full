@@ -3,7 +3,7 @@ from typing import List
 from collections.abc import Callable
 import pandas
 from ..exceptions import ComponentError
-from .tPandas import tPandas
+from ..interfaces.t_pandas import tPandas
 
 
 class tPluckCols(tPandas):

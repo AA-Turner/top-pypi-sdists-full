@@ -1,5 +1,5 @@
 from django.apps import AppConfig
-from django.core.checks import register, Tags
+from django.core.checks import Tags, register
 from django.utils.translation import gettext_lazy as _
 
 
@@ -8,8 +8,9 @@ class AuthenticationConfig(AppConfig):
     label = "authentication"
     verbose_name = _("Authentication")
 
-    def ready(self):
-        from allianceauth.authentication import checks, signals  # noqa: F401
+    def ready(self) -> None:
+        from allianceauth.authentication import signals  # noqa: F401
+        from allianceauth.authentication import checks
         from allianceauth.authentication.task_statistics import (
             signals as celery_signals,
         )

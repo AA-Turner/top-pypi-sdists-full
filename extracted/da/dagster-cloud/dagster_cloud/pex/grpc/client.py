@@ -26,14 +26,16 @@ from dagster_cloud.pex.grpc.types import (
 
 
 class MultiPexGrpcClient:
-    def __init__(self, port=None, socket=None, host="localhost"):
+    def __init__(self, port: int | None = None, socket: str | None = None, host: str = "localhost"):
         self.port = check.opt_int_param(port, "port")
         self.socket = check.opt_str_param(socket, "socket")
         self.host = check.opt_str_param(host, "host")
         if port:
             self._server_address = host + ":" + str(port)
+        elif socket:
+            self._server_address = "unix:" + os.path.abspath(socket)
         else:
-            self._server_address = "unix:" + os.path.abspath(socket)  # ty: ignore[no-matching-overload]
+            check.failed("Must provide either port or socket to MultiPexGrpcClient")
 
     def create_pex_server(self, create_pex_server_args: CreatePexServerArgs):
         check.inst_param(create_pex_server_args, "create_pex_server_args", CreatePexServerArgs)

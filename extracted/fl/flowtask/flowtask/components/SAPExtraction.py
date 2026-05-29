@@ -11,7 +11,7 @@ from io import BytesIO
 import pandas as pd
 from pydantic import BaseModel, Field
 from ..interfaces.LLMClient import LLMClient
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import ConfigError
 
 

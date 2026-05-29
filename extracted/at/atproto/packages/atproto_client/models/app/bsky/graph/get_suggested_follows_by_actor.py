@@ -1,8 +1,8 @@
-##################################################################
+#######################################################################
 # THIS IS THE AUTO-GENERATED CODE. DON'T EDIT IT BY HANDS!
-# Copyright (C) 2024 Ilya (Marshal) <https://github.com/MarshalX>.
+# Copyright (C) 2023-2026 Ilya (Marshal) <https://github.com/MarshalX>.
 # This file is part of Python atproto SDK. Licenced under MIT.
-##################################################################
+#######################################################################
 
 
 import typing as t
@@ -29,6 +29,7 @@ class Response(base.ResponseModelBase):
 
     suggestions: t.List['models.AppBskyActorDefs.ProfileView']  #: Suggestions.
     is_fallback: t.Optional[bool] = (
-        False  #: If true, response has fallen-back to generic results, and is not scoped using relativeToDid.
+        False  #: DEPRECATED, unused. Previously: if true, response has fallen-back to generic results, and is not scoped using relativeToDid.
     )
-    rec_id: t.Optional[int] = None  #: Snowflake for this recommendation, use when submitting recommendation events.
+    rec_id: t.Optional[int] = None  #: DEPRECATED: use recIdStr instead.
+    rec_id_str: t.Optional[str] = None  #: Snowflake for this recommendation, use when submitting recommendation events.

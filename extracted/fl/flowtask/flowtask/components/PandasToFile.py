@@ -6,7 +6,7 @@ import csv
 import numpy as np
 import pandas as pd
 from ..exceptions import ComponentError, DataNotFound
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..utils.constants import excel_based
 
 

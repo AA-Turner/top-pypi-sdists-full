@@ -215,6 +215,18 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         ...
 
 
+class GridSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBaseOptimizationStrategy):
+    """Find the best solution in first generation"""
+
+    def push_new_results(self, result: QuantConnect.Optimizer.OptimizationResult) -> None:
+        """
+        Checks whether new lean compute job better than previous and run new iteration if necessary.
+        
+        :param result: Lean compute job result and corresponding parameter set
+        """
+        ...
+
+
 class EulerSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBaseOptimizationStrategy):
     """Advanced brute-force strategy with search in-depth for best solution on previous step"""
 
@@ -259,18 +271,6 @@ class StepBaseOptimizationStrategySettings(QuantConnect.Optimizer.Strategies.Opt
 
     @default_segment_amount.setter
     def default_segment_amount(self, value: int) -> None:
-        ...
-
-
-class GridSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBaseOptimizationStrategy):
-    """Find the best solution in first generation"""
-
-    def push_new_results(self, result: QuantConnect.Optimizer.OptimizationResult) -> None:
-        """
-        Checks whether new lean compute job better than previous and run new iteration if necessary.
-        
-        :param result: Lean compute job result and corresponding parameter set
-        """
         ...
 
 

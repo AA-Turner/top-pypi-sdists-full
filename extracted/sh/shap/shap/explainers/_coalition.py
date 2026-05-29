@@ -247,7 +247,7 @@ class CoalitionExplainer(Explainer):
         )  # generate permutations of neighbours consistent with partition tree, and related weights
         self.masks, self.keys = _create_masks(
             self.root, self.masker.feature_names
-        )  # turn the premutations into valid masks for inference
+        )  # turn the permutations into valid masks for inference
         self.masks_dict = dict(zip(self.keys, self.masks))
         self.mask_permutations = _create_combined_masks(
             self.combinations_list, self.masks_dict
@@ -289,10 +289,10 @@ class CoalitionExplainer(Explainer):
                     off_result = np.asarray(off_result).reshape(-1)
                     on_result = np.asarray(on_result).reshape(-1)
                     for i in range(num_outputs):
-                        marginal_contribution = float((on_result[i] - off_result[i]) * weight)
+                        marginal_contribution = ((on_result[i] - off_result[i]) * weight).item()
                         shap_values[feature_name_to_index[last_key], i] += marginal_contribution
                 else:
-                    marginal_contribution = float((on_result - off_result) * weight)
+                    marginal_contribution = ((on_result - off_result) * weight).item()
                     shap_values[feature_name_to_index[last_key]] += marginal_contribution
 
         # Step 5: Return results

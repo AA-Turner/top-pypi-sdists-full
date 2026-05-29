@@ -26,16 +26,19 @@ from skylos.visitors.framework_aware import FrameworkAwareVisitor
 from skylos.visitors.test_aware import TestAwareVisitor
 from skylos.visitors.languages.php import scan_php_file
 from skylos.visitors.languages.dart import scan_dart_file
+from skylos.visitors.languages.shell import SHELL_SOURCE_EXTS, scan_shell_file
 from skylos.visitors.languages.typescript import scan_typescript_file
 from skylos.visitors.languages.typescript.analysis import (
     build_ts_import_graph,
     demote_unconsumed_ts_exports,
+    _discover_ts_vscode_lifecycle_entry_files,
     find_dead_ts_files,
     find_unused_ts_exports,
 )
 from skylos.visitors.languages.go import scan_go_file, clear_go_cache
 from skylos.visitors.languages.java import scan_java_file
 from skylos.visitors.languages.rust import scan_rust_file
+from skylos.visitors.languages.csharp import scan_csharp_file
 
 from skylos.rules.secrets import scan_ctx as _secrets_scan_ctx
 
@@ -140,6 +143,8 @@ _TS_JS_SOURCE_EXTS = (
 _PHP_SOURCE_EXTS = (".php",)
 _RUST_SOURCE_EXTS = (".rs",)
 _DART_SOURCE_EXTS = (".dart",)
+_CSHARP_SOURCE_EXTS = (".cs",)
+_SHELL_SOURCE_EXTS = SHELL_SOURCE_EXTS
 _PYTHON_SOURCE_ROOT_NAMES = {"src", "lib", "python"}
 
 _TRY_NODE_TYPES = (ast.Try, getattr(ast, "TryStar", ast.Try))
@@ -544,6 +549,12 @@ class Skylos:
         ".php": "PHP",
         ".rs": "Rust",
         ".dart": "Dart",
+        ".cs": "C#",
+        ".sh": "Shell",
+        ".bash": "Shell",
+        ".zsh": "Shell",
+        ".ksh": "Shell",
+        ".bats": "Shell",
     }
 
     def _count_languages(self, files) -> dict[str, int]:
@@ -572,6 +583,8 @@ class Skylos:
             *(_PHP_SOURCE_EXTS),
             *(_RUST_SOURCE_EXTS),
             *(_DART_SOURCE_EXTS),
+            *(_CSHARP_SOURCE_EXTS),
+            *(_SHELL_SOURCE_EXTS),
         }
         ext_list = [
             "py",
@@ -588,6 +601,12 @@ class Skylos:
             "php",
             "rs",
             "dart",
+            "cs",
+            "sh",
+            "bash",
+            "zsh",
+            "ksh",
+            "bats",
         ]
 
         # use rust file discovery when avail
@@ -721,7 +740,7 @@ class Skylos:
             for def_name, def_obj in self.defs.items():
                 if def_obj.type not in ("function", "method"):
                     continue
-                if str(def_obj.filename).endswith(".java"):
+                if str(def_obj.filename).endswith((".java",) + _CSHARP_SOURCE_EXTS):
                     continue
                 if "." not in def_obj.name:
                     continue
@@ -779,11 +798,21 @@ class Skylos:
             self._ts_importers_of,
         ) = build_ts_import_graph(ts_raw_imports, self.defs, monorepo_resolver)
 
-    def _demote_unconsumed_ts_exports(self):
+    def _demote_unconsumed_ts_exports(
+        self, files=None, exclude_folders=None, workspace_inventory=None
+    ):
         if not hasattr(self, "ts_consumed_exports"):
             return
+        lifecycle_entry_points = _discover_ts_vscode_lifecycle_entry_files(
+            files or [],
+            project_root=str(self._project_root),
+            workspace_inventory=workspace_inventory,
+            exclude_folders=exclude_folders,
+        )
         self._ts_demoted_exports = demote_unconsumed_ts_exports(
-            self.defs, self.ts_consumed_exports
+            self.defs,
+            self.ts_consumed_exports,
+            lifecycle_entry_points=lifecycle_entry_points,
         )
 
     def _find_dead_ts_files(self, files, exclude_folders, workspace_inventory=None):
@@ -1604,6 +1633,7 @@ class Skylos:
         architecture_main_guard_modules=None,
         pyproject_entrypoint_qnames=None,
         pyproject_entrypoint_modules=None,
+        config_file=None,
     ):
         """Assemble the final result dict from analysis outputs."""
         architecture_main_guard_modules = set(architecture_main_guard_modules or ())
@@ -1830,7 +1860,10 @@ class Skylos:
             result["unused_exports"].extend(unused_ts_exports)
             result["analysis_summary"]["unused_exports_count"] = len(unused_ts_exports)
 
-        project_cfg = load_config(path[0] if isinstance(path, (list, tuple)) else path)
+        project_cfg = load_config(
+            path[0] if isinstance(path, (list, tuple)) else path,
+            config_file=config_file,
+        )
         if project_cfg.get("check_circular", True):
             circular_rule = CircularDependencyRule()
 
@@ -1969,6 +2002,7 @@ class Skylos:
         grep_verify=True,
         enable_sca=False,
         trace_file=None,
+        config_file=None,
     ) -> str:
         if not isinstance(path, (str, list, tuple)):
             raise TypeError(
@@ -1998,7 +2032,7 @@ class Skylos:
         )
 
         workspace_inventory = discover_workspace_inventory(project_root)
-        project_cfg = load_config(project_root)
+        project_cfg = load_config(project_root, config_file=config_file)
         project_ignore = set(project_cfg.get("ignore", []))
 
         if not files:
@@ -2171,6 +2205,7 @@ class Skylos:
                 collect_architecture_metrics=enable_quality,
                 enable_quality_rules=enable_quality,
                 enable_danger_rules=enable_danger,
+                config_file=config_file,
             )
 
             if os.getenv("SKYLOS_DEBUG"):
@@ -2948,7 +2983,9 @@ class Skylos:
             progress_callback(0, 1, Path("PHASE: exports"))
         self._mark_exports()
 
-        self._demote_unconsumed_ts_exports()
+        self._demote_unconsumed_ts_exports(
+            files, exclude_folders, workspace_inventory=workspace_inventory
+        )
 
         if progress_callback:
             progress_callback(0, 1, Path("PHASE: entry reachability"))
@@ -3015,6 +3052,7 @@ class Skylos:
             architecture_main_guard_modules=architecture_main_guard_modules,
             pyproject_entrypoint_qnames=pyproject_entrypoint_qnames,
             pyproject_entrypoint_modules=pyproject_entrypoint_modules,
+            config_file=config_file,
         )
 
         return json.dumps(result, indent=2)
@@ -3048,13 +3086,14 @@ def proc_file(
     collect_architecture_metrics=False,
     enable_quality_rules=True,
     enable_danger_rules=True,
+    config_file=None,
 ) -> dict | None:
     if mod is None and isinstance(file_or_args, tuple):
         file, mod = file_or_args
     else:
         file = file_or_args
 
-    cfg = load_config(file)
+    cfg = load_config(file, config_file=config_file)
 
     if str(file).endswith(_TS_JS_SOURCE_EXTS):
         out = scan_typescript_file(
@@ -3106,6 +3145,26 @@ def proc_file(
 
     if str(file).endswith(".dart"):
         out = scan_dart_file(
+            file,
+            cfg,
+            enable_danger_rules=enable_danger_rules,
+        )
+        if isinstance(out, tuple) and len(out) < 13:
+            return (*out, *([None] * (13 - len(out))))
+        return out[:13]
+
+    if str(file).endswith(".cs"):
+        out = scan_csharp_file(
+            file,
+            cfg,
+            enable_danger_rules=enable_danger_rules,
+        )
+        if isinstance(out, tuple) and len(out) < 13:
+            return (*out, *([None] * (13 - len(out))))
+        return out[:13]
+
+    if str(file).endswith(_SHELL_SOURCE_EXTS):
+        out = scan_shell_file(
             file,
             cfg,
             enable_danger_rules=enable_danger_rules,
@@ -3559,21 +3618,23 @@ def analyze(
     grep_verify=True,
     enable_sca=False,
     trace_file=None,
+    config_file=None,
 ) -> str:
     return Skylos().analyze(
         path,
-        conf,
-        exclude_folders,
-        enable_secrets,
-        enable_danger,
-        enable_quality,
-        extra_visitors,
-        progress_callback,
-        custom_rules_data,
-        changed_files,
+        thr=conf,
+        exclude_folders=exclude_folders,
+        enable_secrets=enable_secrets,
+        enable_danger=enable_danger,
+        enable_quality=enable_quality,
+        extra_visitors=extra_visitors,
+        progress_callback=progress_callback,
+        custom_rules_data=custom_rules_data,
+        changed_files=changed_files,
         grep_verify=grep_verify,
         enable_sca=enable_sca,
         trace_file=trace_file,
+        config_file=config_file,
     )
 
 

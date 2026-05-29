@@ -4,7 +4,6 @@ from .SciQLopPlotsBindings import (GraphType, SciQLopPlot, SciQLopTimeSeriesPlot
                                     SciQLopGraphInterface, AxisType, SciQLopPlotRange, SciQLopNDProjectionPlot)
 from .SciQLopPlotsBindings import *
 from datetime import datetime, timezone
-from dateutil.parser import parse as dateparse
 import traceback
 
 import sys
@@ -13,7 +12,7 @@ sys.modules["SciQLopPlotsBindings"] = SciQLopPlotsBindings
 
 from . import tracing  # noqa: E402,F401  -- runtime tracer facade
 
-__version__ = '0.24.0'
+__version__ = '0.25.1'
 
 def _merge_kwargs(kwargs, **kwargs2):
     for k, v in kwargs2.items():

@@ -507,6 +507,68 @@ fn run_pep723_script() -> Result<()> {
     error: An opening tag (`# /// script`) was found without a closing tag (`# ///`). Ensure that every line between the opening and closing tags (including empty lines) starts with a leading `#`.
     ");
 
+    // Regression test for: <https://github.com/astral-sh/uv/issues/18617>
+    let test_script = context.temp_dir.child("main.py");
+    test_script.write_str(indoc! { r#"
+        # /// script
+        # dependencies = []
+        # ///
+
+        print("Hello, world!")
+
+        # /// script
+        # dependencies = []
+        # ///
+       "#
+    })?;
+
+    uv_snapshot!(context.filters(), context.run().arg("--no-project").arg("main.py"), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: The script contains multiple PEP 723 metadata blocks
+    ");
+
+    Ok(())
+}
+
+/// A PEP 723 script with a long file name should still succeed at creating a script environment on
+/// Windows.
+#[test]
+fn run_pep723_script_long_filename() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    // The cache environment entry path, which is derived from the script's name, would exceed many
+    // common path component length limits if it was not truncated first.
+    let script_name = format!("{}.py", "a".repeat(240));
+    let test_script = context.temp_dir.child(&script_name);
+    test_script.write_str(indoc! { r#"
+        # /// script
+        # requires-python = ">=3.11"
+        # dependencies = [
+        #   "iniconfig",
+        # ]
+        # ///
+
+        print("Hello, world!")
+       "#
+    })?;
+
+    uv_snapshot!(context.filters(), context.run().arg(&script_name), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Hello, world!
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    ");
+
     Ok(())
 }
 
@@ -3162,6 +3224,20 @@ fn run_editable() -> Result<()> {
      + iniconfig==2.0.0
     ");
 
+    uv_snapshot!(context.filters(), context.run().arg("--no-editable-package").arg("foo").arg("main.py"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Hello, world!
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Uninstalled 1 package in [TIME]
+    Installed 1 package in [TIME]
+     ~ foo==1.0.0 (from file://[TEMP_DIR]/)
+    ");
+
     Ok(())
 }
 
@@ -5044,6 +5120,35 @@ fn run_with_env_file() -> Result<()> {
     ----- stderr -----
     ");
 
+    context.temp_dir.child(".file").write_str(indoc! { "
+        UV_PYTHON_SEARCH_PATH=.no-python
+        THE_EMPIRE_VARIABLE=palpatine
+        REBEL_1=leia_organa
+        REBEL_2=obi_wan_kenobi
+        REBEL_3=C3PO
+       "
+    })?;
+
+    uv_snapshot!(context.filters(), context.run()
+        .arg("--no-project")
+        .arg("--no-managed-python")
+        .arg("--python").arg("3.12")
+        .arg("--env-file").arg(".file")
+        .arg("test.py")
+        .env_remove(EnvVars::VIRTUAL_ENV)
+        .env_remove(EnvVars::UV_PYTHON_SEARCH_PATH)
+        .env(EnvVars::PATH, context.python_path()), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    palpatine
+    leia_organa
+    obi_wan_kenobi
+    C3PO
+
+    ----- stderr -----
+    ");
+
     Ok(())
 }
 
@@ -6647,60 +6752,6 @@ fn run_target_workspace_discovery() -> Result<()> {
 
     // With the preview feature, the workspace is discovered from the target's directory.
     uv_snapshot!(context.filters(), context.run().arg("--preview-features").arg("target-workspace-discovery").arg("project/script.py").env_remove(EnvVars::VIRTUAL_ENV), @"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-    success
-
-    ----- stderr -----
-    Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
-    Creating virtual environment at: project/.venv
-    Resolved 2 packages in [TIME]
-    Prepared 2 packages in [TIME]
-    Installed 2 packages in [TIME]
-     + foo==1.0.0 (from file://[TEMP_DIR]/project)
-     + iniconfig==2.0.0
-    ");
-
-    Ok(())
-}
-
-/// Test that `--preview` enables target workspace discovery.
-#[test]
-fn run_target_workspace_discovery_preview_flag() -> Result<()> {
-    let context = setup_target_workspace_discovery_context()?;
-
-    context.temp_dir.child("uv.toml").write_str("bad")?;
-    context.temp_dir.child("pyproject.toml").write_str("bad")?;
-
-    uv_snapshot!(context.filters(), context.run().arg("--preview").arg("project/script.py").env_remove(EnvVars::VIRTUAL_ENV), @"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-    success
-
-    ----- stderr -----
-    Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
-    Creating virtual environment at: project/.venv
-    Resolved 2 packages in [TIME]
-    Prepared 2 packages in [TIME]
-    Installed 2 packages in [TIME]
-     + foo==1.0.0 (from file://[TEMP_DIR]/project)
-     + iniconfig==2.0.0
-    ");
-
-    Ok(())
-}
-
-/// Test that `UV_PREVIEW=1` enables target workspace discovery.
-#[test]
-fn run_target_workspace_discovery_uv_preview_env() -> Result<()> {
-    let context = setup_target_workspace_discovery_context()?;
-
-    context.temp_dir.child("uv.toml").write_str("bad")?;
-    context.temp_dir.child("pyproject.toml").write_str("bad")?;
-
-    uv_snapshot!(context.filters(), context.run().env("UV_PREVIEW", "1").arg("project/script.py").env_remove(EnvVars::VIRTUAL_ENV), @"
     success: true
     exit_code: 0
     ----- stdout -----

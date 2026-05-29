@@ -6,3 +6,6 @@ class HRApplicationsConfig(AppConfig):
     name = 'allianceauth.hrapplications'
     label = 'hrapplications'
     verbose_name = _('HR Applications')
+
+    def ready(self) -> None:
+        pass

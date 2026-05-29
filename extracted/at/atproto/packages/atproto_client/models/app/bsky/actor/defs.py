@@ -1,8 +1,8 @@
-##################################################################
+#######################################################################
 # THIS IS THE AUTO-GENERATED CODE. DON'T EDIT IT BY HANDS!
-# Copyright (C) 2024 Ilya (Marshal) <https://github.com/MarshalX>.
+# Copyright (C) 2023-2026 Ilya (Marshal) <https://github.com/MarshalX>.
 # This file is part of Python atproto SDK. Licenced under MIT.
-##################################################################
+#######################################################################
 
 
 import typing as t
@@ -102,6 +102,7 @@ class ProfileAssociated(base.ModelBase):
     )
     chat: t.Optional['models.AppBskyActorDefs.ProfileAssociatedChat'] = None  #: Chat.
     feedgens: t.Optional[int] = None  #: Feedgens.
+    germ: t.Optional['models.AppBskyActorDefs.ProfileAssociatedGerm'] = None  #: Germ.
     labeler: t.Optional[bool] = None  #: Labeler.
     lists: t.Optional[int] = None  #: Lists.
     starter_packs: t.Optional[int] = None  #: Starter packs.
@@ -115,9 +116,23 @@ class ProfileAssociatedChat(base.ModelBase):
     """Definition model for :obj:`app.bsky.actor.defs`."""
 
     allow_incoming: t.Union[t.Literal['all'], t.Literal['none'], t.Literal['following'], str]  #: Allow incoming.
+    allow_group_invites: t.Optional[t.Union[t.Literal['all'], t.Literal['none'], t.Literal['following'], str]] = (
+        None  #: Allow group invites.
+    )
 
     py_type: t.Literal['app.bsky.actor.defs#profileAssociatedChat'] = Field(
         default='app.bsky.actor.defs#profileAssociatedChat', alias='$type', frozen=True
+    )
+
+
+class ProfileAssociatedGerm(base.ModelBase):
+    """Definition model for :obj:`app.bsky.actor.defs`."""
+
+    message_me_url: string_formats.Uri  #: Message me url.
+    show_button_to: t.Union[t.Literal['usersIFollow'], t.Literal['everyone'], str]  #: Show button to.
+
+    py_type: t.Literal['app.bsky.actor.defs#profileAssociatedGerm'] = Field(
+        default='app.bsky.actor.defs#profileAssociatedGerm', alias='$type', frozen=True
     )
 
 
@@ -191,6 +206,8 @@ class VerificationView(base.ModelBase):
     is_valid: bool  #: True if the verification passes validation, otherwise false.
     issuer: string_formats.Did  #: The user who issued this verification.
     uri: string_formats.AtUri  #: The AT-URI of the verification record.
+    issuer_display_name: t.Optional[str] = None  #: The display name of the issuer.
+    issuer_handle: t.Optional[string_formats.Handle] = None  #: The handle of the issuer.
 
     py_type: t.Literal['app.bsky.actor.defs#verificationView'] = Field(
         default='app.bsky.actor.defs#verificationView', alias='$type', frozen=True
@@ -205,6 +222,7 @@ Preferences = t.List[
             'models.AppBskyActorDefs.SavedFeedsPref',
             'models.AppBskyActorDefs.SavedFeedsPrefV2',
             'models.AppBskyActorDefs.PersonalDetailsPref',
+            'models.AppBskyActorDefs.DeclaredAgePref',
             'models.AppBskyActorDefs.FeedViewPref',
             'models.AppBskyActorDefs.ThreadViewPref',
             'models.AppBskyActorDefs.InterestsPref',
@@ -214,6 +232,7 @@ Preferences = t.List[
             'models.AppBskyActorDefs.LabelersPref',
             'models.AppBskyActorDefs.PostInteractionSettingsPref',
             'models.AppBskyActorDefs.VerificationPrefs',
+            'models.AppBskyActorDefs.LiveEventPreferences',
         ],
         Field(discriminator='py_type'),
     ]
@@ -288,6 +307,18 @@ class PersonalDetailsPref(base.ModelBase):
 
     py_type: t.Literal['app.bsky.actor.defs#personalDetailsPref'] = Field(
         default='app.bsky.actor.defs#personalDetailsPref', alias='$type', frozen=True
+    )
+
+
+class DeclaredAgePref(base.ModelBase):
+    """Definition model for :obj:`app.bsky.actor.defs`. Read-only preference containing value(s) inferred from the user's declared birthdate. Absence of this preference object in the response indicates that the user has not made a declaration."""
+
+    is_over_age13: t.Optional[bool] = None  #: Indicates if the user has declared that they are over 13 years of age.
+    is_over_age16: t.Optional[bool] = None  #: Indicates if the user has declared that they are over 16 years of age.
+    is_over_age18: t.Optional[bool] = None  #: Indicates if the user has declared that they are over 18 years of age.
+
+    py_type: t.Literal['app.bsky.actor.defs#declaredAgePref'] = Field(
+        default='app.bsky.actor.defs#declaredAgePref', alias='$type', frozen=True
     )
 
 
@@ -451,6 +482,17 @@ class VerificationPrefs(base.ModelBase):
     )
 
 
+class LiveEventPreferences(base.ModelBase):
+    """Definition model for :obj:`app.bsky.actor.defs`. Preferences for live events."""
+
+    hidden_feed_ids: t.Optional[t.List[str]] = None  #: A list of feed IDs that the user has hidden from live events.
+    hide_all_feeds: t.Optional[bool] = False  #: Whether to hide all feeds from live events.
+
+    py_type: t.Literal['app.bsky.actor.defs#liveEventPreferences'] = Field(
+        default='app.bsky.actor.defs#liveEventPreferences', alias='$type', frozen=True
+    )
+
+
 class PostInteractionSettingsPref(base.ModelBase):
     """Definition model for :obj:`app.bsky.actor.defs`. Default post interaction settings for the account. These values should be applied as default values when creating new posts. These refs should mirror the threadgate and postgate records exactly."""
 
@@ -485,6 +527,7 @@ class StatusView(base.ModelBase):
 
     record: 'UnknownType'  #: Record.
     status: t.Union['models.AppBskyActorStatus.Live', str]  #: The status for the account.
+    cid: t.Optional[string_formats.Cid] = None  #: Cid.
     embed: t.Optional[te.Annotated[t.Union['models.AppBskyEmbedExternal.View'], Field(discriminator='py_type')]] = (
         None  #: An optional embed associated with the status.
     )
@@ -494,6 +537,11 @@ class StatusView(base.ModelBase):
     is_active: t.Optional[bool] = (
         None  #: True if the status is not expired, false if it is expired. Only present if expiration was set.
     )
+    is_disabled: t.Optional[bool] = (
+        None  #: True if the user's go-live access has been disabled by a moderator, false otherwise.
+    )
+    labels: t.Optional[t.List['models.ComAtprotoLabelDefs.Label']] = None  #: Labels.
+    uri: t.Optional[string_formats.AtUri] = None  #: Uri.
 
     py_type: t.Literal['app.bsky.actor.defs#statusView'] = Field(
         default='app.bsky.actor.defs#statusView', alias='$type', frozen=True

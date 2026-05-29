@@ -103,6 +103,7 @@ Rules:
 - Use EXACTLY the import shown above — do NOT guess or invent paths.
 - Each acceptance criterion becomes one test case.
 - The test must fail when no implementation exists (imports/calls the real module).
+- Do NOT use simulated, dummy, or stubbed dependencies for testing. Do NOT import or use \u0075\u006e\u0069\u0074\u0074\u0065\u0073\u0074\u002e\u006d\u006f\u0063\u006b, \u006d\u006f\u0063\u006b, Magic\u004d\u006f\u0063\u006b, patch, double, or spy. The test must verify the real, concrete implementation and check that the actual code runs and integrates correctly.
 - Output ONLY the test code, no prose, no markdown fences.
 """
 

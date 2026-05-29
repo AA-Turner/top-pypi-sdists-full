@@ -80,20 +80,17 @@ Data
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from __future__ import division
 import math
 from .. import parser
-from ..auxiliary import PyteomicsError, _nist_mass, BasicComposition
+from ..auxiliary import PyteomicsError, _nist_mass, BasicComposition, ensure_url_prefix
 from itertools import chain, product, combinations_with_replacement
 from collections import defaultdict
-try:
-    from urllib import urlopen
-except ImportError:
-    from urllib.request import urlopen
+from urllib.request import urlopen
 from datetime import datetime
 import re
 import operator
 import warnings
+from pathlib import Path
 
 nist_mass = _nist_mass
 """
@@ -105,6 +102,7 @@ key, mass of the most abundant isotope and 1.0 abundance.
 """
 
 PROTON = 'H+'
+
 
 def _make_isotope_string(element_name, isotope_num):
     """Form a string label for an isotope."""
@@ -136,6 +134,7 @@ amino acid residues, selenocysteine, pyrrolysine,
 and standard H- and -OH terminal groups.
 """
 
+
 std_ion_comp = {}
 """A dict with relative elemental compositions of the standard peptide
 fragment ions. An elemental composition of a fragment ion is calculated as a
@@ -143,7 +142,8 @@ difference between the total elemental composition of an ion
 and the sum of elemental compositions of its constituting amino acid residues.
 """
 
-_isotope_string = r'^([A-Z][a-z+]*)(?:\[(\d+)\])?$'
+
+_isotope_string = r'^((?:[A-Z][a-z+]*)|e-|e\*)(?:\[(\d+)\])?$'
 _atom = r'([A-Z][a-z+]*)(?:\[(\d+)\])?([+-]?\d+)?'
 _formula = r'^({})*$'.format(_atom)
 
@@ -151,6 +151,15 @@ _formula = r'^({})*$'.format(_atom)
 def _raise_term_label_exception(what='comp'):
     raise PyteomicsError("Cannot use a mod label as a terminal group. Provide correct group {0}"
                          " in `aa_{0}`.".format(what))
+
+
+def _warn_about_ion_type(ion_type, ion_comp):
+    """Temporarily warn about the changes in affected std_ion_comp entries."""
+    if ion_type in {'z+1', 'z+2', 'z+3'} and ion_type in ion_comp and ion_comp[ion_type] == std_ion_comp.get(ion_type):
+        warnings.warn(
+            'The compositions of z+1, z+2 and z+3 ions in `std_ion_comp` have been changed in Pyteomics v5.0 '
+            'to reflect the most common interpretation of these labels. '
+            )
 
 
 class Composition(BasicComposition):
@@ -299,9 +308,9 @@ class Composition(BasicComposition):
 
         kw_given = self._kw_sources.intersection(kwargs)
         if len(kw_given) > 1:
-            raise PyteomicsError('Only one of {} can be specified!\n'
-                    'Given: {}'.format(', '.join(self._kw_sources),
-                        ', '.join(kw_given)))
+            raise PyteomicsError(
+                'Only one of {} can be specified!\n'
+                'Given: {}'.format(', '.join(self._kw_sources), ', '.join(kw_given)))
         elif kw_given:
             kwa = kw_given.pop()
             if kwa == 'formula':
@@ -328,16 +337,17 @@ class Composition(BasicComposition):
                 try:
                     self._from_sequence(parser.tostring(args[0], True), aa_comp)
                 except Exception:
-                    raise PyteomicsError('Could not create a Composition object'
-                            ' from `{}`. A Composition object must be '
-                            'specified by sequence, parsed or split sequence,'
-                            ' formula or dict.'.format(args[0]))
+                    raise PyteomicsError(
+                        'Could not create a Composition object from `{}`. A Composition object must be '
+                        'specified by sequence, parsed or split sequence, formula or dict.'.format(args[0]))
         else:
             self._from_composition(kwargs)
 
         ion_comp = kwargs.get('ion_comp', std_ion_comp)
         if 'ion_type' in kwargs:
-            self += ion_comp[kwargs['ion_type']]
+            ion_type = kwargs['ion_type']
+            _warn_about_ion_type(ion_type, ion_comp)
+            self += ion_comp[ion_type]
 
         # Charge is not supported in kwargs
         charge = self['H+']
@@ -345,7 +355,8 @@ class Composition(BasicComposition):
             if charge:
                 raise PyteomicsError('Charge is specified both by the number of protons and `charge` in kwargs')
             else:
-                warnings.warn('charge and charge carrier should be specified when calling mass(). '
+                warnings.warn(
+                    'charge and charge carrier should be specified when calling mass(). '
                     'Support for charge in Composition.__init__ will be removed in a future version.',
                     FutureWarning)
                 self['H+'] = kwargs['charge']
@@ -427,7 +438,7 @@ class Composition(BasicComposition):
         if charge:
             mass /= charge
         if charge and charge < 0 and absolute:
-            mass = abs(mass)
+            mass = -mass
         return mass
 
     def mass(self, **kwargs):
@@ -527,7 +538,7 @@ std_aa_comp.update({
     'V':   Composition({'H': 9, 'C': 5, 'O': 1, 'N': 1}),
     'W':   Composition({'C': 11, 'H': 10, 'N': 2, 'O': 1}),
     'Y':   Composition({'H': 9, 'C': 9, 'O': 2, 'N': 1}),
-    'U':   Composition({'H': 5, 'C': 3, 'O': 1, 'N': 1, 'Se' : 1}),
+    'U':   Composition({'H': 5, 'C': 3, 'O': 1, 'N': 1, 'Se': 1}),
     'O':   Composition({'H': 19, 'C': 12, 'O': 2, 'N': 3}),
     'H-':  Composition({'H': 1}),
     '-OH': Composition({'O': 1, 'H': 1}),
@@ -539,6 +550,7 @@ std_ion_comp.update({
     'M-H2O':    Composition(formula='H-2O-1'),
     'M-NH3':    Composition(formula='N-1H-3'),
     'a':        Composition(formula='H-2O-1' + 'C-1O-1'),
+    'a+1':      Composition(formula='H-2O-1' + 'C-1O-1' + 'H1'),
     'a-H2O':    Composition(formula='H-2O-1' + 'C-1O-1' + 'H-2O-1'),
     'a-NH3':    Composition(formula='H-2O-1' + 'C-1O-1' + 'N-1H-3'),
     'b':        Composition(formula='H-2O-1'),
@@ -552,16 +564,18 @@ std_ion_comp.update({
     'c-H2O':    Composition(formula='H-2O-1' + 'NH3' + 'H-2O-1'),
     'c-NH3':    Composition(formula='H-2O-1'),
     'x':        Composition(formula='H-2O-1' + 'CO2'),
+    'x+1':      Composition(formula='H-2O-1' + 'CO2' + 'H1'),
     'x-H2O':    Composition(formula='H-2O-1' + 'CO2' + 'H-2O-1'),
     'x-NH3':    Composition(formula='H-2O-1' + 'CO2' + 'N-1H-3'),
     'y':        Composition(formula=''),
     'y-H2O':    Composition(formula='H-2O-1'),
     'y-NH3':    Composition(formula='N-1H-3'),
+    'z-1':      Composition(formula='H-2O-1' + 'ON-1H-2'),
     'z':        Composition(formula='H-2O-1' + 'ON-1H-1'),
     'z-dot':    Composition(formula='H-2O-1' + 'ON-1'),
-    'z+1':      Composition(formula='H-2O-1' + 'ON-1H1'),
-    'z+2':      Composition(formula='H-2O-1' + 'ON-1H2'),
-    'z+3':      Composition(formula='H-2O-1' + 'ON-1H3'),
+    'z+1':      Composition(formula='H-2O-1' + 'ON-1'),
+    'z+2':      Composition(formula='H-2O-1' + 'ON-1H1'),
+    'z+3':      Composition(formula='H-2O-1' + 'ON-1H2'),
     'z-H2O':    Composition(formula='H-2O-1' + 'ON-1H-1' + 'H-2O-1'),
     'z-NH3':    Composition(formula='H-2O-1' + 'ON-1H-1' + 'N-1H-3'),
     })
@@ -933,6 +947,9 @@ def fast_mass(sequence, ion_type=None, charge=None, **kwargs):
         If not 0 then m/z is calculated: the mass is increased
         by the corresponding number of proton masses and divided
         by z.
+    absolute : bool, optional
+        If :py:const:`True` (default), the m/z value returned will always be positive,
+        even for negatively charged ions.
     mass_data : dict, optional
         A dict with the masses of chemical elements (the default
         value is :py:data:`nist_mass`).
@@ -949,6 +966,7 @@ def fast_mass(sequence, ion_type=None, charge=None, **kwargs):
         Monoisotopic mass or m/z of a peptide molecule/ion.
     """
     aa_mass = kwargs.get('aa_mass', std_aa_mass)
+    absolute = kwargs.get('absolute', True)
     try:
         mass = sum(aa_mass[i] for i in sequence)
     except KeyError as e:
@@ -958,15 +976,18 @@ def fast_mass(sequence, ion_type=None, charge=None, **kwargs):
     mass += mass_data['H'][0][0] * 2 + mass_data['O'][0][0]
 
     if ion_type:
+        ion_comp = kwargs.get('ion_comp', std_ion_comp)
         try:
-            icomp = kwargs.get('ion_comp', std_ion_comp)[ion_type]
+            icomp = ion_comp[ion_type]
         except KeyError:
             raise PyteomicsError('Unknown ion type: {}'.format(ion_type))
-
+        _warn_about_ion_type(ion_type, ion_comp)
         mass += sum(mass_data[element][0][0] * num for element, num in icomp.items())
 
     if charge:
         mass = (mass + mass_data['H+'][0][0] * charge) / charge
+        if charge < 0 and absolute:
+            mass = -mass
 
     return mass
 
@@ -987,6 +1008,9 @@ def fast_mass2(sequence, ion_type=None, charge=None, **kwargs):
         If not 0 then m/z is calculated: the mass is increased
         by the corresponding number of proton masses and divided
         by z.
+    absolute : bool, optional
+        If :py:const:`True` (default), the m/z value returned will always be positive,
+        even for negatively charged ions.
     mass_data : dict, optional
         A dict with the masses of chemical elements (the default
         value is :py:data:`nist_mass`).
@@ -1004,6 +1028,7 @@ def fast_mass2(sequence, ion_type=None, charge=None, **kwargs):
     """
     aa_mass = kwargs.get('aa_mass', std_aa_mass)
     mass_data = kwargs.get('mass_data', nist_mass)
+    absolute = kwargs.get('absolute', True)
     try:
         comp = parser.amino_acid_composition(sequence,
                 show_unmodified_termini=True,
@@ -1035,18 +1060,23 @@ def fast_mass2(sequence, ion_type=None, charge=None, **kwargs):
         raise PyteomicsError('Unspecified mass for modification: "{}"'.format(e.args[0]))
 
     if ion_type:
+        ion_comp = kwargs.get('ion_comp', std_ion_comp)
         try:
-            icomp = kwargs.get('ion_comp', std_ion_comp)[ion_type]
+            icomp = ion_comp[ion_type]
         except KeyError:
             raise PyteomicsError('Unknown ion type: {}'.format(ion_type))
-
-        mass += sum(mass_data[element][0][0] * num
-             for element, num in icomp.items())
+        _warn_about_ion_type(ion_type, ion_comp)
+        mass += sum(mass_data[element][0][0] * num for element, num in icomp.items())
 
     if charge:
         mass = (mass + mass_data['H+'][0][0] * charge) / charge
+        if charge < 0 and absolute:
+            mass = -mass
 
     return mass
+
+
+UNIMOD_DEFAULT_URL = 'http://www.unimod.org/xml/unimod.xml'
 
 
 class Unimod():
@@ -1060,15 +1090,14 @@ class Unimod():
         more features.
     """
 
-    def __init__(self, source='http://www.unimod.org/xml/unimod.xml'):
+    def __init__(self, source=UNIMOD_DEFAULT_URL):
         """Create a database and fill it from XML file retrieved from `source`.
 
         Parameters
         ----------
 
-        source : str or file, optional
-            A file-like object or a URL to read from. Don't forget the ``'file://'``
-            prefix when pointing to local files.
+        source : str or Path or file, optional
+            A file-like object, file name or a URL to read from.
         """
         from lxml import etree
         from ..xml import _local_name
@@ -1130,8 +1159,9 @@ class Unimod():
             new_d['refs'] = refs
             return new_d
 
-        if isinstance(source, str):
-            self._tree = etree.parse(urlopen(source))
+        if isinstance(source, (str, Path)):
+            url = ensure_url_prefix(source)
+            self._tree = etree.parse(urlopen(url))
         else:
             self._tree = etree.parse(source)
         self._massdata = self._mass_data()
@@ -1217,7 +1247,7 @@ class Unimod():
             The full name of the modification(s).
         strict : bool, optional
             If :py:const:`False`, the search will return all modifications
-            whose full name **contains** `title`, otherwise equality is
+            whose full name **contains** `name`, otherwise equality is
             required. :py:const:`True` by default.
 
         Returns
@@ -1259,3 +1289,103 @@ def neutral_mass(mz, z, charge_carrier=_nist_mass[PROTON][0][0]):
 
 def mass_charge_ratio(neutral_mass, z, charge_carrier=_nist_mass[PROTON][0][0]):
     return (neutral_mass + (z * charge_carrier)) / abs(z)
+
+
+def _ion_name(ion, index, charge):
+    return f"{ion[0]}{index}{ion[1:]}{'+' * charge if charge > 0 else '-' * (-charge)}"
+
+
+def fragment_series(peptide, ion_types=('b', 'y'), maxcharge=1, aa_mass=None, mass_data=None, ion_comp=None) -> dict[str, dict[str, float]]:
+    """Generate fragment m/z and name series for ProForma and modX sequences.
+
+    Parameters
+    ----------
+    peptide : str
+        A modX or ProForma sequence.
+    ion_types : Container, optional
+        Ion types to be considered. Default is ('b', 'y').
+    maxcharge : int, optional
+        Maximum charge state for fragment ions. Default is 1.
+    aa_mass : dict, optional
+        A dictionary of amino acid residue masses. Only used for modX sequences.
+        Default is :py:data:`std_aa_mass`.
+    mass_data : dict, optional
+        A dictionary of element masses. Only used for modX sequences.
+        Default is :py:data:`nist_mass`.
+    ion_comp : dict, optional
+        A dictionary defining ion compositions. Only used for modX sequences.
+        Default is :py:data:`std_ion_comp`.
+
+    Returns
+    -------
+    out : dict
+        Nested dictionary with ion types as first-level keys, and individual ion labels as second-level keys.
+        The values are the corresponding m/z values.
+
+    Examples
+    --------
+    >>> fragments = fragment_series('PEPTIDE')
+    >>> fragments['b']['b1+']  # doctest: +SKIP
+    97.05276384885
+    >>> list(fragments['b'].keys())  # doctest: +SKIP
+    ['b1+', 'b2+', 'b3+', 'b4+', 'b5+', 'b6+']
+    >>> fragments = fragment_series('PEPTIDE', maxcharge=2)
+    >>> list(fragments['b'].keys())[:4]  # doctest: +SKIP
+    ['b1+', 'b2+', 'b3+', 'b4+']
+    >>> fragments['b']['b1++']  # doctest: +SKIP
+    48.52974924125
+    >>> fragments = fragment_series('PEP[+15.994915]TIDE')  # ProForma format
+    >>> fragments['b']['b1+']  # doctest: +SKIP
+    97.05276384885
+    """
+    from .. import proforma  # avoid circular import
+
+    if aa_mass is None:
+        aa_mass = std_aa_mass
+    if mass_data is None:
+        mass_data = nist_mass
+    if ion_comp is None:
+        ion_comp = std_ion_comp
+
+    out = {}
+
+    # Try to parse as ProForma first, then fallback to modX
+    parsed_proforma = None
+    parsed = None
+    try:
+        parsed_proforma = proforma.ProForma.parse(peptide, case_sensitive_aa=True)
+    except Exception:
+        # Fallback to modX parsing
+        try:
+            parsed = parser.parse(peptide, True, labels=list(aa_mass) + [parser.std_cterm, parser.std_nterm])
+            n = len(parsed)  # includes 2 terminal groups
+        except Exception:
+            raise PyteomicsError("Cannot parse {} as ProForma or modX sequence".format(peptide))
+
+    if parsed_proforma is not None:
+        # Use ProForma fragments method for ProForma sequences
+        for ion in ion_types:
+            for charge in range(1, maxcharge + 1):
+                fragments_mz = parsed_proforma.fragments(ion, charge=charge)
+                names = [_ion_name(ion, i + 1, charge) for i in range(len(fragments_mz))]
+                out.setdefault(ion, {}).update(dict(zip(names, fragments_mz)))
+    else:
+        # Use original modX approach for modX sequences
+        if parsed is None:
+            raise PyteomicsError("Failed to parse sequence in both ProForma and modX formats")
+        for ion in ion_types:
+            for charge in range(1, maxcharge + 1):
+                if ion[0] in 'abc':
+                    for i in range(2, n - 1):
+                        mz = fast_mass2(parsed[:i] + [parser.std_cterm], aa_mass=aa_mass, charge=charge,
+                                        ion_type=ion, mass_data=mass_data, ion_comp=ion_comp)
+                        name = _ion_name(ion, i - 1, charge)
+                        out.setdefault(ion, {})[name] = mz
+                else:
+                    for i in range(1, n - 2):
+                        mz = fast_mass2([parser.std_nterm] + parsed[n - (i + 1):], aa_mass=aa_mass, charge=charge,
+                                        ion_type=ion, mass_data=mass_data, ion_comp=ion_comp)
+                        name = _ion_name(ion, i, charge)
+                        out.setdefault(ion, {})[name] = mz
+
+    return out

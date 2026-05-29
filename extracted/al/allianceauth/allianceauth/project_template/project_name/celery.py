@@ -6,17 +6,22 @@ from celery.app import trace
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', '{{ project_name }}.settings.local')
 
-from django.conf import settings
+from django.conf import settings  # noqa: E402
 
 app = Celery('{{ project_name }}')
-
-# Using a string here means the worker don't have to serialize
-# the configuration object to child processes.
-app.config_from_object('django.conf:settings')
 
 # Automatically try to establish the connection to the AMQP broker on
 # Celery startup if it is unavailable.
 app.conf.broker_connection_retry_on_startup = True
+
+# Set a hard task execution time of 5 minutes before celery will cold restart
+# There are used in a docker install and dont seem to be needed with Supervisor.
+# app.conf.worker_soft_shutdown_timeout = 300
+# app.conf.worker_enable_soft_shutdown_on_idle = True
+
+# Using a string here means the worker don't have to serialize
+# the configuration object to child processes.
+app.config_from_object('django.conf:settings')
 
 # setup priorities ( 0 Highest, 9 Lowest )
 app.conf.broker_transport_options = {
@@ -25,6 +30,7 @@ app.conf.broker_transport_options = {
 }
 app.conf.task_default_priority = 5  # anything called with the task.delay() will be given normal priority (5)
 app.conf.worker_prefetch_multiplier = 1  # only prefetch single tasks at a time on the workers so that prio tasks happen
+app.conf.worker_eta_task_limit = 100  # Stops the worker from filling itself with ETA tasks and OOMing
 
 app.conf.ONCE = {
     'backend': 'allianceauth.services.tasks.DjangoBackend',

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.8.22
+Version: 0.8.24
 Summary: AI coding assistant skill (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Devin CLI, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License: MIT License
         
@@ -80,7 +80,7 @@ Requires-Dist: openpyxl; extra == "office"
 Provides-Extra: google
 Requires-Dist: openpyxl; extra == "google"
 Provides-Extra: video
-Requires-Dist: faster-whisper; extra == "video"
+Requires-Dist: faster-whisper; python_version >= "3.11" and extra == "video"
 Requires-Dist: yt-dlp; extra == "video"
 Provides-Extra: kimi
 Requires-Dist: openai; extra == "kimi"
@@ -108,7 +108,7 @@ Requires-Dist: watchdog; extra == "all"
 Requires-Dist: graspologic; python_version < "3.13" and extra == "all"
 Requires-Dist: python-docx; extra == "all"
 Requires-Dist: openpyxl; extra == "all"
-Requires-Dist: faster-whisper; extra == "all"
+Requires-Dist: faster-whisper; python_version >= "3.11" and extra == "all"
 Requires-Dist: yt-dlp; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
 Requires-Dist: openai; extra == "all"
@@ -609,6 +609,7 @@ graphify extract ./docs --token-budget 30000   # smaller semantic chunks for loc
 graphify extract ./docs --max-concurrency 2    # fewer parallel LLM calls (useful for local inference)
 graphify extract ./docs --api-timeout 900      # longer HTTP timeout for slow local models (default 600s)
 graphify extract ./docs --google-workspace     # export .gdoc/.gsheet/.gslides via gws before extraction
+graphify extract ./docs --mode deep            # richer semantic extraction via extended system prompt
 graphify extract ./docs --no-cluster           # raw extraction only, skip clustering
 graphify extract ./docs --force                # overwrite graph.json even if new graph has fewer nodes (use after refactors or to clear ghost duplicates)
 graphify extract ./docs --dedup-llm            # LLM tiebreaker for ambiguous entity pairs (uses same API key)
@@ -673,34 +674,31 @@ Built for people whose work lives across hundreds of conversations and documents
 
 ### Development setup
 
-Clone the repo and install in editable mode:
+The project uses [uv](https://docs.astral.sh/uv/) for dev workflow. Install it once, then:
 
 ```bash
 git clone https://github.com/safishamsi/graphify.git
 cd graphify
 git checkout v8                        # active development branch
 
-# Create a virtual environment (Python 3.10+ required):
-python3 -m venv .venv
-source .venv/bin/activate              # Windows: .venv\Scripts\activate
-
-# Install in editable mode with all optional extras:
-pip install -e ".[all]"
+# Create the project venv and install graphify + all extras + the dev group
+# (pytest). uv installs the dev dependency group by default; pass --no-dev to
+# skip it.
+uv sync --all-extras
 ```
 
 Verify the editable install:
 ```bash
-graphify --version
-python -c "import graphify; print(graphify.__file__)"
+uv run graphify --version
+uv run python -c "import graphify; print(graphify.__file__)"
 ```
 
 ### Running tests
 
 ```bash
-pip install pytest
-pytest tests/ -q                       # run the full suite
-pytest tests/test_extract.py -q        # one module
-pytest tests/ -q -k "python"           # filter by name
+uv run pytest tests/ -q                # run the full suite
+uv run pytest tests/test_extract.py -q # one module
+uv run pytest tests/ -q -k "python"    # filter by name
 ```
 
 > macOS note: the test suite includes both `sample.f90` and `sample.F90` fixtures. These collide on case-insensitive HFS+ / APFS file systems. Run on Linux or in a Docker container if you need to test both Fortran variants simultaneously.
@@ -709,7 +707,7 @@ pytest tests/ -q -k "python"           # filter by name
 
 - Active development happens on the `v8` branch.
 - Commit style: `fix: <description>` / `feat: <description>` / `docs: <description>`
-- Before opening a PR, run `pytest tests/ -q` and confirm it passes.
+- Before opening a PR, run `uv run pytest tests/ -q` and confirm it passes.
 - Add a fixture file to `tests/fixtures/` and tests to `tests/test_languages.py` for any new language extractor.
 
 ### What to contribute

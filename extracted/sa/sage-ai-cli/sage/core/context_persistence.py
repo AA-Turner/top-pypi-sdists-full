@@ -406,6 +406,7 @@ class ContextPersistenceManager:
 
     def _save_context(self, ctx: ConversationContext) -> None:
         """Internal save implementation."""
+        self.context_dir.mkdir(parents=True, exist_ok=True)
         ctx_file = self.context_dir / f"{ctx.session_id}.json"
 
         # Create backup before writing

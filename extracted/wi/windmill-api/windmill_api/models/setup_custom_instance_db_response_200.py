@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -21,12 +21,15 @@ class SetupCustomInstanceDbResponse200:
         success (bool): Whether the operation completed successfully Example: True.
         error (Union[Unset, None, str]): Error message if the operation failed Example: Connection timeout.
         tag (Union[Unset, SetupCustomInstanceDbResponse200Tag]):
+        used_by_workspaces (Union[Unset, List[str]]): Workspaces that reference this database via a ducklake catalog or
+            datatable database with resource_type 'instance'. Computed at request time, not persisted.
     """
 
     logs: "SetupCustomInstanceDbResponse200Logs"
     success: bool
     error: Union[Unset, None, str] = UNSET
     tag: Union[Unset, SetupCustomInstanceDbResponse200Tag] = UNSET
+    used_by_workspaces: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -37,6 +40,10 @@ class SetupCustomInstanceDbResponse200:
         tag: Union[Unset, str] = UNSET
         if not isinstance(self.tag, Unset):
             tag = self.tag.value
+
+        used_by_workspaces: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.used_by_workspaces, Unset):
+            used_by_workspaces = self.used_by_workspaces
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -50,6 +57,8 @@ class SetupCustomInstanceDbResponse200:
             field_dict["error"] = error
         if tag is not UNSET:
             field_dict["tag"] = tag
+        if used_by_workspaces is not UNSET:
+            field_dict["used_by_workspaces"] = used_by_workspaces
 
         return field_dict
 
@@ -71,11 +80,14 @@ class SetupCustomInstanceDbResponse200:
         else:
             tag = SetupCustomInstanceDbResponse200Tag(_tag)
 
+        used_by_workspaces = cast(List[str], d.pop("used_by_workspaces", UNSET))
+
         setup_custom_instance_db_response_200 = cls(
             logs=logs,
             success=success,
             error=error,
             tag=tag,
+            used_by_workspaces=used_by_workspaces,
         )
 
         setup_custom_instance_db_response_200.additional_properties = d

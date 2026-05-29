@@ -2,7 +2,7 @@
 build-backend = "hatchling.build"
 requires = [
   "hatch-vcs>=0.5",
-  "hatchling>=1.27",
+  "hatchling>=1.28",
 ]
 
 [project]
@@ -49,21 +49,43 @@ dependencies = [
   "packaging>=25",
   "tomli>=2.3; python_version<'3.11'",
 ]
-optional-dependencies.docs = [
-  "furo>=2025.9.25",
-  "sphinx-autodoc-typehints>=3.5.1",
+urls.Changelog = "https://github.com/tox-dev/pyproject-api/releases"
+urls.Homepage = "https://pyproject-api.readthedocs.io"
+urls.Source = "https://github.com/tox-dev/pyproject-api"
+urls.Tracker = "https://github.com/tox-dev/pyproject-api/issues"
+
+[dependency-groups]
+dev = [
+  { include-group = "docs" },
+  { include-group = "lint" },
+  { include-group = "pkg-meta" },
+  { include-group = "test" },
+  { include-group = "type" },
 ]
-optional-dependencies.testing = [
+test = [
   "covdefaults>=2.3",
   "pytest>=8.4.2",
   "pytest-cov>=7",
   "pytest-mock>=3.15.1",
   "setuptools>=80.9",
 ]
-urls.Changelog = "https://github.com/tox-dev/pyproject-api/releases"
-urls.Homepage = "https://pyproject-api.readthedocs.io"
-urls.Source = "https://github.com/tox-dev/pyproject-api"
-urls.Tracker = "https://github.com/tox-dev/pyproject-api/issues"
+type = [
+  "ty>=0.0.19,<0.0.25",
+  { include-group = "docs" },
+  { include-group = "test" },
+]
+docs = [
+  "furo>=2025.9.25",
+  "sphinx-autodoc-typehints>=3.5.1",
+]
+lint = [
+  "pre-commit-uv>=4.2",
+]
+pkg-meta = [
+  "check-wheel-contents>=0.6.3",
+  "twine>=6.2",
+  "uv>=0.10.2",
+]
 
 [tool.hatch]
 build.hooks.vcs.version-file = "src/pyproject_api/_version.py"
@@ -93,11 +115,11 @@ lint.per-file-ignores."src/pyproject_api/_backend.py" = [
   "I002",
   "T201",
   "UP",
-] # no type annotations
+]
 lint.per-file-ignores."src/pyproject_api/_backend.pyi" = [
   "E301",
   "E302",
-] # https://github.com/astral-sh/ruff/issues/10077
+]
 lint.per-file-ignores."tests/**/*.py" = [
   "D",       # don't care about documentation in tests
   "FBT",     # don't care about booleans as positional arguments in tests
@@ -121,9 +143,15 @@ builtin = "clear,usage,en-GB_to_en-US"
 write-changes = true
 count = true
 
+[tool.ty]
+environment.python-version = "3.14"
+
 [tool.coverage]
-html.show_contexts = true
-html.skip_covered = false
+run.parallel = true
+run.patch = [ "subprocess" ]
+run.plugins = [
+  "covdefaults",
+]
 paths.source = [
   "src",
   ".tox*/*/lib/python*/site-packages",
@@ -132,20 +160,6 @@ paths.source = [
   "*/src",
   "*\\src",
 ]
-report.omit = [
-]
-run.parallel = true
-run.patch = [ "subprocess" ]
-run.plugins = [
-  "covdefaults",
-]
-
-[tool.mypy]
-python_version = "3.12"
-show_error_codes = true
-strict = true
-overrides = [
-  { module = [
-    "virtualenv.*",
-  ], ignore_missing_imports = true },
-]
+report.omit = []
+html.show_contexts = true
+html.skip_covered = false

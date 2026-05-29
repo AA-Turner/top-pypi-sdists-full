@@ -60,6 +60,7 @@ __all__ = [
     "commit_tree",
     "detect_case_only_renames",
     "get_path_element_normalizer",
+    "get_path_element_validator",
     "get_unstaged_changes",
     "index_entry_from_stat",
     "make_path_normalizer",
@@ -85,6 +86,7 @@ __all__ = [
 ]
 
 import errno
+import logging
 import os
 import shutil
 import stat
@@ -130,6 +132,8 @@ from .objects import (
     sha_to_hex,
 )
 from .pack import ObjectContainer, SHA1Reader, SHA1Writer
+
+logger = logging.getLogger(__name__)
 
 # Type alias for recursive tree structure used in commit_tree
 TreeDict = dict[bytes, "TreeDict | tuple[int, ObjectID]"]
@@ -1970,6 +1974,33 @@ def validate_path_element_default(element: bytes) -> bool:
     return _normalize_path_element_default(element) not in INVALID_DOTNAMES
 
 
+def _is_ntfs_dotgit_short_name(normalized: bytes) -> bool:
+    """Match NTFS 8.3 short-name forms of ``.git`` (``git~<digits>``)."""
+    if not normalized.startswith(b"git~"):
+        return False
+    tail = normalized[4:]
+    return len(tail) > 0 and tail.isdigit()
+
+
+# Reserved Windows device names. Opening any of these on Windows
+# resolves to a device rather than a file, regardless of any
+# extension or trailing dots/spaces (``NUL``, ``NUL.txt``,
+# ``aux.foo.bar`` all hit the device).
+RESERVED_WINDOWS_DEVICE_NAMES = frozenset(
+    [b"con", b"prn", b"aux", b"nul"]
+    + [b"com%d" % i for i in range(1, 10)]
+    + [b"lpt%d" % i for i in range(1, 10)]
+)
+
+
+def _is_reserved_windows_device_name(normalized: bytes) -> bool:
+    """Match Windows reserved device names regardless of extension."""
+    # The "stem" is the portion before the first ``.``; Windows
+    # also strips trailing spaces from that stem when resolving.
+    stem = normalized.split(b".", 1)[0].rstrip(b" ")
+    return stem in RESERVED_WINDOWS_DEVICE_NAMES
+
+
 def validate_path_element_ntfs(element: bytes) -> bool:
     """Validate a path element using NTFS filesystem rules.
 
@@ -1979,10 +2010,22 @@ def validate_path_element_ntfs(element: bytes) -> bool:
     Returns:
       True if path element is valid for NTFS, False otherwise
     """
+    # A backslash is a path separator on Windows, so accepting it
+    # here would let a tree authored on POSIX escape the work tree
+    # or plant files under ``.git\`` when checked out on Windows.
+    if b"\\" in element:
+        return False
+    # NTFS alternate data streams are addressed as ``name:stream``;
+    # reject any element containing ``:`` so ``.git::$INDEX_ALLOCATION``
+    # and similar forms cannot bypass the ``.git`` check.
+    if b":" in element:
+        return False
     normalized = _normalize_path_element_ntfs(element)
     if normalized in INVALID_DOTNAMES:
         return False
-    if normalized == b"git~1":
+    if _is_ntfs_dotgit_short_name(normalized):
+        return False
+    if _is_reserved_windows_device_name(normalized):
         return False
     return True
 
@@ -2029,6 +2072,30 @@ def validate_path_element_hfs(element: bytes) -> bool:
         return False
 
     return True
+
+
+def get_path_element_validator(config: "Config") -> Callable[[bytes], bool]:
+    """Get the path-element validator to use when checking out a tree.
+
+    ``core.protectNTFS`` defaults to true on every platform (matching Git's
+    ``PROTECT_NTFS_DEFAULT=1``) because a repository authored on POSIX can
+    still be cloned on Windows later; ``core.protectHFS`` defaults to true on
+    macOS. With both disabled this falls back to the default validator, which
+    only refuses ``.git``, ``.`` and ``..``.
+
+    Args:
+        config: Repository configuration object
+
+    Returns:
+        Function that validates a single path element for the configured
+        filesystem protections.
+    """
+    if config.get_boolean(b"core", b"protectNTFS", True):
+        return validate_path_element_ntfs
+    elif config.get_boolean(b"core", b"protectHFS", sys.platform == "darwin"):
+        return validate_path_element_hfs
+    else:
+        return validate_path_element_default
 
 
 def validate_path(
@@ -2590,9 +2657,7 @@ def detect_case_only_renames(
             try:
                 normalized = normalize_path(change.old.path)
             except UnicodeDecodeError:
-                import logging
-
-                logging.warning(
+                logger.warning(
                     "Skipping case-only rename detection for path with invalid UTF-8: %r",
                     change.old.path,
                 )
@@ -2605,9 +2670,7 @@ def detect_case_only_renames(
             try:
                 normalized = normalize_path(change.old.path)
             except UnicodeDecodeError:
-                import logging
-
-                logging.warning(
+                logger.warning(
                     "Skipping case-only rename detection for path with invalid UTF-8: %r",
                     change.old.path,
                 )
@@ -2623,9 +2686,7 @@ def detect_case_only_renames(
             try:
                 normalized = normalize_path(change.new.path)
             except UnicodeDecodeError:
-                import logging
-
-                logging.warning(
+                logger.warning(
                     "Skipping case-only rename detection for path with invalid UTF-8: %r",
                     change.new.path,
                 )

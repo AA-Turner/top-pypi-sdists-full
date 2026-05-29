@@ -6,3 +6,6 @@ class FatConfig(AppConfig):
     name = 'allianceauth.fleetactivitytracking'
     label = 'fleetactivitytracking'
     verbose_name = _('Fleet Activity Tracking')
+
+    def ready(self) -> None:
+        pass

@@ -3066,7 +3066,7 @@ class ChalkClient:
         resolver: str | None = None,
         query_tags: list[str] | None = None,
         store_offline: bool | None = None,
-        allow_empty_tiles: bool | None = None,
+        allow_empty_tiles: bool = True,
         exact: bool = False,
         enable_profiling: bool = False,
         resource_group: str | None = None,
@@ -3088,9 +3088,9 @@ class ChalkClient:
         store_offline : bool, optional
             If `True`, store materialized aggregate values in the offline store.
             Requires both `lower_bound` and `upper_bound`.
-        allow_empty_tiles : bool, optional
-            If `True`, allow empty tiles when storing tiles offline.
-            Requires `store_offline=True`.
+        allow_empty_tiles : bool
+            If `True`, empty tile spans are skipped instead of raising an error.
+            Defaults to `True`. Set to `False` to raise an error when a backfill produces no tile files.
         exact : bool, optional
             If `True`, execute the underlying SQL source to determine the exact
             number of rows that need to migrate.

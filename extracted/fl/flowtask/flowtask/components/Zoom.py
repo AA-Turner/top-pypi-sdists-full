@@ -8,7 +8,7 @@ from io import BytesIO
 import pandas as pd
 import httpx
 from tqdm import tqdm
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.http import HTTPService
 from ..interfaces.cache import CacheSupport
 from ..interfaces.Boto3Client import Boto3Client

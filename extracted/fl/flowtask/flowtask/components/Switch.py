@@ -5,7 +5,7 @@ import pandas as pd
 from ..exceptions import (
     ComponentError,
 )
-from .BaseLoop import BaseLoop
+from ..interfaces.base_loop import BaseLoop
 
 
 class Switch(BaseLoop):

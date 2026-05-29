@@ -20,8 +20,11 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopColorMapBaseDelegate.hpp"
-#include "SciQLopPlots/Inspector/PropertiesDelegates/Delegates/ColorGradientDelegate.hpp"
 #include "SciQLopPlots/Plotables/SciQLopColorMapBase.hpp"
+
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGroupBox>
 
 SciQLopColorMapBase* SciQLopColorMapBaseDelegate::color_map_base() const
 {
@@ -32,12 +35,11 @@ SciQLopColorMapBaseDelegate::SciQLopColorMapBaseDelegate(SciQLopColorMapBase* ob
                                                          QWidget* parent)
         : PropertyDelegateBase(object, parent)
 {
-    auto* gradient = new ColorGradientDelegate(object->gradient(), this);
-    m_layout->addRow("Gradient", gradient);
-    connect(gradient, &ColorGradientDelegate::gradientChanged, this,
-            [this](ColorGradient g)
-            {
-                if (auto* cm = color_map_base())
-                    cm->set_gradient(g);
-            });
+    Q_UNUSED(object);
+    // Color-scale controls live on the "Color Scale" (z) axis node:
+    //   - Gradient (moved in PR #67)
+    //   - Autoscale percentile (moved in PR #69)
+    // The colormap node only carries product-specific knobs added by
+    // derived delegates (Contours on SciQLopColorMap, Binning/normalization
+    // on SciQLopHistogram2DDelegate).
 }

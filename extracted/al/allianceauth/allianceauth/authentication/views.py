@@ -24,6 +24,7 @@ from django_registration.signals import user_registered
 from esi.decorators import token_required
 from esi.models import Token
 
+from allianceauth import __esi_compatibility_date__, __version__
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.hooks import get_hooks
 
@@ -390,7 +391,13 @@ def check_for_override_esi_error_message(response):
 @user_passes_test(lambda u: u.is_superuser)
 def esi_check(request) -> JsonResponse:
     """Return if ESI ok With error messages and codes as JSON"""
-    _r = requests.get("https://esi.evetech.net/latest/status/?datasource=tranquility")
+    _r = requests.get(
+        url="https://esi.evetech.net/status",
+        headers={
+            "User-Agent": f"AllianceAuth/{__version__} ({settings.ESI_USER_CONTACT_EMAIL}; +https://gitlab.com/allianceauth/allianceauth)",
+            "X-Compatibility-Date": __esi_compatibility_date__,
+        }
+    )
 
     data = {
         "status": _r.status_code,

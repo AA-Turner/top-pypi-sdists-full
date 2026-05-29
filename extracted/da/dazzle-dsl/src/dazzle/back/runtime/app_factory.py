@@ -20,6 +20,215 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# #1290: convention-based project hook for injecting ASGI middleware (and any
+# other post-build setup) into the FastAPI app. Projects place a module at
+# ``pipeline/serve/app_init.py`` exposing ``register_middleware(app)`` — the
+# framework imports and invokes it after ``builder.build()`` and after
+# ``assemble_post_build_routes``. A missing module is a no-op (most projects
+# don't need this); any other error from the hook is logged and re-raised so
+# silent failures can't ship a half-configured app.
+_PROJECT_INIT_MODULE = "pipeline.serve.app_init"
+_PROJECT_INIT_HOOK = "register_middleware"
+
+
+def _resolve_template_or_default(dotted: str | None, default: Any) -> Any:
+    """Resolve a dotted `module:symbol` template path to a callable.
+
+    Returns the framework default callable when *dotted* is None. Raises
+    ImportError / AttributeError early so a missing project hook crashes
+    boot rather than silently falling back at request time.
+    """
+    if dotted is None:
+        return default
+    import importlib
+
+    module_name, _, attr = dotted.partition(":")
+    # The dotted path is sourced from the validator-checked
+    # `tenant_host.{not_found,expired}_template` IR field, which the
+    # validator pre-resolves via `importlib.util.find_spec` at validate
+    # time (Rule 5 in src/dazzle/core/validator.py). It is not user
+    # input at request time.
+    module = importlib.import_module(module_name)  # nosemgrep
+    return getattr(module, attr)
+
+
+def _stash_tenant_state_marker(app: "FastAPI", appspec: AppSpec) -> None:
+    """#1289 slice 4: attach `app.state.tenant_host` with the per-app cookie /
+    guard config so the auth dependency (slice 5) can find it.
+
+    Set to None when no entity carries `tenant_host:`. Apps without tenant_host
+    keep their legacy `dazzle_session` cookie naming unchanged.
+    """
+    from dataclasses import dataclass
+
+    tenant_entities = [
+        e for e in appspec.domain.entities if getattr(e, "tenant_host", None) is not None
+    ]
+    if not tenant_entities:
+        app.state.tenant_host = None
+        return
+
+    # All entities sharing a domain MUST agree on super_admin_role + canonical_hosts
+    # (validator rule 6). Take the first as authoritative.
+    canonical_hosts: set[str] = set()
+    super_admin_role = "super_admin"
+    for e in tenant_entities:
+        assert e.tenant_host is not None
+        canonical_hosts.update(e.tenant_host.canonical_hosts)
+        super_admin_role = e.tenant_host.super_admin_role
+
+    @dataclass(frozen=True)
+    class _TenantStateMarker:
+        app_name: str
+        canonical_hosts: frozenset[str]
+        super_admin_role: str
+
+    app.state.tenant_host = _TenantStateMarker(
+        app_name=appspec.name,
+        canonical_hosts=frozenset(canonical_hosts),
+        super_admin_role=super_admin_role,
+    )
+
+
+def _mount_tenant_resolution_middleware(
+    app: "FastAPI",
+    appspec: AppSpec,
+    builder: "DazzleBackendApp",
+) -> None:
+    """#1289 slice 3: mount TenantResolutionMiddleware iff any entity has tenant_host:.
+
+    Walks the AppSpec for entities with a `tenant_host:` block, groups by
+    `domain:`, and adds one middleware per domain bound to a Resolver
+    whose `lookup_fn` reads from the framework's existing Repository
+    layer (system-context — no per-tenant scoping applied, since we are
+    *resolving* which tenant the request belongs to).
+    """
+    tenant_entities = [
+        e for e in appspec.domain.entities if getattr(e, "tenant_host", None) is not None
+    ]
+    if not tenant_entities:
+        return
+
+    from collections import defaultdict
+
+    from dazzle.back.runtime.tenant.cache import TenantCache
+    from dazzle.back.runtime.tenant.middleware import (
+        TenantHostBinding,
+        TenantResolutionMiddleware,
+    )
+    from dazzle.back.runtime.tenant.resolver import (
+        EntityProbe,
+        HistoryProbe,
+        Resolver,
+    )
+    from dazzle.back.runtime.tenant.templates import (
+        render_default_404,
+        render_default_410,
+    )
+
+    by_domain: dict[str, list[Any]] = defaultdict(list)
+    for e in tenant_entities:
+        # tenant_entities is filtered to entries with non-None tenant_host above.
+        assert e.tenant_host is not None
+        by_domain[e.tenant_host.domain].append(e)
+
+    repositories = builder.repositories
+
+    for domain, entities in by_domain.items():
+        ordered = sorted(entities, key=lambda e: e.tenant_host.order or 0)
+        probes = [EntityProbe(e.name, e.tenant_host.slug_field) for e in ordered]
+        first_th = ordered[0].tenant_host
+        assert first_th is not None  # filtered above
+
+        history_probe = HistoryProbe(first_th.history_entity) if first_th.history_entity else None
+
+        slug_field_by_entity = {e.name: e.tenant_host.slug_field for e in ordered}
+
+        def _make_slug_lookup(field_map: dict[str, str]) -> Any:
+            async def _lookup(entity_name: str, slug: str) -> dict[str, Any] | None:
+                repo = repositories.get(entity_name)
+                if repo is None:
+                    return None
+                field = field_map.get(entity_name, "slug")
+                result = await repo.list(filters={field: slug}, page_size=1)
+                items = result.get("items") or []
+                return items[0] if items else None
+
+            return _lookup
+
+        async def _history_lookup(entity_name: str, slug: str) -> dict[str, Any] | None:
+            repo = repositories.get(entity_name)
+            if repo is None:
+                return None
+            result = await repo.list(filters={"old_slug": slug}, page_size=1)
+            items = result.get("items") or []
+            return items[0] if items else None
+
+        binding = TenantHostBinding(
+            app_name=appspec.name,
+            domain=domain,
+            canonical_hosts=tuple(first_th.canonical_hosts),
+            cache=TenantCache(),
+            resolver=Resolver(
+                probes=probes,
+                history_probe=history_probe,
+                lookup_fn=_make_slug_lookup(slug_field_by_entity),
+                history_lookup_fn=_history_lookup if history_probe else None,
+            ),
+            not_found_renderer=_resolve_template_or_default(
+                first_th.not_found_template,
+                default=lambda host, _app=appspec.name: render_default_404(
+                    app_name=_app, host=host
+                ),
+            ),
+            expired_renderer=_resolve_template_or_default(
+                first_th.expired_template,
+                default=lambda old, new, dom, _app=appspec.name: render_default_410(
+                    app_name=_app, old_slug=old, new_slug=new, domain=dom
+                ),
+            ),
+        )
+        app.add_middleware(TenantResolutionMiddleware, binding=binding)
+
+        # #1289 slice 6: register the cache so dazzle.tenant.bust(slug) can
+        # invalidate it from project code on raw-SQL renames or admin tooling.
+        # Also register each entity's slug field so Repository.update can
+        # auto-bust on slug renames without any project-side wiring.
+        from dazzle.tenant.cache_registry import _register_cache, _register_slug_field
+
+        _register_cache(binding.cache)
+        for table_name, slug_col in slug_field_by_entity.items():
+            _register_slug_field(table_name, slug_col)
+
+        logger.info(
+            "Mounted TenantResolutionMiddleware for domain=%s (%d entit%s)",
+            domain,
+            len(ordered),
+            "y" if len(ordered) == 1 else "ies",
+        )
+
+
+def _invoke_project_post_build_hook(app: "FastAPI") -> None:
+    import importlib
+
+    try:
+        module = importlib.import_module(_PROJECT_INIT_MODULE)
+    except ModuleNotFoundError:
+        logger.debug("No project post-build hook (%s missing)", _PROJECT_INIT_MODULE)
+        return
+
+    hook = getattr(module, _PROJECT_INIT_HOOK, None)
+    if hook is None:
+        logger.debug(
+            "Project module %s has no %s callable",
+            _PROJECT_INIT_MODULE,
+            _PROJECT_INIT_HOOK,
+        )
+        return
+
+    logger.info("Invoking project post-build hook %s:%s", _PROJECT_INIT_MODULE, _PROJECT_INIT_HOOK)
+    hook(app)
+
 
 def create_app(
     appspec: AppSpec,
@@ -998,6 +1207,11 @@ def create_app_factory(
         theme_css=theme_css,
         backend_url=os.environ.get("BACKEND_URL") or None,
     )
+
+    _stash_tenant_state_marker(app, appspec)
+    _mount_tenant_resolution_middleware(app, appspec, builder)
+
+    _invoke_project_post_build_hook(app)
 
     # Log startup info
     logger.info("Dazzle app '%s' ready", appspec.name)

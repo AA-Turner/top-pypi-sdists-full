@@ -3,7 +3,7 @@ from typing import Callable
 from dateutil import parser
 import pandas as pd
 from ..exceptions import ComponentError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..utils.executor import getFunction
 
 

@@ -1,4 +1,6 @@
 from .imports import *
+import inspect
+from dataclasses import fields, is_dataclass, MISSING
 class SingletonMeta(type):
     _instances = {}
     def __call__(cls, *args, **kwargs):
@@ -142,3 +144,32 @@ def prune_inputs(func, *args, **kwargs):
 def run_pruned_func(func, *args, **kwargs):
    args,kwargs = prune_inputs(func, *args, **kwargs)
    return func(*args, **kwargs)
+
+def safe_construct(cls, *args, **kwargs):
+    """Build cls from whatever's given. Missing fields -> their default
+    (or None if none). Unknown keys -> dropped (or stashed in `extra` if
+    the class has one). Never raises on arg mismatch."""
+    flds = {f.name: f for f in fields(cls)} if is_dataclass(cls) else {}
+
+    out = {}
+    leftover = dict(kwargs)
+    arglist = list(args)
+
+    for name, f in flds.items():
+        if name in leftover:
+            out[name] = leftover.pop(name)
+        elif arglist:
+            out[name] = arglist.pop(0)
+        elif f.default is not MISSING:
+            out[name] = f.default
+        elif f.default_factory is not MISSING:
+            out[name] = f.default_factory()
+        else:
+            out[name] = None              # required but absent -> None, no crash
+
+    # unknown keys: keep them if the class has an `extra` field, else drop
+    if "extra" in flds:
+        out.setdefault("extra", {})
+        out["extra"].update(leftover)
+
+    return cls(**out)

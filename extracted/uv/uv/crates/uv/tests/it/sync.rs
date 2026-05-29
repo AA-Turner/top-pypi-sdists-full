@@ -11025,6 +11025,80 @@ fn sync_git_path_archive() -> Result<()> {
     Ok(())
 }
 
+/// Reject a locked Git wheel archive when Git LFS was requested but could not be initialized.
+#[test]
+#[cfg(feature = "test-git")]
+fn sync_git_path_archive_missing_lfs() -> Result<()> {
+    let context = uv_test::test_context!("3.13");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "foo"
+        version = "0.1.0"
+        requires-python = ">=3.13"
+        dependencies = ["iniconfig"]
+
+        [tool.uv.sources]
+        iniconfig = { git = "https://github.com/astral-sh/archive-in-git-test", path = "archives/iniconfig-2.0.0-py3-none-any.whl", lfs = true }
+        "#,
+    )?;
+
+    let lock = context.temp_dir.child("uv.lock");
+    lock.write_str(
+        r#"
+        version = 1
+        revision = 3
+        requires-python = ">=3.13"
+
+        [options]
+        exclude-newer = "2024-03-25T00:00:00Z"
+
+        [[package]]
+        name = "foo"
+        version = "0.1.0"
+        source = { virtual = "." }
+        dependencies = [
+            { name = "iniconfig" },
+        ]
+
+        [package.metadata]
+        requires-dist = [{ name = "iniconfig", git = "https://github.com/astral-sh/archive-in-git-test?path=archives%2Finiconfig-2.0.0-py3-none-any.whl&lfs=true" }]
+
+        [[package]]
+        name = "iniconfig"
+        version = "2.0.0"
+        source = { git = "https://github.com/astral-sh/archive-in-git-test?path=archives%2Finiconfig-2.0.0-py3-none-any.whl&lfs=true#bb7ce6abf9f90544767701de5b7b0c7802dc642b" }
+        wheels = [
+            { filename = "iniconfig-2.0.0-py3-none-any.whl", hash = "sha256:b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374" },
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(
+        context.filters(),
+        context
+            .sync()
+            .arg("--frozen")
+            .env(EnvVars::UV_INTERNAL__TEST_LFS_DISABLED, "1"),
+        @r###"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × Failed to download `iniconfig @ git+https://github.com/astral-sh/archive-in-git-test@bb7ce6abf9f90544767701de5b7b0c7802dc642b#path=archives/iniconfig-2.0.0-py3-none-any.whl&lfs=true`
+      ├─▶ The wheel `git+https://github.com/astral-sh/archive-in-git-test@bb7ce6abf9f90544767701de5b7b0c7802dc642b#path=archives/iniconfig-2.0.0-py3-none-any.whl&lfs=true` is missing Git LFS artifacts.
+      ╰─▶ Git LFS extension not found. Ensure that Git LFS is installed and available.
+
+    hint: `iniconfig` (v2.0.0) was included because `foo` (v0.1.0) depends on `iniconfig`
+    "###
+    );
+
+    Ok(())
+}
+
 /// The project itself is marked as an editable dependency, but under the wrong name. The project
 /// is a package.
 #[test]
@@ -11342,6 +11416,144 @@ fn lock_git_poetry_path_dependency() -> Result<()> {
             source = { git = "file://[TEMP_DIR]/repository/?subdirectory=root#[COMMIT]" }
             dependencies = [
                 { name = "child" },
+            ]
+            "#
+            );
+        }
+    );
+
+    Ok(())
+}
+
+/// Lock a Git repository with generated metadata that references an archive within the repository.
+///
+/// See: <https://github.com/astral-sh/uv/issues/15417>
+#[test]
+#[cfg(feature = "test-git")]
+fn lock_git_metadata_archive_dependency() -> Result<()> {
+    let context = uv_test::test_context!("3.13");
+
+    let repository = context.temp_dir.child("repository");
+    repository.child("root").create_dir_all()?;
+    repository.child("root/root.py").touch()?;
+    repository.child("root/archives").create_dir_all()?;
+    fs_err::copy(
+        context
+            .workspace_root
+            .join("test/links/basic_package-0.1.0-py3-none-any.whl"),
+        repository
+            .child("root/archives/basic_package-0.1.0-py3-none-any.whl")
+            .path(),
+    )?;
+    repository.child("root/setup.py").write_str(indoc! {r#"
+        from pathlib import Path
+        from setuptools import setup
+
+        wheel = Path(__file__).parent / "archives" / "basic_package-0.1.0-py3-none-any.whl"
+
+        setup(
+            name="root",
+            version="0.1.0",
+            py_modules=["root"],
+            install_requires=[f"basic-package @ {wheel.as_uri()}"],
+        )
+    "#})?;
+
+    Command::new("git")
+        .arg("init")
+        .arg(repository.path())
+        .assert()
+        .success();
+    Command::new("git")
+        .arg("-C")
+        .arg(repository.path())
+        .arg("add")
+        .arg(".")
+        .assert()
+        .success();
+    Command::new("git")
+        .arg("-C")
+        .arg(repository.path())
+        .arg("-c")
+        .arg("user.name=Example")
+        .arg("-c")
+        .arg("user.email=example@example.com")
+        .arg("commit")
+        .arg("-m")
+        .arg("Initial commit")
+        .env("GIT_AUTHOR_DATE", "2000-01-01T00:00:00Z")
+        .env("GIT_COMMITTER_DATE", "2000-01-01T00:00:00Z")
+        .assert()
+        .success();
+
+    let repository_url = Url::from_directory_path(repository.path())
+        .map_err(|()| anyhow!("failed to convert repository path to file URL"))?;
+    context
+        .temp_dir
+        .child("pyproject.toml")
+        .write_str(&formatdoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.13"
+        dependencies = ["root"]
+
+        [tool.uv.sources]
+        root = {{ git = "{repository_url}", subdirectory = "root" }}
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--no-cache"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    let lock = context.read("uv.lock");
+    let mut filters = context.filters();
+    filters.push((r"#[0-9a-f]{40}", "#[COMMIT]"));
+
+    insta::with_settings!(
+        {
+            filters => filters,
+        },
+        {
+            assert_snapshot!(
+                lock, @r#"
+            version = 1
+            revision = 3
+            requires-python = ">=3.13"
+
+            [options]
+            exclude-newer = "2024-03-25T00:00:00Z"
+
+            [[package]]
+            name = "basic-package"
+            version = "0.1.0"
+            source = { git = "file://[TEMP_DIR]/repository/?path=root%2Farchives%2Fbasic_package-0.1.0-py3-none-any.whl#[COMMIT]" }
+            wheels = [
+                { filename = "basic_package-0.1.0-py3-none-any.whl", hash = "sha256:7b6229db79b5800e4e98a351b5628c1c8a944533a2d428aeeaa7275a30d4ea82" },
+            ]
+
+            [[package]]
+            name = "project"
+            version = "0.1.0"
+            source = { virtual = "." }
+            dependencies = [
+                { name = "root" },
+            ]
+
+            [package.metadata]
+            requires-dist = [{ name = "root", git = "file://[TEMP_DIR]/repository/?subdirectory=root" }]
+
+            [[package]]
+            name = "root"
+            version = "0.1.0"
+            source = { git = "file://[TEMP_DIR]/repository/?subdirectory=root#[COMMIT]" }
+            dependencies = [
+                { name = "basic-package" },
             ]
             "#
             );
@@ -15167,7 +15379,7 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@261c828b8e05251f3a3e4f6b47b149d691c7efbb#lfs=true)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb#lfs=true)
      + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb)
     ");
 
@@ -15276,7 +15488,7 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@261c828b8e05251f3a3e4f6b47b149d691c7efbb)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb)
      + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb#lfs=true)
     ");
 
@@ -15303,7 +15515,7 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@261c828b8e05251f3a3e4f6b47b149d691c7efbb#lfs=true)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb#lfs=true)
      + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb)
     ");
 
@@ -15335,7 +15547,7 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@261c828b8e05251f3a3e4f6b47b149d691c7efbb)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb)
      + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb#lfs=true)
     ");
 
@@ -15361,7 +15573,7 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@261c828b8e05251f3a3e4f6b47b149d691c7efbb#lfs=true)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb#lfs=true)
      + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb)
     ");
 
@@ -15425,7 +15637,7 @@ fn sync_git_lfs() -> Result<()> {
     Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
-     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo@261c828b8e05251f3a3e4f6b47b149d691c7efbb)
+     - test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb)
      + test-lfs-repo==0.1.0 (from git+https://github.com/astral-sh/test-lfs-repo.git@261c828b8e05251f3a3e4f6b47b149d691c7efbb#lfs=true)
     ");
 
@@ -15938,6 +16150,35 @@ fn toggle_workspace_editable() -> Result<()> {
         );
     });
 
+    uv_snapshot!(context.filters(), context.sync().arg("--no-editable-package").arg("child"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    Prepared 1 package in [TIME]
+    Uninstalled 1 package in [TIME]
+    Installed 1 package in [TIME]
+     ~ child==0.1.0 (from file://[TEMP_DIR]/child)
+    ");
+
+    assert!(!context.site_packages().join("_child.pth").exists());
+
+    uv_snapshot!(context.filters(), context.sync().arg("--editable"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    Uninstalled 1 package in [TIME]
+    Installed 1 package in [TIME]
+     ~ child==0.1.0 (from file://[TEMP_DIR]/child)
+    ");
+
+    assert!(context.site_packages().join("_child.pth").exists());
+
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(
         r#"
@@ -15962,7 +16203,6 @@ fn toggle_workspace_editable() -> Result<()> {
 
     ----- stderr -----
     Resolved 3 packages in [TIME]
-    Prepared 1 package in [TIME]
     Uninstalled 1 package in [TIME]
     Installed 1 package in [TIME]
      ~ child==0.1.0 (from file://[TEMP_DIR]/child)

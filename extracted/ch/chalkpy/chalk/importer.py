@@ -889,22 +889,55 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
         raise ChalkParseError(f"expected reference to has-many feature, like _.children[...].{aggregation}()`")
 
     child_attr_name = child_attr_expression._chalk__attr
-    if not isinstance(child_attr_expression._chalk__parent, UnderscoreRoot):
-        raise ChalkParseError(f"expected single feature of the child namespace, like `_.{child_attr_name}`")
 
     if f.features_cls is None:
         raise ChalkParseError("feature class is None")
+
+    # Resolve a single has-one prefix, if present: `_.user.transactions.count()`. The materialization
+    # itself still lives on the foreign has-many namespace (Transaction here); the prefix just tells
+    # chalkpy which class to look up the has-many on. We deliberately accept at most one hop — multi-
+    # hop chains aren't supported.
+    parent_class_for_has_many: Type[Features] = f.features_cls
+    if not isinstance(child_attr_expression._chalk__parent, UnderscoreRoot):
+        prefix_expr = child_attr_expression._chalk__parent
+        if not isinstance(prefix_expr, UnderscoreAttr) or not isinstance(prefix_expr._chalk__parent, UnderscoreRoot):
+            raise ChalkParseError(
+                f"expected single feature of the child namespace, like `_.{child_attr_name}`, "
+                + f"or a single has-one prefix like `_.<has_one>.{child_attr_name}`"
+            )
+        has_one_attr_name = prefix_expr._chalk__attr
+        try:
+            has_one_wrapper = getattr(f.features_cls, has_one_attr_name)
+        except Exception:
+            raise ChalkParseError(
+                f"could not find feature '{has_one_attr_name}' on '{_get_printable_name(f.features_cls)}'"
+            )
+        has_one_candidate = unwrap_feature(has_one_wrapper, raise_error=False)
+        if not isinstance(has_one_candidate, Feature):
+            raise ChalkParseError(f"the attribute '{has_one_attr_name}' is not a feature")
+        if not has_one_candidate.is_has_one:
+            raise ChalkParseError(
+                f"the attribute '{has_one_attr_name}' on '{_get_printable_name(f.features_cls)}' is not a has-one "
+                + "feature; materialized aggregations only support a single has-one prefix before the has-many"
+            )
+        joined = has_one_candidate.joined_class
+        if joined is None:
+            raise ChalkParseError(f"has-one feature '{has_one_attr_name}' is not joined to a class")
+        parent_class_for_has_many = joined
 
     aggregate_on_refs: list[AggregationColumnRef] = (
         [] if aggregated_value is None else [AggregationColumnRef(name=aggregated_value, version=aggregated_version)]
     ) + additional_features
 
     resolution = _get_has_many_class(
-        parent=f.features_cls,
+        parent=parent_class_for_has_many,
         has_many_feature_name=child_attr_name,
         group_names=[],
         aggregated_feature_refs=aggregate_on_refs,
     )
+
+    # Join-key transitivity is validated engine-side (see
+    # _convert_underscore_materialized_aggregation); no need to re-check here.
     joined_class = resolution.joined_class
     group_by_features = resolution.group_by_features
     aggregated_features = resolution.aggregated_features

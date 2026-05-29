@@ -6,3 +6,6 @@ class PermissionsToolConfig(AppConfig):
     name = 'allianceauth.permissions_tool'
     label = 'permissions_tool'
     verbose_name = _('Permissions Audit')
+
+    def ready(self) -> None:
+        pass

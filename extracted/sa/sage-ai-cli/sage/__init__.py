@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import os
+
+# Auto-configure NO_COLOR environment variables if run within antigravity sandbox
+if "ANTIGRAVITY_PROJECT_ID" in os.environ:
+    os.environ["NO_COLOR"] = "1"
+    os.environ["SAGE_NO_COLOR"] = "1"
+
+
 
 def _discover_version() -> str:
     """Resolve the installed package version.

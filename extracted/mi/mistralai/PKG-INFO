@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai
-Version: 2.4.7
+Version: 2.4.8
 Summary: Python Client SDK for the Mistral AI API.
 Project-URL: Repository, https://github.com/mistralai/client-python.git
 Author: Mistral
@@ -23,6 +23,12 @@ Requires-Dist: google-auth>=2.27.0; extra == 'gcp'
 Requires-Dist: requests>=2.32.3; extra == 'gcp'
 Provides-Extra: realtime
 Requires-Dist: websockets>=13.0; extra == 'realtime'
+Provides-Extra: telemetry
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.33.1; extra == 'telemetry'
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.33.1; extra == 'telemetry'
+Provides-Extra: workflow-payload-compression
+Requires-Dist: msgpack<2.0.0,>=1.1.0; extra == 'workflow-payload-compression'
+Requires-Dist: zstandard<0.26,>=0.25.0; extra == 'workflow-payload-compression'
 Provides-Extra: workflow-payload-encryption
 Requires-Dist: cryptography<47.0.0,>=41.0.0; extra == 'workflow-payload-encryption'
 Provides-Extra: workflow-payload-offloading

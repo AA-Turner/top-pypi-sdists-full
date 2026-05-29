@@ -45,6 +45,21 @@ class GpuCameraMap:
     MAX_SIZE: Any
     SHM_PATH: Any
 
+    def check_file_recreated(self: Any) -> bool:
+        """
+        Return True if the SHM file's on-disk inode no longer matches our open fd.
+        
+                When the SHM file is unlinked + recreated (SG restart with external cleanup,
+                operator `rm -f /dev/shm/gpu_camera_map`, or `docker rm` on the SG container),
+                the open fd keeps pointing at the deleted inode while a new inode appears at
+                the same path. Comparing os.fstat(fd).st_ino vs os.stat(path).st_ino detects
+                this. Mirrors CudaShmRingBuffer.check_file_recreated().
+        
+                Returns:
+                    True if file was recreated (stale) or missing, False if still the same file.
+        """
+        ...
+
     def close(self: Any) -> None:
         """
         Close the shared memory mapping.
@@ -107,6 +122,15 @@ class GpuCameraMap:
         
                 Returns:
                     True if successful, False otherwise.
+        """
+        ...
+
+    def reconnect(self: Any) -> bool:
+        """
+        Close the stale mmap+fd and re-open the current SHM file by path.
+        
+                Idempotent: safe to call even when not connected. Returns True on success,
+                False when the file is missing (caller should retry later).
         """
         ...
 

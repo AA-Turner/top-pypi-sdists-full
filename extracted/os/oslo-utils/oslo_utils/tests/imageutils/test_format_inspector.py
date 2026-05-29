@@ -22,9 +22,11 @@ from unittest import mock
 
 import ddt
 
+from oslo_utils.imageutils import _luks
 from oslo_utils.imageutils import format_inspector
 from oslo_utils.imageutils import QemuImgInfo
 from oslo_utils.tests import base as test_base
+from oslo_utils.tests.imageutils import test_luks as luks_test_helpers
 from oslo_utils import units
 
 
@@ -33,7 +35,7 @@ TEST_IMAGE_PREFIX = 'oslo-unittest-formatinspector-'
 
 def get_size_format_from_qemu_img(filename):
     output = subprocess.check_output(
-        f'qemu-img info --output=json "{filename}"', shell=True
+        ['qemu-img', 'info', '--output=json', filename]
     )
     info = QemuImgInfo(output, format='json')
     return info.virtual_size, info.file_format
@@ -64,12 +66,14 @@ class TestFormatInspectors(test_base.BaseTestCase):
         # being installed and in the path,
         # if it is not installed, skip
         try:
-            subprocess.check_output('mkisofs --version', shell=True)
+            subprocess.check_output(
+                ['mkisofs', '--version'], stderr=subprocess.STDOUT
+            )
         except Exception:
             self.skipTest('mkisofs not installed')
 
         size = image_size // units.Mi
-        base_cmd = "mkisofs"
+        cmd = ['mkisofs']
         if subformat == 'udf':
             # depending on the distribution mkisofs may not support udf
             # and may be provided by genisoimage instead. As a result we
@@ -83,20 +87,22 @@ class TestFormatInspectors(test_base.BaseTestCase):
                 )
             except Exception:
                 self.skipTest('mkisofs does not support udf format')
-            base_cmd += " -udf"
+            cmd.append('-udf')
         prefix = TEST_IMAGE_PREFIX
         prefix += f'-{subformat}-'
         fn = tempfile.mktemp(prefix=prefix, suffix='.iso')
         self._created_files.append(fn)
         subprocess.check_output(
-            f'dd if=/dev/zero of={fn} bs=1M count={int(size)}', shell=True
+            ['dd', 'if=/dev/zero', f'of={fn}', 'bs=1M', f'count={int(size)}'],
+            stderr=subprocess.STDOUT,
         )
         # We need to use different file as input and output as the behavior
         # of mkisofs is version dependent if both the input and the output
         # are the same and can cause test failures
         out_fn = f"{fn}.iso"
         subprocess.check_output(
-            f'{base_cmd} -V "TEST" -o {out_fn}  {fn}', shell=True
+            cmd + ['-V', 'TEST', '-o', out_fn, fn],
+            stderr=subprocess.STDOUT,
         )
         self._created_files.append(out_fn)
         return out_fn
@@ -129,7 +135,15 @@ class TestFormatInspectors(test_base.BaseTestCase):
         return fn
 
     def _create_luks(self, image_size, subformat):
+        try:
+            subprocess.check_output('qemu-img --help | grep luks', shell=True)
+        except Exception:
+            self.skipTest(
+                'qemu-img not installed or does not support luks format'
+            )
+
         fn = tempfile.mktemp(suffix='.luks')
+        self._created_files.append(fn)
         cmd = [
             'qemu-img',
             'create',
@@ -142,7 +156,7 @@ class TestFormatInspectors(test_base.BaseTestCase):
             fn,
             f'{int(image_size)}',
         ]
-        subprocess.check_output(' '.join(cmd), shell=True)
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         return fn
 
     def _create_img(
@@ -178,7 +192,9 @@ class TestFormatInspectors(test_base.BaseTestCase):
         # the help output.
         try:
             subprocess.check_output(
-                f'qemu-img --help | grep {fmt}', shell=True
+                f'qemu-img --help | grep {fmt}',
+                shell=True,
+                stderr=subprocess.STDOUT,
             )
         except Exception:
             self.skipTest(
@@ -187,24 +203,21 @@ class TestFormatInspectors(test_base.BaseTestCase):
 
         if options is None:
             options = {}
-        opt = ''
         prefix = TEST_IMAGE_PREFIX
 
         if subformat:
             options['subformat'] = subformat
             prefix += subformat + '-'
 
-        if options:
-            opt += '-o ' + ','.join(f'{k}={v}' for k, v in options.items())
-
-        if backing_file is not None:
-            opt += f' -b {backing_file} -F raw'
-
         fn = tempfile.mktemp(prefix=prefix, suffix=f'.{fmt}')
         self._created_files.append(fn)
-        subprocess.check_output(
-            f'qemu-img create -f {fmt} {opt} {fn} {int(size)}', shell=True
-        )
+        cmd = ['qemu-img', 'create', '-f', fmt]
+        if options:
+            cmd += ['-o', ','.join(f'{k}={v}' for k, v in options.items())]
+        if backing_file is not None:
+            cmd += ['-b', backing_file, '-F', 'raw']
+        cmd += [fn, str(int(size))]
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         return fn
 
     def _create_allocated_vmdk(self, size_mb, subformat=None):
@@ -226,15 +239,33 @@ class TestFormatInspectors(test_base.BaseTestCase):
         # Create a file with pseudo-random data, otherwise it will get
         # compressed in the streamOptimized format
         subprocess.check_output(
-            f'dd if=/dev/urandom of={raw} bs=1M count={int(size_mb)}',
-            shell=True,
+            [
+                'dd',
+                'if=/dev/urandom',
+                f'of={raw}',
+                'bs=1M',
+                f'count={int(size_mb)}',
+            ],
+            stderr=subprocess.STDOUT,
         )
 
         # Convert it to VMDK
         subprocess.check_output(
-            f'qemu-img convert -f raw -O vmdk -o subformat={subformat} '
-            f'-S 0 {raw} {fn}',
-            shell=True,
+            [
+                'qemu-img',
+                'convert',
+                '-f',
+                'raw',
+                '-O',
+                'vmdk',
+                '-o',
+                f'subformat={subformat}',
+                '-S',
+                '0',
+                raw,
+                fn,
+            ],
+            stderr=subprocess.STDOUT,
         )
         return fn
 
@@ -358,10 +389,12 @@ class TestFormatInspectors(test_base.BaseTestCase):
         fn = tempfile.mktemp(prefix=prefix, suffix='.iso')
         self._created_files.append(fn)
         subprocess.check_output(
-            f'dd if={qcow} of={fn} bs=32K count=1', shell=True
+            ['dd', f'if={qcow}', f'of={fn}', 'bs=32K', 'count=1'],
+            stderr=subprocess.STDOUT,
         )
         subprocess.check_output(
-            f'dd if={iso} of={fn} bs=32K skip=1 seek=1', shell=True
+            ['dd', f'if={iso}', f'of={fn}', 'bs=32K', 'skip=1', 'seek=1'],
+            stderr=subprocess.STDOUT,
         )
         return qcow, iso, fn
 
@@ -1033,6 +1066,17 @@ class TestFormatInspectors(test_base.BaseTestCase):
         for key, inspector_cls in format_inspector.ALL_FORMATS.items():
             self.assertEqual(key, inspector_cls.NAME)
 
+    def test_params_passed_to_inspector(self):
+        img = self._create_img('raw', 1024)
+        inspector = format_inspector.detect_file_format(
+            img, params={'foo': 'bar'}
+        )
+        self.assertIsNotNone(inspector)
+        # This makes sure we passed the "data" through detect, InspectWrapper,
+        # and to the actual inspector objects themselves.
+        assert inspector is not None
+        self.assertEqual('bar', inspector._params['foo'])
+
 
 class TestFormatInspectorInfra(test_base.BaseTestCase):
     def _test_capture_region_bs(self, bs):
@@ -1297,3 +1341,448 @@ class TestFormatInspectorsTargeted(test_base.BaseTestCase):
         assert new_region is not None
         # Table size was under the limit, make sure we get it back
         self.assertEqual(16 * 2048, new_region.length)
+
+
+class TestContainerFileInspector(test_base.BaseTestCase):
+    class DummyContainer(format_inspector.ContainerFileInspector):
+        NAME = 'dummy_container'
+
+        def _initialize(self):
+            # Zero-length region is immediately complete; add a no-op safety
+            # check
+            self.new_region('header', format_inspector.CaptureRegion(0, 0))
+            self.add_safety_check(format_inspector.SafetyCheck.null())
+
+        @property
+        def format_match(self):
+            # Pretend we always match once initialized
+            return True
+
+    def _new_container(self):
+        ins = self.DummyContainer()
+        # With zero-length region, it's already complete; still, mark finished
+        ins.finish()
+        return ins
+
+    def test_adds_inner_safety_check(self):
+        ins = self._new_container()
+        # ContainerFileInspector should always add 'inner_safety'
+        self.assertIn('inner_safety', ins._safety_checks)
+
+    def test_inner_safety_noop_without_inner(self):
+        ins = self._new_container()
+        # No inner set; safety_check should pass (only null + inner_safety
+        #  which no-ops)
+        ins.safety_check()
+
+    def test_inner_safety_invokes_inner_safety_check(self):
+        ins = self._new_container()
+        inner = mock.MagicMock()
+        ins._inner_format = inner
+        ins.safety_check()
+        inner.safety_check.assert_called_once_with()
+
+    def test_inner_safety_failure_is_recorded(self):
+        ins = self._new_container()
+
+        # Make the inner raise a SafetyViolation so it is captured and reported
+        def fail():
+            raise format_inspector.SafetyViolation('boom')
+
+        inner = mock.MagicMock()
+        inner.safety_check.side_effect = fail
+        ins._inner_format = inner
+
+        exc = self.assertRaises(
+            format_inspector.SafetyCheckFailed, ins.safety_check
+        )
+        self.assertIn('inner_safety', exc.failures)
+        self.assertIn('boom', str(exc.failures['inner_safety']))
+
+
+def _build_luks_header(
+    version=1, payload_offset=None, slots=None, **header_kwargs
+):
+    """Build a 592-byte LUKS v1 header for testing.
+
+    Reuses _build_header_data and _make_header from test_luks.py to build the
+    key slot and header-dict portions, then packs the real header fields into
+    the first 208 bytes.
+
+    :param version: LUKS version number (default 1)
+    :param payload_offset: Payload offset in sectors (overrides _make_header)
+    :param slots: List of key-slot dicts (see test_luks._build_header_data)
+    :param header_kwargs: Passed to test_luks._make_header (e.g. cipher_alg,
+        cipher_mode, hash_spec, key_bytes, mk_digest_iter)
+    """
+    if slots is None:
+        slots = [
+            {
+                'active': True,
+                'iterations': 100000,
+                'salt': b'\xaa' * 32,
+                'key_offset': 8,
+                'stripes': 4000,
+            }
+        ]
+
+    hdr = luks_test_helpers._make_header(**header_kwargs)
+    if payload_offset is not None:
+        hdr['payload_offset'] = payload_offset
+
+    # Pack the first 168 bytes of real header fields
+    prefix = struct.pack(
+        '>6sH32s32s32sII20s32sI',
+        b'LUKS\xba\xbe',
+        version,
+        hdr['cipher_alg'],
+        hdr['cipher_mode'],
+        hdr['hash'],
+        hdr['payload_offset'],
+        hdr['key_bytes'],
+        hdr['mk_digest'],
+        hdr['mk_digest_salt'],
+        hdr['mk_digest_iter'],
+    )
+    # UUID (40 bytes)
+    prefix += b'\x00' * 40
+
+    # Get the key-slot portion (bytes 208-591) from _build_header_data
+    slot_data = luks_test_helpers._build_header_data(slots)[208:]
+
+    return prefix + slot_data
+
+
+class TestLUKSInspector(test_base.BaseTestCase):
+    def setUp(self):
+        super().setUp()
+        self._created_files = []
+
+    def tearDown(self):
+        super().tearDown()
+        for fn in self._created_files:
+            try:
+                os.remove(fn)
+            except Exception:
+                pass
+
+    def _feed_header(self, inspector, header_data, block_size=None):
+        """Feed header data to inspector, optionally in small chunks."""
+        if block_size is None:
+            inspector.eat_chunk(header_data)
+        else:
+            for i in range(0, len(header_data), block_size):
+                inspector.eat_chunk(header_data[i : i + block_size])
+
+    def _create_luks(self, image_size):
+        fn = tempfile.mktemp(suffix='.luks')
+        try:
+            subprocess.check_output(
+                'qemu-img create -f luks '
+                '--object secret,id=sec0,data=secret-passphrase '
+                '-o key-secret=sec0 '
+                f'{fn} {int(image_size)}',
+                shell=True,
+                stderr=subprocess.STDOUT,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            self.skipTest('qemu-img not available or does not support luks')
+        self._created_files.append(fn)
+        return fn
+
+    def test_format_match_valid(self):
+        header = _build_luks_header()
+        inspector = format_inspector.LUKSInspector()
+        self._feed_header(inspector, header)
+        self.assertTrue(inspector.format_match)
+
+    def test_format_match_invalid(self):
+        inspector = format_inspector.LUKSInspector()
+        inspector.eat_chunk(b'\x00' * 592)
+        self.assertFalse(inspector.format_match)
+
+    def test_header_items_parsed(self):
+        header = _build_luks_header(
+            cipher_alg='aes',
+            cipher_mode='cbc-essiv:sha256',
+            hash_spec='sha512',
+            payload_offset=2048,
+            key_bytes=64,
+            mk_digest_iter=50000,
+        )
+        inspector = format_inspector.LUKSInspector()
+        self._feed_header(inspector, header)
+        items = inspector.header_items
+        self.assertEqual(1, items['version'])
+        self.assertEqual(b'aes' + b'\x00' * 29, items['cipher_alg'])
+        self.assertEqual(
+            b'cbc-essiv:sha256' + b'\x00' * 16, items['cipher_mode']
+        )
+        self.assertEqual(b'sha512' + b'\x00' * 26, items['hash'])
+        self.assertEqual(2048, items['payload_offset'])
+        self.assertEqual(64, items['key_bytes'])
+        self.assertEqual(50000, items['mk_digest_iter'])
+
+    def test_format_match_at_small_block_size(self):
+        header = _build_luks_header()
+        inspector = format_inspector.LUKSInspector()
+        self._feed_header(inspector, header, block_size=17)
+        self.assertTrue(inspector.format_match)
+
+    def test_check_version_v1_passes(self):
+        header = _build_luks_header(version=1)
+        inspector = format_inspector.LUKSInspector()
+        self._feed_header(inspector, header)
+        inspector.check_version()
+
+    def test_check_version_v2_raises(self):
+        header = _build_luks_header(version=2)
+        inspector = format_inspector.LUKSInspector()
+        self._feed_header(inspector, header)
+        self.assertRaisesRegex(
+            format_inspector.SafetyViolation,
+            'not supported',
+            inspector.check_version,
+        )
+
+    def test_check_passphrase_no_passphrase_noop(self):
+        header = _build_luks_header()
+        inspector = format_inspector.LUKSInspector()
+        self._feed_header(inspector, header)
+        inspector.check_passphrase()
+
+    def test_check_passphrase_wrong_no_inner(self):
+        header = _build_luks_header()
+        inspector = format_inspector.LUKSInspector(
+            params={'luks_passphrase': 'wrong'}
+        )
+        self._feed_header(inspector, header)
+        # This will fail not because "wrong" is actually incorrect,
+        # but because we didn't decode (or in this case, mock) an
+        # inner_format. It's the thing that will happen if we fail
+        # to decrypt the first block with a provided passphrase.
+        self.assertRaisesRegex(
+            format_inspector.SafetyViolation,
+            'Passphrase is incorrect',
+            inspector.check_passphrase,
+        )
+
+    def test_check_passphrase_correct_has_inner(self):
+        header = _build_luks_header()
+        inspector = format_inspector.LUKSInspector(
+            params={'luks_passphrase': 'test'}
+        )
+        self._feed_header(inspector, header)
+        inspector._inner_format = mock.MagicMock()
+        inspector.check_passphrase()
+
+    def test_safety_checks_registered(self):
+        inspector = format_inspector.LUKSInspector()
+        self.assertIn('version', inspector._safety_checks)
+        self.assertIn('passphrase', inspector._safety_checks)
+        self.assertIn('inner_safety', inspector._safety_checks)
+
+    def test_iter_limit_default(self):
+        inspector = format_inspector.LUKSInspector()
+        self.assertEqual(12000000, inspector._iter_limit)
+
+    def test_iter_limit_custom(self):
+        inspector = format_inspector.LUKSInspector(
+            params={'luks_iter_limit': '5000'}
+        )
+        self.assertEqual(5000, inspector._iter_limit)
+
+    def test_post_process_no_passphrase_no_key_material(self):
+        header = _build_luks_header()
+        inspector = format_inspector.LUKSInspector()
+        self._feed_header(inspector, header)
+        self.assertFalse(inspector.has_region('key_material'))
+        self.assertFalse(inspector.has_region('encrypted_block'))
+
+    def test_post_process_creates_key_material_region(self):
+        header = _build_luks_header(
+            key_bytes=32,
+            slots=[
+                {
+                    'active': True,
+                    'iterations': 1000,
+                    'salt': b'\xbb' * 32,
+                    'key_offset': 8,
+                    'stripes': 4000,
+                }
+            ],
+        )
+        inspector = format_inspector.LUKSInspector(
+            params={'luks_passphrase': 'test'}
+        )
+        self._feed_header(inspector, header)
+        self.assertTrue(inspector.has_region('key_material'))
+        km = inspector.region('key_material')
+        self.assertEqual(8 * 512, km.offset)
+        self.assertEqual(32 * 4000, km.length)
+
+    def test_post_process_uses_first_active_slot(self):
+        header = _build_luks_header(
+            key_bytes=32,
+            slots=[
+                {'active': False, 'key_offset': 8, 'stripes': 4000},
+                {
+                    'active': True,
+                    'iterations': 1000,
+                    'salt': b'\xcc' * 32,
+                    'key_offset': 16,
+                    'stripes': 2000,
+                },
+            ],
+        )
+        inspector = format_inspector.LUKSInspector(
+            params={'luks_passphrase': 'test'}
+        )
+        self._feed_header(inspector, header)
+        self.assertTrue(inspector.has_region('key_material'))
+        self.assertEqual(1, inspector._active_slot)
+        km = inspector.region('key_material')
+        self.assertEqual(16 * 512, km.offset)
+        self.assertEqual(32 * 2000, km.length)
+        # Key material region exists but is incomplete (we only fed the
+        # header), so attempting decryption should fail
+        self.assertRaisesRegex(
+            ValueError,
+            'Key material not available',
+            inspector._decrypt_first_block,
+        )
+
+    def test_post_process_no_active_slots(self):
+        header = _build_luks_header(
+            slots=[{'active': False} for _ in range(8)],
+        )
+        inspector = format_inspector.LUKSInspector(
+            params={'luks_passphrase': 'test'}
+        )
+        self._feed_header(inspector, header)
+        self.assertFalse(inspector.has_region('key_material'))
+
+    @mock.patch.object(_luks, 'recover_master_key', return_value=None)
+    def test_decrypt_no_master_key_raises(self, mock_recover):
+        header = _build_luks_header(key_bytes=32)
+        inspector = format_inspector.LUKSInspector(
+            params={'luks_passphrase': 'test'}
+        )
+        self._feed_header(inspector, header)
+        # Simulate key_material being complete
+        km = inspector.region('key_material')
+        km.data = bytearray(km.length)
+        # Simulate encrypted_block being present and complete
+        inspector.new_region(
+            'encrypted_block',
+            format_inspector.CaptureRegion(4096 * 512, 512),
+        )
+        inspector.region('encrypted_block').data = bytearray(512)
+        self.assertRaisesRegex(
+            ValueError,
+            'Could not recover master key',
+            inspector._decrypt_first_block,
+        )
+        mock_recover.assert_called_once()
+
+    @mock.patch.object(_luks, 'decrypt_data')
+    @mock.patch.object(_luks, 'recover_master_key')
+    def test_region_complete_detects_inner_format(
+        self, mock_recover, mock_decrypt
+    ):
+        mock_recover.return_value = b'\x01' * 32
+        # Return data that looks like a qcow2 header
+        qcow2_header = bytearray(512)
+        qcow2_header[0:4] = b'QFI\xfb'
+        qcow2_header[4:8] = struct.pack('>I', 3)  # version 3
+        mock_decrypt.return_value = bytes(qcow2_header)
+
+        header = _build_luks_header(key_bytes=32)
+        inspector = format_inspector.LUKSInspector(
+            params={'luks_passphrase': 'test'}
+        )
+        self._feed_header(inspector, header)
+        # Simulate key_material complete
+        km = inspector.region('key_material')
+        km.data = bytearray(km.length)
+        # Simulate encrypted_block complete
+        inspector.new_region(
+            'encrypted_block',
+            format_inspector.CaptureRegion(4096 * 512, 512),
+        )
+        inspector.region('encrypted_block').data = bytearray(512)
+
+        inspector.region_complete('encrypted_block')
+        self.assertIsInstance(
+            inspector.inner_format, format_inspector.QcowInspector
+        )
+
+    def test_virtual_size(self):
+        payload_offset = 4096
+        header = _build_luks_header(payload_offset=payload_offset)
+        inspector = format_inspector.LUKSInspector()
+        # Feed header + extra data to simulate file content
+        total_data = header + b'\x00' * (10 * 1024)
+        self._feed_header(inspector, total_data)
+        inspector.finish()
+        expected = len(total_data) - payload_offset * 512
+        self.assertEqual(expected, inspector.virtual_size)
+
+    def test_luks_decrypt_detects_inner_format(self):
+        fn = self._create_luks(10 * units.Mi)
+        wrapper = format_inspector.InspectWrapper(
+            open(fn, 'rb'),
+            allowed_formats=['luks'],
+            params={'luks_passphrase': 'secret-passphrase'},
+        )
+        while wrapper.read(64 * units.Ki):
+            pass
+        wrapper.close()
+        fmt = wrapper.format
+        self.assertIsNotNone(fmt)
+        assert fmt is not None
+        self.assertEqual('luks', fmt.NAME)
+        assert isinstance(fmt, format_inspector.ContainerFileInspector)
+        self.assertIsInstance(
+            fmt.inner_format, format_inspector.RawFileInspector
+        )
+        fmt.safety_check()
+
+    def test_luks_no_passphrase_passes_safety(self):
+        fn = self._create_luks(10 * units.Mi)
+        wrapper = format_inspector.InspectWrapper(
+            open(fn, 'rb'),
+            allowed_formats=['luks'],
+        )
+        while wrapper.read(64 * units.Ki):
+            pass
+        wrapper.close()
+        fmt = wrapper.format
+        assert fmt is not None
+        self.assertIsInstance(fmt, format_inspector.LUKSInspector)
+        assert isinstance(fmt, format_inspector.ContainerFileInspector)
+        self.assertIsNone(fmt.inner_format)
+        fmt.safety_check()
+
+    def test_luks_wrong_passphrase_errors(self):
+        fn = self._create_luks(10 * units.Mi)
+        inspector = format_inspector.LUKSInspector(
+            params={'luks_passphrase': 'wrong-passphrase'}
+        )
+        with open(fn, 'rb') as f:
+            error_raised = False
+            while True:
+                chunk = f.read(64 * units.Ki)
+                if not chunk:
+                    break
+                try:
+                    inspector.eat_chunk(chunk)
+                except ValueError as e:
+                    self.assertIn('master key', str(e))
+                    error_raised = True
+                    break
+        self.assertTrue(
+            error_raised,
+            'Expected ValueError from wrong passphrase',
+        )
+        self.assertIsNone(inspector.inner_format)

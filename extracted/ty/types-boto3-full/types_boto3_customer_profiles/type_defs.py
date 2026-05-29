@@ -121,6 +121,11 @@ __all__ = (
     "BatchGetProfileErrorTypeDef",
     "BatchGetProfileRequestTypeDef",
     "BatchGetProfileResponseTypeDef",
+    "BatchPutProfileObjectErrorItemTypeDef",
+    "BatchPutProfileObjectRequestItemTypeDef",
+    "BatchPutProfileObjectRequestTypeDef",
+    "BatchPutProfileObjectResponseItemTypeDef",
+    "BatchPutProfileObjectResponseTypeDef",
     "BatchTypeDef",
     "CalculatedAttributeDimensionOutputTypeDef",
     "CalculatedAttributeDimensionTypeDef",
@@ -622,6 +627,22 @@ class BatchGetProfileErrorTypeDef(TypedDict):
 class BatchGetProfileRequestTypeDef(TypedDict):
     DomainName: str
     ProfileIds: Sequence[str]
+
+
+class BatchPutProfileObjectErrorItemTypeDef(TypedDict):
+    Id: str
+    Code: int
+    Message: NotRequired[str]
+
+
+class BatchPutProfileObjectRequestItemTypeDef(TypedDict):
+    Id: str
+    Object: str
+
+
+class BatchPutProfileObjectResponseItemTypeDef(TypedDict):
+    Id: str
+    ProfileObjectUniqueKey: str
 
 
 TimestampTypeDef = Union[datetime, str]
@@ -1959,6 +1980,18 @@ class AutoMergingOutputTypeDef(TypedDict):
     Consolidation: NotRequired[ConsolidationOutputTypeDef]
     ConflictResolution: NotRequired[ConflictResolutionTypeDef]
     MinAllowedConfidenceScoreForMerging: NotRequired[float]
+
+
+class BatchPutProfileObjectRequestTypeDef(TypedDict):
+    DomainName: str
+    ObjectTypeName: str
+    Items: Sequence[BatchPutProfileObjectRequestItemTypeDef]
+
+
+class BatchPutProfileObjectResponseTypeDef(TypedDict):
+    Successful: list[BatchPutProfileObjectResponseItemTypeDef]
+    Failed: list[BatchPutProfileObjectErrorItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchTypeDef(TypedDict):

@@ -10,10 +10,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+from collections.abc import Callable, Generator, Iterable
+import datetime
+from typing import Any, ClassVar, Literal, cast, overload
 import warnings
 
+from openstack._utils import renamed_param
 from openstack.block_storage.v3 import volume as _volume
 from openstack.compute.v2 import aggregate as _aggregate
 from openstack.compute.v2 import availability_zone
@@ -105,7 +107,7 @@ class Proxy(proxy.Proxy):
         """Find a single extension
 
         :param name_or_id: The name or ID of an extension.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -124,11 +126,10 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def extensions(self):
+    def extensions(self) -> Generator[extension.Extension, None, None]:
         """Retrieve a generator of extensions
 
         :returns: A generator of extension instances.
-        :rtype: :class:`~openstack.compute.v2.extension.Extension`
         """
         return self._list(extension.Extension)
 
@@ -166,14 +167,14 @@ class Proxy(proxy.Proxy):
         """Find a single flavor
 
         :param name_or_id: The name or ID of a flavor.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist.  When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
-        :param bool get_extra_specs: When set to ``True`` and extra_specs not
+        :param get_extra_specs: When set to ``True`` and extra_specs not
             present in the response will invoke additional API call to fetch
             extra_specs.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the flavors being returned.
 
         :returns: One :class:`~openstack.compute.v2.flavor.Flavor` or None
@@ -195,21 +196,22 @@ class Proxy(proxy.Proxy):
     def create_flavor(self, **attrs: Any) -> _flavor.Flavor:
         """Create a new flavor from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.compute.v2.flavor.Flavor`,
             comprised of the properties on the Flavor class.
 
         :returns: The results of flavor creation
-        :rtype: :class:`~openstack.compute.v2.flavor.Flavor`
         """
         return self._create(_flavor.Flavor, **attrs)
 
-    def delete_flavor(self, flavor, ignore_missing=True):
+    def delete_flavor(
+        self, flavor: str | _flavor.Flavor, ignore_missing: bool = True
+    ) -> None:
         """Delete a flavor
 
         :param flavor: The value can be either the ID of a flavor or a
             :class:`~openstack.compute.v2.flavor.Flavor` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the flavor does not exist.
             When set to ``True``, no exception will be set when
@@ -219,7 +221,11 @@ class Proxy(proxy.Proxy):
         """
         self._delete(_flavor.Flavor, flavor, ignore_missing=ignore_missing)
 
-    def update_flavor(self, flavor, **attrs):
+    def update_flavor(
+        self,
+        flavor: str | _flavor.Flavor,
+        **attrs: Any,
+    ) -> _flavor.Flavor:
         """Update a flavor
 
         :param flavor: Either the ID of a flavor or a
@@ -228,16 +234,19 @@ class Proxy(proxy.Proxy):
             by ``flavor``.
 
         :returns: The updated flavor
-        :rtype: :class:`~openstack.compute.v2.flavor.Flavor`
         """
         return self._update(_flavor.Flavor, flavor, **attrs)
 
-    def get_flavor(self, flavor, get_extra_specs=False):
+    def get_flavor(
+        self,
+        flavor: str | _flavor.Flavor,
+        get_extra_specs: bool = False,
+    ) -> _flavor.Flavor:
         """Get a single flavor
 
         :param flavor: The value can be the ID of a flavor or a
             :class:`~openstack.compute.v2.flavor.Flavor` instance.
-        :param bool get_extra_specs: When set to ``True`` and extra_specs not
+        :param get_extra_specs: When set to ``True`` and extra_specs not
             present in the response will invoke additional API call to fetch
             extra_specs.
 
@@ -250,16 +259,21 @@ class Proxy(proxy.Proxy):
             flavor = flavor.fetch_extra_specs(self)
         return flavor
 
-    def flavors(self, details=True, get_extra_specs=False, **query):
+    def flavors(
+        self,
+        details: bool = True,
+        get_extra_specs: bool = False,
+        **query: Any,
+    ) -> Generator[_flavor.Flavor, None, None]:
         """Return a generator of flavors
 
-        :param bool details: When ``True``, returns
+        :param details: When ``True``, returns
             :class:`~openstack.compute.v2.flavor.Flavor` objects,
             with additional attributes filled.
-        :param bool get_extra_specs: When set to ``True`` and extra_specs not
+        :param get_extra_specs: When set to ``True`` and extra_specs not
             present in the response will invoke additional API call to fetch
             extra_specs.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the flavors being returned.
 
         :returns: A generator of flavor objects
@@ -275,7 +289,7 @@ class Proxy(proxy.Proxy):
 
         :param flavor: Either the ID of a flavor or a
             :class:`~openstack.compute.v2.flavor.Flavor` instance.
-        :param str tenant: The UUID of the tenant.
+        :param tenant: The UUID of the tenant.
 
         :returns: One :class:`~openstack.compute.v2.flavor.Flavor`
         """
@@ -287,14 +301,16 @@ class Proxy(proxy.Proxy):
 
         :param flavor: Either the ID of a flavor or a
             :class:`~openstack.compute.v2.flavor.Flavor` instance.
-        :param str tenant: The UUID of the tenant.
+        :param tenant: The UUID of the tenant.
 
         :returns: One :class:`~openstack.compute.v2.flavor.Flavor`
         """
         flavor = self._get_resource(_flavor.Flavor, flavor)
         return flavor.remove_tenant_access(self, tenant)
 
-    def get_flavor_access(self, flavor):
+    def get_flavor_access(
+        self, flavor: str | _flavor.Flavor
+    ) -> list[dict[str, Any]]:
         """Lists tenants who have access to private flavor
 
         :param flavor: Either the ID of a flavor or a
@@ -305,7 +321,9 @@ class Proxy(proxy.Proxy):
         flavor = self._get_resource(_flavor.Flavor, flavor)
         return flavor.get_access(self)
 
-    def fetch_flavor_extra_specs(self, flavor):
+    def fetch_flavor_extra_specs(
+        self, flavor: str | _flavor.Flavor
+    ) -> _flavor.Flavor:
         """Lists Extra Specs of a flavor
 
         :param flavor: Either the ID of a flavor or a
@@ -325,64 +343,89 @@ class Proxy(proxy.Proxy):
 
         :param flavor: Either the ID of a flavor or a
             :class:`~openstack.compute.v2.flavor.Flavor` instance.
-        :param dict extra_specs: dict of extra specs
+        :param extra_specs: dict of extra specs
 
         :returns: One :class:`~openstack.compute.v2.flavor.Flavor`
         """
         flavor = self._get_resource(_flavor.Flavor, flavor)
         return flavor.create_extra_specs(self, specs=extra_specs)
 
-    def get_flavor_extra_specs_property(self, flavor, prop):
+    def get_flavor_extra_specs_property(
+        self, flavor: str | _flavor.Flavor, prop: str
+    ) -> str | None:
         """Get specific Extra Spec property of a flavor
 
         :param flavor: Either the ID of a flavor or a
             :class:`~openstack.compute.v2.flavor.Flavor` instance.
-        :param str prop: Property name.
+        :param prop: Property name.
 
         :returns: String value of the requested property.
         """
         flavor = self._get_resource(_flavor.Flavor, flavor)
         return flavor.get_extra_specs_property(self, prop)
 
-    def update_flavor_extra_specs_property(self, flavor, prop, val):
+    def update_flavor_extra_specs_property(
+        self,
+        flavor: str | _flavor.Flavor,
+        prop: str,
+        val: str,
+    ) -> str | None:
         """Update specific Extra Spec property of a flavor
 
         :param flavor: Either the ID of a flavor or a
             :class:`~openstack.compute.v2.flavor.Flavor` instance.
-        :param str prop: Property name.
-        :param str val: Property value.
+        :param prop: Property name.
+        :param val: Property value.
 
         :returns: String value of the requested property.
         """
         flavor = self._get_resource(_flavor.Flavor, flavor)
         return flavor.update_extra_specs_property(self, prop, val)
 
-    def delete_flavor_extra_specs_property(self, flavor, prop):
+    def delete_flavor_extra_specs_property(
+        self,
+        flavor: str | _flavor.Flavor,
+        prop: str,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete specific Extra Spec property of a flavor
 
         :param flavor: Either the ID of a flavor or a
             :class:`~openstack.compute.v2.flavor.Flavor` instance.
-        :param str prop: Property name.
+        :param prop: Property name.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the flavor or extra spec does not exist. When set to ``True``,
+            no exception will be set when attempting to delete a nonexistent
+            flavor extra spec.
 
         :returns: None
         """
         flavor = self._get_resource(_flavor.Flavor, flavor)
-        return flavor.delete_extra_specs_property(self, prop)
+        try:
+            flavor.delete_extra_specs_property(self, prop)
+        except exceptions.NotFoundException:
+            if not ignore_missing:
+                raise
 
     # ========== Aggregates ==========
 
-    def aggregates(self, **query):
+    def aggregates(
+        self,
+        **query: Any,
+    ) -> Generator[_aggregate.Aggregate, None, None]:
         """Return a generator of aggregate
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the aggregates being returned.
 
         :returns: A generator of aggregate
-        :rtype: class: `~openstack.compute.v2.aggregate.Aggregate`
         """
         return self._list(_aggregate.Aggregate, **query)
 
-    def get_aggregate(self, aggregate):
+    def get_aggregate(
+        self, aggregate: str | _aggregate.Aggregate
+    ) -> _aggregate.Aggregate:
         """Get a single host aggregate
 
         :param aggregate: The value can be the ID of an aggregate or a
@@ -416,7 +459,7 @@ class Proxy(proxy.Proxy):
         """Find a single aggregate
 
         :param name_or_id: The name or ID of an aggregate.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist.  When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
@@ -437,16 +480,19 @@ class Proxy(proxy.Proxy):
     def create_aggregate(self, **attrs: Any) -> _aggregate.Aggregate:
         """Create a new host aggregate from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.compute.v2.aggregate.Aggregate`,
             comprised of the properties on the Aggregate class.
 
         :returns: The results of aggregate creation
-        :rtype: :class:`~openstack.compute.v2.aggregate.Aggregate`
         """
         return self._create(_aggregate.Aggregate, **attrs)
 
-    def update_aggregate(self, aggregate, **attrs):
+    def update_aggregate(
+        self,
+        aggregate: str | _aggregate.Aggregate,
+        **attrs: Any,
+    ) -> _aggregate.Aggregate:
         """Update a host aggregate
 
         :param server: Either the ID of a host aggregate or a
@@ -455,17 +501,20 @@ class Proxy(proxy.Proxy):
             by ``aggregate``.
 
         :returns: The updated aggregate
-        :rtype: :class:`~openstack.compute.v2.aggregate.Aggregate`
         """
         return self._update(_aggregate.Aggregate, aggregate, **attrs)
 
-    def delete_aggregate(self, aggregate, ignore_missing=True):
+    def delete_aggregate(
+        self,
+        aggregate: str | _aggregate.Aggregate,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a host aggregate
 
-        :param keypair: The value can be either the ID of an aggregate or a
+        :param aggregate: The value can be either the ID of an aggregate or a
             :class:`~openstack.compute.v2.aggregate.Aggregate`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the aggregate does not exist.
             When set to ``True``, no exception will be set when
@@ -485,7 +534,7 @@ class Proxy(proxy.Proxy):
         :param aggregate: Either the ID of a aggregate or a
             :class:`~openstack.compute.v2.aggregate.Aggregate`
             instance.
-        :param str host: The host to add to the aggregate
+        :param host: The host to add to the aggregate
 
         :returns: One :class:`~openstack.compute.v2.aggregate.Aggregate`
         """
@@ -498,27 +547,39 @@ class Proxy(proxy.Proxy):
         :param aggregate: Either the ID of a aggregate or a
             :class:`~openstack.compute.v2.aggregate.Aggregate`
             instance.
-        :param str host: The host to remove from the aggregate
+        :param host: The host to remove from the aggregate
 
         :returns: One :class:`~openstack.compute.v2.aggregate.Aggregate`
         """
         aggregate = self._get_resource(_aggregate.Aggregate, aggregate)
         return aggregate.remove_host(self, host)
 
-    def set_aggregate_metadata(self, aggregate, metadata):
+    # TODO(stephenfin): Drop metadata and rename kwargs to metadata in 5.0
+    def set_aggregate_metadata(self, aggregate, metadata=None, **kwargs):
         """Creates or replaces metadata for an aggregate
 
         :param aggregate: Either the ID of a aggregate or a
             :class:`~openstack.compute.v2.aggregate.Aggregate`
             instance.
-        :param dict metadata: Metadata key and value pairs. The maximum
-            size for each metadata key and value pair
-            is 255 bytes.
+        :param metadata: Metadata key and value pairs. The maximum size for
+            each metadata key and value pair is 255 bytes.
 
         :returns: One :class:`~openstack.compute.v2.aggregate.Aggregate`
         """
+        if metadata:
+            if kwargs:
+                raise ValueError(
+                    'metadata can only be passed via args or kwargs: not both'
+                )
+            warnings.warn(
+                "Passing metadata as a mapping is deprecated; pass them as "
+                "kwargs instead.",
+                os_warnings.RemovedInSDK50Warning,
+            )
+        else:
+            metadata = kwargs
         aggregate = self._get_resource(_aggregate.Aggregate, aggregate)
-        return aggregate.set_metadata(self, metadata)
+        return aggregate.set_metadata(self, metadata=metadata)
 
     def aggregate_precache_images(self, aggregate, images):
         """Requests image precaching on an aggregate
@@ -540,12 +601,14 @@ class Proxy(proxy.Proxy):
 
     # ========== Images ==========
 
-    def delete_image(self, image, ignore_missing=True):
+    def delete_image(
+        self, image: str | _image.Image, ignore_missing: bool = True
+    ) -> None:
         """Delete an image
 
         :param image: The value can be either the ID of an image or a
             :class:`~openstack.compute.v2.image.Image` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the image does not exist.
             When set to ``True``, no exception will be set when
@@ -584,7 +647,7 @@ class Proxy(proxy.Proxy):
         """Find a single image
 
         :param name_or_id: The name or ID of a image.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -607,7 +670,7 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_image(self, image):
+    def get_image(self, image: str | _image.Image) -> _image.Image:
         """Get a single image
 
         :param image: The value can be the ID of an image or a
@@ -624,14 +687,18 @@ class Proxy(proxy.Proxy):
         )
         return self._get(_image.Image, image)
 
-    def images(self, details=True, **query):
+    def images(
+        self,
+        details: bool = True,
+        **query: Any,
+    ) -> Generator[_image.Image, None, None]:
         """Return a generator of images
 
-        :param bool details: When ``True``, returns
+        :param details: When ``True``, returns
             :class:`~openstack.compute.v2.image.Image` objects with all
             available properties, otherwise only basic properties are returned.
             *Default: ``True``*
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of image objects
@@ -653,52 +720,64 @@ class Proxy(proxy.Proxy):
         else:
             return base(id=res)
 
-    def get_image_metadata(self, image):
+    def fetch_image_metadata(self, image: str | _image.Image) -> _image.Image:
         """Return a dictionary of metadata for an image
 
         :param image: Either the ID of an image or a
             :class:`~openstack.compute.v2.image.Image` instance.
 
         :returns: A :class:`~openstack.compute.v2.image.Image` with only the
-            image's metadata. All keys and values are Unicode text.
-        :rtype: :class:`~openstack.compute.v2.image.Image`
+            image's metadata.
         """
         res = self._get_base_resource(image, _image.Image)
         return res.fetch_metadata(self)
+
+    # TODO(stephenfin): Remove in 5.0
+    def get_image_metadata(self, image: str | _image.Image) -> _image.Image:
+        """Return a dictionary of metadata for an image
+
+        .. deprecated:: 4.14.0
+            Use :meth:`fetch_image_metadata` instead.
+        """
+        warnings.warn(
+            "The 'get_image_metadata' method is deprecated; use "
+            "'fetch_image_metadata' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.fetch_image_metadata(image)
 
     def set_image_metadata(self, image, **metadata):
         """Update metadata for an image
 
         :param image: Either the ID of an image or a
             :class:`~openstack.compute.v2.image.Image` instance.
-        :param kwargs metadata: Key/value pairs to be updated in the image's
-            metadata. No other metadata is modified
-            by this call. All keys and values are stored
-            as Unicode.
+        :param metadata: Key/value pairs to be updated in the image's metadata.
+            No other metadata is modified by this call.
 
         :returns: A :class:`~openstack.compute.v2.image.Image` with only the
-            image's metadata. All keys and values are Unicode text.
-        :rtype: :class:`~openstack.compute.v2.image.Image`
+            image's metadata.
         """
         res = self._get_base_resource(image, _image.Image)
         return res.set_metadata(self, metadata=metadata)
 
-    def delete_image_metadata(self, image, keys=None):
+    def delete_image_metadata(
+        self,
+        image: str | _image.Image,
+        keys: Iterable[str] | None = None,
+    ) -> None:
         """Delete metadata for an image
 
         Note: This method will do a HTTP DELETE request for every key in keys.
 
         :param image: Either the ID of an image or a
             :class:`~openstack.compute.v2.image.Image` instance.
-        :param list keys: The keys to delete. If left empty complete metadata
-            will be removed.
+        :param keys: The keys to delete. If omitted, all metadata is removed.
 
-        :rtype: ``None``
+        :returns: ``None``
         """
         res = self._get_base_resource(image, _image.Image)
         if keys is not None:
-            # Create a set as a snapshot of keys to avoid "changed during
-            # iteration"
+            # Use a set snapshot to avoid "changed during iteration" errors
             for key in set(keys):
                 res.delete_metadata_item(self, key)
         else:
@@ -709,26 +788,30 @@ class Proxy(proxy.Proxy):
     def create_keypair(self, **attrs: Any) -> _keypair.Keypair:
         """Create a new keypair from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.compute.v2.keypair.Keypair`,
             comprised of the properties on the Keypair class.
 
         :returns: The results of keypair creation
-        :rtype: :class:`~openstack.compute.v2.keypair.Keypair`
         """
         return self._create(_keypair.Keypair, **attrs)
 
-    def delete_keypair(self, keypair, ignore_missing=True, user_id=None):
+    def delete_keypair(
+        self,
+        keypair: str | _keypair.Keypair,
+        ignore_missing: bool = True,
+        user_id: str | None = None,
+    ) -> None:
         """Delete a keypair
 
         :param keypair: The value can be either the ID of a keypair or a
             :class:`~openstack.compute.v2.keypair.Keypair` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the keypair does not exist.  When set to ``True``, no
             exception will be set when attempting to delete a nonexistent
             keypair.
-        :param str user_id: Optional user_id owning the keypair
+        :param user_id: Optional user_id owning the keypair
 
         :returns: ``None``
         """
@@ -744,12 +827,16 @@ class Proxy(proxy.Proxy):
                 return None
             raise
 
-    def get_keypair(self, keypair, user_id=None):
+    def get_keypair(
+        self,
+        keypair: str | _keypair.Keypair,
+        user_id: str | None = None,
+    ) -> _keypair.Keypair:
         """Get a single keypair
 
         :param keypair: The value can be the ID of a keypair or a
             :class:`~openstack.compute.v2.keypair.Keypair` instance.
-        :param str user_id: Optional user_id owning the keypair
+        :param user_id: Optional user_id owning the keypair
 
         :returns: One :class:`~openstack.compute.v2.keypair.Keypair`
         :raises: :class:`~openstack.exceptions.NotFoundException`
@@ -759,7 +846,7 @@ class Proxy(proxy.Proxy):
         # parameters are not properly respected in typical fetch case
         res = self._get_resource(_keypair.Keypair, keypair)
 
-        get_params = {'user_id': user_id} if user_id else {}
+        get_params: dict[str, Any] = {'user_id': user_id} if user_id else {}
         return res.fetch(
             self, error_message=f"No Keypair found for {keypair}", **get_params
         )
@@ -792,11 +879,11 @@ class Proxy(proxy.Proxy):
         """Find a single keypair
 
         :param name_or_id: The name or ID of a keypair.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist.  When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
-        :param str user_id: Optional user_id owning the keypair
+        :param user_id: Optional user_id owning the keypair
 
         :returns: One :class:`~openstack.compute.v2.keypair.Keypair` or None
         :raises: :class:`~openstack.exceptions.NotFoundException`
@@ -812,25 +899,26 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    def keypairs(self, **query):
+    def keypairs(
+        self,
+        **query: Any,
+    ) -> Generator[_keypair.Keypair, None, None]:
         """Return a generator of keypairs
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
         :returns: A generator of keypair objects
-        :rtype: :class:`~openstack.compute.v2.keypair.Keypair`
         """
         return self._list(_keypair.Keypair, **query)
 
     # ========== Limits ==========
 
-    def get_limits(self, **query):
+    def get_limits(self, **query: Any) -> limits.Limits:
         """Retrieve limits that are applied to the project's account
 
         :returns: A Limits object, including both
             :class:`~openstack.compute.v2.limits.AbsoluteLimits` and
             :class:`~openstack.compute.v2.limits.RateLimits`
-        :rtype: :class:`~openstack.compute.v2.limits.Limits`
         """
         res = self._get_resource(limits.Limits, None)
         return res.fetch(self, **query)
@@ -840,26 +928,30 @@ class Proxy(proxy.Proxy):
     def create_server(self, **attrs: Any) -> _server.Server:
         """Create a new server from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.compute.v2.server.Server`,
             comprised of the properties on the Server class.
 
         :returns: The results of server creation
-        :rtype: :class:`~openstack.compute.v2.server.Server`
         """
         return self._create(_server.Server, **attrs)
 
-    def delete_server(self, server, ignore_missing=True, force=False):
+    def delete_server(
+        self,
+        server: str | _server.Server,
+        ignore_missing: bool = True,
+        force: bool = False,
+    ) -> None:
         """Delete a server
 
         :param server: The value can be either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the server does not exist.
             When set to ``True``, no exception will be set when
             attempting to delete a nonexistent server
-        :param bool force: When set to ``True``, the server deletion will be
+        :param force: When set to ``True``, the server deletion will be
             forced immediately.
 
         :returns: ``None``
@@ -901,14 +993,14 @@ class Proxy(proxy.Proxy):
         """Find a single server
 
         :param name_or_id: The name or ID of a server.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist. When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
-        :param bool details: When set to ``False``
+        :param details: When set to ``False``
             instances with only basic data will be returned. The default,
             ``True``, will cause instances with full data to be returned.
-        :param bool all_projects: When set to ``True``, search for server
+        :param all_projects: When set to ``True``, search for server
             by name across all projects. Note that this will likely result in a
             higher chance of duplicates. Admin-only by default.
 
@@ -930,7 +1022,7 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def get_server(self, server):
+    def get_server(self, server: str | _server.Server) -> _server.Server:
         """Get a single server
 
         :param server: The value can be the ID of a server or a
@@ -942,15 +1034,20 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_server.Server, server)
 
-    def servers(self, details=True, all_projects=False, **query):
+    def servers(
+        self,
+        details: bool = True,
+        all_projects: bool = False,
+        **query: Any,
+    ) -> Generator[_server.Server, None, None]:
         """Retrieve a generator of servers
 
-        :param bool details: When set to ``False``
+        :param details: When set to ``False``
             instances with only basic data will be returned. The default,
             ``True``, will cause instances with full data to be returned.
-        :param bool all_projects: When set to ``True``, lists servers from all
+        :param all_projects: When set to ``True``, lists servers from all
             projects. Admin-only by default.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the servers being returned. Available parameters can be seen
             under https://docs.openstack.org/api-ref/compute/#list-servers
 
@@ -961,7 +1058,11 @@ class Proxy(proxy.Proxy):
         base_path = '/servers/detail' if details else None
         return self._list(_server.Server, base_path=base_path, **query)
 
-    def update_server(self, server, **attrs):
+    def update_server(
+        self,
+        server: str | _server.Server,
+        **attrs: Any,
+    ) -> _server.Server:
         """Update a server
 
         :param server: Either the ID of a server or a
@@ -970,7 +1071,6 @@ class Proxy(proxy.Proxy):
             by ``server``.
 
         :returns: The updated server
-        :rtype: :class:`~openstack.compute.v2.server.Server`
         """
         return self._update(_server.Server, server, **attrs)
 
@@ -979,14 +1079,14 @@ class Proxy(proxy.Proxy):
 
         :param server: Either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance.
-        :param str new_password: The new password to be set.
+        :param new_password: The new password to be set.
 
         :returns: None
         """
         server = self._get_resource(_server.Server, server)
         server.change_password(self, new_password)
 
-    def get_server_password(self, server):
+    def get_server_password(self, server: str | _server.Server) -> str | None:
         """Get the administrator password
 
         :param server: Either the ID of a server or a
@@ -1026,7 +1126,7 @@ class Proxy(proxy.Proxy):
 
         :param server: Either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance.
-        :param str reboot_type: The type of reboot to perform.
+        :param reboot_type: The type of reboot to perform.
             "HARD" and "SOFT" are the current options.
 
         :returns: None
@@ -1039,17 +1139,17 @@ class Proxy(proxy.Proxy):
 
         :param server: Either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance.
-        :param str name: The name of the server
-        :param str admin_password: The administrator password
-        :param bool preserve_ephemeral: Indicates whether the server
+        :param name: The name of the server
+        :param admin_password: The administrator password
+        :param preserve_ephemeral: Indicates whether the server
             is rebuilt with the preservation of the ephemeral partition.
             *Default: False*
-        :param str image: The id of an image to rebuild with. *Default: None*
-        :param str access_ipv4: The IPv4 address to rebuild with.
+        :param image: The id of an image to rebuild with. *Default: None*
+        :param access_ipv4: The IPv4 address to rebuild with.
             *Default: None*
-        :param str access_ipv6: The IPv6 address to rebuild with.
+        :param access_ipv6: The IPv6 address to rebuild with.
             *Default: None*
-        :param dict metadata: A dictionary of metadata to rebuild with.
+        :param metadata: A dictionary of metadata to rebuild with.
             *Default: None*
         :param personality: A list of dictionaries, each including a
             **path** and **contents** key, to be injected
@@ -1110,8 +1210,8 @@ class Proxy(proxy.Proxy):
 
         :param server: Either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance.
-        :param str name: The name of the image to be created.
-        :param dict metadata: A dictionary of metadata to be set on the image.
+        :param name: The name of the image to be created.
+        :param metadata: A dictionary of metadata to be set on the image.
 
         :returns: :class:`~openstack.image.v2.image.Image` object.
         """
@@ -1445,17 +1545,19 @@ class Proxy(proxy.Proxy):
 
     # ========== Server IPs ==========
 
-    def add_fixed_ip_to_server(self, server, network_id):
+    @renamed_param('network_id', 'network')
+    def add_fixed_ip_to_server(self, server, network):
         """Adds a fixed IP address to a server instance.
 
         :param server: Either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance.
-        :param network_id: The ID of the network from which a fixed IP address
-            is about to be allocated.
+        :param network: The ID or a
+            :class:`~openstack.network.v2.network.Network` instance of the
+            network from which a fixed IP address is about to be allocated.
         :returns: None
         """
         server = self._get_resource(_server.Server, server)
-        server.add_fixed_ip(self, network_id)
+        server.add_fixed_ip(self, resource.Resource._get_id(network))
 
     def remove_fixed_ip_from_server(self, server, address):
         """Removes a fixed IP address from a server instance.
@@ -1507,12 +1609,11 @@ class Proxy(proxy.Proxy):
         :param server: The server can be either the ID of a server or a
                        :class:`~openstack.compute.v2.server.Server` instance
                        that the interface belongs to.
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.compute.v2.server_interface.ServerInterface`,
             comprised of the properties on the ServerInterface class.
 
         :returns: The results of server interface creation
-        :rtype: :class:`~openstack.compute.v2.server_interface.ServerInterface`
         """
         server_id = resource.Resource._get_id(server)
         return self._create(
@@ -1523,10 +1624,10 @@ class Proxy(proxy.Proxy):
 
     def delete_server_interface(
         self,
-        server_interface,
-        server=None,
-        ignore_missing=True,
-    ):
+        server_interface: str | _server_interface.ServerInterface,
+        server: str | _server.Server | None = None,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a server interface
 
         :param server_interface:
@@ -1537,7 +1638,7 @@ class Proxy(proxy.Proxy):
             ID is given as value. It can be either the ID of a
             server or a :class:`~openstack.compute.v2.server.Server`
             instance that the interface belongs to.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the server interface does not exist.
             When set to ``True``, no exception will be set when
@@ -1559,7 +1660,11 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_server_interface(self, server_interface, server=None):
+    def get_server_interface(
+        self,
+        server_interface: str | _server_interface.ServerInterface,
+        server: str | _server.Server | None = None,
+    ) -> _server_interface.ServerInterface:
         """Get a single server interface
 
         :param server_interface:
@@ -1589,7 +1694,11 @@ class Proxy(proxy.Proxy):
             port_id=server_interface,
         )
 
-    def server_interfaces(self, server, **query):
+    def server_interfaces(
+        self,
+        server: str | _server.Server,
+        **query: Any,
+    ) -> Generator[_server_interface.ServerInterface, None, None]:
         """Return a generator of server interfaces
 
         :param server: The server can be either the ID of a server or a
@@ -1598,7 +1707,6 @@ class Proxy(proxy.Proxy):
             resources being returned.
 
         :returns: A generator of ServerInterface objects
-        :rtype: :class:`~openstack.compute.v2.server_interface.ServerInterface`
         """
         server_id = resource.Resource._get_id(server)
         return self._list(
@@ -1607,7 +1715,11 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def server_ips(self, server, network_label=None):
+    def server_ips(
+        self,
+        server: str | _server.Server,
+        network_label: str | None = None,
+    ) -> Generator[server_ip.ServerIP, None, None]:
         """Return a generator of server IPs
 
         :param server: The server can be either the ID of a server or a
@@ -1616,7 +1728,6 @@ class Proxy(proxy.Proxy):
             IP addresses from.
 
         :returns: A generator of ServerIP objects
-        :rtype: :class:`~openstack.compute.v2.server_ip.ServerIP`
         """
         server_id = resource.Resource._get_id(server)
         return self._list(
@@ -1625,15 +1736,17 @@ class Proxy(proxy.Proxy):
             network_label=network_label,
         )
 
-    def availability_zones(self, details=False):
+    def availability_zones(
+        self,
+        details: bool = False,
+    ) -> Generator[availability_zone.AvailabilityZone, None, None]:
         """Return a generator of availability zones
 
-        :param bool details: Return extra details about the availability
+        :param details: Return extra details about the availability
             zones. This defaults to `False` as it generally
             requires extra permission.
 
         :returns: A generator of availability zone
-        :rtype:
             :class:`~openstack.compute.v2.availability_zone.AvailabilityZone`
         """
         base_path = '/os-availability-zone/detail' if details else None
@@ -1645,7 +1758,9 @@ class Proxy(proxy.Proxy):
 
     # ========== Server Metadata ==========
 
-    def get_server_metadata(self, server):
+    def fetch_server_metadata(
+        self, server: str | _server.Server
+    ) -> _server.Server:
         """Return a dictionary of metadata for a server
 
         :param server: Either the ID of a server or a
@@ -1655,44 +1770,58 @@ class Proxy(proxy.Proxy):
 
         :returns: A :class:`~openstack.compute.v2.server.Server` with the
             server's metadata. All keys and values are Unicode text.
-        :rtype: :class:`~openstack.compute.v2.server.Server`
         """
         res = self._get_base_resource(server, _server.Server)
         return res.fetch_metadata(self)
+
+    # TODO(stephenfin): Remove in 5.0
+    def get_server_metadata(
+        self, server: str | _server.Server
+    ) -> _server.Server:
+        """Return a dictionary of metadata for a server
+
+        .. deprecated:: 4.14.0
+            Use :meth:`fetch_server_metadata` instead.
+        """
+        warnings.warn(
+            "The 'get_server_metadata' method is deprecated; use "
+            "'fetch_server_metadata' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.fetch_server_metadata(server)
 
     def set_server_metadata(self, server, **metadata):
         """Update metadata for a server
 
         :param server: Either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance.
-        :param kwargs metadata: Key/value pairs to be updated in the server's
-            metadata. No other metadata is modified
-            by this call. All keys and values are stored
-            as Unicode.
+        :param metadata: Key/value pairs to be updated in the server's
+            metadata. No other metadata is modified by this call.
 
         :returns: A :class:`~openstack.compute.v2.server.Server` with only the
-            server's metadata. All keys and values are Unicode text.
-        :rtype: :class:`~openstack.compute.v2.server.Server`
+            server's metadata.
         """
         res = self._get_base_resource(server, _server.Server)
         return res.set_metadata(self, metadata=metadata)
 
-    def delete_server_metadata(self, server, keys=None):
+    def delete_server_metadata(
+        self,
+        server: str | _server.Server,
+        keys: Iterable[str] | None = None,
+    ) -> None:
         """Delete metadata for a server
 
         Note: This method will do a HTTP DELETE request for every key in keys.
 
         :param server: Either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance.
-        :param list keys: The keys to delete. If left empty complete
-            metadata will be removed.
+        :param keys: The keys to delete. If omitted, all metadata is removed.
 
-        :rtype: ``None``
+        :returns: ``None``
         """
         res = self._get_base_resource(server, _server.Server)
         if keys is not None:
-            # Create a set as a snapshot of keys to avoid "changed during
-            # iteration"
+            # Use a set snapshot to avoid "changed during iteration" errors
             for key in set(keys):
                 res.delete_metadata_item(self, key)
         else:
@@ -1703,22 +1832,25 @@ class Proxy(proxy.Proxy):
     def create_server_group(self, **attrs: Any) -> _server_group.ServerGroup:
         """Create a new server group from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.compute.v2.server_group.ServerGroup`,
             comprised of the properties on the ServerGroup class.
 
         :returns: The results of server group creation
-        :rtype: :class:`~openstack.compute.v2.server_group.ServerGroup`
         """
         return self._create(_server_group.ServerGroup, **attrs)
 
-    def delete_server_group(self, server_group, ignore_missing=True):
+    def delete_server_group(
+        self,
+        server_group: str | _server_group.ServerGroup,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a server group
 
         :param server_group: The value can be either the ID of a server group
             or a :class:`~openstack.compute.v2.server_group.ServerGroup`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the server group does not exist.
             When set to ``True``, no exception will be set when
@@ -1760,11 +1892,11 @@ class Proxy(proxy.Proxy):
         """Find a single server group
 
         :param name_or_id: The name or ID of a server group.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist. When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
-        :param bool all_projects: When set to ``True``, search for server
+        :param all_projects: When set to ``True``, search for server
             groups by name across all projects. Note that this will likely
             result in a higher chance of duplicates. Admin-only by default.
 
@@ -1785,7 +1917,9 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def get_server_group(self, server_group):
+    def get_server_group(
+        self, server_group: str | _server_group.ServerGroup
+    ) -> _server_group.ServerGroup:
         """Get a single server group
 
         :param server_group: The value can be the ID of a server group or a
@@ -1799,16 +1933,20 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_server_group.ServerGroup, server_group)
 
-    def server_groups(self, *, all_projects=False, **query):
+    def server_groups(
+        self,
+        *,
+        all_projects: bool = False,
+        **query: Any,
+    ) -> Generator[_server_group.ServerGroup, None, None]:
         """Return a generator of server groups
 
-        :param bool all_projects: When set to ``True``, lists servers groups
+        :param all_projects: When set to ``True``, lists servers groups
             from all projects. Admin-only by default.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of ServerGroup objects
-        :rtype: :class:`~openstack.compute.v2.server_group.ServerGroup`
         """
         if all_projects:
             query['all_projects'] = True
@@ -1816,17 +1954,20 @@ class Proxy(proxy.Proxy):
 
     # ========== Hypervisors ==========
 
-    def hypervisors(self, details=False, **query):
+    def hypervisors(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_hypervisor.Hypervisor, None, None]:
         """Return a generator of hypervisors
 
-        :param bool details: When set to the default, ``False``,
+        :param details: When set to the default, ``False``,
             :class:`~openstack.compute.v2.hypervisor.Hypervisor`
             instances will be returned with only basic information populated.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of hypervisor
-        :rtype: class: `~openstack.compute.v2.hypervisor.Hypervisor`
         """
         base_path = '/os-hypervisors/detail' if details else None
         if (
@@ -1867,11 +2008,11 @@ class Proxy(proxy.Proxy):
         """Find a single hypervisor
 
         :param name_or_id: The name or ID of a hypervisor
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist. When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
-        :param bool details: When set to ``False``
+        :param details: When set to ``False``
             instances with only basic data will be returned. The default,
             ``True``, will cause instances with full data to be returned.
 
@@ -1890,7 +2031,9 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_hypervisor(self, hypervisor):
+    def get_hypervisor(
+        self, hypervisor: str | _hypervisor.Hypervisor
+    ) -> _hypervisor.Hypervisor:
         """Get a single hypervisor
 
         :param hypervisor: The value can be the ID of a hypervisor or a
@@ -1904,7 +2047,9 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_hypervisor.Hypervisor, hypervisor)
 
-    def get_hypervisor_uptime(self, hypervisor):
+    def get_hypervisor_uptime(
+        self, hypervisor: str | _hypervisor.Hypervisor
+    ) -> _hypervisor.Hypervisor:
         """Get uptime information for hypervisor
 
         :param hypervisor: The value can be the ID of a hypervisor or a
@@ -1923,22 +2068,21 @@ class Proxy(proxy.Proxy):
 
     def update_service_forced_down(
         self,
-        service,
-        host=None,
-        binary=None,
-        forced=True,
-    ):
+        service: str | _service.Service,
+        host: str | None = None,
+        binary: str | None = None,
+        forced: bool = True,
+    ) -> _service.Service | None:
         """Update service forced_down information
 
         :param service: Either the ID of a service or a
             :class:`~openstack.compute.v2.service.Service` instance.
-        :param str host: The host where service runs.
-        :param str binary: The name of service.
-        :param bool forced: Whether or not this service was forced down
+        :param host: The host where service runs.
+        :param binary: The name of service.
+        :param forced: Whether or not this service was forced down
             manually by an administrator after the service was fenced.
 
         :returns: Updated service instance
-        :rtype: class: `~openstack.compute.v2.service.Service`
         """
         if utils.supports_microversion(self, '2.53'):
             return self.update_service(service, forced_down=forced)
@@ -1952,6 +2096,7 @@ class Proxy(proxy.Proxy):
                 'or they should be passed'
             )
         service.set_forced_down(self, host, binary, forced)
+        return None
 
     force_service_down = update_service_forced_down
 
@@ -1966,12 +2111,11 @@ class Proxy(proxy.Proxy):
 
         :param service: Either the ID of a service or a
             :class:`~openstack.compute.v2.service.Service` instance.
-        :param str host: The host where service runs.
-        :param str binary: The name of service.
-        :param str disabled_reason: The reason of force down a service.
+        :param host: The host where service runs.
+        :param binary: The name of service.
+        :param disabled_reason: The reason of force down a service.
 
         :returns: Updated service instance
-        :rtype: class: `~openstack.compute.v2.service.Service`
         """
         if utils.supports_microversion(self, '2.53'):
             attrs = {'status': 'disabled'}
@@ -1987,11 +2131,10 @@ class Proxy(proxy.Proxy):
 
         :param service: Either the ID of a service or a
             :class:`~openstack.compute.v2.service.Service` instance.
-        :param str host: The host where service runs.
-        :param str binary: The name of service.
+        :param host: The host where service runs.
+        :param binary: The name of service.
 
         :returns: Updated service instance
-        :rtype: class: `~openstack.compute.v2.service.Service`
         """
         if utils.supports_microversion(self, '2.53'):
             return self.update_service(service, status='enabled')
@@ -1999,12 +2142,14 @@ class Proxy(proxy.Proxy):
         service = self._get_resource(_service.Service, service)
         return service.enable(self, host, binary)
 
-    def services(self, **query):
+    def services(
+        self,
+        **query: Any,
+    ) -> Generator[_service.Service, None, None]:
         """Return a generator of service
 
-        :params dict query: Query parameters
+        :param query: Query parameters
         :returns: A generator of service
-        :rtype: class: `~openstack.compute.v2.service.Service`
         """
         return self._list(_service.Service, **query)
 
@@ -2033,12 +2178,12 @@ class Proxy(proxy.Proxy):
         """Find a service from name or id to get the corresponding info
 
         :param name_or_id: The name or id of a service
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
             attempting to find a nonexistent resource.
-        :param dict query: Additional attributes like 'host'
+        :param query: Additional attributes like 'host'
 
         :returns: One: class:`~openstack.compute.v2.service.Service` or None
         :raises: :class:`~openstack.exceptions.NotFoundException`
@@ -2053,13 +2198,15 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def delete_service(self, service, ignore_missing=True):
+    def delete_service(
+        self, service: str | _service.Service, ignore_missing: bool = True
+    ) -> None:
         """Delete a service
 
         :param service:
             The value can be either the ID of a service or a
             :class:`~openstack.compute.v2.service.Service` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the service does not exist.  When set to ``True``, no
             exception will be set when attempting to delete a nonexistent
@@ -2069,7 +2216,11 @@ class Proxy(proxy.Proxy):
         """
         self._delete(_service.Service, service, ignore_missing=ignore_missing)
 
-    def update_service(self, service, **attrs):
+    def update_service(
+        self,
+        service: str | _service.Service,
+        **attrs: Any,
+    ) -> _service.Service:
         """Update a service
 
         :param service: Either the ID of a service or a
@@ -2078,7 +2229,6 @@ class Proxy(proxy.Proxy):
             by ``service``.
 
         :returns: The updated service
-        :rtype: :class:`~openstack.compute.v2.service.Service`
         """
         if utils.supports_microversion(self, '2.53'):
             return self._update(_service.Service, service, **attrs)
@@ -2089,7 +2239,7 @@ class Proxy(proxy.Proxy):
 
     # ========== Volume Attachments ==========
 
-    # TODO(stephenfin): Make the volume argument required in 2.0
+    # TODO(stephenfin): Make the volume argument required in 5.0
     def create_volume_attachment(
         self,
         server: str | _server.Server,
@@ -2103,13 +2253,11 @@ class Proxy(proxy.Proxy):
             volume is attached to.
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.compute.v2.volume_attachment.VolumeAttachment`,
             comprised of the properties on the VolumeAttachment class.
 
         :returns: The results of volume attachment creation
-        :rtype:
-            :class:`~openstack.compute.v2.volume_attachment.VolumeAttachment`
         """
         # if the user didn't pass the new 'volume' argument, they're probably
         # calling things using a legacy parameter
@@ -2156,11 +2304,11 @@ class Proxy(proxy.Proxy):
 
     def update_volume_attachment(
         self,
-        server,
-        volume,
-        volume_id=None,
-        **attrs,
-    ):
+        server: str | _server.Server,
+        volume: str | _volume.Volume,
+        volume_id: str | None = None,
+        **attrs: Any,
+    ) -> _volume_attachment.VolumeAttachment:
         """Update a volume attachment
 
         Note that the underlying API expects a volume ID, not a volume
@@ -2196,7 +2344,7 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    # TODO(stephenfin): Remove this hack in openstacksdk 2.0
+    # TODO(stephenfin): Remove this hack in openstacksdk 5.0
     def _verify_server_volume_args(self, server, volume):
         deprecation_msg = (
             'The server and volume arguments to this function appear to '
@@ -2233,7 +2381,12 @@ class Proxy(proxy.Proxy):
             )
             return volume, server
 
-    def delete_volume_attachment(self, server, volume, ignore_missing=True):
+    def delete_volume_attachment(
+        self,
+        server: str | _server.Server,
+        volume: str | _volume.Volume,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a volume attachment
 
         Note that the underlying API expects a volume ID, not a volume
@@ -2245,7 +2398,7 @@ class Proxy(proxy.Proxy):
             volume is attached to.
         :param volume: The value can be the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the volume attachment does not exist. When set to ``True``, no
             exception will be set when attempting to delete a nonexistent
@@ -2266,7 +2419,11 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_volume_attachment(self, server, volume):
+    def get_volume_attachment(
+        self,
+        server: str | _server.Server,
+        volume: str | _volume.Volume,
+    ) -> _volume_attachment.VolumeAttachment:
         """Get a single volume attachment
 
         Note that the underlying API expects a volume ID, not a volume
@@ -2293,15 +2450,18 @@ class Proxy(proxy.Proxy):
             server_id=server_id,
         )
 
-    def volume_attachments(self, server, **query):
+    def volume_attachments(
+        self,
+        server: str | _server.Server,
+        **query: Any,
+    ) -> Generator[_volume_attachment.VolumeAttachment, None, None]:
         """Return a generator of volume attachments
 
         :param server: The server can be either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server`.
-        :params dict query: Query parameters
+        :param query: Query parameters
 
         :returns: A generator of VolumeAttachment objects
-        :rtype:
             :class:`~openstack.compute.v2.volume_attachment.VolumeAttachment`
         """
         server_id = resource.Resource._get_id(server)
@@ -2318,7 +2478,7 @@ class Proxy(proxy.Proxy):
 
         :param server: Either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance.
-        :param str host: The host to which to migrate the server.
+        :param host: The host to which to migrate the server.
         :returns: None
         """
         server = self._get_resource(_server.Server, server)
@@ -2336,12 +2496,12 @@ class Proxy(proxy.Proxy):
 
         :param server: Either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance.
-        :param str host: The host to which to migrate the server. If the Nova
+        :param host: The host to which to migrate the server. If the Nova
             service is too old, the host parameter implies force=True which
             causes the Nova scheduler to be bypassed. On such clouds, a
             ``ValueError`` will be thrown if ``host`` is given without
             ``force``.
-        :param bool force: Force a live-migration by not verifying the provided
+        :param force: Force a live-migration by not verifying the provided
             destination host by the scheduler. This is unsafe and not
             recommended.
         :param block_migration: Perform a block live migration to the
@@ -2378,7 +2538,7 @@ class Proxy(proxy.Proxy):
             ServerMigration ID is given as value. It can be either the ID of a
             server or a :class:`~openstack.compute.v2.server.Server` instance
             that the migration belongs to.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the server migration does not exist. When set to ``True``, no
             exception will be set when attempting to delete a nonexistent
@@ -2428,10 +2588,10 @@ class Proxy(proxy.Proxy):
 
     def get_server_migration(
         self,
-        server_migration,
-        server,
-        ignore_missing=True,
-    ):
+        server_migration: str | _server_migration.ServerMigration,
+        server: str | _server.Server,
+        ignore_missing: bool = True,
+    ) -> _server_migration.ServerMigration | None:
         """Get a single server migration
 
         :param server_migration: The value can be the ID of a server migration
@@ -2442,7 +2602,7 @@ class Proxy(proxy.Proxy):
             ID is given as value. It can be either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance that the
             migration belongs to.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the server migration does not exist. When set to ``True``, no
             exception will be set when attempting to delete a nonexistent
@@ -2467,14 +2627,16 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def server_migrations(self, server):
+    def server_migrations(
+        self,
+        server: str | _server.Server,
+    ) -> Generator[_server_migration.ServerMigration, None, None]:
         """Return a generator of migrations for a server.
 
         :param server: The server can be either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server`.
 
         :returns: A generator of ServerMigration objects
-        :rtype:
             :class:`~openstack.compute.v2.server_migration.ServerMigration`
         """
         server_id = resource.Resource._get_id(server)
@@ -2485,19 +2647,23 @@ class Proxy(proxy.Proxy):
 
     # ========== Migrations ==========
 
-    def migrations(self, **query):
+    def migrations(
+        self,
+        **query: Any,
+    ) -> Generator[_migration.Migration, None, None]:
         """Return a generator of migrations for all servers.
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the migrations being returned.
         :returns: A generator of Migration objects
-        :rtype: :class:`~openstack.compute.v2.migration.Migration`
         """
         return self._list(_migration.Migration, **query)
 
     # ========== Server diagnostics ==========
 
-    def get_server_diagnostics(self, server):
+    def get_server_diagnostics(
+        self, server: str | _server.Server
+    ) -> _server_diagnostics.ServerDiagnostics:
         """Get a single server diagnostics
 
         :param server: This parameter need to be specified when ServerInterface
@@ -2519,12 +2685,17 @@ class Proxy(proxy.Proxy):
 
     # ========== Project usage ============
 
-    def usages(self, start=None, end=None, **query):
+    def usages(
+        self,
+        start: datetime.datetime | None = None,
+        end: datetime.datetime | None = None,
+        **query: Any,
+    ) -> Generator[_usage.Usage, None, None]:
         """Get project usages.
 
-        :param datetime.datetime start: Usage range start date.
-        :param datetime.datetime end: Usage range end date.
-        :param dict query: Additional query parameters to use.
+        :param start: Usage range start date.
+        :param end: Usage range end date.
+        :param query: Additional query parameters to use.
         :returns: A list of compute ``Usage`` objects.
         """
         if start is not None:
@@ -2535,15 +2706,21 @@ class Proxy(proxy.Proxy):
 
         return self._list(_usage.Usage, **query)
 
-    def get_usage(self, project, start=None, end=None, **query):
+    def get_usage(
+        self,
+        project: str | _project.Project,
+        start: datetime.datetime | None = None,
+        end: datetime.datetime | None = None,
+        **query: Any,
+    ) -> _usage.Usage:
         """Get usage for a single project.
 
         :param project: ID or instance of
             :class:`~openstack.identity.project.Project` of the project for
             which the usage should be retrieved.
-        :param datetime.datetime start: Usage range start date.
-        :param datetime.datetime end: Usage range end date.
-        :param dict query: Additional query parameters to use.
+        :param start: Usage range start date.
+        :param end: Usage range end date.
+        :param query: Additional query parameters to use.
         :returns: A compute ``Usage`` object.
         """
         project = self._get_resource(_project.Project, project)
@@ -2578,7 +2755,9 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    def get_server_console_url(self, server, console_type):
+    def get_server_console_url(
+        self, server: str | _server.Server, console_type: str
+    ) -> dict[str, Any] | None:
         """Create a remote console on the server.
 
         :param server: Either the ID of a server or a
@@ -2598,7 +2777,11 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_console_auth_token.ConsoleAuthToken, console_token)
 
-    def get_server_console_output(self, server, length=None):
+    def get_server_console_output(
+        self,
+        server: str | _server.Server,
+        length: int | None = None,
+    ) -> dict[str, Any]:
         """Return the console output for a server.
 
         :param server: Either the ID of a server or a
@@ -2653,7 +2836,10 @@ class Proxy(proxy.Proxy):
 
     # ========== Quota class sets ==========
 
-    def get_quota_class_set(self, quota_class_set='default'):
+    def get_quota_class_set(
+        self,
+        quota_class_set: str | _quota_class_set.QuotaClassSet = 'default',
+    ) -> _quota_class_set.QuotaClassSet:
         """Get a single quota class set
 
         Only one quota class is permitted, ``default``.
@@ -2670,7 +2856,11 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_quota_class_set.QuotaClassSet, quota_class_set)
 
-    def update_quota_class_set(self, quota_class_set, **attrs):
+    def update_quota_class_set(
+        self,
+        quota_class_set: str | _quota_class_set.QuotaClassSet,
+        **attrs: Any,
+    ) -> _quota_class_set.QuotaClassSet:
         """Update a QuotaClassSet.
 
         Only one quota class is permitted, ``default``.
@@ -2683,7 +2873,6 @@ class Proxy(proxy.Proxy):
             by ``quota_class_set``.
 
         :returns: The updated QuotaSet
-        :rtype: :class:`~openstack.compute.v2.quota_set.QuotaSet`
         """
         return self._update(
             _quota_class_set.QuotaClassSet, quota_class_set, **attrs
@@ -2691,15 +2880,20 @@ class Proxy(proxy.Proxy):
 
     # ========== Quota sets ==========
 
-    def get_quota_set(self, project, usage=False, **query):
+    def get_quota_set(
+        self,
+        project: str | _project.Project,
+        usage: bool = False,
+        **query: Any,
+    ) -> _quota_set.QuotaSet:
         """Show QuotaSet information for the project.
 
         :param project: ID or instance of
             :class:`~openstack.identity.project.Project` of the project for
             which the quota should be retrieved
-        :param bool usage: When set to ``True`` quota usage and reservations
+        :param usage: When set to ``True`` quota usage and reservations
             would be filled.
-        :param dict query: Additional query parameters to use.
+        :param query: Additional query parameters to use.
 
         :returns: One :class:`~openstack.compute.v2.quota_set.QuotaSet`
         :raises: :class:`~openstack.exceptions.NotFoundException`
@@ -2714,7 +2908,9 @@ class Proxy(proxy.Proxy):
         base_path = '/os-quota-sets/%(project_id)s/detail' if usage else None
         return res.fetch(self, base_path=base_path, **query)
 
-    def get_quota_set_defaults(self, project):
+    def get_quota_set_defaults(
+        self, project: str | _project.Project
+    ) -> _quota_set.QuotaSet:
         """Show QuotaSet defaults for the project.
 
         :param project: ID or instance of
@@ -2741,7 +2937,7 @@ class Proxy(proxy.Proxy):
         :param project: ID or instance of
             :class:`~openstack.identity.project.Project` of the project for
             which the quota should be reset.
-        :param dict query: Additional parameters to be used.
+        :param query: Additional parameters to be used.
 
         :returns: ``None``
         """
@@ -2754,7 +2950,13 @@ class Proxy(proxy.Proxy):
             query = {}
         return res.delete(self, **query)
 
-    def update_quota_set(self, project, *, user=None, **attrs):
+    def update_quota_set(
+        self,
+        project: str | _project.Project | _quota_set.QuotaSet,
+        *,
+        user: str | _user.User | None = None,
+        **attrs: Any,
+    ) -> _quota_set.QuotaSet:
         """Update a QuotaSet.
 
         :param project: ID or instance of
@@ -2765,7 +2967,6 @@ class Proxy(proxy.Proxy):
             by ``quota_set``.
 
         :returns: The updated QuotaSet
-        :rtype: :class:`~openstack.compute.v2.quota_set.QuotaSet`
         """
         if 'project_id' in attrs or isinstance(project, _quota_set.QuotaSet):
             warnings.warn(
@@ -2790,7 +2991,11 @@ class Proxy(proxy.Proxy):
             else:
                 query = {}
 
-            res = self._get_resource(_quota_set.QuotaSet, project, **attrs)
+            res = self._get_resource(
+                _quota_set.QuotaSet,
+                cast('str | _quota_set.QuotaSet | None', project),
+                **attrs,
+            )
             return res.commit(self, **query)
         else:
             project = self._get_resource(_project.Project, project)
@@ -2809,7 +3014,12 @@ class Proxy(proxy.Proxy):
 
     # ========== Server actions ==========
 
-    def get_server_action(self, server_action, server, ignore_missing=True):
+    def get_server_action(
+        self,
+        server_action: str | _server_action.ServerAction,
+        server: str | _server.Server,
+        ignore_missing: bool = True,
+    ) -> _server_action.ServerAction | None:
         """Get a single server action
 
         :param server_action: The value can be the ID of a server action or a
@@ -2818,7 +3028,7 @@ class Proxy(proxy.Proxy):
             is given as value. It can be either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server` instance that the
             action is associated with.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the server action does not exist. When set to ``True``, no
             exception will be set when attempting to retrieve a non-existent
@@ -2838,16 +3048,19 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def server_actions(self, server, **query):
+    def server_actions(
+        self,
+        server: str | _server.Server,
+        **query: Any,
+    ) -> Generator[_server_action.ServerAction, None, None]:
         """Return a generator of server actions
 
         :param server: The server can be either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server`.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the actions being returned.
 
         :returns: A generator of ServerAction objects
-        :rtype: :class:`~openstack.compute.v2.server_action.ServerAction`
         """
         server_id = resource.Resource._get_id(server)
         return self._list(
@@ -2931,7 +3144,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -2946,8 +3159,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
@@ -3008,14 +3221,14 @@ class Proxy(proxy.Proxy):
         for server in servers:
             self.wait_for_delete(server)
 
-        for obj in self.server_groups():
+        for sg_obj in self.server_groups():
             # Do not delete server groups that still have members
-            if obj.member_ids:
+            if sg_obj.member_ids:
                 continue
 
             self._service_cleanup_del_res(
                 self.delete_server_group,
-                obj,
+                sg_obj,
                 dry_run=dry_run,
                 client_status_queue=client_status_queue,
                 identified_resources=identified_resources,
@@ -3038,13 +3251,11 @@ class Proxy(proxy.Proxy):
             share is attached to.
         :param share: The value can be the ID of a share or a
             :class:`~openstack.shared_file_system.v2.Share` instance.
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.compute.v2.server_share.ShareMapping`,
             comprised of the properties on the ShareMapping class.
 
         :returns: The results of create share
-        :rtype:
-            :class:`~openstack.compute.v2.server_share.ShareMapping`
         """
 
         server_id = resource.Resource._get_id(server)
@@ -3056,7 +3267,12 @@ class Proxy(proxy.Proxy):
             **attrs,
         )
 
-    def delete_share_attachment(self, server, share, ignore_missing=False):
+    def delete_share_attachment(
+        self,
+        server: str | _server.Server,
+        share: str | _server_share.ShareMapping,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a share attachment
 
         :param server: The value can be either the ID of a server or a
@@ -3064,7 +3280,7 @@ class Proxy(proxy.Proxy):
             share is attached to.
         :param share: The value can be the ID of a share or a
             :class:`~openstack.shared_file_system.v2.Share` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, no exception will be set when
@@ -3083,7 +3299,11 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_share_attachment(self, server, share):
+    def get_share_attachment(
+        self,
+        server: str | _server.Server,
+        share: str | resource.Resource,
+    ) -> _server_share.ShareMapping:
         """Get a single share attachment
 
         :param server: The value can be either the ID of a server or a
@@ -3106,15 +3326,18 @@ class Proxy(proxy.Proxy):
             id=share_id,
         )
 
-    def share_attachments(self, server, **query):
+    def share_attachments(
+        self,
+        server: str | _server.Server,
+        **query: Any,
+    ) -> Generator[_server_share.ShareMapping, None, None]:
         """Return a generator of share attachments
 
         :param server: The server can be either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server`.
-        :params dict query: Query parameters
+        :param query: Query parameters
 
         :returns: A generator of ShareMapping objects
-        :rtype:
             :class:`~openstack.compute.v2.server_share.ShareMapping`
         """
         server_id = resource.Resource._get_id(server)

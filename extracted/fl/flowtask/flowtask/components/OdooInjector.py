@@ -4,7 +4,7 @@ from collections.abc import Callable
 from urllib.parse import urljoin
 import numpy as np
 import pandas as pd
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.http import HTTPService
 from ..exceptions import ComponentError, TaskError
 

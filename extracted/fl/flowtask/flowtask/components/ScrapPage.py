@@ -36,7 +36,7 @@ from ..exceptions import (
     DataNotFound,
     TimeOutError
 )
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces import HTTPService, SeleniumService
 
 

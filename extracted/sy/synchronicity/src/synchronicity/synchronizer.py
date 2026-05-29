@@ -14,6 +14,7 @@ import traceback
 import types
 import typing
 import warnings
+from functools import wraps
 from inspect import get_annotations
 from typing import Callable, ForwardRef, Optional
 
@@ -268,22 +269,46 @@ class Synchronizer:
     def _get_loop(self, start: bool) -> typing.Union[asyncio.AbstractEventLoop, None]: ...
 
     def _get_loop(self, start=False) -> typing.Union[asyncio.AbstractEventLoop, None]:
-        if self._thread and not self._thread.is_alive():
-            if self._owner_pid == os.getpid():
-                # warn - thread died without us forking
-                logger.error(
-                    f"""Synchronizer thread unexpectedly died.
+        if self._thread:
+            thread_dead = not self._thread.is_alive()
+            loop_closed = self._loop is not None and self._loop.is_closed()
+
+            if thread_dead or loop_closed:
+                if not thread_dead:
+                    # Loop is closed but thread hasn't fully exited yet - wait for
+                    # it so that _thread_exception/_thread_traceback are populated.
+                    self._thread.join(timeout=5.0)
+
+                if self._owner_pid == os.getpid():
+                    # warn - thread died without us forking
+                    logger.error(
+                        f"""Synchronizer thread unexpectedly died.
 Cause: {type(self._thread_exception)}
 Traceback:{self._thread_traceback}"""
-                )
-                raise RuntimeError("Synchronizer thread unexpectedly died")
+                    )
+                    raise RuntimeError("Synchronizer thread unexpectedly died")
 
-            self._thread = None
-            self._loop = None
+                self._thread = None
+                self._loop = None
 
         if self._loop is None and start:
             return self._start_loop()
         return self._loop
+
+    async def _get_loop_async(self) -> asyncio.AbstractEventLoop:
+        """Like _get_loop(start=True) but non-blocking for async callers.
+
+        _start_loop() blocks the calling thread while waiting for the
+        background thread to initialize. When the caller is itself an
+        async coroutine, that block stalls the event loop and can trigger
+        asyncio's slow-callback warning. This method offloads the
+        blocking startup to a thread-pool executor so the caller's
+        event loop stays responsive.
+        """
+        loop = self._get_loop(start=False)
+        if loop is not None:
+            return loop
+        return await asyncio.get_running_loop().run_in_executor(None, lambda: self._get_loop(start=True))
 
     def _get_running_loop(self):
         # TODO: delete this method
@@ -311,6 +336,7 @@ Traceback:{self._thread_traceback}"""
         if not self._async_leakage_warning:
             return coro
 
+        @wraps(coro)
         async def coro_wrapped():
             value = await coro
             # TODO: we should include the name of the original function here
@@ -473,7 +499,7 @@ Traceback:{self._thread_traceback}"""
     async def _run_function_async(self, coro, original_func):
         coro = wrap_coro_exception(coro)
         coro = self._wrap_check_async_leakage(coro)
-        loop = self._get_loop(start=True)
+        loop = await self._get_loop_async()
         if self._is_inside_loop():
             value = await coro
         else:

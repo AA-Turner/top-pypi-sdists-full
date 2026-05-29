@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aerospike-py
-Version: 0.12.0
+Version: 0.12.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -197,7 +197,6 @@ Active when developing through [Claude Code](https://docs.anthropic.com/en/docs/
 | `daily-release.yml` | nightly cron / manual | nightly release pipeline. |
 | `docs.yaml` | PR touching `docs/` | Docusaurus build check. |
 | `docs-publish.yaml` | `push` to `main` | publish Docusaurus site to GitHub Pages. |
-| `docs-version.yaml` | manual | freeze a versioned docs snapshot. |
 
 **PR & issue automation (Claude-driven)**
 

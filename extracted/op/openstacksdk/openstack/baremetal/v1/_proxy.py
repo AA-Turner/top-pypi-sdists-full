@@ -10,12 +10,13 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from typing import Any, ClassVar, Literal, overload
 import warnings
 
 import requests
 
+from openstack._utils import renamed_param
 from openstack.baremetal.v1 import _common
 from openstack.baremetal.v1 import allocation as _allocation
 from openstack.baremetal.v1 import chassis as _chassis
@@ -60,14 +61,12 @@ class Proxy(proxy.Proxy):
         """Fetch a bare metal resource.
 
         :param resource_type: The type of resource to get.
-        :type resource_type: :class:`~openstack.resource.Resource`
         :param value: The value to get. Can be either the ID of a
             resource or a :class:`~openstack.resource.Resource`
             subclass.
         :param fields: Limit the resource fields to fetch.
 
         :returns: The result of the ``fetch``
-        :rtype: :class:`~openstack.resource.Resource`
         """
         res = self._get_resource(resource_type, value)
         kwargs = {}
@@ -81,12 +80,16 @@ class Proxy(proxy.Proxy):
 
     # ========== Chassis ==========
 
-    def chassis(self, details=False, **query):
+    def chassis(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_chassis.Chassis, None, None]:
         """Retrieve a generator of chassis.
 
         :param details: A boolean indicating whether the detailed information
             for every chassis should be returned.
-        :param dict query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the chassis to be returned. Available parameters include:
 
             * ``fields``: A list containing one or more fields to be returned
@@ -114,16 +117,15 @@ class Proxy(proxy.Proxy):
 
         :returns: A generator of chassis instances.
         """
-        return _chassis.Chassis.list(self, details=details, **query)
+        return self._list(_chassis.Chassis, details=details, **query)
 
     def create_chassis(self, **attrs: Any) -> _chassis.Chassis:
         """Create a new chassis from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.baremetal.v1.chassis.Chassis`.
 
         :returns: The results of chassis creation.
-        :rtype: :class:`~openstack.baremetal.v1.chassis.Chassis`.
         """
         return self._create(_chassis.Chassis, **attrs)
 
@@ -156,8 +158,8 @@ class Proxy(proxy.Proxy):
     ) -> _chassis.Chassis | None:
         """Find a single chassis.
 
-        :param str name_or_id: The ID of a chassis.
-        :param bool ignore_missing: When set to ``False``, an exception of
+        :param name_or_id: The ID of a chassis.
+        :param ignore_missing: When set to ``False``, an exception of
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the chassis does not exist.  When set to `True``, None will
             be returned when attempting to find a nonexistent chassis.
@@ -180,7 +182,11 @@ class Proxy(proxy.Proxy):
             details=details,
         )
 
-    def get_chassis(self, chassis, fields=None):
+    def get_chassis(
+        self,
+        chassis: str | _chassis.Chassis,
+        fields: list[str] | None = None,
+    ) -> _chassis.Chassis:
         """Get a specific chassis.
 
         :param chassis: The value can be the ID of a chassis or a
@@ -193,20 +199,23 @@ class Proxy(proxy.Proxy):
         """
         return self._get_with_fields(_chassis.Chassis, chassis, fields=fields)
 
-    def update_chassis(self, chassis, **attrs):
+    def update_chassis(
+        self, chassis: str | _chassis.Chassis, **attrs: Any
+    ) -> _chassis.Chassis:
         """Update a chassis.
 
         :param chassis: Either the ID of a chassis, or an instance
             of :class:`~openstack.baremetal.v1.chassis.Chassis`.
-        :param dict attrs: The attributes to update on the chassis represented
+        :param attrs: The attributes to update on the chassis represented
             by the ``chassis`` parameter.
 
         :returns: The updated chassis.
-        :rtype: :class:`~openstack.baremetal.v1.chassis.Chassis`
         """
         return self._update(_chassis.Chassis, chassis, **attrs)
 
-    def patch_chassis(self, chassis, patch):
+    def patch_chassis(
+        self, chassis: _chassis.Chassis, patch: list[dict[str, Any]]
+    ) -> _chassis.Chassis:
         """Apply a JSON patch to the chassis.
 
         :param chassis: The value can be the ID of a chassis or a
@@ -214,23 +223,24 @@ class Proxy(proxy.Proxy):
         :param patch: JSON patch to apply.
 
         :returns: The updated chassis.
-        :rtype: :class:`~openstack.baremetal.v1.chassis.Chassis`
         """
-        return self._get_resource(_chassis.Chassis, chassis).patch(self, patch)
+        return self._patch(_chassis.Chassis, chassis, patch)
 
-    def delete_chassis(self, chassis, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_chassis(
+        self, chassis: str | _chassis.Chassis, ignore_missing: bool = True
+    ) -> _chassis.Chassis | None:
         """Delete a chassis.
 
         :param chassis: The value can be either the ID of a chassis or
             a :class:`~openstack.baremetal.v1.chassis.Chassis` instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the chassis could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
             chassis.
 
         :returns: The instance of the chassis which was deleted.
-        :rtype: :class:`~openstack.baremetal.v1.chassis.Chassis`.
         """
         return self._delete(
             _chassis.Chassis, chassis, ignore_missing=ignore_missing
@@ -238,12 +248,16 @@ class Proxy(proxy.Proxy):
 
     # ========== Drivers ==========
 
-    def drivers(self, details=False, **query):
+    def drivers(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_driver.Driver, None, None]:
         """Retrieve a generator of drivers.
 
-        :param bool details: A boolean indicating whether the detailed
+        :param details: A boolean indicating whether the detailed
             information for every driver should be returned.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
         :returns: A generator of driver instances.
         """
@@ -253,7 +267,7 @@ class Proxy(proxy.Proxy):
             query['details'] = True
         return self._list(_driver.Driver, **query)
 
-    def get_driver(self, driver):
+    def get_driver(self, driver: str | _driver.Driver) -> _driver.Driver:
         """Get a specific driver.
 
         :param driver: The value can be the name of a driver or a
@@ -283,7 +297,7 @@ class Proxy(proxy.Proxy):
         driver: str | _driver.Driver,
         verb: str,
         method: str,
-        body: object = None,
+        body: dict[str, Any] | None = None,
     ) -> requests.Response:
         """Call driver's vendor_passthru method.
 
@@ -302,12 +316,16 @@ class Proxy(proxy.Proxy):
 
     # ========== Nodes ==========
 
-    def nodes(self, details=False, **query):
+    def nodes(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_node.Node, None, None]:
         """Retrieve a generator of nodes.
 
         :param details: A boolean indicating whether the detailed information
             for every node should be returned.
-        :param dict query: Optional query parameters to be sent to restrict
+        :param query: Optional query parameters to be sent to restrict
             the nodes returned. Available parameters include:
 
             * ``associated``: Only return those which are, or are not,
@@ -350,7 +368,7 @@ class Proxy(proxy.Proxy):
 
         :returns: A generator of :class:`~openstack.baremetal.v1.node.Node`
         """
-        return _node.Node.list(self, details=details, **query)
+        return self._list(_node.Node, details=details, **query)
 
     def create_node(self, **attrs: Any) -> _node.Node:
         """Create a new node from attributes.
@@ -358,11 +376,10 @@ class Proxy(proxy.Proxy):
         See :meth:`~openstack.baremetal.v1.node.Node.create` for an explanation
         of the initial provision state.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.baremetal.v1.node.Node`.
 
         :returns: The results of node creation.
-        :rtype: :class:`~openstack.baremetal.v1.node.Node`.
         """
         return self._create(_node.Node, **attrs)
 
@@ -393,8 +410,8 @@ class Proxy(proxy.Proxy):
     ) -> _node.Node | None:
         """Find a single node.
 
-        :param str name_or_id: The name or ID of a node.
-        :param bool ignore_missing: When set to ``False``, an exception of
+        :param name_or_id: The name or ID of a node.
+        :param ignore_missing: When set to ``False``, an exception of
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the node does not exist.  When set to `True``, None will
             be returned when attempting to find a nonexistent node.
@@ -410,7 +427,11 @@ class Proxy(proxy.Proxy):
             details=details,
         )
 
-    def get_node(self, node, fields=None):
+    def get_node(
+        self,
+        node: str | _node.Node,
+        fields: list[str] | None = None,
+    ) -> _node.Node:
         """Get a specific node.
 
         :param node: The value can be the name or ID of a node or a
@@ -423,7 +444,7 @@ class Proxy(proxy.Proxy):
         """
         return self._get_with_fields(_node.Node, node, fields=fields)
 
-    def get_node_inventory(self, node):
+    def get_node_inventory(self, node: str | _node.Node) -> dict[str, Any]:
         """Get a specific node's hardware inventory.
 
         :param node: The value can be the name or ID of a node or a
@@ -436,36 +457,44 @@ class Proxy(proxy.Proxy):
         res = self._get_resource(_node.Node, node)
         return res.get_node_inventory(self, node)
 
-    def update_node(self, node, retry_on_conflict=True, **attrs):
+    def update_node(
+        self,
+        node: str | _node.Node,
+        retry_on_conflict: bool = True,
+        **attrs: Any,
+    ) -> _node.Node:
         """Update a node.
 
         :param node: The value can be the name or ID of a node or a
             :class:`~openstack.baremetal.v1.node.Node` instance.
-        :param bool retry_on_conflict: Whether to retry HTTP CONFLICT error.
+        :param retry_on_conflict: Whether to retry HTTP CONFLICT error.
             Most of the time it can be retried, since it is caused by the node
             being locked. However, when setting ``instance_id``, this is
             a normal code and should not be retried.
-        :param dict attrs: The attributes to update on the node represented
+        :param attrs: The attributes to update on the node represented
             by the ``node`` parameter.
 
         :returns: The updated node.
-        :rtype: :class:`~openstack.baremetal.v1.node.Node`
         """
         res = self._get_resource(_node.Node, node, **attrs)
         return res.commit(self, retry_on_conflict=retry_on_conflict)
 
     def patch_node(
-        self, node, patch, reset_interfaces=None, retry_on_conflict=True
-    ):
+        self,
+        node: _node.Node,
+        patch: list[dict[str, Any]],
+        reset_interfaces: bool | None = None,
+        retry_on_conflict: bool = True,
+    ) -> _node.Node:
         """Apply a JSON patch to the node.
 
         :param node: The value can be the name or ID of a node or a
             :class:`~openstack.baremetal.v1.node.Node` instance.
         :param patch: JSON patch to apply.
-        :param bool reset_interfaces: whether to reset the node hardware
+        :param reset_interfaces: whether to reset the node hardware
             interfaces to their defaults. This works only when changing
             drivers. Added in API microversion 1.45.
-        :param bool retry_on_conflict: Whether to retry HTTP CONFLICT error.
+        :param retry_on_conflict: Whether to retry HTTP CONFLICT error.
             Most of the time it can be retried, since it is caused by the node
             being locked. However, when setting ``instance_id``, this is
             a normal code and should not be retried.
@@ -475,10 +504,9 @@ class Proxy(proxy.Proxy):
             for details.
 
         :returns: The updated node.
-        :rtype: :class:`~openstack.baremetal.v1.node.Node`
         """
-        res = self._get_resource(_node.Node, node)
-        return res.patch(
+        # this can't use the _patch helper since it passes custom attributes
+        return self._get_resource(_node.Node, node).patch(
             self,
             patch,
             retry_on_conflict=retry_on_conflict,
@@ -538,12 +566,12 @@ class Proxy(proxy.Proxy):
             deploy_steps=deploy_steps,
         )
 
-    def get_node_boot_device(self, node):
+    def get_node_boot_device(self, node: str | _node.Node) -> dict[str, Any]:
         """Get node boot device
 
         :param node: The value can be the name or ID of a node or a
             :class:`~openstack.baremetal.v1.node.Node` instance.
-        :return: The node boot device
+        :returns: The node boot device
         """
         res = self._get_resource(_node.Node, node)
         return res.get_boot_device(self)
@@ -556,17 +584,19 @@ class Proxy(proxy.Proxy):
         :param boot_device: Boot device to assign to the node.
         :param persistent: If the boot device change is maintained after node
             reboot
-        :return: The updated :class:`~openstack.baremetal.v1.node.Node`
+        :returns: The updated :class:`~openstack.baremetal.v1.node.Node`
         """
         res = self._get_resource(_node.Node, node)
         return res.set_boot_device(self, boot_device, persistent=persistent)
 
-    def get_node_supported_boot_devices(self, node):
+    def get_node_supported_boot_devices(
+        self, node: str | _node.Node
+    ) -> dict[str, Any]:
         """Get supported boot devices for node
 
         :param node: The value can be the name or ID of a node or a
             :class:`~openstack.baremetal.v1.node.Node` instance.
-        :return: The node boot device
+        :returns: The node boot device
         """
         res = self._get_resource(_node.Node, node)
         return res.get_supported_boot_devices(self)
@@ -602,7 +632,7 @@ class Proxy(proxy.Proxy):
 
         :param node: The value can be the name or ID of a node or a
             :class:`~openstack.baremetal.v1.node.Node` instance.
-        :return: None
+        :returns: None
         """
         res = self._get_resource(_node.Node, node)
         res.inject_nmi(self)
@@ -630,7 +660,7 @@ class Proxy(proxy.Proxy):
         :param fail: If set to ``False`` this call will not raise on timeouts
             and provisioning failures.
 
-        :return: If `fail` is ``True`` (the default), the list of
+        :returns: If `fail` is ``True`` (the default), the list of
             :class:`~openstack.baremetal.v1.node.Node` instances that reached
             the requested state. If `fail` is ``False``, a
             :class:`~openstack.baremetal.v1.node.WaitResult` named tuple.
@@ -756,7 +786,7 @@ class Proxy(proxy.Proxy):
             validation. The default value is the list of minimum required
             interfaces for provisioning.
 
-        :return: dict mapping interface names to
+        :returns: dict mapping interface names to
             :class:`~openstack.baremetal.v1.node.ValidationResult` objects.
         :raises: :exc:`~openstack.exceptions.ValidationException` if validation
             fails for a required interface.
@@ -770,7 +800,7 @@ class Proxy(proxy.Proxy):
         :param node: The value can be either the name or ID of a node or
             a :class:`~openstack.baremetal.v1.node.Node` instance.
         :param reason: Optional reason for maintenance.
-        :return: This :class:`Node` instance.
+        :returns: This :class:`Node` instance.
         """
         res = self._get_resource(_node.Node, node)
         return res.set_maintenance(self, reason)
@@ -780,24 +810,26 @@ class Proxy(proxy.Proxy):
 
         :param node: The value can be either the name or ID of a node or
             a :class:`~openstack.baremetal.v1.node.Node` instance.
-        :return: This :class:`Node` instance.
+        :returns: This :class:`Node` instance.
         """
         res = self._get_resource(_node.Node, node)
         return res.unset_maintenance(self)
 
-    def delete_node(self, node, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_node(
+        self, node: str | _node.Node, ignore_missing: bool = True
+    ) -> _node.Node | None:
         """Delete a node.
 
         :param node: The value can be either the name or ID of a node or
             a :class:`~openstack.baremetal.v1.node.Node` instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the node could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
             node.
 
         :returns: The instance of the node which was deleted.
-        :rtype: :class:`~openstack.baremetal.v1.node.Node`.
         """
         return self._delete(_node.Node, node, ignore_missing=ignore_missing)
 
@@ -820,7 +852,7 @@ class Proxy(proxy.Proxy):
         :param node: The value can be the name or ID of a node or a
             :class:`~openstack.baremetal.v1.node.Node` instance.
         :param trait: trait to remove from the node.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the trait could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
@@ -853,7 +885,7 @@ class Proxy(proxy.Proxy):
         res = self._get_resource(_node.Node, node)
         return res.list_vendor_passthru(self)
 
-    def get_node_console(self, node):
+    def get_node_console(self, node: str | _node.Node) -> dict[str, Any]:
         """Get the console for a node.
 
         :param node: The value can be the name or ID of a node or a
@@ -909,12 +941,16 @@ class Proxy(proxy.Proxy):
 
     # ========== Ports ==========
 
-    def ports(self, details=False, **query):
+    def ports(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_port.Port, None, None]:
         """Retrieve a generator of ports.
 
         :param details: A boolean indicating whether the detailed information
             for every port should be returned.
-        :param dict query: Optional query parameters to be sent to restrict
+        :param query: Optional query parameters to be sent to restrict
             the ports returned. Available parameters include:
 
             * ``address``: Only return ports with the specified physical
@@ -954,16 +990,15 @@ class Proxy(proxy.Proxy):
 
         :returns: A generator of port instances.
         """
-        return _port.Port.list(self, details=details, **query)
+        return self._list(_port.Port, details=details, **query)
 
     def create_port(self, **attrs: Any) -> _port.Port:
         """Create a new port from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.baremetal.v1.port.Port`.
 
         :returns: The results of port creation.
-        :rtype: :class:`~openstack.baremetal.v1.port.Port`.
         """
         return self._create(_port.Port, **attrs)
 
@@ -996,8 +1031,8 @@ class Proxy(proxy.Proxy):
     ) -> _port.Port | None:
         """Find a single port.
 
-        :param str name_or_id: The ID of a port.
-        :param bool ignore_missing: When set to ``False``, an exception of
+        :param name_or_id: The ID of a port.
+        :param ignore_missing: When set to ``False``, an exception of
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the port does not exist.  When set to `True``, None will
             be returned when attempting to find a nonexistent port.
@@ -1018,7 +1053,11 @@ class Proxy(proxy.Proxy):
             details=details,
         )
 
-    def get_port(self, port, fields=None):
+    def get_port(
+        self,
+        port: str | _port.Port,
+        fields: list[str] | None = None,
+    ) -> _port.Port:
         """Get a specific port.
 
         :param port: The value can be the ID of a port or a
@@ -1031,20 +1070,21 @@ class Proxy(proxy.Proxy):
         """
         return self._get_with_fields(_port.Port, port, fields=fields)
 
-    def update_port(self, port, **attrs):
+    def update_port(self, port: str | _port.Port, **attrs: Any) -> _port.Port:
         """Update a port.
 
         :param port: Either the ID of a port or an instance
             of :class:`~openstack.baremetal.v1.port.Port`.
-        :param dict attrs: The attributes to update on the port represented
+        :param attrs: The attributes to update on the port represented
             by the ``port`` parameter.
 
         :returns: The updated port.
-        :rtype: :class:`~openstack.baremetal.v1.port.Port`
         """
         return self._update(_port.Port, port, **attrs)
 
-    def patch_port(self, port, patch):
+    def patch_port(
+        self, port: _port.Port, patch: list[dict[str, Any]]
+    ) -> _port.Port:
         """Apply a JSON patch to the port.
 
         :param port: The value can be the ID of a port or a
@@ -1052,34 +1092,39 @@ class Proxy(proxy.Proxy):
         :param patch: JSON patch to apply.
 
         :returns: The updated port.
-        :rtype: :class:`~openstack.baremetal.v1.port.Port`
         """
-        return self._get_resource(_port.Port, port).patch(self, patch)
+        return self._patch(_port.Port, port, patch)
 
-    def delete_port(self, port, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_port(
+        self, port: str | _port.Port, ignore_missing: bool = True
+    ) -> _port.Port | None:
         """Delete a port.
 
         :param port: The value can be either the ID of a port or
             a :class:`~openstack.baremetal.v1.port.Port` instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the port could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
             port.
 
         :returns: The instance of the port which was deleted.
-        :rtype: :class:`~openstack.baremetal.v1.port.Port`.
         """
         return self._delete(_port.Port, port, ignore_missing=ignore_missing)
 
     # ========== Port groups ==========
 
-    def port_groups(self, details=False, **query):
+    def port_groups(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_portgroup.PortGroup, None, None]:
         """Retrieve a generator of port groups.
 
         :param details: A boolean indicating whether the detailed information
             for every port group should be returned.
-        :param dict query: Optional query parameters to be sent to restrict
+        :param query: Optional query parameters to be sent to restrict
             the port groups returned. Available parameters include:
 
             * ``address``: Only return portgroups with the specified physical
@@ -1111,16 +1156,15 @@ class Proxy(proxy.Proxy):
 
         :returns: A generator of port group instances.
         """
-        return _portgroup.PortGroup.list(self, details=details, **query)
+        return self._list(_portgroup.PortGroup, details=details, **query)
 
     def create_port_group(self, **attrs: Any) -> _portgroup.PortGroup:
         """Create a new portgroup from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.baremetal.v1.port_group.PortGroup`.
 
         :returns: The results of portgroup creation.
-        :rtype: :class:`~openstack.baremetal.v1.port_group.PortGroup`.
         """
         return self._create(_portgroup.PortGroup, **attrs)
 
@@ -1151,8 +1195,8 @@ class Proxy(proxy.Proxy):
     ) -> _portgroup.PortGroup | None:
         """Find a single port group.
 
-        :param str name_or_id: The name or ID of a portgroup.
-        :param bool ignore_missing: When set to ``False``, an exception of
+        :param name_or_id: The name or ID of a portgroup.
+        :param ignore_missing: When set to ``False``, an exception of
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the port group does not exist.  When set to `True``, None will
             be returned when attempting to find a nonexistent port group.
@@ -1168,7 +1212,11 @@ class Proxy(proxy.Proxy):
             details=details,
         )
 
-    def get_port_group(self, port_group, fields=None):
+    def get_port_group(
+        self,
+        port_group: str | _portgroup.PortGroup,
+        fields: list[str] | None = None,
+    ) -> _portgroup.PortGroup:
         """Get a specific port group.
 
         :param port_group: The value can be the name or ID of a chassis or a
@@ -1183,21 +1231,24 @@ class Proxy(proxy.Proxy):
             _portgroup.PortGroup, port_group, fields=fields
         )
 
-    def update_port_group(self, port_group, **attrs):
+    def update_port_group(
+        self, port_group: str | _portgroup.PortGroup, **attrs: Any
+    ) -> _portgroup.PortGroup:
         """Update a port group.
 
         :param port_group: Either the name or the ID of a port group or
             an instance of
             :class:`~openstack.baremetal.v1.port_group.PortGroup`.
-        :param dict attrs: The attributes to update on the port group
+        :param attrs: The attributes to update on the port group
             represented by the ``port_group`` parameter.
 
         :returns: The updated port group.
-        :rtype: :class:`~openstack.baremetal.v1.port_group.PortGroup`
         """
         return self._update(_portgroup.PortGroup, port_group, **attrs)
 
-    def patch_port_group(self, port_group, patch):
+    def patch_port_group(
+        self, port_group: _portgroup.PortGroup, patch: list[dict[str, Any]]
+    ) -> _portgroup.PortGroup:
         """Apply a JSON patch to the port_group.
 
         :param port_group: The value can be the ID of a port group or a
@@ -1205,26 +1256,27 @@ class Proxy(proxy.Proxy):
         :param patch: JSON patch to apply.
 
         :returns: The updated port group.
-        :rtype: :class:`~openstack.baremetal.v1.port_group.PortGroup`
         """
-        res = self._get_resource(_portgroup.PortGroup, port_group)
-        return res.patch(self, patch)
+        return self._patch(_portgroup.PortGroup, port_group, patch)
 
-    def delete_port_group(self, port_group, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_port_group(
+        self,
+        port_group: str | _portgroup.PortGroup,
+        ignore_missing: bool = True,
+    ) -> _portgroup.PortGroup | None:
         """Delete a port group.
 
-        :param port_group: The value can be either the name or ID of
-            a port group or a
-            :class:`~openstack.baremetal.v1.port_group.PortGroup`
+        :param port_group: The value can be either the name or ID of a port
+            group or a :class:`~openstack.baremetal.v1.port_group.PortGroup`
             instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the port group could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
             port group.
 
         :returns: The instance of the port group which was deleted.
-        :rtype: :class:`~openstack.baremetal.v1.port_group.PortGroup`.
         """
         return self._delete(
             _portgroup.PortGroup, port_group, ignore_missing=ignore_missing
@@ -1251,7 +1303,7 @@ class Proxy(proxy.Proxy):
             This can happen when either the virtual media is already used on
             a node or the node is locked. Since the latter happens more often,
             the default value is True.
-        :return: ``None``
+        :returns: ``None``
         :raises: :exc:`~openstack.exceptions.NotSupported` if the server
             does not support the VMEDIA API.
         """
@@ -1271,7 +1323,7 @@ class Proxy(proxy.Proxy):
             a :class:`~openstack.baremetal.v1.node.Node` instance.
         :param device_types: A list with the types of virtual media
             devices to detach.
-        :return: ``True`` if the virtual media was detached,
+        :returns: ``True`` if the virtual media was detached,
             otherwise ``False``.
         :raises: :exc:`~openstack.exceptions.NotSupported` if the server
             does not support the VMEDIA API.
@@ -1281,14 +1333,16 @@ class Proxy(proxy.Proxy):
 
     # ========== VIFs ==========
 
+    @renamed_param('port_group_id', 'port_group')
+    @renamed_param('port_id', 'port')
     def attach_vif_to_node(
         self,
         node: _node.Node | str,
         vif_id: str,
         retry_on_conflict: bool = True,
         *,
-        port_id: str | None = None,
-        port_group_id: str | None = None,
+        port: str | _port.Port | None = None,
+        port_group: str | _portgroup.PortGroup | None = None,
     ) -> None:
         """Attach a VIF to the node.
 
@@ -1304,18 +1358,24 @@ class Proxy(proxy.Proxy):
             This can happen when either the VIF is already used on a node or
             the node is locked. Since the latter happens more often, the
             default value is True.
-        :param port_id: The UUID of the port to attach the VIF to. Only one of
-            port_id or port_group_id can be provided.
-        :param port_group_id: The UUID of the portgroup to attach to. Only one
-            of port_group_id or port_id can be provided.
+        :param port: A UUID or :class:`~openstack.baremetal.v1.port.Port`
+            instance of the port to attach the VIF to. Only one of port or
+            port_group can be provided.
+        :param port_group: A UUID or
+            :class:`~openstack.baremetal.v1.port_group.PortGroup` instance of
+            the portgroup to attach the VIF to. Only one of port_group or port
+            can be provided.
         :return: None
         :raises: :exc:`~openstack.exceptions.NotSupported` if the server
             does not support the VIF API.
         :raises: :exc:`~openstack.exceptions.InvalidRequest` if both port_id
             and port_group_id are provided.
         """
-        res = self._get_resource(_node.Node, node)
-        res.attach_vif(
+        port_id = resource.Resource._get_id(port) if port else None
+        port_group_id = (
+            resource.Resource._get_id(port_group) if port_group else None
+        )
+        self._get_resource(_node.Node, node).attach_vif(
             self,
             vif_id=vif_id,
             retry_on_conflict=retry_on_conflict,
@@ -1332,12 +1392,12 @@ class Proxy(proxy.Proxy):
 
         :param node: The value can be either the name or ID of a node or
             a :class:`~openstack.baremetal.v1.node.Node` instance.
-        :param string vif_id: Backend-specific VIF ID.
-        :param bool ignore_missing: When set to ``False``
+        :param vif_id: Backend-specific VIF ID.
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the VIF does not exist. Otherwise, ``False``
             is returned.
-        :return: ``True`` if the VIF was detached, otherwise ``False``.
+        :returns: ``True`` if the VIF was detached, otherwise ``False``.
         :raises: :exc:`~openstack.exceptions.NotSupported` if the server
             does not support the VIF API.
         """
@@ -1353,7 +1413,7 @@ class Proxy(proxy.Proxy):
 
         :param node: The value can be either the name or ID of a node or
             a :class:`~openstack.baremetal.v1.node.Node` instance.
-        :return: List of VIF IDs as strings.
+        :returns: List of VIF IDs as strings.
         :raises: :exc:`~openstack.exceptions.NotSupported` if the server
             does not support the VIF API.
         """
@@ -1362,10 +1422,13 @@ class Proxy(proxy.Proxy):
 
     # ========== Allocations ==========
 
-    def allocations(self, **query):
+    def allocations(
+        self,
+        **query: Any,
+    ) -> Generator[_allocation.Allocation, None, None]:
         """Retrieve a generator of allocations.
 
-        :param dict query: Optional query parameters to be sent to restrict
+        :param query: Optional query parameters to be sent to restrict
             the allocation to be returned. Available parameters include:
 
             * ``fields``: A list containing one or more fields to be returned
@@ -1393,20 +1456,23 @@ class Proxy(proxy.Proxy):
 
         :returns: A generator of allocation instances.
         """
-        return _allocation.Allocation.list(self, **query)
+        return self._list(_allocation.Allocation, **query)
 
     def create_allocation(self, **attrs: Any) -> _allocation.Allocation:
         """Create a new allocation from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.baremetal.v1.allocation.Allocation`.
 
         :returns: The results of allocation creation.
-        :rtype: :class:`~openstack.baremetal.v1.allocation.Allocation`.
         """
         return self._create(_allocation.Allocation, **attrs)
 
-    def get_allocation(self, allocation, fields=None):
+    def get_allocation(
+        self,
+        allocation: str | _allocation.Allocation,
+        fields: list[str] | None = None,
+    ) -> _allocation.Allocation:
         """Get a specific allocation.
 
         :param allocation: The value can be the name or ID of an allocation or
@@ -1421,20 +1487,23 @@ class Proxy(proxy.Proxy):
             _allocation.Allocation, allocation, fields=fields
         )
 
-    def update_allocation(self, allocation, **attrs):
+    def update_allocation(
+        self, allocation: str | _allocation.Allocation, **attrs: Any
+    ) -> _allocation.Allocation:
         """Update an allocation.
 
         :param allocation: The value can be the name or ID of an allocation or
             a :class:`~openstack.baremetal.v1.allocation.Allocation` instance.
-        :param dict attrs: The attributes to update on the allocation
+        :param attrs: The attributes to update on the allocation
             represented by the ``allocation`` parameter.
 
         :returns: The updated allocation.
-        :rtype: :class:`~openstack.baremetal.v1.allocation.Allocation`
         """
         return self._update(_allocation.Allocation, allocation, **attrs)
 
-    def patch_allocation(self, allocation, patch):
+    def patch_allocation(
+        self, allocation: _allocation.Allocation, patch: list[dict[str, Any]]
+    ) -> _allocation.Allocation:
         """Apply a JSON patch to the allocation.
 
         :param allocation: The value can be the name or ID of an allocation or
@@ -1442,25 +1511,26 @@ class Proxy(proxy.Proxy):
         :param patch: JSON patch to apply.
 
         :returns: The updated allocation.
-        :rtype: :class:`~openstack.baremetal.v1.allocation.Allocation`
         """
-        return self._get_resource(_allocation.Allocation, allocation).patch(
-            self, patch
-        )
+        return self._patch(_allocation.Allocation, allocation, patch)
 
-    def delete_allocation(self, allocation, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_allocation(
+        self,
+        allocation: str | _allocation.Allocation,
+        ignore_missing: bool = True,
+    ) -> _allocation.Allocation | None:
         """Delete an allocation.
 
         :param allocation: The value can be the name or ID of an allocation or
             a :class:`~openstack.baremetal.v1.allocation.Allocation` instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the allocation could not be found. When set to ``True``, no
             exception will be raised when attempting to delete a non-existent
             allocation.
 
         :returns: The instance of the allocation which was deleted.
-        :rtype: :class:`~openstack.baremetal.v1.allocation.Allocation`.
         """
         return self._delete(
             _allocation.Allocation, allocation, ignore_missing=ignore_missing
@@ -1480,7 +1550,6 @@ class Proxy(proxy.Proxy):
             state is considered successful and the call returns.
 
         :returns: The instance of the allocation.
-        :rtype: :class:`~openstack.baremetal.v1.allocation.Allocation`.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if allocation
             fails and ``ignore_error`` is ``False``.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` on timeout.
@@ -1490,12 +1559,16 @@ class Proxy(proxy.Proxy):
 
     # ========== Volume connectors ==========
 
-    def volume_connectors(self, details=False, **query):
+    def volume_connectors(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_volumeconnector.VolumeConnector, None, None]:
         """Retrieve a generator of volume_connector.
 
         :param details: A boolean indicating whether the detailed information
             for every volume_connector should be returned.
-        :param dict query: Optional query parameters to be sent to restrict
+        :param query: Optional query parameters to be sent to restrict
             the volume_connectors returned. Available parameters include:
 
             * ``fields``: A list containing one or more fields to be returned
@@ -1527,19 +1600,17 @@ class Proxy(proxy.Proxy):
         """
         if details:
             query['detail'] = True
-        return _volumeconnector.VolumeConnector.list(self, **query)
+        return self._list(_volumeconnector.VolumeConnector, **query)
 
     def create_volume_connector(
         self, **attrs: Any
     ) -> _volumeconnector.VolumeConnector:
         """Create a new volume_connector from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.baremetal.v1.volume_connector.VolumeConnector`.
 
         :returns: The results of volume_connector creation.
-        :rtype:
-            :class:`~openstack.baremetal.v1.volume_connector.VolumeConnector`.
         """
         return self._create(_volumeconnector.VolumeConnector, **attrs)
 
@@ -1572,8 +1643,8 @@ class Proxy(proxy.Proxy):
     ) -> _volumeconnector.VolumeConnector | None:
         """Find a single volume connector.
 
-        :param str vc_id: The ID of a volume connector.
-        :param bool ignore_missing: When set to ``False``, an exception of
+        :param vc_id: The ID of a volume connector.
+        :param ignore_missing: When set to ``False``, an exception of
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the volume connector does not exist.  When set to `True``,
             None will be returned when attempting to find a nonexistent
@@ -1598,7 +1669,11 @@ class Proxy(proxy.Proxy):
             details=details,
         )
 
-    def get_volume_connector(self, volume_connector, fields=None):
+    def get_volume_connector(
+        self,
+        volume_connector: str | _volumeconnector.VolumeConnector,
+        fields: list[str] | None = None,
+    ) -> _volumeconnector.VolumeConnector:
         """Get a specific volume_connector.
 
         :param volume_connector: The value can be the ID of a
@@ -1616,25 +1691,31 @@ class Proxy(proxy.Proxy):
             _volumeconnector.VolumeConnector, volume_connector, fields=fields
         )
 
-    def update_volume_connector(self, volume_connector, **attrs):
+    def update_volume_connector(
+        self,
+        volume_connector: str | _volumeconnector.VolumeConnector,
+        **attrs: Any,
+    ) -> _volumeconnector.VolumeConnector:
         """Update a volume_connector.
 
         :param volume_connector: Either the ID of a volume_connector
             or an instance of
             :class:`~openstack.baremetal.v1.volume_connector.VolumeConnector`.
-        :param dict attrs: The attributes to update on the
+        :param attrs: The attributes to update on the
             volume_connector represented by the ``volume_connector``
             parameter.
 
         :returns: The updated volume_connector.
-        :rtype:
-            :class:`~openstack.baremetal.v1.volume_connector.VolumeConnector`
         """
         return self._update(
             _volumeconnector.VolumeConnector, volume_connector, **attrs
         )
 
-    def patch_volume_connector(self, volume_connector, patch):
+    def patch_volume_connector(
+        self,
+        volume_connector: _volumeconnector.VolumeConnector,
+        patch: list[dict[str, Any]],
+    ) -> _volumeconnector.VolumeConnector:
         """Apply a JSON patch to the volume_connector.
 
         :param volume_connector: The value can be the ID of a
@@ -1644,29 +1725,30 @@ class Proxy(proxy.Proxy):
         :param patch: JSON patch to apply.
 
         :returns: The updated volume_connector.
-        :rtype:
-            :class:`~openstack.baremetal.v1.volume_connector.VolumeConnector.`
         """
-        return self._get_resource(
-            _volumeconnector.VolumeConnector, volume_connector
-        ).patch(self, patch)
+        return self._patch(
+            _volumeconnector.VolumeConnector, volume_connector, patch
+        )
 
-    def delete_volume_connector(self, volume_connector, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_volume_connector(
+        self,
+        volume_connector: str | _volumeconnector.VolumeConnector,
+        ignore_missing: bool = True,
+    ) -> _volumeconnector.VolumeConnector | None:
         """Delete an volume_connector.
 
-        :param volume_connector: The value can be either the ID of a
-            volume_connector.VolumeConnector or a
+        :param volume_connector: The value can be either the ID of a volume
+            connector or a
             :class:`~openstack.baremetal.v1.volume_connector.VolumeConnector`
             instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the volume_connector could not be found.
             When set to ``True``, no exception will be raised when
             attempting to delete a non-existent volume_connector.
 
         :returns: The instance of the volume_connector which was deleted.
-        :rtype:
-            :class:`~openstack.baremetal.v1.volume_connector.VolumeConnector`.
         """
         return self._delete(
             _volumeconnector.VolumeConnector,
@@ -1676,12 +1758,16 @@ class Proxy(proxy.Proxy):
 
     # ========== Volume targets ==========
 
-    def volume_targets(self, details=False, **query):
+    def volume_targets(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_volumetarget.VolumeTarget, None, None]:
         """Retrieve a generator of volume_target.
 
         :param details: A boolean indicating whether the detailed information
             for every volume_target should be returned.
-        :param dict query: Optional query parameters to be sent to restrict
+        :param query: Optional query parameters to be sent to restrict
             the volume_targets returned. Available parameters include:
 
             * ``fields``: A list containing one or more fields to be returned
@@ -1713,17 +1799,15 @@ class Proxy(proxy.Proxy):
         """
         if details:
             query['detail'] = True
-        return _volumetarget.VolumeTarget.list(self, **query)
+        return self._list(_volumetarget.VolumeTarget, **query)
 
     def create_volume_target(self, **attrs: Any) -> _volumetarget.VolumeTarget:
         """Create a new volume_target from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.baremetal.v1.volume_target.VolumeTarget`.
 
         :returns: The results of volume_target creation.
-        :rtype:
-            :class:`~openstack.baremetal.v1.volume_target.VolumeTarget`.
         """
         return self._create(_volumetarget.VolumeTarget, **attrs)
 
@@ -1756,8 +1840,8 @@ class Proxy(proxy.Proxy):
     ) -> _volumetarget.VolumeTarget | None:
         """Find a single volume target.
 
-        :param str vt_id: The ID of a volume target.
-        :param bool ignore_missing: When set to ``False``, an exception of
+        :param vt_id: The ID of a volume target.
+        :param ignore_missing: When set to ``False``, an exception of
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the volume connector does not exist.  When set to `True``,
             None will be returned when attempting to find a nonexistent
@@ -1782,7 +1866,11 @@ class Proxy(proxy.Proxy):
             details=details,
         )
 
-    def get_volume_target(self, volume_target, fields=None):
+    def get_volume_target(
+        self,
+        volume_target: str | _volumetarget.VolumeTarget,
+        fields: list[str] | None = None,
+    ) -> _volumetarget.VolumeTarget:
         """Get a specific volume_target.
 
         :param volume_target: The value can be the ID of a
@@ -1800,22 +1888,26 @@ class Proxy(proxy.Proxy):
             _volumetarget.VolumeTarget, volume_target, fields=fields
         )
 
-    def update_volume_target(self, volume_target, **attrs):
+    def update_volume_target(
+        self, volume_target: str | _volumetarget.VolumeTarget, **attrs: Any
+    ) -> _volumetarget.VolumeTarget:
         """Update a volume_target.
 
         :param volume_target: Either the ID of a volume_target
             or an instance of
             :class:`~openstack.baremetal.v1.volume_target.VolumeTarget`.
-        :param dict attrs: The attributes to update on the
+        :param attrs: The attributes to update on the
             volume_target represented by the ``volume_target`` parameter.
 
         :returns: The updated volume_target.
-        :rtype:
-            :class:`~openstack.baremetal.v1.volume_target.VolumeTarget`
         """
         return self._update(_volumetarget.VolumeTarget, volume_target, **attrs)
 
-    def patch_volume_target(self, volume_target, patch):
+    def patch_volume_target(
+        self,
+        volume_target: _volumetarget.VolumeTarget,
+        patch: list[dict[str, Any]],
+    ) -> _volumetarget.VolumeTarget:
         """Apply a JSON patch to the volume_target.
 
         :param volume_target: The value can be the ID of a
@@ -1825,29 +1917,28 @@ class Proxy(proxy.Proxy):
         :param patch: JSON patch to apply.
 
         :returns: The updated volume_target.
-        :rtype:
-            :class:`~openstack.baremetal.v1.volume_target.VolumeTarget.`
         """
-        return self._get_resource(
-            _volumetarget.VolumeTarget, volume_target
-        ).patch(self, patch)
+        return self._patch(_volumetarget.VolumeTarget, volume_target, patch)
 
-    def delete_volume_target(self, volume_target, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_volume_target(
+        self,
+        volume_target: str | _volumetarget.VolumeTarget,
+        ignore_missing: bool = True,
+    ) -> _volumetarget.VolumeTarget | None:
         """Delete an volume_target.
 
-        :param volume_target: The value can be either the ID of a
-            volume_target.VolumeTarget or a
+        :param volume_target: The value can be either the ID of a volume target
+            or a
             :class:`~openstack.baremetal.v1.volume_target.VolumeTarget`
             instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the volume_target could not be found.
             When set to ``True``, no exception will be raised when
             attempting to delete a non-existent volume_target.
 
         :returns: The instance of the volume_target which was deleted.
-        :rtype:
-            :class:`~openstack.baremetal.v1.volume_target.VolumeTarget`.
         """
         return self._delete(
             _volumetarget.VolumeTarget,
@@ -1857,61 +1948,68 @@ class Proxy(proxy.Proxy):
 
     # ========== Deploy templates ==========
 
-    def deploy_templates(self, details=False, **query):
+    def deploy_templates(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_deploytemplates.DeployTemplate, None, None]:
         """Retrieve a generator of deploy_templates.
 
         :param details: A boolean indicating whether the detailed information
             for every deploy_templates should be returned.
-        :param dict query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the deploy_templates to be returned.
 
         :returns: A generator of Deploy templates instances.
         """
         if details:
             query['detail'] = True
-        return _deploytemplates.DeployTemplate.list(self, **query)
+        return self._list(_deploytemplates.DeployTemplate, **query)
 
     def create_deploy_template(
         self, **attrs: Any
     ) -> _deploytemplates.DeployTemplate:
         """Create a new deploy_template from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.baremetal.v1.deploy_templates.DeployTemplate`.
 
         :returns: The results of deploy_template creation.
-        :rtype:
-            :class:`~openstack.baremetal.v1.deploy_templates.DeployTemplate`.
         """
         return self._create(_deploytemplates.DeployTemplate, **attrs)
 
-    def update_deploy_template(self, deploy_template, **attrs):
+    def update_deploy_template(
+        self,
+        deploy_template: str | _deploytemplates.DeployTemplate,
+        **attrs: Any,
+    ) -> _deploytemplates.DeployTemplate:
         """Update a deploy_template.
 
         :param deploy_template: Either the ID of a deploy_template,
             or an instance of
             :class:`~openstack.baremetal.v1.deploy_templates.DeployTemplate`.
-        :param dict attrs: The attributes to update on
-            the deploy_template represented
-            by the ``deploy_template`` parameter.
+        :param attrs: The attributes to update on the deploy_template
+            represented by the ``deploy_template`` parameter.
 
         :returns: The updated deploy_template.
-        :rtype:
-            :class:`~openstack.baremetal.v1.deploy_templates.DeployTemplate`
         """
         return self._update(
             _deploytemplates.DeployTemplate, deploy_template, **attrs
         )
 
-    def delete_deploy_template(self, deploy_template, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_deploy_template(
+        self,
+        deploy_template: str | _deploytemplates.DeployTemplate,
+        ignore_missing: bool = True,
+    ) -> _deploytemplates.DeployTemplate | None:
         """Delete a deploy_template.
 
-        :param deploy_template:The value can be
+        :param deploy_template: The value can be
             either the ID of a deploy_template or a
             :class:`~openstack.baremetal.v1.deploy_templates.DeployTemplate`
             instance.
-
-        :param bool ignore_missing: When set to ``False``,
+        :param ignore_missing: When set to ``False``,
             an exception:class:`~openstack.exceptions.NotFoundException`
             will be raised when the deploy_template
             could not be found.
@@ -1921,8 +2019,6 @@ class Proxy(proxy.Proxy):
             deploy_template.
 
         :returns: The instance of the deploy_template which was deleted.
-        :rtype:
-            :class:`~openstack.baremetal.v1.deploy_templates.DeployTemplate`.
         """
 
         return self._delete(
@@ -1931,7 +2027,11 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_deploy_template(self, deploy_template, fields=None):
+    def get_deploy_template(
+        self,
+        deploy_template: str | _deploytemplates.DeployTemplate,
+        fields: list[str] | None = None,
+    ) -> _deploytemplates.DeployTemplate:
         """Get a specific deployment template.
 
         :param deploy_template: The value can be the name or ID
@@ -1978,8 +2078,8 @@ class Proxy(proxy.Proxy):
     ) -> _deploytemplates.DeployTemplate | None:
         """Find a single deployment template.
 
-        :param str name_or_id: The name or ID of a deployment template.
-        :param bool ignore_missing: When set to ``False``, an exception of
+        :param name_or_id: The name or ID of a deployment template.
+        :param ignore_missing: When set to ``False``, an exception of
             :class:`~openstack.exceptions.ResourceNotFound` will be raised
             when the deployment template does not exist.  When set to `True``,
             None will be returned when attempting to find a nonexistent
@@ -1998,7 +2098,11 @@ class Proxy(proxy.Proxy):
             details=details,
         )
 
-    def patch_deploy_template(self, deploy_template, patch):
+    def patch_deploy_template(
+        self,
+        deploy_template: _deploytemplates.DeployTemplate,
+        patch: list[dict[str, Any]],
+    ) -> _deploytemplates.DeployTemplate:
         """Apply a JSON patch to the deploy_templates.
 
         :param deploy_templates: The value can be the ID of a
@@ -2009,71 +2113,72 @@ class Proxy(proxy.Proxy):
         :param patch: JSON patch to apply.
 
         :returns: The updated deploy_template.
-        :rtype:
-            :class:`~openstack.baremetal.v1.deploy_templates.DeployTemplate`
         """
-        return self._get_resource(
-            _deploytemplates.DeployTemplate, deploy_template
-        ).patch(self, patch)
+        return self._patch(
+            _deploytemplates.DeployTemplate, deploy_template, patch
+        )
 
     # ========== Runbooks ==========
 
-    def runbooks(self, details=False, **query):
+    def runbooks(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_runbooks.Runbook, None, None]:
         """Retrieve a generator of runbooks.
 
         :param details: A boolean indicating whether the detailed information
             for every runbook should be returned.
-        :param dict query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the runbooks to be returned.
 
         :returns: A generator of Runbooks instances.
         """
         if details:
             query['detail'] = True
-        return _runbooks.Runbook.list(self, **query)
+        return self._list(_runbooks.Runbook, **query)
 
     def create_runbook(self, **attrs: Any) -> _runbooks.Runbook:
         """Create a new runbook from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.baremetal.v1.runbooks.Runbook`.
 
         :returns: The results of runbook creation.
-        :rtype: :class:`~openstack.baremetal.v1.runbooks.Runbook`.
         """
         return self._create(_runbooks.Runbook, **attrs)
 
-    def update_runbook(self, runbook, **attrs):
+    def update_runbook(
+        self, runbook: str | _runbooks.Runbook, **attrs: Any
+    ) -> _runbooks.Runbook:
         """Update a runbook.
 
         :param runbook: Either the ID of a runbook,
             or an instance of
             :class:`~openstack.baremetal.v1.runbooks.Runbook`.
-        :param dict attrs: The attributes to update on
-            the runbook represented
-            by the ``runbook`` parameter.
+        :param attrs: The attributes to update on the runbook represented by
+            the ``runbook`` parameter.
 
         :returns: The updated runbook.
-        :rtype: :class:`~openstack.baremetal.v1.runbooks.Runbook`
         """
         return self._update(_runbooks.Runbook, runbook, **attrs)
 
-    def delete_runbook(self, runbook, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_runbook(
+        self, runbook: str | _runbooks.Runbook, ignore_missing: bool = True
+    ) -> _runbooks.Runbook | None:
         """Delete a runbook.
 
-        :param runbook:The value can be
-            either the ID of a runbook or a
+        :param runbook: The value can be either the ID of a runbook or a
             :class:`~openstack.baremetal.v1.runbooks.Runbook`
             instance.
-
-        :param bool ignore_missing: When set to ``False``,
+        :param ignore_missing: When set to ``False``,
             an exception:class:`~openstack.exceptions.NotFoundException`
             will be raised when the runbook could not be found.
             When set to ``True``, no exception will be raised when attempting
             to delete a non-existent runbook.
 
         :returns: The instance of the runbook which was deleted.
-        :rtype: :class:`~openstack.baremetal.v1.runbooks.Runbook`.
         """
 
         return self._delete(
@@ -2082,7 +2187,11 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_runbook(self, runbook, fields=None):
+    def get_runbook(
+        self,
+        runbook: str | _runbooks.Runbook,
+        fields: list[str] | None = None,
+    ) -> _runbooks.Runbook:
         """Get a specific runbook.
 
         :param runbook: The value can be the name or ID
@@ -2099,43 +2208,47 @@ class Proxy(proxy.Proxy):
         """
         return self._get_with_fields(_runbooks.Runbook, runbook, fields=fields)
 
-    def patch_runbook(self, runbook, patch):
+    def patch_runbook(
+        self, runbook: _runbooks.Runbook, patch: list[dict[str, Any]]
+    ) -> _runbooks.Runbook:
         """Apply a JSON patch to the runbook.
 
         :param runbooks: The value can be the ID of a
             runbook or a :class:`~openstack.baremetal.v1.runbooks.Runbook`
             instance.
-
         :param patch: JSON patch to apply.
 
         :returns: The updated runbook.
-        :rtype:
-            :class:`~openstack.baremetal.v1.runbooks.Runbook`
         """
-        return self._get_resource(_runbooks.Runbook, runbook).patch(
-            self, patch
-        )
+        return self._patch(_runbooks.Runbook, runbook, patch)
 
     # ========== Conductors ==========
 
-    def conductors(self, details=False, **query):
+    def conductors(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_conductor.Conductor, None, None]:
         """Retrieve a generator of conductors.
 
-        :param bool details: A boolean indicating whether the detailed
+        :param details: A boolean indicating whether the detailed
             information for every conductor should be returned.
 
         :returns: A generator of conductor instances.
         """
-
         if details:
             query['details'] = True
-        return _conductor.Conductor.list(self, **query)
+        return self._list(_conductor.Conductor, **query)
 
     # NOTE(stephenfin): There is no 'find_conductor' since conductors are
     # identified by the host name, not an arbitrary UUID, meaning
     # 'find_conductor' would be identical to 'get_conductor'
 
-    def get_conductor(self, conductor, fields=None):
+    def get_conductor(
+        self,
+        conductor: str | _conductor.Conductor,
+        fields: list[str] | None = None,
+    ) -> _conductor.Conductor:
         """Get a specific conductor.
 
         :param conductor: The value can be the name of a conductor or a
@@ -2179,7 +2292,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -2194,8 +2307,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
@@ -2215,33 +2328,39 @@ class Proxy(proxy.Proxy):
 
     # ========== Inspection Rules ==========
 
-    def inspection_rules(self, details=False, **query):
+    def inspection_rules(
+        self,
+        details: bool = False,
+        **query: Any,
+    ) -> Generator[_inspectionrules.InspectionRule, None, None]:
         """Retrieve a generator of inspection rules.
 
-        :param dict query: Optional query parameters to be sent to
+        :param query: Optional query parameters to be sent to
             restrict the inspection rules to be returned.
 
         :returns: A generator of InspectionRule instances.
         """
         if details:
             query['details'] = True
-        return _inspectionrules.InspectionRule.list(self, **query)
+        return self._list(_inspectionrules.InspectionRule, **query)
 
     def create_inspection_rule(
         self, **attrs: Any
     ) -> _inspectionrules.InspectionRule:
         """Create a new inspection rule from attributes.
 
-        :param dict attrs: Keyword arguments that will be used to create a
+        :param attrs: Keyword arguments that will be used to create a
             :class:`~openstack.baremetal.v1.inspection_rules.InspectionRule`.
 
         :returns: The results of inspection rule creation.
-        :rtype:
-            :class:`~openstack.baremetal.v1.inspection_rules.InspectionRule`.
         """
         return self._create(_inspectionrules.InspectionRule, **attrs)
 
-    def get_inspection_rule(self, inspection_rule, fields=None):
+    def get_inspection_rule(
+        self,
+        inspection_rule: str | _inspectionrules.InspectionRule,
+        fields: list[str] | None = None,
+    ) -> _inspectionrules.InspectionRule:
         """Get a specific inspection rule.
 
         :param inspection_rule: The ID of an inspection rule
@@ -2259,39 +2378,44 @@ class Proxy(proxy.Proxy):
             _inspectionrules.InspectionRule, inspection_rule, fields=fields
         )
 
-    def update_inspection_rule(self, inspection_rule, **attrs):
+    def update_inspection_rule(
+        self,
+        inspection_rule: str | _inspectionrules.InspectionRule,
+        **attrs: Any,
+    ) -> _inspectionrules.InspectionRule:
         """Update an inspection rule.
 
         :param inspection_rule: Either the ID of an inspection rule
             or an instance of
             :class:`~openstack.baremetal.v1.inspection_rules.InspectionRule`.
-        :param dict attrs: The attributes to update on the
+        :param attrs: The attributes to update on the
             inspection rule represented by the ``inspection_rule`` parameter.
 
         :returns: The updated inspection rule.
-        :rtype:
-            :class:`~openstack.baremetal.v1.inspection_rules.InspectionRule`
         """
         return self._update(
             _inspectionrules.InspectionRule, inspection_rule, **attrs
         )
 
-    def delete_inspection_rule(self, inspection_rule, ignore_missing=True):
+    # TODO(stephenfin): This method should return None
+    def delete_inspection_rule(
+        self,
+        inspection_rule: str | _inspectionrules.InspectionRule,
+        ignore_missing: bool = True,
+    ) -> _inspectionrules.InspectionRule | None:
         """Delete an inspection rule.
 
-        :param inspection_rule: The value can be either the ID of a
-            inspection_rule or a
+        :param inspection_rule: The value can be either the ID of an
+            inspection rule or a
             :class:`~openstack.baremetal.v1.inspection_rules.InspectionRule`
             instance.
-        :param bool ignore_missing: When set to ``False``, an exception
+        :param ignore_missing: When set to ``False``, an exception
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the inspection rule could not be found.
             When set to ``True``, no exception will be raised when
             attempting to delete a non-existent inspection rule.
 
         :returns: The instance of the inspection rule which was deleted.
-        :rtype:
-            :class:`~openstack.baremetal.v1.inspection_rules.InspectionRule`.
         """
         return self._delete(
             _inspectionrules.InspectionRule,
@@ -2299,20 +2423,21 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def patch_inspection_rule(self, inspection_rule, patch):
+    def patch_inspection_rule(
+        self,
+        inspection_rule: _inspectionrules.InspectionRule,
+        patch: list[dict[str, Any]],
+    ) -> _inspectionrules.InspectionRule:
         """Apply a JSON patch to the inspection rule.
 
         :param inspection_rule: The value can be the ID of a
             inspection_rule or a
             :class:`~openstack.baremetal.v1.inspection_rules.InspectionRule`
             instance.
-
         :param patch: JSON patch to apply.
 
         :returns: The updated inspection rule.
-        :rtype:
-            :class:`~openstack.baremetal.v1.inspection_rules.InspectionRule`
         """
-        return self._get_resource(
-            _inspectionrules.InspectionRule, inspection_rule
-        ).patch(self, patch)
+        return self._patch(
+            _inspectionrules.InspectionRule, inspection_rule, patch
+        )

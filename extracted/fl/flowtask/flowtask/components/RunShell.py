@@ -3,7 +3,7 @@ import asyncio
 from typing import List
 from collections.abc import Callable
 from navconfig.logging import logging
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class RunShell(FlowComponent):

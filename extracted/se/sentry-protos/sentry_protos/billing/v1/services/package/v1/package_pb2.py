@@ -27,7 +27,7 @@ from sentry_protos.billing.v1.common.v1 import line_item_details_pb2 as sentry__
 from sentry_protos.billing.v1.common.v1 import pricing_tier_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_pricing__tier__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n:sentry_protos/billing/v1/services/package/v1/package.proto\x12,sentry_protos.billing.v1.services.package.v1\x1a\x39sentry_protos/billing/v1/common/v1/billing_interval.proto\x1a:sentry_protos/billing/v1/common/v1/line_item_details.proto\x1a\x35sentry_protos/billing/v1/common/v1/pricing_tier.proto\"\xdb\x02\n\x0eLineItemConfig\x12\x18\n\x10\x62\x61se_price_cents\x18\x01 \x01(\x04\x12H\n\tpayg_rate\x18\x03 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRate\x12L\n\rreserved_rate\x18\x04 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRate\x12\x16\n\x0cis_unlimited\x18\x05 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_units\x18\x06 \x01(\x04H\x00\x12\x46\n\tline_item\x18\x07 \x01(\x0b\x32\x33.sentry_protos.billing.v1.common.v1.LineItemDetailsB\x19\n\x17included_reserved_units\"z\n\x12SharedLineItemPool\x12\x1b\n\x13reserved_pool_cents\x18\x01 \x01(\x04\x12G\n\nline_items\x18\x03 \x03(\x0b\x32\x33.sentry_protos.billing.v1.common.v1.LineItemDetails\"\xf6\x02\n\rPackageConfig\x12\x0b\n\x03uid\x18\x01 \x01(\t\x12W\n\x11line_item_configs\x18\x02 \x03(\x0b\x32<.sentry_protos.billing.v1.services.package.v1.LineItemConfig\x12`\n\x16shared_line_item_pools\x18\x03 \x03(\x0b\x32@.sentry_protos.billing.v1.services.package.v1.SharedLineItemPool\x12\x18\n\x10\x62\x61se_price_cents\x18\x04 \x01(\x04\x12Q\n\x10\x62illing_interval\x18\x05 \x01(\x0e\x32\x33.sentry_protos.billing.v1.common.v1.BillingIntervalB\x02\x18\x01\x12\r\n\x05title\x18\x06 \x01(\t\x12!\n\x19supported_month_intervals\x18\x07 \x03(\rb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n:sentry_protos/billing/v1/services/package/v1/package.proto\x12,sentry_protos.billing.v1.services.package.v1\x1a\x39sentry_protos/billing/v1/common/v1/billing_interval.proto\x1a:sentry_protos/billing/v1/common/v1/line_item_details.proto\x1a\x35sentry_protos/billing/v1/common/v1/pricing_tier.proto\"\xf7\x02\n\x0eLineItemConfig\x12\x18\n\x10\x62\x61se_price_cents\x18\x01 \x01(\x04\x12H\n\tpayg_rate\x18\x03 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRate\x12L\n\rreserved_rate\x18\x04 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRate\x12\x16\n\x0cis_unlimited\x18\x05 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_units\x18\x06 \x01(\x04H\x00\x12\x46\n\tline_item\x18\x07 \x01(\x0b\x32\x33.sentry_protos.billing.v1.common.v1.LineItemDetails\x12\x1a\n\x12is_optional_add_on\x18\x08 \x01(\x08\x42\x19\n\x17included_reserved_units\"\x96\x01\n\x12SharedLineItemPool\x12\x1b\n\x13reserved_pool_cents\x18\x01 \x01(\x04\x12G\n\nline_items\x18\x03 \x03(\x0b\x32\x33.sentry_protos.billing.v1.common.v1.LineItemDetails\x12\x1a\n\x12is_optional_add_on\x18\x04 \x01(\x08\"\xf6\x02\n\rPackageConfig\x12\x0b\n\x03uid\x18\x01 \x01(\t\x12W\n\x11line_item_configs\x18\x02 \x03(\x0b\x32<.sentry_protos.billing.v1.services.package.v1.LineItemConfig\x12`\n\x16shared_line_item_pools\x18\x03 \x03(\x0b\x32@.sentry_protos.billing.v1.services.package.v1.SharedLineItemPool\x12\x18\n\x10\x62\x61se_price_cents\x18\x04 \x01(\x04\x12Q\n\x10\x62illing_interval\x18\x05 \x01(\x0e\x32\x33.sentry_protos.billing.v1.common.v1.BillingIntervalB\x02\x18\x01\x12\r\n\x05title\x18\x06 \x01(\t\x12!\n\x19supported_month_intervals\x18\x07 \x03(\rb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,9 +37,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_PACKAGECONFIG'].fields_by_name['billing_interval']._loaded_options = None
   _globals['_PACKAGECONFIG'].fields_by_name['billing_interval']._serialized_options = b'\030\001'
   _globals['_LINEITEMCONFIG']._serialized_start=283
-  _globals['_LINEITEMCONFIG']._serialized_end=630
-  _globals['_SHAREDLINEITEMPOOL']._serialized_start=632
-  _globals['_SHAREDLINEITEMPOOL']._serialized_end=754
-  _globals['_PACKAGECONFIG']._serialized_start=757
-  _globals['_PACKAGECONFIG']._serialized_end=1131
+  _globals['_LINEITEMCONFIG']._serialized_end=658
+  _globals['_SHAREDLINEITEMPOOL']._serialized_start=661
+  _globals['_SHAREDLINEITEMPOOL']._serialized_end=811
+  _globals['_PACKAGECONFIG']._serialized_start=814
+  _globals['_PACKAGECONFIG']._serialized_end=1188
 # @@protoc_insertion_point(module_scope)

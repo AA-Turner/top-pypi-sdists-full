@@ -193,6 +193,18 @@ class LineItemUids(google.protobuf.message.Message):
 global___LineItemUids = LineItemUids
 
 @typing.final
+class Activation(google.protobuf.message.Message):
+    """For activating add-ons that do not necessarily require Reservation or PAYGBudget changes"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___Activation = Activation
+
+@typing.final
 class UserConfig(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -200,6 +212,7 @@ class UserConfig(google.protobuf.message.Message):
     RESERVATION_FIELD_NUMBER: builtins.int
     SPECIFIC_ITEMS_FIELD_NUMBER: builtins.int
     ALL_ITEMS_FIELD_NUMBER: builtins.int
+    ACTIVATION_FIELD_NUMBER: builtins.int
     @property
     def payg_budget(self) -> global___PAYGBudget: ...
     @property
@@ -208,6 +221,8 @@ class UserConfig(google.protobuf.message.Message):
     def specific_items(self) -> global___LineItemUids: ...
     @property
     def all_items(self) -> google.protobuf.empty_pb2.Empty: ...
+    @property
+    def activation(self) -> global___Activation: ...
     def __init__(
         self,
         *,
@@ -215,9 +230,10 @@ class UserConfig(google.protobuf.message.Message):
         reservation: global___Reservation | None = ...,
         specific_items: global___LineItemUids | None = ...,
         all_items: google.protobuf.empty_pb2.Empty | None = ...,
+        activation: global___Activation | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "specific_items", b"specific_items"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "specific_items", b"specific_items"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["activation", b"activation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "specific_items", b"specific_items"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["activation", b"activation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "specific_items", b"specific_items"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["line_items", b"line_items"]) -> typing.Literal["specific_items", "all_items"] | None: ...
 
 global___UserConfig = UserConfig

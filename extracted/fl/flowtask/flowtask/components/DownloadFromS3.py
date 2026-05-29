@@ -6,7 +6,7 @@ from collections.abc import Callable
 import aiofiles
 from botocore.exceptions import ClientError
 from ..exceptions import FileError, ComponentError, FileNotFound
-from .DownloadFrom import DownloadFromBase
+from ..interfaces.download_from import DownloadFromBase
 from ..interfaces.Boto3Client import Boto3Client
 
 

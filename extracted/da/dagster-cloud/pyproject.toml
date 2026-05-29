@@ -6,8 +6,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-cloud"
-requires-python = ">=3.9,<3.15"
-version = "1.13.6"
+requires-python = ">=3.10,<3.15"
+version = "1.13.7"
 authors = [
     { name = "Elementl", email = "support@elementl.com" },
 ]
@@ -17,7 +17,6 @@ classifiers = [
     "Environment :: Web Environment",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -29,9 +28,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.13.6",
-    "dagster-shared==1.13.6",
-    "dagster-cloud-cli==1.13.6",
+    "dagster==1.13.7",
+    "dagster-shared==1.13.7",
+    "dagster-cloud-cli==1.13.7",
     "pex>=2.1.132,<2.60.0",
     "questionary",
     "requests",
@@ -58,44 +57,19 @@ Blog = "https://dagster.io/blog"
 Newsletter = "https://dagster.io/newsletter-signup"
 
 [project.optional-dependencies]
-tests = [
-    "docker",
-    "responses",
-    "isort",
-    "freezegun",
-    "wordcloud",
-    "kubernetes",
-    "moto[all]",
-    "mypy",
-    "psutil",
-    "pylint",
-    "pytest",
-    "types-PyYAML",
-    "types-requests",
-    "dbt-bigquery>=1.9.0",
-    "dbt-core",
-    "dbt-snowflake",
-    "dbt-duckdb",
-    "dagster-dbt==0.29.6",
-    "dagster-k8s==0.29.6",
-    "dagster-docker==0.29.6",
-    "dagster-dg-cli==1.13.6",
-    "syrupy",
-    "pip",
-]
 insights = [
     "pyarrow",
 ]
 docker = [
     "docker",
-    "dagster-docker==0.29.6",
+    "dagster-docker==0.29.7",
 ]
 kubernetes = [
     "kubernetes",
-    "dagster-k8s==0.29.6",
+    "dagster-k8s==0.29.7",
 ]
 ecs = [
-    "dagster-aws==0.29.6",
+    "dagster-aws==0.29.7",
     "boto3",
 ]
 sandbox = [
@@ -107,3 +81,81 @@ pex = [
 serverless = [
     "boto3",
 ]
+
+[dependency-groups]
+test = [
+    "dagster[test]",
+    "dagster-pipes",
+    "dagster-shared",
+    "dagster-test",
+    "dagster-aws",
+    "dagster-cloud-cli",
+    "dagster-dbt",
+    "dagster-dg-cli",
+    "dagster-docker",
+    "dagster-k8s",
+    "dagster-rest-resources",
+    "dbt-bigquery>=1.9.0",
+    "dbt-core",
+    "dbt-duckdb",
+    "dbt-snowflake",
+    "docker",
+    "freezegun",
+    "isort",
+    "kubernetes",
+    "moto[all]",
+    "mypy",
+    "pip",
+    "psutil",
+    "pylint",
+    "pytest",
+    "responses",
+    "syrupy",
+    "types-PyYAML",
+    "types-requests",
+    "wordcloud",
+]
+
+[tool.uv.sources.dagster]
+path = "../dagster"
+editable = true
+
+[tool.uv.sources.dagster-pipes]
+path = "../dagster-pipes"
+editable = true
+
+[tool.uv.sources.dagster-shared]
+path = "../libraries/dagster-shared"
+editable = true
+
+[tool.uv.sources.dagster-test]
+path = "../dagster-test"
+editable = true
+
+[tool.uv.sources.dagster-aws]
+path = "../libraries/dagster-aws"
+editable = true
+
+[tool.uv.sources.dagster-cloud-cli]
+path = "../libraries/dagster-cloud-cli"
+editable = true
+
+[tool.uv.sources.dagster-dbt]
+path = "../libraries/dagster-dbt"
+editable = true
+
+[tool.uv.sources.dagster-dg-cli]
+path = "../libraries/dagster-dg-cli"
+editable = true
+
+[tool.uv.sources.dagster-docker]
+path = "../libraries/dagster-docker"
+editable = true
+
+[tool.uv.sources.dagster-k8s]
+path = "../libraries/dagster-k8s"
+editable = true
+
+[tool.uv.sources.dagster-rest-resources]
+path = "../libraries/dagster-rest-resources"
+editable = true

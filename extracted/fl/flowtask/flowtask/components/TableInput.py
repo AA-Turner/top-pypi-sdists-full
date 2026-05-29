@@ -4,7 +4,7 @@ import dask.dataframe as dd
 import pandas
 import numpy as np
 from ..exceptions import DataNotFound
-from .TableBase import TableBase
+from ..interfaces.table_base import TableBase
 
 dtypes = {
     "varchar": str,

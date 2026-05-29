@@ -18,8 +18,9 @@ if TYPE_CHECKING:
     from caldav.calendarobjectresource import CalendarObjectResource
     from caldav.collection import Calendar, Principal
 
-# Try niquests first (preferred), fall back to httpx
+# Try niquests first (preferred), then httpxyz, then httpx
 _USE_HTTPX = False
+_USE_HTTPXYZ = False
 _USE_NIQUESTS = False
 _H2_AVAILABLE = False
 
@@ -34,10 +35,10 @@ except ImportError:
 
 if not _USE_NIQUESTS:
     try:
-        import httpx
+        import httpxyz as httpx
 
+        _USE_HTTPXYZ = True
         _USE_HTTPX = True
-        # Check if h2 is available for HTTP/2 support
         try:
             import h2  # noqa: F401
 
@@ -46,6 +47,31 @@ if not _USE_NIQUESTS:
             pass
 
         class _HttpxBearerAuth(httpx.Auth):
+            """httpx/httpxyz-compatible bearer token auth."""
+
+            def __init__(self, password: str) -> None:
+                self.password = password
+
+            def auth_flow(self, request):
+                request.headers["Authorization"] = f"Bearer {self.password}"
+                yield request
+
+    except ImportError:
+        pass
+
+if not _USE_NIQUESTS and not _USE_HTTPXYZ:
+    try:
+        import httpx
+
+        _USE_HTTPX = True
+        try:
+            import h2  # noqa: F401
+
+            _H2_AVAILABLE = True
+        except ImportError:
+            pass
+
+        class _HttpxBearerAuth(httpx.Auth):  # type: ignore[no-redef]
             """httpx-compatible bearer token auth."""
 
             def __init__(self, password: str) -> None:
@@ -60,8 +86,8 @@ if not _USE_NIQUESTS:
 
 if not _USE_HTTPX and not _USE_NIQUESTS:
     raise ImportError(
-        "Either httpx or niquests library is required for async_davclient. "
-        "Install with: pip install httpx  (or: pip install niquests)"
+        "An async HTTP library is required for async_davclient. "
+        "Install with: pip install niquests  (or: pip install httpxyz  or: pip install httpx)"
     )
 
 
@@ -105,7 +131,7 @@ class AsyncDAVClient(BaseDAVClient):
         proxy: str | None = None,
         username: str | None = None,
         password: str | None = None,
-        auth: Any | None = None,  # httpx.Auth or niquests.auth.AuthBase
+        auth: Any | None = None,  # httpx.Auth, httpxyz.Auth, or niquests.auth.AuthBase
         auth_type: str | None = None,
         timeout: int | None = None,
         ssl_verify_cert: bool | str = True,
@@ -124,7 +150,7 @@ class AsyncDAVClient(BaseDAVClient):
 
         Args:
             url: CalDAV server URL, domain, or email address.
-            proxy: Proxy server (scheme://hostname:port).
+            proxy: Proxy server (e.g. http://proxy.example.com:8080).
             username: Username for authentication.
             password: Password for authentication.
             auth: Custom auth object (httpx.Auth or niquests AuthBase).
@@ -835,9 +861,9 @@ class AsyncDAVClient(BaseDAVClient):
             if _USE_HTTPX:
                 self.auth = httpx.DigestAuth(self.username, self.password)
             else:
-                from niquests.auth import HTTPDigestAuth
+                from niquests.auth import AsyncHTTPDigestAuth
 
-                self.auth = HTTPDigestAuth(self.username, self.password)
+                self.auth = AsyncHTTPDigestAuth(self.username, self.password)
         elif auth_type == "basic":
             if _USE_HTTPX:
                 self.auth = httpx.BasicAuth(self.username, self.password)
@@ -1069,7 +1095,11 @@ class AsyncDAVClient(BaseDAVClient):
 
         Returns the DAV header from an OPTIONS request, or None if not supported.
         """
-        response = await self.options(str(self.url))
+        try:
+            principal = await self.principal()
+            response = await self.options(principal.url)
+        except Exception:
+            response = await self.options(str(self.url))
         return response.headers.get("DAV")
 
     async def check_cdav_support(self) -> bool:

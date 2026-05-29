@@ -105,6 +105,41 @@ class ConfigParser(object):
             default=False,
             help="Put Task in Queue Worker",
         )
+        # ── Executor selection flags (FEAT-022) ───────────────────────────────
+        self.parser.add_argument(
+            "--executor",
+            dest="executor",
+            type=str,
+            default=None,
+            metavar="NAME",
+            help=(
+                "Executor backend to use for this task "
+                "(local, qworker, publish, docker, k8s). "
+                "Overrides task YAML executor and DEFAULT_EXECUTOR."
+            ),
+        )
+        self.parser.add_argument(
+            "--executor-image",
+            dest="executor_image",
+            type=str,
+            default=None,
+            metavar="IMAGE",
+            help=(
+                "Container image for docker/k8s executors. "
+                "Overrides ExecutorConfig.image."
+            ),
+        )
+        self.parser.add_argument(
+            "--executor-namespace",
+            dest="executor_namespace",
+            type=str,
+            default=None,
+            metavar="NAMESPACE",
+            help=(
+                "Kubernetes namespace for k8s executor. "
+                "Overrides ExecutorConfig.namespace."
+            ),
+        )
         # WIP: disable notifications
         self.parser.add_argument(
             "--no-notify",

@@ -297,6 +297,50 @@ class MassTest(unittest.TestCase):
         self.assertEqual(record, db.by_title(rec_title))
         self.assertEqual(record, db.by_name(rec_name))
 
+    def test_compare_ion_comp_with_Unimod(self):
+        db = mass.Unimod(gzip.open('unimod.xml.gz'))
+        for ion_type in 'abcxz':
+            with self.subTest(ion_type=ion_type):
+                unimod_ion = db.by_title(f'{ion_type}-type-ion')
+                if unimod_ion:
+                    self.assertEqual(unimod_ion['composition'], mass.std_ion_comp[ion_type])
+                else:
+                    self.skipTest(f'Saved Unimod does not contain a record for {ion_type}-type-ion')
+
+    def test_ion_complementarity(self):
+        for pair in [('a+1', 'x+1'), ('b', 'y'), ('c', 'z')]:
+            with self.subTest(pair=pair):
+                ion1, ion2 = pair
+                comp1 = mass.std_ion_comp[ion1]
+                comp2 = mass.std_ion_comp[ion2]
+                self.assertEqual(comp1 + comp2, -mass.Composition({'H': 2, 'O': 1}))
+
+    def test_ion_dot_notation(self):
+        for key in mass.std_ion_comp:
+            if key.endswith('-dot'):
+                with self.subTest(key=key):
+                    comp_dot = mass.std_ion_comp[key]
+                    comp_p1 = mass.std_ion_comp[key[:-4] + '+1']
+                    self.assertEqual(comp_dot, comp_p1)
+
+    def test_ion_comp_consistency(self):
+        for ion_type, comp in mass.std_ion_comp.items():
+            with self.subTest(ion_type=ion_type):
+                if '-dot' in ion_type:
+                    continue
+                if '-1' in ion_type:
+                    self.assertEqual(comp + {'H': 1}, mass.std_ion_comp[ion_type[:-2]])
+                elif '+1' in ion_type:
+                    self.assertEqual(comp - {'H': 1}, mass.std_ion_comp[ion_type[:-2]])
+                elif '+2' in ion_type:
+                    self.assertEqual(comp - {'H': 2}, mass.std_ion_comp[ion_type[:-2]])
+                elif '+3' in ion_type:
+                    self.assertEqual(comp - {'H': 3}, mass.std_ion_comp[ion_type[:-2]])
+                elif '-H2O' in ion_type:
+                    self.assertEqual(comp + {'H': 2, 'O': 1}, mass.std_ion_comp[ion_type[:-4]])
+                elif '-NH3' in ion_type:
+                    self.assertEqual(comp + {'N': 1, 'H': 3}, mass.std_ion_comp[ion_type[:-4]])
+
     def test_nist_mass(self):
         self.assertTrue(all(abs(g[0][1] - 1) < 1e-6 for g in mass.nist_mass.values()))
         for g in mass.nist_mass.values():
@@ -360,6 +404,110 @@ class MassTest(unittest.TestCase):
     def test_std_aa_mass(self):
         for key, value in mass.std_aa_mass.items():
             self.assertAlmostEqual(value, mass.calculate_mass(parsed_sequence=[key]), places=4)
+
+    def test_fragment_series_modx_vs_proforma(self):
+        """Test that fragment_series produces identical results for modX and ProForma formats."""
+        # Define sequences with phosphorylation on threonine
+        # modX format: phosphorylated threonine
+        seq_modx = 'PEPpTIDE'
+        # ProForma format: threonine with +79.966331 (phosphorylation)
+        seq_proforma = 'PEPT[+79.966331]IDE'
+
+        # Define amino acid compositions including phosphorylated threonine
+        aa_comp_modx = mass.std_aa_comp.copy()
+        aa_comp_modx['pT'] = mass.Composition(formula='H8C4O5NP')  # T + phosphate group
+
+        # Test parameters
+        ion_types = ('b', 'y')
+        maxcharge = 2
+
+        # Generate fragments for modX sequence
+        fragments_modx = mass.fragment_series(
+            seq_modx,
+            ion_types=ion_types,
+            maxcharge=maxcharge,
+            aa_mass={k: mass.calculate_mass(composition=v) for k, v in aa_comp_modx.items()}
+        )
+
+        # Generate fragments for ProForma sequence
+        fragments_proforma = mass.fragment_series(
+            seq_proforma,
+            ion_types=ion_types,
+            maxcharge=maxcharge
+        )
+
+        # Verify that both formats produce the same ion types
+        self.assertEqual(set(fragments_modx.keys()), set(fragments_proforma.keys()),
+                        "Ion types should be identical for modX and ProForma")
+
+        # Verify that m/z values are identical (within tolerance)
+        for ion_type in ion_types:
+            modx_fragments = fragments_modx[ion_type]
+            proforma_fragments = fragments_proforma[ion_type]
+
+            self.assertEqual(len(modx_fragments), len(proforma_fragments),
+                           f"Number of {ion_type} ions should be identical")
+
+            # Check that fragment names match
+            self.assertEqual(set(modx_fragments), set(proforma_fragments),
+                           f"{ion_type} ion names should be identical")
+
+            # Check m/z values are close (allowing for small numerical differences)
+            for fragment_name in modx_fragments:
+                self.assertAlmostEqual(modx_fragments[fragment_name], proforma_fragments[fragment_name], places=5,
+                                     msg=f"{ion_type} ion {fragment_name} m/z values should be identical")
+
+        # Additional checks to ensure we got reasonable results
+        self.assertGreater(len(fragments_modx['b']), 0, "Should generate b ions")
+        self.assertGreater(len(fragments_modx['y']), 0, "Should generate y ions")
+
+        # Check that we have the expected number of fragments for a 7-residue peptide
+        # For each charge state, we expect 6 b ions and 6 y ions
+        expected_fragments_per_charge = 6
+        expected_total_fragments = expected_fragments_per_charge * maxcharge
+
+        self.assertEqual(len(fragments_modx['b']), expected_total_fragments,
+                        f"Expected {expected_total_fragments} b ions")
+        self.assertEqual(len(fragments_modx['y']), expected_total_fragments,
+                        f"Expected {expected_total_fragments} y ions")
+
+    def test_fragment_series_basic_functionality(self):
+        """Test basic functionality of fragment_series with a simple sequence."""
+        seq = 'PEPTIDE'
+
+        # Test with default parameters
+        fragments = mass.fragment_series(seq)
+
+        # Should have b and y ions by default
+        self.assertIn('b', fragments)
+        self.assertIn('y', fragments)
+
+        # For PEPTIDE (7 residues), with maxcharge=1, expect 6 b ions and 6 y ions
+        self.assertEqual(len(fragments['b']), 6)
+        self.assertEqual(len(fragments['y']), 6)
+
+        # Check that names are correct
+        expected_b_names = {'b1+', 'b2+', 'b3+', 'b4+', 'b5+', 'b6+'}
+        expected_y_names = {'y1+', 'y2+', 'y3+', 'y4+', 'y5+', 'y6+'}
+        self.assertEqual(set(fragments['b'].keys()), expected_b_names)
+        self.assertEqual(set(fragments['y'].keys()), expected_y_names)
+
+        # Check that m/z values are reasonable (all positive)
+        for ion_type in ['b', 'y']:
+            for fragment_name, mz_val in fragments[ion_type].items():
+                self.assertGreater(mz_val, 0, f"m/z value for {fragment_name} should be positive")
+
+        # Test with different ion types
+        fragments_abc = mass.fragment_series(seq, ion_types=('a', 'b', 'c'))
+        self.assertIn('a', fragments_abc)
+        self.assertIn('b', fragments_abc)
+        self.assertIn('c', fragments_abc)
+
+        # Test with higher charge states
+        fragments_z2 = mass.fragment_series(seq, maxcharge=2)
+        # With maxcharge=2, should have twice as many fragments
+        self.assertEqual(len(fragments_z2['b']), 12)  # 6 fragments × 2 charge states
+        self.assertEqual(len(fragments_z2['y']), 12)
 
 
 if __name__ == '__main__':

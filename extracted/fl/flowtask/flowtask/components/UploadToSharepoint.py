@@ -7,7 +7,7 @@ from ..exceptions import (
     FileError,
     ConfigError
 )
-from .UploadTo import UploadToBase
+from ..interfaces.upload_to import UploadToBase
 from ..interfaces.Sharepoint import SharepointClient
 
 

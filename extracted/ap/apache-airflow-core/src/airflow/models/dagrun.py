@@ -57,6 +57,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import Mapped, declared_attr, joinedload, mapped_column, relationship, synonym, validates
+from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy.sql.expression import false, select
 from sqlalchemy.sql.functions import coalesce
 
@@ -842,10 +843,10 @@ class DagRun(Base, LoggingMixin):
         dag_runs = session.scalars(
             select(DagRun)
             .where(DagRun.dag_id == dag_id)
-            .order_by(DagRun.logical_date.desc())
+            .order_by(DagRun.run_after.desc(), DagRun.id.desc())
             .limit(max_consecutive_failed_dag_runs)
         ).all()
-        """ Marking dag as paused, if needed"""
+        # Mark dag as paused, if needed
         to_be_paused = len(dag_runs) >= max_consecutive_failed_dag_runs and all(
             dag_run.state == DagRunState.FAILED for dag_run in dag_runs
         )
@@ -1873,14 +1874,17 @@ class DagRun(Base, LoggingMixin):
                     extra_tags={"task_type": task_type},
                 )
             session.flush()
-        except IntegrityError:
+        except (IntegrityError, StaleDataError) as exc:
             self.log.info(
-                "Hit IntegrityError while creating the TIs for %s- %s",
+                "Hit %s while creating the TIs for %s- %s",
+                type(exc).__name__,
                 dag_id,
                 run_id,
                 exc_info=True,
             )
             self.log.info("Doing session rollback.")
+            # Catching StaleDataError and rolling back is sufficient here because
+            # the next scheduler loop will re-read the latest state from the DB.
             # TODO[HA]: We probably need to savepoint this so we can keep the transaction alive.
             session.rollback()
 
@@ -2005,6 +2009,8 @@ class DagRun(Base, LoggingMixin):
             # to render start_from_trigger in the scheduler. If we need to
             # render the value in a worker, it kind of defeats the purpose of
             # this feature (which is to save a worker process if possible).
+            # Re-enabled on main by #55068 but not backported to 3.2;
+            # decision tracked at https://github.com/apache/airflow/issues/66307
             # elif task.start_trigger_args is not None:
             #     if task.expand_start_from_trigger(context=ti.get_template_context()):
             #         ti.start_date = timezone.utcnow()

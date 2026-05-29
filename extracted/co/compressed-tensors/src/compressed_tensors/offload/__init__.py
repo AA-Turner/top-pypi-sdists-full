@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from typing import Literal
 
 import torch
+from compressed_tensors.distributed.utils import set_source_process
 from compressed_tensors.offload.cache import OffloadCache
 from compressed_tensors.offload.convert import from_accelerate, to_accelerate
 from compressed_tensors.offload.dispatch import (  # noqa: F401
@@ -24,8 +25,13 @@ from compressed_tensors.offload.dist_utils import (
 )
 from compressed_tensors.offload.load import load_offloaded_model
 from compressed_tensors.offload.module import offload_module, unwrap_offload_forward
-from compressed_tensors.offload.utils import get_module_device, move_module_tensor
-from compressed_tensors.utils.helpers import patch_attr
+from compressed_tensors.offload.utils import (
+    as_single_threaded,
+    get_module_device,
+    move_module_tensor,
+    to_meta,
+)
+from compressed_tensors.utils.helpers import deprecated, patch_attr
 
 
 __all__ = [
@@ -36,6 +42,10 @@ __all__ = [
     "remove_dispatch",
     "dispatch_with_map",
     "get_device_map",
+    # dispatch modules
+    "offload_module",
+    "get_cache_kwargs",  # deprecated, use get_cache_init_kwargs
+    "get_cache_init_kwargs",
     # accelerate conversion
     "load_offloaded_model",
     "from_accelerate",
@@ -58,6 +68,10 @@ __all__ = [
     "is_rank0",
     "init_dist",
     "as_broadcastable",
+    "as_single_threaded",
+    "set_source_process",
+    "to_meta",
+    "get_cache_init_kwargs",
 ]
 
 
@@ -165,11 +179,13 @@ def get_offloaded_device(
         return get_module_device(module, default)
 
 
+@deprecated("compressed_tensors.offload::get_cache_init_kwargs")
 def get_cache_kwargs(module: torch.nn.Module, default: dict | None = None) -> dict:
     """
     Get any ancillary kwargs needed for the module OffloadCache
 
     :param module: module to check
+    :param default: dictionary of kwargs to update with additional arguments
     :return: dict of cache kwargs
     """
     kwargs = default.copy() if default is not None else {}
@@ -200,8 +216,8 @@ def get_cache_init_kwargs(
     kwargs["offload_device"] = get_offloaded_device(
         module, kwargs.get("offload_device")
     )
-    cache_kwargs = get_cache_kwargs(module)
-    kwargs.update(cache_kwargs)
+    if hasattr(module._parameters, "offload_dir"):
+        kwargs["offload_dir"] = module._parameters.offload_dir
     return kwargs
 
 

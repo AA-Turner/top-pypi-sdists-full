@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rich-click
-Version: 1.9.7
+Version: 1.9.8
 Summary: Format click help output nicely with rich
 Author-email: Phil Ewels <phil@ewels.co.uk>
 Maintainer-email: Phil Ewels <phil@ewels.co.uk>, Daniel Reeves <xdanielreeves@gmail.com>
@@ -58,7 +58,7 @@ Requires-Dist: pytest>=8.3.5; extra == "dev"
 Requires-Dist: pytest-cov>=5; extra == "dev"
 Requires-Dist: rich-codex>=1.2.11; extra == "dev"
 Requires-Dist: ruff>=0.12.4; extra == "dev"
-Requires-Dist: typer>=0.15; extra == "dev"
+Requires-Dist: typer<0.26,>=0.15; extra == "dev"
 Requires-Dist: types-setuptools>=75.8.0.20250110; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: markdown-include>=0.8.1; extra == "docs"
@@ -73,7 +73,7 @@ Requires-Dist: mkdocs-redirects>=1.2.2; extra == "docs"
 Requires-Dist: mkdocs-rss-plugin>=1.15; extra == "docs"
 Requires-Dist: mkdocstrings[python]>=0.26.1; extra == "docs"
 Requires-Dist: rich-codex>=1.2.11; extra == "docs"
-Requires-Dist: typer>=0.15; extra == "docs"
+Requires-Dist: typer<0.26,>=0.15; extra == "docs"
 Dynamic: license-file
 
 <p align="center">

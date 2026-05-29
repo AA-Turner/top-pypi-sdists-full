@@ -39,39 +39,6 @@ class IExceptionInterpreter(metaclass=abc.ABCMeta):
         ...
 
 
-class SystemExceptionInterpreter(System.Object, QuantConnect.Exceptions.IExceptionInterpreter):
-    """Base handler that will try get an exception file and line"""
-
-    @property
-    def order(self) -> int:
-        """Determines the order that an instance of this class should be called"""
-        ...
-
-    def can_interpret(self, exception: System.Exception) -> bool:
-        """
-        Determines if this interpreter should be applied to the specified exception. f
-        
-        :param exception: The exception to check
-        :returns: True if the exception can be interpreted, false otherwise.
-        """
-        ...
-
-    def interpret(self, exception: System.Exception, inner_interpreter: QuantConnect.Exceptions.IExceptionInterpreter) -> System.Exception:
-        """
-        Interprets the specified exception into a new exception
-        
-        :param exception: The exception to be interpreted
-        :param inner_interpreter: An interpreter that should be applied to the inner exception.
-        :returns: The interpreted exception.
-        """
-        ...
-
-    @staticmethod
-    def try_get_line_and_file(stack_trace: str, file_and_line: typing.Optional[str]) -> typing.Tuple[bool, str]:
-        """Helper method to get the file and line from a C# stacktrace"""
-        ...
-
-
 class PythonExceptionInterpreter(System.Object, QuantConnect.Exceptions.IExceptionInterpreter):
     """Interprets PythonExceptionInterpreter instances"""
 
@@ -100,36 +67,8 @@ class PythonExceptionInterpreter(System.Object, QuantConnect.Exceptions.IExcepti
         ...
 
 
-class KeyErrorPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
-    """Interprets KeyErrorPythonExceptionInterpreter instances"""
-
-    @property
-    def order(self) -> int:
-        """Determines the order that an instance of this class should be called"""
-        ...
-
-    def can_interpret(self, exception: System.Exception) -> bool:
-        """
-        Determines if this interpreter should be applied to the specified exception.
-        
-        :param exception: The exception to check
-        :returns: True if the exception can be interpreted, false otherwise.
-        """
-        ...
-
-    def interpret(self, exception: System.Exception, inner_interpreter: QuantConnect.Exceptions.IExceptionInterpreter) -> System.Exception:
-        """
-        Interprets the specified exception into a new exception
-        
-        :param exception: The exception to be interpreted
-        :param inner_interpreter: An interpreter that should be applied to the inner exception.
-        :returns: The interpreted exception.
-        """
-        ...
-
-
-class UnsupportedOperandPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
-    """Interprets UnsupportedOperandPythonExceptionInterpreter instances"""
+class InvalidTokenPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
+    """Interprets InvalidTokenPythonExceptionInterpreter instances"""
 
     @property
     def order(self) -> int:
@@ -221,8 +160,8 @@ class StackExceptionInterpreter(System.Object, QuantConnect.Exceptions.IExceptio
         ...
 
 
-class DllNotFoundPythonExceptionInterpreter(System.Object, QuantConnect.Exceptions.IExceptionInterpreter):
-    """Interprets DllNotFoundPythonExceptionInterpreter instances"""
+class SystemExceptionInterpreter(System.Object, QuantConnect.Exceptions.IExceptionInterpreter):
+    """Base handler that will try get an exception file and line"""
 
     @property
     def order(self) -> int:
@@ -231,7 +170,7 @@ class DllNotFoundPythonExceptionInterpreter(System.Object, QuantConnect.Exceptio
 
     def can_interpret(self, exception: System.Exception) -> bool:
         """
-        Determines if this interpreter should be applied to the specified exception.
+        Determines if this interpreter should be applied to the specified exception. f
         
         :param exception: The exception to check
         :returns: True if the exception can be interpreted, false otherwise.
@@ -246,6 +185,11 @@ class DllNotFoundPythonExceptionInterpreter(System.Object, QuantConnect.Exceptio
         :param inner_interpreter: An interpreter that should be applied to the inner exception.
         :returns: The interpreted exception.
         """
+        ...
+
+    @staticmethod
+    def try_get_line_and_file(stack_trace: str, file_and_line: typing.Optional[str]) -> typing.Tuple[bool, str]:
+        """Helper method to get the file and line from a C# stacktrace"""
         ...
 
 
@@ -277,8 +221,64 @@ class ClrBubbledExceptionInterpreter(QuantConnect.Exceptions.SystemExceptionInte
         ...
 
 
-class InvalidTokenPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
-    """Interprets InvalidTokenPythonExceptionInterpreter instances"""
+class KeyErrorPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
+    """Interprets KeyErrorPythonExceptionInterpreter instances"""
+
+    @property
+    def order(self) -> int:
+        """Determines the order that an instance of this class should be called"""
+        ...
+
+    def can_interpret(self, exception: System.Exception) -> bool:
+        """
+        Determines if this interpreter should be applied to the specified exception.
+        
+        :param exception: The exception to check
+        :returns: True if the exception can be interpreted, false otherwise.
+        """
+        ...
+
+    def interpret(self, exception: System.Exception, inner_interpreter: QuantConnect.Exceptions.IExceptionInterpreter) -> System.Exception:
+        """
+        Interprets the specified exception into a new exception
+        
+        :param exception: The exception to be interpreted
+        :param inner_interpreter: An interpreter that should be applied to the inner exception.
+        :returns: The interpreted exception.
+        """
+        ...
+
+
+class UnsupportedOperandPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
+    """Interprets UnsupportedOperandPythonExceptionInterpreter instances"""
+
+    @property
+    def order(self) -> int:
+        """Determines the order that an instance of this class should be called"""
+        ...
+
+    def can_interpret(self, exception: System.Exception) -> bool:
+        """
+        Determines if this interpreter should be applied to the specified exception.
+        
+        :param exception: The exception to check
+        :returns: True if the exception can be interpreted, false otherwise.
+        """
+        ...
+
+    def interpret(self, exception: System.Exception, inner_interpreter: QuantConnect.Exceptions.IExceptionInterpreter) -> System.Exception:
+        """
+        Interprets the specified exception into a new exception
+        
+        :param exception: The exception to be interpreted
+        :param inner_interpreter: An interpreter that should be applied to the inner exception.
+        :returns: The interpreted exception.
+        """
+        ...
+
+
+class NoMethodMatchPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
+    """Interprets NoMethodMatchPythonExceptionInterpreter instances"""
 
     @property
     def order(self) -> int:
@@ -336,8 +336,8 @@ class ScheduledEventExceptionInterpreter(System.Object, QuantConnect.Exceptions.
         ...
 
 
-class NoMethodMatchPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
-    """Interprets NoMethodMatchPythonExceptionInterpreter instances"""
+class DllNotFoundPythonExceptionInterpreter(System.Object, QuantConnect.Exceptions.IExceptionInterpreter):
+    """Interprets DllNotFoundPythonExceptionInterpreter instances"""
 
     @property
     def order(self) -> int:

@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: oslo.utils
-Version: 10.0.1
+Version: 10.1.0
 Summary: Oslo Utility library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://docs.openstack.org/oslo.utils
 Project-URL: Repository, https://opendev.org/openstack/oslo.utils
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -24,12 +23,13 @@ License-File: LICENSE
 Requires-Dist: iso8601>=0.1.11
 Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: netaddr>=0.10.0
-Requires-Dist: debtcollector>=1.2.0
 Requires-Dist: pyparsing>=2.1.0
 Requires-Dist: packaging>=20.4
 Requires-Dist: PyYAML>=3.13
 Requires-Dist: psutil>=3.2.2
 Requires-Dist: pbr>=6.1.0
+Provides-Extra: image-inspection
+Requires-Dist: cryptography>=43.0.3; extra == "image-inspection"
 Dynamic: license-file
 Dynamic: requires-dist
 

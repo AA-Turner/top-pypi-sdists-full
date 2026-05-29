@@ -3,7 +3,7 @@ from collections.abc import Callable
 from pathlib import Path
 from navconfig.logging import logging
 from ..exceptions import FileNotFound, FileError
-from .DownloadFrom import DownloadFromBase
+from ..interfaces.download_from import DownloadFromBase
 from ..interfaces.Sharepoint import SharepointClient
 from ..utils import SafeDict
 

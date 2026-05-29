@@ -1,4 +1,4 @@
-""" Communication Utility """
+"""Communication Utility"""
 
 # Copyright (c) 2020. Lightly AG and its affiliates.
 # All Rights Reserved
@@ -148,15 +148,14 @@ class DatasourceType(Enum):
 
 
 def get_signed_url_destination(signed_url: str = "") -> DatasourceType:
-    """
-    Tries to figure out the of which cloud provider/datasource type a signed url comes from (S3, GCS, Azure)
+    """Tries to figure out the of which cloud provider/datasource type a signed url comes from (S3, GCS, Azure)
+
     Args:
         signed_url:
             The signed url of a "bucket" provider
     Returns:
         DatasourceType
     """
-
     assert isinstance(signed_url, str)
 
     if "storage.googleapis.com/" in signed_url:

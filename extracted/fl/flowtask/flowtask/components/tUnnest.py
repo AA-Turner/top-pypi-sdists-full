@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import Callable
 from ..exceptions import ComponentError, ConfigError
-from .tPandas import tPandas
+from ..interfaces.t_pandas import tPandas
 
 
 class tUnnest(tPandas):

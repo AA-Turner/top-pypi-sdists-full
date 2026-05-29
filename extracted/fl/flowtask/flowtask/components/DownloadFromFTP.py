@@ -35,7 +35,7 @@ import re
 import asyncio
 from pathlib import Path
 from ..exceptions import ComponentError, FileError
-from .DownloadFrom import DownloadFromBase
+from ..interfaces.download_from import DownloadFromBase
 from ..interfaces.FTPClient import FTPClient
 
 

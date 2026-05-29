@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama_stack
-Version: 0.7.1
+Version: 0.7.2
 Summary: Open-source, OpenAI-compatible API server with pluggable providers for any model and any infrastructure
 Author-email: Meta Llama <llama-oss@meta.com>
 License: MIT
@@ -51,7 +51,7 @@ Requires-Dist: oci>=2.165.0
 Requires-Dist: numpy>=2.3.2
 Requires-Dist: mcp>=1.23.0
 Provides-Extra: client
-Requires-Dist: llama-stack-client==0.7.1; extra == "client"
+Requires-Dist: llama-stack-client==0.7.2; extra == "client"
 Provides-Extra: starter
 Requires-Dist: aiohttp; extra == "starter"
 Requires-Dist: aiosqlite; extra == "starter"

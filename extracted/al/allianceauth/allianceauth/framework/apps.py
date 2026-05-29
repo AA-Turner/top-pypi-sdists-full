@@ -14,3 +14,6 @@ class FrameworkConfig(AppConfig):
     name = "allianceauth.framework"
     label = "framework"
     verbose_name = _("Framework")
+
+    def ready(self) -> None:
+        pass

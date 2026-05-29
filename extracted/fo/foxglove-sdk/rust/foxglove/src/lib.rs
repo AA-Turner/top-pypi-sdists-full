@@ -311,6 +311,23 @@
 //! # }
 //! ```
 //!
+//! #### NVENC hardware acceleration
+//!
+//! When available, NVIDIA NVENC is used to accelerate H.264 video encoding for the remote
+//! access gateway. Without it, the gateway falls back to software H.264 encoding, which is
+//! slower and lower quality.
+//!
+//! NVENC is available on Linux for x86_64, arm, and aarch64. It requires `cuda.h` to be present
+//! at `/usr/local/cuda/include/cuda.h` or at $CUDA_HOME/include/cuda.h if you set `CUDA_HOME`.
+//!
+//! On Ubuntu you can install the headers with `apt install nvidia-cuda-toolkit` or `apt install nvidia-cuda-dev`.
+//! If that places `cuda.h` at `/usr/include/cuda.h` rather than `/usr/local/cuda/include/`,
+//! you will also need to set `CUDA_HOME=/usr` so the build can find it.
+//!
+//! You can enable the `require-cuda` feature on this crate to make it a build error if
+//! `remote-access` is disabled, the target does not support NVENC, or `cuda.h` is not
+//! found on a target where NVENC would be built.
+//!
 //! # Feature flags
 //!
 //! The Foxglove SDK defines the following feature flags:
@@ -326,6 +343,9 @@
 //! - `lz4`: enables support for the LZ4 compression algorithm for mcap files. Enabled by default.
 //! - `remote-access`: enables the remote access gateway for live visualization and teleop via
 //!   WebRTC. Requires a crypto backend; `aws-lc-rs` is enabled by default.
+//! - `require-cuda`: opts into a build-time check that `cuda.h` is present on targets where
+//!   webrtc-sys would build NVENC support. Requires `remote-access` to also be enabled.
+//!   See [NVENC hardware acceleration](#nvenc-hardware-acceleration).
 //! - `ring`: selects [ring] as the rustls crypto backend used for TLS. Alternative to
 //!   `aws-lc-rs`; mutually exclusive with it. See [Crypto backend](#crypto-backend).
 //! - `schemars`: provides a blanket implementation of the [`Encode`] trait for types that
@@ -465,7 +485,7 @@ mod protocol;
     docsrs,
     doc(cfg(any(feature = "remote-access", feature = "websocket")))
 )]
-mod remote_common;
+pub mod remote_common;
 #[cfg(any(feature = "_remote-common", feature = "sysinfo"))]
 mod runtime;
 #[cfg(any(feature = "_remote-common", feature = "sysinfo"))]

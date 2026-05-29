@@ -6,8 +6,6 @@ Error message definitions (Message, MessageMap, E) and format templates
 for docstring-check output.
 """
 
-from __future__ import annotations as _
-
 import typing as _t
 
 #: Error code for unknown errors.
@@ -19,9 +17,8 @@ TEMPLATE = "{ref}: {description} ({symbolic})"
 #: Flake8 template to format message strings.
 FLAKE8 = "{ref} {description} ({symbolic})"
 
-NEW = """\
-{ref} is a new violation and will error in a future version\
-"""
+#: Template for future messages that don't raise a violation yet
+NEW = "{ref} is a new violation and will error in a future version"
 
 
 class Messages(list["Message"]):

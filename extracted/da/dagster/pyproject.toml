@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster"
-version = "1.13.6"
+version = "1.13.7"
 description = "Dagster is an orchestration platform for the development, production, and observation of data assets."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -53,8 +53,8 @@ dependencies = [
     "universal_pathlib>=0.2.0; python_version>='3.12'",
     "rich",
     "filelock",
-    "dagster-pipes==1.13.6",
-    "dagster-shared==1.13.6",
+    "dagster-pipes==1.13.7",
+    "dagster-shared==1.13.7",
     "antlr4-python3-runtime<4.14",
 ]
 
@@ -98,7 +98,6 @@ test = [
     "tox>=4.22",
     "tox-uv>=1.16",
     "morefs[asynclocal]",
-    "fsspec<2024.5.0",
     "rapidfuzz",
     "pytest-rerunfailures",
     "psutil",
@@ -137,7 +136,7 @@ ruff = [
     "ruff==0.15.13",
 ]
 ty = [
-    "ty==0.0.37",
+    "ty==0.0.39",
     "pandas-stubs",
     "types-backports",
     "types-certifi",

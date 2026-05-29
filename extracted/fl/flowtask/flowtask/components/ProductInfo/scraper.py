@@ -8,7 +8,7 @@ from tqdm.asyncio import tqdm
 from ...exceptions import ComponentError, ConfigError
 from ...interfaces import HTTPService, SeleniumService
 from ...interfaces.http import ua
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from .parsers import EpsonParser, HPParser, CanonParser, BrotherParser, SamsungParser
 from googleapiclient.discovery import build
 

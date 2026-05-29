@@ -1322,12 +1322,8 @@ class RepeatedFunctionalTestsBaseClass:
         for flag in self.old_features:
             assert flag in incompatibility_description
 
-        if self.check_compatibility_flag("unique_calendar_ids"):
-            self.testcal_id = "testcalendar-" + str(uuid.uuid4())
-            self.testcal_id2 = "testcalendar-" + str(uuid.uuid4())
-        else:
-            self.testcal_id = "pythoncaldav-test"
-            self.testcal_id2 = "pythoncaldav-test2"
+        self.testcal_id = "pythoncaldav-test"
+        self.testcal_id2 = "pythoncaldav-test2"
 
         foo = self.is_supported("rate-limit", dict)
         if foo.get("enable"):
@@ -1387,30 +1383,24 @@ class RepeatedFunctionalTestsBaseClass:
             return  ## no cleanup needed
         if self.cleanup_regime == "wipe-calendar":
             for cal in self.calendars_used:
-                ## do we need a try-except-pass?
-                try:
-                    for x in cal.search():
-                        x.delete()
-                except error.NotFoundError:
-                    pass
+                cal.delete(wipe=True)
+            return  ## keep calendar alive; don't fall through to cal.delete() below
         elif not self.is_supported("create-calendar") or self.cleanup_regime == "thorough":
             for cal in self.calendars_used:
-                for x in cal.search():
-                    x.delete()
+                cal.delete(wipe=True)
             return
         for cal in self.calendars_used:
             if str(cal.url) in self._preconfigured_calendar_urls:
                 ## Pre-configured calendar: wipe objects, don't delete the calendar
-                try:
-                    for x in cal.search():
-                        x.delete()
-                except error.NotFoundError:
-                    pass
+                cal.delete(wipe=True)
             else:
                 cal.delete()
-        if self.check_compatibility_flag("unique_calendar_ids") and mode == "pre":
-            a = self._teardownCalendar(name="Yep")
-        for calid in (self.testcal_id, self.testcal_id2, self.testcal_id + "-tasks"):
+        for calid in (
+            self.testcal_id,
+            self.testcal_id2,
+            self.testcal_id + "-tasks",
+            self.testcal_id + "-journals",
+        ):
             self._teardownCalendar(cal_id=calid)
         if self.cleanup_regime == "thorough":
             for name in (
@@ -1420,6 +1410,7 @@ class RepeatedFunctionalTestsBaseClass:
                 self.testcal_id,
                 self.testcal_id2,
                 self.testcal_id + "-tasks",
+                self.testcal_id + "-journals",
             ):
                 self._teardownCalendar(name=name)
                 self._teardownCalendar(cal_id=name)
@@ -1444,10 +1435,7 @@ class RepeatedFunctionalTestsBaseClass:
     def _fixCalendar(self, **kwargs):
         cal = self._fixCalendar_(**kwargs)
         if self.cleanup_regime == "wipe-calendar":
-            ## do we need a try-except-pass?
-            ## (if so, consolidate)
-            for x in cal.search():
-                x.delete()
+            cal.delete(wipe=True)
         return cal
 
     def _fixCalendar_(self, **kwargs):
@@ -1471,22 +1459,21 @@ class RepeatedFunctionalTestsBaseClass:
 
         # Pre-processing: set up defaults for name and cal_id
         if "name" not in kwargs:
-            if not self.check_compatibility_flag("unique_calendar_ids") and self.cleanup_regime in (
-                "light",
-                "pre",
-            ):
+            if self.cleanup_regime in ("light", "pre"):
                 self._teardownCalendar(cal_id=self.testcal_id)
             if not self.is_supported("create-calendar.set-displayname"):
                 kwargs["name"] = None
             else:
                 kwargs["name"] = "Yep"
         if "cal_id" not in kwargs:
-            # Use a separate calendar for non-VEVENT component sets
-            # (e.g. VTODO-only) to avoid reusing a VEVENT-only calendar
-            # on servers where MKCALENDAR "already exists" falls through
-            # to the existing calendar with the wrong component set.
+            # Use distinct cal_ids for different component-set-restricted calendars so
+            # that a VTODO-only calendar and a VJOURNAL-only calendar don't share the
+            # same slot and cause MKCALENDAR failures (and wrong-type PUT errors) when
+            # the calendar persists across tests under wipe-calendar cleanup regime.
             comp_set = kwargs.get("supported_calendar_component_set", [])
-            if comp_set and "VEVENT" not in comp_set:
+            if comp_set and "VJOURNAL" in comp_set and "VEVENT" not in comp_set:
+                kwargs["cal_id"] = self.testcal_id + "-journals"
+            elif comp_set and "VEVENT" not in comp_set:
                 kwargs["cal_id"] = self.testcal_id + "-tasks"
             else:
                 kwargs["cal_id"] = self.testcal_id
@@ -1524,6 +1511,15 @@ class RepeatedFunctionalTestsBaseClass:
             except Exception:
                 pass
 
+        ## ServerQuirkChecker applies its own search-cache delay internally.
+        ## setup_method may have already wrapped Calendar.search; temporarily
+        ## expose the original so the checker doesn't double-delay each call.
+        saved_calendar_search = Calendar.search
+        had_underscore_search = hasattr(Calendar, "_search")
+        saved_calendar_underscore_search = getattr(Calendar, "_search", None)
+        if had_underscore_search:
+            Calendar.search = saved_calendar_underscore_search
+
         try:
             checker = ServerQuirkChecker(
                 self.caldav, debug_mode=debug_mode, extra_clients=extra_clients
@@ -1536,14 +1532,22 @@ class RepeatedFunctionalTestsBaseClass:
                     ec.__exit__(None, None, None)
                 except Exception:
                     pass
-        checker.check_all()
-        checker.cleanup(force=False)
+            ## Restore the state setup_method left so teardown_method works normally
+            Calendar.search = saved_calendar_search
+            if had_underscore_search:
+                Calendar._search = saved_calendar_underscore_search
+            elif hasattr(Calendar, "_search"):
+                delattr(Calendar, "_search")
 
         ## features observed and features expected
         fo = checker.features_checked
         fe = self.caldav.features
 
         ## dotted list expected and observed
+        ## Snapshot checked features before compact=True calls collapse(), which
+        ## mutates _server_features by removing subfeatures that collapse into
+        ## their parent — making tested features look like untested ones.
+        checked_features = set(fo._server_features.keys())
         observed = fo.dotted_feature_set_list(compact=True)
         expected = fe.dotted_feature_set_list(compact=True)
 
@@ -1556,7 +1560,7 @@ class RepeatedFunctionalTestsBaseClass:
                 continue
             ## Skip features the checker never explicitly tested -
             ## the observation would just be a default, not a real result
-            if feature not in observed and feature not in fo._server_features:
+            if feature not in observed and feature not in checked_features:
                 continue
             type_ = fo.find_feature(feature).get("type", "server-feature")
             if type_ in (
@@ -1730,6 +1734,42 @@ END:VCALENDAR
         instance = object_by_id.icalendar_instance
         events = [event for event in instance.subcomponents if isinstance(event, icalendar.Event)]
         assert len(events) == 2
+
+    def testAddOrphanedRecurrence(self):
+        """
+        add_event() with an ICS fragment containing only a RECURRENCE-ID override
+        (no master RRULE object in the calendar) must not raise NotFoundError.
+
+        Regression test for commit 7269f179 (graceful adding of orphaned recurrences):
+        the library was raising NotFoundError before even attempting the PUT.
+        Now it falls through to a plain PUT when the master cannot be found.
+        """
+        self.skip_unless_support("save-load.event")
+        cal = self._fixCalendar()
+        orphaned_recurrence = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example//CalDAV test//EN
+BEGIN:VEVENT
+UID:orphaned-recurrence-test-uid@example.com
+DTSTAMP:20200101T000000Z
+DTSTART:20200115T100000Z
+DTEND:20200115T110000Z
+RECURRENCE-ID:20200115T100000Z
+SUMMARY:Orphaned recurrence with no master
+END:VEVENT
+END:VCALENDAR"""
+        try:
+            cal.add_event(orphaned_recurrence)
+        except error.NotFoundError:
+            pytest.fail(
+                "add_event() raised NotFoundError for an orphaned recurrence; "
+                "see commit 7269f179 (graceful adding of orphaned recurrences)"
+            )
+        except Exception:
+            ## Some servers may reject an orphaned recurrence with a 4xx error;
+            ## that is acceptable server behaviour.  The key guarantee is that
+            ## the library does not raise NotFoundError before even attempting the PUT.
+            pass
 
     def testPropfind(self):
         """
@@ -2103,7 +2143,7 @@ END:VCALENDAR
             assert len(list(my_changed_objects)) == 0
 
         ## I was unable to run the rest of the tests towards Google using their legacy caldav API
-        self.skip_on_compatibility_flag("no_overwrite")
+        self.skip_unless_support("save-load.mutable")
 
         ## MODIFYING an object
         if is_time_based:
@@ -2234,7 +2274,7 @@ END:VCALENDAR
             time.sleep(1)
 
         ## I was unable to run the rest of the tests towards Google using their legacy caldav API
-        self.skip_on_compatibility_flag("no_overwrite")
+        self.skip_unless_support("save-load.mutable")
 
         ## MODIFYING an object
         obj.icalendar_instance.subcomponents[0]["SUMMARY"] = "foobar"
@@ -2291,10 +2331,7 @@ END:VCALENDAR
     def testLoadEvent(self):
         self.skip_unless_support("save-load.event")
         self.skip_unless_support("create-calendar")
-        if not self.check_compatibility_flag("unique_calendar_ids") and self.cleanup_regime in (
-            "light",
-            "pre",
-        ):
+        if self.cleanup_regime in ("light", "pre"):
             self._teardownCalendar(cal_id=self.testcal_id)
             self._teardownCalendar(cal_id=self.testcal_id2)
         c1 = self._fixCalendar(name="Yep", cal_id=self.testcal_id)
@@ -2307,20 +2344,14 @@ END:VCALENDAR
         if not self.check_compatibility_flag("event_by_url_is_broken"):
             assert e1.url == e1_.url
             e1.load()
-        if (
-            not self.check_compatibility_flag("unique_calendar_ids")
-            and self.cleanup_regime == "post"
-        ):
+        if self.cleanup_regime == "post":
             self._teardownCalendar(cal_id=self.testcal_id)
             self._teardownCalendar(cal_id=self.testcal_id2)
 
     def testCopyEvent(self):
         self.skip_unless_support("save-load.event")
         self.skip_unless_support("create-calendar")
-        if not self.check_compatibility_flag("unique_calendar_ids") and self.cleanup_regime in (
-            "light",
-            "pre",
-        ):
+        if self.cleanup_regime in ("light", "pre"):
             self._teardownCalendar(cal_id=self.testcal_id)
             self._teardownCalendar(cal_id=self.testcal_id2)
 
@@ -2366,10 +2397,7 @@ END:VCALENDAR
         else:
             assert len(c1.get_events()) == 2
 
-        if (
-            not self.check_compatibility_flag("unique_calendar_ids")
-            and self.cleanup_regime == "post"
-        ):
+        if self.cleanup_regime == "post":
             self._teardownCalendar(cal_id=self.testcal_id)
             self._teardownCalendar(cal_id=self.testcal_id2)
 
@@ -3496,10 +3524,7 @@ END:VCALENDAR
         # TODO: split up in creating a calendar with non-ascii name
         # and an event with non-ascii description
         self.skip_unless_support("create-calendar")
-        if not self.check_compatibility_flag("unique_calendar_ids") and self.cleanup_regime in (
-            "light",
-            "pre",
-        ):
+        if self.cleanup_regime in ("light", "pre"):
             self._teardownCalendar(cal_id=self.testcal_id)
 
         c = self._fixCalendar(name="Yølp", cal_id=self.testcal_id)
@@ -3519,19 +3544,13 @@ END:VCALENDAR
         if "zimbra" not in str(c.url):
             assert len(events) == 1
 
-        if (
-            not self.check_compatibility_flag("unique_calendar_ids")
-            and self.cleanup_regime == "post"
-        ):
+        if self.cleanup_regime == "post":
             self._teardownCalendar(cal_id=self.testcal_id)
 
     def testUnicodeEvent(self):
         self.skip_unless_support("save-load.event")
         self.skip_unless_support("create-calendar")
-        if not self.check_compatibility_flag("unique_calendar_ids") and self.cleanup_regime in (
-            "light",
-            "pre",
-        ):
+        if self.cleanup_regime in ("light", "pre"):
             self._teardownCalendar(cal_id=self.testcal_id)
         c = self._fixCalendar(name="Yølp", cal_id=self.testcal_id)
 
@@ -3565,18 +3584,15 @@ END:VCALENDAR
 
         # Creating a new calendar with different ID but with existing name
         # TODO: why do we do this?
-        if not self.check_compatibility_flag("unique_calendar_ids") and self.cleanup_regime in (
-            "light",
-            "pre",
-        ):
+        # TODO: we're doing this all over the placee, it should be consolidated
+        # TODO: it should be in the test setup/teardown
+        if self.cleanup_regime in ("light", "pre"):
             self._teardownCalendar(cal_id=self.testcal_id2)
         cc = self._fixCalendar(name="Yep", cal_id=self.testcal_id2)
         try:
             cc.delete()
         except error.DeleteError:
-            if not self.is_supported("delete-calendar") or self.check_compatibility_flag(
-                "unique_calendar_ids"
-            ):
+            if not self.is_supported("delete-calendar"):
                 raise
 
         c.set_properties(
@@ -3645,26 +3661,21 @@ END:VCALENDAR
         assert e1.url is not None
 
         # Verify that we can look it up, both by URL and by ID
-        if not self.check_compatibility_flag("event_by_url_is_broken"):
-            e2 = c.event_by_url(e1.url)
-            assert e2.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
-            assert e2.url == e1.url
+        e2 = c.event_by_url(e1.url)
+        assert e2.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
+        assert e2.url == e1.url
+
+        # look up by UID
         e3 = c.get_event_by_uid("20010712T182145Z-123401@example.com")
         assert e3.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
         assert e3.url == e1.url
 
-        # Knowing the URL of an event, we should be able to get to it
-        # without going through a calendar object
-        if not self.check_compatibility_flag("event_by_url_is_broken"):
-            e4 = Event(client=self.caldav, url=e1.url)
-            e4.load()
-            assert e4.vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
+        e4 = Event(client=self.caldav, url=e1.url)
+        e4.load()
+        assert e4.id == e1.id
 
         with pytest.raises(error.NotFoundError):
-            c.get_event_by_uid("0")
-        c.add_event(evr)
-        with pytest.raises(error.NotFoundError):
-            c.get_event_by_uid("0")
+            c.get_event_by_uid("nonexistent-uid-0")
 
     def testCreateOverwriteDeleteEvent(self):
         """
@@ -3701,7 +3712,7 @@ END:VCALENDAR
 
         ## add same event again.  As it has same uid, it should be overwritten
         ## (but some calendars may throw a "409 Conflict")
-        if not self.check_compatibility_flag("no_overwrite"):
+        if self.is_supported("save-load.mutable"):
             e2 = c.add_event(ev1)
             if todo_ok:
                 t2 = c.add_todo(todo)
@@ -3747,7 +3758,7 @@ END:VCALENDAR
         # Verify that we can't look it up, both by URL and by ID
         with pytest.raises(self._notFound()):
             c.event_by_url(e1.url)
-        if not self.check_compatibility_flag("no_overwrite"):
+        if self.is_supported("save-load.mutable"):
             with pytest.raises(self._notFound()):
                 c.event_by_url(e2.url)
         if not self.check_compatibility_flag("event_by_url_is_broken"):
@@ -3804,7 +3815,7 @@ END:VCALENDAR
         ## (But events should not be immutable!  One should be able to change an event, push the changes
         ## out to all participants and all copies of the calendar, and let everyone know that it's a
         ## changed event and not a cancellation and a new event).
-        self.skip_on_compatibility_flag("no_overwrite")
+        self.skip_unless_support("save-load.mutable")
 
         # ev2 is same UID, but one year ahead.
         # The timestamp should change.
@@ -3966,7 +3977,7 @@ END:VCALENDAR
         ## It has an exception, edited summary for recurrence id 20240425T123000Z
         e = c.add_event(evr2)
 
-        r = c.search(
+        rc = c.search(
             start=datetime(2024, 3, 31, 0, 0),
             end=datetime(2024, 5, 4, 0, 0, 0),
             event=True,
@@ -3985,16 +3996,21 @@ END:VCALENDAR
         if self.is_supported("save-load.event.recurrences.exception") or self.is_supported(
             "search.recurrences.expanded.exception"
         ):
-            assert len(r) == 2
-            assert "RRULE" not in r[0].data
-            assert "RRULE" not in r[1].data
+            assert len(rc) == 2
+            assert "RRULE" not in rc[0].data
+            assert "RRULE" not in rc[1].data
 
         if self.is_supported("search.recurrences.expanded.event") and self.is_supported(
             "search.recurrences.expanded.exception"
         ):
             assert len(rs) == 2
 
-        asserts_on_results = [r]
+        asserts_on_results = []
+        # Client-side expansion only produces correct RECURRENCE-IDs when the
+        # server keeps master VEVENT + exception VEVENT in the same calendar
+        # object resource.  If the server splits them, skip this assertion.
+        if self.is_supported("save-load.event.recurrences.exception"):
+            asserts_on_results.append(rc)
         if self.is_supported("search.recurrences.expanded.exception"):
             asserts_on_results.append(rs)
 
@@ -4003,11 +4019,14 @@ END:VCALENDAR
             # Order is not guaranteed by the spec, so collect the dates and verify both are present
             recurrence_ids = []
             for event in r:
-                assert isinstance(event.icalendar_component["RECURRENCE-ID"], icalendar.vDDDTypes)
+                ## Some servers (e.g. Cyrus) omit RECURRENCE-ID on the first expanded occurrence
                 ## TODO: xandikos returns a datetime without a tzinfo, radicale returns a datetime with tzinfo=UTC, but perhaps other calendar servers returns the timestamp converted to localtime?
-                recurrence_ids.append(
-                    event.icalendar_component["RECURRENCE-ID"].dt.replace(tzinfo=None)
-                )
+                recurrence_id = event.icalendar_component.get(
+                    "RECURRENCE-ID"
+                ) or event.icalendar_component.get("DTSTART")
+                assert recurrence_id is not None
+                assert isinstance(recurrence_id, icalendar.vDDDTypes)
+                recurrence_ids.append(recurrence_id.dt.replace(tzinfo=None))
 
             # Verify we have both expected recurrence instances (order-independent)
             assert set(recurrence_ids) == {

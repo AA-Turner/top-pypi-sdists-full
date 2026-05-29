@@ -212,6 +212,10 @@ class CudaIpcRingBuffer:
     def read_frame(self: Any, slot: int) -> Optional[Any.Any]:
         """
         Read a frame from a specific slot (NO COPY - view).
+        
+                Self-heals on CUDA IPC invalidation: if constructing the view faults
+                because the producer reallocated its GPU buffer, the handle is
+                re-imported once and the read retried. Returns None if recovery fails.
         """
         ...
 
@@ -235,6 +239,17 @@ class CudaIpcRingBuffer:
                     - frame: GPU array view, or None if no new frames
                     - frame_idx: The frame index, or -1 if no new frames
                     - was_skipped: True if frames were skipped (consumer too slow)
+        """
+        ...
+
+    def revalidate(self: Any) -> bool:
+        """
+        Public hook: recover from a CUDA IPC invalidation on demand.
+        
+                Consumers that hold a frame *view* and only dereference it later (e.g.
+                inside a preprocessing kernel) won't fault until that dereference. When
+                they catch a ``CUDA_ERROR_ILLEGAL_ADDRESS`` they should call this to
+                rebuild the mapping, then re-read the frame. Returns True on success.
         """
         ...
 

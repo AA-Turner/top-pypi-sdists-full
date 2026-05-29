@@ -12,8 +12,10 @@ class FieldType(str, Enum):
 
 
 class SemanticType(str, Enum):
-    # Represents the ID of an account discovered by the connector
+    # Represents the ID of an account, primary account being acted upon
     ACCOUNT_ID = "account-id"
+    # Represents the ID of an account, additional account the user must select
+    AUXILIARY_ACCOUNT_ID = "auxiliary-account-id"
     # Represents the ID of an application discovered by the connector
     APPLICATION_ID = "application-id"
     # Represents the ID of an application instance discovered by the connector

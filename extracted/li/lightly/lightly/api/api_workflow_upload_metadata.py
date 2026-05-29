@@ -24,8 +24,7 @@ def _assert_key_exists_in_custom_metadata(key: str, dictionary: Dict[str, Any]):
     """Raises a formatted KeyError if key is not a key of the dictionary."""
     if key not in dictionary.keys():
         raise KeyError(
-            f"Key {key} not found in custom metadata.\n"
-            f"Found keys: {dictionary.keys()}"
+            f"Key {key} not found in custom metadata.\nFound keys: {dictionary.keys()}"
         )
 
 
@@ -69,7 +68,6 @@ class _UploadCustomMetadataMixin:
 
         :meta private:  # Skip docstring generation
         """
-
         # The mapping is filename -> image_id -> custom_metadata
         # This mapping is created in linear time.
         filename_to_image_id = {
@@ -144,7 +142,6 @@ class _UploadCustomMetadataMixin:
 
         :meta private:  # Skip docstring generation
         """
-
         self.verify_custom_metadata_format(custom_metadata)
 
         # For each metadata, we need the corresponding sample_id
@@ -230,7 +227,9 @@ class _UploadCustomMetadataMixin:
             The API response.
 
         Examples:
-            >>> from lightly.openapi_generated.swagger_codegen.models.configuration_entry import ConfigurationEntry
+            >>> from lightly.openapi_generated.swagger_codegen.models.configuration_entry import (
+            ...     ConfigurationEntry,
+            ... )
             >>> entry = ConfigurationEntry(
             >>>     name='Weather',
             >>>     path='weather',

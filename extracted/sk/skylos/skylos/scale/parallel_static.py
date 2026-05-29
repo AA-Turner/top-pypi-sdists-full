@@ -1,4 +1,8 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import logging
+
+
+logger = logging.getLogger("Skylos")
 
 
 def _worker(
@@ -11,6 +15,7 @@ def _worker(
     collect_architecture_metrics=False,
     enable_quality_rules=True,
     enable_danger_rules=True,
+    config_file=None,
 ):
     from skylos.analyzer import proc_file
 
@@ -24,6 +29,7 @@ def _worker(
         collect_architecture_metrics=collect_architecture_metrics,
         enable_quality_rules=enable_quality_rules,
         enable_danger_rules=enable_danger_rules,
+        config_file=config_file,
     )
     return str(file_path), out
 
@@ -41,6 +47,7 @@ def run_proc_file_parallel(
     collect_architecture_metrics=False,
     enable_quality_rules=True,
     enable_danger_rules=True,
+    config_file=None,
 ):
     import os
 
@@ -49,6 +56,8 @@ def run_proc_file_parallel(
 
     if jobs <= 0:
         jobs = max(1, (os.cpu_count() or 4) - 1)
+    if len(files) <= 1:
+        jobs = 1
 
     if jobs <= 1:
         outs = []
@@ -70,6 +79,7 @@ def run_proc_file_parallel(
                 collect_architecture_metrics=collect_architecture_metrics,
                 enable_quality_rules=enable_quality_rules,
                 enable_danger_rules=enable_danger_rules,
+                config_file=config_file,
             )
             outs.append(out)
 
@@ -96,6 +106,7 @@ def run_proc_file_parallel(
                 collect_architecture_metrics,
                 enable_quality_rules,
                 enable_danger_rules,
+                config_file,
             )
             fut_to_file[fut] = f
 
@@ -109,7 +120,34 @@ def run_proc_file_parallel(
                 file_str, out = fut.result()
             except Exception:
                 file_str = str(f)
-                out = None
+                logger.warning(
+                    "Parallel static worker failed for %s; retrying in parent process",
+                    file_str,
+                    exc_info=True,
+                )
+                try:
+                    from skylos.analyzer import proc_file
+
+                    full_scan = changed_files is None or str(f) in changed_files
+                    out = proc_file(
+                        f,
+                        modmap[f],
+                        extra_visitors=extra_visitors,
+                        full_scan=full_scan,
+                        collect_clone_fragments=collect_clone_fragments,
+                        clone_cfg=clone_cfg,
+                        collect_architecture_metrics=collect_architecture_metrics,
+                        enable_quality_rules=enable_quality_rules,
+                        enable_danger_rules=enable_danger_rules,
+                        config_file=config_file,
+                    )
+                except Exception:
+                    logger.error(
+                        "Parent-process static retry failed for %s",
+                        file_str,
+                        exc_info=True,
+                    )
+                    out = None
 
             results[file_str] = out
 

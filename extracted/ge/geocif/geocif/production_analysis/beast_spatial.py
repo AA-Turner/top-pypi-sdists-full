@@ -66,20 +66,36 @@ def _try_import_pysal():
 def _load_country_gdf(parser, country, cfg_boundary_shp):
     """Load + filter a country's admin boundaries.
 
-    Prefers the explicit ``[BEAST] boundary_shp`` config entry; falls
-    back to the standard ``${PATHS:dir_boundary_files}/gaul2014_admin1.shp``
-    when unset. Reuses ``utils.load_country_boundary_gdf`` so the column
-    rename / Tanzania normalisation stay consistent with the rest of
-    geocif.
+    Resolution priority:
+      1. ``[BEAST] boundary_shp`` — explicit override, used as-is.
+      2. ``[<country>] boundary_file`` from the parser — joined to
+         ``${PATHS:dir_boundary_files}``. Same per-country convention
+         used by agmet, geocif.py, aquacrop, yield_outlook. Lets AMIS
+         runs pick per-country shapefiles without setting a single
+         global path.
+      3. Fallback to the multi-country
+         ``${PATHS:dir_boundary_files}/gaul2014_admin1.shp``.
+
+    Reuses ``utils.load_country_boundary_gdf`` so the column rename /
+    Tanzania normalisation stay consistent with the rest of geocif.
     """
+    try:
+        base = Path(parser.get("PATHS", "dir_boundary_files"))
+    except Exception:  # noqa: BLE001
+        base = None
+
     if cfg_boundary_shp is not None:
         shp = cfg_boundary_shp
-    else:
-        try:
-            base = Path(parser.get("PATHS", "dir_boundary_files"))
-        except Exception:  # noqa: BLE001
-            return None
+    elif (
+        parser.has_option(country, "boundary_file")
+        and base is not None
+    ):
+        shp = base / parser.get(country, "boundary_file")
+    elif base is not None:
         shp = base / "gaul2014_admin1.shp"
+    else:
+        return None
+
     if not Path(shp).exists():
         logger.warning("  boundary shapefile not found: %s", shp)
         return None

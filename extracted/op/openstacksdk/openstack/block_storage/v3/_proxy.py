@@ -10,10 +10,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Iterable
+from typing import Any, ClassVar, Literal, cast, overload
 import warnings
 
+from openstack._utils import renamed_param
 from openstack.block_storage.v3 import attachment as _attachment
 from openstack.block_storage.v3 import availability_zone
 from openstack.block_storage.v3 import backup as _backup
@@ -25,6 +26,7 @@ from openstack.block_storage.v3 import group as _group
 from openstack.block_storage.v3 import group_snapshot as _group_snapshot
 from openstack.block_storage.v3 import group_type as _group_type
 from openstack.block_storage.v3 import limits as _limits
+from openstack.block_storage.v3 import qos_spec as _qos_spec
 from openstack.block_storage.v3 import quota_class_set as _quota_class_set
 from openstack.block_storage.v3 import quota_set as _quota_set
 from openstack.block_storage.v3 import resource_filter as _resource_filter
@@ -95,7 +97,9 @@ class Proxy(proxy.Proxy):
         return self._connection.image._existing_image(id=data['image_id'])
 
     # ====== SNAPSHOTS ======
-    def get_snapshot(self, snapshot):
+    def get_snapshot(
+        self, snapshot: str | _snapshot.Snapshot
+    ) -> _snapshot.Snapshot:
         """Get a single snapshot
 
         :param snapshot: The value can be the ID of a snapshot or a
@@ -139,15 +143,15 @@ class Proxy(proxy.Proxy):
         """Find a single snapshot
 
         :param snapshot: The name or ID a snapshot
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the snapshot does not exist. When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
-        :param bool details: When set to ``False`` :class:
+        :param details: When set to ``False`` :class:
             `~openstack.block_storage.v3.snapshot.Snapshot` objects will be
             returned. The default, ``True``, will cause more attributes to be
             returned.
-        :param bool all_projects: When set to ``True``, search for snapshot by
+        :param all_projects: When set to ``True``, search for snapshot by
             name across all projects. Note that this will likely result in
             a higher chance of duplicates. Admin-only by default.
 
@@ -169,16 +173,22 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def snapshots(self, *, details=True, all_projects=False, **query):
+    def snapshots(
+        self,
+        *,
+        details: bool = True,
+        all_projects: bool = False,
+        **query: Any,
+    ) -> Generator[_snapshot.Snapshot, None, None]:
         """Retrieve a generator of snapshots
 
-        :param bool details: When set to ``False`` :class:
+        :param details: When set to ``False`` :class:
             `~openstack.block_storage.v3.snapshot.Snapshot`
             objects will be returned. The default, ``True``, will cause
             more attributes to be returned.
-        :param bool all_projects: When set to ``True``, list snapshots from all
+        :param all_projects: When set to ``True``, list snapshots from all
             projects. Admin-only by default.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the snapshots being returned.  Available parameters include:
 
             * name: Name of the snapshot as a string.
@@ -197,38 +207,45 @@ class Proxy(proxy.Proxy):
     def create_snapshot(self, **attrs: Any) -> _snapshot.Snapshot:
         """Create a new snapshot from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.snapshot.Snapshot`,
             comprised of the properties on the Snapshot class.
 
         :returns: The results of snapshot creation
-        :rtype: :class:`~openstack.block_storage.v3.snapshot.Snapshot`
         """
         return self._create(_snapshot.Snapshot, **attrs)
 
-    def update_snapshot(self, snapshot, **attrs):
+    def update_snapshot(
+        self,
+        snapshot: str | _snapshot.Snapshot,
+        **attrs: Any,
+    ) -> _snapshot.Snapshot:
         """Update a snapshot
 
         :param snapshot: Either the ID of a snapshot or a
             :class:`~openstack.block_storage.v3.snapshot.Snapshot` instance.
-        :param dict attrs: The attributes to update on the snapshot.
+        :param attrs: The attributes to update on the snapshot.
 
         :returns: The updated snapshot
-        :rtype: :class:`~openstack.block_storage.v3.snapshot.Snapshot`
         """
         return self._update(_snapshot.Snapshot, snapshot, **attrs)
 
-    def delete_snapshot(self, snapshot, ignore_missing=True, force=False):
+    def delete_snapshot(
+        self,
+        snapshot: str | _snapshot.Snapshot,
+        ignore_missing: bool = True,
+        force: bool = False,
+    ) -> None:
         """Delete a snapshot
 
         :param snapshot: The value can be either the ID of a snapshot or a
             :class:`~openstack.block_storage.v3.snapshot.Snapshot` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the snapshot does not exist.
             When set to ``True``, no exception will be set when
             attempting to delete a nonexistent snapshot.
-        :param bool force: Whether to try forcing snapshot deletion.
+        :param force: Whether to try forcing snapshot deletion.
 
         :returns: ``None``
         """
@@ -240,7 +257,9 @@ class Proxy(proxy.Proxy):
             snapshot = self._get_resource(_snapshot.Snapshot, snapshot)
             snapshot.force_delete(self)
 
-    def get_snapshot_metadata(self, snapshot):
+    def fetch_snapshot_metadata(
+        self, snapshot: str | _snapshot.Snapshot
+    ) -> _snapshot.Snapshot:
         """Return a dictionary of metadata for a snapshot
 
         :param snapshot: Either the ID of a snapshot or a
@@ -249,37 +268,54 @@ class Proxy(proxy.Proxy):
         :returns: A
             :class:`~openstack.block_storage.v3.snapshot.Snapshot` with the
             snapshot's metadata. All keys and values are Unicode text.
-        :rtype: :class:`~openstack.block_storage.v3.snapshot.Snapshot`
         """
         snapshot = self._get_resource(_snapshot.Snapshot, snapshot)
         return snapshot.fetch_metadata(self)
+
+    # TODO(stephenfin): Remove in 5.0
+    def get_snapshot_metadata(
+        self, snapshot: str | _snapshot.Snapshot
+    ) -> _snapshot.Snapshot:
+        """Return a dictionary of metadata for a snapshot
+
+        .. deprecated:: 4.14.0
+            Use :meth:`fetch_snapshot_metadata` instead.
+        """
+        warnings.warn(
+            "The 'get_snapshot_metadata' method is deprecated; use "
+            "'fetch_snapshot_metadata' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.fetch_snapshot_metadata(snapshot)
 
     def set_snapshot_metadata(self, snapshot, **metadata):
         """Update metadata for a snapshot
 
         :param snapshot: Either the ID of a snapshot or a
             :class:`~openstack.block_storage.v3.snapshot.Snapshot`.
-        :param kwargs metadata: Key/value pairs to be updated in the snapshot's
+        :param metadata: Key/value pairs to be updated in the snapshot's
             metadata. No other metadata is modified by this call. All keys
             and values are stored as Unicode.
 
         :returns: A
             :class:`~openstack.block_storage.v3.snapshot.Snapshot` with the
             snapshot's metadata. All keys and values are Unicode text.
-        :rtype: :class:`~openstack.block_storage.v3.snapshot.Snapshot`
         """
         snapshot = self._get_resource(_snapshot.Snapshot, snapshot)
         return snapshot.set_metadata(self, metadata=metadata)
 
-    def delete_snapshot_metadata(self, snapshot, keys=None):
+    def delete_snapshot_metadata(
+        self,
+        snapshot: str | _snapshot.Snapshot,
+        keys: Iterable[str] | None = None,
+    ) -> None:
         """Delete metadata for a snapshot
 
         :param snapshot: Either the ID of a snapshot or a
             :class:`~openstack.block_storage.v3.snapshot.Snapshot`.
-        :param list keys: The keys to delete. If left empty complete
-            metadata will be removed.
+        :param keys: The keys to delete. If omitted, all metadata is removed.
 
-        :rtype: ``None``
+        :returns: ``None``
         """
         snapshot = self._get_resource(_snapshot.Snapshot, snapshot)
         if keys is not None:
@@ -294,7 +330,7 @@ class Proxy(proxy.Proxy):
 
         :param snapshot: The value can be either the ID of a backup or a
             :class:`~openstack.block_storage.v3.snapshot.Snapshot` instance.
-        :param str status: New snapshot status
+        :param status: New snapshot status
 
         :returns: None
         """
@@ -314,8 +350,8 @@ class Proxy(proxy.Proxy):
 
         :param snapshot: The value can be either the ID of a backup or a
             :class:`~openstack.block_storage.v3.snapshot.Snapshot` instance.
-        :param str status: New snapshot status
-        :param str progress: A percentage value for snapshot build progress.
+        :param status: New snapshot status
+        :param progress: A percentage value for snapshot build progress.
 
         :returns: None
         """
@@ -326,12 +362,11 @@ class Proxy(proxy.Proxy):
         """Creates a snapshot by using existing storage rather than
         allocating new storage.
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.snapshot.Snapshot`,
             comprised of the properties on the Snapshot class.
 
         :returns: The results of snapshot creation
-        :rtype: :class:`~openstack.block_storage.v3.snapshot.Snapshot`
         """
         return _snapshot.Snapshot.manage(self, **attrs)
 
@@ -347,7 +382,7 @@ class Proxy(proxy.Proxy):
         snapshot_obj.unmanage(self)
 
     # ====== TYPES ======
-    def get_type(self, type):
+    def get_type(self, type: str | _type.Type) -> _type.Type:
         """Get a single type
 
         :param type: The value can be the ID of a type or a
@@ -381,7 +416,7 @@ class Proxy(proxy.Proxy):
         """Find a single volume type
 
         :param snapshot: The name or ID a volume type
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the volume type does not exist.
 
@@ -397,7 +432,7 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def types(self, **query):
+    def types(self, **query: Any) -> Generator[_type.Type, None, None]:
         """Retrieve a generator of volume types
 
         :returns: A generator of volume type objects.
@@ -407,21 +442,22 @@ class Proxy(proxy.Proxy):
     def create_type(self, **attrs: Any) -> _type.Type:
         """Create a new type from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.type.Type`,
             comprised of the properties on the Type class.
 
         :returns: The results of type creation
-        :rtype: :class:`~openstack.block_storage.v3.type.Type`
         """
         return self._create(_type.Type, **attrs)
 
-    def delete_type(self, type, ignore_missing=True):
+    def delete_type(
+        self, type: str | _type.Type, ignore_missing: bool = True
+    ) -> None:
         """Delete a type
 
         :param type: The value can be either the ID of a type or a
             :class:`~openstack.block_storage.v3.type.Type` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the type does not exist.
             When set to ``True``, no exception will be set when
@@ -431,24 +467,31 @@ class Proxy(proxy.Proxy):
         """
         self._delete(_type.Type, type, ignore_missing=ignore_missing)
 
-    def update_type(self, type, **attrs):
+    def update_type(
+        self,
+        type: str | _type.Type,
+        **attrs: Any,
+    ) -> _type.Type:
         """Update a type
 
         :param type: The value can be either the ID of a type or a
             :class:`~openstack.block_storage.v3.type.Type` instance.
-        :param dict attrs: The attributes to update on the type
+        :param attrs: The attributes to update on the type
 
         :returns: The updated type
-        :rtype: :class:`~openstack.block_storage.v3.type.Type`
         """
         return self._update(_type.Type, type, **attrs)
 
-    def update_type_extra_specs(self, type, **attrs):
+    def update_type_extra_specs(
+        self,
+        type: str | _type.Type,
+        **attrs: Any,
+    ) -> _type.Type:
         """Update the extra_specs for a type
 
         :param type: The value can be either the ID of a type or a
             :class:`~openstack.block_storage.v3.type.Type` instance.
-        :param dict attrs: The extra spec attributes to update on the type
+        :param attrs: The extra spec attributes to update on the type
 
         :returns: A dict containing updated extra_specs
         """
@@ -457,21 +500,25 @@ class Proxy(proxy.Proxy):
         result = _type.Type.existing(id=res.id, extra_specs=extra_specs)
         return result
 
-    def delete_type_extra_specs(self, type, keys):
+    def delete_type_extra_specs(
+        self,
+        type: str | _type.Type,
+        keys: Iterable[str],
+    ) -> None:
         """Delete the extra_specs for a type
 
         Note: This method will do a HTTP DELETE request for every key in keys.
 
         :param type: The value can be either the ID of a type or a
             :class:`~openstack.block_storage.v3.type.Type` instance.
-        :param keys: The keys to delete
+        :param keys: The keys to delete.
 
         :returns: ``None``
         """
         res = self._get_resource(_type.Type, type)
         return res.delete_extra_specs(self, keys)
 
-    def get_type_access(self, type):
+    def get_type_access(self, type: str | _type.Type) -> list[dict[str, Any]]:
         """Lists project IDs that have access to private volume type.
 
         :param type: The value can be either the ID of a type or a
@@ -483,36 +530,45 @@ class Proxy(proxy.Proxy):
         res = self._get_resource(_type.Type, type)
         return res.get_private_access(self)
 
-    def add_type_access(self, type, project_id):
+    @renamed_param('project_id', 'project')
+    def add_type_access(self, type, project):
         """Adds private volume type access to a project.
 
         :param type: The value can be either the ID of a type or a
             :class:`~openstack.block_storage.v3.type.Type` instance.
-        :param str project_id: The ID of the project. Volume Type access to
-            be added to this project ID.
+        :param project: An ID or
+            :class:`~openstack.identity.v3.identity.Project` instance of the
+            project to add access for.
 
         :returns: ``None``
         """
+        project_id = resource.Resource._get_id(project)
         res = self._get_resource(_type.Type, type)
         return res.add_private_access(self, project_id)
 
-    def remove_type_access(self, type, project_id):
+    @renamed_param('project_id', 'project')
+    def remove_type_access(self, type, project):
         """Remove private volume type access from a project.
 
         :param type: The value can be either the ID of a type or a
             :class:`~openstack.block_storage.v3.type.Type` instance.
-        :param str project_id: The ID of the project. Volume Type access to
-            be removed to this project ID.
+        :param project: An ID or
+            :class:`~openstack.identity.v3.identity.Project` instance of the
+            project to remove access for.
 
         :returns: ``None``
         """
+        project_id = resource.Resource._get_id(project)
         res = self._get_resource(_type.Type, type)
         return res.remove_private_access(self, project_id)
 
-    def get_type_encryption(self, volume_type_id):
+    @renamed_param('volume_type_id', 'volume_type')
+    def get_type_encryption(
+        self, volume_type: str | _type.Type
+    ) -> _type.TypeEncryption:
         """Get the encryption details of a volume type
 
-        :param volume_type_id: The value can be the ID of a type or a
+        :param volume_type: The value can be the ID of a type or a
             :class:`~openstack.block_storage.v3.type.Type`
             instance.
 
@@ -520,11 +576,10 @@ class Proxy(proxy.Proxy):
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
-        volume_type = self._get_resource(_type.Type, volume_type_id)
-
+        volume_type_id = resource.Resource._get_id(volume_type)
         return self._get(
             _type.TypeEncryption,
-            volume_type_id=volume_type.id,
+            volume_type_id=volume_type_id,
             requires_id=False,
         )
 
@@ -537,47 +592,44 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.block_storage.v3.type.Type`
             instance.
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.type.TypeEncryption`,
             comprised of the properties on the TypeEncryption class.
 
         :returns: The results of type encryption creation
-        :rtype: :class:`~openstack.block_storage.v3.type.TypeEncryption`
         """
-        volume_type = self._get_resource(_type.Type, volume_type)
-
+        volume_type_id = resource.Resource._get_id(volume_type)
         return self._create(
-            _type.TypeEncryption, volume_type_id=volume_type.id, **attrs
+            _type.TypeEncryption, volume_type_id=volume_type_id, **attrs
         )
 
     def delete_type_encryption(
-        self, encryption=None, volume_type=None, ignore_missing=True
-    ):
+        self,
+        encryption: str | _type.TypeEncryption | None = None,
+        volume_type: str | _type.Type | None = None,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete type encryption attributes
 
         :param encryption: The value can be None or a
             :class:`~openstack.block_storage.v3.type.TypeEncryption`
-            instance.  If encryption_id is None then
-            volume_type_id must be specified.
-
+            instance. If encryption is None then volume_type must be
+            specified.
         :param volume_type: The value can be the ID of a type or a
-            :class:`~openstack.block_storage.v3.type.Type`
-            instance.  Required if encryption_id is None.
-
-        :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be
-            raised when the type does not exist.
-            When set to ``True``, no exception will be set when
-            attempting to delete a nonexistent type.
+            :class:`~openstack.block_storage.v3.type.Type` instance. Required
+            if encryption is None.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the type does not exist. When set to ``True``, no exception
+            will be set when attempting to delete a nonexistent type.
 
         :returns: ``None``
         """
-
         if volume_type:
-            volume_type = self._get_resource(_type.Type, volume_type)
+            volume_type_id = resource.Resource._get_id(volume_type)
             encryption = self._get(
                 _type.TypeEncryption,
-                volume_type_id=volume_type.id,
+                volume_type_id=volume_type_id,
                 requires_id=False,
             )
 
@@ -587,30 +639,29 @@ class Proxy(proxy.Proxy):
 
     def update_type_encryption(
         self,
-        encryption=None,
-        volume_type=None,
-        **attrs,
-    ):
+        encryption: str | _type.TypeEncryption | None = None,
+        volume_type: str | _type.Type | None = None,
+        **attrs: Any,
+    ) -> _type.TypeEncryption:
         """Update a type
 
         :param encryption: The value can be None or a
             :class:`~openstack.block_storage.v3.type.TypeEncryption`
-            instance. If this is ``None`` then ``volume_type_id`` must be
+            instance. If this is ``None`` then ``volume_type`` must be
             specified.
         :param volume_type: The value can be the ID of a type or a
             :class:`~openstack.block_storage.v3.type.Type` instance.
-            Required if ``encryption_id`` is None.
-        :param dict attrs: The attributes to update on the type encryption.
+            Required if ``encryption`` is None.
+        :param attrs: The attributes to update on the type encryption.
 
         :returns: The updated type encryption
-        :rtype: :class:`~openstack.block_storage.v3.type.TypeEncryption`
         """
 
         if volume_type:
-            volume_type = self._get_resource(_type.Type, volume_type)
+            volume_type_id = resource.Resource._get_id(volume_type)
             encryption = self._get(
                 _type.TypeEncryption,
-                volume_type_id=volume_type.id,
+                volume_type_id=volume_type_id,
                 requires_id=False,
             )
 
@@ -618,7 +669,9 @@ class Proxy(proxy.Proxy):
 
     # ====== DEFAULT TYPES ======
 
-    def default_types(self):
+    def default_types(
+        self,
+    ) -> Generator[_default_type.DefaultType, None, None]:
         """Lists default types.
 
         :returns: List of default types associated to projects.
@@ -694,7 +747,7 @@ class Proxy(proxy.Proxy):
         self._delete(_default_type.DefaultType, project_id)
 
     # ====== VOLUMES ======
-    def get_volume(self, volume):
+    def get_volume(self, volume: str | _volume.Volume) -> _volume.Volume:
         """Get a single volume
 
         :param volume: The value can be the ID of a volume or a
@@ -737,13 +790,13 @@ class Proxy(proxy.Proxy):
         """Find a single volume
 
         :param snapshot: The name or ID a volume
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the volume does not exist.
-        :param bool details: When set to ``False`` no extended attributes
+        :param details: When set to ``False`` no extended attributes
             will be returned. The default, ``True``, will cause objects with
             additional attributes to be returned.
-        :param bool all_projects: When set to ``True``, search for volume by
+        :param all_projects: When set to ``True``, search for volume by
             name across all projects. Note that this will likely result in
             a higher chance of duplicates. Admin-only by default.
 
@@ -765,15 +818,21 @@ class Proxy(proxy.Proxy):
             **query,
         )
 
-    def volumes(self, *, details=True, all_projects=False, **query):
+    def volumes(
+        self,
+        *,
+        details: bool = True,
+        all_projects: bool = False,
+        **query: Any,
+    ) -> Generator[_volume.Volume, None, None]:
         """Retrieve a generator of volumes
 
-        :param bool details: When set to ``False`` no extended attributes
+        :param details: When set to ``False`` no extended attributes
             will be returned. The default, ``True``, will cause objects with
             additional attributes to be returned.
-        :param bool all_projects: When set to ``True``, list volumes from all
+        :param all_projects: When set to ``True``, list volumes from all
             projects. Admin-only by default.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the volumes being returned.  Available parameters include:
 
             * name: Name of the volume as a string.
@@ -790,29 +849,33 @@ class Proxy(proxy.Proxy):
     def create_volume(self, **attrs: Any) -> _volume.Volume:
         """Create a new volume from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.volume.Volume`,
             comprised of the properties on the Volume class.
 
         :returns: The results of volume creation
-        :rtype: :class:`~openstack.block_storage.v3.volume.Volume`
         """
         return self._create(_volume.Volume, **attrs)
 
     def delete_volume(
-        self, volume, ignore_missing=True, *, force=False, cascade=False
-    ):
+        self,
+        volume: str | _volume.Volume,
+        ignore_missing: bool = True,
+        *,
+        force: bool = False,
+        cascade: bool = False,
+    ) -> None:
         """Delete a volume
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the volume does not exist.
             When set to ``True``, no exception will be set when
             attempting to delete a nonexistent volume.
-        :param bool force: Whether to try forcing volume deletion.
-        :param bool cascade: Whether to remove any snapshots along with the
+        :param force: Whether to try forcing volume deletion.
+        :param cascade: Whether to remove any snapshots along with the
             volume.
 
         :returns: ``None``
@@ -833,19 +896,24 @@ class Proxy(proxy.Proxy):
                 return None
             raise
 
-    def update_volume(self, volume, **attrs):
+    def update_volume(
+        self,
+        volume: str | _volume.Volume,
+        **attrs: Any,
+    ) -> _volume.Volume:
         """Update a volume
 
         :param volume: Either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param dict attrs: The attributes to update on the volume.
+        :param attrs: The attributes to update on the volume.
 
         :returns: The updated volume
-        :rtype: :class:`~openstack.block_storage.v3.volume.Volume`
         """
         return self._update(_volume.Volume, volume, **attrs)
 
-    def get_volume_metadata(self, volume):
+    def fetch_volume_metadata(
+        self, volume: str | _volume.Volume
+    ) -> _volume.Volume:
         """Return a dictionary of metadata for a volume
 
         :param volume: Either the ID of a volume or a
@@ -853,36 +921,53 @@ class Proxy(proxy.Proxy):
 
         :returns: A :class:`~openstack.block_storage.v3.volume.Volume` with the
             volume's metadata. All keys and values are Unicode text.
-        :rtype: :class:`~openstack.block_storage.v3.volume.Volume`
         """
         volume = self._get_resource(_volume.Volume, volume)
         return volume.fetch_metadata(self)
+
+    # TODO(stephenfin): Remove in 5.0
+    def get_volume_metadata(
+        self, volume: str | _volume.Volume
+    ) -> _volume.Volume:
+        """Return a dictionary of metadata for a volume
+
+        .. deprecated:: 4.14.0
+            Use :meth:`fetch_volume_metadata` instead.
+        """
+        warnings.warn(
+            "The 'get_volume_metadata' method is deprecated; use "
+            "'fetch_volume_metadata' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.fetch_volume_metadata(volume)
 
     def set_volume_metadata(self, volume, **metadata):
         """Update metadata for a volume
 
         :param volume: Either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume`.
-        :param kwargs metadata: Key/value pairs to be updated in the volume's
+        :param metadata: Key/value pairs to be updated in the volume's
             metadata. No other metadata is modified by this call. All keys
             and values are stored as Unicode.
 
         :returns: A :class:`~openstack.block_storage.v3.volume.Volume` with the
             volume's metadata. All keys and values are Unicode text.
-        :rtype: :class:`~openstack.block_storage.v3.volume.Volume`
         """
         volume = self._get_resource(_volume.Volume, volume)
         return volume.set_metadata(self, metadata=metadata)
 
-    def delete_volume_metadata(self, volume, keys=None):
+    def delete_volume_metadata(
+        self,
+        volume: str | _volume.Volume,
+        keys: Iterable[str] | None = None,
+    ) -> None:
         """Delete metadata for a volume
 
         :param volume: Either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume`.
-        :param list keys: The keys to delete. If left empty complete
-            metadata will be removed.
+        :param keys: The keys to delete. If omitted, all metadata is removed.
 
-        :rtype: ``None``
+        :returns: ``None``
         """
         volume = self._get_resource(_volume.Volume, volume)
         if keys is not None:
@@ -930,7 +1015,7 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param bool error: Used to indicate if an error has occured that
+        :param error: Used to indicate if an error has occured that
             requires Cinder to roll back the extend operation.
 
         :returns: None
@@ -943,7 +1028,7 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param bool readonly: Whether the volume should be a read-only volume
+        :param readonly: Whether the volume should be a read-only volume
             or not.
 
         :returns: None
@@ -959,7 +1044,7 @@ class Proxy(proxy.Proxy):
         :param new_type: The new volume type that volume is changed with.
             The value can be either the ID of the volume type or a
             :class:`~openstack.block_storage.v3.type.Type` instance.
-        :param str migration_policy: Specify if the volume should be migrated
+        :param migration_policy: Specify if the volume should be migrated
             when it is re-typed. Possible values are on-demand or never.
             Default: never.
 
@@ -974,7 +1059,7 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param bool bootable: Specifies whether the volume should be bootable
+        :param bootable: Specifies whether the volume should be bootable
             or not.
 
         :returns: None
@@ -987,7 +1072,7 @@ class Proxy(proxy.Proxy):
 
         :param volume: Either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume`.
-        :param kwargs metadata: Key/value pairs to be updated in the volume's
+        :param metadata: Key/value pairs to be updated in the volume's
             image metadata. No other metadata is modified by this call.
 
         :returns: None
@@ -995,13 +1080,16 @@ class Proxy(proxy.Proxy):
         volume = self._get_resource(_volume.Volume, volume)
         return volume.set_image_metadata(self, metadata=metadata)
 
-    def delete_volume_image_metadata(self, volume, keys=None):
+    def delete_volume_image_metadata(
+        self,
+        volume: str | _volume.Volume,
+        keys: Iterable[str] | None = None,
+    ) -> None:
         """Delete metadata for a volume
 
         :param volume: Either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume`.
-        :param list keys: The keys to delete. If left empty complete
-            metadata will be removed.
+        :param keys: The keys to delete. If omitted, all metadata is removed.
 
         :returns: None
         """
@@ -1019,9 +1107,9 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param str status: The new volume status.
-        :param str attach_status: The new volume attach status.
-        :param str migration_status: The new volume migration status (admin
+        :param status: The new volume status.
+        :param attach_status: The new volume attach status.
+        :param migration_status: The new volume migration status (admin
             only).
 
         :returns: None
@@ -1051,9 +1139,9 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param str mountpoint: The attaching mount point.
-        :param str instance: The UUID of the attaching instance.
-        :param str host_name: The name of the attaching host.
+        :param mountpoint: The attaching mount point.
+        :param instance: The UUID of the attaching instance.
+        :param host_name: The name of the attaching host.
 
         :returns: None
         """
@@ -1065,10 +1153,10 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param str attachment: The ID of the attachment.
-        :param bool force: Whether to force volume detach (Rolls back an
+        :param attachment: The ID of the attachment.
+        :param force: Whether to force volume detach (Rolls back an
             unsuccessful detach operation after you disconnect the volume.)
-        :param dict connector: The connector object.
+        :param connector: The connector object.
 
         :returns: None
         """
@@ -1079,11 +1167,10 @@ class Proxy(proxy.Proxy):
         """Creates a volume by using existing storage rather than
             allocating new storage.
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.volume.Volume`, comprised of
             the properties on the Volume class.
         :returns: The results of volume creation
-        :rtype: :class:`~openstack.block_storage.v3.volume.Volume`
         """
         return _volume.Volume.manage(self, **attrs)
 
@@ -1111,16 +1198,16 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param str host: The target host for the volume migration. Host
+        :param host: The target host for the volume migration. Host
             format is host@backend.
-        :param bool force_host_copy: If false (the default), rely on the volume
+        :param force_host_copy: If false (the default), rely on the volume
             backend driver to perform the migration, which might be optimized.
             If true, or the volume driver fails to migrate the volume itself,
             a generic host-based migration is performed.
-        :param bool lock_volume: If true, migrating an available volume will
+        :param lock_volume: If true, migrating an available volume will
             change its status to maintenance preventing other operations from
             being performed on the volume such as attach, detach, retype, etc.
-        :param str cluster: The target cluster for the volume migration.
+        :param cluster: The target cluster for the volume migration.
             Cluster format is cluster@backend. Starting with microversion
             3.16, either cluster or host must be specified. If host is
             specified and is part of a cluster, the cluster is used as the
@@ -1136,8 +1223,8 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param str new_volume: The UUID of the new volume.
-        :param bool error: Used to indicate if an error has occured elsewhere
+        :param new_volume: The UUID of the new volume.
+        :param error: Used to indicate if an error has occured elsewhere
             that requires clean up.
 
         :returns: None
@@ -1159,13 +1246,13 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param str image name: The name for the new image.
-        :param bool force: Enables or disables upload of a volume that is
+        :param image_name: The name for the new image.
+        :param force: Enables or disables upload of a volume that is
             attached to an instance.
-        :param str disk_format: Disk format for the new image.
-        :param str container_format: Container format for the new image.
-        :param str visibility: The visibility property of the new image.
-        :param str protected: Whether the new image is protected.
+        :param disk_format: Disk format for the new image.
+        :param container_format: Container format for the new image.
+        :param visibility: The visibility property of the new image.
+        :param protected: Whether the new image is protected.
 
         :returns: dictionary describing the image.
         """
@@ -1225,7 +1312,7 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param dict connector: The connector object.
+        :param connector: The connector object.
 
         :returns: Dictionary containing the modified connector object"""
         volume = self._get_resource(_volume.Volume, volume)
@@ -1236,7 +1323,7 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param dict connector: The connector object.
+        :param connector: The connector object.
 
         :returns: None
         """
@@ -1255,19 +1342,20 @@ class Proxy(proxy.Proxy):
 
         :param volume: The value can be either the ID of a volume or a
             :class:`~openstack.block_storage.v3.volume.Volume` instance.
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.attachment.Attachment`
             comprised of the properties on the Attachment class like
             connector, instance_id, mode etc.
         :returns: The results of attachment creation
-        :rtype: :class:`~openstack.block_storage.v3.attachment.Attachment`
         """
         volume_id = resource.Resource._get_id(volume)
         return self._create(
             _attachment.Attachment, volume_id=volume_id, **attrs
         )
 
-    def get_attachment(self, attachment):
+    def get_attachment(
+        self, attachment: str | _attachment.Attachment
+    ) -> _attachment.Attachment:
         """Get a single volume
 
         This is an internal API and should only be called by services
@@ -1282,29 +1370,36 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_attachment.Attachment, attachment)
 
-    def attachments(self, **query):
+    def attachments(
+        self,
+        **query: Any,
+    ) -> Generator[_attachment.Attachment, None, None]:
         """Returns a generator of attachments.
 
         This is an internal API and should only be called by services
         consuming volume attachments like nova, glance, ironic etc.
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of attachment objects.
         """
         return self._list(_attachment.Attachment, **query)
 
-    def delete_attachment(self, attachment, ignore_missing=True):
+    def delete_attachment(
+        self,
+        attachment: str | _attachment.Attachment,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete an attachment
 
         This is an internal API and should only be called by services
         consuming volume attachments like nova, glance, ironic etc.
 
-        :param type: The value can be either the ID of a attachment or a
+        :param attachment: The value can be either the ID of an attachment or a
             :class:`~openstack.block_storage.v3.attachment.Attachment`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the attachment does not exist.
             When set to ``True``, no exception will be set when
@@ -1318,7 +1413,11 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def update_attachment(self, attachment, **attrs):
+    def update_attachment(
+        self,
+        attachment: str | _attachment.Attachment,
+        **attrs: Any,
+    ) -> _attachment.Attachment:
         """Update an attachment
 
         This is an internal API and should only be called by services
@@ -1327,12 +1426,11 @@ class Proxy(proxy.Proxy):
         :param attachment: The value can be the ID of an attachment or a
             :class:`~openstack.block_storage.v3.attachment.Attachment`
             instance.
-        :param dict attrs: Keyword arguments which will be used to update
+        :param attrs: Keyword arguments which will be used to update
             a :class:`~openstack.block_storage.v3.attachment.Attachment`
             comprised of the properties on the Attachment class
 
         :returns: The updated attachment
-        :rtype: :class:`~openstack.volume.v3.attachment.Attachment`
         """
         return self._update(_attachment.Attachment, attachment, **attrs)
 
@@ -1347,16 +1445,18 @@ class Proxy(proxy.Proxy):
             instance.
 
         :returns: ``None``
-        :rtype: :class:`~openstack.volume.v3.attachment.Attachment`
         """
         attachment_obj = self._get_resource(_attachment.Attachment, attachment)
         return attachment_obj.complete(self)
 
     # ====== BACKEND POOLS ======
-    def backend_pools(self, **query):
+    def backend_pools(
+        self,
+        **query: Any,
+    ) -> Generator[_stats.Pools, None, None]:
         """Returns a generator of cinder Back-end storage pools
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns A generator of cinder Back-end storage pools objects
@@ -1364,13 +1464,18 @@ class Proxy(proxy.Proxy):
         return self._list(_stats.Pools, **query)
 
     # ====== BACKUPS ======
-    def backups(self, *, details=True, **query):
+    def backups(
+        self,
+        *,
+        details: bool = True,
+        **query: Any,
+    ) -> Generator[_backup.Backup, None, None]:
         """Retrieve a generator of backups
 
-        :param bool details: When set to ``False``
+        :param details: When set to ``False``
             no additional details will be returned. The default, ``True``,
             will cause objects with additional attributes to be returned.
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned:
 
             * offset: pagination marker
@@ -1390,7 +1495,7 @@ class Proxy(proxy.Proxy):
         base_path = '/backups/detail' if details else None
         return self._list(_backup.Backup, base_path=base_path, **query)
 
-    def get_backup(self, backup):
+    def get_backup(self, backup: str | _backup.Backup) -> _backup.Backup:
         """Get a backup
 
         :param backup: The value can be the ID of a backup
@@ -1398,7 +1503,6 @@ class Proxy(proxy.Proxy):
             instance.
 
         :returns: Backup instance
-        :rtype: :class:`~openstack.block_storage.v3.backup.Backup`
         """
         return self._get(_backup.Backup, backup)
 
@@ -1430,10 +1534,10 @@ class Proxy(proxy.Proxy):
         """Find a single backup
 
         :param snapshot: The name or ID a backup
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the backup does not exist.
-        :param bool details: When set to ``False`` no additional details will
+        :param details: When set to ``False`` no additional details will
             be returned. The default, ``True``, will cause objects with
             additional attributes to be returned.
 
@@ -1454,25 +1558,29 @@ class Proxy(proxy.Proxy):
     def create_backup(self, **attrs: Any) -> _backup.Backup:
         """Create a new Backup from attributes with native API
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.backup.Backup`
             comprised of the properties on the Backup class.
 
         :returns: The results of Backup creation
-        :rtype: :class:`~openstack.block_storage.v3.backup.Backup`
         """
         return self._create(_backup.Backup, **attrs)
 
-    def delete_backup(self, backup, ignore_missing=True, force=False):
+    def delete_backup(
+        self,
+        backup: str | _backup.Backup,
+        ignore_missing: bool = True,
+        force: bool = False,
+    ) -> None:
         """Delete a CloudBackup
 
         :param backup: The value can be the ID of a backup or a
             :class:`~openstack.block_storage.v3.backup.Backup` instance
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent zone.
-        :param bool force: Whether to try forcing backup deletion
+        :param force: Whether to try forcing backup deletion
 
         :returns: ``None``
         """
@@ -1482,19 +1590,24 @@ class Proxy(proxy.Proxy):
             backup = self._get_resource(_backup.Backup, backup)
             backup.force_delete(self)
 
-    def update_backup(self, backup, **attrs):
+    def update_backup(
+        self,
+        backup: str | _backup.Backup,
+        **attrs: Any,
+    ) -> _backup.Backup:
         """Update a backup
 
         :param backup: Either the ID of a backup or a
             :class:`~openstack.block_storage.v3.backup.Backup`.
-        :param dict attrs: The attributes to update on the volume.
+        :param attrs: The attributes to update on the volume.
 
         :returns: The updated backup
-        :rtype: :class:`~openstack.block_storage.v3.backup.Backup`
         """
         return self._update(_backup.Backup, backup, **attrs)
 
-    def get_backup_metadata(self, backup):
+    def fetch_backup_metadata(
+        self, backup: str | _backup.Backup
+    ) -> _backup.Backup:
         """Return a dictionary of metadata for a backup
 
         :param backup: Either the ID of a backup or a
@@ -1502,10 +1615,25 @@ class Proxy(proxy.Proxy):
 
         :returns: A :class:`~openstack.block_storage.v3.backup.Backup` with the
             backup's metadata.
-        :rtype: :class:`~openstack.block_storage.v3.backup.Backup`
         """
         backup = self._get_resource(_backup.Backup, backup)
         return backup.fetch_metadata(self)
+
+    # TODO(stephenfin): Remove in 5.0
+    def get_backup_metadata(
+        self, backup: str | _backup.Backup
+    ) -> _backup.Backup:
+        """Return a dictionary of metadata for a backup
+
+        .. deprecated:: 4.14.0
+            Use :meth:`fetch_backup_metadata` instead.
+        """
+        warnings.warn(
+            "The 'get_backup_metadata' method is deprecated; use "
+            "'fetch_backup_metadata' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.fetch_backup_metadata(backup)
 
     def export_record(self, backup):
         """Get a backup meatadata to export
@@ -1529,20 +1657,22 @@ class Proxy(proxy.Proxy):
 
         :returns: A :class:`~openstack.block_storage.v3.backup.Backup` with the
             backup's metadata.
-        :rtype: :class:`~openstack.block_storage.v3.backup.Backup`
         """
         backup = self._get_resource(_backup.Backup, backup)
         return backup.set_metadata(self, metadata=metadata)
 
-    def delete_backup_metadata(self, backup, keys=None):
+    def delete_backup_metadata(
+        self,
+        backup: str | _backup.Backup,
+        keys: Iterable[str] | None = None,
+    ) -> None:
         """Delete metadata for a backup
 
         :param backup: Either the ID of a backup or a
             :class:`~openstack.block_storage.v3.backup.Backup`.
-        :param list keys: The keys to delete. If left empty complete
-            metadata will be removed.
+        :param keys: The keys to delete. If omitted, all metadata is removed.
 
-        :rtype: ``None``
+        :returns: ``None``
         """
         backup = self._get_resource(_backup.Backup, backup)
         if keys is not None:
@@ -1552,26 +1682,31 @@ class Proxy(proxy.Proxy):
             backup.delete_metadata(self)
 
     # ====== BACKUP ACTIONS ======
-    def restore_backup(self, backup, volume_id=None, name=None):
+
+    @renamed_param('volume_id', 'volume')
+    def restore_backup(self, backup, volume=None, name=None):
         """Restore a Backup to volume
 
         :param backup: The value can be the ID of a backup or a
             :class:`~openstack.block_storage.v3.backup.Backup` instance
-        :param volume_id: The ID of the volume to restore the backup to.
+        :param volume: An ID or
+            :class:`~openstack.volume.v3.volume.Volume` instance of the
+            volume to restore the backup to.
         :param name: The name for new volume creation to restore.
 
         :returns: Updated backup instance
-        :rtype: :class:`~openstack.block_storage.v3.backup.Backup`
         """
-        backup = self._get_resource(_backup.Backup, backup)
-        return backup.restore(self, volume_id=volume_id, name=name)
+        volume_id = resource.Resource._get_id(volume) if volume else None
+        return self._get_resource(_backup.Backup, backup).restore(
+            self, volume_id=volume_id, name=name
+        )
 
     def reset_backup_status(self, backup, status):
         """Reset status of the backup
 
         :param backup: The value can be either the ID of a backup or a
             :class:`~openstack.block_storage.v3.backup.Backup` instance.
-        :param str status: New backup status
+        :param status: New backup status
 
         :returns: None
         """
@@ -1587,7 +1722,9 @@ class Proxy(proxy.Proxy):
         return self.reset_backup_status(backup, status)
 
     # ====== LIMITS ======
-    def get_limits(self, project=None):
+    def get_limits(
+        self, project: str | _project.Project | None = None
+    ) -> _limits.Limits:
         """Retrieves limits
 
         :param project: A project to get limits for. The value can be either
@@ -1596,11 +1733,8 @@ class Proxy(proxy.Proxy):
         :returns: A Limits object, including both
             :class:`~openstack.block_storage.v3.limits.AbsoluteLimit` and
             :class:`~openstack.block_storage.v3.limits.RateLimit`
-        :rtype: :class:`~openstack.block_storage.v3.limits.Limits`
         """
-        project_id = None
-        if project:
-            project_id = resource.Resource._get_id(project)
+        project_id = resource.Resource._get_id(project) if project else None
 
         # we don't use Proxy._get since that doesn't allow passing arbitrary
         # query string parameters
@@ -1612,7 +1746,9 @@ class Proxy(proxy.Proxy):
         )
 
     # ====== CAPABILITIES ======
-    def get_capabilities(self, host):
+    def get_capabilities(
+        self, host: str | _capabilities.Capabilities
+    ) -> _capabilities.Capabilities:
         """Get a backend's capabilites
 
         :param host: Specified backend to obtain volume stats and properties.
@@ -1625,17 +1761,28 @@ class Proxy(proxy.Proxy):
         return self._get(_capabilities.Capabilities, host)
 
     # ====== GROUPS ======
-    def get_group(self, group_id, **attrs):
+
+    # TODO(stephenfin): Remove **attrs in 5.0
+    @renamed_param('group_id', 'group')
+    def get_group(
+        self, group: str | _group.Group, **attrs: Any
+    ) -> _group.Group:
         """Get a group
 
-        :param group_id: The ID of the group to get.
-        :param dict attrs:  Optional query parameters to be sent to limit the
-            resources being returned.
+        :param group: The value can be the ID of a group or a
+            :class:`~openstack.block_storage.v3.group.Group` instance.
+        :param attrs: **DEPRECATED** Optional query parameters to be sent to
+            limit the resources being returned.
 
         :returns: A Group instance.
-        :rtype: :class:`~openstack.block_storage.v3.group`
         """
-        return self._get(_group.Group, group_id, **attrs)
+        if attrs:
+            warnings.warn(
+                'Passing kwargs to get_group is deprecated and will be '
+                'removed in a future release',
+                os_warnings.RemovedInSDK50Warning,
+            )
+        return self._get(_group.Group, group, **attrs)
 
     @overload
     def find_group(
@@ -1665,10 +1812,10 @@ class Proxy(proxy.Proxy):
         """Find a single group
 
         :param name_or_id: The name or ID of a group.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the group snapshot does not exist.
-        :param bool details: When set to ``False``, no additional details will
+        :param details: When set to ``False``, no additional details will
             be returned. The default, ``True``, will cause additional details
             to be returned.
 
@@ -1686,13 +1833,18 @@ class Proxy(proxy.Proxy):
             list_base_path=list_base_path,
         )
 
-    def groups(self, *, details=True, **query):
+    def groups(
+        self,
+        *,
+        details: bool = True,
+        **query: Any,
+    ) -> Generator[_group.Group, None, None]:
         """Retrieve a generator of groups
 
-        :param bool details: When set to ``False``, no additional details will
+        :param details: When set to ``False``, no additional details will
             be returned. The default, ``True``, will cause additional details
             to be returned.
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned:
 
             * all_tenants: Shows details for all project.
@@ -1714,49 +1866,63 @@ class Proxy(proxy.Proxy):
     def create_group(self, **attrs: Any) -> _group.Group:
         """Create a new group from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.group.Group` comprised of
             the properties on the Group class.
 
         :returns: The results of group creation.
-        :rtype: :class:`~openstack.block_storage.v3.group.Group`.
         """
         return self._create(_group.Group, **attrs)
 
     def create_group_from_source(self, **attrs: Any) -> _group.Group:
         """Creates a new group from source
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.group.Group` comprised of
             the properties on the Group class.
 
         :returns: The results of group creation.
-        :rtype: :class:`~openstack.block_storage.v3.group.Group`.
         """
         return _group.Group.create_from_source(self, **attrs)
 
-    def delete_group(self, group, delete_volumes=False):
+    def delete_group(
+        self,
+        group: str | _group.Group,
+        delete_volumes: bool = False,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a group
 
         :param group: The :class:`~openstack.block_storage.v3.group.Group` to
             delete.
-        :param bool delete_volumes: When set to ``True``, volumes in group
+        :param delete_volumes: When set to ``True``, volumes in group
             will be deleted.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the group does not exist. When set to ``True``, no exception
+            will be set when attempting to delete a nonexistent group.
 
         :returns: ``None``.
         """
         res = self._get_resource(_group.Group, group)
-        res.delete(self, delete_volumes=delete_volumes)
+        try:
+            res.delete(self, delete_volumes=delete_volumes)
+        except exceptions.NotFoundException:
+            if not ignore_missing:
+                raise
 
-    def update_group(self, group, **attrs):
+    def update_group(
+        self,
+        group: str | _group.Group,
+        **attrs: Any,
+    ) -> _group.Group:
         """Update a group
 
         :param group: The value can be the ID of a group or a
             :class:`~openstack.block_storage.v3.group.Group` instance.
-        :param dict attrs: The attributes to update on the group.
+        :param attrs: The attributes to update on the group.
 
         :returns: The updated group
-        :rtype: :class:`~openstack.volume.v3.group.Group`
         """
         return self._update(_group.Group, group, **attrs)
 
@@ -1827,26 +1993,32 @@ class Proxy(proxy.Proxy):
         )
 
     # ====== AVAILABILITY ZONES ======
-    def availability_zones(self):
+    def availability_zones(
+        self,
+    ) -> Generator[availability_zone.AvailabilityZone, None, None]:
         """Return a generator of availability zones
 
         :returns: A generator of availability zone
-        :rtype:
             :class:`~openstack.block_storage.v3.availability_zone.AvailabilityZone`
         """
 
         return self._list(availability_zone.AvailabilityZone)
 
     # ====== GROUP SNAPSHOT ======
-    def get_group_snapshot(self, group_snapshot_id):
+
+    @renamed_param('group_snapshot_id', 'group_snapshot')
+    def get_group_snapshot(
+        self, group_snapshot: str | _group_snapshot.GroupSnapshot
+    ) -> _group_snapshot.GroupSnapshot:
         """Get a group snapshot
 
-        :param group_snapshot_id: The ID of the group snapshot to get.
+        :param group_snapshot: The value can be the ID of a group snapshot or a
+            :class:`~openstack.block_storage.v3.group_snapshot.GroupSnapshot`
+            instance.
 
         :returns: A GroupSnapshot instance.
-        :rtype: :class:`~openstack.block_storage.v3.group_snapshot`
         """
-        return self._get(_group_snapshot.GroupSnapshot, group_snapshot_id)
+        return self._get(_group_snapshot.GroupSnapshot, group_snapshot)
 
     @overload
     def find_group_snapshot(
@@ -1876,10 +2048,10 @@ class Proxy(proxy.Proxy):
         """Find a single group snapshot
 
         :param name_or_id: The name or ID of a group snapshot.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the group snapshot does not exist.
-        :param bool details: When set to ``False``, no additional details will
+        :param details: When set to ``False``, no additional details will
             be returned. The default, ``True``, will cause additional details
             to be returned.
 
@@ -1897,13 +2069,18 @@ class Proxy(proxy.Proxy):
             list_base_path=list_base_path,
         )
 
-    def group_snapshots(self, *, details=True, **query):
+    def group_snapshots(
+        self,
+        *,
+        details: bool = True,
+        **query: Any,
+    ) -> Generator[_group_snapshot.GroupSnapshot, None, None]:
         """Retrieve a generator of group snapshots
 
-        :param bool details: When ``True``, returns
+        :param details: When ``True``, returns
             :class:`~openstack.block_storage.v3.group_snapshot.GroupSnapshot`
             objects with additional attributes filled.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the group snapshots being returned.
         :returns: A generator of group snapshtos.
         """
@@ -1919,12 +2096,11 @@ class Proxy(proxy.Proxy):
     ) -> _group_snapshot.GroupSnapshot:
         """Create a group snapshot
 
-        :param dict attrs: Keyword arguments which will be used to create a
+        :param attrs: Keyword arguments which will be used to create a
             :class:`~openstack.block_storage.v3.group_snapshot.GroupSnapshot`
             comprised of the properties on the GroupSnapshot class.
 
         :returns: The results of group snapshot creation.
-        :rtype: :class:`~openstack.block_storage.v3.group_snapshot`.
         """
         return self._create(_group_snapshot.GroupSnapshot, **attrs)
 
@@ -1952,11 +2128,20 @@ class Proxy(proxy.Proxy):
         )
         return self.reset_group_snapshot_status(group_snapshot, state)
 
-    def delete_group_snapshot(self, group_snapshot, ignore_missing=True):
+    def delete_group_snapshot(
+        self,
+        group_snapshot: str | _group_snapshot.GroupSnapshot,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a group snapshot
 
         :param group_snapshot: The :class:`~openstack.block_storage.v3.
             group_snapshot.GroupSnapshot` to delete.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the group snapshot does not exist. When set to ``True``, no
+            exception will be set when attempting to delete a nonexistent
+            group snapshot.
 
         :returns: None
         """
@@ -1967,7 +2152,9 @@ class Proxy(proxy.Proxy):
         )
 
     # ====== GROUP TYPE ======
-    def get_group_type(self, group_type):
+    def get_group_type(
+        self, group_type: str | _group_type.GroupType
+    ) -> _group_type.GroupType:
         """Get a specific group type
 
         :param group_type: The value can be the ID of a group type
@@ -2003,7 +2190,7 @@ class Proxy(proxy.Proxy):
         """Find a single group type
 
         :param name_or_id: The name or ID of a group type.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the group type does not exist.
 
@@ -2020,10 +2207,13 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def group_types(self, **query):
+    def group_types(
+        self,
+        **query: Any,
+    ) -> Generator[_group_type.GroupType, None, None]:
         """Retrive a generator of group types
 
-        :param dict query: Optional query parameters to be sent to limit the
+        :param query: Optional query parameters to be sent to limit the
             resources being returned:
 
             * sort: Comma-separated list of sort keys and optional sort
@@ -2045,22 +2235,25 @@ class Proxy(proxy.Proxy):
     def create_group_type(self, **attrs: Any) -> _group_type.GroupType:
         """Create a group type
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.group_type.GroupType`
             comprised of the properties on the GroupType class.
 
         :returns: The results of group type creation.
-        :rtype: :class:`~openstack.block_storage.v3.group_type.GroupTye`.
         """
         return self._create(_group_type.GroupType, **attrs)
 
-    def delete_group_type(self, group_type, ignore_missing=True):
+    def delete_group_type(
+        self,
+        group_type: str | _group_type.GroupType,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a group type
 
         :param group_type: The value can be the ID of a group type
             or a :class:`~openstack.block_storage.v3.group_type.GroupType`
             instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the zone does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent zone.
@@ -2071,16 +2264,19 @@ class Proxy(proxy.Proxy):
             _group_type.GroupType, group_type, ignore_missing=ignore_missing
         )
 
-    def update_group_type(self, group_type, **attrs):
+    def update_group_type(
+        self,
+        group_type: str | _group_type.GroupType,
+        **attrs: Any,
+    ) -> _group_type.GroupType:
         """Update a group_type
 
         :param group_type: The value can be the ID of a group type or a
             :class:`~openstack.block_storage.v3.group_type.GroupType`
             instance.
-        :param dict attrs: The attributes to update on the group type.
+        :param attrs: The attributes to update on the group type.
 
         :returns: The updated group type.
-        :rtype: :class:`~openstack.block_storage.v3.group_type.GroupType`
         """
         return self._update(_group_type.GroupType, group_type, **attrs)
 
@@ -2104,53 +2300,137 @@ class Proxy(proxy.Proxy):
 
         :param group_type: Either the ID of a group type or a
             :class:`~openstack.block_storage.v3.group_type.GroupType` instance.
-        :param dict group_specs: dict of extra specs
+        :param group_specs: dict of extra specs
 
         :returns: One :class:`~openstack.block_storage.v3.group_type.GroupType`
         """
         group_type = self._get_resource(_group_type.GroupType, group_type)
         return group_type.create_group_specs(self, specs=group_specs)
 
-    def get_group_type_group_specs_property(self, group_type, prop):
+    def get_group_type_group_specs_property(
+        self, group_type: str | _group_type.GroupType, prop: str
+    ) -> str:
         """Retrieve a group spec property for a group type.
 
         :param group_type: Either the ID of a group type or a
             :class:`~openstack.block_storage.v3.group_type.GroupType` instance.
-        :param str prop: Property name.
+        :param prop: Property name.
 
         :returns: String value of the requested property.
         """
         group_type = self._get_resource(_group_type.GroupType, group_type)
         return group_type.get_group_specs_property(self, prop)
 
-    def update_group_type_group_specs_property(self, group_type, prop, val):
+    def update_group_type_group_specs_property(
+        self,
+        group_type: str | _group_type.GroupType,
+        prop: str,
+        val: str,
+    ) -> str:
         """Update a group spec property for a group type.
 
         :param group_type: Either the ID of a group type or a
             :class:`~openstack.block_storage.v3.group_type.GroupType` instance.
-        :param str prop: Property name.
-        :param str val: Property value.
+        :param prop: Property name.
+        :param val: Property value.
 
         :returns: String value of the requested property.
         """
         group_type = self._get_resource(_group_type.GroupType, group_type)
         return group_type.update_group_specs_property(self, prop, val)
 
-    def delete_group_type_group_specs_property(self, group_type, prop):
+    def delete_group_type_group_specs_property(
+        self,
+        group_type: str | _group_type.GroupType,
+        prop: str,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a group spec property from a group type.
 
         :param group_type: Either the ID of a group type or a
             :class:`~openstack.block_storage.v3.group_type.GroupType` instance.
-        :param str prop: Property name.
+        :param prop: Property name.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the group type or group spec does not exist. When set to
+            ``True``, no exception will be set when attempting to delete a
+            nonexistent group type group spec.
 
         :returns: None
         """
         group_type = self._get_resource(_group_type.GroupType, group_type)
-        return group_type.delete_group_specs_property(self, prop)
+        try:
+            group_type.delete_group_specs_property(self, prop)
+        except exceptions.NotFoundException:
+            if not ignore_missing:
+                raise
+
+    # ====== QoS ======
+
+    def create_qos_spec(self, **attrs: Any) -> _qos_spec.QoSSpec:
+        """Create a new QoS Spec from attributes
+
+        :param attrs: Keyword arguments which will be used to create a
+            :class:`~openstack.block_storage.v3.qos_spec.QoSSpec`, comprised
+            of the properties on the QoS class.
+
+        :returns: The results of a qos spec creation
+        :rtype: :class:`~openstack.block_storage.v3.qos_spec.QoSSpec`
+        """
+        return self._create(_qos_spec.QoSSpec, **attrs)
+
+    def delete_qos_spec(
+        self, qos_spec: str | _qos_spec.QoSSpec, ignore_missing: bool = True
+    ) -> None:
+        """Delete a QoS Spec
+
+        :param qos_spec: The value can be either the ID of a qos spec or a
+            :class:`~openstack.block_storage.v3.qos_spec.QoSSpec` instance.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.ResourceNotFound` will be raised when
+            the type does not exist. When set to ``True``, no exception will be
+            set when attempting to delete a nonexistent type.
+
+        :returns: ``None``
+        """
+        self._delete(
+            _qos_spec.QoSSpec, qos_spec, ignore_missing=ignore_missing
+        )
+
+    def update_qos_spec(
+        self,
+        qos_spec: str | _qos_spec.QoSSpec,
+        **attrs: Any,
+    ) -> _qos_spec.QoSSpec:
+        """Update a qos spec
+
+        :param qos_spec: The value can be either the ID of a qos spec or a
+            :class:`~openstack.block_storage.v3.qos_spec.QoSSpec` instance.
+        :param dict attrs: The attributes to update on the qos spec
+
+        :returns: The updated qos spec
+        :rtype: :class:`~openstack.block_storage.v3.qos_spec.QoSSpec`
+        """
+        return self._update(_qos_spec.QoSSpec, qos_spec, **attrs)
+
+    def get_qos_spec(self, qos_spec: _qos_spec.QoSSpec) -> _qos_spec.QoSSpec:
+        """Get a single QoS Spec
+
+        :param qos_spec: The value can be either the ID of a qos spec or a
+            :class:`~openstack.block_storage.v3.qos_spec.QoSSpec` instance.
+
+        :returns: One :class:`~openstack.block_storage.v3.qos_spec.QoSSpec`
+        :raises: :class:`~openstack.exceptions.ResourceNotFound` when no
+            resource can be found.
+        """
+        return self._get(_qos_spec.QoSSpec, qos_spec)
 
     # ====== QUOTA CLASS SETS ======
 
-    def get_quota_class_set(self, quota_class_set='default'):
+    def get_quota_class_set(
+        self,
+        quota_class_set: str | _quota_class_set.QuotaClassSet = 'default',
+    ) -> _quota_class_set.QuotaClassSet:
         """Get a single quota class set
 
         Only one quota class is permitted, ``default``.
@@ -2167,7 +2447,11 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_quota_class_set.QuotaClassSet, quota_class_set)
 
-    def update_quota_class_set(self, quota_class_set, **attrs):
+    def update_quota_class_set(
+        self,
+        quota_class_set: str | _quota_class_set.QuotaClassSet,
+        **attrs: Any,
+    ) -> _quota_class_set.QuotaClassSet:
         """Update a QuotaClassSet.
 
         Only one quota class is permitted, ``default``.
@@ -2178,7 +2462,6 @@ class Proxy(proxy.Proxy):
             by ``quota_class_set``.
 
         :returns: The updated QuotaSet
-        :rtype: :class:`~openstack.block_storage.v3.quota_set.QuotaSet`
         """
         return self._update(
             _quota_class_set.QuotaClassSet, quota_class_set, **attrs
@@ -2186,27 +2469,34 @@ class Proxy(proxy.Proxy):
 
     # ====== QUOTA SETS ======
 
-    def get_quota_set(self, project, usage=False, **query):
+    def get_quota_set(
+        self,
+        project: str | _project.Project,
+        usage: bool = False,
+        **query: Any,
+    ) -> _quota_set.QuotaSet:
         """Show QuotaSet information for the project
 
         :param project: ID or instance of
             :class:`~openstack.identity.project.Project` of the project for
             which the quota should be retrieved
-        :param bool usage: When set to ``True`` quota usage and reservations
+        :param usage: When set to ``True`` quota usage and reservations
             would be filled.
-        :param dict query: Additional query parameters to use.
+        :param query: Additional query parameters to use.
 
         :returns: One :class:`~openstack.block_storage.v3.quota_set.QuotaSet`
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
-        project = self._get_resource(_project.Project, project)
+        project_id = resource.Resource._get_id(project)
         res = self._get_resource(
-            _quota_set.QuotaSet, None, project_id=project.id
+            _quota_set.QuotaSet, None, project_id=project_id
         )
         return res.fetch(self, usage=usage, **query)
 
-    def get_quota_set_defaults(self, project):
+    def get_quota_set_defaults(
+        self, project: str | _project.Project
+    ) -> _quota_set.QuotaSet:
         """Show QuotaSet defaults for the project
 
         :param project: ID or instance of
@@ -2217,12 +2507,12 @@ class Proxy(proxy.Proxy):
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
-        project = self._get_resource(_project.Project, project)
+        project_id = resource.Resource._get_id(project)
         res = self._get_resource(
-            _quota_set.QuotaSet, None, project_id=project.id
+            _quota_set.QuotaSet, None, project_id=project_id
         )
         return res.fetch(
-            self, base_path=(f'/os-quota-sets/{project.id}/defaults')
+            self, base_path=(f'/os-quota-sets/{project_id}/defaults')
         )
 
     def revert_quota_set(self, project, **query):
@@ -2231,18 +2521,23 @@ class Proxy(proxy.Proxy):
         :param project: ID or instance of
             :class:`~openstack.identity.project.Project` of the project for
             which the quota should be resetted.
-        :param dict query: Additional parameters to be used.
+        :param query: Additional parameters to be used.
 
         :returns: ``None``
         """
-        project = self._get_resource(_project.Project, project)
+        project_id = resource.Resource._get_id(project)
         res = self._get_resource(
-            _quota_set.QuotaSet, None, project_id=project.id
+            _quota_set.QuotaSet, None, project_id=project_id
         )
 
         return res.delete(self, **query)
 
-    def update_quota_set(self, project, **attrs):
+    # TODO(stephenfin): Drop the QuotaSet fallback in 5.0
+    def update_quota_set(
+        self,
+        project: str | _project.Project | _quota_set.QuotaSet,
+        **attrs: Any,
+    ) -> _quota_set.QuotaSet:
         """Update a QuotaSet.
 
         :param project: ID or instance of
@@ -2252,7 +2547,6 @@ class Proxy(proxy.Proxy):
             by ``quota_set``.
 
         :returns: The updated QuotaSet
-        :rtype: :class:`~openstack.block_storage.v3.quota_set.QuotaSet`
         """
         if 'project_id' in attrs or isinstance(project, _quota_set.QuotaSet):
             warnings.warn(
@@ -2271,7 +2565,11 @@ class Proxy(proxy.Proxy):
                 )
                 attrs.pop('query')
 
-            res = self._get_resource(_quota_set.QuotaSet, project, **attrs)
+            res = self._get_resource(
+                _quota_set.QuotaSet,
+                cast('str | _quota_set.QuotaSet | None', project),
+                **attrs,
+            )
             return res.commit(self)
         else:
             project = self._get_resource(_project.Project, project)
@@ -2304,11 +2602,11 @@ class Proxy(proxy.Proxy):
         """Find a single service
 
         :param name_or_id: The name or ID of a service
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the resource does not exist. When set to ``True``, None will
             be returned when attempting to find a nonexistent resource.
-        :param dict query: Additional attributes like 'host'
+        :param query: Additional attributes like 'host'
 
         :returns: One: class:`~openstack.block_storage.v3.service.Service` or
             None
@@ -2330,10 +2628,9 @@ class Proxy(proxy.Proxy):
     ) -> Generator[_service.Service, None, None]:
         """Return a generator of service
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
         :returns: A generator of Service objects
-        :rtype: class: `~openstack.block_storage.v3.service.Service`
         """
         return self._list(_service.Service, **query)
 
@@ -2347,7 +2644,6 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.block_storage.v3.service.Service` instance.
 
         :returns: Updated service instance
-        :rtype: class: `~openstack.block_storage.v3.service.Service`
         """
         service_obj = self._get_resource(_service.Service, service)
         return service_obj.enable(self)
@@ -2362,10 +2658,9 @@ class Proxy(proxy.Proxy):
 
         :param service: Either the ID of a service or a
             :class:`~openstack.block_storage.v3.service.Service` instance
-        :param str reason: The reason to disable a service
+        :param reason: The reason to disable a service
 
         :returns: Updated service instance
-        :rtype: class: `~openstack.block_storage.v3.service.Service`
         """
         service_obj = self._get_resource(_service.Service, service)
         return service_obj.disable(self, reason=reason)
@@ -2380,7 +2675,6 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.block_storage.v3.service.Service` instance
 
         :returns: Updated service instance
-        :rtype: class: `~openstack.block_storage.v3.service.Service`
         """
         service_obj = self._get_resource(_service.Service, service)
         return service_obj.thaw(self)
@@ -2395,7 +2689,6 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.block_storage.v3.service.Service` instance
 
         :returns: Updated service instance
-        :rtype: class: `~openstack.block_storage.v3.service.Service`
         """
         service_obj = self._get_resource(_service.Service, service)
         return service_obj.freeze(self)
@@ -2459,7 +2752,6 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.block_storage.v3.service.Service` instance
 
         :returns: Updated service instance
-        :rtype: class: `~openstack.block_storage.v3.service.Service`
         """
         service_obj = self._get_resource(_service.Service, service)
         return service_obj.failover(
@@ -2467,7 +2759,10 @@ class Proxy(proxy.Proxy):
         )
 
     # ====== RESOURCE FILTERS ======
-    def resource_filters(self, **query):
+    def resource_filters(
+        self,
+        **query: Any,
+    ) -> Generator[_resource_filter.ResourceFilter, None, None]:
         """Retrieve a generator of resource filters
 
         :returns: A generator of resource filters.
@@ -2475,11 +2770,10 @@ class Proxy(proxy.Proxy):
         return self._list(_resource_filter.ResourceFilter, **query)
 
     # ====== EXTENSIONS ======
-    def extensions(self):
+    def extensions(self) -> Generator[_extension.Extension, None, None]:
         """Return a generator of extensions
 
         :returns: A generator of extension
-        :rtype: :class:`~openstack.block_storage.v3.extension.Extension`
         """
         return self._list(_extension.Extension)
 
@@ -2490,20 +2784,21 @@ class Proxy(proxy.Proxy):
 
         :param volume_id: The value is ID of the volume.
         :param name: The value is name of the transfer
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.block_storage.v3.transfer.Transfer`
             comprised of the properties on the Transfer class.
         :returns: The results of Transfer creation
-        :rtype: :class:`~openstack.block_storage.v3.transfer.Transfer`
         """
         return self._create(_transfer.Transfer, **attrs)
 
-    def delete_transfer(self, transfer, ignore_missing=True):
+    def delete_transfer(
+        self, transfer: str | _transfer.Transfer, ignore_missing: bool = True
+    ) -> None:
         """Delete a volume transfer
 
         :param transfer: The value can be either the ID of a transfer or a
             :class:`~openstack.block_storage.v3.transfer.Transfer`` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the transfer does not exist.
             When set to ``True``, no exception will be set when
@@ -2539,7 +2834,7 @@ class Proxy(proxy.Proxy):
         """Find a single transfer
 
         :param name_or_id: The name or ID a transfer
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the volume transfer does not exist.
 
@@ -2555,7 +2850,9 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def get_transfer(self, transfer):
+    def get_transfer(
+        self, transfer: str | _transfer.Transfer
+    ) -> _transfer.Transfer:
         """Get a single transfer
 
         :param transfer: The value can be the ID of a transfer or a
@@ -2568,15 +2865,21 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_transfer.Transfer, transfer)
 
-    def transfers(self, *, details=True, all_projects=False, **query):
+    def transfers(
+        self,
+        *,
+        details: bool = True,
+        all_projects: bool = False,
+        **query: Any,
+    ) -> Generator[_transfer.Transfer, None, None]:
         """Retrieve a generator of transfers
 
-        :param bool details: When set to ``False`` no extended attributes
+        :param details: When set to ``False`` no extended attributes
             will be returned. The default, ``True``, will cause objects with
             additional attributes to be returned.
-        :param bool all_projects: When set to ``True``, list transfers from
+        :param all_projects: When set to ``True``, list transfers from
             all projects. Admin-only by default.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the transfers being returned.
 
         :returns: A generator of transfer objects.
@@ -2590,18 +2893,18 @@ class Proxy(proxy.Proxy):
             base_path = utils.urljoin(base_path, 'detail')
         return self._list(_transfer.Transfer, base_path=base_path, **query)
 
-    def accept_transfer(self, transfer_id, auth_key):
+    @renamed_param('transfer_id', 'transfer')
+    def accept_transfer(self, transfer, auth_key):
         """Accept a Transfer
 
-        :param transfer_id: The value can be the ID of a transfer or a
+        :param transfer: The value can be the ID of a transfer or a
             :class:`~openstack.block_storage.v3.transfer.Transfer`
             instance.
         :param auth_key: The key to authenticate volume transfer.
 
         :returns: The results of Transfer creation
-        :rtype: :class:`~openstack.block_storage.v3.transfer.Transfer`
         """
-        transfer = self._get_resource(_transfer.Transfer, transfer_id)
+        transfer = self._get_resource(_transfer.Transfer, transfer)
         return transfer.accept(self, auth_key=auth_key)
 
     # ====== UTILS ======
@@ -2632,7 +2935,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -2650,8 +2953,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
@@ -2743,10 +3046,10 @@ class Proxy(proxy.Proxy):
 
         if not self.should_skip_resource_cleanup("snapshot", skip_resources):
             snapshots = []
-            for obj in self.snapshots(details=False):
+            for snap_obj in self.snapshots(details=False):
                 need_delete = self._service_cleanup_del_res(
                     self.delete_snapshot,
-                    obj,
+                    snap_obj,
                     dry_run=dry_run,
                     client_status_queue=client_status_queue,
                     identified_resources=identified_resources,
@@ -2754,21 +3057,21 @@ class Proxy(proxy.Proxy):
                     resource_evaluation_fn=resource_evaluation_fn,
                 )
                 if not dry_run and need_delete:
-                    snapshots.append(obj)
+                    snapshots.append(snap_obj)
 
             # Before deleting volumes need to wait for snapshots to be deleted
-            for obj in snapshots:
+            for snap_obj in snapshots:
                 try:
-                    self.wait_for_delete(obj)
+                    self.wait_for_delete(snap_obj)
                 except exceptions.SDKException:
                     # Well, did our best, still try further
                     pass
 
         if not self.should_skip_resource_cleanup("volume", skip_resources):
-            for obj in self.volumes(details=True):
+            for vol_obj in self.volumes(details=True):
                 self._service_cleanup_del_res(
                     self.delete_volume,
-                    obj,
+                    vol_obj,
                     dry_run=dry_run,
                     client_status_queue=client_status_queue,
                     identified_resources=identified_resources,

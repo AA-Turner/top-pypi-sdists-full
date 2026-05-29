@@ -6,6 +6,7 @@ import torch
 import torch.distributed as dist
 from compressed_tensors.offload import disable_onloading
 from compressed_tensors.offload.cache.dist_cpu import DistributedCPUCache
+from loguru import logger as loguru_logger
 from tests.test_offload.cache.helpers import (
     _test_delete,
     _test_disable_offloading,
@@ -23,7 +24,7 @@ from tests.testing_utils import requires_gpu
 
 @pytest.fixture()
 def onload_device():
-    return torch.device("cuda")
+    return torch.accelerator.current_accelerator()
 
 
 @pytest.fixture()
@@ -33,70 +34,70 @@ def offload_device():
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_delete(offload_device, onload_device, offload_cache):
     _test_delete(offload_device, onload_device, offload_cache)
 
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_disable_offloading(offload_device, onload_device, offload_cache):
     _test_disable_offloading(offload_device, onload_device, offload_cache)
 
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_disable_onloading(offload_device, onload_device, offload_cache):
     _test_disable_onloading(offload_device, onload_device, offload_cache)
 
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_garbage_collect(offload_device, onload_device, offload_cache):
     _test_garbage_collect(offload_device, onload_device, offload_cache)
 
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_offload(offload_device, onload_device, offload_cache):
     _test_offload(offload_device, onload_device, offload_cache)
 
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_onload(offload_device, onload_device, offload_cache):
     _test_onload(offload_device, onload_device, offload_cache)
 
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_onloading(offload_device, onload_device, offload_cache):
     _test_onloading(offload_device, onload_device, offload_cache)
 
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_shared_attributes(offload_device, onload_device, offload_cache):
     _test_shared_attributes(offload_device, onload_device, offload_cache)
 
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_tensor_subclass(offload_device, onload_device, offload_cache):
     _test_tensor_subclass(offload_device, onload_device, offload_cache)
 
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_distributed_offload(onload_device):
     cache = DistributedCPUCache(onload_device)
     tensor = torch.zeros((5, 2))
@@ -119,7 +120,7 @@ def test_distributed_offload(onload_device):
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_shared_cpu_offload(onload_device):
     cache = DistributedCPUCache(onload_device)
     tensor = torch.zeros((5, 2))
@@ -141,7 +142,7 @@ def test_shared_cpu_offload(onload_device):
 
 @pytest.mark.unit
 @requires_gpu(2)
-@torchrun(world_size=2)
+@torchrun(world_size=2, init_dist=True)
 def test_distributed_async_update(onload_device):
     """
     Test that different ranks can update different tensors asynchronously,
@@ -178,3 +179,39 @@ def test_distributed_async_update(onload_device):
         offloaded_1 = cache["tensor_1"]
         assert torch.allclose(offloaded_0.cpu(), torch.ones(10) * 1.0)
         assert torch.allclose(offloaded_1.cpu(), torch.ones(10) * 2.0)
+
+
+@pytest.mark.unit
+@requires_gpu(2)
+@torchrun(world_size=2, init_dist=True)
+def test_distributed_offload_logs_memory_hint(onload_device):
+    cache = DistributedCPUCache(onload_device)
+
+    original_share_memory = torch.Tensor.share_memory_
+
+    def raise_memory_error(*args, **kwargs):
+        raise RuntimeError("mmap failed: Cannot allocate memory")
+
+    torch.Tensor.share_memory_ = raise_memory_error
+
+    warnings = []
+    handler_id = loguru_logger.add(
+        lambda msg: warnings.append(msg.record["message"]), level="WARNING"
+    )
+
+    try:
+        # Only Rank 0 calls offload(), which throws an error *before* the
+        # dist.broadcast barrier. This cleanly avoids the hang since Rank 1
+        # safely exits without waiting.
+        if dist.get_rank() == 0:
+            with pytest.raises(RuntimeError, match="Cannot allocate memory"):
+                cache.offload(torch.zeros(1, device=onload_device))
+    finally:
+        torch.Tensor.share_memory_ = original_share_memory
+        loguru_logger.remove(handler_id)
+
+    if dist.get_rank() == 0:
+        assert any(
+            "CPU offloading ran out of host RAM or mmap descriptors." in w
+            for w in warnings
+        )

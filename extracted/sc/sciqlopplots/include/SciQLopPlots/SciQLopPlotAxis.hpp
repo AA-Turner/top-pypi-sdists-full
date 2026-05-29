@@ -28,7 +28,9 @@
 #include <QFont>
 #include <QObject>
 #include <QPointer>
+#include <functional>
 #include <memory>
+#include <optional>
 class QCPAxis;
 class QCPColorScale;
 namespace _impl { class SciQLopPlot; }
@@ -266,12 +268,19 @@ class SciQLopPlotAxis : public SciQLopPlotAxisInterface
     QPointer<QCPAxis> m_axis;
     SciQLopPlotRange m_last_valid_range;
     bool m_suppress_range_signals = false;
+    double m_autoscale_percentile_low = 0.;
+    double m_autoscale_percentile_high = 100.;
     friend class _impl::SciQLopPlot;
 
 public:
     explicit SciQLopPlotAxis(QCPAxis* axis, QObject* parent = nullptr, bool is_time_axis = false,
                              const QString& name = "Axis");
     virtual ~SciQLopPlotAxis() = default;
+
+    void set_autoscale_percentile_low(double percentile) noexcept;
+    void set_autoscale_percentile_high(double percentile) noexcept;
+    inline double autoscale_percentile_low() const noexcept { return m_autoscale_percentile_low; }
+    inline double autoscale_percentile_high() const noexcept { return m_autoscale_percentile_high; }
 
     void set_range(const SciQLopPlotRange& range) noexcept override;
     void set_visible(bool visible) noexcept override;
@@ -307,11 +316,24 @@ class SciQLopPlotColorScaleAxis : public SciQLopPlotAxis
     Q_OBJECT
     QPointer<QCPColorScale> m_axis;
     ColorGradient m_color_gradient;
+#ifndef BINDINGS_H
+    // Lets the owning colormap supply a custom rescale range (e.g. percentile
+    // over visible data). Returning nullopt falls back to plain min/max.
+    std::function<std::optional<SciQLopPlotRange>()> m_rescale_range_provider;
+#endif
 
 public:
     explicit SciQLopPlotColorScaleAxis(QCPColorScale* axis, QObject* parent = nullptr,
                                        const QString& name = "ColorScale");
     virtual ~SciQLopPlotColorScaleAxis() = default;
+
+#ifndef BINDINGS_H
+    inline void
+    set_rescale_range_provider(std::function<std::optional<SciQLopPlotRange>()> provider) noexcept
+    {
+        m_rescale_range_provider = std::move(provider);
+    }
+#endif
 
     void set_range(const SciQLopPlotRange& range) noexcept override;
     void set_visible(bool visible) noexcept override;

@@ -312,7 +312,6 @@ def test_forward_ref():
 
 def test_optional():
     # Not super important, but try to preserve typing.Optional as typing.Optional instead of typing.Union[None, ...]
-    # This only works on Python 3.10+, since 3.9 and earlier do "eager" conversion when creating the type
     def f() -> typing.Optional[str]: ...
 
     wrapped_f = synchronizer.create_blocking(f, "wrapped_f", __name__)
@@ -320,11 +319,9 @@ def test_optional():
     src = _function_source(wrapped_f)
     # TODO: 3.14 does not preserve the typing.Optional[str]
     if sys.version_info[:2] == (3, 14):
-        assert "typing.Union[str, None]" in src
-    elif sys.version_info[:2] >= (3, 10):
-        assert "typing.Optional[str]" in src
+        assert "str | None" in src
     else:
-        assert "typing.Union[str, None]" in src
+        assert "typing.Optional[str]" in src
 
 
 class SelfRefFoo:
@@ -568,6 +565,44 @@ def test_typing_literal():
     assert "-> typing.Literal['three', 'str']" in src  # "str" should not be eval:ed in a Literal!
 
 
+LiteralAlias = typing.Literal["literal_value_1", "literal_value_2"]
+
+
+class _WithLiteralAnnotations:
+    async def list(self) -> dict[typing.Literal["key_a", "key_b"], dict[str, LiteralAlias]]:
+        return {"key_a": {}, "key_b": {}}
+
+    async def update(
+        self,
+        *,
+        items: typing.Optional[typing.Mapping[str, LiteralAlias]] = None,
+    ) -> None:
+        pass
+
+
+WithLiteralAnnotations = synchronizer.create_blocking(_WithLiteralAnnotations, "WithLiteralAnnotations", __name__)
+
+
+def test_literal_in_wrapped_class_method(capfd):
+    """Literal string args should not be evaluated as forward references."""
+    import logging
+
+    # Capture warnings from the synchronicity logger
+    logger = logging.getLogger("synchronicity")
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.WARNING)
+    logger.addHandler(handler)
+    try:
+        src = _class_source(WithLiteralAnnotations)
+    finally:
+        logger.removeHandler(handler)
+
+    captured = capfd.readouterr()
+    assert "Error when evaluating" not in captured.err
+    assert "typing.Literal['key_a', 'key_b']" in src
+    assert "typing.Literal['literal_value_1', 'literal_value_2']" in src
+
+
 def test_overloads_unwrapped_functions():
     with overload_tracking.patched_overload():
 
@@ -609,7 +644,6 @@ def test_wrapped_context_manager_is_both_blocking_and_async():
     assert "AbstractAsyncContextManager" not in wrapped_foo_src
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="collections.abc.Iterator isn't a generic type before Python 3.9")
 def test_collections_iterator():
     def foo() -> collections.abc.Iterator[int]:
         class MyIterator(collections.abc.Iterator):
@@ -684,10 +718,6 @@ def test_contextvar():
     assert "c: contextvars.ContextVar" in src
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 10),
-    reason="collections.abc.Callable strips Concatenate wrappers at runtime before Python 3.10 :(",
-)
 def test_concatenate_origin_module():
     s = StubEmitter(__name__)
     P = typing_extensions.ParamSpec("P")
@@ -695,7 +725,20 @@ def test_concatenate_origin_module():
     s.add_variable(collections.abc.Callable[typing_extensions.Concatenate[typing.Any, P], R], "f")
     src = s.get_source()
     print(src)
-    assert "f: collections.abc.Callable[typing_extensions.Concatenate[typing.Any, P], R]" in src
+    if sys.version_info >= (3, 11):
+        assert "f: collections.abc.Callable[typing.Concatenate[typing.Any, P], R]" in src
+    else:
+        assert "f: collections.abc.Callable[typing_extensions.Concatenate[typing.Any, P], R]" in src
+
+
+def test_typing_concatenate_origin_module():
+    s = StubEmitter(__name__)
+    P = typing.ParamSpec("P")
+    R = typing.TypeVar("R")
+    s.add_variable(collections.abc.Callable[typing.Concatenate[typing.Any, P], R], "f")
+    src = s.get_source()
+    print(src)
+    assert "f: collections.abc.Callable[typing.Concatenate[typing.Any, P], R]" in src
 
 
 def test_paramspec_args():
@@ -771,7 +814,6 @@ def test_pathlib():
     assert "pathlib.Path" in src
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Union type syntax (|) requires Python 3.10+")
 def test_union_pipe_syntax_imports():
     """Test that Type | None syntax properly registers imports for Type.
 
@@ -836,6 +878,39 @@ def test_union_pipe_syntax_imports():
     assert "import pandas.core.series" in src_multi
     assert "pandas.core.frame.DataFrame" in src_multi
     assert "pandas.core.series.Series" in src_multi
+
+
+def test_union_pipe_syntax_in_variable_annotation():
+    """Regression: _formatannotation should handle types.UnionType (X | Y) directly."""
+    s = StubEmitter(__name__)
+    s.add_variable(int | str, "x")
+    src = s.get_source()
+    assert "x: int | str" in src
+
+
+def test_union_pipe_syntax_three_way():
+    s = StubEmitter(__name__)
+    s.add_variable(int | str | float, "x")
+    src = s.get_source()
+    assert "x: int | str | float" in src
+
+
+def test_union_type(tmp_path):
+    contents = dedent(
+        """
+        foo: int | None = None
+        """
+    )
+    with open(fname := (tmp_path / "my_union.py"), "w") as f:
+        f.write(contents)
+
+    spec = importlib.util.spec_from_file_location("my_union", fname)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    emitter = StubEmitter.from_module(mod)
+    src = emitter.get_source()
+    assert "foo: int | None" in src
 
 
 def test_async_classmethod_gets_aio(synchronizer):

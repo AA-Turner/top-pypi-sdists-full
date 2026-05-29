@@ -8,7 +8,7 @@ from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 from ..interfaces.Boto3Client import Boto3Client
 from ..interfaces.dataframes.pandas import PandasDataframe
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import FileNotFound, ComponentError
 
 _EXTENSION_MAP = {

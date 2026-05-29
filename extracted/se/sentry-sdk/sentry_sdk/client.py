@@ -1,82 +1,79 @@
+import json
 import os
-import uuid
 import random
 import socket
-from collections.abc import Mapping, Iterable
+import uuid
+import warnings
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
 from importlib import import_module
-from typing import TYPE_CHECKING, List, Dict, cast, overload
-import warnings
-import json
+from typing import TYPE_CHECKING, Dict, List, cast, overload
 
 from sentry_sdk._compat import check_uwsgi_thread_support
 from sentry_sdk._metrics_batcher import MetricsBatcher
 from sentry_sdk._span_batcher import SpanBatcher
+from sentry_sdk.consts import (
+    DEFAULT_MAX_VALUE_LENGTH,
+    DEFAULT_OPTIONS,
+    INSTRUMENTER,
+    SPANDATA,
+    SPANSTATUS,
+    VERSION,
+    ClientConstructor,
+)
+from sentry_sdk.envelope import Envelope, Item, PayloadRef
+from sentry_sdk.integrations import _DEFAULT_INTEGRATIONS, setup_integrations
+from sentry_sdk.integrations.dedupe import DedupeIntegration
+from sentry_sdk.monitor import Monitor
+from sentry_sdk.profiler.continuous_profiler import setup_continuous_profiler
+from sentry_sdk.profiler.transaction_profiler import (
+    Profile,
+    has_profiling_enabled,
+    setup_profiler,
+)
+from sentry_sdk.scrubber import EventScrubber
+from sentry_sdk.serializer import serialize
+from sentry_sdk.sessions import SessionFlusher
+from sentry_sdk.traces import SpanStatus, StreamedSpan
+from sentry_sdk.tracing import trace
+from sentry_sdk.tracing_utils import has_span_streaming_enabled
+from sentry_sdk.transport import (
+    AsyncHttpTransport,
+    HttpTransportCore,
+    make_transport,
+)
 from sentry_sdk.utils import (
     AnnotatedValue,
     ContextVar,
     capture_internal_exceptions,
     current_stacktrace,
+    datetime_from_isoformat,
     env_to_bool,
     format_timestamp,
-    get_sdk_name,
-    get_type_name,
-    get_default_release,
-    handle_in_app,
-    logger,
     get_before_send_log,
     get_before_send_metric,
+    get_before_send_span,
+    get_default_release,
+    get_sdk_name,
+    get_type_name,
+    handle_in_app,
     has_logs_enabled,
     has_metrics_enabled,
+    logger,
 )
-from sentry_sdk.serializer import serialize
-from sentry_sdk.tracing import trace
-from sentry_sdk.traces import SpanStatus
-from sentry_sdk.tracing_utils import has_span_streaming_enabled
-from sentry_sdk.transport import (
-    HttpTransportCore,
-    make_transport,
-    AsyncHttpTransport,
-)
-from sentry_sdk.consts import (
-    SPANDATA,
-    SPANSTATUS,
-    DEFAULT_MAX_VALUE_LENGTH,
-    DEFAULT_OPTIONS,
-    INSTRUMENTER,
-    VERSION,
-    ClientConstructor,
-)
-from sentry_sdk.integrations import _DEFAULT_INTEGRATIONS, setup_integrations
-from sentry_sdk.integrations.dedupe import DedupeIntegration
-from sentry_sdk.sessions import SessionFlusher
-from sentry_sdk.envelope import Envelope, Item, PayloadRef
-from sentry_sdk.profiler.continuous_profiler import setup_continuous_profiler
-from sentry_sdk.profiler.transaction_profiler import (
-    has_profiling_enabled,
-    Profile,
-    setup_profiler,
-)
-from sentry_sdk.scrubber import EventScrubber
-from sentry_sdk.monitor import Monitor
-from sentry_sdk.utils import datetime_from_isoformat
 
 if TYPE_CHECKING:
-    from typing import Any
-    from typing import Callable
-    from typing import Optional
-    from typing import Sequence
-    from typing import Type
-    from typing import Union
-    from typing import TypeVar
+    from typing import Any, Callable, Optional, Sequence, Type, TypeVar, Union
 
+    from sentry_sdk._log_batcher import LogBatcher
+    from sentry_sdk._metrics_batcher import MetricsBatcher
     from sentry_sdk._types import (
         Event,
+        EventDataCategory,
         Hint,
-        SDKInfo,
         Log,
         Metric,
-        EventDataCategory,
+        SDKInfo,
         SerializedAttributeValue,
     )
     from sentry_sdk.integrations import Integration
@@ -84,9 +81,7 @@ if TYPE_CHECKING:
     from sentry_sdk.session import Session
     from sentry_sdk.spotlight import SpotlightClient
     from sentry_sdk.traces import StreamedSpan
-    from sentry_sdk.transport import Transport, Item
-    from sentry_sdk._log_batcher import LogBatcher
-    from sentry_sdk._metrics_batcher import MetricsBatcher
+    from sentry_sdk.transport import Item, Transport
     from sentry_sdk.utils import Dsn
 
     I = TypeVar("I", bound=Integration)  # noqa: E741
@@ -230,6 +225,8 @@ def _serialized_v1_span_to_serialized_v2_span(
         attributes["sentry.release"] = event["release"]
     if "environment" in event:
         attributes["sentry.environment"] = event["environment"]
+    if "server_name" in event:
+        attributes["server.address"] = event["server_name"]
     if "transaction" in event:
         attributes["sentry.segment.name"] = event["transaction"]
 
@@ -1175,34 +1172,72 @@ class _Client(BaseClient):
         ty: str,
         scope: "Scope",
     ) -> None:
-        # Capture attributes-based telemetry (logs, metrics, spansV2)
+        """
+        Capture attributes-based telemetry (logs, metrics, streamed spans).
+
+        Apply any attributes set on the scope to it, and run the user's
+        before_send_{telemetry} on it, if applicable.
+        """
         if telemetry is None:
             return
 
         scope.apply_to_telemetry(telemetry)
 
         before_send = None
+
         if ty == "log":
             before_send = get_before_send_log(self.options)
+            serialized = telemetry
+
         elif ty == "metric":
             before_send = get_before_send_metric(self.options)
+            serialized = telemetry
+
+        elif ty == "span":
+            before_send = get_before_send_span(self.options)
+            serialized = telemetry._to_json()  # type: ignore[union-attr]
 
         if before_send is not None:
-            telemetry = before_send(telemetry, {})  # type: ignore
+            serialized = before_send(serialized, {})  # type: ignore[arg-type]
 
-        if telemetry is None:
-            return
+            if ty in ("log", "metric"):
+                # Logs and metrics can be dropped in their respective
+                # before_send, so if we get None, don't queue them for sending.
+                if serialized is None:
+                    return
+
+            elif ty == "span" and isinstance(telemetry, StreamedSpan):
+                # Spans can't be dropped in before_send_span by design. They can
+                # be altered though (e.g. to sanitize). Only allow changes to
+                # name and attributes.
+                if isinstance(serialized, dict) and "name" in serialized:
+                    telemetry.name = serialized["name"]  # type: ignore[typeddict-item]
+                    telemetry._attributes = {}
+                    for k, v in (serialized.get("attributes") or {}).items():
+                        telemetry.set_attribute(k, v)
+
+                else:
+                    logger.debug(
+                        "[Tracing] Invalid return value from before_send_span. Keeping original span."
+                    )
+
+                serialized = telemetry._to_json()
 
         batcher = None
         if ty == "log":
             batcher = self.log_batcher
+
         elif ty == "metric":
             batcher = self.metrics_batcher
+
         elif ty == "span":
+            # We need a reference to the segment span in the batcher to populate
+            # the dynamic sampling context (DSC)
+            serialized["_segment_span"] = telemetry._segment  # type: ignore
             batcher = self.span_batcher
 
         if batcher is not None:
-            batcher.add(telemetry)  # type: ignore
+            batcher.add(serialized)  # type: ignore
 
     def _capture_log(self, log: "Optional[Log]", scope: "Scope") -> None:
         self._capture_telemetry(log, "log", scope)

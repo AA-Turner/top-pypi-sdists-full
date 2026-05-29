@@ -11,7 +11,7 @@
 # under the License.
 
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 from openstack.identity.v2 import extension as _extension
 from openstack.identity.v2 import role as _role
@@ -24,15 +24,16 @@ from openstack import resource
 class Proxy(proxy.Proxy):
     api_version: ClassVar[Literal['2']] = '2'
 
-    def extensions(self):
+    def extensions(self) -> Generator[_extension.Extension, None, None]:
         """Retrieve a generator of extensions
 
         :returns: A generator of extension instances.
-        :rtype: :class:`~openstack.identity.v2.extension.Extension`
         """
         return self._list(_extension.Extension)
 
-    def get_extension(self, extension):
+    def get_extension(
+        self, extension: str | _extension.Extension
+    ) -> _extension.Extension:
         """Get a single extension
 
         :param extension: The value can be the ID of an extension or a
@@ -48,21 +49,22 @@ class Proxy(proxy.Proxy):
     def create_role(self, **attrs: Any) -> _role.Role:
         """Create a new role from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v2.role.Role`,
             comprised of the properties on the Role class.
 
         :returns: The results of role creation
-        :rtype: :class:`~openstack.identity.v2.role.Role`
         """
         return self._create(_role.Role, **attrs)
 
-    def delete_role(self, role, ignore_missing=True):
+    def delete_role(
+        self, role: str | _role.Role, ignore_missing: bool = True
+    ) -> None:
         """Delete a role
 
         :param role: The value can be either the ID of a role or a
             :class:`~openstack.identity.v2.role.Role` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the role does not exist.
             When set to ``True``, no exception will be set when
@@ -94,7 +96,7 @@ class Proxy(proxy.Proxy):
         """Find a single role
 
         :param name_or_id: The name or ID of a role.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -105,7 +107,7 @@ class Proxy(proxy.Proxy):
             _role.Role, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_role(self, role):
+    def get_role(self, role: str | _role.Role) -> _role.Role:
         """Get a single role
 
         :param role: The value can be the ID of a role or a
@@ -117,14 +119,13 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_role.Role, role)
 
-    def roles(self, **query):
+    def roles(self, **query: Any) -> Generator[_role.Role, None, None]:
         """Retrieve a generator of roles
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of role instances.
-        :rtype: :class:`~openstack.identity.v2.role.Role`
         """
         return self._list(_role.Role, **query)
 
@@ -137,28 +138,28 @@ class Proxy(proxy.Proxy):
             by ``role``.
 
         :returns: The updated role
-        :rtype: :class:`~openstack.identity.v2.role.Role`
         """
         return self._update(_role.Role, role, **attrs)
 
     def create_tenant(self, **attrs: Any) -> _tenant.Tenant:
         """Create a new tenant from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v2.tenant.Tenant`,
             comprised of the properties on the Tenant class.
 
         :returns: The results of tenant creation
-        :rtype: :class:`~openstack.identity.v2.tenant.Tenant`
         """
         return self._create(_tenant.Tenant, **attrs)
 
-    def delete_tenant(self, tenant, ignore_missing=True):
+    def delete_tenant(
+        self, tenant: str | _tenant.Tenant, ignore_missing: bool = True
+    ) -> None:
         """Delete a tenant
 
         :param tenant: The value can be either the ID of a tenant or a
             :class:`~openstack.identity.v2.tenant.Tenant` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the tenant does not exist.
             When set to ``True``, no exception will be set when
@@ -190,7 +191,7 @@ class Proxy(proxy.Proxy):
         """Find a single tenant
 
         :param name_or_id: The name or ID of a tenant.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -201,7 +202,7 @@ class Proxy(proxy.Proxy):
             _tenant.Tenant, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_tenant(self, tenant):
+    def get_tenant(self, tenant: str | _tenant.Tenant) -> _tenant.Tenant:
         """Get a single tenant
 
         :param tenant: The value can be the ID of a tenant or a
@@ -213,14 +214,13 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_tenant.Tenant, tenant)
 
-    def tenants(self, **query):
+    def tenants(self, **query: Any) -> Generator[_tenant.Tenant, None, None]:
         """Retrieve a generator of tenants
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of tenant instances.
-        :rtype: :class:`~openstack.identity.v2.tenant.Tenant`
         """
         return self._list(_tenant.Tenant, **query)
 
@@ -233,28 +233,28 @@ class Proxy(proxy.Proxy):
             by ``tenant``.
 
         :returns: The updated tenant
-        :rtype: :class:`~openstack.identity.v2.tenant.Tenant`
         """
         return self._update(_tenant.Tenant, tenant, **attrs)
 
     def create_user(self, **attrs: Any) -> _user.User:
         """Create a new user from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.identity.v2.user.User`,
             comprised of the properties on the User class.
 
         :returns: The results of user creation
-        :rtype: :class:`~openstack.identity.v2.user.User`
         """
         return self._create(_user.User, **attrs)
 
-    def delete_user(self, user, ignore_missing=True):
+    def delete_user(
+        self, user: str | _user.User, ignore_missing: bool = True
+    ) -> None:
         """Delete a user
 
         :param user: The value can be either the ID of a user or a
             :class:`~openstack.identity.v2.user.User` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the user does not exist.
             When set to ``True``, no exception will be set when
@@ -286,7 +286,7 @@ class Proxy(proxy.Proxy):
         """Find a single user
 
         :param name_or_id: The name or ID of a user.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -297,7 +297,7 @@ class Proxy(proxy.Proxy):
             _user.User, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_user(self, user):
+    def get_user(self, user: str | _user.User) -> _user.User:
         """Get a single user
 
         :param user: The value can be the ID of a user or a
@@ -309,14 +309,13 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_user.User, user)
 
-    def users(self, **query):
+    def users(self, **query: Any) -> Generator[_user.User, None, None]:
         """Retrieve a generator of users
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of user instances.
-        :rtype: :class:`~openstack.identity.v2.user.User`
         """
         return self._list(_user.User, **query)
 
@@ -329,7 +328,6 @@ class Proxy(proxy.Proxy):
             by ``user``.
 
         :returns: The updated user
-        :rtype: :class:`~openstack.identity.v2.user.User`
         """
         return self._update(_user.User, user, **attrs)
 
@@ -362,7 +360,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -377,8 +375,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

@@ -2,7 +2,7 @@ import os
 import asyncio
 from pathlib import Path
 from ..exceptions import FileNotFound, FileError, ComponentError
-from .FileBase import FileBase
+from ..interfaces.file_base import FileBase
 
 
 class FileRename(FileBase):

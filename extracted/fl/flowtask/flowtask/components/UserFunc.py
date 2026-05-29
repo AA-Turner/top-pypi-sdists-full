@@ -5,7 +5,7 @@ import logging
 from collections.abc import Callable, Awaitable
 from ..exceptions import ComponentError
 from settings.settings import TASK_STORAGES
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 def getFunction(program, function):

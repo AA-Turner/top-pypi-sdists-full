@@ -7,5 +7,6 @@ class GroupManagementConfig(AppConfig):
     label = 'groupmanagement'
     verbose_name = _('Group Management')
 
-    def ready(self):
-        from . import signals  # noqa: F401
+    def ready(self) -> None:
+        # Connect Signals
+        from allianceauth.groupmanagement import signals  # noqa: F401

@@ -10,6 +10,76 @@ import System.Globalization
 import System.Runtime.Serialization
 
 
+class IComparer(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def compare(self, x: typing.Any, y: typing.Any) -> int:
+        ...
+
+
+class Comparer(System.Object, System.Collections.IComparer, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    DEFAULT: System.Collections.Comparer = ...
+
+    DEFAULT_INVARIANT: System.Collections.Comparer = ...
+
+    def __init__(self, culture: System.Globalization.CultureInfo) -> None:
+        ...
+
+    def compare(self, a: typing.Any, b: typing.Any) -> int:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
+class IEqualityComparer(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def equals(self, x: typing.Any, y: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self, obj: typing.Any) -> int:
+        ...
+
+
+class DictionaryEntry:
+    """This class has no documentation."""
+
+    @property
+    def key(self) -> System.Object:
+        ...
+
+    @key.setter
+    def key(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def value(self) -> System.Object:
+        ...
+
+    @value.setter
+    def value(self, value: System.Object) -> None:
+        ...
+
+    def __init__(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def deconstruct(self, key: typing.Optional[typing.Any], value: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any, typing.Any]:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class IStructuralComparable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def compare_to(self, other: typing.Any, comparer: System.Collections.IComparer) -> int:
+        ...
+
+
 class IHashCodeProvider(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -105,32 +175,45 @@ class IList(System.Collections.ICollection, metaclass=abc.ABCMeta):
         ...
 
 
-class DictionaryEntry:
+class IDictionary(System.Collections.ICollection, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def key(self) -> System.Object:
-        ...
-
-    @key.setter
-    def key(self, value: System.Object) -> None:
+    @abc.abstractmethod
+    def keys(self) -> System.Collections.ICollection:
         ...
 
     @property
-    def value(self) -> System.Object:
+    @abc.abstractmethod
+    def values(self) -> System.Collections.ICollection:
         ...
 
-    @value.setter
-    def value(self, value: System.Object) -> None:
+    @property
+    @abc.abstractmethod
+    def is_read_only(self) -> bool:
         ...
 
-    def __init__(self, key: typing.Any, value: typing.Any) -> None:
+    @property
+    @abc.abstractmethod
+    def is_fixed_size(self) -> bool:
         ...
 
-    def deconstruct(self, key: typing.Optional[typing.Any], value: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any, typing.Any]:
+    def __getitem__(self, key: typing.Any) -> typing.Any:
         ...
 
-    def to_string(self) -> str:
+    def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def add(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, key: typing.Any) -> bool:
+        ...
+
+    def remove(self, key: typing.Any) -> None:
         ...
 
 
@@ -153,20 +236,150 @@ class IDictionaryEnumerator(System.Collections.IEnumerator, metaclass=abc.ABCMet
         ...
 
 
-class IEqualityComparer(metaclass=abc.ABCMeta):
+class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, System.ICloneable):
     """This class has no documentation."""
 
-    def equals(self, x: typing.Any, y: typing.Any) -> bool:
+    @property
+    def hcp(self) -> System.Collections.IHashCodeProvider:
+        warnings.warn("Hashtable.hcp has been deprecated. Use the EqualityComparer property instead.", DeprecationWarning)
+
+    @hcp.setter
+    def hcp(self, value: System.Collections.IHashCodeProvider) -> None:
+        warnings.warn("Hashtable.hcp has been deprecated. Use the EqualityComparer property instead.", DeprecationWarning)
+
+    @property
+    def comparer(self) -> System.Collections.IComparer:
+        warnings.warn("Hashtable.comparer has been deprecated. Use the KeyComparer properties instead.", DeprecationWarning)
+
+    @comparer.setter
+    def comparer(self, value: System.Collections.IComparer) -> None:
+        warnings.warn("Hashtable.comparer has been deprecated. Use the KeyComparer properties instead.", DeprecationWarning)
+
+    @property
+    def equality_comparer(self) -> System.Collections.IEqualityComparer:
         ...
 
-    def get_hash_code(self, obj: typing.Any) -> int:
+    @property
+    def is_read_only(self) -> bool:
         ...
 
+    @property
+    def is_fixed_size(self) -> bool:
+        ...
 
-class IComparer(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
+    @property
+    def is_synchronized(self) -> bool:
+        ...
 
-    def compare(self, x: typing.Any, y: typing.Any) -> int:
+    @property
+    def keys(self) -> System.Collections.ICollection:
+        ...
+
+    @property
+    def values(self) -> System.Collections.ICollection:
+        ...
+
+    @property
+    def sync_root(self) -> System.Object:
+        ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    def __contains__(self, key: typing.Any) -> bool:
+        ...
+
+    def __getitem__(self, key: typing.Any) -> typing.Any:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int, load_factor: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int, load_factor: float, equality_comparer: System.Collections.IEqualityComparer) -> None:
+        ...
+
+    @overload
+    def __init__(self, equality_comparer: System.Collections.IEqualityComparer) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int, equality_comparer: System.Collections.IEqualityComparer) -> None:
+        ...
+
+    @overload
+    def __init__(self, d: System.Collections.IDictionary) -> None:
+        ...
+
+    @overload
+    def __init__(self, d: System.Collections.IDictionary, load_factor: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, d: System.Collections.IDictionary, equality_comparer: System.Collections.IEqualityComparer) -> None:
+        ...
+
+    @overload
+    def __init__(self, d: System.Collections.IDictionary, load_factor: float, equality_comparer: System.Collections.IEqualityComparer) -> None:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def add(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def clone(self) -> System.Object:
+        ...
+
+    def contains(self, key: typing.Any) -> bool:
+        ...
+
+    def contains_key(self, key: typing.Any) -> bool:
+        ...
+
+    def contains_value(self, value: typing.Any) -> bool:
+        ...
+
+    def copy_to(self, array: System.Array, array_index: int) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
+        ...
+
+    def get_hash(self, key: typing.Any) -> int:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def key_equals(self, item: typing.Any, key: typing.Any) -> bool:
+        ...
+
+    def on_deserialization(self, sender: typing.Any) -> None:
+        ...
+
+    def remove(self, key: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def synchronized(table: System.Collections.Hashtable) -> System.Collections.Hashtable:
         ...
 
 
@@ -384,229 +597,6 @@ class ArrayList(System.Object, System.Collections.IList, System.ICloneable):
         ...
 
 
-class Comparer(System.Object, System.Collections.IComparer, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    DEFAULT: System.Collections.Comparer = ...
-
-    DEFAULT_INVARIANT: System.Collections.Comparer = ...
-
-    def __init__(self, culture: System.Globalization.CultureInfo) -> None:
-        ...
-
-    def compare(self, a: typing.Any, b: typing.Any) -> int:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class IDictionary(System.Collections.ICollection, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def keys(self) -> System.Collections.ICollection:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def values(self) -> System.Collections.ICollection:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_read_only(self) -> bool:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_fixed_size(self) -> bool:
-        ...
-
-    def __getitem__(self, key: typing.Any) -> typing.Any:
-        ...
-
-    def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def add(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, key: typing.Any) -> bool:
-        ...
-
-    def remove(self, key: typing.Any) -> None:
-        ...
-
-
-class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, System.ICloneable):
-    """This class has no documentation."""
-
-    @property
-    def hcp(self) -> System.Collections.IHashCodeProvider:
-        warnings.warn("Hashtable.hcp has been deprecated. Use the EqualityComparer property instead.", DeprecationWarning)
-
-    @hcp.setter
-    def hcp(self, value: System.Collections.IHashCodeProvider) -> None:
-        warnings.warn("Hashtable.hcp has been deprecated. Use the EqualityComparer property instead.", DeprecationWarning)
-
-    @property
-    def comparer(self) -> System.Collections.IComparer:
-        warnings.warn("Hashtable.comparer has been deprecated. Use the KeyComparer properties instead.", DeprecationWarning)
-
-    @comparer.setter
-    def comparer(self, value: System.Collections.IComparer) -> None:
-        warnings.warn("Hashtable.comparer has been deprecated. Use the KeyComparer properties instead.", DeprecationWarning)
-
-    @property
-    def equality_comparer(self) -> System.Collections.IEqualityComparer:
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        ...
-
-    @property
-    def is_fixed_size(self) -> bool:
-        ...
-
-    @property
-    def is_synchronized(self) -> bool:
-        ...
-
-    @property
-    def keys(self) -> System.Collections.ICollection:
-        ...
-
-    @property
-    def values(self) -> System.Collections.ICollection:
-        ...
-
-    @property
-    def sync_root(self) -> System.Object:
-        ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    def __contains__(self, key: typing.Any) -> bool:
-        ...
-
-    def __getitem__(self, key: typing.Any) -> typing.Any:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int, load_factor: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int, load_factor: float, equality_comparer: System.Collections.IEqualityComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, equality_comparer: System.Collections.IEqualityComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int, equality_comparer: System.Collections.IEqualityComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary) -> None:
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary, load_factor: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary, equality_comparer: System.Collections.IEqualityComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary, load_factor: float, equality_comparer: System.Collections.IEqualityComparer) -> None:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def add(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def clone(self) -> System.Object:
-        ...
-
-    def contains(self, key: typing.Any) -> bool:
-        ...
-
-    def contains_key(self, key: typing.Any) -> bool:
-        ...
-
-    def contains_value(self, value: typing.Any) -> bool:
-        ...
-
-    def copy_to(self, array: System.Array, array_index: int) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
-        ...
-
-    def get_hash(self, key: typing.Any) -> int:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def key_equals(self, item: typing.Any, key: typing.Any) -> bool:
-        ...
-
-    def on_deserialization(self, sender: typing.Any) -> None:
-        ...
-
-    def remove(self, key: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def synchronized(table: System.Collections.Hashtable) -> System.Collections.Hashtable:
-        ...
-
-
-class IStructuralEquatable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def equals(self, other: typing.Any, comparer: System.Collections.IEqualityComparer) -> bool:
-        ...
-
-    def get_hash_code(self, comparer: System.Collections.IEqualityComparer) -> int:
-        ...
-
-
-class IStructuralComparable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def compare_to(self, other: typing.Any, comparer: System.Collections.IComparer) -> int:
-        ...
-
-
 class BitArray(System.Object, System.Collections.ICollection, System.ICloneable, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
 
@@ -710,6 +700,16 @@ class BitArray(System.Object, System.Collections.ICollection, System.ICloneable,
         ...
 
     def xor(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
+        ...
+
+
+class IStructuralEquatable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def equals(self, other: typing.Any, comparer: System.Collections.IEqualityComparer) -> bool:
+        ...
+
+    def get_hash_code(self, comparer: System.Collections.IEqualityComparer) -> int:
         ...
 
 

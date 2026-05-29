@@ -8,32 +8,42 @@ from msgraph.generated.models.chat_message import (
     ChatMessage
 )
 from msgraph.generated.models.chat import Chat
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.AzureGraph import AzureGraph
 from ..exceptions import ComponentError, DataNotFound, ConfigError
 
 
 class MSTeamsMessages(AzureGraph, FlowComponent):
     """
-    MSTeamsMessages.
+    MSTeamsMessages
 
-    |---|---|---|
-    | version | No | version of component |
+    Extracts chat or channel messages from Microsoft Teams via the Microsoft
+    Graph SDK. Either ``chat_id`` / ``chat_name`` (for 1:1 or group chats) or
+    ``team_id`` + ``channel_id`` (for team channels) must be provided. When
+    no time window is given the component pulls the last ``weeks`` weeks.
 
+    :widths: auto
 
-        Example:
+    | team_id       | No  | Microsoft Teams team identifier. Required for channel extraction. |
+    | channel_id    | No  | Channel identifier inside the given team. Pairs with `team_id`. |
+    | chat_id       | No  | Direct chat identifier. Alternative to `team_id` + `channel_id`. |
+    | chat_name     | No  | Human-readable chat name; resolved to `chat_id` at runtime. |
+    | program_name  | No  | Logical program label; defaults to the parent program. |
+    | weeks         | No  | Look-back window in weeks when neither `start_time` nor `end_time` is set. Default `1`. |
+    | start_time    | No  | ISO-8601 UTC timestamp (`YYYY-MM-DDTHH:MM:SS.sssZ`). Overrides `weeks`. |
+    | end_time      | No  | ISO-8601 UTC timestamp. Defaults to "now" when unset. |
+    | as_dataframe  | No  | Return results as a pandas DataFrame instead of raw messages. Default `False`. |
 
-        | Name | Required | Summary |
-    |---|---|---|
-    | version | No | version of component |
+    Example:
 
-
-        Example:
-
-        ```yaml
-          MSTeamsMessages:
-          # attributes here
-        ```
+    ```yaml
+    MSTeamsMessages:
+      team_id: MS_TEAMS_DEFAULT_TEAMS_ID
+      chat_name: "National CE Field Team Chat"
+      program_name: "Hisense"
+      weeks: 6
+      as_dataframe: True
+    ```
     """
     _version = "1.0.0"
     def __init__(

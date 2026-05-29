@@ -1034,8 +1034,9 @@ class UpdateEntitlementRequestTypeDef(TypedDict):
 
 class CreateImportedImageRequestTypeDef(TypedDict):
     Name: str
-    SourceAmiId: str
-    IamRoleArn: str
+    SourceAmiId: NotRequired[str]
+    WorkspaceImageId: NotRequired[str]
+    IamRoleArn: NotRequired[str]
     Description: NotRequired[str]
     DisplayName: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]

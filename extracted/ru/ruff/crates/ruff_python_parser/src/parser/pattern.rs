@@ -1,7 +1,8 @@
 use ruff_python_ast::name::Name;
 use ruff_python_ast::token::TokenKind;
 use ruff_python_ast::{
-    self as ast, AtomicNodeIndex, Expr, ExprContext, Number, Operator, Pattern, Singleton,
+    self as ast, AtomicNodeIndex, Expr, ExprContext, Number, Operator, Pattern, PatternKeys,
+    Patterns, Singleton,
 };
 use ruff_text_size::{Ranged, TextSize};
 
@@ -202,8 +203,8 @@ impl Parser<'_> {
         let start = self.node_start();
         self.bump(TokenKind::Lbrace);
 
-        let mut keys = vec![];
-        let mut patterns = vec![];
+        let mut keys = PatternKeys::new();
+        let mut patterns = Patterns::new();
         let mut rest = None;
 
         self.parse_comma_separated_list(RecoveryContextKind::MatchPatternMapping, |parser| {
@@ -340,7 +341,7 @@ impl Parser<'_> {
 
         if self.eat(parentheses.closing_kind()) {
             return Pattern::MatchSequence(ast::PatternMatchSequence {
-                patterns: vec![],
+                patterns: Vec::new(),
                 range: self.node_range(start),
                 node_index: AtomicNodeIndex::NONE,
             });
@@ -525,7 +526,7 @@ impl Parser<'_> {
                         //     case case.bar: ...
                         //     case type.bar: ...
                         //     case match.case.type.bar.type.case.match: ...
-                        let id = Expr::Name(self.parse_name());
+                        let id = Expr::Name(self.parse_name(ExpressionContext::default()));
 
                         let attribute = self.parse_attr_expr_for_match_pattern(id, start);
 
@@ -638,7 +639,11 @@ impl Parser<'_> {
     /// Parses an attribute expression until the current token is not a `.`.
     fn parse_attr_expr_for_match_pattern(&mut self, mut lhs: Expr, start: TextSize) -> Expr {
         while self.current_token_kind() == TokenKind::Dot {
-            lhs = Expr::Attribute(self.parse_attribute_expression(lhs, start));
+            lhs = Expr::Attribute(self.parse_attribute_expression(
+                lhs,
+                start,
+                ExpressionContext::default(),
+            ));
         }
 
         lhs
@@ -698,7 +703,7 @@ impl Parser<'_> {
 
         self.bump(TokenKind::Lpar);
 
-        let mut patterns = vec![];
+        let mut patterns = Patterns::new();
         let mut keywords = vec![];
         let mut has_seen_pattern = false;
         let mut has_seen_keyword_pattern = false;

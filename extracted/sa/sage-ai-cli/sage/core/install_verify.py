@@ -198,6 +198,70 @@ def _has_script(package_json: Path, script: str) -> bool:
     return script in (data.get("scripts") or {})
 
 
+def _run_background_check(
+    name: str,
+    cmd: list[str],
+    cwd: Path,
+    timeout: float = 3.0,
+) -> StepResult:
+    """Start a server command in the background, wait `timeout` seconds,
+    and make sure it doesn't crash/exit with an error.
+    """
+    start = time.monotonic()
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=os.environ.copy(),
+        )
+        
+        time.sleep(timeout)
+        
+        returncode = proc.poll()
+        if returncode is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            return StepResult(
+                name=name,
+                ok=True,
+                log="Server started successfully and remained active.",
+                duration_s=time.monotonic() - start,
+                returncode=0,
+            )
+        else:
+            stdout, stderr = proc.communicate()
+            log = (stdout or "") + ("\n" + stderr if stderr else "")
+            return StepResult(
+                name=name,
+                ok=returncode == 0,
+                log=f"Server exited early with code {returncode}.\nLog output:\n{log}",
+                duration_s=time.monotonic() - start,
+                returncode=returncode,
+            )
+    except FileNotFoundError as exc:
+        return StepResult(
+            name=name,
+            ok=False,
+            log=f"Command not found: {exc}",
+            duration_s=time.monotonic() - start,
+            returncode=127,
+        )
+    except Exception as exc:
+        return StepResult(
+            name=name,
+            ok=False,
+            log=f"Unexpected error starting server: {exc}",
+            duration_s=time.monotonic() - start,
+            returncode=1,
+        )
+
+
 def _verify_python(project: DiscoveredProject) -> list[StepResult]:
     steps: list[StepResult] = []
     root = project.root
@@ -228,7 +292,66 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
             )
         )
 
-    # 2. Run tests
+    # 2. Compile check (syntax check)
+    steps.append(
+        run_step(
+            "python compile",
+            [sys.executable, "-m", "compileall", "-q", "."],
+            cwd=root,
+        )
+    )
+
+    # 3. Import and Runnable check
+    main_py = root / "app" / "main.py"
+    import_mod = "app.main"
+    if not main_py.exists():
+        main_py = root / "main.py"
+        import_mod = "main"
+
+    if main_py.exists():
+        # First check imports
+        steps.append(
+            run_step(
+                "python import check",
+                [sys.executable, "-c", f"import {import_mod}"],
+                cwd=root,
+                timeout=15,
+            )
+        )
+        
+        # Second, try starting the server if uvicorn is used
+        has_uvicorn = False
+        try:
+            req_content = ""
+            if (root / "requirements.txt").exists():
+                req_content += (root / "requirements.txt").read_text("utf-8")
+            if (root / "pyproject.toml").exists():
+                req_content += (root / "pyproject.toml").read_text("utf-8")
+            if "uvicorn" in req_content.lower():
+                has_uvicorn = True
+        except Exception:
+            pass
+
+        if has_uvicorn:
+            steps.append(
+                _run_background_check(
+                    "python server start check",
+                    [sys.executable, "-m", "uvicorn", f"{import_mod}:app", "--host", "127.0.0.1", "--port", "8999"],
+                    cwd=root,
+                    timeout=3.0,
+                )
+            )
+        else:
+            steps.append(
+                _run_background_check(
+                    "python script run check",
+                    [sys.executable, str(main_py.relative_to(root))],
+                    cwd=root,
+                    timeout=3.0,
+                )
+            )
+
+    # 4. Run tests
     steps.append(
         run_step(
             "pytest",
@@ -237,8 +360,16 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
         )
     )
 
-    # 3. Lint (only if ruff installed in this env)
-    if shutil.which("ruff") or (root / ".venv" / "bin" / "ruff").exists():
+    # 5. Lint (only if ruff installed in this env)
+    ruff_paths = [
+        root / ".venv" / "bin" / "ruff",
+        root / "venv" / "bin" / "ruff",
+        root / ".venv" / "Scripts" / "ruff.exe",
+        root / "venv" / "Scripts" / "ruff.exe",
+        root / ".venv" / "Scripts" / "ruff",
+        root / "venv" / "Scripts" / "ruff",
+    ]
+    if shutil.which("ruff") or any(p.exists() for p in ruff_paths):
         steps.append(run_step("ruff check", ["ruff", "check", "."], cwd=root))
     return steps
 
@@ -258,10 +389,39 @@ def _verify_node(project: DiscoveredProject) -> list[StepResult]:
         )
     )
 
-    # 2. Test (only if defined)
+    # 2. Build check
+    if _has_script(pkg, "build"):
+        steps.append(run_step("npm build", ["npm", "run", "build"], cwd=root, timeout=600))
+
+    # 3. Runnable check
+    run_cmd = None
+    if _has_script(pkg, "start"):
+        run_cmd = ["npm", "run", "start"]
+    elif _has_script(pkg, "dev"):
+        run_cmd = ["npm", "run", "dev"]
+        
+    if run_cmd:
+        steps.append(
+            _run_background_check(
+                "npm server start check",
+                run_cmd,
+                cwd=root,
+                timeout=4.0,
+            )
+        )
+    else:
+        steps.append(
+            StepResult(
+                name="npm server start check",
+                ok=False,
+                log="No 'start' or 'dev' script found in package.json",
+                duration_s=0.0,
+                returncode=1,
+            )
+        )
+
+    # 4. Test (only if defined)
     if _has_script(pkg, "test"):
-        # Vitest rejects --watchAll (a Jest-only flag). Detect by checking
-        # devDependencies for "vitest" and omit the flag for those projects.
         _is_vitest = False
         try:
             _pkg_data = json.loads(pkg.read_text("utf-8", errors="replace"))
@@ -279,11 +439,11 @@ def _verify_node(project: DiscoveredProject) -> list[StepResult]:
         )
         steps.append(run_step("npm test", _test_cmd, cwd=root))
 
-    # 3. Typecheck
+    # 5. Typecheck
     if _has_script(pkg, "typecheck"):
         steps.append(run_step("npm typecheck", ["npm", "run", "typecheck"], cwd=root))
 
-    # 4. Lint
+    # 6. Lint
     if _has_script(pkg, "lint"):
         steps.append(run_step("npm lint", ["npm", "run", "lint"], cwd=root))
 

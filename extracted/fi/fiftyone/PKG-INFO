@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fiftyone
-Version: 1.15.0
+Version: 1.16.0
 Summary: FiftyOne: the open-source tool for building high-quality datasets and computer vision models
 Home-page: https://github.com/voxel51/fiftyone
 Author: Voxel51, Inc.
@@ -48,7 +48,7 @@ Requires-Dist: motor~=3.6.0
 Requires-Dist: Pillow!=11.2.*,>=6.2
 Requires-Dist: plotly<7,>=6.1.1
 Requires-Dist: pprintpp<0.5,>=0.1
-Requires-Dist: protobuf==6.33.5
+Requires-Dist: protobuf==6.33.6
 Requires-Dist: psutil<8,>=5
 Requires-Dist: pydash<9,>=6
 Requires-Dist: pymongo~=4.9.2
@@ -58,7 +58,7 @@ Requires-Dist: regex
 Requires-Dist: retrying<2,>=1
 Requires-Dist: sseclient-py<2,>=1.7.2
 Requires-Dist: sse-starlette<4,>=0.10.3
-Requires-Dist: starlette<0.53,>=0.24.0
+Requires-Dist: starlette<0.53,>=0.49.1
 Requires-Dist: strawberry-graphql<0.292.0,>=0.262.4
 Requires-Dist: tabulate<0.10,>=0.7
 Requires-Dist: tqdm<5,>=2

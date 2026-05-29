@@ -312,6 +312,9 @@ def _client_login(
         _client.set_default_header('x-sq-origin', SeeqNames.Origins.add_on)
     elif _datalab.is_executor():
         _client.set_default_header('x-sq-origin', SeeqNames.Origins.data_lab_job)
+        job_key = os.environ.get('SEEQ_SDL_JOB_KEY')
+        if job_key:
+            _client.set_default_header('x-sq-source-job-key', job_key)
     elif _datalab.is_datalab():
         _client.set_default_header('x-sq-origin', SeeqNames.Origins.data_lab_interactive)
     else:

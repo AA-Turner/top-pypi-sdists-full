@@ -9,7 +9,7 @@ from ..utils import is_empty
 from ..exceptions import ComponentError, DataNotFound
 from ..interfaces.sassie import SassieClient
 from ..interfaces.http import HTTPService
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 class Sassie(SassieClient, FlowComponent):
     """
@@ -147,8 +147,24 @@ class Sassie(SassieClient, FlowComponent):
             if self.data == 'download_photos':
                 self._result = await data_methods[self.data]()
             else:
-                self._result = await self.create_dataframe(await data_methods[self.data]())
-                
+                iteration_sets = self._resolve_filter_values(self.filters, self.input)
+
+                if not iteration_sets:
+                    raise DataNotFound(
+                        f"{self.__name__}: No values to iterate over — "
+                        f"the referenced input column contains no non-null values."
+                    )
+
+                async def _fetch_one(filter_set):
+                    async with self._semaphore:
+                        return await data_methods[self.data](filters_override=filter_set)
+
+                raw_results = await asyncio.gather(
+                    *[_fetch_one(fs) for fs in iteration_sets]
+                )
+                combined = [row for batch in raw_results for row in batch]
+                self._result = await self.create_dataframe(combined)
+
             if is_empty(self._result):
                 raise DataNotFound(f"{self.__name__}: Data Not Found")
         except Exception as e:

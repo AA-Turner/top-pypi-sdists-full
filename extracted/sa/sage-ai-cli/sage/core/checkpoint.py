@@ -543,6 +543,7 @@ class CheckpointManager:
 
     def _save_checkpoints(self) -> None:
         """Persist checkpoints to disk."""
+        self._checkpoint_dir.mkdir(parents=True, exist_ok=True)
         checkpoint_file = self._checkpoint_dir / self.CHECKPOINT_FILE
         data = {
             "version": 2,  # New format version

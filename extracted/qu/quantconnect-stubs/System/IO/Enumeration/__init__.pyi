@@ -17,6 +17,10 @@ class FileSystemEntry:
     """This class has no documentation."""
 
     @property
+    def file_name(self) -> System.ReadOnlySpan[str]:
+        ...
+
+    @property
     def directory(self) -> System.ReadOnlySpan[str]:
         ...
 
@@ -26,10 +30,6 @@ class FileSystemEntry:
 
     @property
     def original_root_directory(self) -> System.ReadOnlySpan[str]:
-        ...
-
-    @property
-    def file_name(self) -> System.ReadOnlySpan[str]:
         ...
 
     @property
@@ -53,11 +53,11 @@ class FileSystemEntry:
         ...
 
     @property
-    def is_directory(self) -> bool:
+    def is_hidden(self) -> bool:
         ...
 
     @property
-    def is_hidden(self) -> bool:
+    def is_directory(self) -> bool:
         ...
 
     def to_file_system_info(self) -> System.IO.FileSystemInfo:
@@ -67,6 +67,22 @@ class FileSystemEntry:
         ...
 
     def to_specified_full_path(self) -> str:
+        ...
+
+
+class FileSystemName(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def matches_simple_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
+        ...
+
+    @staticmethod
+    def matches_win_32_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
+        ...
+
+    @staticmethod
+    def translate_win_32_expression(expression: str) -> str:
         ...
 
 
@@ -142,22 +158,6 @@ class FileSystemEnumerable(typing.Generic[System_IO_Enumeration_FileSystemEnumer
         ...
 
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_IO_Enumeration_FileSystemEnumerable_TResult]:
-        ...
-
-
-class FileSystemName(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def matches_simple_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
-        ...
-
-    @staticmethod
-    def matches_win_32_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
-        ...
-
-    @staticmethod
-    def translate_win_32_expression(expression: str) -> str:
         ...
 
 

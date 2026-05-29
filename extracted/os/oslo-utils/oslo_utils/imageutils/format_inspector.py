@@ -22,6 +22,7 @@ complex-format images.
 """
 
 import abc
+import io
 from collections.abc import Callable, Generator
 import struct
 from typing import cast, Any, IO, TypedDict
@@ -29,6 +30,7 @@ from collections.abc import Iterator
 
 import logging
 from oslo_utils._i18n import _
+from oslo_utils.imageutils import _luks
 from oslo_utils import units
 
 LOG = logging.getLogger(__name__)
@@ -160,10 +162,13 @@ class SafetyCheck:
         """Executes the target check function, records the result.
 
         :raises SafetyViolation: If an error check fails
+        :raises SafetyCheckFailed: If a nested set of safety checks fail
         """
         try:
             self.target_fn()
         except SafetyViolation:
+            raise
+        except SafetyCheckFailed:
             raise
         except Exception as e:
             LOG.error(
@@ -232,12 +237,22 @@ class FileInspector(abc.ABC):
     one chunk at a time, during read processing and will only store
     as much data as necessary to determine required attributes of
     the file.
+
+    :param tracing: Enable debug logging
+    :param params: Additional parameters to pass to the inspector
+
+    The data is passed to the inspector and can be used to pass additional
+    information to the inspector. For example, the LUKSInspector uses the
+    params to pass the key to decrypt the data. Other uses may be providing
+    boundary conditions, allowable ciphers, etc.
     """
 
     # This should match what qemu-img thinks this format is
     NAME = ''
 
-    def __init__(self, tracing: bool = False) -> None:
+    def __init__(
+        self, tracing: bool = False, params: dict[str, str] | None = None
+    ) -> None:
         self._total_count = 0
 
         # NOTE(danms): The logging in here is extremely verbose for a reason,
@@ -248,6 +263,7 @@ class FileInspector(abc.ABC):
         self._capture_regions: dict[str, CaptureRegion] = {}
         self._safety_checks: dict[str, SafetyCheck] = {}
         self._finished = False
+        self._params = params or {}
         self._initialize()
         if not self._safety_checks:
             # Make sure we actively declare some safety check, even if it
@@ -476,8 +492,51 @@ class FileInspector(abc.ABC):
                     self,
                     exc,
                 )
+            except SafetyCheckFailed as exc:
+                # This can happen if one of our safety checks is running
+                # safety_check() on a nested inspector. In this case, we
+                # just copy all the failures as if they were our own, but
+                # with a prefix to set them apart.
+                for name, failure in exc.failures.items():
+                    failures['inner_' + name] = failure
+                    LOG.warning(
+                        'Inner safety check %s on %s failed because %s',
+                        name,
+                        self,
+                        failure,
+                    )
         if failures:
             raise SafetyCheckFailed(failures)
+
+
+class ContainerFileInspector(FileInspector):
+    """A file inspector for formats that can wrap other formats.
+
+    This is used to wrap other formats that are contained within a
+    container format. For example, LUKS is basically always used to
+    wrap/encrypt another format such as gpt. A safety check of
+    'inner_safety' is added which runs safety_check() on the inner
+    inspector.
+    """
+
+    def __init__(
+        self, tracing: bool = False, params: dict[str, str] | None = None
+    ) -> None:
+        self._inner_format: FileInspector | None = None
+        super().__init__(tracing=tracing, params=params)
+        self.add_safety_check(
+            SafetyCheck('inner_safety', self.check_inner_safety)
+        )
+
+    @property
+    def inner_format(self) -> FileInspector | None:
+        """Returns the inner format of the container."""
+        return self._inner_format
+
+    def check_inner_safety(self) -> None:
+        """Runs safety_check() on the inner format."""
+        if self._inner_format is not None:
+            self._inner_format.safety_check()
 
 
 class RawFileInspector(FileInspector):
@@ -1428,30 +1487,46 @@ class GPTInspector(FileInspector):
 # https://gitlab.com/cryptsetup/cryptsetup/-/wikis/LUKS-standard/on-disk-format.pdf
 # LUKSv2 is a different but similar spec, which is not yet covered here (or
 # in qemu).
-class LUKSHeader(TypedDict, total=False):
-    magic: bytes
-    version: int
-    cipher_alg: bytes
-    cipher_mode: bytes
-    hash: bytes
-    payload_offset: int
+class LUKSInspector(ContainerFileInspector):
+    """A LUKS format inspector that can decrypt the first block of data.
 
+    If the passphrase is provided (as "luks_passphrase" in the data), this
+    inspector will decrypt the first block of data and attempt to detect the
+    format of the image contained within.
 
-class LUKSInspector(FileInspector):
+    In order to eliminate the possibility of an attack that consumes a large
+    amount of CPU time with a full set of keys with a large number of hash
+    iterations, only the first active key is used and a limit on iterations
+    should be provided.
+
+    parameters:
+    - luks_passphrase: The passphrase to use to decrypt the data
+    - luks_iter_limit: The maximum number of iterations to allow for the PBKDF2
+      hash function. Defaults to 12,000,000; zero means no limit.
+    """
+
     NAME = 'luks'
 
     def _initialize(self) -> None:
+        # NOTE, this will be a string but we will need it to be bytes later
+        self._passphrase = self._params.get('luks_passphrase')
+        self._iter_limit = int(self._params.get('luks_iter_limit', 12000000))
+        self._master_key: bytes | None = None
+        self._key_material_captured = False
+        # Capture the full header including key slots
+        # Header: 592 bytes total (208 bytes + 8 key slots of 48 bytes each)
         self.new_region('header', CaptureRegion(0, 592))
         self.add_safety_check(SafetyCheck('version', self.check_version))
+        self.add_safety_check(SafetyCheck('passphrase', self.check_passphrase))
 
     @property
     def format_match(self) -> bool:
         return self.region('header').data[:6] == b'LUKS\xba\xbe'
 
     @property
-    def header_items(self) -> LUKSHeader:
+    def header_items(self) -> _luks.LUKSHeader:
         fields = struct.unpack(
-            '>6sh32s32s32sI', self.region('header').data[:108]
+            '>6sH32s32s32sII20s32sI', self.region('header').data[:168]
         )
         names = [
             'magic',
@@ -1460,8 +1535,12 @@ class LUKSInspector(FileInspector):
             'cipher_mode',
             'hash',
             'payload_offset',
+            'key_bytes',
+            'mk_digest',
+            'mk_digest_salt',
+            'mk_digest_iter',
         ]
-        return cast(LUKSHeader, dict(zip(names, fields)))
+        return cast(_luks.LUKSHeader, dict(zip(names, fields)))
 
     def check_version(self) -> None:
         header = self.header_items
@@ -1469,6 +1548,143 @@ class LUKSInspector(FileInspector):
             raise SafetyViolation(
                 f'LUKS version {int(header["version"])} is not supported'
             )
+
+    def check_passphrase(self) -> None:
+        if self._passphrase is not None and not self.inner_format:
+            raise SafetyViolation('Passphrase is incorrect')
+        elif not self._passphrase:
+            LOG.info(
+                'LUKS passphrase not provided, skipping decryption/detection'
+            )
+
+    def post_process(self) -> None:
+        """Capture key material and encrypted data."""
+        if not self.region('header').complete:
+            return
+
+        # After header is complete, capture the key material from the first
+        # active slot
+        header_data = self.region('header').data
+
+        if not self._key_material_captured and self._passphrase is not None:
+            for slot_num in range(_luks.NUM_KEY_SLOTS):
+                slot = _luks.parse_key_slot(header_data, slot_num)
+                if slot['active']:
+                    # Capture the encrypted key material
+                    header = self.header_items
+                    key_bytes = header.get('key_bytes', 32)
+                    split_key_size = key_bytes * slot['stripes']
+                    km_offset = slot['key_offset'] * _luks.LUKS_SECTOR_SIZE
+
+                    self._trace(
+                        'Capturing key material from slot %d: '
+                        'offset=%d size=%d',
+                        slot_num,
+                        km_offset,
+                        split_key_size,
+                    )
+                    self.new_region(
+                        'key_material',
+                        CaptureRegion(km_offset, split_key_size),
+                    )
+                    self._key_material_captured = True
+                    self._active_slot = slot_num
+                    break
+
+        # After we have the key material, capture the first encrypted block
+        if (
+            self.has_region('key_material')
+            and self.region('key_material').complete
+            and not self.has_region('encrypted_block')
+            and self._passphrase is not None
+        ):
+            header = self.header_items
+            payload_offset = header['payload_offset'] * _luks.LUKS_SECTOR_SIZE
+            self._trace(
+                'Payload offset is %d (%#x) (%d sectors)',
+                payload_offset,
+                payload_offset,
+                header['payload_offset'],
+            )
+            self.new_region(
+                'encrypted_block',
+                CaptureRegion(payload_offset, _luks.LUKS_SECTOR_SIZE),
+            )
+
+    def region_complete(self, region_name: str) -> None:
+        """Decrypt the data block when the encrypted block is captured."""
+        if region_name == 'encrypted_block':
+            # We only register this region if the passphrase is provided
+            first_block = self._decrypt_first_block()
+            wrapper = InspectWrapper(io.BytesIO(first_block), tracing=True)
+            wrapper.read(_luks.LUKS_SECTOR_SIZE * 2)
+            wrapper.close()
+            self._trace('LUKS inner format detected as %s', wrapper.format)
+            self._inner_format = wrapper.format
+
+    def _decrypt_first_block(self) -> bytes:
+        """Decrypt the first block of data using the recovered master key."""
+        # Recover master key from passphrase if needed
+        if self._master_key is None and self._passphrase is not None:
+            if (
+                not self.has_region('key_material')
+                or not self.region('key_material').complete
+            ):
+                raise ValueError('Key material not available')
+
+            header_data = self.region('header').data
+            active_slot = _luks.parse_key_slot(header_data, self._active_slot)
+            # NOTE(danms): The LUKS spec is not very specific about the
+            # expected encoding of the passphrase. Since it requires ASCII
+            # encoding for the header strings, assume the same here until we
+            # have better information.
+            self._master_key = _luks.recover_master_key(
+                self._passphrase.encode('ascii'),
+                self.header_items,
+                header_data,
+                active_slot,
+                self.region('key_material').data,
+                iter_limit=self._iter_limit,
+            )
+
+        if self._master_key is None:
+            # This likely means the passphrase is incorrect
+            raise ValueError(
+                'Could not recover master key for LUKS decryption'
+            )
+
+        if (
+            not self.has_region('encrypted_block')
+            or not self.region('encrypted_block').complete
+        ):
+            # This likely means we only found the heeader, or the image ended
+            # abruptly
+            raise ValueError('Encrypted block not found or complete')
+
+        header = self.header_items
+        cipher_name = header['cipher_alg'].rstrip(b'\x00').decode('ascii')
+        cipher_mode = header['cipher_mode'].rstrip(b'\x00').decode('ascii')
+        encrypted_data = self.region('encrypted_block').data
+
+        try:
+            # For bulk data, sector numbering starts at 0 (first sector of
+            # payload)
+            decrypted_data = _luks.decrypt_data(
+                encrypted_data,
+                self._master_key,
+                cipher_name,
+                cipher_mode,
+                start_sector=0,
+            )
+            self._trace(
+                'Successfully decrypted first LUKS block (%d bytes)',
+                len(decrypted_data),
+            )
+        except Exception as e:
+            LOG.error('Failed to decrypt LUKS data: %s', e)
+            raise ValueError('Failed to decrypt LUKS data')
+
+        return decrypted_data
 
     @property
     def virtual_size(self) -> int:
@@ -1497,6 +1713,8 @@ class InspectWrapper:
                             objects that will be used. This may be a security
                             hole if used improperly, but may be used to limit
                             the detected formats to some smaller scope.
+    :param tracing: Enable debug logging
+    :param params: Additional parameters to pass to the inspectors
     """
 
     def __init__(
@@ -1504,12 +1722,14 @@ class InspectWrapper:
         source: IO[bytes],
         expected_format: str | None = None,
         allowed_formats: list[str] | None = None,
+        tracing: bool = False,
+        params: dict[str, str] | None = None,
     ) -> None:
         self._source = source
         self._expected_format = expected_format
         self._errored_inspectors: set[FileInspector] = set()
         self._inspectors = {
-            v()
+            v(tracing=tracing, params=params)
             for k, v in ALL_FORMATS.items()
             if not allowed_formats or k in allowed_formats
         }
@@ -1675,7 +1895,9 @@ def get_inspector(format_name: str) -> type[FileInspector] | None:
     return ALL_FORMATS.get(format_name)
 
 
-def detect_file_format(filename: str) -> FileInspector | None:
+def detect_file_format(
+    filename: str, tracing: bool = False, params: dict[str, str] | None = None
+) -> FileInspector | None:
     """Attempts to detect the format of a file.
 
     This runs through a file one time, running all the known inspectors in
@@ -1683,11 +1905,13 @@ def detect_file_format(filename: str) -> FileInspector | None:
     them are sure they don't match.
 
     :param filename: The path to the file to inspect.
+    :param tracing: Enable debug logging
+    :param params: Additional data to pass to the inspectors
     :returns: A FormatInspector instance matching the file.
     :raises: ImageFormatError if multiple formats are detected.
     """
     with open(filename, 'rb') as f:
-        wrapper = InspectWrapper(f)
+        wrapper = InspectWrapper(f, tracing=tracing, params=params)
         try:
             for _chunk in _chunked_reader(wrapper, 4096):
                 if wrapper.format:

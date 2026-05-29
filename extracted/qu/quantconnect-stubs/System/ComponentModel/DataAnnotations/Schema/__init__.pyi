@@ -36,28 +36,11 @@ class TableAttribute(System.Attribute):
         ...
 
 
-class DatabaseGeneratedOption(IntEnum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    IDENTITY = 1
-
-    COMPUTED = 2
-
-
-class DatabaseGeneratedAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def database_generated_option(self) -> System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption:
-        ...
-
-    def __init__(self, database_generated_option: System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption) -> None:
-        ...
-
-
 class ComplexTypeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class NotMappedAttribute(System.Attribute):
     """This class has no documentation."""
 
 
@@ -104,7 +87,24 @@ class InversePropertyAttribute(System.Attribute):
         ...
 
 
-class NotMappedAttribute(System.Attribute):
+class DatabaseGeneratedOption(IntEnum):
     """This class has no documentation."""
+
+    NONE = 0
+
+    IDENTITY = 1
+
+    COMPUTED = 2
+
+
+class DatabaseGeneratedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def database_generated_option(self) -> System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption:
+        ...
+
+    def __init__(self, database_generated_option: System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption) -> None:
+        ...
 
 

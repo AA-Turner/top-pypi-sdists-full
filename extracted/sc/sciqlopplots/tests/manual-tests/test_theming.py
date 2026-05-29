@@ -1,11 +1,18 @@
-"""SciQLopPlots Theming Demo — toggle between light and dark themes."""
+"""SciQLopPlots Theming Demo — toggle between light and dark themes.
+
+Also serves as a reproducer for the selection-border theming bug:
+``SciQLopPlotInterface::set_selected`` hardcoded ``border: 2px solid black``,
+which is invisible in dark mode. The selection border must adopt the active
+theme's ``selection()`` color. ``check_selection_border_follows_theme`` runs
+before the GUI and fails loudly if the regression returns.
+"""
 import sys
 import numpy as np
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QHBoxLayout
 from PySide6.QtGui import QColor
 
 from SciQLopPlots import (
-    SciQLopMultiPlotPanel, SciQLopTheme,
+    SciQLopMultiPlotPanel, SciQLopPlot, SciQLopTheme,
     PlotType, SciQLopPlotRange,
 )
 
@@ -16,8 +23,70 @@ def sample_data(start, stop):
     return x, y
 
 
+def check_panel_deselect_all_clears_every_plot():
+    panel = SciQLopMultiPlotPanel(synchronize_x=False, synchronize_time=True)
+    try:
+        panel.plot(sample_data, labels=["sin", "cos"], plot_type=PlotType.TimeSeries)
+        panel.plot(sample_data, labels=["sin", "cos"], plot_type=PlotType.TimeSeries)
+        panel.set_theme(SciQLopTheme.dark())
+
+        plots = panel.plots()
+        assert len(plots) >= 2, f"expected at least 2 plots, got {len(plots)}"
+        for p in plots:
+            p.set_selected(True)
+        assert all(p.selected() for p in plots), "setup failed: plots not selected"
+
+        panel.deselect_all()
+
+        for p in plots:
+            assert not p.selected(), (
+                f"plot {p.objectName()} still selected after panel.deselect_all()"
+            )
+            assert "border: 0px" in p.styleSheet().lower(), (
+                f"plot {p.objectName()} stylesheet not cleared; got {p.styleSheet()!r}"
+            )
+    finally:
+        panel.deleteLater()
+
+
+def check_selection_border_follows_theme():
+    plot = SciQLopPlot()
+    try:
+        for factory in (SciQLopTheme.light, SciQLopTheme.dark):
+            theme = factory()
+            plot.set_theme(theme)
+            expected = theme.selection().name().lower()
+            plot.set_selected(True)
+            stylesheet = plot.styleSheet().lower()
+            assert expected in stylesheet, (
+                f"selection border did not adopt theme color {expected}; "
+                f"got stylesheet={stylesheet!r}"
+            )
+            assert "black" not in stylesheet, (
+                f"selection border still contains hardcoded 'black' under "
+                f"{factory.__name__} theme; stylesheet={stylesheet!r}"
+            )
+            plot.set_selected(False)
+
+        theme = SciQLopTheme.dark()
+        plot.set_theme(theme)
+        plot.set_selected(True)
+        recolored = QColor("#ff00aa")
+        theme.set_selection(recolored)
+        assert recolored.name().lower() in plot.styleSheet().lower(), (
+            "selection border did not refresh after theme.set_selection(); "
+            f"stylesheet={plot.styleSheet()!r}"
+        )
+    finally:
+        plot.deleteLater()
+
+
 def main():
     app = QApplication(sys.argv)
+
+    check_selection_border_follows_theme()
+    check_panel_deselect_all_clears_every_plot()
+
     win = QMainWindow()
     central = QWidget()
     layout = QVBoxLayout(central)
@@ -53,6 +122,15 @@ def main():
     btn2 = QPushButton("Custom Theme on Plot 0")
     btn2.clicked.connect(apply_custom)
     btn_layout.addWidget(btn2)
+
+    def toggle_selection():
+        plots = panel.plots()
+        if plots:
+            plots[0].set_selected(not plots[0].selected())
+
+    btn3 = QPushButton("Toggle Plot 0 Selection")
+    btn3.clicked.connect(toggle_selection)
+    btn_layout.addWidget(btn3)
 
     layout.addLayout(btn_layout)
     layout.addWidget(panel)

@@ -15,7 +15,7 @@ from ..exceptions import (
     TaskFailed,
     FileNotFound,
 )
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class SubTask(FlowComponent):

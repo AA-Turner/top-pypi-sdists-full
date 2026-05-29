@@ -6,6 +6,87 @@ import QuantConnect.Securities.FutureOption.Api
 import System
 
 
+class CMEProductSlateV2ListEntry(System.Object):
+    """Product entry describing the asset matching the search criteria"""
+
+    @property
+    def id(self) -> int:
+        """CME ID for the asset"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Name of the product (e.g. E-mini NASDAQ futures)"""
+        ...
+
+    @property
+    def clearing(self) -> str:
+        """Clearing code"""
+        ...
+
+    @property
+    def globex(self) -> str:
+        """GLOBEX ticker"""
+        ...
+
+    @property
+    def globex_traded(self) -> bool:
+        """Is traded in the GLOBEX venue"""
+        ...
+
+    @property
+    def venues(self) -> str:
+        """Venues this asset trades on"""
+        ...
+
+    @property
+    def cleared(self) -> str:
+        """Asset type this product is cleared as (i.e. "Futures", "Options")"""
+        ...
+
+    @property
+    def exchange(self) -> str:
+        """Exchange the asset trades on (i.e. CME, NYMEX, COMEX, CBOT)"""
+        ...
+
+    @property
+    def group_id(self) -> int:
+        """Asset class group ID - describes group of asset class (e.g. equities, agriculture, etc.)"""
+        ...
+
+    @property
+    def sub_group_id(self) -> int:
+        """More specific ID describing product"""
+        ...
+
+
+class CMEProductSlateV2ListResponse(System.Object):
+    """Product slate API call root response"""
+
+    @property
+    def products(self) -> typing.List[QuantConnect.Securities.FutureOption.Api.CMEProductSlateV2ListEntry]:
+        """Products matching the search criteria"""
+        ...
+
+
+class CMEOptionChainQuoteEntry(System.Object):
+    """Option chain entry quotes, containing strike price"""
+
+    @property
+    def strike_price(self) -> float:
+        """Strike price of the future option quote entry"""
+        ...
+
+
+class CMEOptionChainQuotes(System.Object):
+    """CME Option Chain Quotes API call root response"""
+
+    @property
+    def quotes(self) -> typing.List[QuantConnect.Securities.FutureOption.Api.CMEOptionChainQuoteEntry]:
+        """The future options contracts with/without settlements"""
+        ...
+
+
 class CMEOptionExpirationEntry(System.Object):
     """Chicago Mercantile Exchange Option Expiration Entry"""
 
@@ -102,87 +183,6 @@ class CMEOptionsTradeDatesAndExpiration(System.Object):
     @property
     def expirations(self) -> typing.List[QuantConnect.Securities.FutureOption.Api.CMEOptionsExpiration]:
         """Expirations of the future option"""
-        ...
-
-
-class CMEOptionChainQuoteEntry(System.Object):
-    """Option chain entry quotes, containing strike price"""
-
-    @property
-    def strike_price(self) -> float:
-        """Strike price of the future option quote entry"""
-        ...
-
-
-class CMEOptionChainQuotes(System.Object):
-    """CME Option Chain Quotes API call root response"""
-
-    @property
-    def quotes(self) -> typing.List[QuantConnect.Securities.FutureOption.Api.CMEOptionChainQuoteEntry]:
-        """The future options contracts with/without settlements"""
-        ...
-
-
-class CMEProductSlateV2ListEntry(System.Object):
-    """Product entry describing the asset matching the search criteria"""
-
-    @property
-    def id(self) -> int:
-        """CME ID for the asset"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Name of the product (e.g. E-mini NASDAQ futures)"""
-        ...
-
-    @property
-    def clearing(self) -> str:
-        """Clearing code"""
-        ...
-
-    @property
-    def globex(self) -> str:
-        """GLOBEX ticker"""
-        ...
-
-    @property
-    def globex_traded(self) -> bool:
-        """Is traded in the GLOBEX venue"""
-        ...
-
-    @property
-    def venues(self) -> str:
-        """Venues this asset trades on"""
-        ...
-
-    @property
-    def cleared(self) -> str:
-        """Asset type this product is cleared as (i.e. "Futures", "Options")"""
-        ...
-
-    @property
-    def exchange(self) -> str:
-        """Exchange the asset trades on (i.e. CME, NYMEX, COMEX, CBOT)"""
-        ...
-
-    @property
-    def group_id(self) -> int:
-        """Asset class group ID - describes group of asset class (e.g. equities, agriculture, etc.)"""
-        ...
-
-    @property
-    def sub_group_id(self) -> int:
-        """More specific ID describing product"""
-        ...
-
-
-class CMEProductSlateV2ListResponse(System.Object):
-    """Product slate API call root response"""
-
-    @property
-    def products(self) -> typing.List[QuantConnect.Securities.FutureOption.Api.CMEProductSlateV2ListEntry]:
-        """Products matching the search criteria"""
         ...
 
 

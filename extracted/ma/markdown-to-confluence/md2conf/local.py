@@ -10,6 +10,8 @@ import logging
 import os
 from pathlib import Path
 
+from md2conf.collection import ConfluenceUserCollection
+
 from .compatibility import override
 from .converter import ConfluenceDocument
 from .metadata import ConfluencePageMetadata, ConfluenceSiteMetadata
@@ -45,7 +47,7 @@ class LocalProcessor(Processor):
         self.out_dir = out_dir or root_dir
 
     @override
-    def _synchronize_structure(self, tree: DocumentNode) -> None:
+    def _synchronize_structure(self, tree: DocumentNode) -> dict[str, list[str]]:
         """
         Creates the cross-reference index.
 
@@ -69,6 +71,28 @@ class LocalProcessor(Processor):
                     synchronized=node.synchronized,
                 ),
             )
+
+        return {}
+
+    @override
+    def _synchronize_order(self, tree: DocumentNode, parent_to_children: dict[str, list[str]]) -> None:
+        """
+        Recursively arranges child pages of a parent page in the same order as files in their parent directory.
+
+        This implementation is a no-op.
+        """
+
+        pass
+
+    @override
+    def _synchronize_users(self, users: set[tuple[str, str]]) -> ConfluenceUserCollection:
+        """
+        Fetches Confluence user account IDs.
+
+        This implementation does not fetch any account IDs, as it maintains no connection to a Confluence server.
+        """
+
+        return ConfluenceUserCollection()
 
     @override
     def _update_page(self, page_id: ConfluencePageID, document: ConfluenceDocument, path: Path) -> None:

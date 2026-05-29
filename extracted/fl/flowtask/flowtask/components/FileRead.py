@@ -5,7 +5,7 @@ import io
 import aiofiles
 from ..exceptions import FileNotFound, FileError
 from ..utils.json import json_decoder
-from .FileBase import FileBase
+from ..interfaces.file_base import FileBase
 from ..interfaces.dataframes.pandas import PandasDataframe
 
 

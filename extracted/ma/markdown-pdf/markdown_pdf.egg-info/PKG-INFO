@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown_pdf
-Version: 1.13.1
+Version: 1.13.2
 Summary: Markdown to pdf renderer
 Author-email: Vitaly Bogomolov <mail@vitaly-bogomolov.ru>
 License-Expression: AGPL-3.0-only
@@ -11,9 +11,10 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: PyMuPDF==1.24.6; python_version < "3.9"
+Requires-Dist: PyMuPDF==1.24.11; python_version < "3.9"
 Requires-Dist: PyMuPDF>=1.25.3; python_version > "3.8"
-Requires-Dist: markdown-it-py==3.0.0; python_version >= "3.8"
+Requires-Dist: markdown-it-py==3.0.0; python_version < "3.10"
+Requires-Dist: markdown-it-py>=4.0.0; python_version >= "3.10"
 Requires-Dist: requests==2.32.3; python_version < "3.9"
 Requires-Dist: requests>=2.32.5; python_version > "3.8"
 Requires-Dist: plantuml==0.3.0
@@ -248,10 +249,12 @@ In the created file `plantuml.pdf`, you will see the following result:
 
 You can find a more detailed description of the plugins [here](plugins.md).
 
-## Example
+## Command Line Interface script
 
-As an example, you can download the [pdf file](examples/markdown_pdf.pdf) created from this md file.
+As an example, you can download the [pdf file](examples/markdown_pdf.pdf) created from this README.
 This [Python script](makepdf.py) was used to create the PDF file.
+
+You can create your own CLI script, tailored to your needs, using this script as a starting point.
 
 ## Development
 

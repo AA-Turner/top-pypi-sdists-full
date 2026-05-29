@@ -22,6 +22,8 @@
 #pragma once
 #include "SciQLopPlots/Plotables/SciQLopGraphInterface.hpp"
 #include "SciQLopPlots/SciQLopPlotAxis.hpp"
+#include <QPointer>
+#include <optional>
 #include <qcustomplot.h>
 
 class SciQLopColorMapBase : public SciQLopColorMapInterface
@@ -32,7 +34,11 @@ protected:
     bool _selected = false;
     SciQLopPlotAxis* _keyAxis;
     SciQLopPlotAxis* _valueAxis;
-    SciQLopPlotColorScaleAxis* _colorScaleAxis;
+    // QPointer because the color-scale axis is owned by the parent QCustomPlot
+    // and may be destroyed before us in atypical teardown orders.
+    QPointer<SciQLopPlotColorScaleAxis> _colorScaleAxis;
+    double _autoscale_percentile_low = 0.;
+    double _autoscale_percentile_high = 100.;
 
     inline QCustomPlot* _plot() const { return qobject_cast<QCustomPlot*>(this->parent()); }
 
@@ -93,12 +99,13 @@ public:
 
     inline virtual ColorGradient gradient() const noexcept override
     {
-        return _colorScaleAxis->color_gradient();
+        return _colorScaleAxis ? _colorScaleAxis->color_gradient() : ColorGradient::Jet;
     }
 
     inline virtual void set_gradient(ColorGradient gradient) noexcept override
     {
-        _colorScaleAxis->set_color_gradient(gradient);
+        if (_colorScaleAxis)
+            _colorScaleAxis->set_color_gradient(gradient);
     }
 
     inline virtual void set_visible(bool visible) noexcept override
@@ -140,4 +147,32 @@ public:
     {
         return _colorScaleAxis ? _colorScaleAxis->log() : false;
     }
+
+    void set_autoscale_percentile_low(double percentile) noexcept;
+    inline double autoscale_percentile_low() const noexcept { return _autoscale_percentile_low; }
+    void set_autoscale_percentile_high(double percentile) noexcept;
+    inline double autoscale_percentile_high() const noexcept { return _autoscale_percentile_high; }
+
+    // Range of z over cells whose x/y fall in the given visible ranges, clamped
+    // to [low, high] percentiles (nearest-rank). low=0/high=100 gives plain
+    // min/max of the visible data. Non-finite cells are skipped. Default returns
+    // an empty (NaN) range; concrete plotables override it.
+    virtual SciQLopPlotRange z_percentile_range(const SciQLopPlotRange& x_range,
+                                                const SciQLopPlotRange& y_range, double low,
+                                                double high) const noexcept
+    {
+        Q_UNUSED(x_range);
+        Q_UNUSED(y_range);
+        Q_UNUSED(low);
+        Q_UNUSED(high);
+        return SciQLopPlotRange();
+    }
+
+protected:
+#ifndef BINDINGS_H
+    // nullopt ⇒ caller should use the plain min/max fast path (default 0/100).
+    std::optional<SciQLopPlotRange> z_rescale_range() const noexcept;
+    // Installs z_rescale_range as the color-scale axis rescale provider.
+    void install_rescale_provider() noexcept;
+#endif
 };

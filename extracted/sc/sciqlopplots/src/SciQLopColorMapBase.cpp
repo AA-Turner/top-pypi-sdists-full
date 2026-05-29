@@ -21,6 +21,8 @@
 ----------------------------------------------------------------------------*/
 #include "SciQLopPlots/Plotables/SciQLopColorMapBase.hpp"
 #include "SciQLopPlots/Plotables/AxisHelpers.hpp"
+#include <algorithm>
+#include <cmath>
 
 SciQLopColorMapBase::SciQLopColorMapBase(SciQLopPlotAxis* keyAxis, SciQLopPlotAxis* valueAxis,
                                          SciQLopPlotColorScaleAxis* colorScaleAxis,
@@ -32,9 +34,14 @@ SciQLopColorMapBase::SciQLopColorMapBase(SciQLopPlotAxis* keyAxis, SciQLopPlotAx
 {
 }
 
-// Derived destructors null their QPointer then remove the plottable,
-// preventing double-removal when the base destructor runs.
-SciQLopColorMapBase::~SciQLopColorMapBase() = default;
+SciQLopColorMapBase::~SciQLopColorMapBase()
+{
+    // Unhook the rescale provider so the color-scale axis won't call back into
+    // our (half-destroyed) z_rescale_range. Safe if the axis has already been
+    // destroyed thanks to QPointer.
+    if (_colorScaleAxis)
+        _colorScaleAxis->set_rescale_range_provider(nullptr);
+}
 
 void SciQLopColorMapBase::set_selected(bool selected) noexcept
 {
@@ -51,6 +58,39 @@ void SciQLopColorMapBase::set_selected(bool selected) noexcept
 bool SciQLopColorMapBase::selected() const noexcept
 {
     return _selected;
+}
+
+void SciQLopColorMapBase::set_autoscale_percentile_low(double percentile) noexcept
+{
+    if (std::isnan(percentile))
+        return;
+    _autoscale_percentile_low = std::clamp(percentile, 0., 100.);
+}
+
+void SciQLopColorMapBase::set_autoscale_percentile_high(double percentile) noexcept
+{
+    if (std::isnan(percentile))
+        return;
+    _autoscale_percentile_high = std::clamp(percentile, 0., 100.);
+}
+
+std::optional<SciQLopPlotRange> SciQLopColorMapBase::z_rescale_range() const noexcept
+{
+    if (_autoscale_percentile_low <= 0. && _autoscale_percentile_high >= 100.)
+        return std::nullopt;
+    if (!_keyAxis || !_valueAxis)
+        return std::nullopt;
+    auto r = z_percentile_range(_keyAxis->range(), _valueAxis->range(),
+                                _autoscale_percentile_low, _autoscale_percentile_high);
+    if (std::isnan(r.start()) || std::isnan(r.stop()))
+        return std::nullopt;
+    return r;
+}
+
+void SciQLopColorMapBase::install_rescale_provider() noexcept
+{
+    if (_colorScaleAxis)
+        _colorScaleAxis->set_rescale_range_provider([this]() { return z_rescale_range(); });
 }
 
 void SciQLopColorMapBase::set_x_axis(SciQLopPlotAxisInterface* axis) noexcept

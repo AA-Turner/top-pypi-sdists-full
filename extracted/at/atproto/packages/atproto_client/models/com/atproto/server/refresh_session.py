@@ -1,8 +1,8 @@
-##################################################################
+#######################################################################
 # THIS IS THE AUTO-GENERATED CODE. DON'T EDIT IT BY HANDS!
-# Copyright (C) 2024 Ilya (Marshal) <https://github.com/MarshalX>.
+# Copyright (C) 2023-2026 Ilya (Marshal) <https://github.com/MarshalX>.
 # This file is part of Python atproto SDK. Licenced under MIT.
-##################################################################
+#######################################################################
 
 
 import typing as t
@@ -23,6 +23,9 @@ class Response(base.ResponseModelBase):
     refresh_jwt: str  #: Refresh jwt.
     active: t.Optional[bool] = None  #: Active.
     did_doc: t.Optional['UnknownType'] = None  #: Did doc.
+    email: t.Optional[str] = None  #: Email.
+    email_auth_factor: t.Optional[bool] = None  #: Email auth factor.
+    email_confirmed: t.Optional[bool] = None  #: Email confirmed.
     status: t.Optional[t.Union[t.Literal['takendown'], t.Literal['suspended'], t.Literal['deactivated'], str]] = (
         None  #: Hosting status of the account. If not specified, then assume 'active'.
     )

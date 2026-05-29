@@ -119,6 +119,7 @@ from .domain import (
     PolicyEffect,
     ScopeRule,
     TemporalSpec,
+    TenantHostSpec,
     VisibilityRule,
 )
 from .e2e import (
@@ -906,6 +907,7 @@ __all__ = [
     "AccessSpec",
     "ScopeRule",
     "TemporalSpec",
+    "TenantHostSpec",
     "ExampleRecord",
     "GraphEdgeSpec",
     "GraphNodeSpec",

@@ -13,7 +13,7 @@ from navconfig.logging import logging
 from ..exceptions import ComponentError, ConfigError
 from ..interfaces import HTTPService, SeleniumService
 from ..interfaces.http import ua
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 try:  # pragma: no cover - optional dependency provided by ai-parrot package
     from parrot.tools.scraping import WebScrapingTool

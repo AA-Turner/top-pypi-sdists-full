@@ -4,7 +4,7 @@ from pathlib import Path, PurePath
 import asyncssh
 from navconfig.logging import logging
 from ..exceptions import FileError, ComponentError, FileNotFound
-from .DownloadFrom import DownloadFromBase
+from ..interfaces.download_from import DownloadFromBase
 from ..interfaces.SSHClient import SSHClient
 
 

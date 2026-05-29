@@ -6,3 +6,6 @@ class CorpUtilsConfig(AppConfig):
     name = 'allianceauth.corputils'
     label = 'corputils'
     verbose_name = _('Corporation Stats')
+
+    def ready(self) -> None:
+        pass

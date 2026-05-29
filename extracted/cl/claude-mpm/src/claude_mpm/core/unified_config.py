@@ -72,6 +72,21 @@ class AgentConfig(BaseModel):
         description="Explicit list of agent IDs to deploy (empty = use auto_discover)",
     )
 
+    # Project-local agents that MPM must never touch (Issue #560)
+    # These agents are hand-crafted, committed to the project git repo, and
+    # live in .claude/agents/. They are NOT managed by MPM sync — MPM must
+    # never delete or overwrite them. "local_only" means MPM-unmanaged, not
+    # git-ignored.
+    local_only: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Agent IDs committed to the project repo and managed by the project, "
+            "not by MPM sync. MPM will never delete or overwrite these agents. "
+            "Use for hand-crafted project-specific agents in .claude/agents/ "
+            "that should be tracked in git but excluded from MPM sync."
+        ),
+    )
+
     # Required agents that are always deployed
     # Standard 7 core agents for essential PM workflow functionality
     # These are auto-deployed when no agents are specified in configuration

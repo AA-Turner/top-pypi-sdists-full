@@ -17,7 +17,7 @@ from ...exceptions import (
 )
 from ...utils.executor import getFunction
 from ...utils.functions import check_empty
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 
 
 class TransformRows(FlowComponent):

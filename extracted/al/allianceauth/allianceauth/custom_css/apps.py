@@ -11,3 +11,6 @@ class CustomCSSConfig(AppConfig):
     name = "allianceauth.custom_css"
     label = "custom_css"
     verbose_name = _("Custom CSS")
+
+    def ready(self) -> None:
+        pass

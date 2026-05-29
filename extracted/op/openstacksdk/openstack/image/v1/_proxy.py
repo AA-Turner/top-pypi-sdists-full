@@ -12,7 +12,7 @@
 
 import os
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 import warnings
 
 from openstack import exceptions as exc
@@ -76,35 +76,35 @@ class Proxy(proxy.Proxy):
         Create a new image. If ``filename`` or ``data`` are provided, it will
         also upload data to this image.
 
-        :param str name: Name of the image to create. If it is a path name
+        :param name: Name of the image to create. If it is a path name
             of an image, the name will be constructed from the extensionless
             basename of the path.
-        :param str filename: The path to the file to upload, if needed.
+        :param filename: The path to the file to upload, if needed.
             (optional, defaults to None)
         :param data: Image data (string or file-like object). It is mutually
             exclusive with filename
-        :param str container: Name of the container in swift where images
+        :param container: Name of the container in swift where images
             should be uploaded for import if the cloud requires such a thing.
             (optional, defaults to 'images')
-        :param str md5: md5 sum of the image file. If not given, an md5 will
+        :param md5: md5 sum of the image file. If not given, an md5 will
             be calculated.
-        :param str sha256: sha256 sum of the image file. If not given, an md5
+        :param sha256: sha256 sum of the image file. If not given, an md5
             will be calculated.
-        :param str disk_format: The disk format the image is in. (optional,
+        :param disk_format: The disk format the image is in. (optional,
             defaults to the os-client-config config value for this cloud)
-        :param str container_format: The container format the image is in.
+        :param container_format: The container format the image is in.
             (optional, defaults to the os-client-config config value for this
             cloud)
-        :param list tags: List of tags for this image. Each tag is a string
+        :param tags: List of tags for this image. Each tag is a string
             of at most 255 chars.
-        :param bool disable_vendor_agent: Whether or not to append metadata
+        :param disable_vendor_agent: Whether or not to append metadata
             flags to the image to inform the cloud in question to not expect a
             vendor agent to be runing. (optional, defaults to True)
         :param allow_duplicates: If true, skips checks that enforce unique
             image name. (optional, defaults to False)
         :param meta: A dict of key/value pairs to use for metadata that
             bypasses automatic type conversion.
-        :param bool validate_checksum: If true and cloud returns checksum,
+        :param validate_checksum: If true and cloud returns checksum,
             compares return value with the one calculated or passed into this
             call. If value does not match - raises exception. Default is
             'false'
@@ -121,7 +121,6 @@ class Proxy(proxy.Proxy):
         If a value is in meta and kwargs, meta wins.
 
         :returns: The results of image creation
-        :rtype: :class:`~openstack.image.v1.image.Image`
         :raises: SDKException if there are problems uploading
         """
         # these were previously provided for API (method) compatibility; that
@@ -254,12 +253,11 @@ class Proxy(proxy.Proxy):
           Please stop using it immediately and switch to
           `create_image`.
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.image.v1.image.Image`,
             comprised of the properties on the Image class.
 
         :returns: The results of image creation
-        :rtype: :class:`~openstack.image.v1.image.Image`
         """
         warnings.warn(
             "upload_image is deprecated. Use create_image instead.",
@@ -321,12 +319,14 @@ class Proxy(proxy.Proxy):
     def _existing_image(self, **kwargs):
         return _image.Image.existing(connection=self._connection, **kwargs)
 
-    def delete_image(self, image, ignore_missing=True):
+    def delete_image(
+        self, image: str | _image.Image, ignore_missing: bool = True
+    ) -> None:
         """Delete an image
 
         :param image: The value can be either the ID of an image or a
             :class:`~openstack.image.v1.image.Image` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the image does not exist.
             When set to ``True``, no exception will be set when
@@ -358,7 +358,7 @@ class Proxy(proxy.Proxy):
         """Find a single image
 
         :param name_or_id: The name or ID of a image.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -369,7 +369,7 @@ class Proxy(proxy.Proxy):
             _image.Image, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_image(self, image):
+    def get_image(self, image: str | _image.Image) -> _image.Image:
         """Get a single image
 
         :param image: The value can be the ID of an image or a
@@ -381,14 +381,13 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_image.Image, image)
 
-    def images(self, **query):
+    def images(self, **query: Any) -> Generator[_image.Image, None, None]:
         """Return a generator of images
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of image objects
-        :rtype: :class:`~openstack.image.v1.image.Image`
         """
         return self._list(_image.Image, base_path='/images/detail', **query)
 
@@ -401,7 +400,6 @@ class Proxy(proxy.Proxy):
             by ``image``.
 
         :returns: The updated image
-        :rtype: :class:`~openstack.image.v1.image.Image`
         """
         return self._update(_image.Image, image, **attrs)
 
@@ -421,7 +419,7 @@ class Proxy(proxy.Proxy):
 
         :param image: The value can be either the ID of an image or a
             :class:`~openstack.image.v2.image.Image` instance.
-        :param bool stream: When ``True``, return a :class:`requests.Response`
+        :param stream: When ``True``, return a :class:`requests.Response`
             instance allowing you to iterate over the
             response data stream instead of storing its entire
             contents in memory. See
@@ -434,7 +432,7 @@ class Proxy(proxy.Proxy):
 
             When ``False``, return the entire contents of the response.
         :param output: Either a file object or a path to store data into.
-        :param int chunk_size: size in bytes to read from the wire and buffer
+        :param chunk_size: size in bytes to read from the wire and buffer
             at one time. Defaults to 1024 * 1024 = 1 MiB
 
         :returns: When output is not given - the bytes comprising the given
@@ -526,7 +524,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -541,8 +539,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

@@ -53,8 +53,16 @@ def _filter_to_series_with_min_years(df, min_years):
 def run(path_config_file):
     cfg = load_config(path_config_file)
 
-    print(f"Reading {cfg.input_csv.name}...")
-    df = _common.load_filtered_hvstat(cfg.input_csv)
+    if cfg.input_format == "amis":
+        print(f"Reading AMIS XLSX workbooks under {cfg.dir_production_statistics}...")
+        if cfg.input_csv is not None:
+            print(
+                "  (note: [BEAST] input_csv is set but ignored for input_format=amis)"
+            )
+        df = _common.load_filtered_amis(cfg.dir_production_statistics, cfg.parser)
+    else:
+        print(f"Reading {cfg.input_csv.name}...")
+        df = _common.load_filtered_hvstat(cfg.input_csv)
     df["admin_level"] = np.where(df["admin_2"] != "none", "admin_2", "admin_1")
     df, keep = _filter_to_series_with_min_years(df, cfg.min_years)
 

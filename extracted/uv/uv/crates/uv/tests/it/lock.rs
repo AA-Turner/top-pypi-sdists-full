@@ -1064,6 +1064,46 @@ fn lock_sdist_git_archive() -> Result<()> {
     Ok(())
 }
 
+/// Reject a Git source archive when Git LFS was requested but could not be initialized.
+#[test]
+#[cfg(feature = "test-git")]
+fn lock_sdist_git_archive_missing_lfs() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig"]
+
+        [tool.uv.sources]
+        iniconfig = { git = "https://github.com/astral-sh/archive-in-git-test", path = "archives/iniconfig-2.0.0.tar.gz", lfs = true }
+        "#,
+    )?;
+
+    uv_snapshot!(
+        context.filters(),
+        context
+            .lock()
+            .env(EnvVars::UV_INTERNAL__TEST_LFS_DISABLED, "1"),
+        @r###"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × Failed to download and build `iniconfig @ git+https://github.com/astral-sh/archive-in-git-test#lfs=true&path=archives/iniconfig-2.0.0.tar.gz`
+      ├─▶ The source distribution `git+https://github.com/astral-sh/archive-in-git-test#lfs=true&path=archives/iniconfig-2.0.0.tar.gz` is missing Git LFS artifacts.
+      ╰─▶ Git LFS extension not found. Ensure that Git LFS is installed and available.
+    "###
+    );
+
+    Ok(())
+}
+
 /// Lock a Git requirement that points to a pre-built wheel within a repository.
 #[test]
 #[cfg(feature = "test-git")]
@@ -1185,6 +1225,46 @@ fn lock_wheel_git_archive() -> Result<()> {
     Ok(())
 }
 
+/// Reject a Git wheel archive when Git LFS was requested but could not be initialized.
+#[test]
+#[cfg(feature = "test-git")]
+fn lock_wheel_git_archive_missing_lfs() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig"]
+
+        [tool.uv.sources]
+        iniconfig = { git = "https://github.com/astral-sh/archive-in-git-test", path = "archives/iniconfig-2.0.0-py3-none-any.whl", lfs = true }
+        "#,
+    )?;
+
+    uv_snapshot!(
+        context.filters(),
+        context
+            .lock()
+            .env(EnvVars::UV_INTERNAL__TEST_LFS_DISABLED, "1"),
+        @r###"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × Failed to download `iniconfig @ git+https://github.com/astral-sh/archive-in-git-test#lfs=true&path=archives/iniconfig-2.0.0-py3-none-any.whl`
+      ├─▶ The wheel `git+https://github.com/astral-sh/archive-in-git-test#lfs=true&path=archives/iniconfig-2.0.0-py3-none-any.whl` is missing Git LFS artifacts.
+      ╰─▶ Git LFS extension not found. Ensure that Git LFS is installed and available.
+    "###
+    );
+
+    Ok(())
+}
+
 /// Lock a requirement from a direct URL to a wheel.
 #[test]
 fn lock_wheel_url() -> Result<()> {
@@ -1301,15 +1381,15 @@ fn lock_wheel_url() -> Result<()> {
     Resolved 4 packages in [TIME]
     ");
 
-    // Re-run with `--offline`. This should fail: we need network access to resolve mutable metadata.
-    uv_snapshot!(context.filters(), context.lock().arg("--locked").arg("--offline").arg("--no-cache"), @"
-    success: false
-    exit_code: 2
+    // Re-run with `--check --offline`. We cannot refresh direct URL metadata without network
+    // access, so preserve the metadata in the already-correct lockfile.
+    uv_snapshot!(context.filters(), context.lock().arg("--check").arg("--offline").arg("--no-cache"), @"
+    success: true
+    exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-    error: Failed to generate package metadata for `anyio==4.3.0 @ direct+https://files.pythonhosted.org/packages/14/fd/2f20c40b45e4fb4324834aea24bd4afdf1143390242c0b33774da0e2e34f/anyio-4.3.0-py3-none-any.whl`
-      Caused by: Network connectivity is disabled, but the requested data wasn't found in the cache for: `https://files.pythonhosted.org/packages/14/fd/2f20c40b45e4fb4324834aea24bd4afdf1143390242c0b33774da0e2e34f/anyio-4.3.0-py3-none-any.whl`
+    Resolved 4 packages in [TIME]
     ");
 
     // Install from the lockfile.
@@ -1445,6 +1525,17 @@ fn lock_sdist_url() -> Result<()> {
 
     // Re-run with `--locked`.
     uv_snapshot!(context.filters(), context.lock().arg("--locked"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    // Re-run with `--check --offline`. We cannot refresh direct URL metadata without network
+    // access, so preserve the metadata in the already-correct lockfile.
+    uv_snapshot!(context.filters(), context.lock().arg("--check").arg("--offline").arg("--no-cache"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -13730,6 +13821,75 @@ fn lock_sources_url() -> Result<()> {
      + idna==3.6
      + sniffio==1.3.1
      + workspace==0.1.0 (from https://github.com/user-attachments/files/16592193/workspace.zip)
+    ");
+
+    Ok(())
+}
+
+/// Skip direct URL freshness checks while offline without skipping mutable transitive sources.
+#[test]
+fn lock_sources_url_offline_validates_transitive_source_tree() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    // The remote `workspace` archive depends on `anyio`. Override that transitive dependency to
+    // a local source tree so it remains refreshable while the direct URL parent is skipped
+    // offline; changing its version below proves that we still recurse into the parent's locked
+    // dependencies.
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["workspace @ https://github.com/user-attachments/files/16592193/workspace.zip"]
+
+        [tool.uv]
+        override-dependencies = ["anyio"]
+
+        [tool.uv.sources]
+        anyio = { path = "anyio" }
+        "#,
+    )?;
+
+    let transitive = context.temp_dir.child("anyio");
+    fs_err::create_dir_all(&transitive)?;
+    let transitive_pyproject_toml = transitive.child("pyproject.toml");
+    transitive_pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "anyio"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    transitive_pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "anyio"
+        version = "0.2.0"
+        requires-python = ">=3.12"
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock().arg("--check").arg("--offline"), @"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    The lockfile at `uv.lock` needs to be updated, but `--check` was provided. To update the lockfile, run `uv lock`.
     ");
 
     Ok(())

@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "microsoft-kiota-http"
-version = "1.10.1"
+version = "1.10.2"
 description = "Core abstractions for kiota generated libraries in Python"
 authors = ["Microsoft <graphtooling+python@microsoft.com>"]
 license = "MIT"
@@ -26,18 +26,18 @@ packages = [{include = "kiota_http"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
-microsoft-kiota-abstractions = { version = "1.10.1"}
+microsoft-kiota-abstractions = { version = "1.10.2"}
 opentelemetry-api = ">=1.27.0"
 opentelemetry-sdk = ">=1.27.0"
 httpx = {extras = ["http2"], version = ">=0.25,<1.0.0"}
 
 [tool.poetry.group.dev.dependencies]
 yapf = ">=0.40.2,<0.44.0"
-isort = ">=5.13.2,<7.0.0"
-pylint = "^3.2.7"
-mypy = "^1.11.2"
-pytest = "^8.3.2"
-pytest-asyncio = ">=0.24,<0.26"
+isort = ">=5.13.2,<9.0.0"
+pylint = ">=3.2.7,<5.0.0"
+mypy = ">=1.11.2,<3.0.0"
+pytest = ">=8.3.2,<10.0.0"
+pytest-asyncio = ">=0.24,<1.4"
 pytest-mock = "^3.14.0"
 poetry-plugin-mono-repo-deps = ">=0.2.1,<0.4.0"
 

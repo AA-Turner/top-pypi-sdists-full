@@ -13,7 +13,7 @@ from pgpy.errors import (
 )
 from ..exceptions import ComponentError, FileError
 from ..conf import PGP_KEY_PATH, PGP_PASSPHRASE
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class PGPDecrypt(FlowComponent):

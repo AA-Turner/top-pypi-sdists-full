@@ -77,6 +77,9 @@ class FeatureSet:
                 ## TODO: in the future, templates for the principal URL, calendar URLs etc may also be added.
             }
         },
+        "url": {
+            "type": "client-hints",
+        },
         "get-current-user-principal": {
             "description": "Support for RFC5397, current principal extension.  Most CalDAV servers have this, but it is an extension to the DAV standard.  Possibly observed missing on mail.ru, DavMail gateway and it is possible to configure the support in some sabre-based servers",
             "links": ["https://datatracker.ietf.org/doc/html/rfc5397"],
@@ -176,6 +179,10 @@ class FeatureSet:
             "description": "The server preserves RELATED-TO properties (RFC5545 section 3.8.4.5) when saving and loading calendar objects. When 'unsupported', the server may typically silently strip all RELATED-TO lines",
             "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.5"],
+        },
+        "save-load.mutable": {
+            "description": "A saved calendar object resource can be modified and PUT back to the server; the server accepts the update and returns the modified data on the next GET/REPORT. When 'unsupported', the server treats calendar objects as immutable after initial creation (e.g. Google Calendar's legacy CalDAV API). Replaces the old 'no_overwrite' compatibility flag.",
+            "default": {"support": "full"},
         },
         "search": {
             "description": "calendar MUST support searching for objects using the REPORT method, as specified in RFC4791, section 7",
@@ -855,9 +862,6 @@ incompatibility_description = {
     'vtodo-cannot-be-uncompleted':
         """If a VTODO object has been set with STATUS:COMPLETE, it's not possible to delete the COMPLTEDED attribute and change back to STATUS:IN-ACTION""",
 
-    'unique_calendar_ids':
-        """For every test, generate a new and unique calendar id""",
-
     'sticky_events':
         """Events should be deleted before the calendar is deleted, """
         """and/or deleting a calendar may not have immediate effect""",
@@ -879,39 +883,12 @@ incompatibility_description = {
 
 }
 
-## This is for Xandikos 0.2.12.
-## Lots of development going on as of summer 2025, so expect the list to become shorter soon!
-xandikos_v0_2_12 = {
-    ## this only applies for very simple installations
-    "auto-connect.url": {"domain": "localhost", "scheme": "http", "basepath": "/"},
-    'search.recurrences.includes-implicit': {'support': 'unsupported'},
-    'search.recurrences.expanded': {'support': 'unsupported'},
-    'search.time-range.todo': {'support': 'unsupported'},
-    'search.time-range.alarm': {'support': 'ungraceful', 'behaviour': '500 internal server error'},
-    'search.comp-type.optional': {'support': 'ungraceful'},
-    "search.text.substring": {"support": "unsupported"},
-    "search.text.category.substring": {"support": "unsupported"},
-    'principal-search': {'support': 'unsupported'},
-    'freebusy-query': {'support': 'ungraceful', 'behaviour': '500 internal server error'},
-    "scheduling": {"support": "unsupported"},
-    ## https://github.com/jelmer/xandikos/issues/8
-    'search.time-range.open.start.duration': {'support': 'unsupported'},
-    'search.time-range.open.start': {'support': 'broken', 'behaviour': 'future tasks are returned when only an end bound is given'},
-}
-
 xandikos = {
     ## Principal property search returns 403 (not implemented)
     "principal-search": "ungraceful",
 
-    ## Server-side recurrence expansion for event exceptions is still broken;
     ## VTODO RRULE expansion was fixed in xandikos PR #627 (released in 0.3.7).
-    "search.recurrences.expanded.exception": "unsupported",
-
-    ## Open-start time-range searches (no lower bound) crash xandikos 0.3.7 with a
-    ## 500 Internal Server Error (OverflowError: date value out of range in icalendar.py
-    ## _expand_rrule_component when computing adjusted_start = start - duration).
-    "search.time-range.open.start": {"support": "ungraceful", "behaviour": "500 Internal Server Error (OverflowError in rrule expansion)"},
-    "search.time-range.open.start.duration": True,
+    ## Exception expansion (CALDAV:expand with EXDATE/RECURRENCE-ID) is now also supported.
 
     ## this only applies for very simple installations
     "auto-connect.url": {"domain": "localhost", "scheme": "http", "basepath": "/"},
@@ -927,7 +904,7 @@ radicale = {
     "search.text.case-sensitive": {"support": "unsupported"},
     "search.recurrences.includes-implicit.todo.pending": {"support": "fragile", "behaviour": "inconsistent results between runs"},
     "search.recurrences.expanded.todo": {"support": "unsupported"},
-    "search.recurrences.expanded.exception": {"support": "unsupported"},
+    "search.recurrences.expanded.exception": {"support": "full"},
     "principal-search": {"support": "unsupported"},
     ## this only applies for very simple installations
     "auto-connect.url": {"domain": "localhost", "scheme": "http", "basepath": "/"},
@@ -947,7 +924,6 @@ nextcloud = {
     ## I'm surprised, I'm quite sure this was reported ungraceful earlier.  Passed with caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad 2026-02-15.  The commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad was however development done on the wrong branch and has been force-pushed awway.  It was again observed ungraceful at commits be26d42b1ca3ff3b4fd183761b4a9b024ce12b84 / 537a23b145487006bb987dee5ab9e00cdebb0492
     'search.comp-type.optional': {'support': 'ungraceful'},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
-    'search.recurrences.expanded.exception': {'support': 'unsupported'}, ## TODO: verify
     "search.recurrences.includes-implicit.infinite-scope": False,
     'delete-calendar': {
         'support': 'fragile',
@@ -956,12 +932,14 @@ nextcloud = {
         'behaviour': "deleting a calendar moves it to a trashbin, thrashbin has to be manually 'emptied' from the web-ui before the namespace is freed up",
         'support': 'fragile',
     },
+    # Calendar deletion goes to trashbin so delete-and-recreate doesn't give a
+    # fresh empty calendar.  Wipe objects instead of deleting the calendar itself.
+    "test-calendar": {"cleanup-regime": "wipe-calendar"},
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
     #'save-load.todo.mixed-calendar': {'support': 'unsupported'}, ## Why?  It started complaining about this just recently.
     'principal-search.by-name.self': {'support': 'unsupported'},
     'principal-search': {'support': 'ungraceful'},
     'search.time-range.open.start.duration': 'broken',
-    #'old_flags': ['unique_calendar_ids'],
     ## I'm surprised, I'm quite sure this was passing earlier.  Caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad
     'search.combined-is-logical-and': False,
     ## Observed with Nextcloud 33: server delivers iTIP notification to the inbox AND
@@ -993,10 +971,11 @@ ecloud = nextcloud | {
 zimbra = {
     'auto-connect.url': {'basepath': '/dav/'},
     'delete-calendar': {'support': 'fragile', 'behaviour': 'may move to trashbin instead of deleting immediately'},
-    'save-load.get-by-url': {'support': 'fragile', 'behaviour': '404 most of the time - but sometimes 200.  Weird, should be investigated more'},
+    ## This is a zimbra bug when creating calendars with a display
+    ## name.  Now mitigated in the calendar creation code.
+    #'save-load.get-by-url': {'support': 'fragile', 'behaviour': '404 most of the time - but sometimes 200.  Weird, should be investigated more'},
     ## Zimbra treats same-UID events across calendars as aliases of the same event
     'save.duplicate-uid.cross-calendar': {'support': 'unsupported'},
-    'search.recurrences.expanded.exception': {'support': 'unsupported'}, ## TODO: verify
     'create-calendar.set-displayname': {'support': 'unsupported'},
     'save-load.todo.mixed-calendar': {'support': 'unsupported'},
     'save-load.todo.recurrences.count': {'support': 'unsupported'}, ## This is a new problem?
@@ -1053,16 +1032,13 @@ bedework = {
     'auto-connect.url': {'basepath': '/ucaldav/'},
     'save-load.journal': {'support': 'ungraceful'},
     'save-load.todo.recurrences.thisandfuture': {'support': 'ungraceful'},
-    'save-load.event.recurrences.exception': False,
+    'save-load.event.recurrences.exception': {'support': 'unsupported'},
     'search.time-range.alarm': {'support': 'unsupported'},
     "freebusy-query": True,
     "search.time-range.todo": False,
     "search.text": False, ## sometimes ungraceful
-    "search.recurrences.includes-implicit": False,
+    "search.recurrences": False,
     "sync-token": { "support": "fragile" },
-    "search.recurrences.expanded.exception": False,
-    "search.recurrences.expanded.event": False,
-    "search.recurrences.expanded.todo": False,
     'search.comp-type': {'support': 'broken', 'behaviour': 'Server returns everything when searching for events and nothing when searching for todos'},
     'search.comp-type.optional': {'support': 'ungraceful'},
     'search.is-not-defined.dtend': False,
@@ -1095,7 +1071,6 @@ synology = {
     'search.is-not-defined': {'support': 'fragile', 'behaviour': 'works for CLASS but not for CATEGORIES'},
     'search.text.case-sensitive': {'support': 'unsupported'},
     'search.time-range.alarm': {'support': 'unsupported'},
-    "search.recurrences.expanded.exception": False,
     'old_flags': ['vtodo_datesearch_nodtstart_task_is_skipped'],
     'test-calendar': {'cleanup-regime': 'wipe-calendar'},
     'scheduling.schedule-tag': False,
@@ -1109,7 +1084,6 @@ baikal =  { ## version 0.10.1
     "http.multiplexing": "fragile", ## ref https://github.com/python-caldav/caldav/issues/564
     'search.comp-type.optional': {'support': 'ungraceful'},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
-    'search.recurrences.expanded.exception': {'support': 'unsupported'},
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
     "search.recurrences.includes-implicit.infinite-scope": False,
     'save-load.journal.mixed-calendar': {'support': 'unsupported'},
@@ -1134,7 +1108,6 @@ baikal_old = baikal | {
 
 cyrus = {
     "search.comp-type.optional": {"support": "ungraceful"},
-    "search.recurrences.expanded.exception": {"support": "unsupported"},
     "search.recurrences.includes-implicit.infinite-scope": False,
     "search.time-range.alarm": {"support": "ungraceful"},
     'principal-search': {'support': 'ungraceful'},
@@ -1148,7 +1121,7 @@ cyrus = {
     # Cyrus changes the Schedule-Tag even on attendee PARTSTAT-only updates,
     # violating RFC6638 section 3.2 which requires the tag to remain stable.
     "scheduling.schedule-tag.stable-partstat": {"support": "unsupported"},
-    # Cyrus may not properly reject wrong passwords in some configurations
+    # Cyrus may not properly reject wrong passwords in some configurations.
     # Cyrus implements server-side automatic scheduling: for cross-user invites,
     # the server both auto-processes the invite into the attendee's calendar
     # AND delivers an iTIP notification copy to the attendee's schedule-inbox.
@@ -1156,7 +1129,6 @@ cyrus = {
 
 ## See comments on https://github.com/python-caldav/caldav/issues/3
 #icloud = [
-#    'unique_calendar_ids',
 #    'duplicate_in_other_calendar_with_same_uid_breaks',
 #    'sticky_events',
 #    'no_journal', ## it threw a 500 internal server error!
@@ -1175,7 +1147,6 @@ davical = {
     # into their calendar.
     "scheduling.schedule-tag": False,
     "search.comp-type.optional": { "support": "fragile" },
-    "search.recurrences.expanded.exception": { "support": "unsupported" },
     "search.time-range.alarm": { "support": "unsupported" },
     'sync-token': {'support': 'fragile'},
     'principal-search': {'support': 'unsupported'},
@@ -1285,7 +1256,6 @@ robur = {
     "search.comp-type.optional": { "support": "ungraceful" },
     "search.recurrences.expanded.todo": { "support": "unsupported" },
     "search.recurrences.expanded.event": { "support": "fragile" },
-    "search.recurrences.expanded.exception": { "support": "unsupported" },
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
     'principal-search': {'support': 'ungraceful'},
     'freebusy-query': {'support': 'ungraceful'},
@@ -1327,7 +1297,6 @@ posteo = {
     ## foo ... "full" observed, 70938dc1cbb6a839978eee4315699746d38ee5f0/3cae24cf99da1702b851b5a74a9b88c8e5317dad, 2026-02-17
     #'search.time-range.todo.old-dates': {'support': 'unsupported'},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
-    'search.recurrences.expanded.exception': {'support': 'unsupported'},
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
     'search.combined-is-logical-and': {'support': 'unsupported'},
     'sync-token': {'support': 'ungraceful'},
@@ -1356,7 +1325,6 @@ davis = {
     # attendee inbox AND auto-schedules into their calendar.
     "scheduling.schedule-tag": False,
     "search.recurrences.expanded.todo": {"support": "unsupported"},
-    "search.recurrences.expanded.exception": {"support": "unsupported"},
     "search.recurrences.includes-implicit.todo": {"support": "unsupported"},
     "search.recurrences.includes-implicit.infinite-scope": False,
     "principal-search.by-name.self": {"support": "unsupported"},
@@ -1428,10 +1396,7 @@ stalwart = {
     ## Stalwart returns the recurring todo in search results but doesn't return the
     ## RRULE intact, so client-side expansion can't expand it to specific occurrences.
     'search.recurrences.includes-implicit.todo': {'support': 'fragile'},
-    ## Stalwart doesn't handle exceptions properly in server-side CALDAV:expand:
-    ## returns 3 items instead of 2 for a recurring event with one exception
-    ## (the exception is stored as a separate object and returned twice).
-    'search.recurrences.expanded.exception': False,
+    ## Stalwart correctly handles exceptions in server-side CALDAV:expand (observed supported).
     ## Stalwart stores master+exception VEVENTs as a single resource with 2 VEVENTs.
     'save-load.event.recurrences.exception': {'support': 'full'},
     'search.time-range.open': True,
@@ -1467,7 +1432,6 @@ purelymail = {
     'search.time-range.event': {'support': 'fragile'},
     ## was: ungraceful - observed unsupported 2026-02 (for .old-dates)
     'search.time-range.todo': {'support': 'fragile'},
-    'search.recurrences.expanded.exception': {'support': 'unsupported'},
     'principal-search': {'support': 'ungraceful'},
     'principal-search.by-name.self': {'support': 'ungraceful'},
     'principal-search.list-all': {'support': 'ungraceful'},

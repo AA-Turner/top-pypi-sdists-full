@@ -113,9 +113,11 @@ class AgentToolType(str, CaseInsensitiveEnum):
     API = "Api"
     PROCESS_ORCHESTRATION = "ProcessOrchestration"
     FLOW = "Flow"
+    FUNCTION = "Function"
     INTEGRATION = "Integration"
     INTERNAL = "Internal"
     IXP = "Ixp"
+    CLIENT_SIDE = "ClientSide"
     UNKNOWN = "Unknown"  # fallback branch discriminator
 
 
@@ -792,6 +794,7 @@ class AgentProcessToolResourceConfig(BaseAgentToolResourceConfig):
         AgentToolType.API,
         AgentToolType.PROCESS_ORCHESTRATION,
         AgentToolType.FLOW,
+        AgentToolType.FUNCTION,
     ]
     output_schema: Dict[str, Any] = Field(EMPTY_SCHEMA, alias="outputSchema")
     properties: AgentProcessToolProperties
@@ -943,6 +946,15 @@ class AgentInternalToolResourceConfig(BaseAgentToolResourceConfig):
     )
 
 
+class AgentClientSideToolResourceConfig(BaseAgentToolResourceConfig):
+    """Resource config for client-side tools executed by the client SDK."""
+
+    type: Literal[AgentToolType.CLIENT_SIDE] = AgentToolType.CLIENT_SIDE
+    properties: BaseResourceProperties = Field(default_factory=BaseResourceProperties)
+    output_schema: Optional[Dict[str, Any]] = Field(None, alias="outputSchema")
+    arguments: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+
 class AgentUnknownToolResourceConfig(BaseAgentToolResourceConfig):
     """Fallback for unknown tool types (parent normalizer sets type='Unknown')."""
 
@@ -956,6 +968,7 @@ ToolResourceConfig = Annotated[
         AgentIntegrationToolResourceConfig,
         AgentInternalToolResourceConfig,
         AgentIxpExtractionResourceConfig,
+        AgentClientSideToolResourceConfig,
         AgentUnknownToolResourceConfig,  # when parent sets type="Unknown"
     ],
     Field(discriminator="type"),
@@ -1336,9 +1349,11 @@ class AgentDefinition(BaseModel):
             "api": "Api",
             "processorchestration": "ProcessOrchestration",
             "flow": "Flow",
+            "function": "Function",
             "integration": "Integration",
             "internal": "Internal",
             "ixp": "Ixp",
+            "clientside": "ClientSide",
             "unknown": "Unknown",
         }
         CONTEXT_MODE_MAP = {

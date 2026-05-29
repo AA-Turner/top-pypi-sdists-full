@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepeval
-Version: 4.0.4
+Version: 4.0.5
 Summary: The LLM Evaluation Framework
 License: Apache-2.0
 License-File: LICENSE.md

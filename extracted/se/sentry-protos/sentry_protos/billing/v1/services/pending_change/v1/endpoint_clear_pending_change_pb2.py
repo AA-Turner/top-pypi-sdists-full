@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nWsentry_protos/billing/v1/services/pending_change/v1/endpoint_clear_pending_change.proto\x12\x33sentry_protos.billing.v1.services.pending_change.v1\"4\n\x19\x43learPendingChangeRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\"-\n\x1a\x43learPendingChangeResponse\x12\x0f\n\x07\x63leared\x18\x01 \x01(\x08\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nWsentry_protos/billing/v1/services/pending_change/v1/endpoint_clear_pending_change.proto\x12\x33sentry_protos.billing.v1.services.pending_change.v1\"L\n\x19\x43learPendingChangeRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x16\n\x0eon_demand_only\x18\x02 \x01(\x08\"-\n\x1a\x43learPendingChangeResponse\x12\x0f\n\x07\x63leared\x18\x01 \x01(\x08\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,7 +32,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_CLEARPENDINGCHANGEREQUEST']._serialized_start=144
-  _globals['_CLEARPENDINGCHANGEREQUEST']._serialized_end=196
-  _globals['_CLEARPENDINGCHANGERESPONSE']._serialized_start=198
-  _globals['_CLEARPENDINGCHANGERESPONSE']._serialized_end=243
+  _globals['_CLEARPENDINGCHANGEREQUEST']._serialized_end=220
+  _globals['_CLEARPENDINGCHANGERESPONSE']._serialized_start=222
+  _globals['_CLEARPENDINGCHANGERESPONSE']._serialized_end=267
 # @@protoc_insertion_point(module_scope)

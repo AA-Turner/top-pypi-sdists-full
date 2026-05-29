@@ -10,15 +10,6 @@ QuantConnect_Configuration_Config_GetValue_T = typing.TypeVar("QuantConnect_Conf
 QuantConnect_Configuration_Config_TryGetValue_T = typing.TypeVar("QuantConnect_Configuration_Config_TryGetValue_T")
 
 
-class OptimizerArgumentParser(System.Object):
-    """Command Line arguments parser for Lean Optimizer"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Parse and construct the args"""
-        ...
-
-
 class CommandLineOption(System.Object):
     """Auxiliary class to keep information about a specific command line option"""
 
@@ -39,6 +30,15 @@ class CommandLineOption(System.Object):
 
     def __init__(self, name: str, type: typing.Any, description: str = ...) -> None:
         """Command line option contructor"""
+        ...
+
+
+class OptimizerArgumentParser(System.Object):
+    """Command Line arguments parser for Lean Optimizer"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Parse and construct the args"""
         ...
 
 
@@ -73,6 +73,24 @@ class ApplicationParser(System.Object):
     @staticmethod
     def print_message_and_exit(exit_code: int = 0, message: str = ...) -> None:
         """Prints a message advising the user to use the --help parameter for more information"""
+        ...
+
+
+class LeanArgumentParser(System.Object):
+    """Command Line arguments parser for Lean configuration"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Argument parser contructor"""
+        ...
+
+
+class ReportArgumentParser(System.Object):
+    """Command Line arguments parser for Report Creator"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Parse and construct the args."""
         ...
 
 
@@ -267,24 +285,6 @@ class Config(System.Object):
     @staticmethod
     def write(target_path: str = None) -> None:
         """Write the contents of the serialized configuration back to the disk."""
-        ...
-
-
-class ReportArgumentParser(System.Object):
-    """Command Line arguments parser for Report Creator"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Parse and construct the args."""
-        ...
-
-
-class LeanArgumentParser(System.Object):
-    """Command Line arguments parser for Lean configuration"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Argument parser contructor"""
         ...
 
 

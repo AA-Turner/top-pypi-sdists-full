@@ -2,9 +2,8 @@ from functools import partial
 from typing import Callable, Optional
 
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 from torch import distributed as torch_dist
-from torch import nn
 
 from lightly.utils import dist
 
@@ -28,6 +27,7 @@ def negative_mises_fisher_weights(
             Shape: (batch_size, embedding_size)
         sigma:
             Similarities are scaled by inverse sigma.
+
     Returns:
         A tensor with shape (batch_size,) where each entry is the weight for one
         of the input images.

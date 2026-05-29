@@ -12,8 +12,8 @@ import mimetypes
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeVar, overload
-from urllib.parse import urlencode, urlparse, urlunparse
+from typing import Any, Literal, TypeVar, cast, overload
+from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 
 from requests import Response, Session
 
@@ -27,7 +27,9 @@ from .api_types import (
     ConfluenceLegacyType,
     ConfluencePage,
     ConfluencePageProperties,
+    ConfluencePageRef,
     ConfluenceStatus,
+    ConfluenceUser,
     ConfluenceVersion,
 )
 from .compatibility import override
@@ -113,6 +115,15 @@ class ConfluenceSession(ABC):
         :returns: Page ID of the space homepage.
         """
         ...
+
+    @abstractmethod
+    def get_users(self, expr: str) -> list[ConfluenceUser]:
+        """
+        Finds users by their partial full name or public name, whichever is visible.
+
+        :param expr: Search expression to match the user's name against with the *contains* operator (`~`).
+        :returns: List of users whose name matches the expression.
+        """
 
     @abstractmethod
     def get_attachments(self, page_id: str) -> list[ConfluenceAttachment]:
@@ -246,6 +257,12 @@ class ConfluenceSession(ABC):
         else:
             LOGGER.debug("Creating new page with title: %s", title)
             return self.create_page(title=title, content="", parent_id=parent_id, space_id=space_id)
+
+    @abstractmethod
+    def move_page(self, page_id: str, position: Literal["before", "after", "append"], ref_id: str) -> None:
+        """
+        Moves a page to a new position w.r.t. another Confluence page.
+        """
 
     @abstractmethod
     def get_labels(self, page_id: str) -> list[ConfluenceIdentifiedLabel]:
@@ -395,6 +412,11 @@ class ConfluenceSessionShared(ConfluenceSession):
         self._session = session
         self._options = options
 
+    def _get_base(self) -> str:
+        "Classic REST API URL (when scoped tokens are not used)."
+
+        return f"https://{self.site.domain}{self.site.base_path}"
+
     def _init_site(self, *, domain: str | None, base_path: str | None, space_key: str | None) -> None:
         if not domain:
             raise ArgumentError("Confluence domain not specified and cannot be inferred")
@@ -446,10 +468,15 @@ class ConfluenceSessionShared(ConfluenceSession):
         "Generates URL, headers and raw payload for a typed request/response."
 
         url = self._build_url(version, path)
-        headers = {"Content-Type": "application/json"}
+        headers: dict[str, str] = {}
+        if body is not None:
+            headers["Content-Type"] = "application/json"
         if response_type is not None:
             headers["Accept"] = "application/json"
-        data = object_to_json_payload(body)
+        if body is not None:
+            data = object_to_json_payload(body)
+        else:
+            data = bytes()
         return url, headers, data
 
     @overload
@@ -492,10 +519,66 @@ class ConfluenceSessionShared(ConfluenceSession):
             LOGGER.debug("Received HTTP payload:\n%s", response.text)
         response.raise_for_status()
 
-    @abstractmethod
-    def _fetch(self, path: str, query: dict[str, str] | None = None) -> list[JsonType]:
-        "Retrieves all results of a REST API paginated result-set."
-        ...
+    def _fetch_v1(self, path: str, query: dict[str, str] | None = None) -> list[JsonType]:
+        "Retrieves all results of a REST API v1 paginated result-set."
+
+        items: list[JsonType] = []
+
+        # offset-based pagination with start and limit parameters
+        start = 0
+        limit = 50
+
+        while True:
+            page_query = dict(query) if query else {}
+            page_query["start"] = str(start)
+            page_query["limit"] = str(limit)
+
+            data = self._get(ConfluenceVersion.VERSION_1, path, dict[str, JsonType], query=page_query)
+            results = cast(list[JsonType], data["results"])
+            items.extend(results)
+
+            # End pagination when we receive fewer results than the limit
+            if len(results) < limit:
+                break
+
+            start += limit
+
+        return items
+
+    def _fetch_v2(self, path: str, query: dict[str, str] | None = None) -> list[JsonType]:
+        "Retrieves all results of a REST API v2 paginated result-set."
+
+        items: list[JsonType] = []
+
+        # cursor-based pagination with JSON `_links.next`
+        url = self._build_url(ConfluenceVersion.VERSION_2, path, query)
+        classic_base = self._get_base()
+        while True:
+            response = self._session.get(url, headers={"Accept": "application/json"}, verify=True)
+            response.raise_for_status()
+
+            payload = cast(dict[str, JsonType], response.json())
+            results = cast(list[JsonType], payload["results"])
+            items.extend(results)
+
+            links = cast(dict[str, JsonType], payload.get("_links", {}))
+            if not links:
+                break
+
+            base = cast(str, links.get("base", ""))
+            if not base:
+                raise ConfluenceError(f"pagination error: {url}")
+
+            link = cast(str, links.get("next", ""))
+            if link:  # next page available
+                url = urljoin(base, link)
+                if not url.startswith(self._api_url) and url.startswith(classic_base):
+                    # occasionally, `base` in `_links` starts with the classic REST API URL prefix even if we use scoped tokens
+                    url = self._api_url + url.removeprefix(classic_base)
+            else:  # no more pages
+                break
+
+        return items
 
     @overload
     def get_space_id(self, *, space_id: str | None = None) -> str | None: ...
@@ -526,6 +609,21 @@ class ConfluenceSessionShared(ConfluenceSession):
 
         # space ID and key are unset, and no default space is configured
         return None
+
+    @override
+    def get_users(self, expr: str) -> list[ConfluenceUser]:
+        path = "/search/user"
+        query = {"cql": f'user.fullname ~ "{expr}"', "sitePermissionTypeFilter": "all"}
+        results = self._fetch_v1(path, query)
+
+        users: list[ConfluenceUser] = []
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            user = result.get("user")
+            if user is not None:
+                users.append(json_to_object(ConfluenceUser, user))
+        return users
 
     @override
     def upload_attachment(
@@ -664,6 +762,11 @@ class ConfluenceSessionShared(ConfluenceSession):
 
         LOGGER.info("Updating attachment: %s", attachment_id)
         self._put(ConfluenceVersion.VERSION_1, path, request, None)
+
+    @override
+    def move_page(self, page_id: str, position: Literal["before", "after", "append"], ref_id: str) -> None:
+        path = f"/content/{page_id}/move/{position}/{ref_id}"
+        self._put(ConfluenceVersion.VERSION_1, path, None, ConfluencePageRef)
 
     @override
     def add_labels(self, page_id: str, labels: list[ConfluenceLabel]) -> None:

@@ -39,7 +39,7 @@ from urllib.parse import urlencode
 from navconfig import config
 from querysource.types import strtobool
 from ..exceptions import DataNotFound, ComponentError, FileNotFound
-from .DownloadFrom import DownloadFromBase
+from ..interfaces.download_from import DownloadFromBase
 from ..interfaces.http import HTTPService
 
 

@@ -1436,6 +1436,7 @@ def test_max_retries_parameter_handling(
                                     },
                                     "grounding_chunk_indices": [0],
                                     "confidence_scores": [0.95],
+                                    "rendered_parts": None,
                                 }
                             ],
                             "web_search_queries": ["test query"],
@@ -1476,6 +1477,7 @@ def test_max_retries_parameter_handling(
                         },
                         "grounding_chunk_indices": [0],
                         "confidence_scores": [0.95],
+                        "rendered_parts": None,
                     }
                 ],
                 "image_search_queries": [],
@@ -1531,6 +1533,7 @@ def test_max_retries_parameter_handling(
                                     },
                                     "grounding_chunk_indices": [0],
                                     "confidence_scores": [0.95],
+                                    "rendered_parts": None,
                                 }
                             ],
                             "web_search_queries": ["test query"],
@@ -1572,6 +1575,7 @@ def test_max_retries_parameter_handling(
                         },
                         "grounding_chunk_indices": [0],
                         "confidence_scores": [0.95],
+                        "rendered_parts": None,
                     }
                 ],
                 "image_search_queries": ["cat images"],
@@ -1660,6 +1664,7 @@ def test_grounding_metadata_to_citations_conversion() -> None:
                             },
                             "grounding_chunk_indices": [0],
                             "confidence_scores": [0.95],
+                            "rendered_parts": None,
                         },
                         {
                             "segment": {
@@ -2549,6 +2554,53 @@ def test_thought_signature_conversion() -> None:
     }
     result = _convert_from_v1_to_generativelanguage_v1beta(
         [reasoning_other_provider],  # type: ignore[list-item]
+        "other_provider",
+    )
+    assert result == []
+
+
+def test_compat_image_url_block() -> None:
+    """Test that ImageContentBlock with url produces correct file_data."""
+    block = {
+        "type": "image",
+        "url": "https://example.com/image.jpg",
+        "mime_type": "image/png",
+    }
+    result = _convert_from_v1_to_generativelanguage_v1beta(
+        [block],  # type: ignore[list-item]
+        "google_genai",
+    )
+    assert len(result) == 1
+    assert "file_data" in result[0]
+    assert result[0]["file_data"]["file_uri"] == "https://example.com/image.jpg"
+    assert result[0]["file_data"]["mime_type"] == "image/png"
+
+
+def test_compat_file_url_block() -> None:
+    """Test that FileContentBlock with url produces correct file_data."""
+    block = {
+        "type": "file",
+        "url": "https://example.com/document.pdf",
+        "mime_type": "application/pdf",
+    }
+    result = _convert_from_v1_to_generativelanguage_v1beta(
+        [block],  # type: ignore[list-item]
+        "google_genai",
+    )
+    assert len(result) == 1
+    assert "file_data" in result[0]
+    assert result[0]["file_data"]["file_uri"] == "https://example.com/document.pdf"
+    assert result[0]["file_data"]["mime_type"] == "application/pdf"
+
+
+def test_compat_image_url_block_non_google_provider() -> None:
+    """Test that ImageContentBlock with url is ignored for non-google providers."""
+    block = {
+        "type": "image",
+        "url": "https://example.com/image.jpg",
+    }
+    result = _convert_from_v1_to_generativelanguage_v1beta(
+        [block],  # type: ignore[list-item]
         "other_provider",
     )
     assert result == []

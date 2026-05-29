@@ -1,8 +1,7 @@
-from datetime import datetime, timezone
 import logging
 
-from django.core.exceptions import ObjectDoesNotExist
-from celery import shared_task
+from django.utils import timezone
+
 from .models import MumbleUser, TempLink, TempUser
 from celery import shared_task
 
@@ -31,6 +30,5 @@ class MumbleTasks:
 
 @shared_task
 def tidy_up_temp_links() -> None:
-    TempLink.objects.filter(expires__lt=datetime.now(timezone.utc).timestamp()).delete()
+    TempLink.objects.filter(expires__lt=timezone.now()).delete()
     TempUser.objects.filter(templink__isnull=True).delete()
-    TempUser.objects.filter(expires__lt=datetime.now(timezone.utc).timestamp()).delete()

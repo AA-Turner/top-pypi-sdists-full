@@ -292,7 +292,7 @@ class BedrockClient(BaseClient):
         self, **kwargs: Unpack[BatchDeleteAdvancedPromptOptimizationJobRequestTypeDef]
     ) -> BatchDeleteAdvancedPromptOptimizationJobResponseTypeDef:
         """
-        Batch delete the specified advanced prompt optimization jobs.
+        Deletes one or more advanced prompt optimization jobs.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/batch_delete_advanced_prompt_optimization_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#batch_delete_advanced_prompt_optimization_job)
@@ -322,7 +322,7 @@ class BedrockClient(BaseClient):
         self, **kwargs: Unpack[CreateAdvancedPromptOptimizationJobRequestTypeDef]
     ) -> CreateAdvancedPromptOptimizationJobResponseTypeDef:
         """
-        Creates an asynchronous batch job for advanced prompt optimization.
+        Creates an advanced prompt optimization job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_advanced_prompt_optimization_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#create_advanced_prompt_optimization_job)
@@ -674,7 +674,7 @@ class BedrockClient(BaseClient):
         self, **kwargs: Unpack[GetAdvancedPromptOptimizationJobRequestTypeDef]
     ) -> GetAdvancedPromptOptimizationJobResponseTypeDef:
         """
-        Retrieves the details and status of an advanced prompt optimization job.
+        Gets information about an advanced prompt optimization job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_advanced_prompt_optimization_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_advanced_prompt_optimization_job)
@@ -941,7 +941,7 @@ class BedrockClient(BaseClient):
         self, **kwargs: Unpack[ListAdvancedPromptOptimizationJobsRequestTypeDef]
     ) -> ListAdvancedPromptOptimizationJobsResponseTypeDef:
         """
-        Lists all advanced prompt optimization jobs for the account.
+        Lists the advanced prompt optimization jobs in your account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_advanced_prompt_optimization_jobs.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#list_advanced_prompt_optimization_jobs)
@@ -1237,7 +1237,7 @@ class BedrockClient(BaseClient):
         self, **kwargs: Unpack[StopAdvancedPromptOptimizationJobRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Stops an in-progress advanced prompt optimization job.
+        Stops an advanced prompt optimization job that is in progress.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/stop_advanced_prompt_optimization_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#stop_advanced_prompt_optimization_job)

@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import Callable
 import asyncssh
 from ..exceptions import ComponentError, FileNotFound
-from .UploadTo import UploadToBase
+from ..interfaces.upload_to import UploadToBase
 from ..interfaces.SSHClient import SSHClient
 
 

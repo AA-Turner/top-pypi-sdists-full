@@ -625,6 +625,37 @@ class MultiContextSession:
         self._contexts.clear()
         self._pending_messages.clear()
 
+    async def _ws_send(self, payload: Dict[str, Any]) -> None:
+        """Write a JSON payload to the WS, classifying a mid-send drop.
+
+        A half-open connection (TCP gone, no close handshake) leaves
+        ``ws.state == OPEN``, so the ``is_alive`` guard in :meth:`send`
+        cannot pre-empt it — the drop only surfaces when ``ws.send`` itself
+        fails with the raw ``ConnectionClosedError("no close frame received
+        or sent")``. Mirror the teardown + classification that
+        :meth:`_receive_audio` already performs so every WS write path
+        raises a typed :class:`KugelAudioConnectionError` (or a server-close
+        classification) instead of leaking a raw websockets exception.
+        """
+        try:
+            await self._ws.send(json.dumps(payload))
+        except Exception as e:
+            if "ConnectionClosed" in str(type(e)):
+                code = getattr(e, "code", None)
+                # Tear down so the next send() reconnects on a fresh socket
+                # rather than writing to the dead one again.
+                self._reset_dead_session()
+                if code in _WS_ERROR_CLOSE_CODES:
+                    raise classify_ws_close(
+                        code, getattr(e, "reason", None)
+                    ) from e
+                raise KugelAudioConnectionError(
+                    "KugelAudio WebSocket dropped while sending "
+                    f"(close code={code}). Caller should retry on a "
+                    "fresh session."
+                ) from e
+            raise
+
     async def __aenter__(self) -> "MultiContextSession":
         await self.connect()
         return self
@@ -707,7 +738,7 @@ class MultiContextSession:
                 "max_new_tokens": self._max_new_tokens,
             }
 
-        await self._ws.send(json.dumps(init_msg))
+        await self._ws_send(init_msg)
 
         # Wait for context_created confirmation (no session_started event)
         while True:
@@ -758,7 +789,7 @@ class MultiContextSession:
                 "max_new_tokens": self._max_new_tokens,
             }
 
-        await self._ws.send(json.dumps(msg))
+        await self._ws_send(msg)
 
         # Wait for confirmation
         while True:
@@ -810,14 +841,12 @@ class MultiContextSession:
         if context_id not in self._contexts:
             await self.create_context(context_id)
 
-        await self._ws.send(
-            json.dumps(
-                {
-                    "text": text,
-                    "context_id": context_id,
-                    "flush": flush,
-                }
-            )
+        await self._ws_send(
+            {
+                "text": text,
+                "context_id": context_id,
+                "flush": flush,
+            }
         )
 
         # Collect audio for this context. The server marks each text chunk's

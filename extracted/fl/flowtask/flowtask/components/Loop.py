@@ -3,7 +3,7 @@ import asyncio
 from typing import Any
 from pandas import DataFrame
 from asyncdb.exceptions import NoDataFound, ProviderError, DriverError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..exceptions import (
     ComponentError,
     DataNotFound,

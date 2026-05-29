@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from biolib import api, utils
-from biolib._internal import docker
+from biolib._internal import docker, oci
 from biolib._internal.data_record.push_data import (
     push_data_path,
     validate_data_path_and_get_files_and_size_of_directory,
@@ -15,6 +15,7 @@ from biolib._internal.docker import DockerStatusUpdate
 from biolib._internal.errors import AuthenticationError
 from biolib._internal.file_utils import get_files_and_size_of_directory, get_iterable_zip_stream
 from biolib._internal.progress import Progress
+from biolib._runtime.runtime import Runtime
 from biolib._shared.types import PushResponseDict
 from biolib._shared.types.typing import Dict, Iterable, List, Optional, Set, Union
 from biolib._shared.utils import parse_resource_uri
@@ -255,7 +256,7 @@ def push_application(
     app_path_absolute = Path(app_path).resolve()
 
     api_client = BiolibApiClient.get()
-    if not api_client.is_signed_in:
+    if not api_client.is_signed_in and not Runtime.check_is_environment_biolib_app():
         github_repository = os.getenv('GITHUB_REPOSITORY')
         if github_repository and not api_client.resource_deploy_key:
             github_secrets_url = f'https://github.com/{github_repository}/settings/secrets/actions/new'
@@ -416,6 +417,16 @@ def push_application(
         logger.info('Successfully completed dry-run. No new version was pushed.')
         return None
 
+    if Runtime.check_is_environment_biolib_app():
+        for module_name, module_config in config.get('modules', {}).items():
+            image = module_config.get('image', '')
+            if image and not image.startswith('local-oci-path://'):
+                raise BioLibError(
+                    f'Module {module_name} uses image type "{image.split("://")[0]}://" '
+                    f'which requires Docker and is not supported when pushing from within a BioLib app. '
+                    f'Please use "local-oci-path://" instead.'
+                )
+
     new_app_version_json = BiolibAppApi.push_app_version(
         semantic_version=semantic_version,
         app_id=app['public_id'],
@@ -455,11 +466,37 @@ def push_application(
     docker_tags = new_app_version_json.get('docker_tags', {})
     if not app_version_to_copy_images_from and docker_tags:
         logger.info('Found docker images to push.')
-        docker.check_docker_running()
+        registry_username = 'biolib'
+        registry_password = (
+            ''  # Note: auth is added by remote host proxy in biolib-compute-node
+            if Runtime.check_is_environment_biolib_app()
+            else (api_client.resource_deploy_key or f'{api_client.access_token},')
+        )
 
         for module_name, repo_and_tag in docker_tags.items():
             docker_image_definition = config['modules'][module_name]['image']
             repo, tag = repo_and_tag.split(':')
+
+            if docker_image_definition.startswith('local-oci-path://'):
+                oci_relative_path = docker_image_definition.replace('local-oci-path://', '', 1)
+                oci_path = str((app_path_absolute / oci_relative_path).resolve())
+                if not os.path.isfile(os.path.join(oci_path, 'index.json')):
+                    raise BioLibError(f'OCI image not found or invalid (missing index.json): {oci_path}')
+
+                logger.info(f'Pushing OCI image from {oci_path} for module {module_name}.')
+                try:
+                    oci.push_oci_image_to_registry(
+                        oci_path=oci_path,
+                        repository=repo,
+                        tag=tag,
+                        username=registry_username,
+                        password=registry_password,
+                    )
+                except Exception as exception:
+                    raise BioLibError(f'Failed to push OCI image for module {module_name}: {exception}') from exception
+                continue
+
+            docker.check_docker_running()
 
             if docker_image_definition.startswith('dockerhub://'):
                 docker_image_name = docker_image_definition.replace('dockerhub://', 'docker.io/', 1)
@@ -476,6 +513,9 @@ def push_application(
             elif docker_image_definition.startswith('local-docker://'):
                 docker_image_name = docker_image_definition.replace('local-docker://', '', 1)
 
+            else:
+                raise BioLibError(f'Unsupported image type for module {module_name}: {docker_image_definition}')
+
             try:
                 logger.info(f'Trying to push image {docker_image_name} defined on module {module_name}.')
                 image_info = docker.get_image_info(docker_image_name)
@@ -491,9 +531,9 @@ def push_application(
                     repository=absolute_repo_uri,
                     tag=tag,
                     auth_config={
-                        'username': 'biolib',
+                        'username': registry_username,
                         # For legacy reasons access token is sent with trailing comma ','
-                        'password': api_client.resource_deploy_key or f'{api_client.access_token},',
+                        'password': registry_password,
                     },
                 )
 

@@ -11,7 +11,7 @@
 # under the License.
 
 from typing import Any, ClassVar, Literal, overload
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 from openstack.database.v1 import database as _database
 from openstack.database.v1 import flavor as _flavor
@@ -40,19 +40,23 @@ class Proxy(proxy.Proxy):
 
         :param instance: This can be either the ID of an instance
             or a :class:`~openstack.database.v1.instance.Instance`
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.database.v1.database.Database`,
             comprised of the properties on the Database class.
 
         :returns: The results of server creation
-        :rtype: :class:`~openstack.database.v1.database.Database`
         """
         instance = self._get_resource(_instance.Instance, instance)
         return self._create(
             _database.Database, instance_id=instance.id, **attrs
         )
 
-    def delete_database(self, database, instance=None, ignore_missing=True):
+    def delete_database(
+        self,
+        database: str | _database.Database,
+        instance: str | _instance.Instance | None = None,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a database
 
         :param database: The value can be either the ID of a database or a
@@ -61,7 +65,7 @@ class Proxy(proxy.Proxy):
             an ID is given as `database`.
             It can be either the ID of an instance
             or a :class:`~openstack.database.v1.instance.Instance`
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the database does not exist.
             When set to ``True``, no exception will be set when
@@ -106,7 +110,7 @@ class Proxy(proxy.Proxy):
         :param name_or_id: The name or ID of a database.
         :param instance: This can be either the ID of an instance
             or a :class:`~openstack.database.v1.instance.Instance`
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -121,22 +125,29 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def databases(self, instance, **query):
+    def databases(
+        self,
+        instance: str | _instance.Instance,
+        **query: Any,
+    ) -> Generator[_database.Database, None, None]:
         """Return a generator of databases
 
         :param instance: This can be either the ID of an instance
             or a :class:`~openstack.database.v1.instance.Instance`
             instance that the interface belongs to.
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of database objects
-        :rtype: :class:`~openstack.database.v1.database.Database`
         """
         instance = self._get_resource(_instance.Instance, instance)
         return self._list(_database.Database, instance_id=instance.id, **query)
 
-    def get_database(self, database, instance=None):
+    def get_database(
+        self,
+        database: str | _database.Database,
+        instance: str | _instance.Instance | None = None,
+    ) -> _database.Database:
         """Get a single database
 
         :param instance: This parameter needs to be specified when
@@ -175,7 +186,7 @@ class Proxy(proxy.Proxy):
         """Find a single flavor
 
         :param name_or_id: The name or ID of a flavor.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -186,7 +197,7 @@ class Proxy(proxy.Proxy):
             _flavor.Flavor, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_flavor(self, flavor):
+    def get_flavor(self, flavor: str | _flavor.Flavor) -> _flavor.Flavor:
         """Get a single flavor
 
         :param flavor: The value can be the ID of a flavor or a
@@ -198,35 +209,35 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_flavor.Flavor, flavor)
 
-    def flavors(self, **query):
+    def flavors(self, **query: Any) -> Generator[_flavor.Flavor, None, None]:
         """Return a generator of flavors
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of flavor objects
-        :rtype: :class:`~openstack.database.v1.flavor.Flavor`
         """
         return self._list(_flavor.Flavor, **query)
 
     def create_instance(self, **attrs: Any) -> _instance.Instance:
         """Create a new instance from attributes
 
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.database.v1.instance.Instance`,
             comprised of the properties on the Instance class.
 
         :returns: The results of server creation
-        :rtype: :class:`~openstack.database.v1.instance.Instance`
         """
         return self._create(_instance.Instance, **attrs)
 
-    def delete_instance(self, instance, ignore_missing=True):
+    def delete_instance(
+        self, instance: str | _instance.Instance, ignore_missing: bool = True
+    ) -> None:
         """Delete an instance
 
         :param instance: The value can be either the ID of an instance or a
             :class:`~openstack.database.v1.instance.Instance` instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the instance does not exist.
             When set to ``True``, no exception will be set when
@@ -260,7 +271,7 @@ class Proxy(proxy.Proxy):
         """Find a single instance
 
         :param name_or_id: The name or ID of a instance.
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -271,7 +282,9 @@ class Proxy(proxy.Proxy):
             _instance.Instance, name_or_id, ignore_missing=ignore_missing
         )
 
-    def get_instance(self, instance):
+    def get_instance(
+        self, instance: str | _instance.Instance
+    ) -> _instance.Instance:
         """Get a single instance
 
         :param instance: The value can be the ID of an instance or a
@@ -284,14 +297,16 @@ class Proxy(proxy.Proxy):
         """
         return self._get(_instance.Instance, instance)
 
-    def instances(self, **query):
+    def instances(
+        self,
+        **query: Any,
+    ) -> Generator[_instance.Instance, None, None]:
         """Return a generator of instances
 
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of instance objects
-        :rtype: :class:`~openstack.database.v1.instance.Instance`
         """
         return self._list(_instance.Instance, **query)
 
@@ -304,7 +319,6 @@ class Proxy(proxy.Proxy):
             by ``instance``.
 
         :returns: The updated instance
-        :rtype: :class:`~openstack.database.v1.instance.Instance`
         """
         return self._update(_instance.Instance, instance, **attrs)
 
@@ -317,17 +331,21 @@ class Proxy(proxy.Proxy):
 
         :param instance: This can be either the ID of an instance
             or a :class:`~openstack.database.v1.instance.Instance`
-        :param dict attrs: Keyword arguments which will be used to create
+        :param attrs: Keyword arguments which will be used to create
             a :class:`~openstack.database.v1.user.User`,
             comprised of the properties on the User class.
 
         :returns: The results of server creation
-        :rtype: :class:`~openstack.database.v1.user.User`
         """
         instance = self._get_resource(_instance.Instance, instance)
         return self._create(_user.User, instance_id=instance.id, **attrs)
 
-    def delete_user(self, user, instance=None, ignore_missing=True):
+    def delete_user(
+        self,
+        user: str | _user.User,
+        instance: str | _instance.Instance | None = None,
+        ignore_missing: bool = True,
+    ) -> None:
         """Delete a user
 
         :param user: The value can be either the ID of a user or a
@@ -336,7 +354,7 @@ class Proxy(proxy.Proxy):
             an ID is given as `user`.
             It can be either the ID of an instance
             or a :class:`~openstack.database.v1.instance.Instance`
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the user does not exist.
             When set to ``True``, no exception will be set when
@@ -379,7 +397,7 @@ class Proxy(proxy.Proxy):
         :param name_or_id: The name or ID of a user.
         :param instance: This can be either the ID of an instance
             or a :class:`~openstack.database.v1.instance.Instance`
-        :param bool ignore_missing: When set to ``False``
+        :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be
             raised when the resource does not exist.
             When set to ``True``, None will be returned when
@@ -394,21 +412,28 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def users(self, instance, **query):
+    def users(
+        self,
+        instance: str | _instance.Instance,
+        **query: Any,
+    ) -> Generator[_user.User, None, None]:
         """Return a generator of users
 
         :param instance: This can be either the ID of an instance
             or a :class:`~openstack.database.v1.instance.Instance`
-        :param kwargs query: Optional query parameters to be sent to limit
+        :param query: Optional query parameters to be sent to limit
             the resources being returned.
 
         :returns: A generator of user objects
-        :rtype: :class:`~openstack.database.v1.user.User`
         """
         instance = self._get_resource(_instance.Instance, instance)
         return self._list(_user.User, instance_id=instance.id, **query)
 
-    def get_user(self, user, instance=None):
+    def get_user(
+        self,
+        user: str | _user.User,
+        instance: str | _instance.Instance | None = None,
+    ) -> _user.User:
         """Get a single user
 
         :param user: The value can be the ID of a user or a
@@ -454,7 +479,7 @@ class Proxy(proxy.Proxy):
             value, progress. This is API specific but is generally a percentage
             value from 0-100.
 
-        :return: The updated resource.
+        :returns: The updated resource.
         :raises: :class:`~openstack.exceptions.ResourceTimeout` if the
             transition to status failed to occur in ``wait`` seconds.
         :raises: :class:`~openstack.exceptions.ResourceFailure` if the resource
@@ -469,8 +494,8 @@ class Proxy(proxy.Proxy):
     def wait_for_delete(
         self,
         res: resource.ResourceT,
-        interval: int = 2,
-        wait: int = 120,
+        interval: int | float | None = 2,
+        wait: int | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

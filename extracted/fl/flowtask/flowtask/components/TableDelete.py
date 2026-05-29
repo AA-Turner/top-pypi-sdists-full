@@ -25,7 +25,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import NullPool
 from ..exceptions import ComponentError, DataNotFound
 from ..utils import AttrDict
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.qs import QSSupport
 
 

@@ -258,6 +258,7 @@ __all__ = (
     "CustomMetricDefinitionTypeDef",
     "CustomMetricEvaluatorModelConfigOutputTypeDef",
     "CustomMetricEvaluatorModelConfigTypeDef",
+    "CustomModelDataSourceTypeDef",
     "CustomModelDeploymentSummaryTypeDef",
     "CustomModelDeploymentUpdateDetailsTypeDef",
     "CustomModelSummaryTypeDef",
@@ -520,6 +521,7 @@ __all__ = (
     "ModelInvocationJobS3InputDataConfigTypeDef",
     "ModelInvocationJobS3OutputDataConfigTypeDef",
     "ModelInvocationJobSummaryTypeDef",
+    "ModelPackageArnDataSourceTypeDef",
     "OfferTypeDef",
     "OrchestrationConfigurationTypeDef",
     "OutputDataConfigTypeDef",
@@ -925,6 +927,9 @@ class RoutingCriteriaTypeDef(TypedDict):
 
 class CustomMetricBedrockEvaluatorModelTypeDef(TypedDict):
     modelIdentifier: str
+
+class ModelPackageArnDataSourceTypeDef(TypedDict):
+    modelPackageArn: str
 
 class CustomModelDeploymentSummaryTypeDef(TypedDict):
     customModelDeploymentArn: str
@@ -2108,6 +2113,9 @@ class CustomMetricEvaluatorModelConfigOutputTypeDef(TypedDict):
 class CustomMetricEvaluatorModelConfigTypeDef(TypedDict):
     bedrockEvaluatorModels: Sequence[CustomMetricBedrockEvaluatorModelTypeDef]
 
+class CustomModelDataSourceTypeDef(TypedDict):
+    modelPackageArnDataSource: NotRequired[ModelPackageArnDataSourceTypeDef]
+
 class ListCustomModelDeploymentsResponseTypeDef(TypedDict):
     modelDeploymentSummaries: list[CustomModelDeploymentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2941,7 +2949,8 @@ class GenerationConfigurationTypeDef(TypedDict):
 
 class CreateCustomModelRequestTypeDef(TypedDict):
     modelName: str
-    modelSourceConfig: ModelDataSourceTypeDef
+    modelSourceConfig: NotRequired[ModelDataSourceTypeDef]
+    customModelDataSource: NotRequired[CustomModelDataSourceTypeDef]
     modelKmsKeyArn: NotRequired[str]
     roleArn: NotRequired[str]
     modelTags: NotRequired[Sequence[TagTypeDef]]

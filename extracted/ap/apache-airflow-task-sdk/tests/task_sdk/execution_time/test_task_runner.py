@@ -421,6 +421,122 @@ def test_main_sends_reschedule_task_when_startup_reschedules(
     ]
 
 
+def test_run_swallows_supervisor_terminal_send_failure(create_runtime_ti, mock_supervisor_comms):
+    """
+    When the supervisor rejects the terminal-state send (e.g. the server
+    already moved the TI to a terminal state and returns 409), `run()` must
+    not let that exception escape — the task body succeeded, so `run()` should
+    still return (SUCCESS, msg, None) so `main()` can notify listeners with
+    the correct local terminal state.
+    """
+    from airflow.sdk.execution_time.task_runner import run
+
+    class TrivialOperator(BaseOperator):
+        def execute(self, context):
+            return "ok"
+
+    task = TrivialOperator(task_id="trivial")
+    runtime_ti = create_runtime_ti(task=task)
+    context = runtime_ti.get_template_context()
+    log = mock.MagicMock()
+
+    # Let every send succeed except the terminal-state send — simulate the
+    # server rejecting the SucceedTask with a 409-wrapped AirflowRuntimeError.
+    def send_side_effect(msg=None, **kwargs):
+        if isinstance(msg, SucceedTask):
+            raise RuntimeError("409 invalid_state: previous_state=success")
+        return mock.DEFAULT
+
+    mock_supervisor_comms.send.side_effect = send_side_effect
+
+    # Must not raise.
+    state, msg, error = run(runtime_ti, context, log)
+
+    assert state == TaskInstanceState.SUCCESS
+    assert isinstance(msg, SucceedTask)
+    assert error is None
+
+
+def test_run_signals_fail_closed_when_failure_terminal_send_fails(create_runtime_ti, mock_supervisor_comms):
+    """
+    When the task FAILS and the terminal-state send to the supervisor fails too
+    (e.g. broken Unix socket / supervisor crashed / IPC channel dead), `run()`
+    must signal to main() that the process should exit non-zero — otherwise
+    the supervisor's `final_state` property defaults exit_code-0-with-no-
+    terminal-state to SUCCESS, turning a transient IPC blip into a silent
+    data-quality bug downstream.
+
+    The signal is deferred to main() (via `_terminal_state_send_failed` on the
+    ti) so finalize() still runs first — on_failure_callback / listener hooks /
+    email_on_failure must observe the FAILED state before the process exits.
+    """
+
+    class FailingOperator(BaseOperator):
+        def execute(self, context):
+            raise RuntimeError("task body failed")
+
+    task = FailingOperator(task_id="failing")
+    runtime_ti = create_runtime_ti(task=task)
+    context = runtime_ti.get_template_context()
+    log = mock.MagicMock()
+
+    # Let the terminal-state send raise an IPC-level failure.
+    def send_side_effect(msg=None, **kwargs):
+        if isinstance(msg, TaskState):
+            raise BrokenPipeError("supervisor IPC broken")
+        return mock.DEFAULT
+
+    mock_supervisor_comms.send.side_effect = send_side_effect
+
+    # run() must not raise — fail-closed is signalled via the ti attribute
+    # so main() can sys.exit(1) only after finalize() has run.
+    state, _, _ = run(runtime_ti, context, log)
+
+    assert state == TaskInstanceState.FAILED
+    assert runtime_ti._terminal_state_send_failed is True
+
+
+@pytest.mark.parametrize(
+    ("state_when_send_fails", "should_fail_closed"),
+    [
+        (TaskInstanceState.SUCCESS, False),
+        (TaskInstanceState.SKIPPED, False),
+    ],
+)
+def test_run_does_not_signal_fail_closed_for_non_failed_states(
+    create_runtime_ti, mock_supervisor_comms, state_when_send_fails, should_fail_closed
+):
+    """
+    Only FAILED / UP_FOR_RETRY are fail-closed. SUCCESS is exempt (the existing
+    409-rejection softening). SKIPPED is also exempt: supervisor's final_state
+    misclassifies it either way, and exiting non-zero would map it to FAILED,
+    which is strictly worse than the default mapping.
+    """
+
+    class Op(BaseOperator):
+        def execute(self, context):
+            if state_when_send_fails == TaskInstanceState.SKIPPED:
+                raise AirflowSkipException("skip")
+            return "ok"
+
+    task = Op(task_id="op")
+    runtime_ti = create_runtime_ti(task=task)
+    context = runtime_ti.get_template_context()
+    log = mock.MagicMock()
+
+    def send_side_effect(msg=None, **kwargs):
+        if isinstance(msg, (TaskState, SucceedTask)):
+            raise BrokenPipeError("supervisor IPC broken")
+        return mock.DEFAULT
+
+    mock_supervisor_comms.send.side_effect = send_side_effect
+
+    state, _, _ = run(runtime_ti, context, log)
+
+    assert state == state_when_send_fails
+    assert getattr(runtime_ti, "_terminal_state_send_failed", False) is should_fail_closed
+
+
 def test_task_span_is_child_of_dag_run_span(make_ti_context):
     """Full trace hierarchy: dag_run → task_run.my_task (API server) → worker.my_task (task runner)."""
     # Single provider shared by all spans so contexts are compatible.
@@ -766,6 +882,69 @@ def test_run_downstream_skipped(mocked_parse, create_runtime_ti, mock_supervisor
     )
 
 
+def test_run_emits_endgroup_before_execute(create_runtime_ti, mock_supervisor_comms):
+    """::endgroup:: is emitted to close the pre-execute log group just before execute() runs."""
+    call_order: list[str] = []
+
+    class TrackingOperator(BaseOperator):
+        def execute(self, context):
+            call_order.append("execute")
+
+    task = TrackingOperator(task_id="tracking_task")
+    ti = create_runtime_ti(task=task)
+    log = mock.MagicMock(spec=["info", "debug", "warning", "error", "exception", "bind"])
+
+    def tracking_info(msg, *args, **kwargs):
+        if msg == "::endgroup::":
+            call_order.append("::endgroup::")
+
+    log.info.side_effect = tracking_info
+
+    run(ti, context=ti.get_template_context(), log=log)
+
+    assert "::endgroup::" in call_order, "::endgroup:: was never emitted"
+    assert "execute" in call_order, "execute() was never called"
+    assert call_order.index("::endgroup::") < call_order.index("execute")
+
+
+def test_run_emits_post_execute_group_before_xcom_push(create_runtime_ti, mock_supervisor_comms):
+    """::group::Post Execute is opened before 'Pushing xcom' so the push appears inside the group."""
+    call_order: list[str] = []
+
+    class ReturningOperator(BaseOperator):
+        def execute(self, context):
+            return "some_value"
+
+    task = ReturningOperator(task_id="returning_task")
+    ti = create_runtime_ti(task=task)
+    log = mock.MagicMock(spec=["info", "debug", "warning", "error", "exception", "bind"])
+
+    def tracking_info(msg, *args, **kwargs):
+        if msg in ("::group::Post Execute", "Pushing xcom"):
+            call_order.append(msg)
+
+    log.info.side_effect = tracking_info
+
+    run(ti, context=ti.get_template_context(), log=log)
+
+    assert "::group::Post Execute" in call_order
+    assert "Pushing xcom" in call_order
+    assert call_order.index("::group::Post Execute") < call_order.index("Pushing xcom")
+
+
+def test_finalize_emits_endgroup(create_runtime_ti, mock_supervisor_comms):
+    """finalize() closes the post-execute log group but does not open it."""
+    task = BaseOperator(task_id="some_task")
+    ti = create_runtime_ti(task=task)
+    log = mock.MagicMock()
+
+    finalize(ti, state=TaskInstanceState.SUCCESS, context=ti.get_template_context(), log=log)
+
+    info_calls = log.info.call_args_list
+    assert call("::group::Post Execute") not in info_calls
+    assert info_calls[-1] == call("::endgroup::")
+
+
 def test_resume_from_deferred(time_machine, create_runtime_ti, mock_supervisor_comms, spy_agency: SpyAgency):
     from airflow.providers.standard.sensors.date_time import DateTimeSensorAsync
 
@@ -1000,7 +1179,7 @@ def test_basic_templated_dag(mocked_parse, make_ti_context, mock_supervisor_comm
         ),
         pytest.param(
             {"my_tup": (1, 2), "my_set": {1, 2, 3}},
-            {"my_tup": [1, 2], "my_set": "{1, 2, 3}"},
+            {"my_tup": [1, 2], "my_set": [1, 2, 3]},
             id="tuples_and_sets",
         ),
         pytest.param(
@@ -2859,6 +3038,77 @@ class TestRuntimeTaskInstance:
         assert "***" in env_vars_value  # secrets are redacted before truncation
 
     @pytest.mark.enable_redact
+    def test_rendered_templates_mask_nested_keys_with_truncation(
+        self, create_runtime_ti, mock_supervisor_comms, monkeypatch
+    ):
+        """Nested sensitive-key masking applies consistently across the truncation path.
+
+        A value under a documented sensitive key (``password``, ``token``, ``secret``,
+        ``api_key``) is masked recursively by ``redact()`` when the structured value
+        is walked. The oversized branch must redact while still structured so that
+        nested-key context is preserved before stringification — otherwise the post-
+        stringify ``redact()`` call only sees the outer field name and the recursive
+        walker cannot reach the inner key.
+        """
+        from airflow.sdk._shared.secrets_masker import _secrets_masker
+
+        # Earlier tests in this file (e.g. test_get_connection_from_context) call
+        # mask_secret(conn.password) where the fixture's password value is the literal
+        # "password"; that registers "password" as a regex pattern in the singleton
+        # masker. Without isolation, str(redacted) gets that regex applied and the
+        # dict KEY name "password" itself becomes "***", obscuring whether the
+        # structured nested-key walk fired. Reset the regex patterns for this test
+        # (monkeypatch restores them on teardown) so the assertion can distinguish
+        # value-masking (what we are testing) from key-token replacement.
+        masker = _secrets_masker()
+        monkeypatch.setattr(masker, "patterns", set())
+        monkeypatch.setattr(masker, "replacer", None)
+        # The SDK masker starts with an empty sensitive-fields list in the test runtime
+        # (settings.py has not run); register `password` explicitly so the structured
+        # walker has something to match. Production workers get this from settings.py.
+        monkeypatch.setattr(
+            masker,
+            "sensitive_variables_fields",
+            list(masker.sensitive_variables_fields) + ["password"],
+        )
+
+        nested_value = "REGRESSION-FIXTURE-NESTED-PASSWORD-VALUE"
+
+        class CustomOperator(BaseOperator):
+            template_fields = ("env_vars",)
+
+            def __init__(self, env_vars, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.env_vars = env_vars
+
+            def execute(self, context):
+                pass
+
+        # Nested 'password' key under enough padding to exceed default 4096-char limit.
+        env_vars = {
+            "DB": {"password": nested_value, "host": "db.internal", "zz_pad": "A" * 5000},
+        }
+
+        task = CustomOperator(task_id="test_nested_truncation_masking", env_vars=env_vars)
+
+        runtime_ti = create_runtime_ti(task=task, dag_id="test_nested_truncation_masking_dag")
+        run(runtime_ti, context=runtime_ti.get_template_context(), log=mock.MagicMock())
+
+        msg = next(
+            c.kwargs["msg"]
+            for c in mock_supervisor_comms.send.mock_calls
+            if c.kwargs.get("msg") and getattr(c.kwargs["msg"], "type", None) == "SetRenderedFields"
+        )
+        env_vars_value = msg.rendered_fields["env_vars"]
+
+        assert isinstance(env_vars_value, str)
+        assert env_vars_value.startswith(
+            "Truncated. You can change this behaviour in [core]max_templated_field_length. "
+        )
+        assert nested_value not in env_vars_value
+        assert "'password': '***'" in env_vars_value
+
+    @pytest.mark.enable_redact
     def test_rendered_templates_masks_secrets_in_complex_objects(
         self, create_runtime_ti, mock_supervisor_comms
     ):
@@ -2898,10 +3148,13 @@ class TestRuntimeTaskInstance:
 
         rendered_fields = mock_supervisor_comms.send.mock_calls[0].kwargs["msg"].rendered_fields
         assert rendered_fields is not None
-        assert (
-            rendered_fields["env_vars"]
-            == '[{"name": "var1", "value": "This is a test phrase.", "value_from": null}, {"name": "var2", "value": "***", "value_from": null}, {"name": "var3", "value": "***", "value_from": null}]'
-        )
+        # K8s V1EnvVar objects expose .to_dict(); the recursive walk normalizes the list of objects
+        # into a list of plain dicts so the result is directly JSON-encodable and redact can mask secrets in nested values.
+        assert rendered_fields["env_vars"] == [
+            {"name": "var1", "value": "This is a test phrase.", "value_from": None},
+            {"name": "var2", "value": "***", "value_from": None},
+            {"name": "var3", "value": "***", "value_from": None},
+        ]
 
     def test_nested_template_field_renderer_respects_redaction(
         self, create_runtime_ti, mock_supervisor_comms
@@ -3853,6 +4106,53 @@ class TestTaskRunnerCallsListeners:
         state, _, error = run(runtime_ti, context, log)
         finalize(runtime_ti, state, context, log, error)
 
+        assert listener.state == [TaskInstanceState.RUNNING, TaskInstanceState.FAILED]
+        assert listener.error == error
+
+    def test_task_runner_calls_listeners_failed_when_terminal_send_fails(
+        self, mocked_parse, mock_supervisor_comms, listener_manager
+    ):
+        """Callbacks/listeners must still fire when the FAILED terminal-state
+        IPC send to the supervisor fails. The fail-closed exit is deferred to
+        main() (signalled via `_terminal_state_send_failed` on the ti) so
+        finalize() runs first.
+        """
+        listener = self.CustomListener()
+        listener_manager(listener)
+
+        class CustomOperator(BaseOperator):
+            def execute(self, context):
+                raise RuntimeError("task body failed")
+
+        task = CustomOperator(task_id="failing_with_broken_ipc")
+        dag = get_inline_dag(dag_id="test_dag", task=task)
+        ti = TaskInstance(
+            id=uuid7(),
+            task_id=task.task_id,
+            dag_id=dag.dag_id,
+            run_id="test_run",
+            try_number=1,
+            dag_version_id=uuid7(),
+        )
+
+        runtime_ti = RuntimeTaskInstance.model_construct(
+            **ti.model_dump(exclude_unset=True), task=task, start_date=timezone.utcnow()
+        )
+
+        def send_side_effect(msg=None, **kwargs):
+            if isinstance(msg, TaskState):
+                raise BrokenPipeError("supervisor IPC broken")
+            return mock.DEFAULT
+
+        mock_supervisor_comms.send.side_effect = send_side_effect
+
+        log = mock.MagicMock()
+        context = runtime_ti.get_template_context()
+        state, _, error = run(runtime_ti, context, log)
+        finalize(runtime_ti, state, context, log, error)
+
+        assert state == TaskInstanceState.FAILED
+        assert runtime_ti._terminal_state_send_failed is True
         assert listener.state == [TaskInstanceState.RUNNING, TaskInstanceState.FAILED]
         assert listener.error == error
 

@@ -3,16 +3,21 @@ JavaScript syntax normalization transforms.
 """
 from __future__ import annotations
 
+from typing import Sequence, TypeGuard
+
 from refinery.lib.scripts import Node, Transformer
 from refinery.lib.scripts.js.deobfuscation.helpers import (
     FUNCTION_NODE_TYPES,
+    GLOBAL_OBJECT_ALIASES,
     RELATIONAL_OPS,
     access_key,
     escape_js_string,
     eval_binary_op,
+    extract_identifier_params,
+    is_closed_expression,
     is_literal,
     is_nullish,
-    is_side_effect_free,
+    is_safe_iife_inline,
     is_simple_expression,
     is_statically_evaluable,
     is_truthy,
@@ -22,8 +27,10 @@ from refinery.lib.scripts.js.deobfuscation.helpers import (
     make_string_literal,
     numeric_value,
     string_value,
-    try_inline_trivial_function,
+    substitute_params,
+    value_to_node,
 )
+from refinery.lib.scripts.js.deobfuscation.interpreter import BUILTIN_REGISTRY, STATIC_OBJECTS
 from refinery.lib.scripts.js.model import (
     JsArrayExpression,
     JsArrowFunctionExpression,
@@ -44,6 +51,7 @@ from refinery.lib.scripts.js.model import (
     JsNumericLiteral,
     JsObjectExpression,
     JsParenthesizedExpression,
+    JsReturnStatement,
     JsScript,
     JsSequenceExpression,
     JsStringLiteral,
@@ -81,13 +89,6 @@ _FUNCTION_PROPERTIES = _OBJECT_PROTO_PROPERTIES | frozenset({
 
 _EMPTY_OBJECT_PROPERTIES = _OBJECT_PROTO_PROPERTIES
 
-_GLOBAL_OBJECT_ALIASES: frozenset[str] = frozenset({
-    'globalThis',
-    'global',
-    'window',
-    'self',
-})
-
 
 def _is_locally_shadowed(node: Node, name: str) -> bool:
     """
@@ -118,6 +119,39 @@ def _is_locally_shadowed(node: Node, name: str) -> bool:
                             and decl.id.name == name
                         ):
                             return True
+        parent = parent.parent
+    return False
+
+
+def _is_global_alias(node: Node, name: str) -> bool:
+    """
+    Checks whether *name* is const-bound to a known global object alias in any enclosing scope.
+    Handles `const c = global` making `c` a recognized global alias for property simplification.
+    """
+    parent = node.parent
+    while parent is not None:
+        if isinstance(parent, FUNCTION_NODE_TYPES):
+            for param in getattr(parent, 'params', ()):
+                if isinstance(param, JsIdentifier) and param.name == name:
+                    return False
+                for child in param.walk():
+                    if isinstance(child, JsIdentifier) and child.name == name:
+                        return False
+        if isinstance(parent, (JsBlockStatement, JsScript)):
+            for stmt in parent.body:
+                if not isinstance(stmt, JsVariableDeclaration):
+                    continue
+                if stmt.kind is not JsVarKind.CONST:
+                    continue
+                for decl in stmt.declarations:
+                    if (
+                        isinstance(decl, JsVariableDeclarator)
+                        and isinstance(decl.id, JsIdentifier)
+                        and decl.id.name == name
+                        and isinstance(decl.init, JsIdentifier)
+                        and decl.init.name in GLOBAL_OBJECT_ALIASES
+                    ):
+                        return True
         parent = parent.parent
     return False
 
@@ -201,6 +235,10 @@ def _collect_property_stores(body: list, name: str) -> set[str]:
     return props
 
 
+def _all_numeric_literals(args: Sequence[Node]) -> TypeGuard[list[JsNumericLiteral]]:
+    return all(isinstance(a, JsNumericLiteral) for a in args)
+
+
 class JsSimplifications(Transformer):
 
     def visit_JsBinaryExpression(self, node: JsBinaryExpression):
@@ -260,7 +298,11 @@ class JsSimplifications(Transformer):
             fn = fn.expression
         if isinstance(fn, JsFunctionExpression):
             return self._try_inline_iife(node, fn)
-        return self._try_fold_split(node) or self._try_fold_join(node)
+        return (
+            self._try_fold_static_method(node)
+            or self._try_fold_split(node)
+            or self._try_fold_join(node)
+        )
 
     @staticmethod
     def _fold_parseint(node: JsCallExpression) -> JsNumericLiteral | None:
@@ -281,9 +323,48 @@ class JsSimplifications(Transformer):
 
     @staticmethod
     def _try_inline_iife(node: JsCallExpression, fn: JsFunctionExpression) -> Node | None:
-        if not all(is_side_effect_free(a) for a in node.arguments):
+        if fn.body is None or not isinstance(fn.body, JsBlockStatement):
             return None
-        return try_inline_trivial_function(fn, node.arguments)
+        body = fn.body.body
+        if len(body) != 1:
+            return None
+        stmt = body[0]
+        if not isinstance(stmt, JsReturnStatement) or stmt.argument is None:
+            return None
+        param_names = extract_identifier_params(fn.params)
+        if param_names is None or len(node.arguments) != len(param_names):
+            return None
+        expr = stmt.argument
+        if not is_closed_expression(expr, set(param_names)):
+            return None
+        if not is_safe_iife_inline(expr, param_names, node.arguments):
+            return None
+        return substitute_params(expr, param_names, node.arguments)
+
+    @staticmethod
+    def _try_fold_static_method(node: JsCallExpression) -> Node | None:
+        callee = node.callee
+        if not isinstance(callee, JsMemberExpression):
+            return None
+        if not isinstance(callee.object, JsIdentifier):
+            return None
+        static_name = callee.object.name
+        if static_name not in STATIC_OBJECTS:
+            return None
+        method_name = access_key(callee)
+        if method_name is None:
+            return None
+        builtin = BUILTIN_REGISTRY.get((static_name, method_name))
+        if builtin is None:
+            return None
+        if not _all_numeric_literals(node.arguments):
+            return None
+        args = [a.value for a in node.arguments]
+        try:
+            result = builtin(args)
+        except Exception:
+            return None
+        return value_to_node(result)
 
     @staticmethod
     def _try_fold_split(node: JsCallExpression) -> JsArrayExpression | None:
@@ -388,10 +469,16 @@ class JsSimplifications(Transformer):
         if (
             not node.computed
             and isinstance(node.object, JsIdentifier)
-            and node.object.name in _GLOBAL_OBJECT_ALIASES
             and isinstance(node.property, JsIdentifier)
             and not _is_locally_shadowed(node, node.property.name)
+            and (
+                node.object.name in GLOBAL_OBJECT_ALIASES
+                or _is_global_alias(node, node.object.name)
+            )
         ):
+            p = node.parent
+            if isinstance(p, JsAssignmentExpression) and p.left is node:
+                return None
             return node.property
         if node.computed and node.object is not None and node.property is not None:
             if (
@@ -410,6 +497,7 @@ class JsSimplifications(Transformer):
             if prop_str is not None and is_valid_identifier(prop_str):
                 node.computed = False
                 node.property = JsIdentifier(name=prop_str)
+                node._adopt(node.property)
                 self.mark_changed()
                 return None
         return None

@@ -21,7 +21,7 @@ from ...exceptions import (
     ComponentError,
     DataNotFound
 )
-from ..flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from ...utils.functions import is_empty
 from ...interfaces.credentials import CredentialsInterface
 

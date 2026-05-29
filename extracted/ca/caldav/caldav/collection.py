@@ -456,6 +456,17 @@ class Principal(DAVObject):
         It will not initiate any communication with the server.
         """
         if not cal_url:
+            ## For full-URL cal_id, skip calendar_home_set (which may be async-lazy)
+            if cal_id and (
+                isinstance(cal_id, URL)
+                or (
+                    isinstance(cal_id, str)
+                    and (cal_id.startswith("https://") or cal_id.startswith("http://"))
+                )
+            ):
+                if self.client is None:
+                    raise ValueError("Unexpected value None for self.client")
+                return Calendar(self.client, url=URL.objectify(cal_id))
             return self.calendar_home_set.calendar(name, cal_id)
         else:
             if self.client is None:
@@ -611,10 +622,14 @@ class Principal(DAVObject):
         response = await self.client.post(outbox.url, fb_obj.data, headers)
         return response._parse_scheduling_response_objects(parent=self)
 
-    def calendar_user_address_set(self) -> list[str | None]:
+    def calendar_user_address_set(
+        self,
+    ) -> "list[str | None] | Coroutine[Any, Any, list[str | None]]":
         """
         defined in RFC6638
         """
+        if self.is_async_client:
+            return self._async_calendar_user_address_set()
         _addresses: _Element | None = self.get_property(
             cdav.CalendarUserAddressSet(), parse_props=False
         )
@@ -626,6 +641,15 @@ class Principal(DAVObject):
         addresses = list(_addresses)
         ## possibly the preferred attribute is iCloud-specific.
         ## TODO: do more research on that
+        addresses.sort(key=lambda x: -int(x.get("preferred", 0)))
+        return [x.text for x in addresses]
+
+    async def _async_calendar_user_address_set(self) -> list[str | None]:
+        _addresses = await self.get_property(cdav.CalendarUserAddressSet(), parse_props=False)
+        if _addresses is None:
+            raise error.NotFoundError("No calendar user addresses given from server")
+        assert not [x for x in _addresses if x.tag != dav.Href().tag]
+        addresses = list(_addresses)
         addresses.sort(key=lambda x: -int(x.get("preferred", 0)))
         return [x.text for x in addresses]
 
@@ -723,7 +747,14 @@ class Calendar(DAVObject):
 
         prop = dav.Prop()
         display_name = None
-        if name:
+        # Some servers (e.g. Zimbra) use the DisplayName from the MKCALENDAR body
+        # as the calendar URL, ignoring the actual request path.  When the server
+        # does not support setting a separate display name, omit it from the body so
+        # the request URL path is used as the calendar identifier.
+        supports_displayname = not self.client or self.client.features.is_supported(
+            "create-calendar.set-displayname"
+        )
+        if name and supports_displayname:
             display_name = dav.DisplayName(name)
             prop += [display_name]
         if supported_calendar_component_set:
@@ -747,7 +778,7 @@ class Calendar(DAVObject):
         # on setting the DisplayName on calendar creation
         # (DAViCal, Zimbra, ...).  Doing an attempt on explicitly setting the
         # display name using PROPPATCH.
-        if name:
+        if display_name:
             try:
                 self.set_properties([display_name])
             except Exception:
@@ -766,7 +797,7 @@ class Calendar(DAVObject):
         await self._query(root=mkcol, query_method=method, url=path, expected_return_value=201)
 
         # COMPATIBILITY ISSUE - try to set display name explicitly
-        if name:
+        if display_name:
             try:
                 await self.set_properties([display_name])
             except Exception:
@@ -779,44 +810,77 @@ class Calendar(DAVObject):
                         exc_info=True,
                     )
 
-    def delete(self):
+    def delete(self, wipe=None):
         """Delete the calendar.
 
         For async clients, returns a coroutine that must be awaited.
+
+        wipe: tristate controlling cleanup behaviour
+          None (default) – wipe all objects instead of deleting if the server
+                           doesn't support calendar deletion
+          True           – wipe all objects and return without deleting the
+                           calendar itself (useful for servers where deletion
+                           moves calendars to a trashbin)
+          False          – always attempt to delete the calendar via HTTP DELETE
         """
         if self.is_async_client:
-            return self._async_delete()
+            return self._async_delete(wipe=wipe)
+
+        if wipe is True:
+            try:
+                objects = list(self.search())
+            except error.NotFoundError:
+                return
+            for obj in objects:
+                try:
+                    obj.delete()
+                except error.NotFoundError:
+                    pass
+            return
 
         ## TODO: remove quirk handling from the functional tests
         ## TODO: this needs test code
         quirk_info = self.client.features.is_supported("delete-calendar", dict)
-        wipe = not self.client.features.is_supported("delete-calendar")
+        if wipe is None:
+            wipe = not self.client.features.is_supported("delete-calendar")
         if quirk_info["support"] == "fragile":
             ## Do some retries on deleting the calendar
-            for x in range(0, 20):
+            for _ in range(0, 20):
                 try:
                     super().delete()
                 except error.DeleteError:
                     pass
                 try:
-                    x = self.get_events()
+                    self.get_events()
                     sleep(0.3)
                 except error.NotFoundError:
                     wipe = False
                     break
 
         if wipe:
-            for x in self.search():
-                x.delete()
+            return self.delete(wipe=True)
         else:
             super().delete()
 
-    async def _async_delete(self):
+    async def _async_delete(self, wipe=None):
         """Async implementation of Calendar.delete()."""
         import asyncio
 
+        if wipe is True:
+            try:
+                objects = await self.search()
+            except error.NotFoundError:
+                return
+            for obj in objects:
+                try:
+                    await obj.delete()
+                except error.NotFoundError:
+                    pass
+            return
+
         quirk_info = self.client.features.is_supported("delete-calendar", dict)
-        wipe = not self.client.features.is_supported("delete-calendar")
+        if wipe is None:
+            wipe = not self.client.features.is_supported("delete-calendar")
 
         if quirk_info["support"] == "fragile":
             # Do some retries on deleting the calendar
@@ -833,8 +897,7 @@ class Calendar(DAVObject):
                     break
 
         if wipe:
-            for obj in await self.search():
-                await obj.delete()
+            await self._async_delete(wipe=True)
         else:
             await DAVObject._async_delete(self)
 
@@ -970,7 +1033,7 @@ class Calendar(DAVObject):
         )
         if self.is_async_client:
             return self._async_add_object_finish(o, no_overwrite=no_overwrite, no_create=no_create)
-        o = o.save(no_overwrite=no_overwrite, no_create=no_create)
+        o = o.save(no_overwrite=no_overwrite, no_create=no_create, only_this_recurrence=None)
         ## TODO: Saving nothing is currently giving an object with None as URL.
         ## This should probably be changed in some future version to raise an error
         ## See also CalendarObjectResource.save()
@@ -980,7 +1043,7 @@ class Calendar(DAVObject):
 
     async def _async_add_object_finish(self, o, no_overwrite=False, no_create=False):
         """Async helper for add_object(): awaits save() then handles reverse relations."""
-        o = await o.save(no_overwrite=no_overwrite, no_create=no_create)
+        o = await o.save(no_overwrite=no_overwrite, no_create=no_create, only_this_recurrence=None)
         if o.url is not None:
             await o._handle_reverse_relations(fix=True)
         return o
@@ -1080,6 +1143,7 @@ class Calendar(DAVObject):
         """
         get multiple events' data.
         TODO: Does it overlap the _request_report_build_resultlist method
+        ## WARNING: async logic is duplicated in _async_multiget — mirror any changes there
         """
         if self.url is None:
             raise ValueError("Unexpected value None for self.url")
@@ -1098,28 +1162,33 @@ class Calendar(DAVObject):
         for r in results:
             yield (r, results[r][cdav.CalendarData.tag])
 
-    ## Replace the last lines with
+    def _post_multiget(self, results: Iterable[tuple[str, str]]) -> list[_CC]:
+        """Post-processing shared by multiget and _async_multiget_objects."""
+        return [
+            self._calendar_comp_class_by_data(data)(
+                self.client,
+                # Quote path to handle servers returning unencoded spaces (e.g., Zimbra)
+                url=self.url.join(quote(unquote(str(url)), safe="/:@")),
+                data=data,
+                parent=self,
+            )
+            for url, data in results
+        ]
+
     def multiget(self, event_urls: Iterable[URL], raise_notfound: bool = False) -> Iterable[_CC]:
         """
         get multiple events' data
         TODO: Does it overlap the _request_report_build_resultlist method?
         @author mtorange@gmail.com (refactored by Tobias)
         """
-        results = self._multiget(event_urls, raise_notfound=raise_notfound)
-        for url, data in results:
-            # Quote path to handle servers returning unencoded spaces (e.g., Zimbra)
-            quoted_url = quote(unquote(str(url)), safe="/:@")
-            yield self._calendar_comp_class_by_data(data)(
-                self.client,
-                url=self.url.join(quoted_url),
-                data=data,
-                parent=self,
-            )
+        if self.is_async_client:
+            return self._async_multiget_objects(event_urls, raise_notfound=raise_notfound)
+        return self._post_multiget(self._multiget(event_urls, raise_notfound=raise_notfound))
 
     async def _async_multiget(
         self, event_urls: Iterable[URL], raise_notfound: bool = False
     ) -> list[tuple[str, str]]:
-        """Async version of _multiget — returns a list of (url, data) tuples."""
+        ## WARNING: sync logic is duplicated in _multiget — mirror any changes there
         if self.url is None:
             raise ValueError("Unexpected value None for self.url")
 
@@ -1134,12 +1203,20 @@ class Calendar(DAVObject):
                     raise error.NotFoundError(f"Status {status} in {href}")
         return [(r, results[r][cdav.CalendarData.tag]) for r in results]
 
+    async def _async_multiget_objects(
+        self, event_urls: Iterable[URL], raise_notfound: bool = False
+    ) -> list[_CC]:
+        """Async version of multiget."""
+        return self._post_multiget(
+            await self._async_multiget(event_urls, raise_notfound=raise_notfound)
+        )
+
     def calendar_multiget(self, *largs, **kwargs):
         """
         get multiple events' data
         @author mtorange@gmail.com
         (refactored by Tobias)
-        This is for backward compatibility.  It may be removed in 3.0 or later release.
+        This is for backward compatibility.  It may be removed in a later release.
         """
         return list(self.multiget(*largs, **kwargs))
 
@@ -1459,7 +1536,9 @@ class Calendar(DAVObject):
             self, server_expand, split_expanded, props, xml, post_filter, _hacks
         )
 
-    def freebusy_request(self, start: datetime, end: datetime) -> "FreeBusy":
+    def freebusy_request(
+        self, start: datetime, end: datetime
+    ) -> "FreeBusy | Coroutine[Any, Any, FreeBusy]":
         """
         Search the calendar, but return only the free/busy information.
 
@@ -1468,11 +1547,16 @@ class Calendar(DAVObject):
           end : same as above.
 
         Returns:
-          [FreeBusy(), ...]
+          FreeBusy object (or a coroutine for async clients)
         """
-        ## TODO: async variant?
         root = cdav.FreeBusyQuery() + [cdav.TimeRange(start, end)]
+        if self.is_async_client:
+            return self._async_freebusy_request(root)
         response = self._query(root, 1, "report")
+        return FreeBusy(self, response.raw)
+
+    async def _async_freebusy_request(self, root) -> "FreeBusy":
+        response = await self._query(root, 1, "report")
         return FreeBusy(self, response.raw)
 
     def get_todos(
@@ -1605,7 +1689,12 @@ class Calendar(DAVObject):
     ) -> "Event":
         """Async helper for get_object_by_uid()."""
         items_found = await self.search(
-            uid=uid, comp_class=comp_class, xml=comp_filter, post_filter=True, _hacks="insist"
+            uid=uid,
+            comp_class=comp_class,
+            xml=comp_filter,
+            post_filter=True,
+            _hacks="insist",
+            include_completed=True,
         )
         items_found = [o for o in items_found if o.id == uid]
 

@@ -23,7 +23,7 @@ from ..exceptions import (
     DataNotFound,
     ConfigError,
 )
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces import SeleniumService
 from ..interfaces.http import ua
 

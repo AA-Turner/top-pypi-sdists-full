@@ -10,10 +10,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Self, overload
 
 from keystoneauth1 import adapter
-from typing_extensions import Self
 
 from openstack.common import tag
 from openstack import exceptions
@@ -155,6 +154,7 @@ class Stack(resource.Resource):
     ):
         # This overrides the default behavior of resource update because
         # we need to use other endpoint for update preview.
+        self._body._dirty.discard("id")
         base_path = None
         if self.name and self.id:
             base_path = f'/stacks/{self.name}/{self.id}'

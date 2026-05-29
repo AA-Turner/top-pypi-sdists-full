@@ -20,6 +20,7 @@ from openstack.block_storage.v3 import extension
 from openstack.block_storage.v3 import group
 from openstack.block_storage.v3 import group_snapshot
 from openstack.block_storage.v3 import group_type
+from openstack.block_storage.v3 import qos_spec
 from openstack.block_storage.v3 import quota_class_set
 from openstack.block_storage.v3 import quota_set
 from openstack.block_storage.v3 import resource_filter
@@ -121,10 +122,10 @@ class TestVolume(TestVolumeProxy):
     def test_volume_update(self):
         self.verify_update(self.proxy.update_volume, volume.Volume)
 
-    def test_get_volume_metadata(self):
+    def test_fetch_volume_metadata(self):
         self._verify(
             "openstack.block_storage.v3.volume.Volume.fetch_metadata",
-            self.proxy.get_volume_metadata,
+            self.proxy.fetch_volume_metadata,
             method_args=["value"],
             expected_args=[self.proxy],
             expected_result=volume.Volume(id="value", metadata={}),
@@ -823,10 +824,10 @@ class TestBackup(TestVolumeProxy):
             expected_args=[self.proxy, "new_status"],
         )
 
-    def test_backup_get_metadata(self):
+    def test_backup_fetch_metadata(self):
         self._verify(
             "openstack.block_storage.v3.backup.Backup.fetch_metadata",
-            self.proxy.get_backup_metadata,
+            self.proxy.fetch_backup_metadata,
             method_args=["value"],
             expected_args=[self.proxy],
             expected_result=volume.Volume(id="value", metadata={}),
@@ -961,10 +962,10 @@ class TestSnapshot(TestVolumeProxy):
             expected_result=None,
         )
 
-    def test_get_snapshot_metadata(self):
+    def test_fetch_snapshot_metadata(self):
         self._verify(
             "openstack.block_storage.v3.snapshot.Snapshot.fetch_metadata",
-            self.proxy.get_snapshot_metadata,
+            self.proxy.fetch_snapshot_metadata,
             method_args=["value"],
             expected_args=[self.proxy],
             expected_result=snapshot.Snapshot(id="value", metadata={}),
@@ -1144,6 +1145,23 @@ class TestTransfer(TestVolumeProxy):
             expected_args=[self.proxy],
             expected_kwargs={'auth_key': 'auth_key'},
         )
+
+
+class TestQosSpec(TestVolumeProxy):
+    def test_qos_spec_create(self):
+        self.verify_create(self.proxy.create_qos_spec, qos_spec.QoSSpec)
+
+    def test_qos_spec_delete(self):
+        self.verify_delete(self.proxy.delete_qos_spec, qos_spec.QoSSpec, False)
+
+    def test_qos_spec_delete_ignore(self):
+        self.verify_delete(self.proxy.delete_qos_spec, qos_spec.QoSSpec, True)
+
+    def test_qos_spec_update(self):
+        self.verify_update(self.proxy.update_qos_spec, qos_spec.QoSSpec)
+
+    def test_qos_spec_get(self):
+        self.verify_get(self.proxy.get_qos_spec, qos_spec.QoSSpec)
 
 
 class TestQuotaClassSet(TestVolumeProxy):

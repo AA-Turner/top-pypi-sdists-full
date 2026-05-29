@@ -41,7 +41,12 @@ from airflow.sdk.definitions.asset import (
     AssetUriRef,
     BaseAssetUniqueKey,
 )
-from airflow.sdk.exceptions import AirflowNotFoundException, AirflowRuntimeError, ErrorType
+from airflow.sdk.exceptions import (
+    AirflowNotFoundException,
+    AirflowRuntimeError,
+    AirflowSecretsBackendAccessDenied,
+    ErrorType,
+)
 from airflow.sdk.log import mask_secret
 
 if TYPE_CHECKING:
@@ -165,6 +170,9 @@ def _get_connection(conn_id: str) -> Connection:
                 SecretCache.save_connection_uri(conn_id, conn.get_uri())
                 _mask_connection_secrets(conn)
                 return conn
+        except AirflowSecretsBackendAccessDenied:
+            # Authoritative deny — must NOT fall through to a less-restrictive backend.
+            raise
         except Exception:
             log.debug(
                 "Unable to retrieve connection from secrets backend (%s). "
@@ -212,6 +220,9 @@ async def _async_get_connection(conn_id: str) -> Connection:
                 SecretCache.save_connection_uri(conn_id, conn.get_uri())
                 _mask_connection_secrets(conn)
                 return conn
+        except AirflowSecretsBackendAccessDenied:
+            # Authoritative deny — must NOT fall through to a less-restrictive backend.
+            raise
         except Exception:
             # If one backend fails, try the next one
             log.debug(
@@ -259,6 +270,9 @@ def _get_variable(key: str, deserialize_json: bool) -> Any:
                 if isinstance(var_val, str):
                     mask_secret(var_val, key)
                 return var_val
+        except AirflowSecretsBackendAccessDenied:
+            # Authoritative deny — must NOT fall through to a less-restrictive backend.
+            raise
         except Exception:
             log.exception(
                 "Unable to retrieve variable from secrets backend (%s). Checking subsequent secrets backend.",
@@ -645,10 +659,8 @@ class InletEventsAccessor(Sequence["AssetEventResult"]):
         return list(resp.iter_asset_event_results())
 
     def _reset_cache(self) -> None:
-        try:
+        with contextlib.suppress(AttributeError):
             del self._asset_events
-        except AttributeError:
-            pass
 
     def __iter__(self) -> Iterator[AssetEventResult]:
         return iter(self._asset_events)

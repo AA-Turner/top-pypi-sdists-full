@@ -27,9 +27,9 @@ import gcsfs  # type: ignore[import-untyped]
 import google.api_core.exceptions
 import google.cloud.bigquery as bigquery
 import google.cloud.bigquery_connection_v1 as bigquery_connection_v1
+import google.cloud.bigquery_storage_v1
 import google.cloud.exceptions
 import google.cloud.functions_v2 as functions_v2
-import google.cloud.bigquery_storage_v1
 import google.cloud.resourcemanager_v3 as resourcemanager_v3
 import google.cloud.storage as storage  # type: ignore
 import numpy as np
@@ -1518,16 +1518,6 @@ def images_uris() -> list[str]:
     ]
 
 
-@pytest.fixture(scope="session")
-def images_mm_df(
-    images_uris, session: bigframes.Session, bq_connection: str
-) -> bpd.DataFrame:
-    blob_series = bpd.Series(images_uris, session=session).str.to_blob(
-        connection=bq_connection
-    )
-    return blob_series.rename("blob_col").to_frame()
-
-
 @pytest.fixture()
 def reset_default_session_and_location():
     bpd.close_session()
@@ -1535,29 +1525,3 @@ def reset_default_session_and_location():
         yield
     bpd.close_session()
     bpd.options.bigquery.location = None
-
-
-@pytest.fixture(scope="session")
-def pdf_gcs_path() -> str:
-    return "gs://bigframes_blob_test/pdfs/*"
-
-
-@pytest.fixture(scope="session")
-def pdf_mm_df(
-    pdf_gcs_path, session: bigframes.Session, bq_connection: str
-) -> bpd.DataFrame:
-    return session.from_glob_path(pdf_gcs_path, name="pdf", connection=bq_connection)
-
-
-@pytest.fixture(scope="session")
-def audio_gcs_path() -> str:
-    return "gs://bigframes_blob_test/audio/*"
-
-
-@pytest.fixture(scope="session")
-def audio_mm_df(
-    audio_gcs_path, session: bigframes.Session, bq_connection: str
-) -> bpd.DataFrame:
-    return session.from_glob_path(
-        audio_gcs_path, name="audio", connection=bq_connection
-    )

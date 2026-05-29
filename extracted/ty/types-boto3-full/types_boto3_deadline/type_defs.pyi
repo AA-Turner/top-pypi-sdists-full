@@ -82,6 +82,7 @@ from .literals import (
     UsageGroupByFieldType,
     UsageStatisticType,
     UsageTypeType,
+    VolumeStateType,
     WorkerStatusType,
 )
 
@@ -213,6 +214,7 @@ __all__ = (
     "DeleteQueueLimitAssociationRequestTypeDef",
     "DeleteQueueRequestTypeDef",
     "DeleteStorageProfileRequestTypeDef",
+    "DeleteVolumeRequestTypeDef",
     "DeleteWorkerRequestTypeDef",
     "DependencyCountsTypeDef",
     "DisassociateMemberFromFarmRequestTypeDef",
@@ -292,6 +294,8 @@ __all__ = (
     "GetStorageProfileResponseTypeDef",
     "GetTaskRequestTypeDef",
     "GetTaskResponseTypeDef",
+    "GetVolumeRequestTypeDef",
+    "GetVolumeResponseTypeDef",
     "GetWorkerRequestTypeDef",
     "GetWorkerResponseTypeDef",
     "HostConfigurationTypeDef",
@@ -399,6 +403,9 @@ __all__ = (
     "ListTasksRequestPaginateTypeDef",
     "ListTasksRequestTypeDef",
     "ListTasksResponseTypeDef",
+    "ListVolumesRequestPaginateTypeDef",
+    "ListVolumesRequestTypeDef",
+    "ListVolumesResponseTypeDef",
     "ListWorkersRequestPaginateTypeDef",
     "ListWorkersRequestTypeDef",
     "ListWorkersResponseTypeDef",
@@ -413,6 +420,7 @@ __all__ = (
     "ParameterSortExpressionTypeDef",
     "ParameterSpaceTypeDef",
     "PathMappingRuleTypeDef",
+    "PersistentVolumeConfigurationTypeDef",
     "PosixUserTypeDef",
     "PriorityBalancedSchedulingConfigurationTypeDef",
     "PutMeteredProductRequestTypeDef",
@@ -508,6 +516,7 @@ __all__ = (
     "UsageTrackingResourceTypeDef",
     "UserJobsFirstTypeDef",
     "VCpuCountRangeTypeDef",
+    "VolumeSummaryTypeDef",
     "VpcConfigurationOutputTypeDef",
     "VpcConfigurationTypeDef",
     "WaiterConfigTypeDef",
@@ -980,6 +989,11 @@ class DeleteStorageProfileRequestTypeDef(TypedDict):
     farmId: str
     storageProfileId: str
 
+class DeleteVolumeRequestTypeDef(TypedDict):
+    farmId: str
+    fleetId: str
+    volumeId: str
+
 class DeleteWorkerRequestTypeDef(TypedDict):
     farmId: str
     fleetId: str
@@ -1187,6 +1201,11 @@ class GetTaskRequestTypeDef(TypedDict):
     jobId: str
     stepId: str
     taskId: str
+
+class GetVolumeRequestTypeDef(TypedDict):
+    farmId: str
+    fleetId: str
+    volumeId: str
 
 class GetWorkerRequestTypeDef(TypedDict):
     farmId: str
@@ -1549,6 +1568,21 @@ class ListTasksRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
+class ListVolumesRequestTypeDef(TypedDict):
+    farmId: str
+    fleetId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class VolumeSummaryTypeDef(TypedDict):
+    volumeId: str
+    farmId: str
+    fleetId: str
+    state: VolumeStateType
+    sizeGiB: int
+    availabilityZoneId: str
+    attachedWorkerId: NotRequired[str]
+
 class ListWorkersRequestTypeDef(TypedDict):
     farmId: str
     fleetId: str
@@ -1567,6 +1601,13 @@ ParameterFilterExpressionTypeDef = TypedDict(
 class ParameterSortExpressionTypeDef(TypedDict):
     sortOrder: SortOrderType
     name: str
+
+class PersistentVolumeConfigurationTypeDef(TypedDict):
+    mountPath: str
+    sizeGiB: NotRequired[int]
+    iops: NotRequired[int]
+    throughputMiB: NotRequired[int]
+    lastUsedTtlHours: NotRequired[int]
 
 class PriorityBalancedSchedulingConfigurationTypeDef(TypedDict):
     renderingTaskBuffer: NotRequired[int]
@@ -2012,6 +2053,23 @@ class GetTaskResponseTypeDef(TypedDict):
     parameters: dict[str, TaskParameterValueTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetVolumeResponseTypeDef(TypedDict):
+    volumeId: str
+    farmId: str
+    fleetId: str
+    state: VolumeStateType
+    sizeGiB: int
+    availabilityZoneId: str
+    attachedWorkerId: str
+    volumeType: Literal["gp3"]
+    iops: int
+    throughputMiB: int
+    createdAt: datetime
+    lastAssignedAt: datetime
+    lastReleasedAt: datetime
+    expiresAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListJobParameterDefinitionsResponseTypeDef(TypedDict):
     jobParameterDefinitions: list[dict[str, Any]]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2430,6 +2488,11 @@ class ListTasksRequestPaginateTypeDef(TypedDict):
     stepId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListVolumesRequestPaginateTypeDef(TypedDict):
+    farmId: str
+    fleetId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListWorkersRequestPaginateTypeDef(TypedDict):
     farmId: str
     fleetId: str
@@ -2541,6 +2604,11 @@ class ListStorageProfilesForQueueResponseTypeDef(TypedDict):
 
 class ListStorageProfilesResponseTypeDef(TypedDict):
     storageProfiles: list[StorageProfileSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListVolumesResponseTypeDef(TypedDict):
+    volumes: list[VolumeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2929,6 +2997,7 @@ class ServiceManagedEc2FleetConfigurationOutputTypeDef(TypedDict):
     instanceMarketOptions: ServiceManagedEc2InstanceMarketOptionsTypeDef
     vpcConfiguration: NotRequired[VpcConfigurationOutputTypeDef]
     storageProfileId: NotRequired[str]
+    persistentVolumeConfiguration: NotRequired[PersistentVolumeConfigurationTypeDef]
     autoScalingConfiguration: NotRequired[ServiceManagedEc2AutoScalingConfigurationTypeDef]
 
 class ServiceManagedEc2FleetConfigurationTypeDef(TypedDict):
@@ -2936,6 +3005,7 @@ class ServiceManagedEc2FleetConfigurationTypeDef(TypedDict):
     instanceMarketOptions: ServiceManagedEc2InstanceMarketOptionsTypeDef
     vpcConfiguration: NotRequired[VpcConfigurationTypeDef]
     storageProfileId: NotRequired[str]
+    persistentVolumeConfiguration: NotRequired[PersistentVolumeConfigurationTypeDef]
     autoScalingConfiguration: NotRequired[ServiceManagedEc2AutoScalingConfigurationTypeDef]
 
 class AssignedSessionActionTypeDef(TypedDict):

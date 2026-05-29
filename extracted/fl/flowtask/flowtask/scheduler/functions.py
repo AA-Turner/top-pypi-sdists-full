@@ -1,4 +1,5 @@
 import asyncio
+import uuid as uuid_lib
 from typing import Any
 from collections.abc import Callable
 import time
@@ -33,8 +34,6 @@ from ..exceptions import (
 def send_notification(event_loop, message, provider):
     """Lazy wrapper that defers the import of notify until actually needed."""
     from .notifications import send_notification as _send
-    # Replace ourselves so subsequent calls go direct
-    globals()["send_notification"] = _send
     return _send(event_loop, message, provider)
 
 
@@ -59,12 +58,16 @@ class TaskScheduler:
         job_id: str,
         priority: str = "low",
         worker: Callable = None,
+        executor: str = None,
         **kwargs,
     ):
         self.task = task
         self.program = program
         self.priority = priority
         self.worker = worker
+        # Executor name — if provided, routes via ExecutorRegistry; otherwise falls
+        # back to the legacy QClient/TaskWrapper path for backward compatibility.
+        self._executor_name: str = executor
         self._scheduled: bool = False
         self._wrapper_kwargs = kwargs
         self.task_id = None
@@ -74,7 +77,7 @@ class TaskScheduler:
         )
 
     def _create_wrapper(self):
-        """Create a fresh TaskWrapper with a new UUID per dispatch."""
+        """Create a fresh TaskWrapper with a new UUID per dispatch (legacy path)."""
         from qw.wrappers import TaskWrapper
         return TaskWrapper(
             program=self.program,
@@ -217,9 +220,8 @@ class TaskScheduler:
                 pass
 
     def __call__(self, *args, **kwargs):
-        # Create a fresh TaskWrapper per invocation to get a unique UUID
-        wrapper = self._create_wrapper()
-        self.task_id = wrapper.id
+        # Generate a fresh task UUID per invocation.
+        self.task_id = str(uuid_lib.uuid4())
         try:
             try:
                 loop = asyncio.new_event_loop()
@@ -231,43 +233,55 @@ class TaskScheduler:
             self.logger.info(
                 f":::: Calling Task {self.program}.{self.task} [{self.task_id}]: priority {self.priority!s}"
             )
-            if self.priority == "direct":
-                # Direct connection to worker (avoid Worker Queue)
-                task = loop.create_task(
-                    self._send_task(wrapper, self.worker)
-                )
-            elif self.priority == "pub":
-                # Using Channel Group mechanism (avoid queueing)
-                task = loop.create_task(
-                    self._publish_task(wrapper, self.worker)
-                )
-            elif self.priority in ('high', 'low'):
-                task = loop.create_task(
-                    self._schedule_task(wrapper, self.worker)
-                )
+            # Resolve executor via registry.
+            from flowtask.executors.resolver import resolve_executor, determine_execution_mode
+
+            class _Opts:
+                pass
+
+            opts = _Opts()
+            opts.executor = self._executor_name
+            opts.executor_image = None
+            opts.executor_namespace = None
+            # Map legacy priority flags to no_worker / queued for the resolver.
+            opts.no_worker = False
+            opts.queued = self.priority not in ("direct", None) and not self._executor_name
+
+            task_def: dict = {}
+            if self._executor_name:
+                task_def["executor"] = self._executor_name
+
+            executor = resolve_executor(task_def, opts)
+
+            exec_kwargs = {
+                "priority": self.priority,
+                **self._wrapper_kwargs,
+            }
+
+            mode = determine_execution_mode(opts)
+
+            if mode == "dispatch":
                 self._scheduled = True
-            elif self.priority is None:
-                task = loop.create_task(
-                    self._schedule_task(wrapper, self.worker)
+                coro = executor.dispatch(
+                    self.program, self.task, self.task_id, **exec_kwargs
                 )
-                self._scheduled = True
+                task_obj = loop.create_task(coro)
             else:
-                # Extract which worker to use:
-                try:
-                    from qw.client import QClient
-                    w = WORKERS_LIST[self.priority]
-                    worker = QClient(worker_list=w)
-                except KeyError:
-                    self.logger.error(
-                        f"Worker {self.priority!r} not found in Workers List"
-                    )
-                    worker = self.worker
-                task = loop.create_task(
-                    self._schedule_task(wrapper, worker)
+                coro = executor.run(
+                    self.program, self.task, self.task_id, **exec_kwargs
                 )
-                self._scheduled = True
+                task_obj = loop.create_task(coro)
+
             try:
-                result = loop.run_until_complete(task)
+                exec_result = loop.run_until_complete(task_obj)
+                if hasattr(exec_result, "result"):
+                    # TaskResult
+                    result = exec_result.result
+                elif hasattr(exec_result, "execution_id"):
+                    # ExecutionHandle
+                    result = {"handle": exec_result.execution_id}
+                else:
+                    result = exec_result
                 if hasattr(result, "get"):
                     message = result.get("message", None)
                     self.logger.info(f"SCHED: {message!r}")
@@ -493,25 +507,32 @@ def get_function(job: dict, priority: str = "low", worker: Callable = None):
             func = partial(launch_task, program, task)
             return func
         else:
-            executor = job["executor"]
-            if executor == "default":
-                # Using asyncio Executor
+            executor_name = job.get("executor", "default")
+            if executor_name in ("process",):
+                # Legacy process-pool executor — keep as-is for backward compat.
+                return process_wrapper
+            elif executor_name in ("thread",):
+                # Legacy thread-pool executor — keep as-is for backward compat.
+                func = partial(thread_wrapper, program, task, **params)
+                return func
+            else:
+                # All other executor names (including "default") route via
+                # ExecutorRegistry through the TaskScheduler.
+                from flowtask.executors.registry import ExecutorRegistry
+                resolved_name = executor_name if executor_name != "default" else None
+                # Validate executor exists in registry (raises ExecutorNotFound if not).
+                if resolved_name:
+                    ExecutorRegistry.get(resolved_name)
                 sched = TaskScheduler(
                     program,
                     task,
                     job_id,
                     priority,
                     worker,
+                    executor=resolved_name,
                     **params
                 )
                 sched.__class__.__name__ = f"Task({program}.{task})"
                 return sched
-            elif executor == "process":
-                return process_wrapper
-            elif executor == "thread":
-                func = partial(thread_wrapper, program, task, **params)
-                return func
-            else:
-                raise RuntimeError(f"Error: Executor {executor!r} not supported")
     else:
         return None

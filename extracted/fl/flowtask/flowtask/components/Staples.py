@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from navconfig.logging import logging
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces import HTTPService, SeleniumService
 from ..exceptions import (
     ConfigError,

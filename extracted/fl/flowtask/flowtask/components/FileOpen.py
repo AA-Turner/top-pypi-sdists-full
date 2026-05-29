@@ -3,7 +3,7 @@ import io
 import aiofiles
 from ..exceptions import FileNotFound, FileError
 
-from .FileBase import FileBase
+from ..interfaces.file_base import FileBase
 
 
 class FileOpen(FileBase):

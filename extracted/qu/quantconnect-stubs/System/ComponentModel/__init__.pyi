@@ -132,6 +132,46 @@ class Win32Exception(System.Runtime.InteropServices.ExternalException):
         ...
 
 
+class PropertyChangedEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def property_name(self) -> str:
+        ...
+
+    def __init__(self, property_name: str) -> None:
+        ...
+
+
+class INotifyPropertyChanged(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]:
+        ...
+
+    @property_changed.setter
+    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+
+class TypeDescriptionProviderAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def type_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, type_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, type: typing.Type) -> None:
+        ...
+
+
 class PropertyChangingEventArgs(System.EventArgs):
     """This class has no documentation."""
 
@@ -153,46 +193,6 @@ class INotifyPropertyChanging(metaclass=abc.ABCMeta):
 
     @property_changing.setter
     def property_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangingEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-
-class PropertyChangedEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def property_name(self) -> str:
-        ...
-
-    def __init__(self, property_name: str) -> None:
-        ...
-
-
-class TypeDescriptionProviderAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def type_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, type_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type) -> None:
-        ...
-
-
-class INotifyPropertyChanged(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]:
-        ...
-
-    @property_changed.setter
-    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
 
@@ -256,23 +256,222 @@ class TypeConverterAttribute(System.Attribute):
         ...
 
 
-class RefreshEventArgs(System.EventArgs):
+class License(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def component_changed(self) -> System.Object:
+    @abc.abstractmethod
+    def license_key(self) -> str:
         ...
 
-    @property
-    def type_changed(self) -> typing.Type:
+    def dispose(self) -> None:
+        ...
+
+
+class TypeConverter(System.Object):
+    """This class has no documentation."""
+
+    class SimplePropertyDescriptor(System.ComponentModel.PropertyDescriptor, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        @property
+        def component_type(self) -> typing.Type:
+            ...
+
+        @property
+        def is_read_only(self) -> bool:
+            ...
+
+        @property
+        def property_type(self) -> typing.Type:
+            ...
+
+        @overload
+        def __init__(self, component_type: typing.Type, name: str, property_type: typing.Type) -> None:
+            ...
+
+        @overload
+        def __init__(self, component_type: typing.Type, name: str, property_type: typing.Type, attributes: typing.List[System.Attribute]) -> None:
+            ...
+
+        def can_reset_value(self, component: typing.Any) -> bool:
+            ...
+
+        def reset_value(self, component: typing.Any) -> None:
+            ...
+
+        def should_serialize_value(self, component: typing.Any) -> bool:
+            ...
+
+    class StandardValuesCollection(System.Object, System.Collections.ICollection):
+        """This class has no documentation."""
+
+        @property
+        def count(self) -> int:
+            ...
+
+        def __getitem__(self, index: int) -> typing.Any:
+            ...
+
+        def __init__(self, values: System.Collections.ICollection) -> None:
+            ...
+
+        def __len__(self) -> int:
+            ...
+
+        def copy_to(self, array: System.Array, index: int) -> None:
+            ...
+
+        def get_enumerator(self) -> System.Collections.IEnumerator:
+            ...
+
+    @overload
+    def can_convert_from(self, source_type: typing.Type) -> bool:
         ...
 
     @overload
-    def __init__(self, component_changed: typing.Any) -> None:
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
         ...
 
     @overload
-    def __init__(self, type_changed: typing.Type) -> None:
+    def can_convert_to(self, destination_type: typing.Type) -> bool:
+        ...
+
+    @overload
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    @overload
+    def convert_from(self, value: typing.Any) -> System.Object:
+        ...
+
+    @overload
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    @overload
+    def convert_from_invariant_string(self, text: str) -> System.Object:
+        ...
+
+    @overload
+    def convert_from_invariant_string(self, context: System.ComponentModel.ITypeDescriptorContext, text: str) -> System.Object:
+        ...
+
+    @overload
+    def convert_from_string(self, text: str) -> System.Object:
+        ...
+
+    @overload
+    def convert_from_string(self, context: System.ComponentModel.ITypeDescriptorContext, text: str) -> System.Object:
+        ...
+
+    @overload
+    def convert_from_string(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, text: str) -> System.Object:
+        ...
+
+    @overload
+    def convert_to(self, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+    @overload
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+    @overload
+    def convert_to_invariant_string(self, value: typing.Any) -> str:
+        ...
+
+    @overload
+    def convert_to_invariant_string(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> str:
+        ...
+
+    @overload
+    def convert_to_string(self, value: typing.Any) -> str:
+        ...
+
+    @overload
+    def convert_to_string(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> str:
+        ...
+
+    @overload
+    def convert_to_string(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> str:
+        ...
+
+    @overload
+    def create_instance(self, property_values: System.Collections.IDictionary) -> System.Object:
+        ...
+
+    @overload
+    def create_instance(self, context: System.ComponentModel.ITypeDescriptorContext, property_values: System.Collections.IDictionary) -> System.Object:
+        ...
+
+    def get_convert_from_exception(self, value: typing.Any) -> System.Exception:
+        ...
+
+    def get_convert_to_exception(self, value: typing.Any, destination_type: typing.Type) -> System.Exception:
+        ...
+
+    @overload
+    def get_create_instance_supported(self) -> bool:
+        ...
+
+    @overload
+    def get_create_instance_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    @overload
+    def get_properties(self, value: typing.Any) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    @overload
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    @overload
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    @overload
+    def get_properties_supported(self) -> bool:
+        ...
+
+    @overload
+    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    @overload
+    def get_standard_values(self) -> System.Collections.ICollection:
+        ...
+
+    @overload
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        ...
+
+    @overload
+    def get_standard_values_exclusive(self) -> bool:
+        ...
+
+    @overload
+    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    @overload
+    def get_standard_values_supported(self) -> bool:
+        ...
+
+    @overload
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    @overload
+    def is_valid(self, value: typing.Any) -> bool:
+        ...
+
+    @overload
+    def is_valid(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
+        ...
+
+    def sort_properties(self, props: System.ComponentModel.PropertyDescriptorCollection, names: typing.List[str]) -> System.ComponentModel.PropertyDescriptorCollection:
         ...
 
 
@@ -564,6 +763,82 @@ class ITypeDescriptorContext(IServiceProvider, metaclass=abc.ABCMeta):
         ...
 
 
+class BaseNumberConverter(System.ComponentModel.TypeConverter, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+
+class UInt128Converter(System.ComponentModel.BaseNumberConverter):
+    """This class has no documentation."""
+
+
+class PasswordPropertyTextAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    YES: System.ComponentModel.PasswordPropertyTextAttribute = ...
+
+    NO: System.ComponentModel.PasswordPropertyTextAttribute = ...
+
+    DEFAULT: System.ComponentModel.PasswordPropertyTextAttribute = ...
+
+    @property
+    def password(self) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, password: bool) -> None:
+        ...
+
+    def equals(self, o: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class CollectionChangeAction(IntEnum):
+    """This class has no documentation."""
+
+    ADD = 1
+
+    REMOVE = 2
+
+    REFRESH = 3
+
+
+class CollectionChangeEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def action(self) -> System.ComponentModel.CollectionChangeAction:
+        ...
+
+    @property
+    def element(self) -> System.Object:
+        ...
+
+    def __init__(self, action: System.ComponentModel.CollectionChangeAction, element: typing.Any) -> None:
+        ...
+
+
 class PropertyDescriptorCollection(System.Object, System.Collections.IList, System.Collections.IDictionary):
     """This class has no documentation."""
 
@@ -647,210 +922,118 @@ class PropertyDescriptorCollection(System.Object, System.Collections.IList, Syst
         ...
 
 
-class TypeConverter(System.Object):
+class CollectionConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
-    class SimplePropertyDescriptor(System.ComponentModel.PropertyDescriptor, metaclass=abc.ABCMeta):
-        """This class has no documentation."""
-
-        @property
-        def component_type(self) -> typing.Type:
-            ...
-
-        @property
-        def is_read_only(self) -> bool:
-            ...
-
-        @property
-        def property_type(self) -> typing.Type:
-            ...
-
-        @overload
-        def __init__(self, component_type: typing.Type, name: str, property_type: typing.Type) -> None:
-            ...
-
-        @overload
-        def __init__(self, component_type: typing.Type, name: str, property_type: typing.Type, attributes: typing.List[System.Attribute]) -> None:
-            ...
-
-        def can_reset_value(self, component: typing.Any) -> bool:
-            ...
-
-        def reset_value(self, component: typing.Any) -> None:
-            ...
-
-        def should_serialize_value(self, component: typing.Any) -> bool:
-            ...
-
-    class StandardValuesCollection(System.Object, System.Collections.ICollection):
-        """This class has no documentation."""
-
-        @property
-        def count(self) -> int:
-            ...
-
-        def __getitem__(self, index: int) -> typing.Any:
-            ...
-
-        def __init__(self, values: System.Collections.ICollection) -> None:
-            ...
-
-        def __len__(self) -> int:
-            ...
-
-        def copy_to(self, array: System.Array, index: int) -> None:
-            ...
-
-        def get_enumerator(self) -> System.Collections.IEnumerator:
-            ...
-
-    @overload
-    def can_convert_from(self, source_type: typing.Type) -> bool:
-        ...
-
-    @overload
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    @overload
-    def can_convert_to(self, destination_type: typing.Type) -> bool:
-        ...
-
-    @overload
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    @overload
-    def convert_from(self, value: typing.Any) -> System.Object:
-        ...
-
-    @overload
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    @overload
-    def convert_from_invariant_string(self, text: str) -> System.Object:
-        ...
-
-    @overload
-    def convert_from_invariant_string(self, context: System.ComponentModel.ITypeDescriptorContext, text: str) -> System.Object:
-        ...
-
-    @overload
-    def convert_from_string(self, text: str) -> System.Object:
-        ...
-
-    @overload
-    def convert_from_string(self, context: System.ComponentModel.ITypeDescriptorContext, text: str) -> System.Object:
-        ...
-
-    @overload
-    def convert_from_string(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, text: str) -> System.Object:
-        ...
-
-    @overload
-    def convert_to(self, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-    @overload
     def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
         ...
 
-    @overload
-    def convert_to_invariant_string(self, value: typing.Any) -> str:
-        ...
-
-    @overload
-    def convert_to_invariant_string(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> str:
-        ...
-
-    @overload
-    def convert_to_string(self, value: typing.Any) -> str:
-        ...
-
-    @overload
-    def convert_to_string(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> str:
-        ...
-
-    @overload
-    def convert_to_string(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> str:
-        ...
-
-    @overload
-    def create_instance(self, property_values: System.Collections.IDictionary) -> System.Object:
-        ...
-
-    @overload
-    def create_instance(self, context: System.ComponentModel.ITypeDescriptorContext, property_values: System.Collections.IDictionary) -> System.Object:
-        ...
-
-    def get_convert_from_exception(self, value: typing.Any) -> System.Exception:
-        ...
-
-    def get_convert_to_exception(self, value: typing.Any, destination_type: typing.Type) -> System.Exception:
-        ...
-
-    @overload
-    def get_create_instance_supported(self) -> bool:
-        ...
-
-    @overload
-    def get_create_instance_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-    @overload
-    def get_properties(self, value: typing.Any) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    @overload
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    @overload
     def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
         ...
 
+
+class ByteConverter(System.ComponentModel.BaseNumberConverter):
+    """This class has no documentation."""
+
+
+class DesignTimeVisibleAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def visible(self) -> bool:
+        ...
+
+    YES: System.ComponentModel.DesignTimeVisibleAttribute = ...
+
+    NO: System.ComponentModel.DesignTimeVisibleAttribute = ...
+
+    DEFAULT: System.ComponentModel.DesignTimeVisibleAttribute = ...
+
     @overload
-    def get_properties_supported(self) -> bool:
+    def __init__(self, visible: bool) -> None:
         ...
 
     @overload
-    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+    def __init__(self) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class DefaultBindingPropertyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def name(self) -> str:
+        ...
+
+    DEFAULT: System.ComponentModel.DefaultBindingPropertyAttribute = ...
+
+    @overload
+    def __init__(self) -> None:
         ...
 
     @overload
-    def get_standard_values(self) -> System.Collections.ICollection:
+    def __init__(self, name: str) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class BindableSupport(IntEnum):
+    """This class has no documentation."""
+
+    NO = ...
+
+    YES = ...
+
+    DEFAULT = ...
+
+
+class HandledEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def handled(self) -> bool:
+        ...
+
+    @handled.setter
+    def handled(self, value: bool) -> None:
         ...
 
     @overload
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+    def __init__(self) -> None:
         ...
 
     @overload
-    def get_standard_values_exclusive(self) -> bool:
+    def __init__(self, default_handled_value: bool) -> None:
         ...
 
-    @overload
-    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+
+class SyntaxCheck(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def check_machine_name(value: str) -> bool:
         ...
 
-    @overload
-    def get_standard_values_supported(self) -> bool:
+    @staticmethod
+    def check_path(value: str) -> bool:
         ...
 
-    @overload
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-    @overload
-    def is_valid(self, value: typing.Any) -> bool:
-        ...
-
-    @overload
-    def is_valid(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
-        ...
-
-    def sort_properties(self, props: System.ComponentModel.PropertyDescriptorCollection, names: typing.List[str]) -> System.ComponentModel.PropertyDescriptorCollection:
+    @staticmethod
+    def check_rooted_path(value: str) -> bool:
         ...
 
 
@@ -888,6 +1071,122 @@ class EventDescriptor(System.ComponentModel.MemberDescriptor, metaclass=abc.ABCM
         ...
 
     def remove_event_handler(self, component: typing.Any, value: System.Delegate) -> None:
+        ...
+
+
+class ToolboxItemAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    DEFAULT: System.ComponentModel.ToolboxItemAttribute = ...
+
+    NONE: System.ComponentModel.ToolboxItemAttribute = ...
+
+    @property
+    def toolbox_item_type(self) -> typing.Type:
+        ...
+
+    @property
+    def toolbox_item_type_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, default_type: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, toolbox_item_type_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, toolbox_item_type: typing.Type) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class ToolboxItemFilterType(IntEnum):
+    """This class has no documentation."""
+
+    ALLOW = 0
+
+    CUSTOM = 1
+
+    PREVENT = 2
+
+    REQUIRE = 3
+
+
+class DateTimeOffsetConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+
+class IIntellisenseBuilder(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        ...
+
+    def show(self, language: str, value: str, new_value: str) -> bool:
+        ...
+
+
+class RunInstallerAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def run_installer(self) -> bool:
+        ...
+
+    YES: System.ComponentModel.RunInstallerAttribute = ...
+
+    NO: System.ComponentModel.RunInstallerAttribute = ...
+
+    DEFAULT: System.ComponentModel.RunInstallerAttribute = ...
+
+    def __init__(self, run_installer: bool) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class ExpandableObjectConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
         ...
 
 
@@ -971,6 +1270,131 @@ class EventDescriptorCollection(System.Object, System.Collections.IList):
         ...
 
 
+class DateTimeConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+
+class DoubleConverter(System.ComponentModel.BaseNumberConverter):
+    """This class has no documentation."""
+
+
+class ArrayConverter(System.ComponentModel.CollectionConverter):
+    """This class has no documentation."""
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+
+class LicenseUsageMode(IntEnum):
+    """This class has no documentation."""
+
+    RUNTIME = 0
+
+    DESIGNTIME = 1
+
+
+class LicenseContext:
+    """This class has no documentation."""
+
+    @property
+    def usage_mode(self) -> System.ComponentModel.LicenseUsageMode:
+        ...
+
+    def get_saved_license_key(self, type: typing.Type, resource_assembly: System.Reflection.Assembly) -> str:
+        ...
+
+    def get_service(self, type: typing.Type) -> System.Object:
+        ...
+
+    def set_saved_license_key(self, type: typing.Type, key: str) -> None:
+        ...
+
+
+class LicenseProvider(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_license(self, context: System.ComponentModel.LicenseContext, type: typing.Type, instance: typing.Any, allow_exceptions: bool) -> System.ComponentModel.License:
+        ...
+
+
+class InstallerTypeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def installer_type(self) -> typing.Type:
+        ...
+
+    @overload
+    def __init__(self, installer_type: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, type_name: str) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class AmbientValueAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.Object:
+        ...
+
+    @overload
+    def __init__(self, type: typing.Type, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
 class IComNativeDescriptorHandler(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -1015,251 +1439,33 @@ class IComNativeDescriptorHandler(metaclass=abc.ABCMeta):
         ...
 
 
-class TimeSpanConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-
-class TimeOnlyConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-
-class INestedContainer(System.ComponentModel.IContainer, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def owner(self) -> System.ComponentModel.IComponent:
-        ...
-
-
-class IExtenderProvider(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def can_extend(self, extendee: typing.Any) -> bool:
-        ...
-
-
-class CollectionChangeAction(IntEnum):
-    """This class has no documentation."""
-
-    ADD = 1
-
-    REMOVE = 2
-
-    REFRESH = 3
-
-
-class CollectionChangeEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def action(self) -> System.ComponentModel.CollectionChangeAction:
-        ...
-
-    @property
-    def element(self) -> System.Object:
-        ...
-
-    def __init__(self, action: System.ComponentModel.CollectionChangeAction, element: typing.Any) -> None:
-        ...
-
-
-class ComponentEditor(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
+class _Typed_TypeDescriptor_RegisterType(typing.Generic[System_ComponentModel_TypeDescriptor_RegisterType_T]):
+    """"""
 
     @overload
-    def edit_component(self, component: typing.Any) -> bool:
+    def __call__(self) -> None:
         ...
+
+
+class _TypeDescriptor_RegisterType:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_ComponentModel_TypeDescriptor_RegisterType_T]) -> System.ComponentModel._Typed_TypeDescriptor_RegisterType[System_ComponentModel_TypeDescriptor_RegisterType_T]:
+        ...
+
+
+class _Typed_TypeDescriptionProvider_RegisterType(typing.Generic[System_ComponentModel_TypeDescriptionProvider_RegisterType_T]):
+    """"""
 
     @overload
-    def edit_component(self, context: System.ComponentModel.ITypeDescriptorContext, component: typing.Any) -> bool:
+    def __call__(self) -> None:
         ...
 
 
-class BaseNumberConverter(System.ComponentModel.TypeConverter, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
+class _TypeDescriptionProvider_RegisterType:
+    """"""
 
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-
-class SByteConverter(System.ComponentModel.BaseNumberConverter):
-    """This class has no documentation."""
-
-
-class ListSortDirection(IntEnum):
-    """This class has no documentation."""
-
-    ASCENDING = 0
-
-    DESCENDING = 1
-
-
-class ListSortDescription(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def property_descriptor(self) -> System.ComponentModel.PropertyDescriptor:
-        ...
-
-    @property_descriptor.setter
-    def property_descriptor(self, value: System.ComponentModel.PropertyDescriptor) -> None:
-        ...
-
-    @property
-    def sort_direction(self) -> System.ComponentModel.ListSortDirection:
-        ...
-
-    @sort_direction.setter
-    def sort_direction(self, value: System.ComponentModel.ListSortDirection) -> None:
-        ...
-
-    def __init__(self, property: System.ComponentModel.PropertyDescriptor, direction: System.ComponentModel.ListSortDirection) -> None:
-        ...
-
-
-class RecommendedAsConfigurableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def recommended_as_configurable(self) -> bool:
-        ...
-
-    NO: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
-
-    YES: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
-
-    DEFAULT: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
-
-    def __init__(self, recommended_as_configurable: bool) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-
-class MultilineStringConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-
-class DefaultBindingPropertyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def name(self) -> str:
-        ...
-
-    DEFAULT: System.ComponentModel.DefaultBindingPropertyAttribute = ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class DateTimeOffsetConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-
-class CollectionConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-
-class ArrayConverter(System.ComponentModel.CollectionConverter):
-    """This class has no documentation."""
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-
-class ICancelAddNew(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def cancel_new(self, item_index: int) -> None:
-        ...
-
-    def end_new(self, item_index: int) -> None:
+    def __getitem__(self, type: typing.Type[System_ComponentModel_TypeDescriptionProvider_RegisterType_T]) -> System.ComponentModel._Typed_TypeDescriptionProvider_RegisterType[System_ComponentModel_TypeDescriptionProvider_RegisterType_T]:
         ...
 
 
@@ -1318,538 +1524,6 @@ class ICustomTypeDescriptor(metaclass=abc.ABCMeta):
         ...
 
     def get_property_owner(self, pd: System.ComponentModel.PropertyDescriptor) -> System.Object:
-        ...
-
-
-class CustomTypeDescriptor(System.Object, System.ComponentModel.ICustomTypeDescriptor, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def require_registered_types(self) -> typing.Optional[bool]:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, parent: System.ComponentModel.ICustomTypeDescriptor) -> None:
-        ...
-
-    def get_attributes(self) -> System.ComponentModel.AttributeCollection:
-        ...
-
-    def get_class_name(self) -> str:
-        ...
-
-    def get_component_name(self) -> str:
-        ...
-
-    def get_converter(self) -> System.ComponentModel.TypeConverter:
-        ...
-
-    def get_converter_from_registered_type(self) -> System.ComponentModel.TypeConverter:
-        ...
-
-    def get_default_event(self) -> System.ComponentModel.EventDescriptor:
-        ...
-
-    def get_default_property(self) -> System.ComponentModel.PropertyDescriptor:
-        ...
-
-    def get_editor(self, editor_base_type: typing.Type) -> System.Object:
-        ...
-
-    @overload
-    def get_events(self) -> System.ComponentModel.EventDescriptorCollection:
-        ...
-
-    @overload
-    def get_events(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.EventDescriptorCollection:
-        ...
-
-    def get_events_from_registered_type(self) -> System.ComponentModel.EventDescriptorCollection:
-        ...
-
-    @overload
-    def get_properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    @overload
-    def get_properties(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    def get_properties_from_registered_type(self) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    def get_property_owner(self, pd: System.ComponentModel.PropertyDescriptor) -> System.Object:
-        ...
-
-
-class ITypedList(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_item_properties(self, list_accessors: typing.List[System.ComponentModel.PropertyDescriptor]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    def get_list_name(self, list_accessors: typing.List[System.ComponentModel.PropertyDescriptor]) -> str:
-        ...
-
-
-class DefaultEventAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def name(self) -> str:
-        ...
-
-    DEFAULT: System.ComponentModel.DefaultEventAttribute = ...
-
-    def __init__(self, name: str) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class MaskedTextResultHint(IntEnum):
-    """This class has no documentation."""
-
-    UNKNOWN = 0
-
-    CHARACTER_ESCAPED = 1
-
-    NO_EFFECT = 2
-
-    SIDE_EFFECT = 3
-
-    SUCCESS = 4
-
-    ASCII_CHARACTER_EXPECTED = -1
-
-    ALPHANUMERIC_CHARACTER_EXPECTED = -2
-
-    DIGIT_EXPECTED = -3
-
-    LETTER_EXPECTED = -4
-
-    SIGNED_DIGIT_EXPECTED = -5
-
-    INVALID_INPUT = -51
-
-    PROMPT_CHAR_NOT_ALLOWED = -52
-
-    UNAVAILABLE_EDIT_POSITION = -53
-
-    NON_EDIT_POSITION = -54
-
-    POSITION_OUT_OF_RANGE = -55
-
-
-class UInt128Converter(System.ComponentModel.BaseNumberConverter):
-    """This class has no documentation."""
-
-
-class InstanceCreationEditor(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def text(self) -> str:
-        ...
-
-    def create_instance(self, context: System.ComponentModel.ITypeDescriptorContext, instance_type: typing.Type) -> System.Object:
-        ...
-
-
-class AddingNewEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def new_object(self) -> System.Object:
-        ...
-
-    @new_object.setter
-    def new_object(self, value: System.Object) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, new_object: typing.Any) -> None:
-        ...
-
-
-class ExpandableObjectConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-
-class DecimalConverter(System.ComponentModel.BaseNumberConverter):
-    """This class has no documentation."""
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-
-class LookupBindingPropertiesAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def data_source(self) -> str:
-        ...
-
-    @property
-    def display_member(self) -> str:
-        ...
-
-    @property
-    def value_member(self) -> str:
-        ...
-
-    @property
-    def lookup_member(self) -> str:
-        ...
-
-    DEFAULT: System.ComponentModel.LookupBindingPropertiesAttribute = ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, data_source: str, display_member: str, value_member: str, lookup_member: str) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class BooleanConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        ...
-
-    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-
-class License(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def license_key(self) -> str:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-
-class LicenseUsageMode(IntEnum):
-    """This class has no documentation."""
-
-    RUNTIME = 0
-
-    DESIGNTIME = 1
-
-
-class LicenseContext:
-    """This class has no documentation."""
-
-    @property
-    def usage_mode(self) -> System.ComponentModel.LicenseUsageMode:
-        ...
-
-    def get_saved_license_key(self, type: typing.Type, resource_assembly: System.Reflection.Assembly) -> str:
-        ...
-
-    def get_service(self, type: typing.Type) -> System.Object:
-        ...
-
-    def set_saved_license_key(self, type: typing.Type, key: str) -> None:
-        ...
-
-
-class LicenseProvider(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_license(self, context: System.ComponentModel.LicenseContext, type: typing.Type, instance: typing.Any, allow_exceptions: bool) -> System.ComponentModel.License:
-        ...
-
-
-class ToolboxItemFilterType(IntEnum):
-    """This class has no documentation."""
-
-    ALLOW = 0
-
-    CUSTOM = 1
-
-    PREVENT = 2
-
-    REQUIRE = 3
-
-
-class ToolboxItemFilterAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def filter_string(self) -> str:
-        ...
-
-    @property
-    def filter_type(self) -> System.ComponentModel.ToolboxItemFilterType:
-        ...
-
-    @property
-    def type_id(self) -> System.Object:
-        ...
-
-    @overload
-    def __init__(self, filter_string: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, filter_string: str, filter_type: System.ComponentModel.ToolboxItemFilterType) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def match(self, obj: typing.Any) -> bool:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class Int16Converter(System.ComponentModel.BaseNumberConverter):
-    """This class has no documentation."""
-
-
-class ListChangedType(IntEnum):
-    """This class has no documentation."""
-
-    RESET = 0
-
-    ITEM_ADDED = 1
-
-    ITEM_DELETED = 2
-
-    ITEM_MOVED = 3
-
-    ITEM_CHANGED = 4
-
-    PROPERTY_DESCRIPTOR_ADDED = 5
-
-    PROPERTY_DESCRIPTOR_DELETED = 6
-
-    PROPERTY_DESCRIPTOR_CHANGED = 7
-
-
-class AttributeProviderAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def type_name(self) -> str:
-        ...
-
-    @property
-    def property_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, type_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, type_name: str, property_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type) -> None:
-        ...
-
-
-class IDataErrorInfo(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def error(self) -> str:
-        ...
-
-    def __getitem__(self, column_name: str) -> str:
-        ...
-
-
-class ProvidePropertyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def property_name(self) -> str:
-        ...
-
-    @property
-    def receiver_type_name(self) -> str:
-        ...
-
-    @property
-    def type_id(self) -> System.Object:
-        ...
-
-    @overload
-    def __init__(self, property_name: str, receiver_type: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, property_name: str, receiver_type_name: str) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class DataObjectMethodType(IntEnum):
-    """This class has no documentation."""
-
-    FILL = 0
-
-    SELECT = 1
-
-    UPDATE = 2
-
-    INSERT = 3
-
-    DELETE = 4
-
-
-class DataObjectMethodAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def is_default(self) -> bool:
-        ...
-
-    @property
-    def method_type(self) -> System.ComponentModel.DataObjectMethodType:
-        ...
-
-    @overload
-    def __init__(self, method_type: System.ComponentModel.DataObjectMethodType) -> None:
-        ...
-
-    @overload
-    def __init__(self, method_type: System.ComponentModel.DataObjectMethodType, is_default: bool) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def match(self, obj: typing.Any) -> bool:
-        ...
-
-
-class ListChangedEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def list_changed_type(self) -> System.ComponentModel.ListChangedType:
-        ...
-
-    @property
-    def new_index(self) -> int:
-        ...
-
-    @property
-    def old_index(self) -> int:
-        ...
-
-    @property
-    def property_descriptor(self) -> System.ComponentModel.PropertyDescriptor:
-        ...
-
-    @overload
-    def __init__(self, list_changed_type: System.ComponentModel.ListChangedType, new_index: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, list_changed_type: System.ComponentModel.ListChangedType, new_index: int, prop_desc: System.ComponentModel.PropertyDescriptor) -> None:
-        ...
-
-    @overload
-    def __init__(self, list_changed_type: System.ComponentModel.ListChangedType, prop_desc: System.ComponentModel.PropertyDescriptor) -> None:
-        ...
-
-    @overload
-    def __init__(self, list_changed_type: System.ComponentModel.ListChangedType, new_index: int, old_index: int) -> None:
-        ...
-
-
-class _Typed_TypeDescriptor_RegisterType(typing.Generic[System_ComponentModel_TypeDescriptor_RegisterType_T]):
-    """"""
-
-    @overload
-    def __call__(self) -> None:
-        ...
-
-
-class _TypeDescriptor_RegisterType:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_ComponentModel_TypeDescriptor_RegisterType_T]) -> System.ComponentModel._Typed_TypeDescriptor_RegisterType[System_ComponentModel_TypeDescriptor_RegisterType_T]:
-        ...
-
-
-class _Typed_TypeDescriptionProvider_RegisterType(typing.Generic[System_ComponentModel_TypeDescriptionProvider_RegisterType_T]):
-    """"""
-
-    @overload
-    def __call__(self) -> None:
-        ...
-
-
-class _TypeDescriptionProvider_RegisterType:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_ComponentModel_TypeDescriptionProvider_RegisterType_T]) -> System.ComponentModel._Typed_TypeDescriptionProvider_RegisterType[System_ComponentModel_TypeDescriptionProvider_RegisterType_T]:
         ...
 
 
@@ -1930,6 +1604,26 @@ class TypeDescriptionProvider(System.Object, metaclass=abc.ABCMeta):
         ...
 
     def is_supported_type(self, type: typing.Type) -> bool:
+        ...
+
+
+class RefreshEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def component_changed(self) -> System.Object:
+        ...
+
+    @property
+    def type_changed(self) -> typing.Type:
+        ...
+
+    @overload
+    def __init__(self, component_changed: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, type_changed: typing.Type) -> None:
         ...
 
 
@@ -2277,68 +1971,8 @@ class TypeDescriptor(System.Object):
         ...
 
 
-class SyntaxCheck(System.Object):
+class CultureInfoConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
-
-    @staticmethod
-    def check_machine_name(value: str) -> bool:
-        ...
-
-    @staticmethod
-    def check_path(value: str) -> bool:
-        ...
-
-    @staticmethod
-    def check_rooted_path(value: str) -> bool:
-        ...
-
-
-class SettingsBindableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    YES: System.ComponentModel.SettingsBindableAttribute = ...
-
-    NO: System.ComponentModel.SettingsBindableAttribute = ...
-
-    @property
-    def bindable(self) -> bool:
-        ...
-
-    def __init__(self, bindable: bool) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class UInt32Converter(System.ComponentModel.BaseNumberConverter):
-    """This class has no documentation."""
-
-
-class EnumConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    @property
-    def enum_type(self) -> typing.Type:
-        ...
-
-    @property
-    def values(self) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        ...
-
-    @values.setter
-    def values(self, value: System.ComponentModel.TypeConverter.StandardValuesCollection) -> None:
-        ...
-
-    @property
-    def comparer(self) -> System.Collections.IComparer:
-        ...
-
-    def __init__(self, type: typing.Type) -> None:
-        ...
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
         ...
@@ -2350,6 +1984,9 @@ class EnumConverter(System.ComponentModel.TypeConverter):
         ...
 
     def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+    def get_culture_name(self, culture: System.Globalization.CultureInfo) -> str:
         ...
 
     def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
@@ -2361,78 +1998,135 @@ class EnumConverter(System.ComponentModel.TypeConverter):
     def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
         ...
 
-    def is_valid(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
-        ...
 
-
-class DateTimeConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-
-class GuidConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-
-class ByteConverter(System.ComponentModel.BaseNumberConverter):
-    """This class has no documentation."""
-
-
-class MarshalByValueComponent(System.Object, System.ComponentModel.IComponent, IServiceProvider):
+class INestedSite(System.ComponentModel.ISite, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def disposed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+    @abc.abstractmethod
+    def full_name(self) -> str:
         ...
 
-    @disposed.setter
-    def disposed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
+
+class LicFileLicenseProvider(System.ComponentModel.LicenseProvider):
+    """This class has no documentation."""
+
+    def get_key(self, type: typing.Type) -> str:
         ...
+
+    def get_license(self, context: System.ComponentModel.LicenseContext, type: typing.Type, instance: typing.Any, allow_exceptions: bool) -> System.ComponentModel.License:
+        ...
+
+    def is_key_valid(self, key: str, type: typing.Type) -> bool:
+        ...
+
+
+class SingleConverter(System.ComponentModel.BaseNumberConverter):
+    """This class has no documentation."""
+
+
+class DefaultPropertyAttribute(System.Attribute):
+    """This class has no documentation."""
 
     @property
-    def events(self) -> System.ComponentModel.EventHandlerList:
+    def name(self) -> str:
         ...
+
+    DEFAULT: System.ComponentModel.DefaultPropertyAttribute = ...
+
+    def __init__(self, name: str) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class RecommendedAsConfigurableAttribute(System.Attribute):
+    """This class has no documentation."""
 
     @property
-    def site(self) -> System.ComponentModel.ISite:
+    def recommended_as_configurable(self) -> bool:
         ...
 
-    @site.setter
-    def site(self, value: System.ComponentModel.ISite) -> None:
+    NO: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
+
+    YES: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
+
+    DEFAULT: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
+
+    def __init__(self, recommended_as_configurable: bool) -> None:
         ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class ComponentEditor(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @overload
+    def edit_component(self, component: typing.Any) -> bool:
+        ...
+
+    @overload
+    def edit_component(self, context: System.ComponentModel.ITypeDescriptorContext, component: typing.Any) -> bool:
+        ...
+
+
+class ITypedList(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_item_properties(self, list_accessors: typing.List[System.ComponentModel.PropertyDescriptor]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    def get_list_name(self, list_accessors: typing.List[System.ComponentModel.PropertyDescriptor]) -> str:
+        ...
+
+
+class DefaultEventAttribute(System.Attribute):
+    """This class has no documentation."""
 
     @property
-    def container(self) -> System.ComponentModel.IContainer:
+    def name(self) -> str:
         ...
+
+    DEFAULT: System.ComponentModel.DefaultEventAttribute = ...
+
+    def __init__(self, name: str) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class Container(System.Object, System.ComponentModel.IContainer):
+    """This class has no documentation."""
 
     @property
-    def design_mode(self) -> bool:
+    def components(self) -> System.ComponentModel.ComponentCollection:
         ...
 
-    def __init__(self) -> None:
+    @overload
+    def add(self, component: System.ComponentModel.IComponent) -> None:
+        ...
+
+    @overload
+    def add(self, component: System.ComponentModel.IComponent, name: str) -> None:
+        ...
+
+    def create_site(self, component: System.ComponentModel.IComponent, name: str) -> System.ComponentModel.ISite:
         ...
 
     @overload
@@ -2446,38 +2140,144 @@ class MarshalByValueComponent(System.Object, System.ComponentModel.IComponent, I
     def get_service(self, service: typing.Type) -> System.Object:
         ...
 
-    def to_string(self) -> str:
+    def remove(self, component: System.ComponentModel.IComponent) -> None:
+        ...
+
+    def remove_without_unsiting(self, component: System.ComponentModel.IComponent) -> None:
+        ...
+
+    def validate_name(self, component: System.ComponentModel.IComponent, name: str) -> None:
         ...
 
 
-class DesignTimeVisibleAttribute(System.Attribute):
+class INestedContainer(System.ComponentModel.IContainer, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def visible(self) -> bool:
+    @abc.abstractmethod
+    def owner(self) -> System.ComponentModel.IComponent:
         ...
 
-    YES: System.ComponentModel.DesignTimeVisibleAttribute = ...
 
-    NO: System.ComponentModel.DesignTimeVisibleAttribute = ...
+class NestedContainer(System.ComponentModel.Container, System.ComponentModel.INestedContainer):
+    """This class has no documentation."""
 
-    DEFAULT: System.ComponentModel.DesignTimeVisibleAttribute = ...
+    @property
+    def owner(self) -> System.ComponentModel.IComponent:
+        ...
+
+    @property
+    def owner_name(self) -> str:
+        ...
+
+    def __init__(self, owner: System.ComponentModel.IComponent) -> None:
+        ...
+
+    def create_site(self, component: System.ComponentModel.IComponent, name: str) -> System.ComponentModel.ISite:
+        ...
+
+    def dispose(self, disposing: bool) -> None:
+        ...
+
+    def get_service(self, service: typing.Type) -> System.Object:
+        ...
+
+
+class StringConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+
+class Int64Converter(System.ComponentModel.BaseNumberConverter):
+    """This class has no documentation."""
+
+
+class ICancelAddNew(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def cancel_new(self, item_index: int) -> None:
+        ...
+
+    def end_new(self, item_index: int) -> None:
+        ...
+
+
+class AttributeProviderAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def type_name(self) -> str:
+        ...
+
+    @property
+    def property_name(self) -> str:
+        ...
 
     @overload
-    def __init__(self, visible: bool) -> None:
+    def __init__(self, type_name: str) -> None:
         ...
 
     @overload
-    def __init__(self) -> None:
+    def __init__(self, type_name: str, property_name: str) -> None:
         ...
 
-    def equals(self, obj: typing.Any) -> bool:
+    @overload
+    def __init__(self, type: typing.Type) -> None:
         ...
 
-    def get_hash_code(self) -> int:
+
+class LicenseManager(System.Object):
+    """This class has no documentation."""
+
+    current_context: System.ComponentModel.LicenseContext
+
+    USAGE_MODE: System.ComponentModel.LicenseUsageMode
+
+    @staticmethod
+    @overload
+    def create_with_context(type: typing.Type, creation_context: System.ComponentModel.LicenseContext) -> System.Object:
         ...
 
-    def is_default_attribute(self) -> bool:
+    @staticmethod
+    @overload
+    def create_with_context(type: typing.Type, creation_context: System.ComponentModel.LicenseContext, args: typing.List[System.Object]) -> System.Object:
+        ...
+
+    @staticmethod
+    def is_licensed(type: typing.Type) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_valid(type: typing.Type) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_valid(type: typing.Type, instance: typing.Any, license: typing.Optional[System.ComponentModel.License]) -> typing.Tuple[bool, System.ComponentModel.License]:
+        ...
+
+    @staticmethod
+    def lock_context(context_user: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def unlock_context(context_user: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def validate(type: typing.Type) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def validate(type: typing.Type, instance: typing.Any) -> System.ComponentModel.License:
         ...
 
 
@@ -2499,12 +2299,11 @@ class ISupportInitializeNotification(System.ComponentModel.ISupportInitialize, m
         ...
 
 
-class UInt64Converter(System.ComponentModel.BaseNumberConverter):
+class ReferenceConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
-
-class StringConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
+    def __init__(self, type: typing.Type) -> None:
+        ...
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
         ...
@@ -2512,35 +2311,83 @@ class StringConverter(System.ComponentModel.TypeConverter):
     def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
         ...
 
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
 
-class InstallerTypeAttribute(System.Attribute):
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        ...
+
+    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    def is_value_allowed(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
+        ...
+
+
+class ListSortDirection(IntEnum):
+    """This class has no documentation."""
+
+    ASCENDING = 0
+
+    DESCENDING = 1
+
+
+class ListChangedType(IntEnum):
+    """This class has no documentation."""
+
+    RESET = 0
+
+    ITEM_ADDED = 1
+
+    ITEM_DELETED = 2
+
+    ITEM_MOVED = 3
+
+    ITEM_CHANGED = 4
+
+    PROPERTY_DESCRIPTOR_ADDED = 5
+
+    PROPERTY_DESCRIPTOR_DELETED = 6
+
+    PROPERTY_DESCRIPTOR_CHANGED = 7
+
+
+class ListChangedEventArgs(System.EventArgs):
     """This class has no documentation."""
 
     @property
-    def installer_type(self) -> typing.Type:
+    def list_changed_type(self) -> System.ComponentModel.ListChangedType:
         ...
-
-    @overload
-    def __init__(self, installer_type: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, type_name: str) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class INestedSite(System.ComponentModel.ISite, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
 
     @property
-    @abc.abstractmethod
-    def full_name(self) -> str:
+    def new_index(self) -> int:
+        ...
+
+    @property
+    def old_index(self) -> int:
+        ...
+
+    @property
+    def property_descriptor(self) -> System.ComponentModel.PropertyDescriptor:
+        ...
+
+    @overload
+    def __init__(self, list_changed_type: System.ComponentModel.ListChangedType, new_index: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, list_changed_type: System.ComponentModel.ListChangedType, new_index: int, prop_desc: System.ComponentModel.PropertyDescriptor) -> None:
+        ...
+
+    @overload
+    def __init__(self, list_changed_type: System.ComponentModel.ListChangedType, prop_desc: System.ComponentModel.PropertyDescriptor) -> None:
+        ...
+
+    @overload
+    def __init__(self, list_changed_type: System.ComponentModel.ListChangedType, new_index: int, old_index: int) -> None:
         ...
 
 
@@ -2620,14 +2467,29 @@ class IBindingList(System.Collections.IList, metaclass=abc.ABCMeta):
         ...
 
 
-class ListSortDescriptionCollection(System.Object, System.Collections.IList):
+class InheritanceLevel(IntEnum):
     """This class has no documentation."""
 
-    @property
-    def count(self) -> int:
-        ...
+    INHERITED = 1
 
-    def __getitem__(self, index: int) -> System.ComponentModel.ListSortDescription:
+    INHERITED_READ_ONLY = 2
+
+    NOT_INHERITED = 3
+
+
+class InheritanceAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    INHERITED: System.ComponentModel.InheritanceAttribute = ...
+
+    INHERITED_READ_ONLY: System.ComponentModel.InheritanceAttribute = ...
+
+    NOT_INHERITED: System.ComponentModel.InheritanceAttribute = ...
+
+    DEFAULT: System.ComponentModel.InheritanceAttribute = ...
+
+    @property
+    def inheritance_level(self) -> System.ComponentModel.InheritanceLevel:
         ...
 
     @overload
@@ -2635,211 +2497,130 @@ class ListSortDescriptionCollection(System.Object, System.Collections.IList):
         ...
 
     @overload
-    def __init__(self, sorts: typing.List[System.ComponentModel.ListSortDescription]) -> None:
+    def __init__(self, inheritance_level: System.ComponentModel.InheritanceLevel) -> None:
         ...
 
-    def __len__(self) -> int:
+    def equals(self, value: typing.Any) -> bool:
         ...
 
-    def __setitem__(self, index: int, value: System.ComponentModel.ListSortDescription) -> None:
+    def get_hash_code(self) -> int:
         ...
 
-    def contains(self, value: typing.Any) -> bool:
+    def is_default_attribute(self) -> bool:
         ...
 
-    def copy_to(self, array: System.Array, index: int) -> None:
-        ...
-
-    def index_of(self, value: typing.Any) -> int:
+    def to_string(self) -> str:
         ...
 
 
-class IBindingListView(System.ComponentModel.IBindingList, metaclass=abc.ABCMeta):
+class LicenseException(System.SystemException):
     """This class has no documentation."""
 
     @property
-    @abc.abstractmethod
-    def filter(self) -> str:
-        ...
-
-    @filter.setter
-    def filter(self, value: str) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def sort_descriptions(self) -> System.ComponentModel.ListSortDescriptionCollection:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def supports_advanced_sorting(self) -> bool:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def supports_filtering(self) -> bool:
-        ...
-
-    def apply_sort(self, sorts: System.ComponentModel.ListSortDescriptionCollection) -> None:
-        ...
-
-    def remove_filter(self) -> None:
-        ...
-
-
-class IRaiseItemChangedEvents(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def raises_item_changed_events(self) -> bool:
-        ...
-
-
-class BindingList(typing.Generic[System_ComponentModel_BindingList_T], System.Collections.ObjectModel.Collection[System_ComponentModel_BindingList_T], System.ComponentModel.IBindingList, System.ComponentModel.ICancelAddNew, System.ComponentModel.IRaiseItemChangedEvents):
-    """This class has no documentation."""
-
-    @property
-    def adding_new(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.AddingNewEventArgs], typing.Any], typing.Any]:
-        ...
-
-    @adding_new.setter
-    def adding_new(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.AddingNewEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def list_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], typing.Any], typing.Any]:
-        ...
-
-    @list_changed.setter
-    def list_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def raise_list_changed_events(self) -> bool:
-        ...
-
-    @raise_list_changed_events.setter
-    def raise_list_changed_events(self, value: bool) -> None:
-        ...
-
-    @property
-    def allow_new(self) -> bool:
-        ...
-
-    @allow_new.setter
-    def allow_new(self, value: bool) -> None:
-        ...
-
-    @property
-    def allow_edit(self) -> bool:
-        ...
-
-    @allow_edit.setter
-    def allow_edit(self, value: bool) -> None:
-        ...
-
-    @property
-    def allow_remove(self) -> bool:
-        ...
-
-    @allow_remove.setter
-    def allow_remove(self, value: bool) -> None:
-        ...
-
-    @property
-    def supports_change_notification_core(self) -> bool:
-        ...
-
-    @property
-    def supports_searching_core(self) -> bool:
-        ...
-
-    @property
-    def supports_sorting_core(self) -> bool:
-        ...
-
-    @property
-    def is_sorted_core(self) -> bool:
-        ...
-
-    @property
-    def sort_property_core(self) -> System.ComponentModel.PropertyDescriptor:
-        ...
-
-    @property
-    def sort_direction_core(self) -> System.ComponentModel.ListSortDirection:
+    def licensed_type(self) -> typing.Type:
         ...
 
     @overload
-    def __init__(self) -> None:
+    def __init__(self, type: typing.Type) -> None:
         ...
 
     @overload
-    def __init__(self, list: System.Collections.Generic.IList[System_ComponentModel_BindingList_T]) -> None:
+    def __init__(self, type: typing.Type, instance: typing.Any) -> None:
         ...
 
-    def add_new(self) -> System_ComponentModel_BindingList_T:
+    @overload
+    def __init__(self, type: typing.Type, instance: typing.Any, message: str) -> None:
         ...
 
-    def add_new_core(self) -> System.Object:
+    @overload
+    def __init__(self, type: typing.Type, instance: typing.Any, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    def apply_sort_core(self, prop: System.ComponentModel.PropertyDescriptor, direction: System.ComponentModel.ListSortDirection) -> None:
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
+class BindingDirection(IntEnum):
+    """This class has no documentation."""
+
+    ONE_WAY = 0
+
+    TWO_WAY = 1
+
+
+class DataObjectMethodType(IntEnum):
+    """This class has no documentation."""
+
+    FILL = 0
+
+    SELECT = 1
+
+    UPDATE = 2
+
+    INSERT = 3
+
+    DELETE = 4
+
+
+class DecimalConverter(System.ComponentModel.BaseNumberConverter):
+    """This class has no documentation."""
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
         ...
 
-    def cancel_new(self, item_index: int) -> None:
-        ...
-
-    def clear_items(self) -> None:
-        ...
-
-    def end_new(self, item_index: int) -> None:
-        ...
-
-    def find_core(self, prop: System.ComponentModel.PropertyDescriptor, key: typing.Any) -> int:
-        ...
-
-    def insert_item(self, index: int, item: System_ComponentModel_BindingList_T) -> None:
-        ...
-
-    def on_adding_new(self, e: System.ComponentModel.AddingNewEventArgs) -> None:
-        ...
-
-    def on_list_changed(self, e: System.ComponentModel.ListChangedEventArgs) -> None:
-        ...
-
-    def remove_item(self, index: int) -> None:
-        ...
-
-    def remove_sort_core(self) -> None:
-        ...
-
-    def reset_bindings(self) -> None:
-        ...
-
-    def reset_item(self, position: int) -> None:
-        ...
-
-    def set_item(self, index: int, item: System_ComponentModel_BindingList_T) -> None:
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
         ...
 
 
-class Int64Converter(System.ComponentModel.BaseNumberConverter):
+class Int32Converter(System.ComponentModel.BaseNumberConverter):
     """This class has no documentation."""
 
 
-class IListSource(metaclass=abc.ABCMeta):
+class CharConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
-    @property
-    @abc.abstractmethod
-    def contains_list_collection(self) -> bool:
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
         ...
 
-    def get_list(self) -> System.Collections.IList:
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
         ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+
+class MaskedTextResultHint(IntEnum):
+    """This class has no documentation."""
+
+    UNKNOWN = 0
+
+    CHARACTER_ESCAPED = 1
+
+    NO_EFFECT = 2
+
+    SIDE_EFFECT = 3
+
+    SUCCESS = 4
+
+    ASCII_CHARACTER_EXPECTED = -1
+
+    ALPHANUMERIC_CHARACTER_EXPECTED = -2
+
+    DIGIT_EXPECTED = -3
+
+    LETTER_EXPECTED = -4
+
+    SIGNED_DIGIT_EXPECTED = -5
+
+    INVALID_INPUT = -51
+
+    PROMPT_CHAR_NOT_ALLOWED = -52
+
+    UNAVAILABLE_EDIT_POSITION = -53
+
+    NON_EDIT_POSITION = -54
+
+    POSITION_OUT_OF_RANGE = -55
 
 
 class MaskedTextProvider(System.Object, System.ICloneable):
@@ -3151,6 +2932,224 @@ class MaskedTextProvider(System.Object, System.ICloneable):
         ...
 
 
+class MultilineStringConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+
+class ContainerFilterService(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    def filter_components(self, components: System.ComponentModel.ComponentCollection) -> System.ComponentModel.ComponentCollection:
+        ...
+
+
+class BindableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    YES: System.ComponentModel.BindableAttribute = ...
+
+    NO: System.ComponentModel.BindableAttribute = ...
+
+    DEFAULT: System.ComponentModel.BindableAttribute = ...
+
+    @property
+    def bindable(self) -> bool:
+        ...
+
+    @property
+    def direction(self) -> System.ComponentModel.BindingDirection:
+        ...
+
+    @overload
+    def __init__(self, bindable: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, bindable: bool, direction: System.ComponentModel.BindingDirection) -> None:
+        ...
+
+    @overload
+    def __init__(self, flags: System.ComponentModel.BindableSupport) -> None:
+        ...
+
+    @overload
+    def __init__(self, flags: System.ComponentModel.BindableSupport, direction: System.ComponentModel.BindingDirection) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class Int128Converter(System.ComponentModel.BaseNumberConverter):
+    """This class has no documentation."""
+
+
+class ListBindableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    YES: System.ComponentModel.ListBindableAttribute = ...
+
+    NO: System.ComponentModel.ListBindableAttribute = ...
+
+    DEFAULT: System.ComponentModel.ListBindableAttribute = ...
+
+    @property
+    def list_bindable(self) -> bool:
+        ...
+
+    @overload
+    def __init__(self, list_bindable: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, flags: System.ComponentModel.BindableSupport) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class ListSortDescription(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def property_descriptor(self) -> System.ComponentModel.PropertyDescriptor:
+        ...
+
+    @property_descriptor.setter
+    def property_descriptor(self, value: System.ComponentModel.PropertyDescriptor) -> None:
+        ...
+
+    @property
+    def sort_direction(self) -> System.ComponentModel.ListSortDirection:
+        ...
+
+    @sort_direction.setter
+    def sort_direction(self, value: System.ComponentModel.ListSortDirection) -> None:
+        ...
+
+    def __init__(self, property: System.ComponentModel.PropertyDescriptor, direction: System.ComponentModel.ListSortDirection) -> None:
+        ...
+
+
+class ListSortDescriptionCollection(System.Object, System.Collections.IList):
+    """This class has no documentation."""
+
+    @property
+    def count(self) -> int:
+        ...
+
+    def __getitem__(self, index: int) -> System.ComponentModel.ListSortDescription:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, sorts: typing.List[System.ComponentModel.ListSortDescription]) -> None:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def __setitem__(self, index: int, value: System.ComponentModel.ListSortDescription) -> None:
+        ...
+
+    def contains(self, value: typing.Any) -> bool:
+        ...
+
+    def copy_to(self, array: System.Array, index: int) -> None:
+        ...
+
+    def index_of(self, value: typing.Any) -> int:
+        ...
+
+
+class IBindingListView(System.ComponentModel.IBindingList, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def filter(self) -> str:
+        ...
+
+    @filter.setter
+    def filter(self, value: str) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def sort_descriptions(self) -> System.ComponentModel.ListSortDescriptionCollection:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def supports_advanced_sorting(self) -> bool:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def supports_filtering(self) -> bool:
+        ...
+
+    def apply_sort(self, sorts: System.ComponentModel.ListSortDescriptionCollection) -> None:
+        ...
+
+    def remove_filter(self) -> None:
+        ...
+
+
+class IExtenderProvider(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def can_extend(self, extendee: typing.Any) -> bool:
+        ...
+
+
+class BooleanConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        ...
+
+    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+
 class DateOnlyConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
@@ -3167,29 +3166,23 @@ class DateOnlyConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class CharConverter(System.ComponentModel.TypeConverter):
+class AddingNewEventArgs(System.EventArgs):
     """This class has no documentation."""
 
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+    @property
+    def new_object(self) -> System.Object:
         ...
 
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+    @new_object.setter
+    def new_object(self, value: System.Object) -> None:
         ...
 
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+    @overload
+    def __init__(self) -> None:
         ...
 
-
-class LicFileLicenseProvider(System.ComponentModel.LicenseProvider):
-    """This class has no documentation."""
-
-    def get_key(self, type: typing.Type) -> str:
-        ...
-
-    def get_license(self, context: System.ComponentModel.LicenseContext, type: typing.Type, instance: typing.Any, allow_exceptions: bool) -> System.ComponentModel.License:
-        ...
-
-    def is_key_valid(self, key: str, type: typing.Type) -> bool:
+    @overload
+    def __init__(self, new_object: typing.Any) -> None:
         ...
 
 
@@ -3212,70 +3205,119 @@ class VersionConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class Container(System.Object, System.ComponentModel.IContainer):
+class IRaiseItemChangedEvents(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def components(self) -> System.ComponentModel.ComponentCollection:
-        ...
-
-    @overload
-    def add(self, component: System.ComponentModel.IComponent) -> None:
-        ...
-
-    @overload
-    def add(self, component: System.ComponentModel.IComponent, name: str) -> None:
-        ...
-
-    def create_site(self, component: System.ComponentModel.IComponent, name: str) -> System.ComponentModel.ISite:
-        ...
-
-    @overload
-    def dispose(self) -> None:
-        ...
-
-    @overload
-    def dispose(self, disposing: bool) -> None:
-        ...
-
-    def get_service(self, service: typing.Type) -> System.Object:
-        ...
-
-    def remove(self, component: System.ComponentModel.IComponent) -> None:
-        ...
-
-    def remove_without_unsiting(self, component: System.ComponentModel.IComponent) -> None:
-        ...
-
-    def validate_name(self, component: System.ComponentModel.IComponent, name: str) -> None:
+    @abc.abstractmethod
+    def raises_item_changed_events(self) -> bool:
         ...
 
 
-class Int128Converter(System.ComponentModel.BaseNumberConverter):
+class TypeListConverter(System.ComponentModel.TypeConverter, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
+    def __init__(self, types: typing.List[typing.Type]) -> None:
+        ...
 
-class NestedContainer(System.ComponentModel.Container, System.ComponentModel.INestedContainer):
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        ...
+
+    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+
+class LicenseProviderAttribute(System.Attribute):
     """This class has no documentation."""
+
+    DEFAULT: System.ComponentModel.LicenseProviderAttribute = ...
 
     @property
-    def owner(self) -> System.ComponentModel.IComponent:
+    def license_provider(self) -> typing.Type:
         ...
 
     @property
-    def owner_name(self) -> str:
+    def type_id(self) -> System.Object:
         ...
 
-    def __init__(self, owner: System.ComponentModel.IComponent) -> None:
+    @overload
+    def __init__(self) -> None:
         ...
 
-    def create_site(self, component: System.ComponentModel.IComponent, name: str) -> System.ComponentModel.ISite:
+    @overload
+    def __init__(self, type_name: str) -> None:
         ...
 
-    def dispose(self, disposing: bool) -> None:
+    @overload
+    def __init__(self, type: typing.Type) -> None:
         ...
 
-    def get_service(self, service: typing.Type) -> System.Object:
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class EnumConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    @property
+    def enum_type(self) -> typing.Type:
+        ...
+
+    @property
+    def values(self) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        ...
+
+    @values.setter
+    def values(self, value: System.ComponentModel.TypeConverter.StandardValuesCollection) -> None:
+        ...
+
+    @property
+    def comparer(self) -> System.Collections.IComparer:
+        ...
+
+    def __init__(self, type: typing.Type) -> None:
+        ...
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        ...
+
+    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    def is_valid(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
         ...
 
 
@@ -3314,22 +3356,25 @@ class WarningException(System.SystemException):
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
-class ExtenderProvidedPropertyAttribute(System.Attribute):
+class DataObjectAttribute(System.Attribute):
     """This class has no documentation."""
 
-    @property
-    def extender_property(self) -> System.ComponentModel.PropertyDescriptor:
-        ...
+    DATA_OBJECT: System.ComponentModel.DataObjectAttribute = ...
+
+    NON_DATA_OBJECT: System.ComponentModel.DataObjectAttribute = ...
+
+    DEFAULT: System.ComponentModel.DataObjectAttribute = ...
 
     @property
-    def provider(self) -> System.ComponentModel.IExtenderProvider:
+    def is_data_object(self) -> bool:
         ...
 
-    @property
-    def receiver_type(self) -> typing.Type:
-        ...
-
+    @overload
     def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, is_data_object: bool) -> None:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -3339,6 +3384,393 @@ class ExtenderProvidedPropertyAttribute(System.Attribute):
         ...
 
     def is_default_attribute(self) -> bool:
+        ...
+
+
+class DataObjectMethodAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def is_default(self) -> bool:
+        ...
+
+    @property
+    def method_type(self) -> System.ComponentModel.DataObjectMethodType:
+        ...
+
+    @overload
+    def __init__(self, method_type: System.ComponentModel.DataObjectMethodType) -> None:
+        ...
+
+    @overload
+    def __init__(self, method_type: System.ComponentModel.DataObjectMethodType, is_default: bool) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def match(self, obj: typing.Any) -> bool:
+        ...
+
+
+class BindingList(typing.Generic[System_ComponentModel_BindingList_T], System.Collections.ObjectModel.Collection[System_ComponentModel_BindingList_T], System.ComponentModel.IBindingList, System.ComponentModel.ICancelAddNew, System.ComponentModel.IRaiseItemChangedEvents):
+    """This class has no documentation."""
+
+    @property
+    def adding_new(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.AddingNewEventArgs], typing.Any], typing.Any]:
+        ...
+
+    @adding_new.setter
+    def adding_new(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.AddingNewEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def list_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], typing.Any], typing.Any]:
+        ...
+
+    @list_changed.setter
+    def list_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def raise_list_changed_events(self) -> bool:
+        ...
+
+    @raise_list_changed_events.setter
+    def raise_list_changed_events(self, value: bool) -> None:
+        ...
+
+    @property
+    def allow_new(self) -> bool:
+        ...
+
+    @allow_new.setter
+    def allow_new(self, value: bool) -> None:
+        ...
+
+    @property
+    def allow_edit(self) -> bool:
+        ...
+
+    @allow_edit.setter
+    def allow_edit(self, value: bool) -> None:
+        ...
+
+    @property
+    def allow_remove(self) -> bool:
+        ...
+
+    @allow_remove.setter
+    def allow_remove(self, value: bool) -> None:
+        ...
+
+    @property
+    def supports_change_notification_core(self) -> bool:
+        ...
+
+    @property
+    def supports_searching_core(self) -> bool:
+        ...
+
+    @property
+    def supports_sorting_core(self) -> bool:
+        ...
+
+    @property
+    def is_sorted_core(self) -> bool:
+        ...
+
+    @property
+    def sort_property_core(self) -> System.ComponentModel.PropertyDescriptor:
+        ...
+
+    @property
+    def sort_direction_core(self) -> System.ComponentModel.ListSortDirection:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, list: System.Collections.Generic.IList[System_ComponentModel_BindingList_T]) -> None:
+        ...
+
+    def add_new(self) -> System_ComponentModel_BindingList_T:
+        ...
+
+    def add_new_core(self) -> System.Object:
+        ...
+
+    def apply_sort_core(self, prop: System.ComponentModel.PropertyDescriptor, direction: System.ComponentModel.ListSortDirection) -> None:
+        ...
+
+    def cancel_new(self, item_index: int) -> None:
+        ...
+
+    def clear_items(self) -> None:
+        ...
+
+    def end_new(self, item_index: int) -> None:
+        ...
+
+    def find_core(self, prop: System.ComponentModel.PropertyDescriptor, key: typing.Any) -> int:
+        ...
+
+    def insert_item(self, index: int, item: System_ComponentModel_BindingList_T) -> None:
+        ...
+
+    def on_adding_new(self, e: System.ComponentModel.AddingNewEventArgs) -> None:
+        ...
+
+    def on_list_changed(self, e: System.ComponentModel.ListChangedEventArgs) -> None:
+        ...
+
+    def remove_item(self, index: int) -> None:
+        ...
+
+    def remove_sort_core(self) -> None:
+        ...
+
+    def reset_bindings(self) -> None:
+        ...
+
+    def reset_item(self, position: int) -> None:
+        ...
+
+    def set_item(self, index: int, item: System_ComponentModel_BindingList_T) -> None:
+        ...
+
+
+class MarshalByValueComponent(System.Object, System.ComponentModel.IComponent, IServiceProvider):
+    """This class has no documentation."""
+
+    @property
+    def disposed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+        ...
+
+    @disposed.setter
+    def disposed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def events(self) -> System.ComponentModel.EventHandlerList:
+        ...
+
+    @property
+    def site(self) -> System.ComponentModel.ISite:
+        ...
+
+    @site.setter
+    def site(self, value: System.ComponentModel.ISite) -> None:
+        ...
+
+    @property
+    def container(self) -> System.ComponentModel.IContainer:
+        ...
+
+    @property
+    def design_mode(self) -> bool:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def dispose(self) -> None:
+        ...
+
+    @overload
+    def dispose(self, disposing: bool) -> None:
+        ...
+
+    def get_service(self, service: typing.Type) -> System.Object:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class InstanceCreationEditor(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def text(self) -> str:
+        ...
+
+    def create_instance(self, context: System.ComponentModel.ITypeDescriptorContext, instance_type: typing.Type) -> System.Object:
+        ...
+
+
+class CustomTypeDescriptor(System.Object, System.ComponentModel.ICustomTypeDescriptor, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def require_registered_types(self) -> typing.Optional[bool]:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, parent: System.ComponentModel.ICustomTypeDescriptor) -> None:
+        ...
+
+    def get_attributes(self) -> System.ComponentModel.AttributeCollection:
+        ...
+
+    def get_class_name(self) -> str:
+        ...
+
+    def get_component_name(self) -> str:
+        ...
+
+    def get_converter(self) -> System.ComponentModel.TypeConverter:
+        ...
+
+    def get_converter_from_registered_type(self) -> System.ComponentModel.TypeConverter:
+        ...
+
+    def get_default_event(self) -> System.ComponentModel.EventDescriptor:
+        ...
+
+    def get_default_property(self) -> System.ComponentModel.PropertyDescriptor:
+        ...
+
+    def get_editor(self, editor_base_type: typing.Type) -> System.Object:
+        ...
+
+    @overload
+    def get_events(self) -> System.ComponentModel.EventDescriptorCollection:
+        ...
+
+    @overload
+    def get_events(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.EventDescriptorCollection:
+        ...
+
+    def get_events_from_registered_type(self) -> System.ComponentModel.EventDescriptorCollection:
+        ...
+
+    @overload
+    def get_properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    @overload
+    def get_properties(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    def get_properties_from_registered_type(self) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    def get_property_owner(self, pd: System.ComponentModel.PropertyDescriptor) -> System.Object:
+        ...
+
+
+class TimeSpanConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+
+class ComponentConverter(System.ComponentModel.ReferenceConverter):
+    """This class has no documentation."""
+
+    def __init__(self, type: typing.Type) -> None:
+        ...
+
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+
+class ComplexBindingPropertiesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def data_source(self) -> str:
+        ...
+
+    @property
+    def data_member(self) -> str:
+        ...
+
+    DEFAULT: System.ComponentModel.ComplexBindingPropertiesAttribute = ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, data_source: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, data_source: str, data_member: str) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class GuidConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+
+class SByteConverter(System.ComponentModel.BaseNumberConverter):
+    """This class has no documentation."""
+
+
+class ComponentResourceManager(System.Resources.ResourceManager):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, t: typing.Type) -> None:
+        ...
+
+    @overload
+    def apply_resources(self, value: typing.Any, object_name: str) -> None:
+        ...
+
+    @overload
+    def apply_resources(self, value: typing.Any, object_name: str, culture: System.Globalization.CultureInfo) -> None:
+        ...
+
+    def apply_resources_to_registered_type(self, value: typing.Any, object_name: str, culture: System.Globalization.CultureInfo) -> None:
         ...
 
 
@@ -3384,188 +3816,7 @@ class DataObjectFieldAttribute(System.Attribute):
         ...
 
 
-class IIntellisenseBuilder(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        ...
-
-    def show(self, language: str, value: str, new_value: str) -> bool:
-        ...
-
-
-class ComponentResourceManager(System.Resources.ResourceManager):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, t: typing.Type) -> None:
-        ...
-
-    @overload
-    def apply_resources(self, value: typing.Any, object_name: str) -> None:
-        ...
-
-    @overload
-    def apply_resources(self, value: typing.Any, object_name: str, culture: System.Globalization.CultureInfo) -> None:
-        ...
-
-    def apply_resources_to_registered_type(self, value: typing.Any, object_name: str, culture: System.Globalization.CultureInfo) -> None:
-        ...
-
-
-class ToolboxItemAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    DEFAULT: System.ComponentModel.ToolboxItemAttribute = ...
-
-    NONE: System.ComponentModel.ToolboxItemAttribute = ...
-
-    @property
-    def toolbox_item_type(self) -> typing.Type:
-        ...
-
-    @property
-    def toolbox_item_type_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, default_type: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, toolbox_item_type_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, toolbox_item_type: typing.Type) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-
-class InheritanceLevel(IntEnum):
-    """This class has no documentation."""
-
-    INHERITED = 1
-
-    INHERITED_READ_ONLY = 2
-
-    NOT_INHERITED = 3
-
-
-class InheritanceAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    INHERITED: System.ComponentModel.InheritanceAttribute = ...
-
-    INHERITED_READ_ONLY: System.ComponentModel.InheritanceAttribute = ...
-
-    NOT_INHERITED: System.ComponentModel.InheritanceAttribute = ...
-
-    DEFAULT: System.ComponentModel.InheritanceAttribute = ...
-
-    @property
-    def inheritance_level(self) -> System.ComponentModel.InheritanceLevel:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, inheritance_level: System.ComponentModel.InheritanceLevel) -> None:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class ComplexBindingPropertiesAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def data_source(self) -> str:
-        ...
-
-    @property
-    def data_member(self) -> str:
-        ...
-
-    DEFAULT: System.ComponentModel.ComplexBindingPropertiesAttribute = ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, data_source: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, data_source: str, data_member: str) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class UInt16Converter(System.ComponentModel.BaseNumberConverter):
-    """This class has no documentation."""
-
-
-class LicenseException(System.SystemException):
-    """This class has no documentation."""
-
-    @property
-    def licensed_type(self) -> typing.Type:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type, instance: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type, instance: typing.Any, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type, instance: typing.Any, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class CultureInfoConverter(System.ComponentModel.TypeConverter):
+class TimeOnlyConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -3580,126 +3831,16 @@ class CultureInfoConverter(System.ComponentModel.TypeConverter):
     def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
         ...
 
-    def get_culture_name(self, culture: System.Globalization.CultureInfo) -> str:
-        ...
 
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        ...
-
-    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-
-class DataObjectAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    DATA_OBJECT: System.ComponentModel.DataObjectAttribute = ...
-
-    NON_DATA_OBJECT: System.ComponentModel.DataObjectAttribute = ...
-
-    DEFAULT: System.ComponentModel.DataObjectAttribute = ...
-
-    @property
-    def is_data_object(self) -> bool:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, is_data_object: bool) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-
-class DefaultPropertyAttribute(System.Attribute):
+class ToolboxItemFilterAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def name(self) -> str:
+    def filter_string(self) -> str:
         ...
-
-    DEFAULT: System.ComponentModel.DefaultPropertyAttribute = ...
-
-    def __init__(self, name: str) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class LicenseManager(System.Object):
-    """This class has no documentation."""
-
-    current_context: System.ComponentModel.LicenseContext
-
-    USAGE_MODE: System.ComponentModel.LicenseUsageMode
-
-    @staticmethod
-    @overload
-    def create_with_context(type: typing.Type, creation_context: System.ComponentModel.LicenseContext) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_with_context(type: typing.Type, creation_context: System.ComponentModel.LicenseContext, args: typing.List[System.Object]) -> System.Object:
-        ...
-
-    @staticmethod
-    def is_licensed(type: typing.Type) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(type: typing.Type) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(type: typing.Type, instance: typing.Any, license: typing.Optional[System.ComponentModel.License]) -> typing.Tuple[bool, System.ComponentModel.License]:
-        ...
-
-    @staticmethod
-    def lock_context(context_user: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def unlock_context(context_user: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def validate(type: typing.Type) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def validate(type: typing.Type, instance: typing.Any) -> System.ComponentModel.License:
-        ...
-
-
-class LicenseProviderAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    DEFAULT: System.ComponentModel.LicenseProviderAttribute = ...
 
     @property
-    def license_provider(self) -> typing.Type:
+    def filter_type(self) -> System.ComponentModel.ToolboxItemFilterType:
         ...
 
     @property
@@ -3707,53 +3848,144 @@ class LicenseProviderAttribute(System.Attribute):
         ...
 
     @overload
+    def __init__(self, filter_string: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, filter_string: str, filter_type: System.ComponentModel.ToolboxItemFilterType) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def match(self, obj: typing.Any) -> bool:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class IListSource(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def contains_list_collection(self) -> bool:
+        ...
+
+    def get_list(self) -> System.Collections.IList:
+        ...
+
+
+class UInt32Converter(System.ComponentModel.BaseNumberConverter):
+    """This class has no documentation."""
+
+
+class UInt64Converter(System.ComponentModel.BaseNumberConverter):
+    """This class has no documentation."""
+
+
+class LookupBindingPropertiesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def data_source(self) -> str:
+        ...
+
+    @property
+    def display_member(self) -> str:
+        ...
+
+    @property
+    def value_member(self) -> str:
+        ...
+
+    @property
+    def lookup_member(self) -> str:
+        ...
+
+    DEFAULT: System.ComponentModel.LookupBindingPropertiesAttribute = ...
+
+    @overload
     def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self, type_name: str) -> None:
+    def __init__(self, data_source: str, display_member: str, value_member: str, lookup_member: str) -> None:
         ...
 
-    @overload
-    def __init__(self, type: typing.Type) -> None:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:
         ...
 
 
-class BindableSupport(IntEnum):
+class UInt16Converter(System.ComponentModel.BaseNumberConverter):
     """This class has no documentation."""
 
-    NO = ...
 
-    YES = ...
-
-    DEFAULT = ...
-
-
-class ListBindableAttribute(System.Attribute):
+class ProvidePropertyAttribute(System.Attribute):
     """This class has no documentation."""
-
-    YES: System.ComponentModel.ListBindableAttribute = ...
-
-    NO: System.ComponentModel.ListBindableAttribute = ...
-
-    DEFAULT: System.ComponentModel.ListBindableAttribute = ...
 
     @property
-    def list_bindable(self) -> bool:
+    def property_name(self) -> str:
+        ...
+
+    @property
+    def receiver_type_name(self) -> str:
+        ...
+
+    @property
+    def type_id(self) -> System.Object:
         ...
 
     @overload
-    def __init__(self, list_bindable: bool) -> None:
+    def __init__(self, property_name: str, receiver_type: typing.Type) -> None:
         ...
 
     @overload
-    def __init__(self, flags: System.ComponentModel.BindableSupport) -> None:
+    def __init__(self, property_name: str, receiver_type_name: str) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class IDataErrorInfo(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def error(self) -> str:
+        ...
+
+    def __getitem__(self, column_name: str) -> str:
+        ...
+
+
+class ExtenderProvidedPropertyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def extender_property(self) -> System.ComponentModel.PropertyDescriptor:
+        ...
+
+    @property
+    def provider(self) -> System.ComponentModel.IExtenderProvider:
+        ...
+
+    @property
+    def receiver_type(self) -> typing.Type:
+        ...
+
+    def __init__(self) -> None:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -3766,51 +3998,28 @@ class ListBindableAttribute(System.Attribute):
         ...
 
 
-class ReferenceConverter(System.ComponentModel.TypeConverter):
+class Int16Converter(System.ComponentModel.BaseNumberConverter):
     """This class has no documentation."""
 
-    def __init__(self, type: typing.Type) -> None:
-        ...
 
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        ...
-
-    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-    def is_value_allowed(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
-        ...
-
-
-class HandledEventArgs(System.EventArgs):
+class SettingsBindableAttribute(System.Attribute):
     """This class has no documentation."""
+
+    YES: System.ComponentModel.SettingsBindableAttribute = ...
+
+    NO: System.ComponentModel.SettingsBindableAttribute = ...
 
     @property
-    def handled(self) -> bool:
+    def bindable(self) -> bool:
         ...
 
-    @handled.setter
-    def handled(self, value: bool) -> None:
+    def __init__(self, bindable: bool) -> None:
         ...
 
-    @overload
-    def __init__(self) -> None:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
-    @overload
-    def __init__(self, default_handled_value: bool) -> None:
+    def get_hash_code(self) -> int:
         ...
 
 
@@ -3866,215 +4075,6 @@ class NullableConverter(System.ComponentModel.TypeConverter):
         ...
 
     def is_valid(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
-        ...
-
-
-class DoubleConverter(System.ComponentModel.BaseNumberConverter):
-    """This class has no documentation."""
-
-
-class Int32Converter(System.ComponentModel.BaseNumberConverter):
-    """This class has no documentation."""
-
-
-class AmbientValueAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> System.Object:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: typing.Any) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class SingleConverter(System.ComponentModel.BaseNumberConverter):
-    """This class has no documentation."""
-
-
-class ComponentConverter(System.ComponentModel.ReferenceConverter):
-    """This class has no documentation."""
-
-    def __init__(self, type: typing.Type) -> None:
-        ...
-
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-
-class TypeListConverter(System.ComponentModel.TypeConverter, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self, types: typing.List[typing.Type]) -> None:
-        ...
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        ...
-
-    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-
-class RunInstallerAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def run_installer(self) -> bool:
-        ...
-
-    YES: System.ComponentModel.RunInstallerAttribute = ...
-
-    NO: System.ComponentModel.RunInstallerAttribute = ...
-
-    DEFAULT: System.ComponentModel.RunInstallerAttribute = ...
-
-    def __init__(self, run_installer: bool) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-
-class PasswordPropertyTextAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    YES: System.ComponentModel.PasswordPropertyTextAttribute = ...
-
-    NO: System.ComponentModel.PasswordPropertyTextAttribute = ...
-
-    DEFAULT: System.ComponentModel.PasswordPropertyTextAttribute = ...
-
-    @property
-    def password(self) -> bool:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, password: bool) -> None:
-        ...
-
-    def equals(self, o: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-
-class BindingDirection(IntEnum):
-    """This class has no documentation."""
-
-    ONE_WAY = 0
-
-    TWO_WAY = 1
-
-
-class BindableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    YES: System.ComponentModel.BindableAttribute = ...
-
-    NO: System.ComponentModel.BindableAttribute = ...
-
-    DEFAULT: System.ComponentModel.BindableAttribute = ...
-
-    @property
-    def bindable(self) -> bool:
-        ...
-
-    @property
-    def direction(self) -> System.ComponentModel.BindingDirection:
-        ...
-
-    @overload
-    def __init__(self, bindable: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, bindable: bool, direction: System.ComponentModel.BindingDirection) -> None:
-        ...
-
-    @overload
-    def __init__(self, flags: System.ComponentModel.BindableSupport) -> None:
-        ...
-
-    @overload
-    def __init__(self, flags: System.ComponentModel.BindableSupport, direction: System.ComponentModel.BindingDirection) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-
-class ContainerFilterService(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def filter_components(self, components: System.ComponentModel.ComponentCollection) -> System.ComponentModel.ComponentCollection:
         ...
 
 

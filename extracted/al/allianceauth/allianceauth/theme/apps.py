@@ -5,5 +5,5 @@ class ThemeConfig(AppConfig):
     name = "allianceauth.theme"
     label = "theme"
 
-    def ready(self):
+    def ready(self) -> None:
         pass

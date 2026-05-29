@@ -3,7 +3,7 @@ from typing import Union
 import pandas as pd
 from collections.abc import Callable
 from ..exceptions import ComponentError, ConfigError
-from .tPandas import tPandas
+from ..interfaces.t_pandas import tPandas
 
 class tPivot(tPandas):
     """

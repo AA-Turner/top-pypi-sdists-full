@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: SciQLopPlots
-Version: 0.24.0
+Version: 0.25.1
 Summary: SciQLop plot API based on QCustomPlot
 Author-Email: Alexis Jeandet <alexis.jeandet@member.fsf.org>
 License: GNU GENERAL PUBLIC LICENSE

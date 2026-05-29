@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import PosixPath, Path, PurePath
 from zipfile import ZipFile, BadZipFile
 from ..exceptions import FileError, ComponentError, FileNotFound
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.compress import CompressSupport
 
 

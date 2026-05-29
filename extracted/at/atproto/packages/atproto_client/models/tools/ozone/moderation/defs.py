@@ -1,8 +1,8 @@
-##################################################################
+#######################################################################
 # THIS IS THE AUTO-GENERATED CODE. DON'T EDIT IT BY HANDS!
-# Copyright (C) 2024 Ilya (Marshal) <https://github.com/MarshalX>.
+# Copyright (C) 2023-2026 Ilya (Marshal) <https://github.com/MarshalX>.
 # This file is part of Python atproto SDK. Licenced under MIT.
-##################################################################
+#######################################################################
 
 
 import typing as t
@@ -46,6 +46,7 @@ class ModEventView(base.ModelBase):
             'models.ToolsOzoneModerationDefs.ModEventPriorityScore',
             'models.ToolsOzoneModerationDefs.AgeAssuranceEvent',
             'models.ToolsOzoneModerationDefs.AgeAssuranceOverrideEvent',
+            'models.ToolsOzoneModerationDefs.AgeAssurancePurgeEvent',
             'models.ToolsOzoneModerationDefs.RevokeAccountCredentialsEvent',
             'models.ToolsOzoneModerationDefs.ScheduleTakedownEvent',
             'models.ToolsOzoneModerationDefs.CancelScheduledTakedownEvent',
@@ -58,6 +59,7 @@ class ModEventView(base.ModelBase):
             'models.ComAtprotoAdminDefs.RepoRef',
             'models.ComAtprotoRepoStrongRef.Main',
             'models.ChatBskyConvoDefs.MessageRef',
+            'models.ChatBskyConvoDefs.ConvoRef',
         ],
         Field(discriminator='py_type'),
     ]  #: Subject.
@@ -99,6 +101,7 @@ class ModEventViewDetail(base.ModelBase):
             'models.ToolsOzoneModerationDefs.ModEventPriorityScore',
             'models.ToolsOzoneModerationDefs.AgeAssuranceEvent',
             'models.ToolsOzoneModerationDefs.AgeAssuranceOverrideEvent',
+            'models.ToolsOzoneModerationDefs.AgeAssurancePurgeEvent',
             'models.ToolsOzoneModerationDefs.RevokeAccountCredentialsEvent',
             'models.ToolsOzoneModerationDefs.ScheduleTakedownEvent',
             'models.ToolsOzoneModerationDefs.CancelScheduledTakedownEvent',
@@ -112,6 +115,7 @@ class ModEventViewDetail(base.ModelBase):
             'models.ToolsOzoneModerationDefs.RepoViewNotFound',
             'models.ToolsOzoneModerationDefs.RecordView',
             'models.ToolsOzoneModerationDefs.RecordViewNotFound',
+            'models.ToolsOzoneModerationDefs.ConvoView',
         ],
         Field(discriminator='py_type'),
     ]  #: Subject.
@@ -136,6 +140,7 @@ class SubjectStatusView(base.ModelBase):
             'models.ComAtprotoAdminDefs.RepoRef',
             'models.ComAtprotoRepoStrongRef.Main',
             'models.ChatBskyConvoDefs.MessageRef',
+            'models.ChatBskyConvoDefs.ConvoRef',
         ],
         Field(discriminator='py_type'),
     ]  #: Subject.
@@ -424,6 +429,16 @@ class AgeAssuranceOverrideEvent(base.ModelBase):
     )
 
 
+class AgeAssurancePurgeEvent(base.ModelBase):
+    """Definition model for :obj:`tools.ozone.moderation.defs`. Purges all age assurance events for the subject. Only works on DID subjects. Moderator-only."""
+
+    comment: str = Field(min_length=1)  #: Comment describing the reason for the purge.
+
+    py_type: t.Literal['tools.ozone.moderation.defs#ageAssurancePurgeEvent'] = Field(
+        default='tools.ozone.moderation.defs#ageAssurancePurgeEvent', alias='$type', frozen=True
+    )
+
+
 class RevokeAccountCredentialsEvent(base.ModelBase):
     """Definition model for :obj:`tools.ozone.moderation.defs`. Account credentials revocation by moderators. Only works on DID subjects."""
 
@@ -544,6 +559,9 @@ class ModEventTag(base.ModelBase):
     add: t.List[str]  #: Tags to be added to the subject. If already exists, won't be duplicated.
     remove: t.List[str]  #: Tags to be removed to the subject. Ignores a tag If it doesn't exist, won't be duplicated.
     comment: t.Optional[str] = None  #: Additional comment about added/removed tags.
+    duration_in_hours: t.Optional[int] = (
+        None  #: Indicates how long the tags being added should remain before automatically being removed. Only applies to tags being added.
+    )
 
     py_type: t.Literal['tools.ozone.moderation.defs#modEventTag'] = Field(
         default='tools.ozone.moderation.defs#modEventTag', alias='$type', frozen=True
@@ -718,6 +736,17 @@ class RecordViewNotFound(base.ModelBase):
 
     py_type: t.Literal['tools.ozone.moderation.defs#recordViewNotFound'] = Field(
         default='tools.ozone.moderation.defs#recordViewNotFound', alias='$type', frozen=True
+    )
+
+
+class ConvoView(base.ModelBase):
+    """Definition model for :obj:`tools.ozone.moderation.defs`."""
+
+    convo_id: str  #: Convo id.
+    did: string_formats.Did  #: Did.
+
+    py_type: t.Literal['tools.ozone.moderation.defs#convoView'] = Field(
+        default='tools.ozone.moderation.defs#convoView', alias='$type', frozen=True
     )
 
 

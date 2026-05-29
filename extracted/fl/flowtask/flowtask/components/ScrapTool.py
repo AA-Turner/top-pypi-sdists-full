@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from ..interfaces.ParrotTool import ParrotTool
 from ..interfaces.credentials import CredentialsInterface
 from ..exceptions import ComponentError, ConfigError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class ScrapTool(CredentialsInterface, ParrotTool, FlowComponent):

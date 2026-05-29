@@ -319,8 +319,10 @@ class CalendarObjectResource(DAVObject):
                 and occurrence.get("STATUS") in ("COMPLETED", "CANCELLED")
             ):
                 continue
-            ## TODO: If there are no reports of missing RECURRENCE-ID until 2027,
-            ## the if-statement below may be deleted
+            ## RFC 4791 §9.6.5: server-side expansion MAY omit RECURRENCE-ID on the
+            ## initial instance.  This code path uses recurring_ical_events (client-side),
+            ## which always provides RECURRENCE-ID; the assert catches any regression in
+            ## that library, and the fallback handles it gracefully if it ever fires.
             error.assert_("RECURRENCE-ID" in occurrence)
             if "RECURRENCE-ID" not in occurrence:
                 occurrence.add("RECURRENCE-ID", occurrence.get("DTSTART").dt)
@@ -1071,6 +1073,7 @@ class CalendarObjectResource(DAVObject):
     def _post_load_by_multiget(self, items):
         if not items:
             raise error.NotFoundError(self.url)
+        items = iter(items)
         url_data = next(items, None)
         if url_data is None:
             ## We shouldn't come here.  Something is wrong.
@@ -1147,7 +1150,10 @@ class CalendarObjectResource(DAVObject):
 
     async def _async_put(self, headers, retry_on_failure=True):
         r = await self.client.put(str(self.url), str(self.data), headers | ICALH)
-        return self._post_put(r, retry_on_failure)
+        result = self._post_put(r, retry_on_failure)
+        if result is not None:
+            # _post_put returned a retry coroutine (self._put(False) for async client)
+            await result
 
     def _post_put(self, r, retry_on_failure):
         if r.status == 412:
@@ -1284,7 +1290,7 @@ class CalendarObjectResource(DAVObject):
         no_create: bool = False,
         obj_type: str | None = None,
         increase_seqno: bool = True,
-        only_this_recurrence: bool = True,
+        only_this_recurrence: bool | None = True,
         all_recurrences: bool = False,
     ) -> "Self | Coroutine[Any, Any, Self]":
         """Save the object, can be used for creation and update.
@@ -1312,9 +1318,14 @@ class CalendarObjectResource(DAVObject):
         nature mutually exclusive, but since only_this_recurrence is
         True by default, it will be ignored if all_recurrences is set.
 
-        If you want to sent the recurrence as it is to the server,
-        you should set both all_recurrences and only_this_recurrence
-        to False.
+        only_this_recurrence is a tristate:
+         * True (default): fetch master event and merge this recurrence
+           into it; raise NotFoundError if the master cannot be found.
+         * None: fetch master event and merge if found; if the master
+           cannot be found, PUT the fragment as-is (useful when
+           importing ICS data that may contain orphaned overrides).
+         * False: skip the merge entirely and PUT whatever is in this
+           object directly to the server.
 
         Returns:
          * self
@@ -1362,16 +1373,25 @@ class CalendarObjectResource(DAVObject):
             existing = get_self()
             self._validate_save_constraints(existing, uid, no_overwrite, no_create)
 
+        ## Note: RFC 4791 §9.6.5 permits servers to omit RECURRENCE-ID on the initial
+        ## expanded instance.  If this object is such an instance (no RECURRENCE-ID but
+        ## fetched via server-side expand), only_this_recurrence will silently not merge
+        ## it into the parent; the caller must add RECURRENCE-ID from DTSTART first.
         if (
-            only_this_recurrence or all_recurrences
+            only_this_recurrence is not False or all_recurrences
         ) and "RECURRENCE-ID" in self.icalendar_component:
             from caldav.lib import error
 
             obj = get_self()
             if obj is None:
-                raise error.NotFoundError("Could not find parent recurring event")
-            self._incorporate_recurrence_into_parent(obj, only_this_recurrence, all_recurrences)
-            return obj.save(increase_seqno=increase_seqno)
+                if only_this_recurrence is True:
+                    raise error.NotFoundError("Could not find parent recurring event")
+                ## only_this_recurrence is None: master not found, fall through to PUT as-is
+            else:
+                self._incorporate_recurrence_into_parent(
+                    obj, only_this_recurrence is not False, all_recurrences
+                )
+                return obj.save(increase_seqno=increase_seqno)
 
         self._maybe_increment_sequence(increase_seqno)
         path = self.url.path if self.url else None
@@ -1457,7 +1477,7 @@ class CalendarObjectResource(DAVObject):
         no_create: bool = False,
         obj_type: str | None = None,
         increase_seqno: bool = True,
-        only_this_recurrence: bool = True,
+        only_this_recurrence: bool | None = True,
         all_recurrences: bool = False,
     ) -> Self:
         """Async implementation of save() for async clients."""
@@ -1484,13 +1504,18 @@ class CalendarObjectResource(DAVObject):
             self._validate_save_constraints(existing, uid, no_overwrite, no_create)
 
         if (
-            only_this_recurrence or all_recurrences
+            only_this_recurrence is not False or all_recurrences
         ) and "RECURRENCE-ID" in self.icalendar_component:
             obj = await get_self()
             if obj is None:
-                raise error.NotFoundError("Could not find parent recurring event")
-            self._incorporate_recurrence_into_parent(obj, only_this_recurrence, all_recurrences)
-            return await obj.save(increase_seqno=increase_seqno)
+                if only_this_recurrence is True:
+                    raise error.NotFoundError("Could not find parent recurring event")
+                ## only_this_recurrence is None: master not found, fall through to PUT as-is
+            else:
+                self._incorporate_recurrence_into_parent(
+                    obj, only_this_recurrence is not False, all_recurrences
+                )
+                return await obj.save(increase_seqno=increase_seqno)
 
         self._maybe_increment_sequence(increase_seqno)
         path = self.url.path if self.url else None
@@ -2242,6 +2267,8 @@ class Todo(CalendarObjectResource):
         self._complete_ical(completion_timestamp=completion_timestamp)
         self.save()
 
+    ## TODO: there is TERRIBLY much code duplication here.  We should try to consolidate
+    ## the sync and async code better.
     async def _async_complete(
         self,
         completion_timestamp: datetime,
@@ -2250,12 +2277,93 @@ class Todo(CalendarObjectResource):
     ) -> None:
         """Async implementation of complete()."""
         if "RRULE" in self.icalendar_component and handle_rrule:
-            # _complete_recurring_* methods are sync-only for now; they internally
-            # call self.save() which would return an unawaited coroutine in async mode.
-            # This is a known limitation - handle_rrule is not yet async-safe.
-            raise NotImplementedError("handle_rrule=True is not yet supported for async clients")
+            await getattr(self, "_async_complete_recurring_%s" % rrule_mode)(completion_timestamp)
+            return
         self._complete_ical(completion_timestamp=completion_timestamp)
         await self.save()
+
+    async def _async_complete_recurring_safe(self, completion_timestamp: datetime) -> None:
+        """Async version of _complete_recurring_safe."""
+        if not self._reduce_count():
+            return await self._async_complete(completion_timestamp, handle_rrule=False)
+        next_dtstart = self._next(completion_timestamp)
+        if not next_dtstart:
+            return await self._async_complete(completion_timestamp, handle_rrule=False)
+
+        completed = self.copy()
+        completed.url = self.parent.url.join(completed.id + ".ics")
+        completed.icalendar_component.pop("RRULE")
+        await completed.save()
+        completed._complete_ical(completion_timestamp=completion_timestamp)
+        await completed.save()
+
+        duration = self.get_duration()
+        i = self.icalendar_component
+        i.pop("DTSTART", None)
+        i.add("DTSTART", next_dtstart)
+        self.set_duration(duration, movable_attr="DUE")
+        await self.save()
+
+    async def _async_complete_recurring_thisandfuture(self, completion_timestamp: datetime) -> None:
+        """Async version of _complete_recurring_thisandfuture."""
+        recurrences = self.icalendar_instance.subcomponents
+        orig = recurrences[0]
+        if "STATUS" not in orig:
+            orig["STATUS"] = "NEEDS-ACTION"
+
+        if len(recurrences) == 1:
+            just_completed = orig.copy()
+            just_completed.pop("RRULE")
+            just_completed.add("RECURRENCE-ID", orig.get("DTSTART", completion_timestamp))
+            seqno = just_completed.pop("SEQUENCE", 0)
+            just_completed.add("SEQUENCE", seqno + 1)
+            recurrences.append(just_completed)
+
+        prev = recurrences[-1]
+        rrule = prev.get("RRULE", orig["RRULE"])
+        thisandfuture = prev.copy()
+        seqno = thisandfuture.pop("SEQUENCE", 0)
+        thisandfuture.add("SEQUENCE", seqno + 1)
+
+        if len(recurrences) > 2:
+            if prev["RECURRENCE-ID"].params.get("RANGE", None) == "THISANDFUTURE":
+                prev["RECURRENCE-ID"].params.pop("RANGE")
+            else:
+                raise NotImplementedError(
+                    "multiple instances found, but last one is not of type THISANDFUTURE, possibly this has been created by some incompatible client, but we should deal with it"
+                )
+        self._complete_ical(prev, completion_timestamp)
+
+        thisandfuture.pop("RECURRENCE-ID", None)
+        thisandfuture.add("RECURRENCE-ID", self._next(i=prev, rrule=rrule))
+        thisandfuture["RECURRENCE-ID"].params["RANGE"] = "THISANDFUTURE"
+        rrule2 = thisandfuture.pop("RRULE", None)
+
+        if rrule2 is not None:
+            count = rrule2.get("COUNT", None)
+            if count is not None and count[0] in (0, 1):
+                for i in recurrences:
+                    self._complete_ical(i, completion_timestamp=completion_timestamp)
+            thisandfuture.add("RRULE", rrule2)
+        else:
+            count = rrule.get("COUNT", None)
+            if count is not None and count[0] <= len(
+                [x for x in recurrences if not self.is_pending(x)]
+            ):
+                self._complete_ical(recurrences[0], completion_timestamp=completion_timestamp)
+                await self.save(increase_seqno=False)
+                return
+
+        rrule = rrule2 or rrule
+
+        duration = self._get_duration(i=prev)
+        thisandfuture.pop("DTSTART", None)
+        thisandfuture.pop("DUE", None)
+        next_dtstart = self._next(i=prev, rrule=rrule, ts=completion_timestamp)
+        thisandfuture.add("DTSTART", next_dtstart)
+        self._set_duration(i=thisandfuture, duration=duration, movable_attr="DUE")
+        self.icalendar_instance.subcomponents.append(thisandfuture)
+        await self.save(increase_seqno=False)
 
     def _complete_ical(self, i=None, completion_timestamp=None) -> None:
         if i is None:

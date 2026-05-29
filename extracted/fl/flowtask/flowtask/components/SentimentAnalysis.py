@@ -19,7 +19,7 @@ from transformers import (
 from nltk.tokenize import sent_tokenize
 import torch
 from ..exceptions import ComponentError
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 
 
 class ModelPrediction:
@@ -538,55 +538,33 @@ class ModelPrediction:
 
 class SentimentAnalysis(FlowComponent):
     """
-    Applies sentiment analysis and emotion detection to a DataFrame of text data.
+    SentimentAnalysis
 
-    This component processes a DataFrame, applying Hugging Face Transformer models
-    to analyze the sentiment and emotions expressed in a specified text column.
-    It leverages the `ModelPrediction` class to perform the actual predictions
-    and integrates these results back into the DataFrame.
+    Applies sentiment analysis and emotion detection to a DataFrame of text data
+    using Hugging Face Transformer models. Adds `predicted_sentiment`,
+    `sentiment_scores`, `predicted_emotion`, and `emotions_score` columns.
+    Expects the previous step to provide a Pandas DataFrame.
 
-    Properties:
-        text_column (str): The name of the DataFrame column containing the text to analyze.
-        Defaults to 'text'.
-        sentiment_model (str): Model name for sentiment analysis.
-        Defaults to 'tabularisai/robust-sentiment-analysis'.
-        emotions_model (str): Model name for emotion detection.
-        Defaults to 'cardiffnlp/twitter-roberta-base-emotion'.
-        pipeline_classification (str): Classification type for the pipeline (e.g., 'sentiment-analysis').
-        Defaults to 'sentiment-analysis'.
-        with_average (bool): Boolean to indicate if sentiment should be averaged across rows (if applicable).
-        Defaults to True.
-        sentiment_levels (int): Number of sentiment levels (2, 3, or 5). Default is 5.
-        use_bert (bool): Boolean to use BERT model for sentiment analysis. Defaults to False.
-        use_roberta (bool): Boolean to use RoBERTa model for sentiment analysis. Defaults to False.
-        use_bertweet (bool): Boolean to use BERTweet model for sentiment analysis. Defaults to False.
+    :widths: auto
 
-    Returns:
-        DataFrame: The input DataFrame augmented with new columns for sentiment scores,
-        predicted sentiment, emotion scores, and predicted emotion.
-        Specifically, it adds: 'sentiment_scores', 'sentiment_score', 'emotions_score',
-        'predicted_emotion', and 'predicted_sentiment' columns.
+    | text_column      | No | DataFrame column containing the text to analyze. Defaults to `text`. |
+    | sentiment_model  | No | HuggingFace model id for sentiment. Defaults to `tabularisai/robust-sentiment-analysis`. |
+    | emotions_model   | No | HuggingFace model id for emotion detection. Defaults to `cardiffnlp/twitter-roberta-base-emotion`. |
+    | sentiment_levels | No | Number of sentiment levels (2, 3, or 5). Default is 5. |
+    | parallel         | No | Run sentiment and emotion classifiers concurrently. Default `False`. |
+    | use_bert         | No | Use a BERT sentiment classifier. Default `False`. |
+    | use_roberta      | No | Use a RoBERTa sentiment classifier. Default `False`. |
+    | use_bertweet     | No | Use a BERTweet sentiment classifier (suited to short social text). Default `False`. |
 
-    Raises:
-        ComponentError: If input data is not a Pandas DataFrame or if the text column is not found.
+    Example:
 
-    |---|---|---|
-    | version | No | version of component |
-
-
-        Example:
-
-        | Name | Required | Summary |
-    |---|---|---|
-    | version | No | version of component |
-
-
-        Example:
-
-        ```yaml
-          SentimentAnalysis:
-          # attributes here
-        ```
+    ```yaml
+    SentimentAnalysis:
+      text_column: text
+      sentiment_model: tabularisai/robust-sentiment-analysis
+      sentiment_levels: 5
+      emotions_model: bhadresh-savani/distilbert-base-uncased-emotion
+    ```
     """
     _version = "1.0.0"
     def __init__(

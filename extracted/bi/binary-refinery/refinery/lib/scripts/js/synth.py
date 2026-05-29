@@ -81,10 +81,11 @@ class JsSynthesizer(Synthesizer):
     def __init__(
         self,
         indent: str = '  ',
+        line_length: int = 140,
         unescape_strings: bool = False,
         strip_comments: bool = False,
     ):
-        super().__init__(indent)
+        super().__init__(indent, line_length)
         self._unescape_strings = unescape_strings
         self._strip_comments = strip_comments
 
@@ -107,17 +108,39 @@ class JsSynthesizer(Synthesizer):
             self._newline()
         self._write('}')
 
-    def _comma_separated(self, nodes: list):
+    def _comma_separated(self, nodes: list) -> bool:
+        if not nodes:
+            return False
+        save_pos = self._parts.tell()
+        save_col = self._col
+        overflow = False
         for i, node in enumerate(nodes):
             if i > 0:
                 self._write(', ')
-            if node is None:
-                continue
-            self.visit(node)
+            if node is not None:
+                self.visit(node)
+            if self._col > self._line_length:
+                overflow = True
+                break
+        if not overflow:
+            return False
+        self._parts.seek(save_pos)
+        self._parts.truncate()
+        self._col = save_col
+        self._depth += 1
+        for i, node in enumerate(nodes):
+            self._newline()
+            if node is not None:
+                self.visit(node)
+            if i < len(nodes) - 1:
+                self._write(',')
+        self._depth -= 1
+        return True
 
     def _emit_params(self, params: list):
         self._write('(')
-        self._comma_separated(params)
+        if self._comma_separated(params):
+            self._newline()
         self._write(')')
 
     def _emit_function_prefix(self, is_async: bool, generator: bool):
@@ -189,12 +212,8 @@ class JsSynthesizer(Synthesizer):
 
     def _emit_array_like(self, node):
         self._write('[')
-        for i, elem in enumerate(node.elements):
-            if i > 0:
-                self._write(', ')
-            if elem is None:
-                continue
-            self.visit(elem)
+        if self._comma_separated(node.elements):
+            self._newline()
         self._write(']')
 
     visit_JsArrayExpression = _emit_array_like
@@ -205,12 +224,24 @@ class JsSynthesizer(Synthesizer):
             self._write('{}')
             return
         self._write('{')
+        breaking = False
         for i, prop in enumerate(node.properties):
             if i > 0:
                 self._write(',')
-            self._write(' ')
+            if not breaking and self._col >= self._line_length:
+                breaking = True
+                self._depth += 1
+            if breaking:
+                self._newline()
+            else:
+                self._write(' ')
             self.visit(prop)
-        self._write(' }')
+        if breaking:
+            self._depth -= 1
+            self._newline()
+            self._write('}')
+        else:
+            self._write(' }')
 
     def visit_JsProperty(self, node: JsProperty):
         if node.kind in (JsPropertyKind.GET, JsPropertyKind.SET):
@@ -307,7 +338,8 @@ class JsSynthesizer(Synthesizer):
         if node.optional:
             self._write('?.')
         self._write('(')
-        self._comma_separated(node.arguments)
+        if self._comma_separated(node.arguments):
+            self._newline()
         self._write(')')
 
     def visit_JsNewExpression(self, node: JsNewExpression):
@@ -315,7 +347,8 @@ class JsSynthesizer(Synthesizer):
         if node.callee:
             self.visit(node.callee)
         self._write('(')
-        self._comma_separated(node.arguments)
+        if self._comma_separated(node.arguments):
+            self._newline()
         self._write(')')
 
     def visit_JsSequenceExpression(self, node: JsSequenceExpression):
@@ -453,10 +486,7 @@ class JsSynthesizer(Synthesizer):
 
     def visit_JsVariableDeclaration(self, node: JsVariableDeclaration):
         self._write(F'{node.kind.value} ')
-        for i, decl in enumerate(node.declarations):
-            if i > 0:
-                self._write(', ')
-            self.visit(decl)
+        self._comma_separated(node.declarations)
         self._write(';')
 
     def visit_JsVariableDeclarator(self, node: JsVariableDeclarator):

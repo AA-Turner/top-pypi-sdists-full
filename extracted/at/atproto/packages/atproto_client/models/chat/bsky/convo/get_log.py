@@ -1,8 +1,8 @@
-##################################################################
+#######################################################################
 # THIS IS THE AUTO-GENERATED CODE. DON'T EDIT IT BY HANDS!
-# Copyright (C) 2024 Ilya (Marshal) <https://github.com/MarshalX>.
+# Copyright (C) 2023-2026 Ilya (Marshal) <https://github.com/MarshalX>.
 # This file is part of Python atproto SDK. Licenced under MIT.
-##################################################################
+#######################################################################
 
 
 import typing as t
@@ -41,6 +41,23 @@ class Response(base.ResponseModelBase):
                 'models.ChatBskyConvoDefs.LogReadMessage',
                 'models.ChatBskyConvoDefs.LogAddReaction',
                 'models.ChatBskyConvoDefs.LogRemoveReaction',
+                'models.ChatBskyConvoDefs.LogReadConvo',
+                'models.ChatBskyConvoDefs.LogAddMember',
+                'models.ChatBskyConvoDefs.LogRemoveMember',
+                'models.ChatBskyConvoDefs.LogMemberJoin',
+                'models.ChatBskyConvoDefs.LogMemberLeave',
+                'models.ChatBskyConvoDefs.LogLockConvo',
+                'models.ChatBskyConvoDefs.LogUnlockConvo',
+                'models.ChatBskyConvoDefs.LogLockConvoPermanently',
+                'models.ChatBskyConvoDefs.LogEditGroup',
+                'models.ChatBskyConvoDefs.LogCreateJoinLink',
+                'models.ChatBskyConvoDefs.LogEditJoinLink',
+                'models.ChatBskyConvoDefs.LogEnableJoinLink',
+                'models.ChatBskyConvoDefs.LogDisableJoinLink',
+                'models.ChatBskyConvoDefs.LogIncomingJoinRequest',
+                'models.ChatBskyConvoDefs.LogApproveJoinRequest',
+                'models.ChatBskyConvoDefs.LogRejectJoinRequest',
+                'models.ChatBskyConvoDefs.LogOutgoingJoinRequest',
             ],
             Field(discriminator='py_type'),
         ]

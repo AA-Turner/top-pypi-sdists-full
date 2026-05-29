@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 import time
@@ -18,15 +19,21 @@ SECURITY_TAXONOMY: dict[str, str] = {
     "ssrf": "Untrusted data controls outbound request destinations.",
     "path_traversal": "Untrusted path segments reach filesystem sinks.",
     "deserialization": "Untrusted data reaches unsafe deserialization APIs.",
+    "ldap_injection": "Untrusted data reaches LDAP filter construction or execution.",
+    "xpath_injection": "Untrusted data reaches XPath expression construction or execution.",
     "xss": "Untrusted data reaches HTML or script rendering sinks.",
     "open_redirect": "Untrusted URLs reach redirect/navigation sinks.",
     "auth_bypass": "Authentication or token verification is bypassed or disabled.",
     "cors": "CORS policy is overly permissive or credential unsafe.",
+    "dart": "Dart security flow and sanitizer patterns.",
     "go": "Go security flow and sanitizer patterns.",
     "java": "Java security flow and sanitizer patterns.",
     "javascript": "JavaScript security flow and sanitizer patterns.",
+    "php": "PHP security flow and sanitizer patterns.",
     "rust": "Rust security flow and sanitizer patterns.",
+    "shell": "Shell security flow and sanitizer patterns.",
     "typescript": "TypeScript security flow and sanitizer patterns.",
+    "csharp": "C# security flow and sanitizer patterns.",
     "precision_guard": "Clean patterns that should stay free of noisy security findings.",
 }
 
@@ -51,8 +58,11 @@ SUPPORTED_LANGUAGES = {
     "java",
     "javascript",
     "typescript",
+    "php",
     "rust",
+    "shell",
     "dart",
+    "csharp",
 }
 SCANNER_LANGUAGE_SUPPORT = {
     "skylos": SUPPORTED_LANGUAGES,
@@ -299,11 +309,32 @@ def _scan_case(case_path: Path, scan: dict[str, Any] | None = None) -> dict[str,
             enable_quality=bool(scan_cfg.get("enable_quality", False)),
             enable_danger=bool(scan_cfg.get("enable_danger", True)),
             enable_secrets=bool(scan_cfg.get("enable_secrets", False)),
+            changed_files=_case_changed_files(case_path),
             grep_verify=bool(scan_cfg.get("grep_verify", False)),
         )
     finally:
         analyzer_logger.setLevel(prev_level)
     return json.loads(raw)
+
+
+def _case_changed_files(case_path: Path) -> set[str]:
+    if case_path.is_file():
+        return {str(case_path.resolve())} if not case_path.is_symlink() else set()
+
+    changed_files: set[str] = set()
+    for current_root, dirnames, filenames in os.walk(case_path, followlinks=False):
+        dirnames[:] = [
+            name
+            for name in dirnames
+            if not (Path(current_root) / name).is_symlink()
+        ]
+        base = Path(current_root)
+        for filename in filenames:
+            path = base / filename
+            if path.is_symlink() or not path.is_file():
+                continue
+            changed_files.add(str(path.resolve()))
+    return changed_files
 
 
 def _scan_bandit_case(

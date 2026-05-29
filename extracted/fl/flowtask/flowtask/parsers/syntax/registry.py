@@ -3,6 +3,10 @@
 The HTTP handler at ``flowtask.handlers.component.FlowtaskComponentHandler``
 reads the same files; this class is the CLI-side counterpart for the
 ``--syntax`` checker.
+
+Each component is documented in a single ``<Name>.doc.json`` file that embeds
+the JSON Schema under its ``schema`` key. This registry returns the embedded
+schema slice on :meth:`get`.
 """
 import logging
 from pathlib import Path
@@ -13,7 +17,7 @@ from navconfig import BASE_DIR
 
 
 class ComponentSchemaRegistry:
-    """Cached, lazy-loaded view over ``<docs_dir>/components/*.schema.json``.
+    """Cached, lazy-loaded view over ``<docs_dir>/components/*.doc.json``.
 
     Reads the same per-component schema files as the HTTP documentation
     handler, but is designed for safe CLI-side use (no running server required).
@@ -79,23 +83,29 @@ class ComponentSchemaRegistry:
         info = index.get(self.COMPONENTS_DIRNAME, {}).get(component)
         if not info:
             return None
-        rel = info.get("schema")
+        rel = info.get("file")
         if not rel:
             return None
 
-        schema_path = self.docs_dir / rel
-        if not schema_path.exists():
+        doc_path = self.docs_dir / rel
+        if not doc_path.exists():
             self.logger.warning(
-                "Component schema missing on disk: %s", schema_path
+                "Component doc missing on disk: %s", doc_path
             )
             return None
         try:
-            data = orjson.loads(schema_path.read_bytes())
+            doc_data = orjson.loads(doc_path.read_bytes())
         except (orjson.JSONDecodeError, OSError) as e:
-            self.logger.warning("Failed to read %s: %s", schema_path, e)
+            self.logger.warning("Failed to read %s: %s", doc_path, e)
             return None
-        self._schema_cache[component] = data
-        return data
+        schema = doc_data.get("schema")
+        if not isinstance(schema, dict):
+            self.logger.warning(
+                "Component doc %s has no embedded schema", doc_path
+            )
+            return None
+        self._schema_cache[component] = schema
+        return schema
 
     # --- internals ---------------------------------------------------------
 

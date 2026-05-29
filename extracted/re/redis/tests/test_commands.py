@@ -14,12 +14,20 @@ import redis
 from redis import exceptions
 from redis._parsers.helpers import (
     _RedisCallbacks,
-    _RedisCallbacksRESP2,
-    _RedisCallbacksRESP3,
+    get_response_callbacks,
     parse_info,
+    parse_zscan,
+    zset_score_for_rank,
+    zset_score_pairs,
 )
 from redis.client import EMPTY_RESPONSE, NEVER_DECODE
-from redis.commands.core import DataPersistOptions, HotkeysMetricsTypes
+from redis.commands.core import (
+    ArrayAggregateOperations,
+    ArrayPredicateCombinator,
+    ArrayPredicateType,
+    DataPersistOptions,
+    HotkeysMetricsTypes,
+)
 from redis.commands.json.path import Path
 from redis.commands.search.field import TextField
 from redis.commands.search.query import Query
@@ -30,7 +38,10 @@ from .conftest import (
     _get_client,
     assert_resp_response,
     assert_resp_response_in,
-    is_resp2_connection,
+    expects_resp2_shape,
+    expects_resp3_shape,
+    expects_unified_shape,
+    expected_response_shape,
     skip_if_redis_enterprise,
     skip_if_server_version_gte,
     skip_if_server_version_lt,
@@ -67,11 +78,10 @@ class TestResponseCallbacks:
     "Tests for the response callback system"
 
     def test_response_callbacks(self, r):
-        callbacks = _RedisCallbacks
-        if is_resp2_connection(r):
-            callbacks.update(_RedisCallbacksRESP2)
-        else:
-            callbacks.update(_RedisCallbacksRESP3)
+        kwargs = r.connection_pool.connection_kwargs
+        callbacks = get_response_callbacks(
+            kwargs.get("protocol"), kwargs.get("legacy_responses", True)
+        )
         assert r.response_callbacks == callbacks
         assert id(r.response_callbacks) != id(_RedisCallbacks)
         r.set_response_callback("GET", lambda x: "static")
@@ -83,6 +93,16 @@ class TestResponseCallbacks:
 
 
 class TestRedisCommands:
+    def _wait_for_bgsave(self, r, timeout=10):
+        deadline = time.monotonic() + timeout
+        while True:
+            info = r.info("persistence")
+            if int(info.get("rdb_bgsave_in_progress", 0)) == 0:
+                return
+            if time.monotonic() > deadline:
+                pytest.fail("Timed out waiting for BGSAVE to finish")
+            time.sleep(0.05)
+
     @pytest.mark.onlynoncluster
     @skip_if_redis_enterprise()
     def test_auth(self, r, request):
@@ -727,7 +747,9 @@ class TestRedisCommands:
     @skip_if_server_version_lt("2.6.9")
     def test_client_setname(self, r):
         assert r.client_setname("redis_py_test")
-        assert_resp_response(r, r.client_getname(), "redis_py_test", b"redis_py_test")
+        assert_resp_response(
+            r, r.client_getname(), "redis_py_test", b"redis_py_test", "redis_py_test"
+        )
 
     @skip_if_server_version_lt("7.2.0")
     def test_client_setinfo(self, r: redis.Redis):
@@ -1035,10 +1057,12 @@ class TestRedisCommands:
             default_dialect_new = "3"
             assert r.config_set("search-default-dialect", default_dialect_new)
             assert r.config_get("*")["search-default-dialect"] == default_dialect_new
-            assert (
-                (r.ft().config_get("*")[b"DEFAULT_DIALECT"]).decode()
-                == default_dialect_new
-            )
+            search_config = r.ft().config_get("*")
+            if expects_resp2_shape(r) or expects_resp3_shape(r):
+                dialect = search_config[b"DEFAULT_DIALECT"].decode()
+            elif expects_unified_shape(r):
+                dialect = search_config["DEFAULT_DIALECT"]
+            assert dialect == default_dialect_new
         except AssertionError as ex:
             raise ex
         finally:
@@ -1125,7 +1149,7 @@ class TestRedisCommands:
     @skip_if_server_version_lt("6.2.0")
     @skip_if_redis_enterprise()
     def test_reset(self, r):
-        assert_resp_response(r, r.reset(), "RESET", b"RESET")
+        assert_resp_response(r, r.reset(), "RESET", b"RESET", "RESET")
 
     def test_object(self, r):
         r["a"] = "foo"
@@ -1539,9 +1563,11 @@ class TestRedisCommands:
 
     @skip_if_redis_enterprise()
     def test_bgsave(self, r):
+        self._wait_for_bgsave(r)
         assert r.bgsave()
-        time.sleep(0.3)
+        self._wait_for_bgsave(r)
         assert r.bgsave(True)
+        self._wait_for_bgsave(r)
 
     def test_never_decode_option(self, r: redis.Redis):
         opts = {NEVER_DECODE: []}
@@ -1956,6 +1982,7 @@ class TestRedisCommands:
             r.lcs("foo", "bar", idx=True, minmatchlen=3),
             [b"matches", [[[4, 7], [5, 8]]], b"len", 6],
             {b"matches": [[[4, 7], [5, 8]]], b"len": 6},
+            {"matches": [[[4, 7], [5, 8]]], "len": 6},
         )
         with pytest.raises(redis.ResponseError):
             assert r.lcs("foo", "bar", len=True, idx=True)
@@ -2205,6 +2232,10 @@ class TestRedisCommands:
         assert r.getex("a", persist=True) == b"1"
         assert r.ttl("a") == -1
 
+    def test_getex_zero_expiry_options_are_mutually_exclusive(self, r):
+        with pytest.raises(DataError):
+            r.getex("a", ex=0, px=1)
+
     def test_getitem_and_setitem(self, r):
         r["a"] = "bar"
         assert r["a"] == b"bar"
@@ -2263,6 +2294,90 @@ class TestRedisCommands:
         assert r["a"] == b"1"
         assert r.incrbyfloat("a", 1.1) == 2.1
         assert float(r["a"]) == float(2.1)
+
+    @skip_if_server_version_lt("8.7.0")
+    def test_increx_default(self, r):
+        key = "increx:default"
+        assert r.set(key, 10)
+        assert r.increx(key) == [11, 1]
+        assert r[key] == b"11"
+
+    @skip_if_server_version_lt("8.7.0")
+    def test_increx_byint(self, r):
+        key = "increx:byint"
+        assert r.set(key, 20)
+        assert r.increx(key, byint=4) == [24, 4]
+        assert r[key] == b"24"
+
+    @skip_if_server_version_lt("8.7.0")
+    def test_increx_byfloat(self, r):
+        key = "increx:float"
+        assert r.set(key, "1.5")
+        result = r.increx(key, byfloat=0.25, lbound=0, ubound=2)
+        assert [float(value) for value in result] == pytest.approx([1.75, 0.25])
+        assert float(r[key]) == pytest.approx(1.75)
+
+    @skip_if_server_version_lt("8.7.0")
+    def test_increx_saturating_bounds(self, r):
+        key = "increx:sat"
+        assert r.set(key, "1.8")
+        result = r.increx(key, byfloat=0.7, ubound=2, saturate=True)
+        assert [float(value) for value in result] == pytest.approx([2.0, 0.2])
+        assert float(r[key]) == pytest.approx(2.0)
+
+    @skip_if_server_version_lt("8.7.0")
+    def test_increx_overflow_rejected_keeps_value_and_ttl(self, r):
+        key = "increx:overflow"
+        assert r.set(key, 10)
+        assert r.expire(key, 60)
+        ttl = r.pttl(key)
+        assert r.increx(key, byint=5, ubound=12) == [10, 0]
+        assert r[key] == b"10"
+        assert 0 < r.pttl(key) <= ttl
+
+    @skip_if_server_version_lt("8.7.0")
+    def test_increx_integer_overflow_uses_type_limits(self, r):
+        key = "increx:type-overflow"
+        max_int = 9223372036854775807
+        almost_max = max_int - 1
+
+        assert r.set(key, almost_max)
+        assert r.expire(key, 60)
+        ttl = r.pttl(key)
+        assert r.increx(key, byint=2) == [almost_max, 0]
+        assert r[key] == str(almost_max).encode()
+        assert 0 < r.pttl(key) <= ttl
+
+        assert r.set(key, almost_max)
+        assert r.increx(key, byint=2, saturate=True) == [max_int, 1]
+        assert r[key] == str(max_int).encode()
+
+    @skip_if_server_version_lt("8.7.0")
+    def test_increx_expiration_enx(self, r):
+        key = "increx:expiration"
+        assert r.set(key, 40)
+        assert r.ttl(key) == -1
+
+        assert r.increx(key, byint=2, ex=60, enx=True) == [42, 2]
+        ttl = r.ttl(key)
+        assert 0 < ttl <= 60
+
+        assert r.increx(key, byint=3, ex=600, enx=True) == [45, 3]
+        assert 0 < r.ttl(key) <= ttl
+
+    def test_increx_invalid_options(self, r):
+        key = "increx:invalid"
+        assert r.set(key, 1)
+        with pytest.raises(DataError):
+            r.increx(key, byfloat=1.0, byint=1)
+        with pytest.raises(DataError):
+            r.increx(key, ex=10, px=10)
+        with pytest.raises(DataError):
+            r.increx(key, enx=True)
+
+    def test_increx_zero_expiry_options_are_mutually_exclusive(self, r):
+        with pytest.raises(DataError):
+            r.increx("a", ex=0, px=1)
 
     @pytest.mark.onlynoncluster
     def test_keys(self, r):
@@ -2635,6 +2750,10 @@ class TestRedisCommands:
         with pytest.raises(exceptions.DataError):
             r.msetex(mapping, ex=10, keepttl=True)
 
+    def test_msetex_zero_expiry_options_are_mutually_exclusive(self, r):
+        with pytest.raises(DataError):
+            r.msetex({"a": 1}, ex=0, px=1)
+
     @pytest.mark.onlynoncluster
     def test_msetnx(self, r):
         d = {"a": b"1", "b": b"2", "c": b"3"}
@@ -2841,6 +2960,10 @@ class TestRedisCommands:
         with pytest.raises(exceptions.DataError):
             assert r.set("a", "1", ex=10.0)
 
+    def test_set_zero_expiry_options_are_mutually_exclusive(self, r):
+        with pytest.raises(DataError):
+            r.set("a", "1", ex=0, px=1)
+
     @skip_if_server_version_lt("2.6.0")
     def test_set_ex_str(self, r):
         assert r.set("a", "1", ex="10")
@@ -2880,6 +3003,10 @@ class TestRedisCommands:
         r.set("a", "2", keepttl=True)
         assert r.get("a") == b"2"
         assert 0 < r.ttl("a") <= 10
+
+    def test_set_empty_condition_is_mutually_exclusive(self, r):
+        with pytest.raises(DataError):
+            r.set("a", "1", nx=True, ifeq=b"")
 
     @skip_if_server_version_lt("8.3.224")
     def test_set_ifeq_true_sets_and_returns_true(self, r):
@@ -3029,12 +3156,14 @@ class TestRedisCommands:
             r.stralgo("LCS", value1, value2, idx=True),
             {"len": len(res), "matches": [[(4, 7), (5, 8)], [(2, 3), (0, 1)]]},
             {"len": len(res), "matches": [[[4, 7], [5, 8]], [[2, 3], [0, 1]]]},
+            {"len": len(res), "matches": [[[4, 7], [5, 8]], [[2, 3], [0, 1]]]},
         )
         assert_resp_response(
             r,
             r.stralgo("LCS", value1, value2, idx=True, withmatchlen=True),
             {"len": len(res), "matches": [[4, (4, 7), (5, 8)], [2, (2, 3), (0, 1)]]},
             {"len": len(res), "matches": [[[4, 7], [5, 8], 4], [[2, 3], [0, 1], 2]]},
+            {"len": len(res), "matches": [[4, [4, 7], [5, 8]], [2, [2, 3], [0, 1]]]},
         )
         assert_resp_response(
             r,
@@ -3043,6 +3172,7 @@ class TestRedisCommands:
             ),
             {"len": len(res), "matches": [[4, (4, 7), (5, 8)]]},
             {"len": len(res), "matches": [[[4, 7], [5, 8], 4]]},
+            {"len": len(res), "matches": [[4, [4, 7], [5, 8]]]},
         )
 
     @skip_if_server_version_lt("6.0.0")
@@ -3269,6 +3399,588 @@ class TestRedisCommands:
         assert r.lrange("a", 0, -1) == [b"1", b"2", b"3"]
         assert r.lset("a", 1, "4")
         assert r.lrange("a", 0, 2) == [b"1", b"4", b"3"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arset_at_index_zero(self, r):
+        assert r.arset("a", 0, "v0") == 1
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arset_at_positive_index(self, r):
+        assert r.arset("a", 1, "v1") == 1
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arset_multiple_values(self, r):
+        assert r.arset("a", 0, "v0", "v1", "v2") == 3
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arset_negative_index(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        with pytest.raises(redis.ResponseError):
+            r.arset("a", -1, "vlast")
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_armset_sets_values_at_correct_indices(self, r):
+        assert r.armset("a", {0: "v0", 2: "v2", 4: "v4"}) == 3
+        assert r.arget("a", 0) == b"v0"
+        assert r.arget("a", 1) is None
+        assert r.arget("a", 2) == b"v2"
+        assert r.arget("a", 3) is None
+        assert r.arget("a", 4) == b"v4"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_armset_single_pair(self, r):
+        assert r.armset("a", {3: "v3"}) == 1
+        assert r.arget("a", 3) == b"v3"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_armset_overwrites_existing_indices(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.armset("a", {0: "new0", 1: "new1", 2: "new2"}) == 0
+        assert r.arget("a", 0) == b"new0"
+        assert r.arget("a", 1) == b"new1"
+        assert r.arget("a", 2) == b"new2"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_armset_mixed_new_and_existing_indices(self, r):
+        r.arset("a", 0, "v0", "v1")
+        assert r.armset("a", {0: "new0", 2: "v2", 3: "v3"}) == 2
+        assert r.arget("a", 0) == b"new0"
+        assert r.arget("a", 1) == b"v1"
+        assert r.arget("a", 2) == b"v2"
+        assert r.arget("a", 3) == b"v3"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arget_returns_value_at_index(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.arget("a", 0) == b"v0"
+        assert r.arget("a", 1) == b"v1"
+        assert r.arget("a", 2) == b"v2"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arget_missing_key_returns_none(self, r):
+        assert r.arget("a", 0) is None
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arget_missing_index_returns_none(self, r):
+        r.arset("a", 0, "v0")
+        assert r.arget("a", 5) is None
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_armget_returns_values_at_indices(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.armget("a", 0, 1, 2) == [b"v0", b"v1", b"v2"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_armget_preserves_requested_order(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.armget("a", 2, 0, 1) == [b"v2", b"v0", b"v1"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_armget_missing_key_returns_nones(self, r):
+        assert r.armget("a", 0, 2, 5) == [None, None, None]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_armget_missing_indices_return_nones(self, r):
+        r.arset("a", 0, "v0", "v1")
+        assert r.armget("a", 0, 5, 1, 10) == [b"v0", None, b"v1", None]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_armget_single_index(self, r):
+        r.arset("a", 0, "v0", "v1")
+        assert r.armget("a", 1) == [b"v1"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argetrange_returns_array_slice(self, r):
+        r.arset("a", 0, "v0", "v1", "v2", "v3", "v4")
+        assert r.argetrange("a", 1, 3) == [b"v1", b"v2", b"v3"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argetrange_full_range(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.argetrange("a", 0, 2) == [b"v0", b"v1", b"v2"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argetrange_reversed_range(self, r):
+        r.arset("a", 0, "v0", "v1", "v2", "v3", "v4")
+        assert r.argetrange("a", 3, 1) == [b"v3", b"v2", b"v1"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argetrange_single_index(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.argetrange("a", 1, 1) == [b"v1"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argetrange_includes_empty_indices(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        r.ardel("a", 1)
+        assert r.argetrange("a", 0, 2) == [b"v0", None, b"v2"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argetrange_missing_key(self, r):
+        assert r.argetrange("a", 0, 4) == [None] * 5
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argetrange_out_of_bounds(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.argetrange("a", 10, 20) == [None] * 11
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arscan_returns_index_value_pairs(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.arscan("a", 0, 2) == [[0, b"v0"], [1, b"v1"], [2, b"v2"]]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arscan_skips_empty_slots(self, r):
+        r.armset("a", {0: "a", 5: "b", 9: "c"})
+        assert r.arscan("a", 0, 10) == [[0, b"a"], [5, b"b"], [9, b"c"]]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arscan_reverse(self, r):
+        r.armset("a", {0: "a", 5: "b", 9: "c"})
+        assert r.arscan("a", 10, 0) == [[9, b"c"], [5, b"b"], [0, b"a"]]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arscan_with_limit(self, r):
+        r.armset("a", {0: "a", 5: "b", 9: "c"})
+        assert r.arscan("a", 0, 10, limit=2) == [[0, b"a"], [5, b"b"]]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arscan_missing_key_returns_empty(self, r):
+        assert r.arscan("a", 0, 10) == []
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_exact_match(self, r):
+        r.armset("a", {0: "boot", 1: "warn", 2: "error", 3: "boot"})
+        assert r.argrep("a", 0, 3, [(ArrayPredicateType.EXACT, "boot")]) == [0, 3]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_substring_match(self, r):
+        r.armset("a", {0: "boot: ok", 1: "warn: disk", 2: "ERROR: cpu"})
+        assert r.argrep("a", 0, 2, [(ArrayPredicateType.MATCH, "warn")]) == [1]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_glob_match(self, r):
+        r.armset("a", {0: "warn:disk", 1: "info:ok", 2: "warn:net"})
+        result = r.argrep("a", 0, 2, [(ArrayPredicateType.GLOB, "warn:*")])
+        assert result == [0, 2]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_regex_match(self, r):
+        r.armset("a", {0: "boot: ok", 1: "ERROR: cpu", 2: "error: net"})
+        result = r.argrep(
+            "a",
+            0,
+            2,
+            [(ArrayPredicateType.RE, r"^[A-Za-z]+: (cpu|net)$")],
+            nocase=True,
+        )
+        assert result == [1, 2]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_nocase(self, r):
+        r.armset("a", {0: "ERROR", 1: "info", 2: "Error"})
+        assert r.argrep(
+            "a", 0, 2, [(ArrayPredicateType.MATCH, "error")], nocase=True
+        ) == [0, 2]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_withvalues(self, r):
+        r.armset("a", {0: "ERROR: cpu", 1: "info", 2: "error: net"})
+        result = r.argrep(
+            "a",
+            0,
+            2,
+            [(ArrayPredicateType.MATCH, "error")],
+            withvalues=True,
+            nocase=True,
+        )
+        assert result == [[0, b"ERROR: cpu"], [2, b"error: net"]]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_limit(self, r):
+        r.armset("a", {0: "ERROR", 1: "info", 2: "Error"})
+        result = r.argrep(
+            "a",
+            0,
+            2,
+            [(ArrayPredicateType.MATCH, "error")],
+            limit=1,
+            nocase=True,
+        )
+        assert result == [0]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_combinator_and(self, r):
+        r.armset("a", {0: "warn: ok", 1: "error: ok", 2: "warn: bad"})
+        result = r.argrep(
+            "a",
+            0,
+            2,
+            [
+                (ArrayPredicateType.MATCH, "warn"),
+                (ArrayPredicateType.MATCH, "ok"),
+            ],
+            combinator=ArrayPredicateCombinator.AND,
+        )
+        assert result == [0]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_combinator_or(self, r):
+        r.armset("a", {0: "warn", 1: "info", 2: "error"})
+        result = r.argrep(
+            "a",
+            0,
+            2,
+            [
+                (ArrayPredicateType.EXACT, "warn"),
+                (ArrayPredicateType.EXACT, "error"),
+            ],
+            combinator=ArrayPredicateCombinator.OR,
+        )
+        assert result == [0, 2]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_missing_key(self, r):
+        assert r.argrep("a", 0, 10, [(ArrayPredicateType.MATCH, "x")]) == []
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_argrep_reverse(self, r):
+        r.armset("a", {0: "warn", 1: "info", 2: "warn"})
+        assert r.argrep("a", 2, 0, [(ArrayPredicateType.EXACT, "warn")]) == [2, 0]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_ardel_single_index(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.ardel("a", 1) == 1
+        assert r.arget("a", 1) is None
+        assert r.arget("a", 0) == b"v0"
+        assert r.arget("a", 2) == b"v2"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_ardel_multiple_indices(self, r):
+        r.arset("a", 0, "v0", "v1", "v2", "v3")
+        assert r.ardel("a", 0, 2, 3) == 3
+        assert r.arget("a", 0) is None
+        assert r.arget("a", 1) == b"v1"
+        assert r.arget("a", 2) is None
+        assert r.arget("a", 3) is None
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_ardel_non_existing_index(self, r):
+        r.arset("a", 0, "v0", "v1")
+        assert r.ardel("a", 10) == 0
+        assert r.arget("a", 0) == b"v0"
+        assert r.arget("a", 1) == b"v1"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_ardel_mixed_existing_and_missing(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.ardel("a", 0, 10, 2) == 2
+        assert r.arget("a", 0) is None
+        assert r.arget("a", 1) == b"v1"
+        assert r.arget("a", 2) is None
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_ardelrange_single_range(self, r):
+        r.arset("a", 0, "v0", "v1", "v2", "v3", "v4")
+        assert r.ardelrange("a", (1, 3)) == 3
+        assert r.arget("a", 0) == b"v0"
+        assert r.arget("a", 1) is None
+        assert r.arget("a", 2) is None
+        assert r.arget("a", 3) is None
+        assert r.arget("a", 4) == b"v4"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_ardelrange_multiple_ranges(self, r):
+        r.arset("a", 0, "v0", "v1", "v2", "v3", "v4", "v5")
+        assert r.ardelrange("a", (0, 1), (4, 5)) == 4
+        assert r.arget("a", 0) is None
+        assert r.arget("a", 1) is None
+        assert r.arget("a", 2) == b"v2"
+        assert r.arget("a", 3) == b"v3"
+        assert r.arget("a", 4) is None
+        assert r.arget("a", 5) is None
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_ardelrange_reversed_range(self, r):
+        r.arset("a", 0, "v0", "v1", "v2", "v3", "v4")
+        assert r.ardelrange("a", (3, 1)) == 3
+        assert r.arget("a", 0) == b"v0"
+        assert r.arget("a", 1) is None
+        assert r.arget("a", 2) is None
+        assert r.arget("a", 3) is None
+        assert r.arget("a", 4) == b"v4"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_ardelrange_overlapping_ranges(self, r):
+        r.arset("a", 0, "v0", "v1", "v2", "v3", "v4")
+        assert r.ardelrange("a", (0, 2), (1, 3)) == 4
+        assert r.arget("a", 0) is None
+        assert r.arget("a", 1) is None
+        assert r.arget("a", 2) is None
+        assert r.arget("a", 3) is None
+        assert r.arget("a", 4) == b"v4"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_ardelrange_missing_key(self, r):
+        assert r.ardelrange("a", (0, 4)) == 0
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_ardelrange_empty_indices(self, r):
+        r.arset("a", 0, "v0")
+        assert r.ardelrange("a", (5, 10)) == 0
+        assert r.arget("a", 0) == b"v0"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arcount_missing_key(self, r):
+        assert r.arcount("a") == 0
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arcount_returns_number_of_elements(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.arcount("a") == 3
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arcount_after_delete(self, r):
+        r.arset("a", 0, "v0", "v1", "v2", "v3")
+        r.ardel("a", 1, 3)
+        assert r.arcount("a") == 2
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arlen_missing_key(self, r):
+        assert r.arlen("a") == 0
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arlen_returns_length(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.arlen("a") == 3
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arlen_uses_max_index_plus_one(self, r):
+        r.arset("a", 7, "v7")
+        assert r.arlen("a") == 8
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arlen_unchanged_after_delete(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        r.ardel("a", 1)
+        assert r.arlen("a") == 3
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arinfo_returns_basic_fields(self, r):
+        r.armset("a", {0: "x", 1: "y", 100: "z"})
+        info = r.arinfo("a")
+        assert isinstance(info, dict)
+        assert info["count"] == 3
+        assert info["len"] == 101
+        for field in ("next-insert-index", "slices", "slice-size"):
+            assert field in info
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arinfo_full_includes_slice_stats(self, r):
+        r.armset("a", {0: "x", 1: "y", 100: "z"})
+        info = r.arinfo("a", full=True)
+        for field in (
+            "dense-slices",
+            "sparse-slices",
+            "avg-dense-size",
+            "avg-dense-fill",
+            "avg-sparse-size",
+        ):
+            assert field in info
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arinfo_missing_key_raises(self, r):
+        with pytest.raises(redis.ResponseError):
+            r.arinfo("a")
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arnext_missing_key(self, r):
+        assert r.arnext("a") == 0
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arnext_returns_next_index(self, r):
+        r.arinsert("a", "v0", "v1", "v2")
+        assert r.arnext("a") == 3
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arnext_after_delete(self, r):
+        r.arinsert("a", "v0", "v1", "v2")
+        r.ardel("a", 1)
+        assert r.arnext("a") == 3
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arseek_missing_key_returns_zero(self, r):
+        assert r.arseek("a", 5) == 0
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arseek_repositions_insert_cursor(self, r):
+        r.arinsert("a", "v0")
+        assert r.arseek("a", 10) == 1
+        assert r.arnext("a") == 10
+        r.arinsert("a", "v10")
+        assert r.arget("a", 10) == b"v10"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arseek_followed_by_arnext(self, r):
+        r.arinsert("a", "v0", "v1")
+        assert r.arseek("a", 7) == 1
+        assert r.arnext("a") == 7
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arinsert_single_value(self, r):
+        assert r.arinsert("a", "v0") == 0
+        assert r.arget("a", 0) == b"v0"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arinsert_multiple_values(self, r):
+        assert r.arinsert("a", "v0", "v1", "v2") == 2
+        assert r.arget("a", 0) == b"v0"
+        assert r.arget("a", 1) == b"v1"
+        assert r.arget("a", 2) == b"v2"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arinsert_advances_cursor(self, r):
+        r.arinsert("a", "v0", "v1")
+        assert r.arnext("a") == 2
+        assert r.arinsert("a", "v2") == 2
+        assert r.arnext("a") == 3
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arring_inserts_sequentially(self, r):
+        assert r.arring("a", 3, "v0") == 0
+        assert r.arring("a", 3, "v1") == 1
+        assert r.arring("a", 3, "v2") == 2
+        assert r.arget("a", 0) == b"v0"
+        assert r.arget("a", 1) == b"v1"
+        assert r.arget("a", 2) == b"v2"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arring_wraps_when_full(self, r):
+        r.arring("a", 3, "v0", "v1", "v2")
+        assert r.arring("a", 3, "v3") == 0
+        assert r.arget("a", 0) == b"v3"
+        assert r.arget("a", 1) == b"v1"
+        assert r.arget("a", 2) == b"v2"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arring_multiple_values_in_one_call(self, r):
+        assert r.arring("a", 4, "v0", "v1", "v2") == 2
+        assert r.arget("a", 0) == b"v0"
+        assert r.arget("a", 2) == b"v2"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arring_returns_last_inserted_index(self, r):
+        assert r.arring("a", 5, "v0", "v1", "v2", "v3", "v4", "v5") == 0
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arring_truncates_on_smaller_size(self, r):
+        r.arring("a", 5, "v0", "v1", "v2", "v3", "v4")
+        assert r.arring("a", 3, "v5") == 0
+        assert r.arlen("a") == 3
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arlastitems_returns_last_elements(self, r):
+        r.arinsert("a", "v0", "v1", "v2", "v3", "v4")
+        assert r.arlastitems("a", 3) == [b"v2", b"v3", b"v4"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arlastitems_reverse_order(self, r):
+        r.arinsert("a", "v0", "v1", "v2", "v3", "v4")
+        assert r.arlastitems("a", 3, rev=True) == [b"v4", b"v3", b"v2"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arlastitems_count_greater_than_size(self, r):
+        r.arinsert("a", "v0", "v1", "v2")
+        assert r.arlastitems("a", 10) == [b"v0", b"v1", b"v2"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arlastitems_count_greater_than_size_reverse(self, r):
+        r.arinsert("a", "v0", "v1", "v2")
+        assert r.arlastitems("a", 10, rev=True) == [b"v2", b"v1", b"v0"]
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arlastitems_missing_key(self, r):
+        assert r.arlastitems("a", 3) == []
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arlastitems_zero_count(self, r):
+        r.arinsert("a", "v0", "v1", "v2")
+        assert r.arlastitems("a", 0) == []
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_sum(self, r):
+        r.arset("a", 0, 1, 2, 3, 4, 5)
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.SUM) == b"15"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_min_max(self, r):
+        r.arset("a", 0, 5, 1, 4, 2, 3)
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.MIN) == b"1"
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.MAX) == b"5"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_bitwise(self, r):
+        r.arset("a", 0, 1, 2, 3, 4, 5)
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.AND) == 0
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.OR) == 7
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.XOR) == 1
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_match(self, r):
+        r.arset("a", 0, 1, 2, 3, 2, 1)
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.MATCH, 2) == 2
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.MATCH, 7) == 0
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_used(self, r):
+        r.arset("a", 0, "v0", "v1", "v2")
+        assert r.arop("a", 0, 2, ArrayAggregateOperations.USED) == 3
+        r.ardel("a", 1)
+        assert r.arop("a", 0, 2, ArrayAggregateOperations.USED) == 2
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_reversed_range(self, r):
+        r.arset("a", 0, 1, 2, 3, 4, 5)
+        assert r.arop("a", 4, 0, ArrayAggregateOperations.SUM) == b"15"
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_non_numeric_values(self, r):
+        r.arset("a", 0, "x", "y", "z")
+        assert r.arop("a", 0, 2, ArrayAggregateOperations.SUM) is None
+        assert r.arop("a", 0, 2, ArrayAggregateOperations.MIN) is None
+        assert r.arop("a", 0, 2, ArrayAggregateOperations.MAX) is None
+        assert r.arop("a", 0, 2, ArrayAggregateOperations.USED) == 3
+        assert r.arop("a", 0, 2, ArrayAggregateOperations.MATCH, "y") == 1
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_mixed_numeric_non_numeric(self, r):
+        r.arset("a", 0, 1, "x", 3)
+        assert r.arop("a", 0, 2, ArrayAggregateOperations.SUM) == b"4"
+        assert r.arop("a", 0, 2, ArrayAggregateOperations.MIN) == b"1"
+        assert r.arop("a", 0, 2, ArrayAggregateOperations.USED) == 3
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_empty_range(self, r):
+        r.arset("a", 0, 1, 2, 3)
+        assert r.arop("a", 100, 200, ArrayAggregateOperations.SUM) is None
+        assert r.arop("a", 100, 200, ArrayAggregateOperations.AND) is None
+        assert r.arop("a", 100, 200, ArrayAggregateOperations.OR) is None
+        assert r.arop("a", 100, 200, ArrayAggregateOperations.XOR) is None
+        assert r.arop("a", 100, 200, ArrayAggregateOperations.USED) == 0
+        assert r.arop("a", 100, 200, ArrayAggregateOperations.MATCH, 1) == 0
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_missing_key(self, r):
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.SUM) is None
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.AND) is None
+        assert r.arop("a", 0, 4, ArrayAggregateOperations.USED) == 0
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_arop_match_requires_value(self, r):
+        r.arset("a", 0, 1, 2, 3)
+        with pytest.raises(redis.ResponseError):
+            r.arop("a", 0, 2, ArrayAggregateOperations.MATCH)
 
     def test_ltrim(self, r):
         r.rpush("a", "1", "2", "3")
@@ -3533,17 +4245,36 @@ class TestRedisCommands:
         r.zadd("a", {"a": 1, "b": 2, "c": 3})
         cursor, pairs = r.zscan("a")
         assert cursor == 0
-        assert set(pairs) == {(b"a", 1), (b"b", 2), (b"c", 3)}
+        if expects_unified_shape(r):
+            assert sorted(pairs) == [[b"a", 1.0], [b"b", 2.0], [b"c", 3.0]]
+        else:
+            assert set(pairs) == {(b"a", 1), (b"b", 2), (b"c", 3)}
         _, pairs = r.zscan("a", match="a")
-        assert set(pairs) == {(b"a", 1)}
+        if expects_unified_shape(r):
+            assert pairs == [[b"a", 1.0]]
+        else:
+            assert set(pairs) == {(b"a", 1)}
+
+    def test_zscan_score_cast_scientific_notation(self):
+        """score_cast_func=int handles scientific notation scores (issue #4000)."""
+        response = (b"0", [b"member1", b"1.7732526297292595e+18"])
+        cursor, pairs = parse_zscan(response, score_cast_func=int)
+        assert cursor == 0
+        assert pairs == [(b"member1", 1773252629729259520)]
 
     @skip_if_server_version_lt("2.8.0")
     def test_zscan_iter(self, r):
         r.zadd("a", {"a": 1, "b": 2, "c": 3})
         pairs = list(r.zscan_iter("a"))
-        assert set(pairs) == {(b"a", 1), (b"b", 2), (b"c", 3)}
+        if expects_unified_shape(r):
+            assert sorted(pairs) == [[b"a", 1.0], [b"b", 2.0], [b"c", 3.0]]
+        else:
+            assert set(pairs) == {(b"a", 1), (b"b", 2), (b"c", 3)}
         pairs = list(r.zscan_iter("a", match="a"))
-        assert set(pairs) == {(b"a", 1)}
+        if expects_unified_shape(r):
+            assert pairs == [[b"a", 1.0]]
+        else:
+            assert set(pairs) == {(b"a", 1)}
 
     # SET COMMANDS
     def test_sadd(self, r):
@@ -3858,6 +4589,27 @@ class TestRedisCommands:
         )
 
     @pytest.mark.onlynoncluster
+    @skip_if_server_version_lt("8.7.0")
+    def test_zinter_count(self, r):
+        r.zadd("a", {"a1": 1, "a2": 2, "a3": 1})
+        r.zadd("b", {"a1": 2, "a2": 2, "a3": 2})
+        r.zadd("c", {"a1": 6, "a3": 5, "a4": 4})
+        # aggregate with COUNT (scores ignored, counts membership)
+        assert_resp_response(
+            r,
+            r.zinter(["a", "b", "c"], aggregate="COUNT", withscores=True),
+            [(b"a1", 3), (b"a3", 3)],
+            [[b"a1", 3], [b"a3", 3]],
+        )
+        # COUNT with weights
+        assert_resp_response(
+            r,
+            r.zinter({"a": 1, "b": 2, "c": 3}, aggregate="COUNT", withscores=True),
+            [(b"a1", 6), (b"a3", 6)],
+            [[b"a1", 6], [b"a3", 6]],
+        )
+
+    @pytest.mark.onlynoncluster
     @skip_if_server_version_lt("7.0.0")
     def test_zintercard(self, r):
         r.zadd("a", {"a1": 1, "a2": 2, "a3": 1})
@@ -3918,10 +4670,44 @@ class TestRedisCommands:
             [[b"a3", 20], [b"a1", 23]],
         )
 
+    @pytest.mark.onlynoncluster
+    @skip_if_server_version_lt("8.7.0")
+    def test_zinterstore_count(self, r):
+        r.zadd("a", {"a1": 1, "a2": 1, "a3": 1})
+        r.zadd("b", {"a1": 2, "a2": 2, "a3": 2})
+        r.zadd("c", {"a1": 6, "a3": 5, "a4": 4})
+        assert r.zinterstore("d", ["a", "b", "c"], aggregate="COUNT") == 2
+        assert_resp_response(
+            r,
+            r.zrange("d", 0, -1, withscores=True),
+            [(b"a1", 3), (b"a3", 3)],
+            [[b"a1", 3], [b"a3", 3]],
+        )
+
+    @pytest.mark.onlynoncluster
+    @skip_if_server_version_lt("8.7.0")
+    def test_zinterstore_count_with_weight(self, r):
+        r.zadd("a", {"a1": 1, "a2": 1, "a3": 1})
+        r.zadd("b", {"a1": 2, "a2": 2, "a3": 2})
+        r.zadd("c", {"a1": 6, "a3": 5, "a4": 4})
+        assert r.zinterstore("d", {"a": 1, "b": 2, "c": 3}, aggregate="COUNT") == 2
+        assert_resp_response(
+            r,
+            r.zrange("d", 0, -1, withscores=True),
+            [(b"a1", 6), (b"a3", 6)],
+            [[b"a1", 6], [b"a3", 6]],
+        )
+
     @skip_if_server_version_lt("4.9.0")
     def test_zpopmax(self, r):
         r.zadd("a", {"a1": 1, "a2": 2, "a3": 3})
-        assert_resp_response(r, r.zpopmax("a"), [(b"a3", 3)], [b"a3", 3.0])
+        assert_resp_response(
+            r,
+            r.zpopmax("a"),
+            [(b"a3", 3)],
+            [b"a3", 3.0],
+            unified_expected=[[b"a3", 3.0]],
+        )
         # with count
         assert_resp_response(
             r,
@@ -3933,7 +4719,13 @@ class TestRedisCommands:
     @skip_if_server_version_lt("4.9.0")
     def test_zpopmin(self, r):
         r.zadd("a", {"a1": 1, "a2": 2, "a3": 3})
-        assert_resp_response(r, r.zpopmin("a"), [(b"a1", 1)], [b"a1", 1.0])
+        assert_resp_response(
+            r,
+            r.zpopmin("a"),
+            [(b"a1", 1)],
+            [b"a1", 1.0],
+            unified_expected=[[b"a1", 1.0]],
+        )
         # with count
         assert_resp_response(
             r,
@@ -3947,6 +4739,7 @@ class TestRedisCommands:
         r.zadd("a", {"a1": 1, "a2": 2, "a3": 3, "a4": 4, "a5": 5})
         assert r.zrandmember("a") is not None
         assert len(r.zrandmember("a", 2)) == 2
+
         # with scores
         assert_resp_response(
             r,
@@ -4075,6 +4868,21 @@ class TestRedisCommands:
             [[b"a1", "1.0"], [b"a2", "2.0"]],
         )
 
+    def test_zrange_score_cast_scientific_notation(self):
+        """score_cast_func=int handles scientific notation scores (issue #4000)."""
+        # Simulates RESP2 response with large score in scientific notation
+        response = [b"member1", b"1.7732526297292595e+18"]
+        result = zset_score_pairs(response, withscores=True, score_cast_func=int)
+        assert result == [(b"member1", 1773252629729259520)]
+        # float cast is unaffected
+        result = zset_score_pairs(response, withscores=True, score_cast_func=float)
+        assert result == [(b"member1", 1.7732526297292595e18)]
+        # safe_str still receives raw bytes, not float (no "1.0" regression)
+        result = zset_score_pairs(
+            [b"a", b"1"], withscores=True, score_cast_func=safe_str
+        )
+        assert result == [(b"a", "1")]
+
     def test_zrange_errors(self, r):
         with pytest.raises(exceptions.DataError):
             r.zrange("a", 0, 1, byscore=True, bylex=True)
@@ -4190,6 +4998,12 @@ class TestRedisCommands:
             [(b"a2", "2"), (b"a3", "3"), (b"a4", "4")],
             [[b"a2", "2.0"], [b"a3", "3.0"], [b"a4", "4.0"]],
         )
+
+    def test_zrangebyscore_score_cast_scientific_notation(self):
+        """score_cast_func=int handles scientific notation scores (issue #4000)."""
+        response = [b"a1", b"1.7732526297292595e+18", b"a2", b"2.5"]
+        result = zset_score_pairs(response, withscores=True, score_cast_func=int)
+        assert result == [(b"a1", 1773252629729259520), (b"a2", 2)]
 
     def test_zrank(self, r):
         r.zadd("a", {"a1": 1, "a2": 2, "a3": 3, "a4": 4, "a5": 5})
@@ -4330,6 +5144,12 @@ class TestRedisCommands:
             [2, "3.0"],
         )
 
+    def test_zrevrank_score_cast_scientific_notation(self):
+        """score_cast_func=int handles scientific notation scores (issue #4000)."""
+        response = [2, b"1.7732526297292595e+18"]
+        result = zset_score_for_rank(response, withscore=True, score_cast_func=int)
+        assert result == [2, 1773252629729259520]
+
     def test_zscore(self, r):
         r.zadd("a", {"a1": 1, "a2": 2, "a3": 3})
         assert r.zscore("a", "a1") == 1.0
@@ -4377,6 +5197,27 @@ class TestRedisCommands:
             r.zunion(["a", "b", "c"], withscores=True, score_cast_func=safe_str),
             [(b"a2", "3"), (b"a4", "4"), (b"a3", "8"), (b"a1", "9")],
             [[b"a2", "3.0"], [b"a4", "4.0"], [b"a3", "8.0"], [b"a1", "9.0"]],
+        )
+
+    @pytest.mark.onlynoncluster
+    @skip_if_server_version_lt("8.7.0")
+    def test_zunion_count(self, r):
+        r.zadd("a", {"a1": 1, "a2": 1, "a3": 1})
+        r.zadd("b", {"a1": 2, "a2": 2, "a3": 2})
+        r.zadd("c", {"a1": 6, "a3": 5, "a4": 4})
+        # aggregate with COUNT (scores ignored, counts membership)
+        assert_resp_response(
+            r,
+            r.zunion(["a", "b", "c"], aggregate="COUNT", withscores=True),
+            [(b"a4", 1), (b"a2", 2), (b"a1", 3), (b"a3", 3)],
+            [[b"a4", 1], [b"a2", 2], [b"a1", 3], [b"a3", 3]],
+        )
+        # COUNT with weights
+        assert_resp_response(
+            r,
+            r.zunion({"a": 1, "b": 2, "c": 3}, aggregate="COUNT", withscores=True),
+            [(b"a2", 3), (b"a4", 3), (b"a1", 6), (b"a3", 6)],
+            [[b"a2", 3], [b"a4", 3], [b"a1", 6], [b"a3", 6]],
         )
 
     @pytest.mark.onlynoncluster
@@ -4429,6 +5270,34 @@ class TestRedisCommands:
             r.zrange("d", 0, -1, withscores=True),
             [(b"a2", 5), (b"a4", 12), (b"a3", 20), (b"a1", 23)],
             [[b"a2", 5], [b"a4", 12], [b"a3", 20], [b"a1", 23]],
+        )
+
+    @pytest.mark.onlynoncluster
+    @skip_if_server_version_lt("8.7.0")
+    def test_zunionstore_count(self, r):
+        r.zadd("a", {"a1": 1, "a2": 1, "a3": 1})
+        r.zadd("b", {"a1": 2, "a2": 2, "a3": 2})
+        r.zadd("c", {"a1": 6, "a3": 5, "a4": 4})
+        assert r.zunionstore("d", ["a", "b", "c"], aggregate="COUNT") == 4
+        assert_resp_response(
+            r,
+            r.zrange("d", 0, -1, withscores=True),
+            [(b"a4", 1), (b"a2", 2), (b"a1", 3), (b"a3", 3)],
+            [[b"a4", 1], [b"a2", 2], [b"a1", 3], [b"a3", 3]],
+        )
+
+    @pytest.mark.onlynoncluster
+    @skip_if_server_version_lt("8.7.0")
+    def test_zunionstore_count_with_weight(self, r):
+        r.zadd("a", {"a1": 1, "a2": 1, "a3": 1})
+        r.zadd("b", {"a1": 2, "a2": 2, "a3": 2})
+        r.zadd("c", {"a1": 6, "a3": 5, "a4": 4})
+        assert r.zunionstore("d", {"a": 1, "b": 2, "c": 3}, aggregate="COUNT") == 4
+        assert_resp_response(
+            r,
+            r.zrange("d", 0, -1, withscores=True),
+            [(b"a2", 3), (b"a4", 3), (b"a1", 6), (b"a3", 6)],
+            [[b"a2", 3], [b"a4", 3], [b"a1", 6], [b"a3", 6]],
         )
 
     @skip_if_server_version_lt("6.1.240")
@@ -4495,6 +5364,39 @@ class TestRedisCommands:
         # keys with bool(key) == False
         assert r.hset("a", 0, 10) == 1
         assert r.hset("a", "", 10) == 1
+
+    def test_hgetex_zero_expiry_options_are_mutually_exclusive(self, r):
+        with pytest.raises(DataError):
+            r.hgetex("h", "f", ex=0, px=1)
+
+    def test_hsetex_zero_expiry_options_are_mutually_exclusive(self, r):
+        with pytest.raises(DataError):
+            r.hsetex("h", "f", "v", ex=0, px=1)
+
+    def test_hget_and_hset_with_encodable_fields_and_values(self, r):
+        cases = (
+            (b"field-bytes", b"value-bytes", b"value-bytes"),
+            (
+                bytearray(b"field-bytearray"),
+                bytearray(b"value-bytearray"),
+                b"value-bytearray",
+            ),
+            (
+                memoryview(b"field-memoryview"),
+                memoryview(b"value-memoryview"),
+                b"value-memoryview",
+            ),
+            ("field-str", "value-str", b"value-str"),
+            (42, 43, b"43"),
+            (1.25, 2.5, b"2.5"),
+        )
+
+        for field, value, expected in cases:
+            assert r.hset("encodable-hash", field, value) == 1
+            assert r.hget("encodable-hash", field) == expected
+            assert r.hmget("encodable-hash", field) == [expected]
+
+        assert r.hmget("encodable-hash", bytearray(b"field-bytes")) == [b"value-bytes"]
 
     def test_hset_with_multi_key_values(self, r):
         r.hset("a", mapping={"1": 1, "2": 2, "3": 3})
@@ -4944,6 +5846,7 @@ class TestRedisCommands:
             r.geohash("barcelona", "place1", "place2", "place3"),
             ["sp3e9yg3kd0", "sp3e9cbc3t0", None],
             [b"sp3e9yg3kd0", b"sp3e9cbc3t0", None],
+            ["sp3e9yg3kd0", "sp3e9cbc3t0", None],
         )
 
     @skip_unless_arch_bits(64)
@@ -5070,6 +5973,7 @@ class TestRedisCommands:
             "place2",
         )
         r.geoadd("barcelona", values)
+        coord_tuple = (2.19093829393386841, 41.43379028184083523)
 
         # test a bunch of combinations to test the parse response
         # function.
@@ -5082,14 +5986,7 @@ class TestRedisCommands:
             withdist=True,
             withcoord=True,
             withhash=True,
-        ) == [
-            [
-                b"place1",
-                0.0881,
-                3471609698139488,
-                (2.19093829393386841, 41.43379028184083523),
-            ]
-        ]
+        ) == [[b"place1", 0.0881, 3471609698139488, coord_tuple]]
         assert r.geosearch(
             "barcelona",
             longitude=2.191,
@@ -5098,7 +5995,7 @@ class TestRedisCommands:
             unit="km",
             withdist=True,
             withcoord=True,
-        ) == [[b"place1", 0.0881, (2.19093829393386841, 41.43379028184083523)]]
+        ) == [[b"place1", 0.0881, coord_tuple]]
         assert r.geosearch(
             "barcelona",
             longitude=2.191,
@@ -5107,9 +6004,7 @@ class TestRedisCommands:
             unit="km",
             withhash=True,
             withcoord=True,
-        ) == [
-            [b"place1", 3471609698139488, (2.19093829393386841, 41.43379028184083523)]
-        ]
+        ) == [[b"place1", 3471609698139488, coord_tuple]]
         # test no values.
         assert (
             r.geosearch(
@@ -5949,6 +6844,120 @@ class TestRedisCommands:
         r.xadd(stream, {"foo": "bar"})
         assert r.xlen(stream) == 2
 
+    @skip_if_server_version_lt("8.7.2")
+    def test_xnack_silent(self, r):
+        stream = "stream"
+        group = "group"
+        consumer = "consumer"
+        m1 = r.xadd(stream, {"foo": "bar"})
+        m2 = r.xadd(stream, {"foo": "bar"})
+        r.xgroup_create(stream, group, 0)
+        r.xreadgroup(group, consumer, streams={stream: ">"})
+        # SILENT mode returns count of NACKed messages
+        result = r.xnack(stream, group, "SILENT", m1, m2)
+        assert result == 2
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_xnack_fail(self, r):
+        stream = "stream"
+        group = "group"
+        consumer = "consumer"
+        m1 = r.xadd(stream, {"foo": "bar"})
+        r.xgroup_create(stream, group, 0)
+        r.xreadgroup(group, consumer, streams={stream: ">"})
+        # FAIL mode returns count of NACKed messages
+        result = r.xnack(stream, group, "FAIL", m1)
+        assert result == 1
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_xnack_fatal(self, r):
+        stream = "stream"
+        group = "group"
+        consumer = "consumer"
+        m1 = r.xadd(stream, {"foo": "bar"})
+        r.xgroup_create(stream, group, 0)
+        r.xreadgroup(group, consumer, streams={stream: ">"})
+        # FATAL mode returns count of NACKed messages
+        result = r.xnack(stream, group, "FATAL", m1)
+        assert result == 1
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_xnack_multiple_ids(self, r):
+        stream = "stream"
+        group = "group"
+        consumer = "consumer"
+        m1 = r.xadd(stream, {"foo": "bar"})
+        m2 = r.xadd(stream, {"foo": "bar"})
+        m3 = r.xadd(stream, {"foo": "bar"})
+        r.xgroup_create(stream, group, 0)
+        r.xreadgroup(group, consumer, streams={stream: ">"})
+        result = r.xnack(stream, group, "FAIL", m1, m2, m3)
+        assert result == 3
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_xnack_some_ids_not_in_pel(self, r):
+        stream = "stream"
+        group = "group"
+        consumer = "consumer"
+        m1 = r.xadd(stream, {"foo": "bar"})
+        m2 = r.xadd(stream, {"foo": "bar"})
+        r.xgroup_create(stream, group, 0)
+        r.xreadgroup(group, consumer, streams={stream: ">"})
+        # Only m1 and m2 are in PEL; "999999-0" is not
+        result = r.xnack(stream, group, "FAIL", m1, m2, "999999-0")
+        assert result == 2
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_xnack_retrycount(self, r):
+        stream = "stream"
+        group = "group"
+        consumer = "consumer"
+        m1 = r.xadd(stream, {"foo": "bar"})
+        r.xgroup_create(stream, group, 0)
+        r.xreadgroup(group, consumer, streams={stream: ">"})
+        # Explicit retrycount overrides mode's counter adjustment
+        result = r.xnack(stream, group, "FAIL", m1, retrycount=5)
+        assert result == 1
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_xnack_force(self, r):
+        stream = "stream"
+        group = "group"
+        m1 = r.xadd(stream, {"foo": "bar"})
+        r.xgroup_create(stream, group, 0)
+        # FORCE creates unowned PEL entries for IDs not already in PEL
+        result = r.xnack(stream, group, "FAIL", m1, force=True)
+        assert result == 1
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_xnack_invalid_mode(self, r):
+        stream = "stream"
+        group = "group"
+        m1 = r.xadd(stream, {"foo": "bar"})
+        r.xgroup_create(stream, group, 0)
+        with pytest.raises(redis.DataError):
+            r.xnack(stream, group, "INVALID", m1)
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_xnack_no_ids(self, r):
+        stream = "stream"
+        group = "group"
+        r.xadd(stream, {"foo": "bar"})
+        r.xgroup_create(stream, group, 0)
+        with pytest.raises(redis.DataError):
+            r.xnack(stream, group, "FAIL")
+
+    @skip_if_server_version_lt("8.7.2")
+    def test_xnack_negative_retrycount(self, r):
+        stream = "stream"
+        group = "group"
+        consumer = "consumer"
+        m1 = r.xadd(stream, {"foo": "bar"})
+        r.xgroup_create(stream, group, 0)
+        r.xreadgroup(group, consumer, streams={stream: ">"})
+        with pytest.raises(redis.DataError):
+            r.xnack(stream, group, "FAIL", m1, retrycount=-1)
+
     @skip_if_server_version_lt("5.0.0")
     def test_xpending(self, r):
         stream = "stream"
@@ -6090,6 +7099,7 @@ class TestRedisCommands:
             r.xread(streams={stream: 0}),
             [[stream_name, expected_entries]],
             {stream_name: [expected_entries]},
+            {stream_name: expected_entries},
         )
 
         expected_entries = [get_stream_message(r, stream, m1)]
@@ -6099,6 +7109,7 @@ class TestRedisCommands:
             r.xread(streams={stream: 0}, count=1),
             [[stream_name, expected_entries]],
             {stream_name: [expected_entries]},
+            {stream_name: expected_entries},
         )
 
         expected_entries = [get_stream_message(r, stream, m2)]
@@ -6108,6 +7119,7 @@ class TestRedisCommands:
             r.xread(streams={stream: m1}),
             [[stream_name, expected_entries]],
             {stream_name: [expected_entries]},
+            {stream_name: expected_entries},
         )
 
         # xread starting at the last message returns an empty list
@@ -6134,6 +7146,7 @@ class TestRedisCommands:
             r.xreadgroup(group, consumer, streams={stream: ">"}),
             [[stream_name, expected_entries]],
             {stream_name: [expected_entries]},
+            {stream_name: expected_entries},
         )
 
         r.xgroup_destroy(stream, group)
@@ -6147,6 +7160,7 @@ class TestRedisCommands:
             r.xreadgroup(group, consumer, streams={stream: ">"}, count=1),
             [[stream_name, expected_entries]],
             {stream_name: [expected_entries]},
+            {stream_name: expected_entries},
         )
 
         r.xgroup_destroy(stream, group)
@@ -6165,14 +7179,19 @@ class TestRedisCommands:
         r.xgroup_create(stream, group, "0")
         res = r.xreadgroup(group, consumer, streams={stream: ">"}, noack=True)
         empty_res = r.xreadgroup(group, consumer, streams={stream: "0"})
-        if is_resp2_connection(r):
+        shape = expected_response_shape(r)
+        if shape == "legacy_resp2":
             assert len(res[0][1]) == 2
             # now there should be nothing pending
             assert len(empty_res[0][1]) == 0
-        else:
+        elif shape == "legacy_resp3":
             assert len(res[stream_name][0]) == 2
             # now there should be nothing pending
             assert len(empty_res[stream_name][0]) == 0
+        else:
+            assert len(res[stream_name]) == 2
+            # now there should be nothing pending
+            assert len(empty_res[stream_name]) == 0
 
         r.xgroup_destroy(stream, group)
         r.xgroup_create(stream, group, "0")
@@ -6185,6 +7204,7 @@ class TestRedisCommands:
             r.xreadgroup(group, consumer, streams={stream: "0"}),
             [[stream_name, expected_entries]],
             {stream_name: [expected_entries]},
+            {stream_name: expected_entries},
         )
 
     def _validate_xreadgroup_with_claim_min_idle_time_response(
@@ -6197,12 +7217,15 @@ class TestRedisCommands:
         for str_index, expected_stream in enumerate(expected_streams):
             expected_entries_per_stream = expected_entries[expected_stream]
 
-            if is_resp2_connection(r):
+            shape = expected_response_shape(r)
+            if shape == "legacy_resp2":
                 actual_entries_per_stream = response[str_index][1]
                 actual_stream = response[str_index][0]
                 assert actual_stream == expected_stream
-            else:
+            elif shape == "legacy_resp3":
                 actual_entries_per_stream = response[expected_stream][0]
+            else:
+                actual_entries_per_stream = response[expected_stream]
 
             # validate the number of entries
             assert len(actual_entries_per_stream) == len(expected_entries_per_stream)
@@ -6285,14 +7308,14 @@ class TestRedisCommands:
             res,
             [[stream_name, expected_entries]],
             {stream_name: [expected_entries]},
+            {stream_name: expected_entries},
         )
 
         # add 2 more messages
         m7 = r.xadd(stream, {"key_m7": "val_m7"})
         m8 = r.xadd(stream, {"key_m8": "val_m8"})
-        # read the messages with claim_min_idle_time=1000
-        # only m7 and m8 should be returned
-        # because the other messages have not been in the PEL for long enough
+        # Use a threshold safely above this test's elapsed time so only
+        # newly-delivered messages are returned.
         expected_entries = {
             stream_name: [
                 {"msg": get_stream_message(r, stream, m7), "min_idle_time": 0},
@@ -6300,7 +7323,7 @@ class TestRedisCommands:
             ]
         }
         res = r.xreadgroup(
-            group, consumer_1, streams={stream: ">"}, claim_min_idle_time=100
+            group, consumer_1, streams={stream: ">"}, claim_min_idle_time=60_000
         )
         self._validate_xreadgroup_with_claim_min_idle_time_response(
             r, res, expected_entries
@@ -6383,9 +7406,8 @@ class TestRedisCommands:
         # add 2 more messages
         m7 = r.xadd(stream_1, {"key_m7": "val_m7"})
         m8 = r.xadd(stream_2, {"key_m8": "val_m8"})
-        # read the messages with claim_min_idle_time=1000
-        # only m7 and m8 should be returned
-        # because the other messages have not been in the PEL for long enough
+        # Use a threshold safely above this test's elapsed time so only
+        # newly-delivered messages are returned.
         expected_entries = {
             stream_1_name: [
                 {"msg": get_stream_message(r, stream_1, m7), "min_idle_time": 0}
@@ -6398,7 +7420,7 @@ class TestRedisCommands:
             group,
             consumer_1,
             streams={stream_1: ">", stream_2: ">"},
-            claim_min_idle_time=100,
+            claim_min_idle_time=60_000,
         )
         self._validate_xreadgroup_with_claim_min_idle_time_response(
             r, res, expected_entries
@@ -6482,9 +7504,8 @@ class TestRedisCommands:
         # add 2 more messages
         m7 = r.xadd(stream_1, {"key_m7": "val_m7"})
         m8 = r.xadd(stream_2, {"key_m8": "val_m8"})
-        # read the messages with claim_min_idle_time=1000
-        # only m7 and m8 should be returned
-        # because the other messages have not been in the PEL for long enough
+        # Use a threshold safely above this test's elapsed time so only
+        # newly-delivered messages are returned.
         expected_entries = {
             stream_1_name: [
                 {"msg": get_stream_message(r, stream_1, m7), "min_idle_time": 0}
@@ -6497,7 +7518,7 @@ class TestRedisCommands:
             group,
             consumer_1,
             streams={stream_1: ">", stream_2: ">"},
-            claim_min_idle_time=100,
+            claim_min_idle_time=60_000,
         )
         self._validate_xreadgroup_with_claim_min_idle_time_response(
             r, res, expected_entries

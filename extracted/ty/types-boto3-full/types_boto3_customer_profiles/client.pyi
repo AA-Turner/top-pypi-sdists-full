@@ -48,6 +48,8 @@ from .type_defs import (
     BatchGetCalculatedAttributeForProfileResponseTypeDef,
     BatchGetProfileRequestTypeDef,
     BatchGetProfileResponseTypeDef,
+    BatchPutProfileObjectRequestTypeDef,
+    BatchPutProfileObjectResponseTypeDef,
     CreateCalculatedAttributeDefinitionRequestTypeDef,
     CreateCalculatedAttributeDefinitionResponseTypeDef,
     CreateDomainLayoutRequestTypeDef,
@@ -323,6 +325,17 @@ class CustomerProfilesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/batch_get_profile.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_customer_profiles/client/#batch_get_profile)
+        """
+
+    def batch_put_profile_object(
+        self, **kwargs: Unpack[BatchPutProfileObjectRequestTypeDef]
+    ) -> BatchPutProfileObjectResponseTypeDef:
+        """
+        Adds multiple profile objects to a domain of a given ObjectType in a single API
+        call.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/batch_put_profile_object.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_customer_profiles/client/#batch_put_profile_object)
         """
 
     def create_calculated_attribute_definition(

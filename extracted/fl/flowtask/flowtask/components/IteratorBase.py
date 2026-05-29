@@ -13,7 +13,7 @@ from ..exceptions import (
     FileNotFound
 )
 
-from .flow import FlowComponent
+from ..interfaces.flow import FlowComponent
 from ..interfaces.log import SkipErrors
 
 
@@ -84,6 +84,8 @@ class ThreadJob(threading.Thread):
 class IteratorBase(FlowComponent):
     """
     IteratorBase
+
+    :interface: true
 
     Overview
 

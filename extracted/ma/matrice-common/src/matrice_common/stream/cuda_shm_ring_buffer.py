@@ -892,8 +892,82 @@ class CudaIpcRingBuffer:
     # Consumer Operations (Multi-consumer safe)
     # =========================================================================
 
+    @staticmethod
+    def _is_ipc_invalidation(exc: BaseException) -> bool:
+        """True if an exception looks like a stale/invalidated CUDA IPC handle.
+
+        When the producer (streaming gateway) restarts its pipeline it frees and
+        reallocates the GPU buffer, which invalidates the consumer's imported IPC
+        mapping. Dereferencing the stale pointer then raises
+        ``CUDA_ERROR_ILLEGAL_ADDRESS`` (driver) / ``cudaErrorIllegalAddress``
+        (runtime). Match by message to stay robust across cupy versions.
+        """
+        msg = str(exc).upper()
+        return "ILLEGAL" in msg and "ADDRESS" in msg
+
+    def _reimport_ipc_handle(self) -> bool:
+        """Close the stale IPC mapping and re-open from the current SHM header.
+
+        Used to recover (instead of crashing) after the producer restarts its
+        GPU buffer. Returns True if the buffer was successfully re-imported.
+        """
+        if self.is_producer or not CUPY_AVAILABLE or cuda_runtime is None:
+            return False
+        if self._meta_mmap is None:
+            return False
+        try:
+            with cp.cuda.Device(_cvd_remap(self.gpu_id)):
+                # Drop the stale view + close the old mapping (best effort).
+                self.gpu_buffer = None
+                if self._imported_ipc_ptr is not None:
+                    try:
+                        cuda_runtime.ipcCloseMemHandle(self._imported_ipc_ptr)
+                    except Exception:  # noqa: BLE001 - stale handle close is best effort
+                        logger.debug("ipcCloseMemHandle on stale handle failed", exc_info=True)
+                    self._imported_ipc_ptr = None
+
+                # Re-read the (possibly new) IPC handle the producer published.
+                self._meta_mmap.seek(64)
+                ipc_handle = self._meta_mmap.read(CUDA_IPC_HANDLE_SIZE)
+
+                imported_ptr = cuda_runtime.ipcOpenMemHandle(ipc_handle)
+                self._imported_ipc_ptr = imported_ptr
+
+                total_shape = (self.num_slots,) + self.frame_shape
+                total_elements = 1
+                for _dim in total_shape:
+                    total_elements *= int(_dim)
+
+                mem = cp.cuda.UnownedMemory(imported_ptr, total_elements, owner=None)
+                memptr = cp.cuda.MemoryPointer(mem, 0)
+                self.gpu_buffer = cp.ndarray(total_shape, dtype=cp.uint8, memptr=memptr)
+
+            logger.warning(
+                f"{self.camera_id}: re-imported CUDA IPC handle after invalidation (producer restarted its GPU buffer)"
+            )
+            return True
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"{self.camera_id}: failed to re-import CUDA IPC handle: {e}")
+            self.gpu_buffer = None
+            return False
+
+    def revalidate(self) -> bool:
+        """Public hook: recover from a CUDA IPC invalidation on demand.
+
+        Consumers that hold a frame *view* and only dereference it later (e.g.
+        inside a preprocessing kernel) won't fault until that dereference. When
+        they catch a ``CUDA_ERROR_ILLEGAL_ADDRESS`` they should call this to
+        rebuild the mapping, then re-read the frame. Returns True on success.
+        """
+        return self._reimport_ipc_handle()
+
     def read_frame(self, slot: int) -> Optional[cp.ndarray]:
-        """Read a frame from a specific slot (NO COPY - view)."""
+        """Read a frame from a specific slot (NO COPY - view).
+
+        Self-heals on CUDA IPC invalidation: if constructing the view faults
+        because the producer reallocated its GPU buffer, the handle is
+        re-imported once and the read retried. Returns None if recovery fails.
+        """
         if self.is_producer:
             raise RuntimeError("read_frame() only for consumer")
         if not self._initialized:
@@ -903,7 +977,13 @@ class CudaIpcRingBuffer:
             return None
 
         assert self.gpu_buffer is not None
-        return self.gpu_buffer[slot]
+        try:
+            return self.gpu_buffer[slot]
+        except Exception as e:  # noqa: BLE001
+            if self._is_ipc_invalidation(e) and self._reimport_ipc_handle():
+                assert self.gpu_buffer is not None
+                return self.gpu_buffer[slot]
+            raise
 
     def read_latest(self) -> Tuple[Optional[cp.ndarray], int]:
         """Read the most recently written frame (NO COPY - view).
@@ -922,7 +1002,13 @@ class CudaIpcRingBuffer:
         slot = (write_idx - 1) % self.num_slots
         self._last_read_idx = write_idx  # Update local tracking
         assert self.gpu_buffer is not None
-        return self.gpu_buffer[slot], write_idx
+        try:
+            return self.gpu_buffer[slot], write_idx
+        except Exception as e:  # noqa: BLE001
+            if self._is_ipc_invalidation(e) and self._reimport_ipc_handle():
+                assert self.gpu_buffer is not None
+                return self.gpu_buffer[slot], write_idx
+            raise
 
     def read_next(self) -> Tuple[Optional[cp.ndarray], int, bool]:
         """Read next frame after last read, with skip detection.
@@ -965,7 +1051,13 @@ class CudaIpcRingBuffer:
         self._last_read_idx = next_idx
 
         assert self.gpu_buffer is not None
-        return self.gpu_buffer[slot], next_idx, was_skipped
+        try:
+            return self.gpu_buffer[slot], next_idx, was_skipped
+        except Exception as e:  # noqa: BLE001
+            if self._is_ipc_invalidation(e) and self._reimport_ipc_handle():
+                assert self.gpu_buffer is not None
+                return self.gpu_buffer[slot], next_idx, was_skipped
+            raise
 
     def get_frames_behind(self) -> int:
         """Get number of frames this consumer is behind the producer.

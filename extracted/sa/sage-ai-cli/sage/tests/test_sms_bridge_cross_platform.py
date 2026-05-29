@@ -3,6 +3,10 @@ import pytest
 
 from sage.core.sms_bridge import SAGEMessageBridge, SMSConfig
 
+@pytest.fixture(autouse=True)
+def mock_recipient_verification(monkeypatch):
+    monkeypatch.setattr("sage.core.sms_bridge.SAGEMessageBridge._is_recipient_verified", lambda *args, **kwargs: True)
+
 class DummyBackend:
     def __init__(self, *args, **kwargs):
         pass

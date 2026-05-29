@@ -4,7 +4,7 @@ import importlib
 from navconfig.logging import logging
 from ..exceptions import ConfigError, FlowTaskError, NotSupported
 from ..components import importComponent
-from ..components.abstract import AbstractFlow
+from ..interfaces.abstract import AbstractFlow
 from .actions.abstract import AbstractAction
 
 

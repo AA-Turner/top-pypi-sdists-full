@@ -6,7 +6,7 @@ from datetime import datetime
 from zeep import Settings
 from zeep.helpers import serialize_object as zeep_serialize
 from ...interfaces.SOAPClient import SOAPClient
-from ...components.flow import FlowComponent
+from ...interfaces.flow import FlowComponent
 from ...conf import (
     WORKDAY_CLIENT_ID,
     WORKDAY_CLIENT_SECRET,

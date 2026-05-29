@@ -3,7 +3,7 @@ from jsonpath_ng import parse
 import asyncio
 import pandas as pd
 from ..exceptions import ComponentError
-from .BaseLoop import BaseLoop
+from ..interfaces.base_loop import BaseLoop
 
 
 class IF(BaseLoop):

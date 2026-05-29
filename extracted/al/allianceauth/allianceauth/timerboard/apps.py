@@ -6,3 +6,6 @@ class TimerBoardConfig(AppConfig):
     name = 'allianceauth.timerboard'
     label = 'timerboard'
     verbose_name = _('Structure Timers')
+
+    def ready(self) -> None:
+        pass

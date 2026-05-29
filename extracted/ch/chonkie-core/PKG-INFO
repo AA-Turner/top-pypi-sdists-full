@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chonkie-core
-Version: 0.10.1
+Version: 0.10.2
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -8,18 +8,19 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Text Processing
-Requires-Dist: numpy>=1.20
+Requires-Dist: numpy>=1.20 ; extra == 'numpy'
+Provides-Extra: numpy
 Summary: The fastest semantic text chunking library
 Keywords: chunking,text,simd,nlp,tokenization,rag,chonkie
 Author: Bhavnick Minhas
 License: MIT OR Apache-2.0
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/chonkie-inc/chunk
 Project-URL: Repository, https://github.com/chonkie-inc/chunk

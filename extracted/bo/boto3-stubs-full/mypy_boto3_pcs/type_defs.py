@@ -369,10 +369,12 @@ class UpdateSlurmRestRequestTypeDef(TypedDict):
 
 
 class ComputeNodeGroupSlurmConfigurationRequestTypeDef(TypedDict):
+    scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
 
 
 class ComputeNodeGroupSlurmConfigurationTypeDef(TypedDict):
+    scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[list[SlurmCustomSettingTypeDef]]
 
 
@@ -385,6 +387,7 @@ class QueueSlurmConfigurationTypeDef(TypedDict):
 
 
 class UpdateComputeNodeGroupSlurmConfigurationRequestTypeDef(TypedDict):
+    scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
 
 

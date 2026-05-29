@@ -29,7 +29,7 @@ class EventListener:
     #         listener.start()
     #         ```
 
-    def __init__(self: Any, session: Any, topics: Union[str, List[str]], event_handler: Callable[[Dict[str, Any]], None], filter_field: Optional[str] = None, filter_value: Optional[str] = None, consumer_group_id: Optional[str] = None, offset_reset: str = 'latest') -> None:
+    def __init__(self: Any, session: Any, topics: Union[str, List[str]], event_handler: Callable[[Dict[str, Any]], None], filter_field: Optional[str] = None, filter_value: Optional[str] = None, consumer_group_id: Optional[str] = None, offset_reset: str = 'latest', max_poll_interval_ms: int = 300000, session_timeout_ms: int = 45000, heartbeat_interval_ms: int = 15000) -> None:
         """
         Initialize event listener.
         
@@ -40,6 +40,11 @@ class EventListener:
                     filter_field: Optional field name to filter events (e.g., 'streamingGatewayId')
                     filter_value: Optional value to match for filtering
                     consumer_group_id: Optional Kafka consumer group ID (auto-generated if not provided)
+                    max_poll_interval_ms: Max delay between poll() calls before the broker
+                        evicts the consumer (default: 300000). Also drives the time-based
+                        staleness recreate in the listen loop.
+                    session_timeout_ms: Consumer session timeout (default: 45000).
+                    heartbeat_interval_ms: Consumer heartbeat interval (default: 15000).
         """
         ...
 

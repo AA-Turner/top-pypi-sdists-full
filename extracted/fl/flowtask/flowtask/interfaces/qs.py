@@ -156,10 +156,10 @@ class QSSupport(ABC):
             timeout = int(DB_TIMEOUT)
         except TypeError:
             timeout = 360
-        if not dsn:
-            dsn = default_dsn
         try:
             if self._driver == 'pg':
+                if not dsn:
+                    dsn = default_dsn
                 kwargs: dict = {
                     "min_size": 2,
                     "server_settings": {
@@ -177,18 +177,21 @@ class QSSupport(ABC):
                 self._connection = pg(dsn=dsn, loop=loop, **kwargs)
                 return self._connection
             if self._driver == 'bigquery':
-                self.credentials: dict = {
+                params = {
                     "credentials": BIGQUERY_CREDENTIALS,
-                    "project_id": BIGQUERY_PROJECT_ID
+                    "project_id": BIGQUERY_PROJECT_ID,
                 }
+                self.credentials = params
+                return AsyncDB(self._driver, params=params)
+            params = getattr(self, 'credentials', None)
             return AsyncDB(
                 self._driver,
                 dsn=dsn,
-                params=self.credentials
+                params=params
             )
         except Exception as err:
             raise ComponentError(
-                f"Error configuring Pg Connection: {err!s}"
+                f"Error configuring {self._driver} Connection: {err!s}"
             ) from err
 
     def get_driver(self, driver) -> BaseDriver:
@@ -258,7 +261,9 @@ class QSSupport(ABC):
         self._connection = Session(self._engine)
         return self._connection
 
-    async def create_connection(self, driver: str = 'pg'):
+    async def create_connection(self, driver: str = None):
+        if driver is None:
+            driver = getattr(self, '_driver', 'pg')
         if hasattr(self, "credentials"):
             return self.get_connection(
                 driver=driver,
@@ -273,23 +278,27 @@ class QSSupport(ABC):
                         dsn=dsn
                     )
             return self.get_connection(
-                driver=self._driver,
+                driver=driver,
                 dsn=dsn
             )
         elif hasattr(self, "datasource"):
             datasource = await self.get_datasource(name=self.datasource)
-            if datasource.driver_type == 'asyncdb':
-                driver = datasource.driver
-                return AsyncDB(
-                    driver,
-                    dsn=datasource.dsn,
-                    params=datasource.params()
-                )
-            else:
+            if datasource:
+                if datasource.driver_type == 'asyncdb':
+                    return AsyncDB(
+                        datasource.driver,
+                        dsn=datasource.dsn,
+                        params=datasource.params()
+                    )
                 raise ConfigError(
                     f"Invalid Datasource type {datasource.driver_type} for {self.datasource}"
                 )
+            # No registered datasource — treat the value as a driver name
+            # and use default credentials for that driver.
+            self._driver = self.datasource
+            return self.default_connection()
         else:
+            self._driver = driver
             return self.default_connection()
 
     async def get_qs(self, slug, conditions: dict = None):

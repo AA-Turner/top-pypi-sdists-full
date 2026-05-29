@@ -25,6 +25,7 @@ else:
 __all__ = (
     "ControlBehaviorType",
     "ControlCatalogServiceName",
+    "ControlParameterRequirementType",
     "ControlRelationTypeType",
     "ControlScopeType",
     "ControlSeverityType",
@@ -35,12 +36,14 @@ __all__ = (
     "ListObjectivesPaginatorName",
     "MappingTypeType",
     "PaginatorName",
+    "ParameterRequirementSummaryType",
     "ResourceServiceName",
     "ServiceName",
 )
 
 
 ControlBehaviorType = Literal["DETECTIVE", "PREVENTIVE", "PROACTIVE"]
+ControlParameterRequirementType = Literal["OPTIONAL", "REQUIRED"]
 ControlRelationTypeType = Literal["ALTERNATIVE", "COMPLEMENTARY", "MUTUALLY_EXCLUSIVE"]
 ControlScopeType = Literal["GLOBAL", "REGIONAL"]
 ControlSeverityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
@@ -50,6 +53,7 @@ ListControlsPaginatorName = Literal["list_controls"]
 ListDomainsPaginatorName = Literal["list_domains"]
 ListObjectivesPaginatorName = Literal["list_objectives"]
 MappingTypeType = Literal["COMMON_CONTROL", "FRAMEWORK", "RELATED_CONTROL"]
+ParameterRequirementSummaryType = Literal["NONE", "OPTIONAL", "REQUIRED"]
 ControlCatalogServiceName = Literal["controlcatalog"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -375,6 +379,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",

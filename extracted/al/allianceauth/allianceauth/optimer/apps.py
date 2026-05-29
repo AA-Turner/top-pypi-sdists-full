@@ -6,3 +6,6 @@ class OptimerConfig(AppConfig):
     name = 'allianceauth.optimer'
     label = 'optimer'
     verbose_name = _('Fleet Operations')
+
+    def ready(self) -> None:
+        pass

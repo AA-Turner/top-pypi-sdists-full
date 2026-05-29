@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-slim
-Version: 1.103.0
+Version: 1.104.0
 Summary: Agent Framework / shim to use Pydantic with LLMs, slim package
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
 Project-URL: Source, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
@@ -34,7 +34,7 @@ Requires-Dist: genai-prices>=0.0.56
 Requires-Dist: griffelib>=2.0
 Requires-Dist: httpx>=0.27
 Requires-Dist: opentelemetry-api>=1.28.0
-Requires-Dist: pydantic-graph==1.103.0
+Requires-Dist: pydantic-graph==1.104.0
 Requires-Dist: pydantic>=2.12
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: a2a
@@ -43,7 +43,7 @@ Provides-Extra: ag-ui
 Requires-Dist: ag-ui-protocol>=0.1.10; extra == 'ag-ui'
 Requires-Dist: starlette>=0.45.3; extra == 'ag-ui'
 Provides-Extra: anthropic
-Requires-Dist: anthropic>=0.97.0; extra == 'anthropic'
+Requires-Dist: anthropic>=0.105.0; extra == 'anthropic'
 Provides-Extra: bedrock
 Requires-Dist: boto3>=1.42.63; extra == 'bedrock'
 Provides-Extra: cli
@@ -59,7 +59,7 @@ Requires-Dist: dbos>=2.10.0; extra == 'dbos'
 Provides-Extra: duckduckgo
 Requires-Dist: ddgs>=9.0.0; extra == 'duckduckgo'
 Provides-Extra: evals
-Requires-Dist: pydantic-evals==1.103.0; extra == 'evals'
+Requires-Dist: pydantic-evals==1.104.0; extra == 'evals'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.0.0; extra == 'exa'
 Provides-Extra: fastmcp
