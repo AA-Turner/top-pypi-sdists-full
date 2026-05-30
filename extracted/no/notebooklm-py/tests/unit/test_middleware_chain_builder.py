@@ -16,14 +16,20 @@ from notebooklm._middleware_tracing import TracingMiddleware
 
 def _builder_kwargs():
     """Return kwargs sufficient to instantiate MiddlewareChainBuilder."""
+
+    async def _snapshot():
+        return MagicMock()
+
     return {
         "drain_tracker": MagicMock(),
         "metrics": MagicMock(),
         "rpc_semaphore_factory": lambda: nullcontext(),
         "rate_limit_max_retries_provider": lambda: 3,
         "server_error_max_retries_provider": lambda: 3,
+        "retry_timeout_provider": lambda: 30.0,
         "refresh_retry_delay_provider": lambda: 0.0,
         "refresh_callable": lambda: None,
+        "auth_snapshot_provider": _snapshot,
         "is_auth_error": lambda exc: False,
         "refresh_callback_enabled_provider": lambda: True,
     }

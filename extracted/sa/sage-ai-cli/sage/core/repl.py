@@ -155,6 +155,10 @@ class SageREPL:
             # Run in thread so PT can still process input
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, self.execute_fn, text)
+        except Exception as e:
+            import traceback
+            print(f"\nREPL Agent Task Error: {e}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
         finally:
             self.agent._is_running = False
 

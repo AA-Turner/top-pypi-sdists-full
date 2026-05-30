@@ -233,8 +233,8 @@ class LocalLinterRepository(LinterRepository):
 
     def get_blocking_checks_for_deploy(self) -> List[LinterCheck]:
         blocking_rules = [r for r in rules if r.type in BLOCKING_TYPES]
-        checks = self._execute_rules(blocking_rules)
-        return [check for check in checks if check.issues]
+        self.update_specific_checks(blocking_rules)
+        return self.get_blocking_checks()
 
 
 class ProductionLinterRepository(LinterRepository):

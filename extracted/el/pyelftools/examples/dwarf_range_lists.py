@@ -7,7 +7,6 @@
 # Eli Bendersky (eliben@gmail.com)
 # This code is in the public domain
 #-------------------------------------------------------------------------------
-from __future__ import print_function
 import sys
 
 # If pyelftools is not installed, the example can also run from the root or
@@ -15,9 +14,6 @@ import sys
 sys.path[0:0] = ['.', '..']
 
 from elftools.elf.elffile import ELFFile
-from elftools.dwarf.descriptions import (
-    describe_DWARF_expr, set_global_machine_arch)
-from elftools.dwarf.ranges import RangeEntry
 
 
 def process_file(filename):

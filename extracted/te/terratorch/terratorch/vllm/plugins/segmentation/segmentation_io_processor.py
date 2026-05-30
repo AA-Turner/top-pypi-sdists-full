@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import copy
 import datetime
 import logging
 import os
@@ -96,6 +97,15 @@ class SegmentationIOProcessor(IOProcessor):
         self.plugin_config = PluginConfig.model_validate_json(plugin_config_string)
 
         self.datamodule = generate_datamodule(self.model_config["data"])
+        
+        # Store the augmentation template for creating per-request instances
+        # This avoids shared mutable state and eliminates race conditions
+        self._aug_template = self.datamodule.aug
+        
+        # Fix data_keys in the template if needed
+        if hasattr(self._aug_template, 'transform_op') and hasattr(self._aug_template.transform_op, 'data_keys'):
+            if self._aug_template.transform_op.data_keys is None:
+                self._aug_template.transform_op.data_keys = ["image"]
 
         self.tiled_inference_parameters = self._init_tiled_inference_parameters_info()
         self.batch_size = 1
@@ -441,14 +451,25 @@ class SegmentationIOProcessor(IOProcessor):
             location_coords = None
 
         prompts = []
+        # Create a per-request augmentation instance to avoid shared mutable state
+        # This eliminates race conditions without needing locks
+        aug = copy.deepcopy(self._aug_template)
+        
+        # Ensure data_keys is properly set after deepcopy (deepcopy may not preserve it correctly)
+        if hasattr(aug, 'transform_op') and hasattr(aug.transform_op, 'data_keys'):
+            if aug.transform_op.data_keys is None:
+                aug.transform_op.data_keys = ["image"]
+        
         for window in windows:
             # Apply standardization
             window = self.datamodule.test_transform(image=window.squeeze().numpy().transpose(1, 2, 0))
+            
             try:
-                window = self.datamodule.aug(window)["image"]
-            except:
+                window = aug(window)["image"]
+            except Exception as e:
+                logger.warning(f"First augmentation attempt failed: {e}. Retrying with adjusted dimensions.")
                 window["image"] = window["image"][None, :, :, :]
-                window = self.datamodule.aug(window)["image"]
+                window = aug(window)["image"]
 
             multi_modal_data = {
                 "pixel_values": window.to(torch.float16)[0],

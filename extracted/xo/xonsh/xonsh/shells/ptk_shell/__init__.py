@@ -6,8 +6,33 @@ import sys
 from functools import wraps
 from types import MethodType
 
+try:
+    import termios
+except ImportError:  # Windows
+    termios = None  # type: ignore[assignment]
+
 from prompt_toolkit import ANSI
 from prompt_toolkit.application.current import get_app
+
+# When xonsh runs inside an SSH session, suppress prompt-toolkit's Cursor
+# Position Report (CPR) query — see issue #5686. CPR (`\x1b[6n`) asks the
+# terminal to report the cursor position, and the terminal answers by
+# sending bytes back through *stdin*. Those bytes pass through the local
+# ssh client, which uses byte-stream state (`last_was_cr`) to detect tilde
+# escape sequences. A CPR response arriving between the user's Enter and
+# the following `~` resets `last_was_cr` to 0, so ssh never sees `\r~` and
+# the escape (`~.`, `~^Z`, `~?`…) silently fails. Disabling CPR makes
+# prompt-toolkit fall back to assuming the cursor is at column 0, which
+# is correct in almost all cases (we just wrote a newline) and is the
+# same assumption bash's readline makes.
+if os.environ.get("SSH_TTY") or os.environ.get("SSH_CONNECTION"):
+    try:
+        from prompt_toolkit.output.vt100 import Vt100_Output as _XPtkVt100Output
+
+        _XPtkVt100Output.ask_for_cpr = lambda self: None
+        _XPtkVt100Output.responds_to_cpr = property(lambda self: False)
+    except Exception:
+        pass
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
 from prompt_toolkit.clipboard import InMemoryClipboard
 from prompt_toolkit.document import Document
@@ -423,19 +448,34 @@ class PromptToolkitShell(BaseShell):
         if emit_modify_other_keys:
             output.write_raw("\x1b[>4;1m")
             output.flush()
+        eintr_retry_types: tuple = (InterruptedError,)
+        if termios is not None:
+            eintr_retry_types = (InterruptedError, termios.error)
         try:
             while True:
                 try:
                     line = self.prompter.prompt(**prompt_args)
                     break
-                except InterruptedError:
+                except eintr_retry_types as e:
                     # Retry on EINTR — tcsetattr in prompt_toolkit's
                     # raw_mode() is not automatically retried by Python
-                    # (PEP 475 doesn't cover termios). This happens when a
-                    # signal (e.g. SIGCHLD from a process launcher like
-                    # `uv run`) arrives during terminal setup. Narrow to
-                    # InterruptedError so EOFError/KeyboardInterrupt/etc.
+                    # (PEP 475 doesn't cover termios). This happens when
+                    # a signal (e.g. SIGCHLD from a process launcher like
+                    # `uv run` or `chezmoi cd`) arrives during terminal
+                    # setup. termios.error is declared in CPython as
+                    # PyErr_NewException("termios.error", NULL, ...) — it
+                    # inherits directly from Exception, not OSError, so
+                    # InterruptedError alone does not cover it (issues
+                    # #5791, #5871). Gate termios.error on errno==EINTR
+                    # so unrelated termios failures (EIO, ENOTTY, …)
+                    # still surface. EOFError/KeyboardInterrupt/etc.
                     # propagate to cmdloop unchanged (issue #6412).
+                    if (
+                        termios is not None
+                        and isinstance(e, termios.error)
+                        and (not e.args or e.args[0] != 4)
+                    ):
+                        raise
                     continue
         finally:
             if emit_modify_other_keys:

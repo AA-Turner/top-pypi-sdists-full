@@ -36,6 +36,14 @@ def test_revoke_access_token(
     assert Token.objects.filter(pk=instance_to_keep.pk).exists()
 
 
+@pytest.mark.parametrize(
+    "resources",
+    [
+        [],
+        ["https://api.example.com/a"],
+        ["https://api.example.com/a", "https://api.example.com/b"],
+    ],
+)
 @pytest.mark.parametrize("rotate_refresh_token", [False, True])
 @pytest.mark.parametrize("scopes", [("openid",), ("openid", "email")])
 def test_refresh_token(
@@ -48,6 +56,7 @@ def test_refresh_token(
     settings,
     rotate_refresh_token,
     scopes,
+    resources,
 ):
     settings.IDP_OIDC_ROTATE_REFRESH_TOKEN = rotate_refresh_token
     rt, rt_instance = refresh_token_factory(
@@ -55,15 +64,16 @@ def test_refresh_token(
     )
     rt_instance.set_scope_email("a@b.org")
     rt_instance.save()
-    resp = client.post(
-        reverse("idp:oidc:token"),
-        {
-            "refresh_token": rt,
-            "grant_type": "refresh_token",
-            "client_id": oidc_client.id,
-            "client_secret": oidc_client_secret,
-        },
-    )
+    data = {
+        "refresh_token": rt,
+        "grant_type": "refresh_token",
+        "client_id": oidc_client.id,
+        "client_secret": oidc_client_secret,
+    }
+    if resources:
+        data["resource"] = resources
+    resp = client.post(reverse("idp:oidc:token"), data)
+
     assert resp.status_code == HTTPStatus.OK
     data = resp.json()
     new_rt_instance = Token.objects.lookup(
@@ -76,7 +86,7 @@ def test_refresh_token(
         assert data["refresh_token"] == rt
     assert Token.objects.filter(type=Token.Type.REFRESH_TOKEN).count() == 1
     token = Token.objects.lookup(Token.Type.ACCESS_TOKEN, data["access_token"])
-
+    assert set(token.get_resources()) == set(resources)
     assert token.get_scope_email() == ("a@b.org" if "email" in scopes else None)
     return
     assert data == {
@@ -103,3 +113,66 @@ def test_revoke_refresh_token(
     assert resp.status_code == HTTPStatus.OK
     assert resp.content == b""
     assert not Token.objects.filter(pk=token_instance.pk).exists()
+
+
+@pytest.mark.parametrize(
+    "auth_resources,token_resources,success",
+    [
+        ([], ["https://api.example.com/a"], True),
+        (["https://api.example.com"], ["https://api.example.com/a"], True),
+        (["https://api.example.org"], ["https://api.example.com/a"], False),
+        (
+            ["https://api.example.org", "https://api.example.com"],
+            ["https://api.example.com/a"],
+            True,
+        ),
+        (["https://api.example.com/a"], ["https://api.example.com/b"], False),
+    ],
+)
+def test_refresh_resource_vs_subresource(
+    db,
+    client,
+    oidc_client,
+    oidc_client_secret,
+    user,
+    refresh_token_factory,
+    settings,
+    auth_resources,
+    token_resources,
+    success,
+):
+    scopes = ["openid"]
+    rt, rt_instance = refresh_token_factory(
+        user=user, client=oidc_client, scopes=scopes
+    )
+    rt_instance.set_scope_email("a@b.org")
+    rt_instance.set_resources(auth_resources)
+    rt_instance.save()
+    data = {
+        "refresh_token": rt,
+        "grant_type": "refresh_token",
+        "client_id": oidc_client.id,
+        "client_secret": oidc_client_secret,
+    }
+    if token_resources:
+        data["resource"] = token_resources
+    resp = client.post(reverse("idp:oidc:token"), data)
+
+    if success:
+        assert resp.status_code == HTTPStatus.OK
+        data = resp.json()
+        refresh_token = Token.objects.lookup(
+            Token.Type.REFRESH_TOKEN, data["refresh_token"]
+        )
+        access_token = Token.objects.lookup(
+            Token.Type.ACCESS_TOKEN, data["access_token"]
+        )
+        assert set(refresh_token.get_resources()) == set(auth_resources)
+        assert set(access_token.get_resources()) == set(token_resources)
+    else:
+        assert resp.status_code == HTTPStatus.BAD_REQUEST
+        data = resp.json()
+        assert data == {
+            "error": "invalid_target",
+            "error_description": "The requested resource is invalid, missing, unknown, or malformed.",
+        }

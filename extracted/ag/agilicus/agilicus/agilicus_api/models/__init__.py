@@ -288,6 +288,8 @@ from agilicus_api.model.environment_config_var import EnvironmentConfigVar
 from agilicus_api.model.environment_status import EnvironmentStatus
 from agilicus_api.model.error_message import ErrorMessage
 from agilicus_api.model.external_network import ExternalNetwork
+from agilicus_api.model.external_network_config import ExternalNetworkConfig
+from agilicus_api.model.external_network_forwarding_mode import ExternalNetworkForwardingMode
 from agilicus_api.model.external_network_routing import ExternalNetworkRouting
 from agilicus_api.model.external_network_status import ExternalNetworkStatus
 from agilicus_api.model.extra_process import ExtraProcess

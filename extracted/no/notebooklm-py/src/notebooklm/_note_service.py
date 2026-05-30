@@ -27,6 +27,8 @@ import logging
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+from ._row_adapters_notes import NoteRow
+from .exceptions import RPCError
 from .rpc.types import RPCMethod
 from .types import Note
 
@@ -104,40 +106,93 @@ class NoteService:
             source_path=f"/notebook/{notebook_id}",
             allow_null=True,
         )
-        if not (
-            result and isinstance(result, list) and len(result) > 0 and isinstance(result[0], list)
-        ):
+        rows = self._extract_note_row_container(result)
+        if not rows:
             return []
 
-        return [
-            item
-            for item in result[0]
-            if isinstance(item, list) and len(item) > 0 and isinstance(item[0], str)
-        ]
+        normalized: list[Any] = []
+        for item in rows:
+            row = self._normalize_note_row(item)
+            if row is not None:
+                normalized.append(row)
+        return normalized
+
+    def _extract_note_row_container(self, result: Any) -> list[Any]:
+        """Return the list that contains raw note rows.
+
+        Historical responses wrap rows as ``[[row, ...]]``. Newer web
+        responses use the same first response field for rows and a second
+        timestamp field, so this helper also accepts a flat row list.
+        """
+        if not result or not isinstance(result, list):
+            return []
+
+        first = result[0]
+        if self._is_note_row_like(first):
+            return result
+        if isinstance(first, list):
+            return first
+        return []
+
+    def _normalize_note_row(self, item: Any) -> list[Any] | None:
+        """Normalize supported note wrapper shapes into parser rows.
+
+        Current NotebookLM front-end code wraps live notes as
+        ``[None, [note_id, content, metadata, ..., title]]``. The public
+        parsers expect ``[note_id, nested_note]``, so normalize that wrapper
+        before classification/parsing while preserving legacy rows and
+        soft-deleted rows such as ``[note_id, None, 2]``.
+        """
+        if not self._is_note_row_like(item):
+            return None
+
+        if isinstance(item[0], str):
+            return item
+
+        nested = item[1]
+        return [nested[0], nested, *item[2:]]
+
+    def _is_note_row_like(self, item: Any) -> bool:
+        if not isinstance(item, list) or len(item) == 0:
+            return False
+        if isinstance(item[0], str):
+            return True
+        return (
+            item[0] is None
+            and len(item) > 1
+            and isinstance(item[1], list)
+            and len(item[1]) > 0
+            and isinstance(item[1][0], str)
+        )
 
     def classify_row(self, row: list[Any]) -> NoteRowKind:
         """Identify what kind of row this is.
 
         Wire shapes encountered:
-        * deleted: ``["id", None, 2]`` — content is ``None`` and slot[2]
-          is the soft-delete sentinel.
-        * mind-map: content payload (string at ``row[1]`` or
-          ``row[1][1]``) parses as JSON with ``"children":`` or
-          ``"nodes":`` keys.
+        * deleted: ``["id", None, 2]`` — content is ``None`` and the
+          slot at position 2 is the soft-delete sentinel.
+        * mind-map: content payload parses as JSON with ``"children":``
+          or ``"nodes":`` keys (regardless of legacy vs current shape).
         * saved-chat: a plain note row whose metadata flags chat mode.
           That metadata is not reliably present on the wire, so when we
           cannot positively confirm chat mode we fall through to
           ``NOTE`` rather than ``UNKNOWN`` (refactor-history.md §Risks).
         * plain note: default for any other content-bearing row.
+
+        Position knowledge (the deletion sentinel and the
+        legacy-vs-current content dispatch) lives in
+        :class:`notebooklm._row_adapters_notes.NoteRow`. This classifier reads
+        named properties on the adapter and does not touch raw indices.
         """
         if not isinstance(row, list) or len(row) == 0:
             return NoteRowKind.UNKNOWN
 
-        if self._is_deleted(row):
+        note_row = NoteRow(row)
+        if note_row.is_deleted:
             return NoteRowKind.DELETED
 
-        content = self.extract_content(row)
-        if self._is_mind_map_content(content):
+        content = note_row.content
+        if NoteRow.is_mind_map_content(content):
             return NoteRowKind.MIND_MAP
 
         if content is None:
@@ -150,27 +205,16 @@ class NoteService:
     def extract_content(self, row: list[Any]) -> str | None:
         """Get the JSON content payload of a row, or ``None``.
 
-        Handles both legacy (``[id, content]``) and current
-        (``[id, [id, content, metadata, None, title]]``) wire shapes.
+        Thin facade over :attr:`NoteRow.content`. Kept on
+        :class:`NoteService` so existing callers
+        (``NotesAPI._extract_content``, ``NoteBackedMindMapService.extract_content``,
+        and the tests pinning ``service.extract_content`` behaviour)
+        continue to work unchanged while position knowledge moves to
+        the adapter.
         """
-        if not isinstance(row, list) or len(row) <= 1:
+        if not isinstance(row, list):
             return None
-
-        if isinstance(row[1], str):
-            return row[1]
-        if isinstance(row[1], list) and len(row[1]) > 1 and isinstance(row[1][1], str):
-            return row[1][1]
-        return None
-
-    @staticmethod
-    def _is_deleted(row: list[Any]) -> bool:
-        if not isinstance(row, list) or len(row) < 3:
-            return False
-        return row[1] is None and row[2] == 2
-
-    @staticmethod
-    def _is_mind_map_content(content: str | None) -> bool:
-        return bool(content and ('"children":' in content or '"nodes":' in content))
+        return NoteRow(row).content
 
     # ------------------------------------------------------------------
     # CRUD
@@ -181,6 +225,8 @@ class NoteService:
         notebook_id: str,
         title: str = "New Note",
         content: str = "",
+        *,
+        operation_variant: str = "plain",
     ) -> Note:
         """Create a note row and finalize its content + title.
 
@@ -205,6 +251,7 @@ class NoteService:
             RPCMethod.CREATE_NOTE,
             params,
             source_path=f"/notebook/{notebook_id}",
+            operation_variant=operation_variant,
         )
 
         note_id: str | None = None
@@ -214,57 +261,67 @@ class NoteService:
             elif isinstance(result[0], str):
                 note_id = result[0]
 
-        if note_id:
-            # Shield the UPDATE_NOTE finalize from outer cancellation:
-            # CREATE_NOTE has already persisted a row server-side; without
-            # the shield, a cancel arriving between CREATE_NOTE and
-            # UPDATE_NOTE completion leaves an orphan row with no
-            # title/content.
-            #
-            # ``update_task`` is a freestanding ``asyncio.Task`` (not a
-            # bare coroutine) so the cancel-time cleanup branch can await
-            # it before issuing the best-effort DELETE_NOTE. If we instead
-            # fired DELETE_NOTE in parallel with the still-running
-            # shielded UPDATE_NOTE (the pattern coderabbit flagged on PR
-            # #875), delete could complete first and update could then
-            # write to an already-soft-deleted row — observable as an
-            # inconsistent row state on the server side and a swallowed
-            # exception in the cleanup task.
-            update_task = asyncio.create_task(
-                self.update_note(notebook_id, note_id, content, title)
+        if not note_id:
+            # CREATE_NOTE returned a payload we cannot extract a note id
+            # from. Returning ``Note(id="")`` would be a success-shaped
+            # lie: the title/content were never finalized via UPDATE_NOTE,
+            # and any later operation keyed on the empty id misbehaves.
+            # Raise instead, matching the sibling create paths
+            # (``_source_add`` / ``notebooks.create``) which surface an
+            # error rather than fabricate a degenerate resource.
+            raise RPCError(
+                "CREATE_NOTE returned no usable note id; the note was not created",
+                method_id=RPCMethod.CREATE_NOTE.value,
             )
-            try:
-                await asyncio.shield(update_task)
-            except asyncio.CancelledError:
-                # Ordered fire-and-forget cleanup: first wait for the
-                # shielded UPDATE_NOTE to finish (success OR error),
-                # THEN issue the best-effort DELETE_NOTE. The re-raise
-                # MUST NOT await the wrapper task. Strong-ref via
-                # ``_cleanup_tasks`` so the loop's weak-ref Task storage
-                # cannot GC the wrapper mid-flight (RUF006); the
-                # done-callback discards on completion so the set stays
-                # bounded.
-                async def _finalize_then_cleanup() -> None:
-                    try:
-                        try:
-                            await update_task
-                        except Exception:  # noqa: BLE001 — log and proceed to delete
-                            logger.debug(
-                                "Shielded UPDATE_NOTE failed before cleanup for note %s in notebook %s",
-                                note_id,
-                                notebook_id,
-                                exc_info=True,
-                            )
-                    finally:
-                        await self._delete_note_best_effort(notebook_id, note_id)
 
-                cleanup_task = asyncio.create_task(_finalize_then_cleanup())
-                _cleanup_tasks.add(cleanup_task)
-                cleanup_task.add_done_callback(_cleanup_tasks.discard)
-                raise
+        # Shield the UPDATE_NOTE finalize from outer cancellation:
+        # CREATE_NOTE has already persisted a row server-side; without
+        # the shield, a cancel arriving between CREATE_NOTE and
+        # UPDATE_NOTE completion leaves an orphan row with no
+        # title/content.
+        #
+        # ``update_task`` is a freestanding ``asyncio.Task`` (not a
+        # bare coroutine) so the cancel-time cleanup branch can await
+        # it before issuing the best-effort DELETE_NOTE. If we instead
+        # fired DELETE_NOTE in parallel with the still-running
+        # shielded UPDATE_NOTE (the pattern coderabbit flagged on PR
+        # #875), delete could complete first and update could then
+        # write to an already-soft-deleted row — observable as an
+        # inconsistent row state on the server side and a swallowed
+        # exception in the cleanup task.
+        update_task = asyncio.create_task(self.update_note(notebook_id, note_id, content, title))
+        try:
+            await asyncio.shield(update_task)
+        except asyncio.CancelledError:
+            # Ordered fire-and-forget cleanup: first wait for the
+            # shielded UPDATE_NOTE to finish (success OR error),
+            # THEN issue the best-effort DELETE_NOTE. The re-raise
+            # MUST NOT await the wrapper task. Strong-ref via
+            # ``_cleanup_tasks`` so the loop's weak-ref Task storage
+            # cannot GC the wrapper mid-flight (RUF006); the
+            # done-callback discards on completion so the set stays
+            # bounded.
+            async def _finalize_then_cleanup() -> None:
+                try:
+                    try:
+                        await update_task
+                    except Exception:  # noqa: BLE001 — log and proceed to delete
+                        logger.debug(
+                            "Shielded UPDATE_NOTE failed before cleanup for note %s in notebook %s",
+                            note_id,
+                            notebook_id,
+                            exc_info=True,
+                        )
+                finally:
+                    await self._delete_note_best_effort(notebook_id, note_id)
+
+            cleanup_task = asyncio.create_task(_finalize_then_cleanup())
+            _cleanup_tasks.add(cleanup_task)
+            cleanup_task.add_done_callback(_cleanup_tasks.discard)
+            raise
 
         return Note(
-            id=note_id or "",
+            id=note_id,
             notebook_id=notebook_id,
             title=title,
             content=content,

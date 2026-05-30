@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from abstra_internals.cloud_api import get_api_key_info
+from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.credentials import get_credentials, resolve_headers
 from abstra_internals.environment import CLOUD_API_CLI_URL, REMOTE_GIT_URL, REMOTE_NAME
 from abstra_internals.interface.cli.deploy_messages import DeployMessages
@@ -201,10 +202,22 @@ class GitController:
 
         return status_response.to_dict()
 
+    def _broadcast_git_changed(self) -> None:
+        try:
+            CodebaseEventController.broadcast_changes(
+                Settings.root_path / ".git", "changed", None
+            )
+        except Exception as e:
+            AbstraLogger.warning(f"[Git] Failed to broadcast git change: {e}")
+
     def checkout_branch(self, branch_name: str) -> Dict[str, Any]:
         success, error_message = self.git_repository.checkout_branch(branch_name)
 
         message = f"Switched to branch '{branch_name}'" if success else error_message
+
+        if success:
+            self._broadcast_git_changed()
+            CodebaseEventController.schedule_full_lint()
 
         return {"success": success, "message": message}
 
@@ -214,6 +227,10 @@ class GitController:
         message = (
             f"Switched to commit '{commit_hash[:8]}'" if success else error_message
         )
+
+        if success:
+            self._broadcast_git_changed()
+            CodebaseEventController.schedule_full_lint()
 
         return {"success": success, "message": message}
 
@@ -229,6 +246,10 @@ class GitController:
         )
 
         message = "Successfully pulled changes" if success else error_message
+
+        if success:
+            self._broadcast_git_changed()
+            CodebaseEventController.schedule_full_lint()
 
         return {"success": success, "message": message}
 
@@ -288,6 +309,9 @@ class GitController:
             else error_message or "Commit failed"
         )
 
+        if success:
+            self._broadcast_git_changed()
+
         return {"success": success, "message": message}
 
     def add_to_gitignore(self, paths: List[str]) -> Dict[str, Any]:
@@ -312,6 +336,10 @@ class GitController:
             if success
             else error_message or "Stash failed"
         )
+
+        if success:
+            self._broadcast_git_changed()
+            CodebaseEventController.schedule_full_lint()
 
         return {"success": success, "message": message}
 
@@ -421,6 +449,7 @@ class GitController:
             project_id = self._get_project_id()
             DeployMessages.success(project_id)
             message = f"Successfully deployed branch '{branch}' to Abstra"
+            self._broadcast_git_changed()
         else:
             DeployMessages.error(error_message or "Unknown error")
             message = error_message
@@ -452,6 +481,10 @@ class GitController:
                 if success
                 else error_message
             )
+
+            if success:
+                self._broadcast_git_changed()
+                CodebaseEventController.schedule_full_lint()
 
             return {"success": success, "message": message}
 

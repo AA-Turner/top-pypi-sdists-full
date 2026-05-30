@@ -8,6 +8,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+from .._row_adapters_artifacts import ArtifactRow
 from ..rpc.types import ArtifactStatus, ArtifactTypeCode, artifact_status_to_str
 from .common import UnknownTypeWarning, _datetime_from_timestamp
 
@@ -98,90 +99,28 @@ def _is_valid_artifact_url(value: Any) -> bool:
 
 
 def _extract_audio_artifact_url(data: list[Any]) -> str | None:
-    if len(data) <= 6 or not isinstance(data[6], list) or len(data[6]) <= 5:
-        return None
-
-    media_list = data[6][5]
-    if not isinstance(media_list, list):
-        return None
-
-    for item in media_list:
-        if (
-            isinstance(item, list)
-            and len(item) > 2
-            and item[2] == "audio/mp4"
-            and _is_valid_artifact_url(item[0])
-        ):
-            return item[0]
-
-    for item in media_list:
-        if isinstance(item, list) and item and _is_valid_artifact_url(item[0]):
-            return item[0]
-
-    return None
+    return ArtifactRow(data).artifact_url(ArtifactTypeCode.AUDIO.value, suppress_drift=True)
 
 
 def _extract_video_artifact_url(data: list[Any]) -> str | None:
-    if len(data) <= 8 or not isinstance(data[8], list):
-        return None
-
-    fallback_url = None
-    for media_list in data[8]:
-        if not isinstance(media_list, list):
-            continue
-        for item in media_list:
-            if not isinstance(item, list) or not item or not _is_valid_artifact_url(item[0]):
-                continue
-            if fallback_url is None:
-                fallback_url = item[0]
-            if len(item) > 2 and item[2] == "video/mp4":
-                if len(item) > 1 and item[1] == 4:
-                    return item[0]
-                fallback_url = item[0]
-
-    return fallback_url
+    return ArtifactRow(data).artifact_url(ArtifactTypeCode.VIDEO.value, suppress_drift=True)
 
 
 def _extract_infographic_artifact_url(data: list[Any]) -> str | None:
-    for item in data:
-        if not isinstance(item, list) or len(item) <= 2:
-            continue
-        content = item[2]
-        if not isinstance(content, list) or not content:
-            continue
-        first_content = content[0]
-        if not isinstance(first_content, list) or len(first_content) <= 1:
-            continue
-        img_data = first_content[1]
-        if isinstance(img_data, list) and img_data and _is_valid_artifact_url(img_data[0]):
-            return img_data[0]
-    return None
+    return ArtifactRow(data).artifact_url(ArtifactTypeCode.INFOGRAPHIC.value, suppress_drift=True)
 
 
 def _extract_slide_deck_artifact_url(data: list[Any]) -> str | None:
     """Extract the slide-deck PDF URL. The PPTX URL at ``data[16][4]`` is not
     surfaced — callers wanting PPTX should use ``download_slide_deck(output_format="pptx")``."""
-    if (
-        len(data) > 16
-        and isinstance(data[16], list)
-        and len(data[16]) > 3
-        and _is_valid_artifact_url(data[16][3])
-    ):
-        return data[16][3]
-    return None
+    return ArtifactRow(data).artifact_url(ArtifactTypeCode.SLIDE_DECK.value, suppress_drift=True)
 
 
 def _extract_artifact_url(data: list[Any], artifact_type: int | None) -> str | None:
     """Extract a public download URL from known artifact response shapes."""
-    if artifact_type == ArtifactTypeCode.AUDIO.value:
-        return _extract_audio_artifact_url(data)
-    if artifact_type == ArtifactTypeCode.VIDEO.value:
-        return _extract_video_artifact_url(data)
-    if artifact_type == ArtifactTypeCode.INFOGRAPHIC.value:
-        return _extract_infographic_artifact_url(data)
-    if artifact_type == ArtifactTypeCode.SLIDE_DECK.value:
-        return _extract_slide_deck_artifact_url(data)
-    return None
+    if artifact_type is None:
+        return None
+    return ArtifactRow(data).artifact_url(artifact_type, suppress_drift=True)
 
 
 @dataclass
@@ -229,37 +168,32 @@ class Artifact:
     def from_api_response(cls, data: list[Any]) -> Artifact:
         """Parse artifact from API response.
 
-        Structure: [id, title, type, ..., status, ..., metadata, ...]
-        Position 9 contains options with variant code at [9][1][0]:
-          - For type 4: 1=flashcards, 2=quiz
+        Position knowledge for ``id`` / ``title`` / ``type`` / ``status``
+        / ``variant`` / ``timestamp`` lives in
+        :class:`notebooklm._row_adapters_artifacts.ArtifactRow`. This factory wraps
+        the raw row in an adapter and reads through its typed properties,
+        so any wire-shape change touches the adapter constants only.
+
+        URL extraction reads through :class:`ArtifactRow`; the private
+        ``_extract_artifact_url`` helper remains only as a compatibility
+        shim for downstream private imports.
         """
-        artifact_id = data[0] if len(data) > 0 else ""
-        title = data[1] if len(data) > 1 else ""
-        artifact_type = data[2] if len(data) > 2 else 0
-        status = data[4] if len(data) > 4 else 0
-
-        # Extract timestamp from data[15][0]
-        created_at = None
-        if len(data) > 15 and isinstance(data[15], list) and len(data[15]) > 0:
-            created_at = _datetime_from_timestamp(data[15][0])
-
-        # Extract variant code from data[9][1][0] for quiz/flashcard distinction
-        variant = None
-        if len(data) > 9 and isinstance(data[9], list) and len(data[9]) > 1:
-            options = data[9][1]
-            if isinstance(options, list) and len(options) > 0:
-                variant = options[0]
-
-        url = _extract_artifact_url(data, artifact_type if isinstance(artifact_type, int) else None)
+        row = ArtifactRow(data)
+        artifact_type = row.type_code
+        # ``row.type_code`` is statically typed ``int`` and normalises
+        # non-ints to ``0``; ``row.artifact_url`` then falls through to
+        # ``None`` for unrecognised codes — no separate ``isinstance``
+        # guard is needed here.
+        url = row.artifact_url(artifact_type, suppress_drift=True)
 
         return cls(
-            id=str(artifact_id),
-            title=str(title),
+            id=row.id,
+            title=row.title,
             _artifact_type=artifact_type,
-            status=status,
-            created_at=created_at,
+            status=row.status,
+            created_at=row.created_at,
             url=url,
-            _variant=variant,
+            _variant=row.variant,
         )
 
     @classmethod
@@ -385,7 +319,7 @@ class GenerationStatus:
     """
 
     task_id: str  # Same as artifact_id - used for polling and becomes Artifact.id
-    status: str  # "pending", "in_progress", "completed", "failed", "not_found"
+    status: str  # "pending", "in_progress", "completed", "failed", "not_found", "removed"
     url: str | None = None
     error: str | None = None
     error_code: str | None = None  # e.g., "USER_DISPLAYABLE_ERROR" for rate limits
@@ -423,18 +357,38 @@ class GenerationStatus:
         daily-quota rejection).
 
         ``wait_for_completion`` treats a sustained run of ``not_found``
-        responses as a failure — see its ``max_not_found`` parameter.
+        responses as a *removal* — see its ``max_not_found`` parameter and
+        :attr:`is_removed`.
         """
         return self.status == "not_found"
+
+    @property
+    def is_removed(self) -> bool:
+        """Check if the artifact was delisted by the server.
+
+        This status is set by ``wait_for_completion()`` when an artifact
+        disappears from the listing for a sustained run of polls (see its
+        ``max_not_found`` parameter). It is deliberately *distinct* from
+        :attr:`is_failed`: a ``failed`` artifact still exists in the listing
+        with a terminal FAILED status, whereas a ``removed`` artifact vanished
+        from the listing entirely — typically after a daily-quota rejection,
+        but possibly a transient list omission. Conflating the two would mask
+        a genuine terminal failure as a transient hiccup, or vice versa, so
+        callers that need to react differently can branch on this property.
+        """
+        return self.status == "removed"
 
     @property
     def is_rate_limited(self) -> bool:
         """Check if generation failed due to rate limiting or quota exceeded.
 
         Returns True when the API rejected the request, typically due to
-        too many requests or quota exhaustion.
+        too many requests or quota exhaustion. A ``removed`` status (the
+        artifact was delisted, often after a quota rejection) is treated the
+        same as a ``failed`` status here so that rate-limit retry policies
+        keep working when the server silently drops the artifact.
         """
-        if not self.is_failed:
+        if not (self.is_failed or self.is_removed):
             return False
 
         # Prefer structured error code when available

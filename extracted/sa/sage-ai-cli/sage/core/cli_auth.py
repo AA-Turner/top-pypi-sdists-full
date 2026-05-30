@@ -5,11 +5,14 @@ from __future__ import annotations
 import json
 import os
 import stat
+import threading
 import time
 from pathlib import Path
 from typing import Optional
 
 import httpx
+
+_auth_lock = threading.Lock()
 
 FIREBASE_API_KEY = os.environ.get(
     "VITE_FIREBASE_API_KEY",
@@ -158,15 +161,16 @@ def get_valid_token() -> str:
     """Return a valid Firebase ID token, refreshing if needed. Raises if not logged in."""
     if os.environ.get("SAGE_TESTING") == "1":
         return "fake-test-token"
-    auth = load_auth()
-    if auth is None:
-        raise RuntimeError(
-            "Not logged in. Run: sage login\n"
-            "Server models and CLI require a paid plan. Browser AI is always free."
-        )
-    if _is_expired(auth):
-        auth = _refresh_token(auth)
-    return auth["id_token"]
+    with _auth_lock:
+        auth = load_auth()
+        if auth is None:
+            raise RuntimeError(
+                "Not logged in. Run: sage login\n"
+                "Server models and CLI require a paid plan. Browser AI is always free."
+            )
+        if _is_expired(auth):
+            auth = _refresh_token(auth)
+        return auth["id_token"]
 
 
 def get_auth_headers() -> dict:

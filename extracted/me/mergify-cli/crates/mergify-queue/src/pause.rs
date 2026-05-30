@@ -16,11 +16,9 @@
 use std::io::IsTerminal;
 use std::io::Write;
 
-use mergify_core::ApiFlavor;
 use mergify_core::CliError;
-use mergify_core::HttpClient;
+use mergify_core::CommandContext;
 use mergify_core::Output;
-use mergify_core::auth;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -74,20 +72,21 @@ pub async fn run(opts: PauseOptions<'_>, output: &mut dyn Output) -> Result<(), 
     // Resolve auth/repo first so the prompt names the *actual* repo
     // (including the `GITHUB_REPOSITORY` fallback) and so a missing
     // repo or token fails loudly *before* we ask for confirmation.
-    let repository = auth::resolve_repository(opts.repository)?;
-    let token = auth::resolve_token(opts.token)?;
-    let api_url = auth::resolve_api_url(opts.api_url)?;
+    let ctx = CommandContext::resolve(opts.repository, opts.token, opts.api_url)?;
 
     confirm(
         opts.yes_i_am_sure,
         std::io::stdin().is_terminal(),
-        &repository,
+        &ctx.repository,
     )?;
 
-    output.status(&format!("Pausing merge queue for {repository}…"))?;
+    output.status(&format!(
+        "Pausing merge queue for {repo}…",
+        repo = ctx.repository,
+    ))?;
 
-    let client = HttpClient::new(api_url, token, ApiFlavor::Mergify)?;
-    let path = format!("/v1/repos/{repository}/merge-queue/pause");
+    let client = ctx.mergify_client()?;
+    let path = format!("/v1/repos/{}/merge-queue/pause", ctx.repository);
     let resp: PauseResponse = client
         .put(
             &path,
@@ -155,8 +154,7 @@ fn emit_confirmation(output: &mut dyn Output, response: &PauseResponse) -> std::
 
 #[cfg(test)]
 mod tests {
-    use mergify_core::OutputMode;
-    use mergify_core::StdioOutput;
+    use mergify_test_support::Captured;
     use wiremock::Mock;
     use wiremock::MockServer;
     use wiremock::ResponseTemplate;
@@ -166,24 +164,6 @@ mod tests {
     use wiremock::matchers::path;
 
     use super::*;
-
-    type SharedBytes = std::sync::Arc<std::sync::Mutex<Vec<u8>>>;
-
-    struct Captured {
-        output: StdioOutput,
-        stdout: SharedBytes,
-    }
-
-    fn make_output() -> Captured {
-        let stdout: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let stderr: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let output = StdioOutput::with_sinks(
-            OutputMode::Human,
-            SharedWriter(std::sync::Arc::clone(&stdout)),
-            SharedWriter(std::sync::Arc::clone(&stderr)),
-        );
-        Captured { output, stdout }
-    }
 
     #[test]
     fn parse_reason_accepts_short() {
@@ -251,7 +231,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             PauseOptions {
@@ -266,20 +246,9 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = String::from_utf8(cap.stdout.lock().unwrap().clone()).unwrap();
+        let stdout = cap.stdout();
         assert!(stdout.contains("Queue paused"), "got: {stdout:?}");
         assert!(stdout.contains("deploy freeze"), "got: {stdout:?}");
         assert!(stdout.contains("2026-04-23"), "got: {stdout:?}");
-    }
-
-    struct SharedWriter(SharedBytes);
-    impl Write for SharedWriter {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
     }
 }

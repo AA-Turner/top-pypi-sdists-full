@@ -7,7 +7,6 @@
 # Eli Bendersky (eliben@gmail.com)
 # This code is in the public domain
 #-------------------------------------------------------------------------------
-from __future__ import print_function
 import sys
 
 # If pyelftools is not installed, the example can also run from the root or
@@ -16,7 +15,6 @@ sys.path[0:0] = ['.', '..']
 
 from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import NoteSection
-from elftools.common.utils import bytes2hex
 
 
 def process_file(filename):
@@ -40,7 +38,7 @@ def process_file(filename):
                 elif note['n_type'] in {'NT_GNU_BUILD_ID', 'NT_GNU_GOLD_VERSION'}:
                     print('    Desc:', desc)
                 else:
-                    print('    Desc:', bytes2hex(desc))
+                    print('    Desc:', bytes(desc).hex())
 
 
 if __name__ == '__main__':

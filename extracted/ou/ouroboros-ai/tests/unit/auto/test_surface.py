@@ -21,10 +21,12 @@ from ouroboros.mcp.tools.auto_handler import (
     _authoring_seed_handler,
     _execution_start_handler,
     _resolve_cwd,
+    _result_meta,
     _safe_default_cwd,
 )
 from ouroboros.mcp.tools.execution_handlers import ExecuteSeedHandler, StartExecuteSeedHandler
 from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
+from ouroboros.orchestrator.runtime_evidence import RuntimeEvidence
 
 
 def test_cli_auto_runtime_enum_matches_supported_backends() -> None:
@@ -103,7 +105,7 @@ def test_auto_skill_frontmatter_dispatches_to_mcp_tool() -> None:
     content = skill.read_text(encoding="utf-8")
 
     assert "name: auto" in content
-    assert "mcp_tool: ouroboros_auto" in content
+    assert "mcp_tool: ouroboros_start_auto" in content
     assert 'goal: "$goal"' in content
     assert 'resume: "$resume"' in content
     assert 'skip_run: "$skip_run"' in content
@@ -477,6 +479,7 @@ async def test_auto_handler_meta_exposes_auto_progress_fields(monkeypatch) -> No
         "blocker": "waiting for interview answer",
         "seed_path": "/tmp/seed.yaml",
         "seed_origin": "none",
+        "active_task_class": None,
         "grade": "B",
         "last_grade": "B",
         "interview_session_id": "interview_1",
@@ -485,9 +488,43 @@ async def test_auto_handler_meta_exposes_auto_progress_fields(monkeypatch) -> No
         "run_session_id": "session_1",
         "pending_question": "Which runtime should be used?",
         "ledger_provenance": {},
+        "defaulted_sections": [],
         "evidence_backed_sections": [],
         "assumption_only_sections": [],
+        "assumption_sources": [],
+        "runtime_probe_evidence": [],
     }
+
+
+def test_result_meta_serializes_runtime_probe_evidence_shape() -> None:
+    from ouroboros.auto.pipeline import AutoPipelineResult
+
+    meta = _result_meta(
+        AutoPipelineResult(
+            status="complete",
+            auto_session_id="auto_probe",
+            phase="complete",
+            runtime_probe_evidence=(
+                RuntimeEvidence(
+                    probe_kind="headless_run",
+                    passed=True,
+                    summary="headless run exit_code=0 (duration 0.01s)",
+                    duration_seconds=0.01,
+                    payload={"exit_code": 0, "stdout_preview": "ok"},
+                ),
+            ),
+        )
+    )
+
+    assert meta["runtime_probe_evidence"] == [
+        {
+            "probe_kind": "headless_run",
+            "passed": True,
+            "summary": "headless run exit_code=0 (duration 0.01s)",
+            "duration_seconds": 0.01,
+            "payload": {"exit_code": 0, "stdout_preview": "ok"},
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -1345,6 +1382,68 @@ def test_auto_handler_meta_exposes_run_reconciliation_fields() -> None:
     assert meta["run_reconciled_at"] == "2026-05-07T00:00:00+00:00"
 
 
+def test_auto_handler_meta_exposes_defaulted_sections_as_list() -> None:
+    from ouroboros.auto.pipeline import AutoPipelineResult
+    from ouroboros.mcp.tools.auto_handler import _result_meta
+
+    meta = _result_meta(
+        AutoPipelineResult(
+            status="complete",
+            auto_session_id="auto_test",
+            phase="complete",
+            defaulted_sections=("runtime_context", "failure_modes"),
+        )
+    )
+
+    assert meta["defaulted_sections"] == ["runtime_context", "failure_modes"]
+
+
+def test_auto_handler_meta_preserves_empty_defaulted_sections() -> None:
+    from ouroboros.auto.pipeline import AutoPipelineResult
+    from ouroboros.mcp.tools.auto_handler import _result_meta
+
+    meta = _result_meta(
+        AutoPipelineResult(
+            status="complete",
+            auto_session_id="auto_test",
+            phase="complete",
+        )
+    )
+
+    assert meta["defaulted_sections"] == []
+
+
+def test_auto_handler_meta_exposes_active_task_class() -> None:
+    from ouroboros.auto.pipeline import AutoPipelineResult
+    from ouroboros.mcp.tools.auto_handler import _result_meta
+
+    meta = _result_meta(
+        AutoPipelineResult(
+            status="complete",
+            auto_session_id="auto_test",
+            phase="complete",
+            active_task_class="cli",
+        )
+    )
+
+    assert meta["active_task_class"] == "cli"
+
+
+def test_auto_handler_meta_preserves_empty_active_task_class() -> None:
+    from ouroboros.auto.pipeline import AutoPipelineResult
+    from ouroboros.mcp.tools.auto_handler import _result_meta
+
+    meta = _result_meta(
+        AutoPipelineResult(
+            status="complete",
+            auto_session_id="auto_test",
+            phase="complete",
+        )
+    )
+
+    assert meta["active_task_class"] is None
+
+
 @pytest.mark.asyncio
 async def test_auto_handler_passes_state_interview_timeout_to_driver(monkeypatch, tmp_path) -> None:
     """Regression for #686: MCP entrypoint must wire state interview timeout into driver."""
@@ -1901,6 +2000,7 @@ def test_format_result_omits_evidence_block_when_unknown() -> None:
 @pytest.mark.asyncio
 async def test_auto_handler_meta_exposes_ledger_provenance_breakdown(monkeypatch) -> None:
     async def fake_run(self, arguments):  # noqa: ARG001
+        from ouroboros.auto.ledger import AssumptionRecord
         from ouroboros.auto.pipeline import AutoPipelineResult
 
         return AutoPipelineResult(
@@ -1914,6 +2014,13 @@ async def test_auto_handler_meta_exposes_ledger_provenance_breakdown(monkeypatch
             },
             evidence_backed_sections=("actors", "goal", "runtime_context"),
             assumption_only_sections=("constraints",),
+            assumption_sources=(
+                AssumptionRecord(
+                    text="Use existing project patterns",
+                    source="conservative_default",
+                    confidence=0.85,
+                ),
+            ),
         )
 
     monkeypatch.setattr(AutoHandler, "_run", fake_run)
@@ -1929,6 +2036,13 @@ async def test_auto_handler_meta_exposes_ledger_provenance_breakdown(monkeypatch
     }
     assert meta["evidence_backed_sections"] == ["actors", "goal", "runtime_context"]
     assert meta["assumption_only_sections"] == ["constraints"]
+    assert meta["assumption_sources"] == [
+        {
+            "text": "Use existing project patterns",
+            "source": "conservative_default",
+            "confidence": 0.85,
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -1958,6 +2072,19 @@ async def test_auto_handler_meta_always_emits_provenance_keys_when_empty(monkeyp
     assert meta["ledger_provenance"] == {}
     assert meta["evidence_backed_sections"] == []
     assert meta["assumption_only_sections"] == []
+    assert meta["assumption_sources"] == []
+
+
+def test_auto_public_api_exports_assumption_record() -> None:
+    from ouroboros.auto import AssumptionRecord
+
+    record = AssumptionRecord(
+        text="Use existing project patterns", source="assumption", confidence=0.7
+    )
+
+    assert record.text == "Use existing project patterns"
+    assert record.source == "assumption"
+    assert record.confidence == 0.7
 
 
 def test_auto_save_seed_encodes_path_traversal_seed_id_inside_seed_dir(

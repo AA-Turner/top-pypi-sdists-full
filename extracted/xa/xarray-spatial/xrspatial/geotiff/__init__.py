@@ -29,7 +29,7 @@ write_geotiff_gpu(data, path, ...)
 write_vrt(path, source_files, ...)
     Generate a VRT mosaic XML from a list of GeoTIFF files. ``vrt_path``
     is kept as a deprecated alias for ``path``; passing both ``path`` and
-    ``vrt_path`` raises ``TypeError`` (#1946).
+    ``vrt_path`` raises ``TypeError``.
 """
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 # Public API docstring. Bind it under a leading-underscore name so it
 # does not leak into ``xrspatial.geotiff``'s public namespace. Tests
 # and internal callers that genuinely need it can import directly from
-# ``xrspatial.geotiff._reader``. See issue #1708.
+# ``xrspatial.geotiff._reader``.
 from ._attrs import (_LEVEL_RANGES, _VALID_COMPRESSIONS, GEOREF_STATUS_CRS_ONLY,  # noqa: F401
                      GEOREF_STATUS_FULL, GEOREF_STATUS_NONE, GEOREF_STATUS_ROTATED_DROPPED,
                      GEOREF_STATUS_TRANSFORM_ONLY, GEOREF_STATUS_VALUES, _extent_to_window,
@@ -60,7 +60,6 @@ from ._backends._gpu_helpers import _is_gpu_data  # noqa: F401
 from ._backends.dask import read_geotiff_dask
 from ._backends.gpu import read_geotiff_gpu
 from ._backends.vrt import read_vrt
-# etc. See the ``# noqa: F401`` pattern at lines 89 and 119 for the same convention.
 from ._coords import _BAND_DIM_NAMES  # noqa: F401
 from ._coords import coords_from_pixel_geometry as _coords_from_pixel_geometry  # noqa: F401
 from ._coords import coords_to_transform as _coords_to_transform  # noqa: F401
@@ -87,10 +86,10 @@ from ._validation import (_validate_3d_writer_dims, _validate_chunks_arg,  # noq
                           _validate_tile_size_arg)
 # Re-export only; called by xrspatial/geotiff/tests/test_nodata_no_extra_copy_1553.py.
 # ``_writer.write`` (alias for ``_writer._write``) is module-private;
-# see ``_writer.py`` docstring and issue #2138. The public eager write
-# surface is :func:`to_geotiff`; do not re-export the array-level
-# entry point here. The dotted path ``xrspatial.geotiff._writer._write``
-# still works for the handful of internal call sites that need it.
+# see the ``_writer.py`` docstring. The public eager write surface is
+# :func:`to_geotiff`; do not re-export the array-level entry point here.
+# The dotted path ``xrspatial.geotiff._writer._write`` still works for
+# the handful of internal call sites that need it.
 from ._writers.eager import _write_single_tile  # noqa: F401
 from ._writers.eager import to_geotiff
 from ._writers.gpu import write_geotiff_gpu
@@ -158,7 +157,7 @@ __all__ = [
 # - ``"internal_only"`` -- the strictest tier. Already gated behind
 #   its own dedicated flag because the output does not round-trip
 #   through libtiff / GDAL / rasterio. ``codec.jpeg`` requires
-#   ``allow_internal_only_jpeg=True`` (issue #1845);
+#   ``allow_internal_only_jpeg=True``;
 #   ``allow_experimental_codecs`` does NOT cover it.
 #
 # Tests in ``xrspatial/geotiff/tests/release_gates/test_features.py``
@@ -167,8 +166,6 @@ __all__ = [
 # dedicated flag. The user-guide notebook
 # (``examples/user_guide/39_GeoTIFF_IO.ipynb``) renders the same
 # mapping as a table so the documentation cannot drift from the code.
-#
-# See issue #2137.
 from ._attrs import SUPPORTED_FEATURES  # noqa: E402
 
 
@@ -191,12 +188,11 @@ def _read_geo_info(source, *, overview_level: int | None = None,
     allow_rotated : bool, optional
         Forwarded to the geotag parser. When True, a rotated
         ``ModelTransformationTag`` reads as an ungeoreferenced pixel
-        grid instead of raising ``RotatedTransformError`` (issues #2115,
-        #2267).
+        grid instead of raising ``RotatedTransformError``.
     allow_invalid_nodata : bool, optional
         Forwarded to the geotag parser. When True, restores the legacy
         no-op handling of non-finite / fractional ``GDAL_NODATA`` on
-        integer sources (#1774 follow-up, #2441).
+        integer sources.
     """
     # ``_parse_cog_http_meta`` is imported from ``_cog_http`` directly
     # rather than re-routed through ``_reader`` because the
@@ -206,7 +202,7 @@ def _read_geo_info(source, *, overview_level: int | None = None,
     # The eager / dask HTTP paths that ARE patched route through
     # ``_cog_http._read_cog_http`` and ``_backends/dask.py``'s
     # ``_HTTPSource`` construction, both of which still go through
-    # ``_reader`` for the patchable names. See PR-J / #2258.
+    # ``_reader`` for the patchable names.
     from ._cog_http import _parse_cog_http_meta
     from ._dtypes import resolve_bits_per_sample, tiff_dtype_to_numpy
     from ._geotags import extract_geo_info_with_overview_inheritance
@@ -226,7 +222,7 @@ def _read_geo_info(source, *, overview_level: int | None = None,
         # ``open_geotiff(..., chunks=...)`` graph build for a large COG.
         #
         # ``source_path=source`` opts the parser into external
-        # ``.tif.ovr`` sidecar discovery (issue #2239). Without it,
+        # ``.tif.ovr`` sidecar discovery. Without it,
         # ``open_geotiff(uri, chunks=..., overview_level=1)`` on a
         # GDAL external-overview file raised out-of-range or picked a
         # different overview than the eager read of the same URI.
@@ -251,7 +247,7 @@ def _read_geo_info(source, *, overview_level: int | None = None,
         )
         # Stash photometric + samples_per_pixel so the dask graph builder
         # can detect MinIsWhite and invert ``geo_info.nodata`` before
-        # binding it into the chunk closure (#1809).
+        # binding it into the chunk closure.
         geo_info._ifd_photometric = _ifd.photometric
         geo_info._ifd_samples_per_pixel = _ifd.samples_per_pixel
         geo_info._ifd_compression = _ifd.compression
@@ -287,7 +283,7 @@ def _read_geo_info(source, *, overview_level: int | None = None,
             raise ValueError("No IFDs found in TIFF file")
         # Append sibling `.tif.ovr` sidecar IFDs onto the pyramid list
         # so ``overview_level`` indexes both internal and external
-        # overviews (issue #2112). Local file paths only.
+        # overviews. Local file paths only.
         #
         # A broken sidecar must not break the base read. The release
         # contract puts ``reader.local_file`` at the stable tier and
@@ -295,7 +291,7 @@ def _read_geo_info(source, *, overview_level: int | None = None,
         # ``.ovr`` written by an external tool falls back to base-only
         # behaviour with a warning. Mirrors the eager CPU path in
         # ``_reader._read_to_array`` and the dask metadata helper
-        # ``_sidecar.discover_remote_sidecar``. Issue #2416.
+        # ``_sidecar.discover_remote_sidecar``.
         from ._sidecar import (attach_sidecar_origin, find_sidecar, handle_sidecar_parse_failure,
                                load_sidecar)
         sidecar_origin: dict[int, tuple] = {}
@@ -332,18 +328,18 @@ def _read_geo_info(source, *, overview_level: int | None = None,
                 # ModelTransformation needs the sidecar's byte order to
                 # parse cleanly; without the mapping the helper falls back
                 # to the base file's bytes (today's default, correct under
-                # the usual GDAL convention). See issue #2315.
+                # the usual GDAL convention).
                 sidecar_origin = attach_sidecar_origin(
                     sidecar.ifds, sidecar.data, sidecar.header)
                 ifds = ifds + sidecar.ifds
         ifd = select_overview_ifd(ifds, overview_level)
         # Inherit georef from the level-0 IFD when the overview itself
-        # has no geokeys (issue #1640). Pass-through for level 0. The
-        # sidecar IFDs typically lack geokeys so the inheritance pulls
-        # from the base file's full-resolution IFD as GDAL does. When a
-        # sidecar IFD does declare its own georef payload, ``georef_origin``
-        # routes the parse to the sidecar's bytes / byte order so the
-        # sidecar's georef wins. See issue #2315.
+        # has no geokeys. Pass-through for level 0. The sidecar IFDs
+        # typically lack geokeys so the inheritance pulls from the base
+        # file's full-resolution IFD as GDAL does. When a sidecar IFD
+        # does declare its own georef payload, ``georef_origin`` routes
+        # the parse to the sidecar's bytes / byte order so the sidecar's
+        # georef wins.
         georef_origin = (
             {iid: (od, oh.byte_order)
              for iid, (od, oh) in sidecar_origin.items()}
@@ -360,13 +356,12 @@ def _read_geo_info(source, *, overview_level: int | None = None,
         n_bands = ifd.samples_per_pixel if ifd.samples_per_pixel > 1 else 0
         # Stash photometric + samples_per_pixel so the dask graph builder
         # can detect MinIsWhite and invert ``geo_info.nodata`` before
-        # binding it into the chunk closure (#1809).
+        # binding it into the chunk closure.
         geo_info._ifd_photometric = ifd.photometric
         geo_info._ifd_samples_per_pixel = ifd.samples_per_pixel
         # Stash compression so the dask graph builder can fire the
         # experimental / internal-only codec opt-in gate at graph build
-        # rather than waiting for the per-chunk task to fail (PR 4 of
-        # epic #2340).
+        # rather than waiting for the per-chunk task to fail.
         geo_info._ifd_compression = ifd.compression
         return geo_info, ifd.height, ifd.width, file_dtype, n_bands
     finally:
@@ -376,9 +371,85 @@ def _read_geo_info(source, *, overview_level: int | None = None,
         close_sidecar(sidecar)
 
 
+def _bbox_to_window(source, bbox, *, overview_level=None,
+                    allow_rotated=False, allow_invalid_nodata=False):
+    """Resolve a geographic ``bbox`` to a pixel ``window`` for the source.
+
+    ``bbox`` is ``(x_min, y_min, x_max, y_max)`` in the source's CRS.
+    The returned tuple is ``(row_start, col_start, row_stop, col_stop)``
+    clamped to the file's extent and ready to forward as the existing
+    ``window=`` kwarg through the backend dispatch.
+
+    Uses ``_read_geo_info`` which already supports local files,
+    BytesIO, HTTP, and fsspec URIs via header-only reads, so this is
+    an O(1)-memory metadata pass rather than a full decode.
+
+    Raises ``ValueError`` if ``bbox`` is malformed, the source is not
+    georeferenced, or the transform is rotated. Rotated-affine files
+    are rejected because ``_extent_to_window`` assumes an
+    axis-aligned grid; the caller can pass ``allow_rotated=True`` to
+    drop the rotation upstream and then re-call with ``bbox=``.
+    """
+    if (not isinstance(bbox, (tuple, list)) or len(bbox) != 4):
+        raise ValueError(
+            "open_geotiff: bbox must be a 4-tuple "
+            "(x_min, y_min, x_max, y_max), "
+            f"got {bbox!r}.")
+    x_min, y_min, x_max, y_max = bbox
+    # ``NaN >= NaN`` is False, so NaN coordinates would slip past the
+    # ordering check below and only surface later as an unhelpful
+    # integer-cast error inside ``_extent_to_window``. Reject upfront.
+    if not all(np.isfinite(v) for v in (x_min, y_min, x_max, y_max)):
+        raise ValueError(
+            f"open_geotiff: bbox must contain finite coordinates, "
+            f"got bbox={bbox!r}.")
+    if x_min >= x_max or y_min >= y_max:
+        raise ValueError(
+            f"open_geotiff: bbox has non-positive size "
+            f"(x_min={x_min}, y_min={y_min}, x_max={x_max}, "
+            f"y_max={y_max}). Expected x_min < x_max and y_min < y_max.")
+
+    geo_info, height, width, _dtype, _nbands = _read_geo_info(
+        source, overview_level=overview_level,
+        allow_rotated=allow_rotated,
+        allow_invalid_nodata=allow_invalid_nodata)
+
+    # ``allow_rotated=True`` clears a rotated affine and stashes the
+    # original 6-tuple on ``transform.rotated_affine`` while setting
+    # ``has_georef=False`` (the dropped-rotation marker). Check
+    # ``rotated_affine`` first so this case gets the more specific
+    # message that names the recovery path; the plain-no-georef
+    # error then covers everything else.
+    if (geo_info.transform is not None
+            and geo_info.transform.rotated_affine is not None):
+        raise ValueError(
+            "open_geotiff: bbox= requires an axis-aligned transform, "
+            "but this file has a rotated affine. The rotation cannot "
+            "be expressed as a 4-tuple bbox in the file's CRS; pass "
+            "window= for pixel-space windowing instead.")
+    if not geo_info.has_georef:
+        raise ValueError(
+            "open_geotiff: bbox= requires a georeferenced source, "
+            "but this file has no GeoTIFF tags. Pass window= instead "
+            "for pixel-space windowing.")
+
+    from ._attrs import _extent_to_window
+    pixel_window = _extent_to_window(
+        geo_info.transform, height, width,
+        y_min, y_max, x_min, x_max)
+    row_start, col_start, row_stop, col_stop = pixel_window
+    if row_start >= row_stop or col_start >= col_stop:
+        raise ValueError(
+            f"open_geotiff: bbox={bbox!r} does not overlap the file's "
+            f"extent (height={height}, width={width}). Resolved pixel "
+            f"window={pixel_window} has non-positive size.")
+    return pixel_window
+
+
 def open_geotiff(source: str | BinaryIO, *,
                  dtype: str | np.dtype | None = None,
                  window: tuple | None = None,
+                 bbox: tuple | None = None,
                  overview_level: int | None = None,
                  band: int | None = None,
                  name: str | None = None,
@@ -391,7 +462,6 @@ def open_geotiff(source: str | BinaryIO, *,
                  missing_sources: str = _MISSING_SOURCES_SENTINEL,
                  allow_rotated: bool = False,
                  allow_unparseable_crs: bool = False,
-                 allow_inconsistent_geokeys: bool = False,
                  allow_invalid_nodata: bool = False,
                  stable_only: bool = False,
                  allow_experimental_codecs: bool = False,
@@ -401,7 +471,7 @@ def open_geotiff(source: str | BinaryIO, *,
                  ) -> xr.DataArray:
     """Read a GeoTIFF, COG, or VRT file into an xarray.DataArray.
 
-    Release-contract tier (epic #2340; see
+    Release-contract tier (see
     ``docs/source/reference/release_gate_geotiff.rst`` for the audited
     matrix and ``docs/source/reference/geotiff_release_contract.rst``
     for the prose contract once that page lands):
@@ -425,7 +495,7 @@ def open_geotiff(source: str | BinaryIO, *,
       support.
 
     See :data:`xrspatial.geotiff.SUPPORTED_FEATURES` for the full tier
-    map (issue #2137). Per-parameter tier markers below describe the
+    map. Per-parameter tier markers below describe the
     tier the parameter itself carries; a parameter's effective tier
     is bounded by the function-level surface above (e.g. ``[stable]``
     ``mask_nodata`` is still only stable when combined with a
@@ -438,7 +508,7 @@ def open_geotiff(source: str | BinaryIO, *,
     - Default: NumPy eager read
 
     VRT files are auto-detected by extension. The supported VRT subset
-    is narrow on purpose (issue #2321; epic #2340; epic #2342). See the
+    is narrow on purpose. See the
     "VRT support matrix" section in ``docs/source/reference/geotiff.rst``
     and the audited matrix in
     ``docs/source/reference/release_gate_geotiff.rst`` for the
@@ -471,7 +541,14 @@ def open_geotiff(source: str | BinaryIO, *,
         ValueError to prevent accidental data loss.
     window : tuple or None
         [stable] ``(row_start, col_start, row_stop, col_stop)`` for
-        windowed reading.
+        windowed reading. Mutually exclusive with ``bbox=``.
+    bbox : tuple or None
+        [stable] ``(x_min, y_min, x_max, y_max)`` in the file's CRS.
+        Resolved to a pixel ``window=`` via a header-only metadata read
+        and clamped to the file's extent. Requires the source to be
+        georeferenced with an axis-aligned transform; rotated affines
+        require ``allow_rotated=True`` to clear the rotation first.
+        Mutually exclusive with ``window=``.
     overview_level : int or None
         [advanced] Overview level (0 = full resolution). Must be a
         non-negative int or ``None``; passing ``bool`` or any other
@@ -494,9 +571,13 @@ def open_geotiff(source: str | BinaryIO, *,
         ``on_gpu_failure='strict'`` is also set. No cross-backend
         numerical parity claim outside the Tier 1 codec set.
     max_pixels : int or None
-        [stable] Maximum allowed pixel count (width * height *
-        samples). None uses the default (~1 billion). Raise to read
-        legitimately large files.
+        [stable] Maximum allowed pixel count per materialised buffer.
+        Without ``chunks=`` the cap bounds the full windowed region
+        (width * height * samples); with ``chunks=`` the cap bounds
+        each chunk's decode buffer instead, so a small ``max_pixels``
+        no longer rejects a large lazy raster up front. None uses the
+        default (~1 billion). Raise it to read legitimately large
+        files.
     max_cloud_bytes : int or None, optional
         [advanced] fsspec cloud reads can run up cost on large objects;
         the budget defends against accidental large downloads but the
@@ -511,8 +592,7 @@ def open_geotiff(source: str | BinaryIO, *,
         to this limit. Has no effect on local file or file-like
         sources. Passing this kwarg with ``gpu=True``, ``chunks=...``,
         or a ``.vrt`` source raises ``ValueError`` because those
-        backends do not apply the cloud-byte budget. See issue #1928
-        (eager path) and issue #1974 (rejection guard).
+        backends do not apply the cloud-byte budget.
     on_gpu_failure : {'auto', 'strict'}, optional
         [experimental] Forwarded to ``read_geotiff_gpu`` when
         ``gpu=True``. Controls whether GPU decode failures fall back
@@ -527,7 +607,7 @@ def open_geotiff(source: str | BinaryIO, *,
         skipped so downstream code can detect the partial mosaic.
         Forwarded to ``read_vrt`` when the source is a ``.vrt`` file.
         When the caller does not pass this kwarg, the public
-        ``read_vrt`` default applies (``'raise'`` since #1860).
+        ``read_vrt`` default applies (``'raise'``).
         ``'raise'`` fails immediately on an unreadable backing source.
         ``'warn'`` is the opt-in lenient mode: emit
         ``GeoTIFFFallbackWarning``, record ``attrs['vrt_holes']``, and
@@ -537,8 +617,7 @@ def open_geotiff(source: str | BinaryIO, *,
     band_nodata : {'first', None}, optional
         [advanced] VRT-only. Opt-out for the fail-closed check that
         rejects VRT sources whose bands declare disagreeing per-band
-        nodata sentinels (issue #1987 PR 5). When ``None`` (the
-        default), a VRT
+        nodata sentinels. When ``None`` (the default), a VRT
         that mosaics bands with different sentinels raises
         ``MixedBandMetadataError``; flattening to one value would let
         one band's valid pixels collide with another band's sentinel.
@@ -561,61 +640,47 @@ def open_geotiff(source: str | BinaryIO, *,
         [advanced] Read-only opt-in. ``to_geotiff`` does not currently
         emit ``rotated_affine``; it rejects DataArrays that carry the
         attr (``ValueError`` naming the attr) unless the caller passes
-        ``drop_rotation=True`` to accept the loss explicitly (#2216).
+        ``drop_rotation=True`` to accept the loss explicitly.
         Read-side opt-in for rotated / sheared ``ModelTransformationTag``
         files. By default the reader raises ``RotatedTransformError``
-        (a ``GeoTIFFAmbiguousMetadataError`` / ``ValueError`` subclass;
-        previously a bare ``NotImplementedError`` -- see #2267) because
-        the rest of xrspatial assumes an axis-aligned grid.
+        (a ``GeoTIFFAmbiguousMetadataError`` / ``ValueError`` subclass)
+        because the rest of xrspatial assumes an axis-aligned grid.
         ``allow_rotated=True`` reads the pixel grid without the
         geospatial assumption: the result has integer pixel coords on
         ``x`` / ``y`` and both ``attrs['crs']`` and ``attrs['crs_wkt']``
         are dropped. The CRS attrs are dropped together with the
         transform because keeping them while the axis-aligned transform
         is gone misleads downstream code that gates on
-        ``"crs" in da.attrs`` to mean the array is spatially usable
-        (issue #2126). The rotated 6-tuple itself is surfaced on
+        ``"crs" in da.attrs`` to mean the array is spatially usable.
+        The rotated 6-tuple itself is surfaced on
         ``attrs['rotated_affine']`` as ``(a, b, c, d, e, f)`` (rasterio
         ``Affine`` ordering) so consumers that know how to handle
-        rotated rasters can recover the mapping (issue #2129). The
+        rotated rasters can recover the mapping. The
         contract is read-only -- writes must either reproject onto an
         axis-aligned grid first, or pass ``drop_rotation=True`` to
         ``to_geotiff`` / ``write_geotiff_gpu`` to accept the loss; the
-        ``ModelTransformationTag`` emit path is tracked separately
-        (issue #2115).
+        ``ModelTransformationTag`` emit path is tracked separately.
     allow_unparseable_crs : bool, default False
         [advanced] Read-side opt-in for CRS strings that pyproj cannot
         resolve and that do not parse as WKT. When ``False`` (the
-        default since #1929), an unrecognised CRS payload raises
+        default), an unrecognised CRS payload raises
         ``UnparseableCRSError`` instead of landing in ``attrs['crs_wkt']``
-        verbatim. Set to ``True`` to keep the pre-#1929 permissive
+        verbatim. Set to ``True`` to keep the permissive
         behaviour where the citation field passes through unchanged.
         Matches the same kwarg on ``to_geotiff`` / ``write_geotiff_gpu``
         so a value the reader accepted can survive a round-trip.
-    allow_inconsistent_geokeys : bool, default False
-        [advanced] Read-side opt-in for GeoTIFF sources whose GeoKey
-        directory is internally contradictory: ``ModelTypeGeoKey``
-        disagrees with the type-specific keys actually populated, or
-        ``ProjectedCSTypeGeoKey`` and ``GeographicTypeGeoKey`` resolve
-        to different EPSG codes. The legacy reader took the projected
-        code first and silently fabricated an
-        ``attrs['crs']`` / ``attrs['crs_wkt']`` from contradictory
-        inputs (issue #2417). When ``False`` (the default), the read
-        raises ``InconsistentGeoKeysError``. Set to ``True`` to keep
-        the legacy permissive behaviour for files known to carry
-        quirky-but-trusted GeoKey layouts.
     allow_invalid_nodata : bool, default False
         [advanced] Read-side opt-in for integer-dtype sources whose
         ``GDAL_NODATA`` tag is non-finite (``"NaN"``, ``"Inf"``,
         ``"-Inf"``) or fractional (e.g. ``"3.5"`` on a ``uint16``
-        file). The legacy reader (#1774) parsed the value into
+        file). The legacy reader parsed the value into
         ``attrs['nodata']`` and silently skipped the masking step, so
         callers had no way to tell a silently-ignored sentinel from a
         missing one. When ``False`` (the default), the read raises
         ``InvalidIntegerNodataError``. Set to ``True`` to keep the
         pre-rejection no-op behaviour for files known to carry such
         sentinels (e.g. external tooling that writes ``"nan"`` on
-        integer outputs). See issue #2441 (#1774 follow-up).
+        integer outputs).
     stable_only : bool, default False
         [advanced] Read-side opt-in for stable-tier sources only. When
         ``True``, a ``.vrt`` source raises
@@ -627,8 +692,8 @@ def open_geotiff(source: str | BinaryIO, *,
         path and the per-source codec gate, so the flag is a no-op for
         them. The rejection names the file path and the
         ``allow_experimental_codecs`` opt-in so the caller can unlock
-        the broader tier set explicitly when needed. See epic #2342
-        and ``docs/source/reference/release_gate_geotiff.rst``.
+        the broader tier set explicitly when needed. See
+        ``docs/source/reference/release_gate_geotiff.rst``.
     allow_experimental_codecs : bool, default False
         Read-side opt-in for sources compressed with the Tier 3
         experimental codecs (``lerc``, ``jpeg2000`` / ``j2k``, ``lz4``).
@@ -637,15 +702,14 @@ def open_geotiff(source: str | BinaryIO, *,
         reader support across GDAL versions is uneven. Matches the
         same kwarg on the writers so a round-trip through a Tier 3
         codec stays opt-in on both sides. See SUPPORTED_FEATURES tier
-        ``'experimental'`` (epic #2340 PR 4).
+        ``'experimental'``.
     allow_internal_only_jpeg : bool, default False
         Read-side opt-in for JPEG-in-TIFF sources. The encoder writes
         self-contained JFIF tiles without the TIFF JPEGTables tag
         (347), so the read path is not interoperable with libtiff /
         GDAL / rasterio. ``allow_experimental_codecs=True`` does NOT
         cover this codec; the dedicated flag is its only gate. See
-        SUPPORTED_FEATURES tier ``'internal_only'`` for ``codec.jpeg``
-        (epic #2340 PR 4, original writer gate #1845).
+        SUPPORTED_FEATURES tier ``'internal_only'`` for ``codec.jpeg``.
 
     Returns
     -------
@@ -710,14 +774,12 @@ def open_geotiff(source: str | BinaryIO, *,
     # All dispatcher-level kwarg rejection lives in
     # ``_validate_dispatch_kwargs`` so the three direct backends
     # (``read_geotiff_dask``, ``read_geotiff_gpu``, ``read_vrt``)
-    # surface the same errors when called directly (issue #2175,
-    # parent #2162). The previous inline block at this line is now
-    # a single call that runs ``_validate_overview_level_arg`` (issue
-    # #2074), the ``on_gpu_failure`` GPU-only guard (issue #1615),
-    # the ``missing_sources`` VRT-only guard (issue #1810), the
-    # ``band_nodata`` VRT-only guard (issue #1987), the
-    # ``max_cloud_bytes`` non-VRT non-GPU non-dask guard (issue #1974),
-    # and the file-like source restrictions for gpu/chunks.
+    # surface the same errors when called directly. The single call
+    # runs ``_validate_overview_level_arg``, the ``on_gpu_failure``
+    # GPU-only guard, the ``missing_sources`` VRT-only guard, the
+    # ``band_nodata`` VRT-only guard, the ``max_cloud_bytes`` non-VRT
+    # non-GPU non-dask guard, and the file-like source restrictions
+    # for gpu/chunks.
     from ._validation import _validate_dispatch_kwargs
     _validate_dispatch_kwargs(
         source=source,
@@ -730,6 +792,20 @@ def open_geotiff(source: str | BinaryIO, *,
         max_cloud_bytes=max_cloud_bytes,
     )
 
+    # Resolve ``bbox=`` to a pixel ``window=`` via a header-only
+    # metadata read. Done at the dispatcher so every backend
+    # (eager / dask / GPU / VRT) sees a uniform pixel window without
+    # learning a new kwarg.
+    if bbox is not None:
+        if window is not None:
+            raise ValueError(
+                "open_geotiff: window= and bbox= are mutually exclusive; "
+                "pass one or the other.")
+        window = _bbox_to_window(
+            source, bbox, overview_level=overview_level,
+            allow_rotated=allow_rotated,
+            allow_invalid_nodata=allow_invalid_nodata)
+
     missing_sources_passed = (
         missing_sources is not _MISSING_SOURCES_SENTINEL)
     _is_vrt_source = (
@@ -739,10 +815,10 @@ def open_geotiff(source: str | BinaryIO, *,
     if _is_vrt_source:
         # ``read_vrt`` does not accept ``overview_level`` (the VRT XML
         # references its own source files; overview selection would need
-        # to apply to each one). Silently dropping the kwarg was the same
-        # class of bug issue #1561 fixed for the dask and GPU dispatchers,
+        # to apply to each one). Silently dropping the kwarg is the same
+        # class of bug the dask and GPU dispatchers already guard against,
         # so refuse the combination up front rather than handing the
-        # caller a full-resolution mosaic with no warning. See issue #1685.
+        # caller a full-resolution mosaic with no warning.
         # ``overview_level=0`` is documented as "full resolution" (the
         # default), so treat it as a no-op the same as ``None`` rather
         # than rejecting a kwarg value the caller could have omitted.
@@ -776,8 +852,6 @@ def open_geotiff(source: str | BinaryIO, *,
                         max_pixels=max_pixels,
                         allow_rotated=allow_rotated,
                         allow_unparseable_crs=allow_unparseable_crs,
-                        allow_inconsistent_geokeys=(
-                            allow_inconsistent_geokeys),
                         allow_invalid_nodata=allow_invalid_nodata,
                         stable_only=stable_only,
                         allow_experimental_codecs=allow_experimental_codecs,
@@ -802,8 +876,6 @@ def open_geotiff(source: str | BinaryIO, *,
                                 max_pixels=max_pixels,
                                 allow_rotated=allow_rotated,
                                 allow_unparseable_crs=allow_unparseable_crs,
-                                allow_inconsistent_geokeys=(
-                                    allow_inconsistent_geokeys),
                                 allow_invalid_nodata=allow_invalid_nodata,
                                 stable_only=stable_only,
                                 allow_experimental_codecs=(
@@ -821,8 +893,6 @@ def open_geotiff(source: str | BinaryIO, *,
                                  max_pixels=max_pixels, name=name,
                                  allow_rotated=allow_rotated,
                                  allow_unparseable_crs=allow_unparseable_crs,
-                                 allow_inconsistent_geokeys=(
-                                     allow_inconsistent_geokeys),
                                  allow_invalid_nodata=allow_invalid_nodata,
                                  stable_only=stable_only,
                                  allow_experimental_codecs=(
@@ -841,8 +911,7 @@ def open_geotiff(source: str | BinaryIO, *,
     # extent and raises ``ValueError`` for out-of-bounds windows with
     # the same message format as the dask path's pre-flight validator
     # in :func:`read_geotiff_dask`. That keeps the two backends in sync
-    # on the contract without forcing a second metadata parse here. See
-    # issue #1634.
+    # on the contract without forcing a second metadata parse here.
     arr, geo_info = _read_to_array(
         source, window=window,
         overview_level=overview_level, band=band,
@@ -859,13 +928,13 @@ def open_geotiff(source: str | BinaryIO, *,
         if isinstance(source, str):
             name = os.path.splitext(os.path.basename(source))[0]
 
-    # Hand the post-decode buffer to the shared eager finalizer
-    # (issue #2179). The helper runs the same validate -> populate attrs
-    # -> mask -> cast -> set_nodata_attrs -> build DataArray pipeline
-    # the inline block used to do. ``mask_sentinel`` honours the
-    # post-MinIsWhite inversion stashed on ``geo_info._mask_nodata`` by
-    # ``read_to_array`` / ``_read_cog_http`` (#1809); on non-MinIsWhite
-    # files it falls back to the raw declared sentinel.
+    # Hand the post-decode buffer to the shared eager finalizer. The
+    # helper runs the same validate -> populate attrs -> mask -> cast
+    # -> set_nodata_attrs -> build DataArray pipeline the inline block
+    # used to do. ``mask_sentinel`` honours the post-MinIsWhite
+    # inversion stashed on ``geo_info._mask_nodata`` by
+    # ``read_to_array`` / ``_read_cog_http``; on non-MinIsWhite files
+    # it falls back to the raw declared sentinel.
     nodata = geo_info.nodata
     mask_sentinel = (
         getattr(geo_info, '_mask_nodata', nodata)
@@ -882,7 +951,6 @@ def open_geotiff(source: str | BinaryIO, *,
         name=name,
         allow_rotated=allow_rotated,
         allow_unparseable_crs=allow_unparseable_crs,
-        allow_inconsistent_geokeys=allow_inconsistent_geokeys,
     )
 
 

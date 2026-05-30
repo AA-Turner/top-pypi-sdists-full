@@ -30,8 +30,8 @@ classifiers = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "aiohomematic>=2026.4.16",
-    "openccu-data>=2026.4.1",
+    "aiohomematic>=2026.5.10",
+    "openccu-data>=2026.5.0",
     "pydantic>=2.10.0",
 ]
 

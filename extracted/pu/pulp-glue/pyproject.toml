@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pulp-glue"
-version = "0.39.2"
+version = "0.39.3"
 description = "Version agnostic glue library to talk to pulpcore's REST API."
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
   "multidict>=6.0.5,<6.8",
   "packaging>=22.0,<=26.2",  # CalVer
-  "pydantic>=2.9.2,<2.13",
+  "pydantic>=2.9.2,<3",  # Stable with the exception of experimental features. https://pydantic.dev/docs/validation/latest/get-started/version-policy
   "requests>=2.24.0,<2.34",
   "tomli>=2.0.0,<2.1;python_version<'3.11'",
 ]

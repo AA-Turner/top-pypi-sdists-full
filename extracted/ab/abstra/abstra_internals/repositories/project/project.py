@@ -40,6 +40,7 @@ from abstra_internals.repositories.project.disabled_stages_loader import (
     DisabledStagesLoader,
 )
 from abstra_internals.services.fs import FileSystemService
+from abstra_internals.services.notifiers import AbstraJsonChangeNotifier
 from abstra_internals.settings import Settings
 from abstra_internals.templates import abstra_favicon, abstra_logo
 from abstra_internals.utils import check_is_url, nested_get
@@ -2134,6 +2135,9 @@ class ProjectRepository:
         with self.lock:
             self._write_json_file(data, abstra_json_path)
 
+        # Let the editor broadcast + re-lint abstra.json.
+        AbstraJsonChangeNotifier.notify()
+
     @contextmanager
     def atomic(self) -> Generator["Project", None, None]:
         """Context manager for atomic load, modify and save under a single lock.
@@ -2159,6 +2163,8 @@ class ProjectRepository:
             new_data = Project._deduplicate_transitions(new_data)
 
             self._write_json_file(new_data, abstra_json_path)
+
+        AbstraJsonChangeNotifier.notify()
 
     def migrate_config_file(self, verbose=True):
         if not self.exists():

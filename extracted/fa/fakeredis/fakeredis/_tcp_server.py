@@ -8,6 +8,7 @@ except ImportError:
     HAS_FCNTL = False
 import logging
 import os
+import threading
 import time
 from dataclasses import dataclass
 from io import BufferedIOBase
@@ -153,14 +154,18 @@ class TCPFakeRequestHandler(StreamRequestHandler):
             self.current_client = FakeRedisConnection(
                 server=self.server.fake_server,
                 writer=self.writer,
-                client_info={"raddr": self.client_address},
+                client_info={
+                    "laddr": self.connection.getsockname(),
+                    "addr": self.connection.getpeername(),
+                    "fd": self.connection.fileno(),
+                },
             )
 
             self.server.clients[self.client_address] = self.current_client
 
     def handle(self) -> None:
         LOGGER.debug(f"+++ {self.client_address[0]} connected")
-        while True:
+        while not self.server._shutdown_event.is_set():
             try:
                 if self.shutdown_request:
                     break
@@ -198,11 +203,16 @@ class TcpFakeServer(ThreadingTCPServer):
         server_version: VersionType = (8, 0),
     ):
         self.allow_reuse_address = True
-        self.daemon_threads = True
+        self.daemon_threads = False
+        self._shutdown_event = threading.Event()
         super().__init__(server_address, TCPFakeRequestHandler, bind_and_activate)
         self.fake_server = FakeServer(server_type=server_type, version=server_version)
         self.client_ids = count(0)
         self.clients: Dict[int, FakeRedisConnection] = {}
+
+    def shutdown(self) -> None:
+        self._shutdown_event.set()
+        super().shutdown()
 
 
 TCP_SERVER_TEST_PORT = 19000

@@ -41,6 +41,8 @@ class PolishReport:
     ruff_fixes_ran: bool = False
     eslint_fixes_ran: bool = False
     final_install_ok: bool | None = None
+    final_build_ok: bool | None = None
+    final_runs_ok: bool | None = None
     final_tests_ok: bool | None = None
 
 
@@ -280,6 +282,12 @@ def run_final_polish(
         report.final_install_ok = all(
             r.install_ok in (True, None) for r in verify_reports
         )
+        report.final_build_ok = all(
+            r.build_ok in (True, None) for r in verify_reports
+        )
+        report.final_runs_ok = all(
+            r.runs_ok in (True, None) for r in verify_reports
+        )
         report.final_tests_ok = all(
             r.tests_ok in (True, None) for r in verify_reports
         )
@@ -290,6 +298,8 @@ def run_final_polish(
         f"[polish] done. types_added={len(report.types_added)} "
         f"ruff={report.ruff_fixes_ran} eslint={report.eslint_fixes_ran} "
         f"final_install_ok={report.final_install_ok} "
+        f"final_build_ok={report.final_build_ok} "
+        f"final_runs_ok={report.final_runs_ok} "
         f"final_tests_ok={report.final_tests_ok}"
     )
     return report

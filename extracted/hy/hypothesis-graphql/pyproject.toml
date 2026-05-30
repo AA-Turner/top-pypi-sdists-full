@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hypothesis-graphql"
-version = "0.12.0"
+version = "0.13.0"
 description = "Hypothesis strategies for GraphQL queries"
 keywords = ["hypothesis", "graphql", "testing"]
 classifiers = [
@@ -15,8 +15,6 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -30,12 +28,13 @@ maintainers = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
 readme = "README.md"
 license = "MIT"
 include = ["src/hypothesis_graphql/py.typed"]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = ["hypothesis>=6.84.3,<7.0", "graphql-core>=3.1.0,<3.3.0"]
 
 [project.optional-dependencies]
 tests = ["coverage>=7", "pytest>=6.2.0,<8", "pytest-xdist>=2.5,<3.0"]
 cov = ["coverage-enable-subprocess", "coverage[toml]>=7"]
+bench = ["pytest-codspeed>=5"]
 dev = ["hypothesis_graphql[tests,cov]"]
 
 [project.urls]
@@ -59,11 +58,11 @@ source = ["src", ".tox/*/site-packages"]
 show_missing = true
 skip_covered = true
 precision = 2
-exclude_lines = ["raise NotImplementedError", "if TYPE_CHECKING:", "pass"]
+exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECKING:", "pass"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py38"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [

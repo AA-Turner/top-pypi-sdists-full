@@ -1347,6 +1347,7 @@ class StartRunRequestTypeDef(TypedDict):
     workflowVersionName: NotRequired[str]
     networkingMode: NotRequired[NetworkingModeType]
     configurationName: NotRequired[str]
+    engineSettings: NotRequired[Mapping[str, Any]]
 
 class VariantImportItemSourceTypeDef(TypedDict):
     source: str
@@ -2295,6 +2296,7 @@ GetRunResponseTypeDef = TypedDict(
         "networkingMode": NetworkingModeType,
         "configuration": ConfigurationDetailsTypeDef,
         "vpcConfig": VpcConfigResponseTypeDef,
+        "engineSettings": dict[str, Any],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2842,6 +2844,8 @@ GetWorkflowResponseTypeDef = TypedDict(
         "readme": str,
         "definitionRepositoryDetails": DefinitionRepositoryDetailsTypeDef,
         "readmePath": str,
+        "profiles": list[str],
+        "profileParameterTemplates": dict[str, dict[str, WorkflowParameterTypeDef]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2872,6 +2876,8 @@ GetWorkflowVersionResponseTypeDef = TypedDict(
         "readme": str,
         "definitionRepositoryDetails": DefinitionRepositoryDetailsTypeDef,
         "readmePath": str,
+        "profiles": list[str],
+        "profileParameterTemplates": dict[str, dict[str, WorkflowParameterTypeDef]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

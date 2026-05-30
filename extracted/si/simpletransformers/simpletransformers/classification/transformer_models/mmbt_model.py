@@ -1,7 +1,11 @@
 import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss, MSELoss
-from transformers.models.deprecated.mmbt.modeling_mmbt import MMBTModel
+try:
+    from transformers.models.deprecated.mmbt.modeling_mmbt import MMBTModel
+    _mmbt_available = True
+except ImportError:
+    _mmbt_available = False
 
 
 class MMBTForClassification(nn.Module):

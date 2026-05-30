@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mergify_cli
-Version: 2026.5.27.1
+Version: 2026.5.29.2
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -58,8 +58,9 @@ and global options (`--token`, `--repository`, `--api-url`).
 - **`mergify ci`** — Upload JUnit results, evaluate quarantine, detect git
   refs and CI scopes.
   [Docs](https://docs.mergify.com/ci-insights/)
-- **`mergify tests`** — Inspect test health tracked by Mergify CI Insights
-  (`mergify tests show NAME...`).
+- **`mergify tests`** — Inspect test health and manage quarantine for tests
+  tracked by Mergify CI Insights (`mergify tests show NAME...`,
+  `mergify tests quarantine NAME`, `mergify tests unquarantine NAME`).
   [Docs](https://docs.mergify.com/ci-insights/)
 - **`mergify queue`** — Monitor and manage the Mergify merge queue.
   [Docs](https://docs.mergify.com/merge-queue/)

@@ -80,6 +80,11 @@ class ViewportReport:
     failed: int
     duration_ms: float
     persona_id: str | None = None
+    # #1295 — pages the persona can't reach (no app-shell rendered) are
+    # skipped, not failed: their assertions would all be false "Element not
+    # found". ``skipped`` counts those assertions; ``skip_reason`` explains why.
+    skipped: int = 0
+    skip_reason: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -105,212 +110,192 @@ def _matches(expected: str | list[str], actual: str | None) -> bool:
 # Built-in patterns
 # ---------------------------------------------------------------------------
 
-# -- Drawer (app_shell.html) ------------------------------------------------
+# -- App-shell sidebar drawer (Fragment chrome) -----------------------------
+#
+# #1295 — UPDATED from the retired legacy Jinja `app_shell.html` markup.
+# The pre-#1295 pattern targeted `.drawer-side` / `label[for="dz-drawer"]`
+# (DaisyUI classes that vanished in the v0.67.44/45 Fragment migration) and
+# asserted `visibility` — which cannot see an off-screen `transform`. That
+# rot is exactly why this very pattern failed to catch #1294 (sidebar parked
+# at translateX(-256px), `visibility: visible`). Now it targets the Fragment
+# chrome (`.dz-sidebar` / `.dz-sidebar-toggle`) with a GEOMETRY property
+# model: at desktop the open sidebar's transform is the identity matrix
+# (on-screen); off-screen reads as matrix(1,0,0,1,-256,0). This is the
+# orthogonal dimension — geometry, not DOM presence.
 
 DRAWER_PATTERN = ComponentPattern(
     name="drawer",
     assertions=[
-        # Mobile: sidebar hidden, hamburger visible
+        # Sidebar slid ON-SCREEN at desktop (data-dz-sidebar=open default).
+        # Off-screen (the #1294 regression) reads as matrix(1,0,0,1,-256,0).
         ViewportAssertion(
-            selector=".drawer-side",
-            property="visibility",
-            expected="hidden",
-            viewport="mobile",
-            description="Sidebar hidden on mobile",
+            selector=".dz-sidebar",
+            property="transform",
+            expected=["none", "matrix(1, 0, 0, 1, 0, 0)"],
+            viewport="desktop",
+            description="Sidebar on-screen at desktop (transform ≈ identity)",
+        ),
+        # Toggle present + visible so the nav is reachable/collapsible at
+        # both viewports (the affordance whose absence broke #1294).
+        ViewportAssertion(
+            selector=".dz-sidebar-toggle",
+            property="display",
+            expected=["flex", "inline-flex", "block", "inline-block"],
+            viewport="desktop",
+            description="Sidebar toggle visible at desktop",
         ),
         ViewportAssertion(
-            selector='label[for="dz-drawer"].drawer-button',
+            selector=".dz-sidebar-toggle",
             property="display",
             expected=["flex", "inline-flex", "block", "inline-block"],
             viewport="mobile",
-            description="Hamburger button visible on mobile",
-        ),
-        # Desktop: sidebar visible when open, navbar toggle hidden
-        ViewportAssertion(
-            selector=".drawer-side",
-            property="visibility",
-            expected="visible",
-            viewport="desktop",
-            description="Sidebar visible on desktop",
-        ),
-        ViewportAssertion(
-            selector='label[for="dz-drawer"].drawer-button',
-            property="display",
-            expected="none",
-            viewport="desktop",
-            description="Hamburger button hidden on desktop",
+            description="Sidebar toggle visible on mobile (nav reachable)",
         ),
     ],
 )
 
-# -- Workspace card grid (grid.html): 1 → 2 → 3 cols ----------------------
+# -- Region grids (Fragment substrate) -------------------------------------
+#
+# #1295 — UPDATED from the retired legacy DaisyUI/Tailwind selectors
+# (`.grid.sm:grid-cols-2.lg:grid-cols-3`, `.stats`, `.sm:grid.sm:grid-cols-3`)
+# that the Fragment substrate never emitted — so every assertion came back
+# "Element not found" (the same silent-rot-after-migration class as DRAWER
+# pre-#1294). These now target the real Fragment region classes, verified
+# against freshly-rendered primitives by the freshness guard in
+# `test_viewport.py`.
+#
+# PROPERTY MODEL — `grid-column-count`, not raw `grid-template-columns`.
+# `getComputedStyle('grid-template-columns')` returns the *resolved* track
+# list in px (e.g. "388px 388px"), never the authored "repeat(2, …)" /
+# "1fr 1fr" — so a string compare against authored values would be a NEW
+# false negative (exactly the property-model mismatch that let #1294 through
+# with `visibility` vs `transform`). The runner's JS evaluator computes the
+# synthetic `grid-column-count` by counting resolved tracks, which is stable
+# across container widths. Breakpoints below are read from
+# `components/regions.css` + `components/dashboard.css`: region grids switch
+# at 40rem (640px) and 64rem (1024px); the dashboard grid at 48rem (768px).
+# The matrix is mobile=375 / tablet=768 / desktop=1280 / wide=1440.
 
-GRID_1_2_3_PATTERN = ComponentPattern(
-    name="grid_1_2_3",
+# GRID display → `.dz-grid-list`: 1 → 2 → 3 cols (40rem / 64rem).
+GRID_PATTERN = ComponentPattern(
+    name="grid",
     assertions=[
         ViewportAssertion(
-            selector=".grid.sm\\:grid-cols-2.lg\\:grid-cols-3",
-            property="grid-template-columns",
-            expected=["repeat(1, minmax(0, 1fr))", "1fr"],
+            selector=".dz-grid-list",
+            property="grid-column-count",
+            expected="1",
             viewport="mobile",
-            description="Single column grid on mobile",
+            description="Grid region single-column on mobile (<40rem)",
         ),
         ViewportAssertion(
-            selector=".grid.sm\\:grid-cols-2.lg\\:grid-cols-3",
-            property="grid-template-columns",
-            expected=["repeat(2, minmax(0, 1fr))", "1fr 1fr"],
+            selector=".dz-grid-list",
+            property="grid-column-count",
+            expected="2",
             viewport="tablet",
-            description="Two column grid on tablet",
+            description="Grid region two-column on tablet (≥40rem, <64rem)",
         ),
         ViewportAssertion(
-            selector=".grid.sm\\:grid-cols-2.lg\\:grid-cols-3",
-            property="grid-template-columns",
-            expected=["repeat(3, minmax(0, 1fr))", "1fr 1fr 1fr"],
+            selector=".dz-grid-list",
+            property="grid-column-count",
+            expected="3",
             viewport="desktop",
-            description="Three column grid on desktop",
+            description="Grid region three-column on desktop (≥64rem)",
         ),
     ],
 )
 
-# -- Console entity/surface list: 1 → 2 cols at md -------------------------
-
-GRID_1_2_PATTERN = ComponentPattern(
-    name="grid_1_2",
+# METRICS / SUMMARY display → `.dz-metrics-grid`: 1 → 2 → 4 cols (40rem / 64rem).
+METRICS_PATTERN = ComponentPattern(
+    name="metrics",
     assertions=[
         ViewportAssertion(
-            selector=".grid.md\\:grid-cols-2",
-            property="grid-template-columns",
-            expected=["repeat(1, minmax(0, 1fr))", "1fr"],
+            selector=".dz-metrics-grid",
+            property="grid-column-count",
+            expected="1",
             viewport="mobile",
-            description="Single column on mobile",
+            description="Metrics tiles single-column on mobile (<40rem)",
         ),
         ViewportAssertion(
-            selector=".grid.md\\:grid-cols-2",
-            property="grid-template-columns",
-            expected=["repeat(2, minmax(0, 1fr))", "1fr 1fr"],
-            viewport="desktop",
-            description="Two columns on desktop",
-        ),
-    ],
-)
-
-# -- Console dashboard stats: 1 → 3 cols at md -----------------------------
-
-GRID_1_3_PATTERN = ComponentPattern(
-    name="grid_1_3",
-    assertions=[
-        ViewportAssertion(
-            selector=".grid.md\\:grid-cols-3",
-            property="grid-template-columns",
-            expected=["repeat(1, minmax(0, 1fr))", "1fr"],
-            viewport="mobile",
-            description="Single column stats on mobile",
-        ),
-        ViewportAssertion(
-            selector=".grid.md\\:grid-cols-3",
-            property="grid-template-columns",
-            expected=["repeat(3, minmax(0, 1fr))", "1fr 1fr 1fr"],
-            viewport="desktop",
-            description="Three column stats on desktop",
-        ),
-    ],
-)
-
-# -- Workspace metrics: vertical → horizontal at lg ------------------------
-
-STATS_PATTERN = ComponentPattern(
-    name="stats",
-    assertions=[
-        ViewportAssertion(
-            selector=".stats",
-            property="flex-direction",
-            expected="column",
-            viewport="mobile",
-            description="Stats stacked vertically on mobile",
-        ),
-        ViewportAssertion(
-            selector=".stats",
-            property="flex-direction",
-            expected="row",
-            viewport="desktop",
-            description="Stats horizontal on desktop",
-        ),
-    ],
-)
-
-# -- Detail view: block → 3-col grid at sm ---------------------------------
-
-DETAIL_VIEW_PATTERN = ComponentPattern(
-    name="detail_view",
-    assertions=[
-        ViewportAssertion(
-            selector=".sm\\:grid.sm\\:grid-cols-3",
-            property="display",
-            expected="block",
-            viewport="mobile",
-            description="Detail fields stacked on mobile",
-        ),
-        ViewportAssertion(
-            selector=".sm\\:grid.sm\\:grid-cols-3",
-            property="display",
-            expected="grid",
+            selector=".dz-metrics-grid",
+            property="grid-column-count",
+            expected="2",
             viewport="tablet",
-            description="Detail fields in grid on tablet",
+            description="Metrics tiles two-column on tablet (≥40rem, <64rem)",
+        ),
+        ViewportAssertion(
+            selector=".dz-metrics-grid",
+            property="grid-column-count",
+            expected="4",
+            viewport="desktop",
+            description="Metrics tiles four-column on desktop (≥64rem)",
         ),
     ],
 )
 
-# -- Monitor wall: 2 → 3 cols at lg ----------------------------------------
-
-GRID_2_3_PATTERN = ComponentPattern(
-    name="grid_2_3",
+# ACTION_GRID display → `.dz-action-grid`: 1 → 2 → 3 cols (40rem / 64rem).
+ACTION_GRID_PATTERN = ComponentPattern(
+    name="action_grid",
     assertions=[
         ViewportAssertion(
-            selector=".grid.lg\\:grid-cols-3",
-            property="grid-template-columns",
-            expected=["repeat(2, minmax(0, 1fr))", "1fr 1fr"],
+            selector=".dz-action-grid",
+            property="grid-column-count",
+            expected="1",
             viewport="mobile",
-            description="Two column grid on mobile (monitor wall)",
+            description="Action cards single-column on mobile (<40rem)",
         ),
         ViewportAssertion(
-            selector=".grid.lg\\:grid-cols-3",
-            property="grid-template-columns",
-            expected=["repeat(3, minmax(0, 1fr))", "1fr 1fr 1fr"],
+            selector=".dz-action-grid",
+            property="grid-column-count",
+            expected="2",
+            viewport="tablet",
+            description="Action cards two-column on tablet (≥40rem, <64rem)",
+        ),
+        ViewportAssertion(
+            selector=".dz-action-grid",
+            property="grid-column-count",
+            expected="3",
             viewport="desktop",
-            description="Three column grid on desktop (monitor wall)",
+            description="Action cards three-column on desktop (≥64rem)",
         ),
     ],
 )
+
+# NOTE — NO dashboard-grid pattern (#1295, removed after the live CI run caught
+# it). `.dz-dashboard-grid` is a uniform **12-track** grid at EVERY viewport
+# (verified live: `grid-template-columns` resolves to 12 tracks at 375px AND
+# 1280px — at mobile the cards span all 12 columns so 11 tracks collapse to
+# 0px, giving a single *visual* column). Its responsiveness is card col-span
+# based, NOT a column-count change — so `grid-column-count` is always 12 and
+# can't express it. This is the same fiction class as the old per-stage
+# grid_1_2/grid_2_3 patterns and the container-query DETAIL view: not
+# viewport-column-count-assertable, so deliberately excluded. The freshness
+# guard still pins that `.dz-dashboard-grid` is emitted; the real
+# viewport-responsive grids below (.dz-grid-list / .dz-metrics-grid /
+# .dz-action-grid) DO change track count by breakpoint and are asserted.
 
 ALL_PATTERNS: dict[str, ComponentPattern] = {
     "drawer": DRAWER_PATTERN,
-    "grid_1_2_3": GRID_1_2_3_PATTERN,
-    "grid_1_2": GRID_1_2_PATTERN,
-    "grid_1_3": GRID_1_3_PATTERN,
-    "stats": STATS_PATTERN,
-    "detail_view": DETAIL_VIEW_PATTERN,
-    "grid_2_3": GRID_2_3_PATTERN,
+    "grid": GRID_PATTERN,
+    "metrics": METRICS_PATTERN,
+    "action_grid": ACTION_GRID_PATTERN,
 }
 
 # ---------------------------------------------------------------------------
-# Stage → pattern mapping (derived from STAGE_DEFAULT_SPANS)
+# Display-mode → pattern mapping
 # ---------------------------------------------------------------------------
-
-# Maps workspace stage names to the grid patterns they imply.
-_STAGE_PATTERN_MAP: dict[str, list[str]] = {
-    "focus_metric": [],  # single column, no responsive grid change
-    "dual_pane_flow": ["grid_1_2"],  # md:grid-cols-2
-    "scanner_table": [],  # single column, full-width table
-    "monitor_wall": ["grid_2_3"],  # grid-cols-2 lg:grid-cols-3
-    "command_center": [],  # 12-col grid with explicit spans
-}
-
-# Maps workspace region display modes to patterns.
+#
+# Keyed by the UPPER-cased DisplayMode value (region.display.upper()). Only
+# modes whose region primitive emits a viewport-media-query-driven responsive
+# grid are listed — these are the ones a viewport-width harness can assert
+# deterministically. Notable omission: DETAIL (`.dz-detail-row`) switches via
+# an `@container (width > 32rem)` query, NOT a viewport media query, so a
+# viewport-width assertion can't express it without becoming a false signal —
+# it's deliberately excluded (#1295).
 _DISPLAY_PATTERN_MAP: dict[str, list[str]] = {
-    "GRID": ["grid_1_2_3"],
-    "METRICS": ["stats"],
-    "SUMMARY": ["stats"],
-    "DETAIL": ["detail_view"],
+    "GRID": ["grid"],
+    "METRICS": ["metrics"],
+    "SUMMARY": ["metrics"],
+    "ACTION_GRID": ["action_grid"],
 }
 
 
@@ -326,32 +311,36 @@ def derive_patterns_from_appspec(
 
     Returns ``{page_path: [ComponentPattern, ...]}``.
 
-    * Every app with workspaces or surfaces gets :data:`DRAWER_PATTERN`
-      on ``"/"``.
-    * Workspaces contribute stage-level and region-level patterns.
-    * Surfaces with ``mode="list"`` that are not embedded in a workspace
-      contribute ``GRID_1_2_PATTERN`` (the default list layout).
+    * Workspace pages (``/app/workspaces/<name>``) get :data:`DRAWER_PATTERN`
+      (app-shell chrome) + one region pattern per region ``display`` mode that
+      maps to a viewport-responsive grid (GRID / METRICS / SUMMARY /
+      ACTION_GRID). The ``.dz-dashboard-grid`` container itself is NOT asserted
+      — it's a uniform 12-track grid at every viewport (responsiveness is
+      card-span based, not column-count), so it isn't viewport-assertable (#1295).
+    * List surfaces (``/app/<entity>``) get :data:`DRAWER_PATTERN` only — a
+      list page renders a table, not a responsive column grid, so asserting
+      grid columns there would be a false signal (#1295).
     """
     result: dict[str, list[ComponentPattern]] = {}
 
-    has_content = bool(appspec.workspaces) or bool(appspec.surfaces)
+    # #1295 — paths must be the real app-shell routes. Pre-fix this derived
+    # bare "/<name>" paths (and put DRAWER on "/", the marketing root that
+    # has NO app-shell), so `run-viewport` navigated to non-app-shell URLs
+    # and every assertion came back "Element not found" (0/37). The app-shell
+    # chrome (sidebar + toggle) renders on every /app page; workspaces live
+    # at /app/workspaces/<name>, entity-list surfaces at /app/<entity>.
 
-    # Drawer on root page for any app with navigable content
-    if has_content:
-        result.setdefault("/", []).append(DRAWER_PATTERN)
-
-    # Workspaces
+    # Workspaces — app-shell pages at /app/workspaces/<name>
     for ws in appspec.workspaces:
-        path = f"/{ws.name}"
+        path = f"/app/workspaces/{ws.name}"
 
-        patterns: list[ComponentPattern] = []
-
-        # Stage-level patterns
-        if ws.stage:
-            stage_key = ws.stage.lower()
-            for pat_name in _STAGE_PATTERN_MAP.get(stage_key, []):
-                if pat_name in ALL_PATTERNS:
-                    patterns.append(ALL_PATTERNS[pat_name])
+        # Every workspace renders the app-shell chrome; region display modes
+        # add their own viewport-responsive grids. The `.dz-dashboard-grid`
+        # container is NOT asserted — it's a uniform 12-track grid at every
+        # viewport (responsiveness is per-card col-span, not column-count), the
+        # same fiction class as the old per-stage grid_1_2 / grid_2_3 patterns
+        # (#1295 — confirmed by the live CI run).
+        patterns: list[ComponentPattern] = [DRAWER_PATTERN]
 
         # Region-level patterns (from display mode)
         for region in ws.regions:
@@ -365,19 +354,19 @@ def derive_patterns_from_appspec(
                 if pat_name in ALL_PATTERNS and ALL_PATTERNS[pat_name] not in patterns:
                     patterns.append(ALL_PATTERNS[pat_name])
 
-        if patterns:
-            result[path] = patterns
+        result[path] = patterns
 
-        # Drawer pattern applies to workspace pages too
-        result.setdefault(path, [])
-        if DRAWER_PATTERN not in result[path]:
-            result[path].append(DRAWER_PATTERN)
-
-    # Surfaces (standalone, not in workspaces)
+    # Standalone list surfaces — entity-list pages at /app/<entity>. These
+    # are also /app pages, so they carry the app-shell drawer chrome. A list
+    # page renders a table, not a responsive column grid, so DRAWER is the
+    # only viewport-assertable pattern here (#1295).
     for surface in appspec.surfaces:
         mode = surface.mode.upper() if hasattr(surface.mode, "upper") else str(surface.mode).upper()
         if mode == "LIST":
-            path = f"/{surface.name}"
-            result.setdefault(path, []).append(GRID_1_2_PATTERN)
+            entity_slug = (getattr(surface, "entity_ref", "") or surface.name).lower()
+            path = f"/app/{entity_slug}"
+            result.setdefault(path, [])
+            if DRAWER_PATTERN not in result[path]:
+                result[path].append(DRAWER_PATTERN)
 
     return result

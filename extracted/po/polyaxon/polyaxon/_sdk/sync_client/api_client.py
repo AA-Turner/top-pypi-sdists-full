@@ -1,16 +1,15 @@
 import atexit
 import datetime
 import mimetypes
+from multiprocessing.pool import ThreadPool
 import os
 import re
 import tempfile
-
-from multiprocessing.pool import ThreadPool
 from urllib.parse import quote
 
-from clipped.utils.json import orjson_dumps, orjson_loads
 from dateutil.parser import parse
 
+from clipped.utils.json import orjson_dumps, orjson_loads
 from polyaxon import pkg, schemas
 from polyaxon._sdk.configuration import Configuration
 from polyaxon.exceptions import ApiException, ApiValueError
@@ -77,6 +76,7 @@ class ApiClient(object):
         self.close()
 
     def close(self):
+        self.rest_client.close()
         if self._pool:
             self._pool.close()
             self._pool.join()
@@ -586,10 +586,10 @@ class ApiClient(object):
         if collection_formats is None:
             collection_formats = {}
         for k, v in params.items() if isinstance(params, dict) else params:  # noqa: E501
-            if isinstance(v, (int, float)):
-                v = str(v)
             if isinstance(v, bool):
                 v = str(v).lower()
+            elif isinstance(v, (int, float)):
+                v = str(v)
             if isinstance(v, dict):
                 v = orjson_dumps(v)
 

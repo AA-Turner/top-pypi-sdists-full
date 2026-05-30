@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "py_vollib"
-version = "1.0.7"
+version = "1.0.10"
 description = "Deprecated transition package; install vollib instead."
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
@@ -13,7 +13,8 @@ authors = [
     {name = "vollib", email = "vollib@gammoncap.com"},
 ]
 dependencies = [
-    "vollib==1.0.7",
+    "vollib==1.0.10",
+    "py-lets-be-rational==1.1.2",
 ]
 classifiers = [
     "Development Status :: 7 - Inactive",

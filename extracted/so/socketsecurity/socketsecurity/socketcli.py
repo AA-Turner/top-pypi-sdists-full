@@ -1,9 +1,8 @@
 import json
 import os
+import shutil
 import sys
 import traceback
-import shutil
-import warnings
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -11,6 +10,7 @@ from dotenv import load_dotenv
 from git import InvalidGitRepositoryError, NoSuchPathError
 from socketdev import socketdev
 from socketdev.fullscans import FullScanParams
+
 from socketsecurity.config import CliConfig
 from socketsecurity.core import Core
 from socketsecurity.core.classes import Diff
@@ -20,11 +20,95 @@ from socketsecurity.core.logging import initialize_logging, set_debug_mode
 from socketsecurity.core.messages import Messages
 from socketsecurity.core.scm_comments import Comments
 from socketsecurity.core.socket_config import SocketConfig
+from socketsecurity.fossa_compat import build_fossa_attribution_payload
 from socketsecurity.output import OutputHandler
 
 socket_logger, log = initialize_logging()
 
 load_dotenv()
+
+# Buildkite sets BUILDKITE=true in every job environment. Used to gate log
+# section markers that would render as literal text on other CI platforms.
+IS_BUILDKITE = os.getenv("BUILDKITE") == "true"
+
+
+def _emit_infrastructure_error(message: str, include_traceback: bool = False) -> None:
+    """Emit a structured error for infrastructure/API failures.
+
+    When running in Buildkite, wraps the error in log-section markers
+    (`^^^ +++` expands the section in the BK UI) and prints a soft_fail hint.
+    On every other platform it's a plain log.error so the markers don't leak
+    as literal text. This is presentation only -- it does not decide the exit
+    code (the caller does that, honoring --disable-blocking and
+    --exit-code-on-api-error).
+    """
+    if IS_BUILDKITE:
+        print("^^^ +++", flush=True)
+        print("--- :warning: Socket infrastructure error", flush=True)
+
+    log.error(message)
+
+    if IS_BUILDKITE:
+        log.error(
+            "Tip: this is an infrastructure error, not a security finding. To keep it "
+            "from blocking the build, add a soft_fail rule for the CLI's API-error exit "
+            "code (default 3, or whatever you pass to --exit-code-on-api-error)."
+        )
+
+    if include_traceback:
+        traceback.print_exc()
+
+
+def build_license_artifact_payload(
+    diff: Diff,
+    legal_format: str = "socket",
+    config: CliConfig | None = None,
+) -> dict:
+    """Build the license artifact payload from a diff, tolerating sparse scan paths."""
+    if legal_format == "fossa":
+        if config is None:
+            raise ValueError("config is required when building FOSSA-format legal artifacts")
+        return build_fossa_attribution_payload(diff, config)
+
+    all_packages = {}
+    packages = getattr(diff, "packages", {}) or {}
+    for purl in packages:
+        package = packages[purl]
+        output = {
+            "id": package.id,
+            "name": package.name,
+            "version": package.version,
+            "ecosystem": package.type,
+            "direct": package.direct,
+            "url": package.url,
+            "license": package.license,
+            "licenseDetails": package.licenseDetails,
+            "licenseAttrib": package.licenseAttrib,
+            "purl": package.purl,
+        }
+        all_packages[package.id] = output
+    return all_packages
+
+def _write_attribution_file(config, payload: dict) -> None:
+    Core.save_file(config.license_file_name, json.dumps(payload, indent=2))
+
+
+DEFAULT_API_TIMEOUT = 1200
+
+
+def get_api_request_timeout(config: CliConfig) -> int:
+    return config.timeout if config.timeout is not None else DEFAULT_API_TIMEOUT
+
+
+def build_socket_sdk(config: CliConfig) -> socketdev:
+    cli_user_agent_string = f"SocketPythonCLI/{config.version}"
+    return socketdev(
+        token=config.api_token,
+        timeout=get_api_request_timeout(config),
+        allow_unverified=config.allow_unverified,
+        user_agent=cli_user_agent_string
+    )
+
 
 def cli():
     try:
@@ -37,12 +121,17 @@ def cli():
         else:
             sys.exit(0)
     except Exception as error:
-        log.error("Unexpected error when running the cli")
-        log.error(error)
-        traceback.print_exc()
         config = CliConfig.from_args()  # Get current config
+        _emit_infrastructure_error(
+            f"Unexpected error when running the CLI: {error}",
+            include_traceback=True,
+        )
+        # --disable-blocking forces a clean exit for ALL outcomes (it takes
+        # precedence over --exit-code-on-api-error); otherwise infra/API errors
+        # exit with the configurable code (default 3), keeping them distinct
+        # from blocking security findings (exit 1).
         if not config.disable_blocking:
-            sys.exit(3)
+            sys.exit(config.exit_code_on_api_error)
         else:
             sys.exit(0)
 
@@ -63,8 +152,7 @@ def main_code():
                  "1. Command line: --api-token YOUR_TOKEN\n"
                  "2. Environment variable: SOCKET_SECURITY_API_TOKEN")
         sys.exit(3)
-    cli_user_agent_string = f"SocketPythonCLI/{config.version}"
-    sdk = socketdev(token=config.api_token, allow_unverified=config.allow_unverified, user_agent=cli_user_agent_string)
+    sdk = build_socket_sdk(config)
     
     # Suppress urllib3 InsecureRequestWarning when using --allow-unverified
     if config.allow_unverified:
@@ -83,7 +171,7 @@ def main_code():
     socket_config = SocketConfig(
         api_key=config.api_token,
         allow_unverified_ssl=config.allow_unverified,
-        timeout=config.timeout if config.timeout is not None else 1200  # Use CLI timeout if provided
+        timeout=get_api_request_timeout(config)
     )
     log.debug("loaded socket_config")
     client = CliClient(socket_config)
@@ -125,7 +213,7 @@ def main_code():
             
             # Check if plan matches enterprise* pattern (enterprise, enterprise_trial, etc.)
             if not org_plan.startswith('enterprise'):
-                log.error(f"Reachability analysis is only available for enterprise plans.")
+                log.error("Reachability analysis is only available for enterprise plans.")
                 log.error(f"Your organization plan is: {org_plan}")
                 log.error("Please upgrade to an enterprise plan to use reachability analysis.")
                 sys.exit(3)
@@ -310,7 +398,7 @@ def main_code():
                     continue_on_no_source_files=config.reach_continue_on_no_source_files,
                 )
                 
-                log.info(f"Reachability analysis completed successfully")
+                log.info("Reachability analysis completed successfully")
                 log.info(f"Results written to: {result['report_path']}")
                 if result.get('scan_id'):
                     log.info(f"Reachability scan ID: {result['scan_id']}")
@@ -743,23 +831,12 @@ def main_code():
 
     # Handle license generation
     if not should_skip_scan and diff.id != "NO_DIFF_RAN" and diff.id != "NO_SCAN_RAN" and config.generate_license:
-        all_packages = {}
-        for purl in diff.packages:
-            package = diff.packages[purl]
-            output = {
-                "id": package.id,
-                "name": package.name,
-                "version": package.version,
-                "ecosystem": package.type,
-                "direct": package.direct,
-                "url": package.url,
-                "license": package.license,
-                "licenseDetails": package.licenseDetails,
-                "licenseAttrib": package.licenseAttrib,
-                "purl": package.purl,
-            }
-            all_packages[package.id] = output
-        core.save_file(config.license_file_name, json.dumps(all_packages))
+        all_packages = build_license_artifact_payload(
+            diff,
+            legal_format=getattr(config, "legal_format", "socket"),
+            config=config,
+        )
+        _write_attribution_file(config, all_packages)
 
     # If we forced API mode due to no supported files, behave as if --disable-blocking was set
     if force_api_mode:

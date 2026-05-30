@@ -1,7 +1,6 @@
 from typing import Dict, List, Optional
 
 from clipped.compact.pydantic import Field, StrictInt, StrictStr
-
 from polyaxon._deploy.schemas.celery import CeleryConfig
 from polyaxon._deploy.schemas.service_types import ServiceTypes
 from polyaxon._schemas.base import BaseSchemaModel
@@ -39,7 +38,6 @@ class AgentServiceConfig(DeploymentService):
     enable_logs_finalizers: Optional[bool] = Field(
         alias="enableLogsFinalizers", default=None
     )
-    is_replica: Optional[bool] = Field(alias="isReplica", default=None)
 
 
 class OperatorServiceConfig(DeploymentService):

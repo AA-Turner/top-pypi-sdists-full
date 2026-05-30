@@ -5,23 +5,24 @@ defines:
 
 - :class:`RpcRequest` / :class:`RpcResponse` — the HTTP-shape envelopes the
   chain passes around (NOT RPC-shape; encoding/decoding lives above the
-  chain in ``Session.rpc_call``).
+  chain in :meth:`RpcExecutor.rpc_call`).
 - :data:`NextCall` — the call-the-next-link type alias used by middlewares
   and by the chain builder.
 - :class:`Middleware` — the ``Protocol`` every middleware satisfies. Around-
   style: each middleware receives the request and a ``next_call`` callable;
   it decides whether (and how) to invoke ``next_call(request)``, optionally
   observing or transforming the response.
+- :func:`materialize_rpc_request` — converts the legacy ``BuildRequest``
+  callback shape into the future populated ``RpcRequest`` envelope.
 - :func:`build_chain` — composes a ``Sequence[Middleware]`` around a terminal
   ``NextCall`` so the leftmost middleware in the sequence becomes the
   *outermost* wrapper (matches the ordering documented in ADR-009).
 
-No middleware is implemented in this PR. No production code wires the
-chain in this PR. PR 12.2 wires an empty chain into ``Session``; PRs
-12.3–12.8 extract one middleware at a time. See
-``docs/adr/0009-middleware-chain.md`` for the load-bearing decisions and
-``.sisyphus/plans/tier-12-13-greenfield-migration.md`` section 2 for the
-PR sequence.
+Production ``Session`` wiring composes these envelopes through the current
+middleware stack. During the request-materialization migration, the chain
+enters with populated ``RpcRequest(url, headers, body)`` fields and the
+terminal consumes that envelope directly through ``Kernel.post``. See
+``docs/adr/0009-middleware-chain.md`` for the load-bearing decisions.
 """
 
 from __future__ import annotations
@@ -32,6 +33,18 @@ from typing import Any, Protocol
 
 import httpx
 
+from ._middleware_context import (
+    ALLOWED_RPC_CONTEXT_KEYS,
+    RPC_CONTEXT_AUTH_REFRESHED,
+    RPC_CONTEXT_AUTH_SNAPSHOT,
+    RPC_CONTEXT_BUILD_REQUEST,
+    RPC_CONTEXT_DISABLE_INTERNAL_RETRIES,
+    RPC_CONTEXT_LOG_LABEL,
+    RPC_CONTEXT_RPC_METHOD,
+    RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS,
+)
+from ._request_types import AuthSnapshot, BuildRequest, materialize_build_request
+
 # ---------------------------------------------------------------------------
 # Chain envelope types.
 # ---------------------------------------------------------------------------
@@ -41,10 +54,9 @@ import httpx
 class RpcRequest:
     """HTTP-shape request envelope passed through the middleware chain.
 
-    The chain wraps ``Kernel.post`` (or, until PR 13.2 renames the seam,
-    ``AuthedTransport.perform_authed_post``). Every middleware sees an
-    already-encoded HTTP request — encoding lives *above* the chain in
-    ``Session.rpc_call``. RPC-level metadata that middlewares need (rpc
+    The chain wraps ``Kernel.post``. Every middleware sees an already-encoded
+    HTTP request — encoding lives *above* the chain in :meth:`RpcExecutor.rpc_call`.
+    RPC-level metadata that middlewares need (rpc
     method id, idempotency, operation variant, log labels, build-request
     callback, etc.) travels through :attr:`context`.
 
@@ -79,14 +91,13 @@ class RpcRequest:
     """Encoded ``batchexecute`` body bytes for this attempt."""
 
     context: dict[str, Any] = field(default_factory=dict)
-    """RPC-level metadata the chain reads (e.g. ``rpc_method``,
-    ``operation_variant``, ``disable_internal_retries``, ``build_request``,
-    ``log_label``). Read by middlewares; populated by the caller of the
-    chain (typically ``Session.rpc_call`` after PR 13.x lands).
+    """RPC-level metadata the chain reads.
 
-    Until PR 12.2 wires the chain in, no production code reads or writes
-    this dict; the contract is fixed here so middleware PRs 12.3–12.8 do
-    not re-spec it per extraction.
+    The allowed vocabulary is exported as
+    :data:`ALLOWED_RPC_CONTEXT_KEYS` and mirrored in ADR-009. Middlewares
+    and the transport terminal use the ``RPC_CONTEXT_*`` constants for
+    lookups and writes; adding a key requires updating this module, ADR-009,
+    and the lint-style unit test that guards the vocabulary.
     """
 
 
@@ -107,18 +118,44 @@ class RpcResponse:
     response: httpx.Response
     """The buffered :class:`httpx.Response` from the transport leaf.
 
-    Identical in shape to what ``AuthedTransport.perform_authed_post``
-    returns today (see ``_authed_transport.stream_post_with_size_cap``):
-    fully-buffered body, headers stripped of ``content-encoding`` /
-    ``content-length`` so ``.text`` / ``.content`` work synchronously.
+    Identical in shape to what ``Kernel.post`` returns via
+    ``_streaming_post.stream_post_with_size_cap``: fully-buffered body,
+    headers stripped of ``content-encoding`` / ``content-length`` so
+    ``.text`` / ``.content`` work synchronously.
     """
 
     context: dict[str, Any] = field(default_factory=dict)
     """Propagated metadata. Typically the same dict as
-    :attr:`RpcRequest.context` (so a tracing middleware that wrote
-    ``request.context['trace_id']`` can read it back here) plus any
+    :attr:`RpcRequest.context` (so a middleware that wrote an allowed
+    ``RPC_CONTEXT_*`` key can read it back here) plus any
     response-side additions a middleware made.
     """
+
+
+def materialize_rpc_request(
+    *,
+    build_request: BuildRequest,
+    snapshot: AuthSnapshot,
+    context: dict[str, Any],
+) -> RpcRequest:
+    """Build a populated chain envelope from the legacy request callback.
+
+    This is a behavior-neutral bridge for the Tier-13 request-materialization
+    migration. ``Session`` uses this helper to enter the chain with populated
+    ``RpcRequest(url, headers, body)`` fields while the transitional terminal
+    still delegates through the legacy ``BuildRequest`` callback. A later
+    ``Kernel.post`` terminal can consume the same envelope directly.
+
+    ``context`` is intentionally retained by reference, matching ADR-009's
+    mutable per-request metadata contract.
+    """
+    request = materialize_build_request(build_request, snapshot)
+    return RpcRequest(
+        url=request.url,
+        headers=request.headers or {},
+        body=request.body,
+        context=context,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -187,9 +224,9 @@ def build_chain(
     ``C.__call__(request, →T)``.
 
     This matches the chain ordering documented in ADR-009: ``[Drain,
-    Metrics, Retry, AuthRefresh, ErrorInjection, Tracing]`` — Drain at
-    index 0 is the outermost wrapper, Tracing at index 5 is the innermost
-    wrapper around the terminal.
+    Metrics, Semaphore, Retry, AuthRefresh, ErrorInjection, Tracing]`` —
+    Drain at index 0 is the outermost wrapper, Tracing at index 6 is the
+    innermost wrapper around the terminal.
 
     Implementation: wrap in reverse, so the last middleware in the sequence
     is composed first (it becomes the innermost wrapper, with ``terminal``
@@ -222,9 +259,18 @@ def build_chain(
 
 
 __all__ = [
+    "ALLOWED_RPC_CONTEXT_KEYS",
     "Middleware",
     "NextCall",
+    "RPC_CONTEXT_AUTH_REFRESHED",
+    "RPC_CONTEXT_AUTH_SNAPSHOT",
+    "RPC_CONTEXT_BUILD_REQUEST",
+    "RPC_CONTEXT_DISABLE_INTERNAL_RETRIES",
+    "RPC_CONTEXT_LOG_LABEL",
+    "RPC_CONTEXT_RPC_METHOD",
+    "RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS",
     "RpcRequest",
     "RpcResponse",
     "build_chain",
+    "materialize_rpc_request",
 ]

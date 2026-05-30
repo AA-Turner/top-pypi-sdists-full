@@ -5,7 +5,8 @@ from typing import List, Any, Optional, Union
 from fakeredis import _msgs as msgs
 from fakeredis._command_args_parsing import extract_args
 from fakeredis._commands import command, Key, Float, CommandItem
-from fakeredis._helpers import SimpleError, Database
+from fakeredis._helpers import SimpleError
+from fakeredis.commands_mixins._mixin_base import CommandsMixinBase
 from fakeredis.geo import distance, geo_encode, geo_decode
 from fakeredis.model import ZSet
 
@@ -80,11 +81,7 @@ def _find_near(
     return results
 
 
-class GeoCommandsMixin:
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super(GeoCommandsMixin, self).__init__(*args, **kwargs)
-        self._db: Database
-
+class GeoCommandsMixin(CommandsMixinBase):
     def _store_geo_results(self, item_name: bytes, geo_results: List[GeoResult], scoredist: bool) -> int:
         db_item = CommandItem(item_name, self._db, item=self._db.get(item_name), default=ZSet())
         db_item.value = ZSet()
@@ -184,11 +181,13 @@ class GeoCommandsMixin:
     @command(name="GEORADIUS", fixed=(Key(ZSet), Float, Float, Float), repeat=(bytes,))
     def georadius(
         self, key: CommandItem, long: float, lat: float, radius: float, *args: bytes
-    ) -> Union[List[Any], int]:
+    ) -> Union[List[bytes], int]:
         return self._georadius(key, long, lat, radius, *args)
 
     @command(name="GEORADIUSBYMEMBER", fixed=(Key(ZSet), bytes, Float), repeat=(bytes,))
-    def georadiusbymember(self, key: CommandItem, member_name: bytes, radius: float, *args: bytes) -> List[Any]:
+    def georadiusbymember(
+        self, key: CommandItem, member_name: bytes, radius: float, *args: bytes
+    ) -> Union[List[bytes], int]:
         member_score = key.value.get(member_name)
         lat, long, _, _ = geo_decode(member_score)
         return self._georadius(key, long, lat, radius, *args)
@@ -197,7 +196,7 @@ class GeoCommandsMixin:
     def georadiusbymember_ro(self, key: CommandItem, member_name: bytes, radius: float, *args: float) -> List[Any]:
         member_score = key.value.get(member_name)
         lat, long, _, _ = geo_decode(member_score)
-        return self.georadius_ro(key, long, lat, radius, *args)
+        return self.georadius_ro(key, long, lat, radius, *args)  # type: ignore[no-any-return]
 
     @command(name="GEOSEARCH", fixed=(Key(ZSet),), repeat=(bytes,))
     def geosearch(self, key: CommandItem, *args: bytes) -> List[Any]:
@@ -212,7 +211,7 @@ class GeoCommandsMixin:
         if frommember is not None and long is not None:
             raise SimpleError(msgs.SYNTAX_ERROR_MSG)
         if frommember:
-            return self.georadiusbymember_ro(key, frommember, radius, *left_args)
+            return self.georadiusbymember_ro(key, frommember, radius, *left_args)  # type: ignore[no-any-return]
         else:
             return self.georadius_ro(key, long, lat, radius, *left_args)  # type: ignore
 
@@ -238,6 +237,6 @@ class GeoCommandsMixin:
         additional = [b"storedist", dst] if storedist else [b"store", dst]
 
         if frommember:
-            return self.georadiusbymember(src, frommember, radius, *left_args, *additional)
+            return self.georadiusbymember(src, frommember, radius, *left_args, *additional)  # type: ignore[no-any-return]
         else:
             return self._georadius(src, long, lat, radius, *left_args, *additional)  # type: ignore

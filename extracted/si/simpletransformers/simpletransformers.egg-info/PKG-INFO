@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simpletransformers
-Version: 0.70.5
+Version: 0.70.7
 Summary: An easy-to-use wrapper library for the Transformers library.
 Home-page: https://github.com/ThilinaRajapakse/simpletransformers/
 Author: Thilina Rajapakse
@@ -144,7 +144,7 @@ $ pip install wandb
 
 ## Usage
 
-**All documentation is now live at [simpletransformers.ai](https://simpletransformers.ai/)**
+**All documentation is now live at [thilinarajapakse.github.io/simpletransformers](https://thilinarajapakse.github.io/simpletransformers)**
 
 `Simple Transformer` models are built with a particular Natural Language Processing (NLP) task in mind. Each such model comes equipped with features and functionality designed to best fit the task that they are intended to perform. The high-level process of using Simple Transformers models follows the same pattern.
 
@@ -172,7 +172,7 @@ The currently implemented task-specific `Simple Transformer` models, along with 
 | Text Representation Generation                            | `RepresentationModel`           |
 | Document Retrieval                                        | `RetrievalModel`                |
 
-- **Please refer to the relevant section in the [docs](https://simpletransformers.ai/) for more information on how to use these models.**
+- **Please refer to the relevant section in the [docs](https://thilinarajapakse.github.io/simpletransformers) for more information on how to use these models.**
 - Example scripts can be found in the [examples](https://github.com/ThilinaRajapakse/simpletransformers/tree/master/examples) directory.
 - See the [Changelog](https://github.com/ThilinaRajapakse/simpletransformers/blob/master/CHANGELOG.md) for up-to-date changes to the project.
 
@@ -388,7 +388,7 @@ This project follows the [all-contributors](https://github.com/all-contributors/
 
 ### How to Update Docs
 
-The latest version of the docs is hosted on [Github Pages](https://simpletransformers.ai/), if you want to help document Simple Transformers
+The latest version of the docs is hosted on [Github Pages](https://thilinarajapakse.github.io/simpletransformers), if you want to help document Simple Transformers
 below are the steps to edit the docs.
 Docs are built using [Jekyll](https://jekyllrb.com/) library, refer to their webpage for a detailed explanation of how it works.
 

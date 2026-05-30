@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-polymorphic
-Version: 4.11.3
+Version: 4.11.4
 Summary: Seamless polymorphic inheritance for Django models.
 Project-URL: Download, https://github.com/django-commons/django-polymorphic/tarball/main
 Project-URL: Documentation, https://django-polymorphic.readthedocs.io

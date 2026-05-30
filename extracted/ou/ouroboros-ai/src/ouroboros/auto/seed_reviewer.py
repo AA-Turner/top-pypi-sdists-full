@@ -54,9 +54,34 @@ class SeedReviewer:
     def __init__(self, grade_gate: GradeGate | None = None) -> None:
         self.grade_gate = grade_gate or GradeGate()
 
-    def review(self, seed: Seed, *, ledger: SeedDraftLedger | None = None) -> SeedReview:
-        """Return structured review findings for ``seed``."""
-        grade = self.grade_gate.grade_seed(seed, ledger=ledger)
+    def review(
+        self,
+        seed: Seed,
+        *,
+        ledger: SeedDraftLedger | None = None,
+        closure_mode: str | None = None,
+        degraded: bool | None = None,
+    ) -> SeedReview:
+        """Return structured review findings for ``seed``.
+
+        ``closure_mode`` is passed through to :meth:`GradeGate.grade_seed`
+        so the SSOT #1157 closure policy (PR-ζ-B) applies uniformly
+        whether the pipeline calls ``review`` directly or via
+        :class:`SeedRepairer`. When ``None`` (legacy callers and tests
+        without pipeline context) the strict pre-policy behavior is
+        retained.
+
+        ``degraded`` is passed through to :meth:`GradeGate.grade_seed` for
+        #1257 PR-C — when ``True`` (or auto-detected from
+        ``seed.metadata.degraded``), the deadline-recovery seeds produced
+        by :func:`partial_seed_from_evidence` are not re-blocked on
+        ``high_ambiguity_score`` / ``ledger_open_gap``. Safety blockers
+        (``missing_goal``, ``seed_goal_mismatch``,
+        ``high_risk_assumptions``) still terminate.
+        """
+        grade = self.grade_gate.grade_seed(
+            seed, ledger=ledger, closure_mode=closure_mode, degraded=degraded
+        )
         findings = tuple(
             ReviewFinding.from_parts(
                 code=finding.code,

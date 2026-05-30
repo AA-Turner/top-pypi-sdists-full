@@ -27,12 +27,30 @@ from ..paths import (
     read_default_profile,
     resolve_profile,
 )
+from .error_handler import handle_errors
 from .rendering import console, json_output_response
 from .services import login as login_service
+from .services.login.exceptions import LoginConfigurationError
 
 _PROFILE_NAME_RE = login_service._PROFILE_NAME_RE
 _validate_profile_name = login_service._validate_profile_name
 email_to_profile_name = login_service.email_to_profile_name
+
+
+def _validate_profile_name_or_click(name: str) -> str:
+    """Validate ``name`` and translate service errors to ``click.ClickException``.
+
+    The login service raises ``LoginConfigurationError`` (ADR-015 Pattern
+    B decoupling) so this command layer owns the Click translation. The
+    end-user message preserves the historical wording — error text plus
+    a single-sentence hint about the allowed character set.
+    """
+    try:
+        return _validate_profile_name(name)
+    except LoginConfigurationError as exc:
+        if exc.hint:
+            raise click.ClickException(f"{exc.message} {exc.hint}") from None
+        raise click.ClickException(exc.message) from None
 
 
 def _read_config(config_path: Path, *, suppress_errors: bool = True) -> dict:
@@ -79,6 +97,15 @@ def profile():
 @profile.command("list")
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
 def list_cmd(json_output):
+    """List all profiles and their status."""
+    if json_output:
+        with handle_errors(json_output=True):
+            _run_list_cmd(json_output=True)
+        return
+    _run_list_cmd(json_output=False)
+
+
+def _run_list_cmd(*, json_output: bool) -> None:
     """List all profiles and their status."""
     profiles = list_profiles()
     active = resolve_profile()
@@ -141,7 +168,7 @@ def create_cmd(name):
       notebooklm profile create work
       notebooklm -p work login
     """
-    name = _validate_profile_name(name)
+    name = _validate_profile_name_or_click(name)
 
     try:
         profile_dir = get_profile_dir(name)
@@ -240,7 +267,7 @@ def rename_cmd(old_name, new_name):
     Example:
       notebooklm profile rename work work-old
     """
-    new_name = _validate_profile_name(new_name)
+    new_name = _validate_profile_name_or_click(new_name)
 
     try:
         old_dir = get_profile_dir(old_name)

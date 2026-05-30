@@ -225,12 +225,12 @@ class EveAllianceInfo(models.Model):
         """Return executor corporation of this alliance or None if not found."""
         return self.executor_corp_id if self.executor_corp_id else None
 
-    def populate_alliance(self) -> None:
+    def populate_alliance(self) -> "EveAllianceInfo":
         try:
             corp_ids = open_api_provider.get_alliance_corps(self.alliance_id)
         except HTTPNotModified:
             # nothing to update
-            return None
+            return self
 
         for corp_id in corp_ids:
             if not EveCorporationInfo.objects.filter(corporation_id=corp_id).exists():
@@ -245,6 +245,8 @@ class EveAllianceInfo(models.Model):
         ).update(
             alliance=None
         )
+
+        return self
 
     def update_alliance(self) -> "EveAllianceInfo":
         try:
@@ -305,7 +307,7 @@ class EveCorporationInfo(models.Model):
     corporation_name = models.CharField(
         help_text="Corporation's name",
         max_length=254)
-    shares = models.PositiveIntegerField(
+    shares = models.PositiveBigIntegerField(
         help_text="Corporation's shares",
         blank=True, null=True, default=None)
     tax_rate = models.FloatField(

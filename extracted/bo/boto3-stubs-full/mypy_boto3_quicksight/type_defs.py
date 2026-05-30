@@ -638,6 +638,8 @@ __all__ = (
     "CreateIngestionResponseTypeDef",
     "CreateNamespaceRequestTypeDef",
     "CreateNamespaceResponseTypeDef",
+    "CreateOAuthClientApplicationRequestTypeDef",
+    "CreateOAuthClientApplicationResponseTypeDef",
     "CreateRefreshScheduleRequestTypeDef",
     "CreateRefreshScheduleResponseTypeDef",
     "CreateRoleMembershipRequestTypeDef",
@@ -886,6 +888,8 @@ __all__ = (
     "DeleteIdentityPropagationConfigResponseTypeDef",
     "DeleteNamespaceRequestTypeDef",
     "DeleteNamespaceResponseTypeDef",
+    "DeleteOAuthClientApplicationRequestTypeDef",
+    "DeleteOAuthClientApplicationResponseTypeDef",
     "DeleteRefreshScheduleRequestTypeDef",
     "DeleteRefreshScheduleResponseTypeDef",
     "DeleteRoleCustomPermissionRequestTypeDef",
@@ -990,6 +994,8 @@ __all__ = (
     "DescribeKeyRegistrationResponseTypeDef",
     "DescribeNamespaceRequestTypeDef",
     "DescribeNamespaceResponseTypeDef",
+    "DescribeOAuthClientApplicationRequestTypeDef",
+    "DescribeOAuthClientApplicationResponseTypeDef",
     "DescribeQPersonalizationConfigurationRequestTypeDef",
     "DescribeQPersonalizationConfigurationResponseTypeDef",
     "DescribeQuickSightQSearchConfigurationRequestTypeDef",
@@ -1464,6 +1470,9 @@ __all__ = (
     "ListNamespacesRequestPaginateTypeDef",
     "ListNamespacesRequestTypeDef",
     "ListNamespacesResponseTypeDef",
+    "ListOAuthClientApplicationsRequestPaginateTypeDef",
+    "ListOAuthClientApplicationsRequestTypeDef",
+    "ListOAuthClientApplicationsResponseTypeDef",
     "ListRefreshSchedulesRequestTypeDef",
     "ListRefreshSchedulesResponseTypeDef",
     "ListRoleMembershipsRequestPaginateTypeDef",
@@ -1561,6 +1570,8 @@ __all__ = (
     "NumericalAggregationFunctionTypeDef",
     "NumericalDimensionFieldTypeDef",
     "NumericalMeasureFieldTypeDef",
+    "OAuthClientApplicationSummaryTypeDef",
+    "OAuthClientApplicationTypeDef",
     "OAuthClientCredentialsTypeDef",
     "OAuthParametersTypeDef",
     "OracleParametersTypeDef",
@@ -2235,6 +2246,8 @@ __all__ = (
     "UpdateIpRestrictionResponseTypeDef",
     "UpdateKeyRegistrationRequestTypeDef",
     "UpdateKeyRegistrationResponseTypeDef",
+    "UpdateOAuthClientApplicationRequestTypeDef",
+    "UpdateOAuthClientApplicationResponseTypeDef",
     "UpdatePublicSharingSettingsRequestTypeDef",
     "UpdatePublicSharingSettingsResponseTypeDef",
     "UpdateQPersonalizationConfigurationRequestTypeDef",
@@ -4099,6 +4112,11 @@ class DeleteNamespaceRequestTypeDef(TypedDict):
     Namespace: str
 
 
+class DeleteOAuthClientApplicationRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    OAuthClientApplicationId: str
+
+
 class DeleteRefreshScheduleRequestTypeDef(TypedDict):
     DataSetId: str
     AwsAccountId: str
@@ -4427,6 +4445,11 @@ class RegisteredCustomerManagedKeyTypeDef(TypedDict):
 class DescribeNamespaceRequestTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: str
+
+
+class DescribeOAuthClientApplicationRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    OAuthClientApplicationId: str
 
 
 class DescribeQPersonalizationConfigurationRequestTypeDef(TypedDict):
@@ -5133,6 +5156,12 @@ class ListIngestionsRequestTypeDef(TypedDict):
 
 
 class ListNamespacesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class ListOAuthClientApplicationsRequestTypeDef(TypedDict):
     AwsAccountId: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -6483,12 +6512,65 @@ class AssetBundleImportJobDataSourceCredentialsTypeDef(TypedDict):
     SecretArn: NotRequired[str]
 
 
+class CreateOAuthClientApplicationRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    OAuthClientApplicationId: str
+    Name: str
+    OAuthClientAuthenticationType: Literal["TOKEN"]
+    ClientId: str
+    ClientSecret: str
+    OAuthTokenEndpointUrl: str
+    OAuthAuthorizationEndpointUrl: NotRequired[str]
+    OAuthScopes: NotRequired[str]
+    DataSourceType: NotRequired[DataSourceTypeType]
+    IdentityProviderVpcConnectionProperties: NotRequired[VpcConnectionPropertiesTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class OAuthClientApplicationSummaryTypeDef(TypedDict):
+    OAuthClientApplicationId: NotRequired[str]
+    Name: NotRequired[str]
+    OAuthClientAuthenticationType: NotRequired[Literal["TOKEN"]]
+    DataSourceType: NotRequired[DataSourceTypeType]
+    IdentityProviderVpcConnectionProperties: NotRequired[VpcConnectionPropertiesTypeDef]
+    CreatedTime: NotRequired[datetime]
+    LastUpdatedTime: NotRequired[datetime]
+    Arn: NotRequired[str]
+
+
+class OAuthClientApplicationTypeDef(TypedDict):
+    OAuthClientApplicationId: NotRequired[str]
+    Name: NotRequired[str]
+    OAuthClientAuthenticationType: NotRequired[Literal["TOKEN"]]
+    OAuthTokenEndpointUrl: NotRequired[str]
+    OAuthAuthorizationEndpointUrl: NotRequired[str]
+    OAuthScopes: NotRequired[str]
+    DataSourceType: NotRequired[DataSourceTypeType]
+    IdentityProviderVpcConnectionProperties: NotRequired[VpcConnectionPropertiesTypeDef]
+    CreatedTime: NotRequired[datetime]
+    LastUpdatedTime: NotRequired[datetime]
+    Arn: NotRequired[str]
+
+
 class OAuthParametersTypeDef(TypedDict):
     TokenProviderUrl: str
     OAuthScope: NotRequired[str]
     IdentityProviderVpcConnectionProperties: NotRequired[VpcConnectionPropertiesTypeDef]
     IdentityProviderResourceUri: NotRequired[str]
     IdentityProviderCACertificatesBundleS3Uri: NotRequired[str]
+
+
+class UpdateOAuthClientApplicationRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    OAuthClientApplicationId: str
+    Name: str
+    ClientId: NotRequired[str]
+    ClientSecret: NotRequired[str]
+    OAuthTokenEndpointUrl: NotRequired[str]
+    OAuthAuthorizationEndpointUrl: NotRequired[str]
+    OAuthScopes: NotRequired[str]
+    DataSourceType: NotRequired[DataSourceTypeType]
+    IdentityProviderVpcConnectionProperties: NotRequired[VpcConnectionPropertiesTypeDef]
 
 
 class AssetBundleImportJobRefreshScheduleOverrideParametersTypeDef(TypedDict):
@@ -6720,6 +6802,15 @@ class CreateNamespaceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateOAuthClientApplicationResponseTypeDef(TypedDict):
+    Arn: str
+    OAuthClientApplicationId: str
+    CreationStatus: ResourceStatusType
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateRefreshScheduleResponseTypeDef(TypedDict):
     Status: int
     RequestId: str
@@ -6910,6 +7001,14 @@ class DeleteIdentityPropagationConfigResponseTypeDef(TypedDict):
 
 
 class DeleteNamespaceResponseTypeDef(TypedDict):
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteOAuthClientApplicationResponseTypeDef(TypedDict):
+    Arn: str
+    OAuthClientApplicationId: str
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7469,6 +7568,15 @@ class UpdateIdentityPropagationConfigResponseTypeDef(TypedDict):
 
 class UpdateIpRestrictionResponseTypeDef(TypedDict):
     AwsAccountId: str
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateOAuthClientApplicationResponseTypeDef(TypedDict):
+    Arn: str
+    OAuthClientApplicationId: str
+    UpdateStatus: ResourceStatusType
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8451,6 +8559,11 @@ class ListIngestionsRequestPaginateTypeDef(TypedDict):
 
 
 class ListNamespacesRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListOAuthClientApplicationsRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -9580,6 +9693,21 @@ class AssetBundleImportJobOverrideTagsTypeDef(TypedDict):
     Analyses: NotRequired[Sequence[AssetBundleImportJobAnalysisOverrideTagsTypeDef]]
     Dashboards: NotRequired[Sequence[AssetBundleImportJobDashboardOverrideTagsTypeDef]]
     Folders: NotRequired[Sequence[AssetBundleImportJobFolderOverrideTagsTypeDef]]
+
+
+class ListOAuthClientApplicationsResponseTypeDef(TypedDict):
+    OAuthClientApplications: list[OAuthClientApplicationSummaryTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeOAuthClientApplicationResponseTypeDef(TypedDict):
+    OAuthClientApplication: OAuthClientApplicationTypeDef
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SnowflakeParametersTypeDef(TypedDict):

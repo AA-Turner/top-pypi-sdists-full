@@ -564,6 +564,89 @@ def test_auto_answerer_blocks_contextual_human_authority_questions() -> None:
         assert answer.source == AutoAnswerSource.BLOCKER
 
 
+def test_auto_answerer_allows_implementation_choice_questions() -> None:
+    """Language / runtime / framework choice and greenfield-vs-existing-repo
+    placement are safe-defaultable engineering decisions and must not block.
+
+    Regression for #1170 canonical cli-todo R3: the auto interview terminated as
+    BLOCKED("deployment target requires human authority") because the verb "live"
+    in "...this tool should live inside..." collided with the deployment-sense
+    "live" token (and "project" matched the deployment-target noun group),
+    halting the product-or-die path instead of safe-defaulting to greenfield.
+    """
+    answerer = AutoAnswerer()
+    safe_questions = (
+        # The exact R3 question, verbatim (em dashes included).
+        (
+            "What programming language and runtime should this CLI be built in — "
+            "for example, Python with the standard library, Node.js, or something "
+            "else — and is there an existing project or repository this tool should "
+            "live inside, or will it be a standalone greenfield project?"
+        ),
+        "What programming language should this tool be built in?",
+        "Which framework and runtime should we use?",
+        "Should this be a standalone greenfield project or live inside an existing repo?",
+        "Where should the new module live in the codebase?",
+    )
+    for question in safe_questions:
+        answer = answerer.answer(question, SeedDraftLedger.from_goal("Build a habit-tracker CLI"))
+        assert answer.blocker is None, f"unexpected blocker for: {question!r}"
+        assert answer.source != AutoAnswerSource.BLOCKER
+
+
+def test_implementation_choice_guard_does_not_weaken_deployment_blocking() -> None:
+    """The implementation-choice guard must keep genuine deployment / production
+    authority questions blocked (the verb-"live" fix is deliberately narrow)."""
+    answerer = AutoAnswerer()
+    blocking_questions = (
+        "Which production environment should we deploy the CLI to?",
+        "Which production cluster and region should we deploy to?",
+        "Should we deploy to production or live?",
+        # The deployment-sense negative check must stay load-bearing: a genuine
+        # deployment question that *also* names a language/runtime (so it matches a
+        # positive implementation-choice pattern) must still block — otherwise the
+        # guard would suppress the deployment authority gate.
+        "Which language should we use, and which production cluster should we deploy to?",
+        "What runtime and which production environment should we deploy to?",
+    )
+    for question in blocking_questions:
+        answer = answerer.answer(question, SeedDraftLedger.from_goal("Deploy a service"))
+        assert answer.blocker is not None, f"expected blocker for: {question!r}"
+        assert answer.source == AutoAnswerSource.BLOCKER
+
+
+def test_implementation_choice_guard_defers_to_other_authority_blockers() -> None:
+    """The implementation-choice guard must not short-circuit *any* genuine
+    external-authority blocker when the prompt merely also carries
+    language/runtime/framework wording.
+
+    Regression for the #1295 review blocker: the guard's negative-signal check
+    originally excluded only deployment/credential/payment terms, so a destructive
+    operation phrased as an implementation choice — e.g. "what language should the
+    cleanup script use to remove the database?" — bypassed the destructive-operation
+    blocker and returned a conservative default with no blocker. The guard now
+    defers whenever any external-action signal (destructive / credential / payment /
+    legal / medical) is present, so these still block."""
+    answerer = AutoAnswerer()
+    blocking_questions = (
+        # Destructive operation wrapped in a language/runtime/framework choice.
+        "What language should the cleanup script use to remove the database?",
+        "What runtime should the tool use to delete the prod branch?",
+        "Which framework should we use to wipe the production database?",
+        "Which programming language should the migration use to drop the db?",
+        # Credential authority — singular and plural forms, with CI/workflow/env
+        # context — must all stay blocked even when phrased as a language choice.
+        "Which language should we use to enter the production api key value?",
+        "Which language should we use to configure API keys value?",
+        "Which framework should we use to configure passwords in CI?",
+        "What runtime should we use to set the api keys in the workflow?",
+    )
+    for question in blocking_questions:
+        answer = answerer.answer(question, SeedDraftLedger.from_goal("Build a CLI"))
+        assert answer.blocker is not None, f"expected blocker for: {question!r}"
+        assert answer.source == AutoAnswerSource.BLOCKER
+
+
 def test_blank_goal_remains_open_gap() -> None:
     ledger = SeedDraftLedger.from_goal("   ")
     _fill_minimal_ready_ledger(ledger)
@@ -1294,6 +1377,34 @@ def test_grade_gate_ignores_inactive_high_risk_assumptions() -> None:
 
     assert result.grade == SeedGrade.A
     assert not any(blocker.code == "high_risk_assumptions" for blocker in result.blockers)
+
+
+def test_grade_gate_blocks_high_risk_auto_fill_inference() -> None:
+    # RFC #1256 §I3 safety boundary: an AUTO_FILL_INFERENCE entry can close a
+    # required section with no user signal, so risky inferred content must trip
+    # the same high-risk gate as a risky ASSUMPTION — otherwise §I3 auto-fill
+    # would be a path to smuggle unreviewed production/credential content into a
+    # runnable seed.
+    ledger = SeedDraftLedger.from_goal("Build a local task app")
+    _fill_minimal_ready_ledger(ledger)
+    ledger.add_entry(
+        "constraints",
+        LedgerEntry(
+            key="constraints.auto_fill_inference",
+            value="Use production credential for deployment",
+            source=LedgerSource.AUTO_FILL_INFERENCE,
+            confidence=0.5,
+            status=LedgerStatus.DEFAULTED,
+        ),
+    )
+
+    result = GradeGate().grade_seed(
+        _seed(ac=("`task list` prints stable stdout",), goal="Build a local task app"),
+        ledger=ledger,
+    )
+
+    assert any(blocker.code == "high_risk_assumptions" for blocker in result.blockers)
+    assert not result.may_run
 
 
 def test_grade_gate_blocks_high_ambiguity_seed() -> None:
@@ -2328,3 +2439,351 @@ def test_auto_answerer_allows_qualified_compliance_policy_features() -> None:
         answer = answerer.answer(question, ledger)
         assert answer.blocker is None, question
         assert answer.source != AutoAnswerSource.BLOCKER, question
+
+
+# ---------------------------------------------------------------------------
+# PR-C2 / #1157: assumption_sources() — additive provenance surface.
+# ---------------------------------------------------------------------------
+
+
+def test_assumption_sources_returns_records_for_all_assumption_class_sources() -> None:
+    """``assumption_sources()`` must surface ``ASSUMPTION``, ``INFERENCE``,
+    ``CONSERVATIVE_DEFAULT``, and ``AUTO_FILL_INFERENCE`` entries with their
+    source tag intact. ``assumptions()`` continues to return only the
+    ``ASSUMPTION`` subset (backwards-compatibility guard)."""
+    from ouroboros.auto.ledger import AssumptionRecord
+
+    ledger = SeedDraftLedger.from_goal("Build a tiny local CLI")
+    ledger.add_entry(
+        "actors",
+        LedgerEntry(
+            key="actors.assumption",
+            value="Primary actor is a single local developer",
+            source=LedgerSource.ASSUMPTION,
+            confidence=0.7,
+            status=LedgerStatus.DEFAULTED,
+        ),
+    )
+    ledger.add_entry(
+        "outputs",
+        LedgerEntry(
+            key="outputs.inference",
+            value="Outputs are stdout-only",
+            source=LedgerSource.INFERENCE,
+            confidence=0.6,
+            status=LedgerStatus.INFERRED,
+        ),
+    )
+    ledger.add_entry(
+        "constraints",
+        LedgerEntry(
+            key="constraints.conservative_default",
+            value="Use existing project patterns",
+            source=LedgerSource.CONSERVATIVE_DEFAULT,
+            confidence=0.85,
+            status=LedgerStatus.DEFAULTED,
+        ),
+    )
+    ledger.add_entry(
+        "inputs",
+        LedgerEntry(
+            key="inputs.auto_fill_inference",
+            value="Inputs are positional command arguments",
+            source=LedgerSource.AUTO_FILL_INFERENCE,
+            confidence=0.5,
+            status=LedgerStatus.DEFAULTED,
+        ),
+    )
+
+    records = ledger.assumption_sources()
+    assert all(isinstance(rec, AssumptionRecord) for rec in records)
+    by_text = {rec.text: rec for rec in records}
+
+    assert by_text["Primary actor is a single local developer"].source == "assumption"
+    assert by_text["Outputs are stdout-only"].source == "inference"
+    assert by_text["Use existing project patterns"].source == "conservative_default"
+    assert by_text["Inputs are positional command arguments"].source == "auto_fill_inference"
+
+    # confidence is preserved verbatim per entry.
+    assert by_text["Primary actor is a single local developer"].confidence == 0.7
+    assert by_text["Outputs are stdout-only"].confidence == 0.6
+    assert by_text["Use existing project patterns"].confidence == 0.85
+    assert by_text["Inputs are positional command arguments"].confidence == 0.5
+
+    # Backwards-compat guard: ``assumptions()`` is unchanged in scope —
+    # only the ASSUMPTION-source entry appears there.
+    assert ledger.assumptions() == ["Primary actor is a single local developer"]
+
+
+def test_assumption_sources_skips_inactive_and_evidence_backed_entries() -> None:
+    """Entries with WEAK / CONFLICTING / BLOCKED status are excluded
+    (active-set semantics, matching ``_values_for_sources``). Evidence-backed
+    sources (USER_GOAL / REPO_FACT / USER_PREFERENCE / NON_GOAL) are also
+    excluded — they are not assumption-class."""
+    ledger = SeedDraftLedger.from_goal("Build a tiny local CLI")
+    # WEAK assumption — must be skipped.
+    ledger.add_entry(
+        "actors",
+        LedgerEntry(
+            key="actors.assumption_weak",
+            value="Weak placeholder text",
+            source=LedgerSource.ASSUMPTION,
+            confidence=0.3,
+            status=LedgerStatus.WEAK,
+        ),
+    )
+    # CONFLICTING inference — must be skipped.
+    ledger.add_entry(
+        "outputs",
+        LedgerEntry(
+            key="outputs.conflict",
+            value="Conflicting inferred output shape",
+            source=LedgerSource.INFERENCE,
+            confidence=0.5,
+            status=LedgerStatus.CONFLICTING,
+        ),
+    )
+    # USER_PREFERENCE is evidence-backed — must be skipped regardless of status.
+    ledger.add_entry(
+        "constraints",
+        LedgerEntry(
+            key="constraints.user_pref",
+            value="User explicitly said no new deps",
+            source=LedgerSource.USER_PREFERENCE,
+            confidence=1.0,
+            status=LedgerStatus.CONFIRMED,
+        ),
+    )
+    # An active conservative_default — must be the only thing returned.
+    ledger.add_entry(
+        "runtime_context",
+        LedgerEntry(
+            key="runtime_context.conservative_default",
+            value="Existing repository runtime",
+            source=LedgerSource.CONSERVATIVE_DEFAULT,
+            confidence=0.85,
+            status=LedgerStatus.DEFAULTED,
+        ),
+    )
+
+    records = ledger.assumption_sources()
+    assert [rec.text for rec in records] == ["Existing repository runtime"]
+    assert records[0].source == "conservative_default"
+
+
+def test_assumption_sources_dedupes_same_text_across_sections() -> None:
+    """Same-text deduplication uses the same normalization as
+    :meth:`assumptions` so the textual surface stays in lockstep with
+    :meth:`assumptions` for the ASSUMPTION subset."""
+    ledger = SeedDraftLedger.from_goal("Build a tiny local CLI")
+    ledger.add_entry(
+        "actors",
+        LedgerEntry(
+            key="actors.dup_assumption",
+            value="Single local CLI user",
+            source=LedgerSource.ASSUMPTION,
+            confidence=0.7,
+            status=LedgerStatus.DEFAULTED,
+        ),
+    )
+    ledger.add_entry(
+        "inputs",
+        LedgerEntry(
+            key="inputs.dup_assumption",
+            value="single local cli user",  # case-insensitive duplicate
+            source=LedgerSource.ASSUMPTION,
+            confidence=0.7,
+            status=LedgerStatus.DEFAULTED,
+        ),
+    )
+
+    records = ledger.assumption_sources()
+    assert len(records) == 1
+    assert records[0].text == "Single local CLI user"
+
+
+# ---------------------------------------------------------------------------
+# PR-ζ-B · closure_mode-aware ambiguity grading
+#
+# SSOT #1157 *Closure Policy* (grading half — back-fill of PR-β).
+# When the interview closed on ledger evidence (`ledger_only` /
+# `safe_default`), the standalone `high_ambiguity_score` blocker is
+# suppressed because the ledger's structural completeness IS the
+# acceptance signal. Other grading axes remain in force. Locks
+# #1170 R2 (2026-05-27) root cause RC-B.
+# ---------------------------------------------------------------------------
+
+
+def _high_ambiguity_seed(*, ambiguity: float = 0.50) -> Seed:
+    """Build the same minimal observable Seed as ``_seed`` but with
+    ``ambiguity_score`` deliberately above the 0.20 LLM threshold."""
+    return Seed(
+        goal="Build a habit tracker",
+        constraints=("Use existing project patterns",),
+        acceptance_criteria=("`habit list` prints stable stdout containing created habits",),
+        ontology_schema=OntologySchema(
+            name="CliTask",
+            description="CLI task ontology",
+            fields=(OntologyField(name="command", field_type="string", description="Command"),),
+        ),
+        evaluation_principles=(
+            EvaluationPrinciple(name="testability", description="Observable behavior", weight=1.0),
+        ),
+        exit_conditions=(
+            ExitCondition(
+                name="verified",
+                description="Checks pass",
+                evaluation_criteria="All acceptance criteria pass",
+            ),
+        ),
+        metadata=SeedMetadata(ambiguity_score=ambiguity),
+    )
+
+
+def test_grade_gate_ledger_only_suppresses_high_ambiguity_blocker() -> None:
+    """Closure mode = `ledger_only` → standalone ambiguity blocker
+    suppressed. Other axes unchanged. Reproduces the cli-todo R2 fix
+    path."""
+    ledger = SeedDraftLedger.from_goal("Build a habit tracker")
+    _fill_minimal_ready_ledger(ledger)
+    seed = _high_ambiguity_seed(ambiguity=0.50)
+
+    result = GradeGate().grade_seed(seed, ledger=ledger, closure_mode="ledger_only")
+
+    assert "high_ambiguity_score" not in {b.code for b in result.blockers}
+    assert result.grade == SeedGrade.A
+    assert result.may_run
+
+
+def test_grade_gate_safe_default_also_suppresses_high_ambiguity_blocker() -> None:
+    """`safe_default` is the same closure-policy tier as `ledger_only`
+    (see #1157 Closure Policy hierarchy) — the ambiguity blocker is
+    suppressed there too."""
+    ledger = SeedDraftLedger.from_goal("Build a habit tracker")
+    _fill_minimal_ready_ledger(ledger)
+    seed = _high_ambiguity_seed(ambiguity=0.50)
+
+    result = GradeGate().grade_seed(seed, ledger=ledger, closure_mode="safe_default")
+
+    assert "high_ambiguity_score" not in {b.code for b in result.blockers}
+    assert result.grade == SeedGrade.A
+
+
+def test_grade_gate_mutual_agreement_keeps_ambiguity_blocker() -> None:
+    """`mutual_agreement` closure means backend signal aligned with
+    ledger — the LLM-derived ambiguity_score is treated as
+    authoritative, so the > 0.20 blocker still fires."""
+    ledger = SeedDraftLedger.from_goal("Build a habit tracker")
+    _fill_minimal_ready_ledger(ledger)
+    seed = _high_ambiguity_seed(ambiguity=0.50)
+
+    result = GradeGate().grade_seed(seed, ledger=ledger, closure_mode="mutual_agreement")
+
+    assert "high_ambiguity_score" in {b.code for b in result.blockers}
+    assert result.grade == SeedGrade.C
+    assert not result.may_run
+
+
+def test_grade_gate_closure_mode_none_uses_strict_default() -> None:
+    """Backwards compatibility: callers that do not pass closure_mode
+    (legacy paths, isolated unit tests) keep the strict pre-PR-ζ-B
+    behavior. The ambiguity blocker still fires."""
+    ledger = SeedDraftLedger.from_goal("Build a habit tracker")
+    _fill_minimal_ready_ledger(ledger)
+    seed = _high_ambiguity_seed(ambiguity=0.50)
+
+    result = GradeGate().grade_seed(seed, ledger=ledger)  # closure_mode omitted
+
+    assert "high_ambiguity_score" in {b.code for b in result.blockers}
+    assert result.grade == SeedGrade.C
+
+
+def test_grade_gate_ledger_only_still_blocks_when_other_blockers_exist() -> None:
+    """The PR-ζ-B relaxation is narrow: ONLY the standalone ambiguity
+    blocker is suppressed. Other grading axes (open_gaps, goal
+    mismatch, missing AC, etc.) continue to produce blockers and
+    grade C under `ledger_only` exactly as under any other closure."""
+    # Use an empty ledger so `ledger_open_gap` blockers fire for every
+    # required section even though closure_mode says ledger_only.
+    ledger = SeedDraftLedger.from_goal("Build a habit tracker")
+    seed = _high_ambiguity_seed(ambiguity=0.50)
+
+    result = GradeGate().grade_seed(seed, ledger=ledger, closure_mode="ledger_only")
+
+    blocker_codes = {b.code for b in result.blockers}
+    # Ambiguity blocker IS suppressed.
+    assert "high_ambiguity_score" not in blocker_codes
+    # But ledger_open_gap blockers continue to fire for the unresolved
+    # required sections.
+    assert "ledger_open_gap" in blocker_codes
+    assert result.grade == SeedGrade.C
+    assert not result.may_run
+
+
+def test_seed_reviewer_propagates_closure_mode_to_grade_gate() -> None:
+    """The SeedReviewer must forward ``closure_mode`` to GradeGate so
+    the ledger-primary policy applies whether the pipeline calls the
+    reviewer directly or through SeedRepairer.converge."""
+    from ouroboros.auto.seed_reviewer import SeedReviewer
+
+    ledger = SeedDraftLedger.from_goal("Build a habit tracker")
+    _fill_minimal_ready_ledger(ledger)
+    seed = _high_ambiguity_seed(ambiguity=0.50)
+
+    reviewer = SeedReviewer(GradeGate())
+    review = reviewer.review(seed, ledger=ledger, closure_mode="ledger_only")
+
+    assert review.grade_result.grade == SeedGrade.A
+    assert review.may_run
+    assert "high_ambiguity_score" not in {finding.code for finding in review.grade_result.blockers}
+
+
+def test_seed_repairer_converge_propagates_closure_mode() -> None:
+    """SeedRepairer.converge must forward ``closure_mode`` through every
+    reviewer.review call inside the repair loop. Without this, a
+    high-ambiguity seed would survive the direct review path but get
+    repeatedly re-graded as C inside the repair loop."""
+    from ouroboros.auto.seed_repairer import SeedRepairer
+    from ouroboros.auto.seed_reviewer import SeedReviewer
+
+    ledger = SeedDraftLedger.from_goal("Build a habit tracker")
+    _fill_minimal_ready_ledger(ledger)
+    seed = _high_ambiguity_seed(ambiguity=0.50)
+
+    repairer = SeedRepairer(reviewer=SeedReviewer(GradeGate()))
+    converged_seed, review, history = repairer.converge(
+        seed, ledger=ledger, closure_mode="ledger_only"
+    )
+
+    # First-iteration review under ledger_only should already be grade
+    # A — no repair attempts needed.
+    assert review.grade_result.grade == SeedGrade.A
+    assert review.may_run
+    assert history == []
+    # Seed unchanged because already-A seeds skip repair.
+    assert converged_seed.metadata.ambiguity_score == 0.50
+
+
+def test_pipeline_accepts_keyword_sees_closure_mode_on_production_signatures() -> None:
+    """Locks the pipeline-side propagation contract: pipeline.py uses
+    ``_accepts_keyword(callable, "closure_mode")`` to decide whether to
+    forward ``state.interview_closure_mode`` into ``repairer.converge``
+    and ``reviewer.review`` (see pipeline.py REVIEW-phase plumbing).
+    Both production callables MUST declare ``closure_mode`` so the gate
+    fires and the kwarg is actually forwarded; otherwise PR-ζ-B is
+    silently inert in production while unit tests pass."""
+    from ouroboros.auto.pipeline import _accepts_keyword
+    from ouroboros.auto.seed_repairer import SeedRepairer
+    from ouroboros.auto.seed_reviewer import SeedReviewer
+
+    reviewer = SeedReviewer(GradeGate())
+    repairer = SeedRepairer(reviewer=reviewer)
+
+    assert _accepts_keyword(reviewer.review, "closure_mode"), (
+        "SeedReviewer.review must declare closure_mode so the "
+        "pipeline REVIEW-phase forwarder activates"
+    )
+    assert _accepts_keyword(repairer.converge, "closure_mode"), (
+        "SeedRepairer.converge must declare closure_mode so the "
+        "pipeline REPAIR-phase forwarder activates"
+    )

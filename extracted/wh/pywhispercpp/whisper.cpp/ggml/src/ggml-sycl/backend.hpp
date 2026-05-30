@@ -23,6 +23,7 @@
 #include "dequantize.hpp"
 #include "dmmv.hpp"
 #include "element_wise.hpp"
+#include "fattn.hpp"
 #include "gla.hpp"
 #include "im2col.hpp"
 #include "mmq.hpp"
@@ -32,10 +33,14 @@
 #include "pad.hpp"
 #include "quantize.hpp"
 #include "quants.hpp"
+#include "roll.hpp"
 #include "rope.hpp"
 #include "set_rows.hpp"
+#include "ssm_conv.hpp"
 #include "softmax.hpp"
 #include "tsembd.hpp"
 #include "wkv.hpp"
+#include "pad_reflect_1d.hpp"
+
 
 #endif  // GGML_SYCL_BACKEND_HPP

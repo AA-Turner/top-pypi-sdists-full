@@ -12,7 +12,7 @@ from allauth.mfa import signals
 from allauth.mfa.base.internal.flows import delete_and_cleanup
 from allauth.mfa.models import Authenticator
 from allauth.mfa.recovery_codes.internal.flows import auto_generate_recovery_codes
-from allauth.mfa.totp.internal.auth import TOTP
+from allauth.mfa.totp.internal.auth import TOTP, clear_totp_secret
 
 
 def activate_totp(
@@ -21,6 +21,7 @@ def activate_totp(
     raise_if_reauthentication_required(request)
     user = authenticated_user(request)
     totp_auth = TOTP.activate(user, form.secret).instance
+    clear_totp_secret(request)
     signals.authenticator_added.send(
         sender=Authenticator,
         request=request,

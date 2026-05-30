@@ -6,18 +6,16 @@ Quizzes, Flashcards, Infographics, Slide Decks, Data Tables, and Mind Maps.
 """
 
 import builtins
-import json
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any
 
-# ``_mind_map`` is re-exported as ``_artifacts._mind_map`` so legacy
-# patch seams (``test_init_order.test_phase7_artifact_mind_map_patch_seams_are_current``)
-# can still resolve the module via the artifacts facade. The runtime
-# code path in this module talks to the injected
-# ``NoteBackedMindMapService`` / ``NoteService`` instances; the bare
-# module re-export is for monkeypatch convenience only.
+# ``_mind_map`` is re-exported as ``_artifacts._mind_map`` so legacy patch
+# seams can still resolve the module via the artifacts facade. The runtime code
+# path in this module talks to the injected ``NoteBackedMindMapService`` /
+# ``NoteService`` instances; the bare module re-export is for monkeypatch
+# convenience only.
 from . import (
     _artifact_formatters,
     _artifact_polling,
@@ -30,8 +28,11 @@ from ._mind_map import NoteBackedMindMapService
 from ._note_service import NoteService
 from ._notebook_metadata import NotebookSourceIdProvider
 from ._polling_registry import PollRegistry
-from ._session_contracts import AsyncWorkRuntime, RpcCaller
-from .auth import load_httpx_cookies
+from ._session_contracts import RpcCaller
+
+if TYPE_CHECKING:
+    from ._session_lifecycle import ClientLifecycle
+    from ._transport_drain import TransportDrainTracker
 from .rpc import (
     ArtifactTypeCode,
     AudioFormat,
@@ -51,224 +52,12 @@ from .rpc import (
 )
 from .types import (
     Artifact,
-    ArtifactDownloadError,
-    ArtifactNotFoundError,
-    ArtifactNotReadyError,
-    ArtifactParseError,
     ArtifactType,
     GenerationStatus,
     ReportSuggestion,
-    _extract_artifact_url,
 )
 
 logger = logging.getLogger(__name__)
-
-
-# Private compatibility exports. Tests and downstream code patch these names
-# through ``notebooklm._artifacts`` even though download implementation now
-# lives in ``_artifact_downloads``.
-_DOWNLOAD_COMPAT_EXPORTS = (
-    DownloadResult,
-    ArtifactDownloadError,
-    ArtifactNotFoundError,
-    ArtifactNotReadyError,
-    ArtifactParseError,
-    _extract_artifact_url,
-    json,
-    load_httpx_cookies,
-)
-
-
-# Backward-compatible private helper wrappers.
-def _extract_app_data(html_content: str) -> dict:
-    return _artifact_formatters._extract_app_data(html_content)
-
-
-def _format_quiz_markdown(title: str, questions: list[dict]) -> str:
-    return _artifact_formatters._format_quiz_markdown(title, questions)
-
-
-def _format_flashcards_markdown(title: str, cards: list[dict]) -> str:
-    return _artifact_formatters._format_flashcards_markdown(title, cards)
-
-
-def _extract_cell_text(cell: Any) -> str:
-    return _artifact_formatters._extract_cell_text(cell)
-
-
-def _extract_data_table_rows(raw_data: Any) -> list[Any]:
-    return _artifact_formatters._extract_data_table_rows(raw_data)
-
-
-def _parse_data_table(raw_data: list) -> tuple[list[str], list[list[str]]]:
-    return _artifact_formatters._parse_data_table(
-        raw_data,
-        rows_extractor=_extract_data_table_rows,
-        cell_text_extractor=_extract_cell_text,
-    )
-
-
-def _format_interactive_content(
-    app_data: dict,
-    title: str,
-    output_format: str,
-    html_content: str,
-    is_quiz: bool,
-) -> str:
-    return _artifact_formatters._format_interactive_content(
-        app_data,
-        title,
-        output_format,
-        html_content,
-        is_quiz,
-        quiz_markdown_formatter=_format_quiz_markdown,
-        flashcards_markdown_formatter=_format_flashcards_markdown,
-    )
-
-
-class DrainHookRegistration(Protocol):
-    """Narrow close-time hook registration surface, local to artifacts.
-
-    Artifact polling is the only current feature that registers
-    close-time cleanup hooks, so the Protocol stays local to
-    ``_artifacts.py`` rather than being promoted to
-    ``_session_contracts``. If a second consumer (e.g. Deep Research)
-    later adds artifact-style leader/follower polling with shared
-    background tasks, revisit whether ``register_drain_hook`` should
-    become shared.
-
-    This is the **canonical and only** ``DrainHookRegistration``
-    Protocol after Phase 7 of the capability refactor — the broad-
-    ``Session``-era twin previously at ``_session_contracts.py`` was
-    deleted in the same refactor arc once artifact polling was
-    confirmed as its only consumer.
-    """
-
-    def register_drain_hook(
-        self,
-        name: str,
-        hook: Callable[[], Awaitable[None]],
-    ) -> None: ...
-
-
-class ArtifactsRuntime(RpcCaller, AsyncWorkRuntime, DrainHookRegistration, Protocol):
-    """Runtime capabilities required by the artifacts feature.
-
-    Combines :class:`RpcCaller` (for RPC dispatch),
-    :class:`AsyncWorkRuntime` (for ``assert_bound_loop`` and
-    ``operation_scope``), and :class:`DrainHookRegistration` (for
-    close-time poll-task cleanup).
-    """
-
-
-class _ArtifactsServiceMethods(Protocol):
-    """Narrow ``ArtifactsAPI`` **method-call** surface that helper services depend on.
-
-    Artifact service helpers (:class:`ArtifactDownloadService` and
-    :class:`ArtifactGenerationService`) accept an ``ArtifactsAPI`` instance
-    via constructor injection (the ``methods=`` kw-arg) for back-references
-    into selection / RPC / formatting flows. The helpers type that argument
-    as ``_ArtifactsServiceMethods`` rather than the full concrete
-    ``ArtifactsAPI`` — pinning the dependency surface to a documented
-    subset and supporting the AST guard pinned by
-    ``test_artifact_services_have_no_facade_reach_in`` in
-    ``tests/unit/test_init_order.py``.
-
-    The migration that introduced this Protocol shipped in three PRs:
-
-      * `#891 <https://github.com/teng-lin/notebooklm-py/pull/891>`_ (T1)
-        introduced the Protocol declaration.
-      * `#896 <https://github.com/teng-lin/notebooklm-py/pull/896>`_ (T2)
-        migrated ``ArtifactDownloadService`` to constructor injection.
-      * `#910 <https://github.com/teng-lin/notebooklm-py/pull/910>`_ (T3)
-        migrated ``ArtifactGenerationService`` and closed the reverse
-        facade-into-service reach by promoting the service-side
-        ``_call_generate`` / ``_parse_generation_result`` methods.
-
-    Both helpers are now fully migrated; no further migration PRs in this
-    series are pending.
-
-    **Scope (intentionally narrow).** This Protocol covers method calls
-    only. The four *collaborator objects* the helpers depend on —
-    ``_notebooks`` (``NotebookSourceIdProvider``), ``_runtime``
-    (``ArtifactsRuntime``), ``_note_service`` (``NoteService``), and
-    ``_mind_maps`` (``NoteBackedMindMapService``) — are deliberately
-    **not** declared here. They were eliminated as reach-throughs by
-    injecting each collaborator as a separate constructor argument on the
-    helper service (mirroring how :class:`ArtifactsAPI.__init__` already
-    takes them), rather than by widening this Protocol. The reach-in
-    guard catches any residual ``api._notebooks`` / ``api._runtime`` /
-    ``api._note_service`` / ``api._mind_maps`` access as a violation, so
-    any future re-introduction of a coupling here would have to do
-    constructor injection rather than smuggle the dependency through a
-    wider Protocol.
-
-    The underscore-prefixed members are deliberate: this Protocol describes
-    a private collaboration contract between ``ArtifactsAPI`` and its own
-    helper services. ``RpcOwner`` in :mod:`notebooklm._rpc_executor`
-    (see ``docs/architecture.md`` § RpcExecutor) is the established
-    precedent — a Protocol that declares the underscore-prefixed methods
-    a sibling collaborator legitimately calls. See also
-    :class:`DrainHookRegistration` above for the local docstring pattern.
-
-    The three public members (``list_quizzes``, ``list_flashcards``,
-    ``generate_report``) are not new contract — they preserve the documented
-    monkeypatch seam ``ArtifactsAPI.generate_report`` referenced from
-    ``_artifact_generation.py`` (search for "Preserve the historical facade
-    seam") and the two ``list_*`` shapes used by interactive-artifact
-    formatting.
-    """
-
-    async def _list_raw(self, notebook_id: str) -> builtins.list[Any]: ...
-
-    def _select_artifact(
-        self,
-        candidates: builtins.list[Any],
-        artifact_id: str | None,
-        type_name: str,
-        no_result_error_key: str,
-        *,
-        type_code: ArtifactTypeCode,
-    ) -> Any: ...
-
-    async def _download_url(self, url: str, output_path: str) -> str: ...
-
-    async def _get_artifact_content(self, notebook_id: str, artifact_id: str) -> str | None: ...
-
-    def _format_interactive_content(
-        self,
-        app_data: dict,
-        title: str,
-        output_format: str,
-        html_content: str,
-        is_quiz: bool,
-    ) -> str: ...
-
-    async def _call_generate(
-        self, notebook_id: str, params: builtins.list[Any]
-    ) -> GenerationStatus: ...
-
-    def _parse_generation_result(
-        self,
-        result: Any,
-        *,
-        method_id: str,
-        source: str = "_parse_generation_result",
-    ) -> GenerationStatus: ...
-
-    async def list_quizzes(self, notebook_id: str) -> builtins.list[Artifact]: ...
-
-    async def list_flashcards(self, notebook_id: str) -> builtins.list[Artifact]: ...
-
-    async def generate_report(
-        self,
-        notebook_id: str,
-        report_format: ReportFormat = ReportFormat.BRIEFING_DOC,
-        source_ids: builtins.list[str] | None = None,
-        language: str | None = "en",
-        custom_prompt: str | None = None,
-        extra_instructions: str | None = None,
-    ) -> GenerationStatus: ...
 
 
 class ArtifactsAPI:
@@ -293,8 +82,10 @@ class ArtifactsAPI:
 
     def __init__(
         self,
-        runtime: ArtifactsRuntime,
         *,
+        rpc: RpcCaller,
+        drain: "TransportDrainTracker",
+        lifecycle: "ClientLifecycle",
         notebooks: NotebookSourceIdProvider,
         mind_maps: NoteBackedMindMapService,
         note_service: NoteService,
@@ -303,9 +94,16 @@ class ArtifactsAPI:
         """Initialize the artifacts API.
 
         Args:
-            runtime: Feature-local runtime that provides RPC dispatch,
-                loop-affinity assertion, operation scopes, and
-                close-time drain-hook registration.
+            rpc: RPC dispatch surface (:class:`RpcCaller`). Used for
+                direct artifact RPCs (delete, rename, export, list_raw)
+                and threaded into the generation and download services.
+            drain: Transport drain coordinator. Owns ``operation_scope``
+                (used by the polling service) and ``register_drain_hook``
+                (used here to register the polling-service close-time
+                cleanup hook).
+            lifecycle: Client lifecycle seam. Owns ``assert_bound_loop``
+                used by the polling service before it touches loop-bound
+                state.
             notebooks: Source-id resolver. Required — wire from
                 ``NotebookLMClient`` (no implicit fallback).
             mind_maps: Note-backed mind-map facade. Owns the
@@ -321,28 +119,31 @@ class ArtifactsAPI:
                 ``_mind_map.create_note`` shim (retired in Phase 6).
             storage_path: Path to storage state file for loading download cookies.
         """
-        self._runtime = runtime
+        self._rpc = rpc
+        self._drain = drain
+        self._lifecycle = lifecycle
         self._notebooks = notebooks
         self._mind_maps = mind_maps
         self._note_service = note_service
         self._poll_registry = PollRegistry()
         self._listing = ArtifactListingService()
         self._generation = ArtifactGenerationService(
-            runtime=self._runtime,
-            methods=self,
+            rpc=self._rpc,
             notebooks=self._notebooks,
             note_service=self._note_service,
         )
         self._downloads = ArtifactDownloadService(
-            methods=self,
+            rpc=self._rpc,
+            listing=self._listing,
             mind_maps=self._mind_maps,
             storage_path=storage_path,
         )
         self._polling = _artifact_polling.ArtifactPollingService(
-            runtime,
-            self._poll_registry,
+            loop_guard=self._lifecycle,
+            op_scope=self._drain,
+            poll_registry=self._poll_registry,
         )
-        self._runtime.register_drain_hook("artifacts.polls", self._polling.drain)
+        self._drain.register_drain_hook("artifacts.polls", self._polling.drain)
 
     # =========================================================================
     # List/Get Operations
@@ -667,21 +468,6 @@ class ArtifactsAPI:
             notebook_id, output_path, artifact_id, output_format
         )
 
-    async def _get_artifact_content(self, notebook_id: str, artifact_id: str) -> str | None:
-        """Fetch artifact HTML content for quiz/flashcard types."""
-        result = await self._runtime.rpc_call(
-            RPCMethod.GET_INTERACTIVE_HTML,
-            [artifact_id],
-            source_path=f"/notebook/{notebook_id}",
-            allow_null=True,
-        )
-        # Response is wrapped: result[0] contains the artifact data
-        if result and isinstance(result, list) and len(result) > 0:
-            data = result[0]
-            if isinstance(data, list) and len(data) > 9 and data[9]:
-                return data[9][0]  # HTML content
-        return None
-
     async def _download_interactive_artifact(
         self,
         notebook_id: str,
@@ -715,7 +501,13 @@ class ArtifactsAPI:
         Returns:
             Formatted content string.
         """
-        return _format_interactive_content(app_data, title, output_format, html_content, is_quiz)
+        return _artifact_formatters._format_interactive_content(
+            app_data,
+            title,
+            output_format,
+            html_content,
+            is_quiz,
+        )
 
     async def download_report(
         self,
@@ -784,7 +576,7 @@ class ArtifactsAPI:
         """
         logger.debug("Deleting artifact %s from notebook %s", artifact_id, notebook_id)
         params = [[2], artifact_id]
-        await self._runtime.rpc_call(
+        await self._rpc.rpc_call(
             RPCMethod.DELETE_ARTIFACT,
             params,
             source_path=f"/notebook/{notebook_id}",
@@ -801,7 +593,7 @@ class ArtifactsAPI:
             new_title: The new title.
         """
         params = [[artifact_id, new_title], [["title"]]]
-        await self._runtime.rpc_call(
+        await self._rpc.rpc_call(
             RPCMethod.RENAME_ARTIFACT,
             params,
             source_path=f"/notebook/{notebook_id}",
@@ -881,11 +673,14 @@ class ArtifactsAPI:
             poll_interval: Deprecated. Use initial_interval instead. Scheduled
                 for removal in v0.6.0.
             max_not_found: Consecutive "not found" polls before treating
-                the task as failed.  When the API removes an artifact
+                the task as *removed*.  When the API removes an artifact
                 from the list (e.g. after a daily-quota rejection), the
-                poller would otherwise spin until *timeout*.  Defaults
-                to 5 to tolerate brief replication lag and slow networks.
-                (Leader only.)
+                poller would otherwise spin until *timeout*.  The returned
+                status is ``"removed"`` (see :attr:`GenerationStatus.is_removed`),
+                kept distinct from ``"failed"`` so a delisted artifact is not
+                conflated with one the server actually marked terminal-FAILED.
+                Defaults to 5 to tolerate brief replication lag and slow
+                networks. (Leader only.)
             min_not_found_window: Minimum seconds that must have elapsed
                 since the *first* not-found response before a consecutive
                 run triggers failure.  This avoids false positives on
@@ -939,7 +734,7 @@ class ArtifactsAPI:
             Export result with document URL.
         """
         params = [None, artifact_id, None, title, int(export_type)]
-        return await self._runtime.rpc_call(
+        return await self._rpc.rpc_call(
             RPCMethod.EXPORT_ARTIFACT,
             params,
             source_path=f"/notebook/{notebook_id}",
@@ -963,7 +758,7 @@ class ArtifactsAPI:
             Export result with spreadsheet URL.
         """
         params = [None, artifact_id, None, title, int(ExportType.SHEETS)]
-        return await self._runtime.rpc_call(
+        return await self._rpc.rpc_call(
             RPCMethod.EXPORT_ARTIFACT,
             params,
             source_path=f"/notebook/{notebook_id}",
@@ -993,7 +788,7 @@ class ArtifactsAPI:
             Export result with document URL.
         """
         params = [None, artifact_id, content, title, int(export_type)]
-        return await self._runtime.rpc_call(
+        return await self._rpc.rpc_call(
             RPCMethod.EXPORT_ARTIFACT,
             params,
             source_path=f"/notebook/{notebook_id}",
@@ -1029,7 +824,7 @@ class ArtifactsAPI:
         """Get raw artifact list data."""
         # Keep this facade hop so callers/tests that patch ``api._list_raw``
         # still affect public listing paths that delegate into the service.
-        return await self._listing.list_raw(notebook_id, rpc_call=self._runtime.rpc_call)
+        return await self._listing.list_raw(notebook_id, rpc=self._rpc)
 
     def _select_artifact(
         self,

@@ -189,6 +189,7 @@ __all__ = (
     "ListIAMPolicyAssignmentsPaginatorName",
     "ListIngestionsPaginatorName",
     "ListNamespacesPaginatorName",
+    "ListOAuthClientApplicationsPaginatorName",
     "ListRoleMembershipsPaginatorName",
     "ListTemplateAliasesPaginatorName",
     "ListTemplateVersionsPaginatorName",
@@ -215,6 +216,7 @@ __all__ = (
     "NumericEqualityMatchOperatorType",
     "NumericFilterSelectAllOptionsType",
     "NumericSeparatorSymbolType",
+    "OAuthClientAuthenticationTypeType",
     "OtherCategoriesType",
     "PaginatorName",
     "PanelBorderStyleType",
@@ -910,6 +912,7 @@ ListIAMPolicyAssignmentsForUserPaginatorName = Literal["list_iam_policy_assignme
 ListIAMPolicyAssignmentsPaginatorName = Literal["list_iam_policy_assignments"]
 ListIngestionsPaginatorName = Literal["list_ingestions"]
 ListNamespacesPaginatorName = Literal["list_namespaces"]
+ListOAuthClientApplicationsPaginatorName = Literal["list_o_auth_client_applications"]
 ListRoleMembershipsPaginatorName = Literal["list_role_memberships"]
 ListTemplateAliasesPaginatorName = Literal["list_template_aliases"]
 ListTemplateVersionsPaginatorName = Literal["list_template_versions"]
@@ -985,6 +988,7 @@ NumberScaleType = Literal[
 NumericEqualityMatchOperatorType = Literal["DOES_NOT_EQUAL", "EQUALS"]
 NumericFilterSelectAllOptionsType = Literal["FILTER_ALL_VALUES"]
 NumericSeparatorSymbolType = Literal["COMMA", "DOT", "SPACE"]
+OAuthClientAuthenticationTypeType = Literal["TOKEN"]
 OtherCategoriesType = Literal["EXCLUDE", "INCLUDE"]
 PanelBorderStyleType = Literal["DASHED", "DOTTED", "SOLID"]
 PaperOrientationType = Literal["LANDSCAPE", "PORTRAIT"]
@@ -1544,6 +1548,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -1671,6 +1676,7 @@ PaginatorName = Literal[
     "list_iam_policy_assignments_for_user",
     "list_ingestions",
     "list_namespaces",
+    "list_o_auth_client_applications",
     "list_role_memberships",
     "list_template_aliases",
     "list_template_versions",

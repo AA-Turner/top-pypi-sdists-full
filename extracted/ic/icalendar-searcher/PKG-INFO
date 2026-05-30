@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: icalendar-searcher
-Version: 1.0.5
+Version: 1.0.6
 Summary: Search, filter and sort iCalendar components
-Project-URL: Repository, https://github.com/python-caldav/icalendar-searcher
-Project-URL: Issues, https://github.com/python-caldav/icalendar-searcher/issues
+Project-URL: Repository, https://github.com/pycalendar/icalendar-searcher
+Project-URL: Issues, https://github.com/pycalendar/icalendar-searcher/issues
 Author-email: Tobias Brox <tobias@redpill-linpro.com>
 License: AGPL-3.0-or-later
 License-File: LICENSE.md

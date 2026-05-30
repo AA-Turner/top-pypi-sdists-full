@@ -20,21 +20,45 @@ def default(v, d):
 def pair(t):
     return t if isinstance(t, tuple) else (t, t)
 
+def divisible_by(num, den):
+    return (num % den) == 0
+
 # decorr loss
 
 class DecorrelationLoss(Module):
     def __init__(
         self,
         sample_frac = 1.,
-        soft_validate_num_sampled = False
+        soft_validate_num_sampled = False,
+        use_subspace = False,
+        dim = None,
+        dim_subspace = 64,
+        num_subspaces = 1,
+        mean_center = False, # covariance if true
+        across_depth = False
     ):
         super().__init__()
         assert 0. <= sample_frac <= 1.
-        self.need_sample = sample_frac < 1.
+        self.need_sample = sample_frac < 1. and not across_depth
         self.sample_frac = sample_frac
 
         self.soft_validate_num_sampled = soft_validate_num_sampled
+        self.use_subspace = use_subspace
+        self.dim_subspace = dim_subspace
+        self.num_subspaces = num_subspaces
+        self.mean_center = mean_center
+
         self.register_buffer('zero', tensor(0.), persistent = False)
+
+        if use_subspace:
+            assert exists(dim), 'dim must be passed in if using subspaces'
+            assert exists(dim_subspace) or num_subspaces == 1, 'dim_subspace must be provided if num_subspace greater than one'
+            assert dim_subspace < dim, 'subspace dimension must be less than or equal to feature dimension'
+
+            self.register_buffer('proj', torch.empty(num_subspaces, dim, dim_subspace), persistent = True)
+
+            for i in range(num_subspaces):
+                nn.init.orthogonal_(self.proj[i])
 
     def forward(
         self,
@@ -60,12 +84,21 @@ class DecorrelationLoss(Module):
             tokens = tokens[batch_arange, indices]
             tokens, = unpack(tokens, packed_shape, '* n d e')
 
-        dist = einsum(tokens, tokens, '... n d, ... n e -> ... d e') / tokens.shape[-2]
+        if self.use_subspace:
+            tokens = einsum(tokens, self.proj, '... n d, s d e -> ... s n e')
+            dim = self.dim_subspace
+        else:
+            tokens = rearrange(tokens, '... n d -> ... 1 n d')
+
+        if self.mean_center:
+            tokens = tokens - tokens.mean(dim = -2, keepdim = True)
+
+        dist = einsum(tokens, tokens, '... s n d, ... s n e -> ... s d e') / tokens.shape[-2]
         eye = torch.eye(dim, device = device)
 
         loss = dist.pow(2) * (1. - eye) / ((dim - 1) * dim)
 
-        loss = reduce(loss, '... b d e -> b', 'sum')
+        loss = reduce(loss, '... b s d e -> b', 'sum')
         return loss.mean()
 
 # classes
@@ -85,7 +118,7 @@ class FeedForward(Module):
 
     def forward(self, x):
         normed = self.norm(x)
-        return self.net(x), normed
+        return self.net(normed), normed
 
 class Attention(Module):
     def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
@@ -138,26 +171,50 @@ class Transformer(Module):
     def forward(self, x):
 
         normed_inputs = []
+        layer_outputs = []
 
         for attn, ff in self.layers:
             attn_out, attn_normed_inp = attn(x)
+            layer_outputs.append(attn_out)
             x = attn_out + x
 
             ff_out, ff_normed_inp = ff(x)
+            layer_outputs.append(ff_out)
             x = ff_out + x
 
             normed_inputs.append(attn_normed_inp)
             normed_inputs.append(ff_normed_inp)
 
-        return self.norm(x), stack(normed_inputs)
+        return self.norm(x), stack(normed_inputs), stack(layer_outputs)
 
 class ViT(Module):
-    def __init__(self, *, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, pool = 'cls', channels = 3, dim_head = 64, dropout = 0., emb_dropout = 0., decorr_sample_frac = 1.):
+    def __init__(
+        self,
+        *,
+        image_size,
+        patch_size,
+        num_classes,
+        dim,
+        depth,
+        heads,
+        mlp_dim,
+        pool = 'cls',
+        channels = 3,
+        dim_head = 64,
+        dropout = 0.,
+        emb_dropout = 0.,
+        decorr_sample_frac = 1.,
+        decorr_use_subspace = False,
+        decorr_dim_subspace = 64,
+        decorr_num_subspaces = 1,
+        decorr_mean_center = False,
+        decorr_layer_outputs_across_depth = False
+    ):
         super().__init__()
         image_height, image_width = pair(image_size)
         self.patch_size = patch_height, patch_width = pair(patch_size)
 
-        assert image_height % patch_height == 0 and image_width % patch_width == 0, 'Image dimensions must be divisible by the patch size.'
+        assert divisible_by(image_height, patch_height) and divisible_by(image_width, patch_width), 'Image dimensions must be divisible by the patch size.'
 
         num_patches = (image_height // patch_height) * (image_width // patch_width)
         patch_dim = channels * patch_height * patch_width
@@ -183,10 +240,12 @@ class ViT(Module):
 
         # decorrelation loss related
 
+        self.decorr_layer_outputs_across_depth = decorr_layer_outputs_across_depth
+
         self.has_decorr_loss = decorr_sample_frac > 0.
 
         if self.has_decorr_loss:
-            self.decorr_loss = DecorrelationLoss(decorr_sample_frac)
+            self.decorr_loss = DecorrelationLoss(decorr_sample_frac, use_subspace = decorr_use_subspace, dim = dim, dim_subspace = decorr_dim_subspace, num_subspaces = decorr_num_subspaces, mean_center = decorr_mean_center, across_depth = self.decorr_layer_outputs_across_depth)
 
         self.register_buffer('zero', torch.tensor(0.), persistent = False)
 
@@ -205,14 +264,19 @@ class ViT(Module):
         x += self.pos_embedding[:, :(n + 1)]
         x = self.dropout(x)
 
-        x, normed_layer_inputs = self.transformer(x)
+        x, normed_layer_inputs, layer_outputs = self.transformer(x)
 
         # maybe return decor loss
 
         decorr_aux_loss = self.zero
 
         if return_decorr_aux_loss:
-            decorr_aux_loss = self.decorr_loss(normed_layer_inputs)
+            decorr_inputs = normed_layer_inputs
+
+            if self.decorr_layer_outputs_across_depth:
+                decorr_inputs = rearrange(layer_outputs, 'l b n d -> n b l d')
+
+            decorr_aux_loss = self.decorr_loss(decorr_inputs)
 
         x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
 

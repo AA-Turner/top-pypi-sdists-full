@@ -11,12 +11,14 @@ import typer
 
 from ouroboros.cli.commands.run import (
     _load_skip_completed_markers,
+    _resolve_cli_project_dir,
     _resolve_fat_harness_mode,
     _resolve_max_decomposition_depth,
     _resolve_max_parallel_workers,
     _resolve_resume_fat_harness_mode,
     _run_orchestrator,
 )
+from ouroboros.core.seed import Seed
 from ouroboros.core.types import Result
 from ouroboros.evaluation.verification_artifacts import VerificationArtifacts
 from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
@@ -78,9 +80,145 @@ FAKE_VERIFICATION_ARTIFACTS = VerificationArtifacts(
 )
 
 
-def test_resolve_fat_harness_mode_defaults_to_enabled() -> None:
-    """The #920 PR-5 default flip enables fat-harness without seed opt-in."""
-    assert _resolve_fat_harness_mode(VALID_SEED_DATA) is True
+def test_resolve_cli_project_dir_prefers_explicit_project_dir(tmp_path: Path) -> None:
+    """--project-dir should be the highest-priority run boundary."""
+    seed_file = tmp_path / "seeds" / "seed.yaml"
+    seed_file.parent.mkdir()
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    explicit_project = tmp_path / "project"
+    explicit_project.mkdir()
+    seed = Seed.from_dict(VALID_SEED_DATA)
+
+    assert (
+        _resolve_cli_project_dir(
+            seed,
+            seed_file,
+            seed_data=VALID_SEED_DATA,
+            project_dir=explicit_project,
+        )
+        == explicit_project.resolve()
+    )
+
+
+def test_resolve_cli_project_dir_uses_brownfield_target_dir_when_present(
+    tmp_path: Path,
+) -> None:
+    """Seeds in a central library may target an external brownfield repo."""
+    seed_file = tmp_path / "seed-library" / "seed.yaml"
+    seed_file.parent.mkdir()
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    target_dir = tmp_path / "work" / "myproject"
+    target_dir.mkdir(parents=True)
+    seed_data = {
+        **VALID_SEED_DATA,
+        "brownfield_context": {
+            "project_type": "brownfield",
+            "target_dir": str(target_dir),
+            "context_references": [
+                {"path": "main.py", "role": "primary", "summary": "target file"},
+            ],
+        },
+    }
+    (target_dir / "main.py").write_text("print('hi')\n", encoding="utf-8")
+    seed = Seed.from_dict(seed_data)
+
+    assert _resolve_cli_project_dir(seed, seed_file, seed_data=seed_data) == target_dir.resolve()
+
+
+def test_resolve_cli_project_dir_falls_back_to_seed_parent_without_project_hints(
+    tmp_path: Path,
+) -> None:
+    """Back-compat path remains the seed file directory."""
+    seed_file = tmp_path / "seeds" / "seed.yaml"
+    seed_file.parent.mkdir()
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    seed = Seed.from_dict(VALID_SEED_DATA)
+
+    assert (
+        _resolve_cli_project_dir(seed, seed_file, seed_data=VALID_SEED_DATA)
+        == seed_file.parent.resolve()
+    )
+
+
+def test_resolve_cli_project_dir_keeps_seed_relative_metadata_project_dir(
+    tmp_path: Path,
+) -> None:
+    """metadata.project_dir keeps working with the existing seed-relative behavior."""
+    seed_file = tmp_path / "seeds" / "seed.yaml"
+    seed_file.parent.mkdir()
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    seed_data = {
+        **VALID_SEED_DATA,
+        "metadata": {**VALID_SEED_DATA["metadata"], "project_dir": "repo-root"},
+    }
+    seed = Seed.from_dict(seed_data)
+
+    assert (
+        _resolve_cli_project_dir(seed, seed_file, seed_data=seed_data)
+        == (seed_file.parent / "repo-root").resolve()
+    )
+
+
+@pytest.mark.parametrize("metadata_field", ["project_dir", "working_directory"])
+def test_resolve_cli_project_dir_rejects_raw_metadata_project_escape(
+    tmp_path: Path, metadata_field: str
+) -> None:
+    """Raw metadata project fields must not silently fall back after rejection."""
+    seed_file = tmp_path / "seeds" / "seed.yaml"
+    seed_file.parent.mkdir()
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    outside_project = tmp_path / "outside-project"
+    seed_data = {
+        **VALID_SEED_DATA,
+        "metadata": {
+            **VALID_SEED_DATA["metadata"],
+            metadata_field: str(outside_project),
+        },
+    }
+    seed = Seed.from_dict(seed_data)
+
+    with patch("ouroboros.cli.commands.run.print_error") as mock_print:
+        with pytest.raises(typer.Exit) as exc_info:
+            _resolve_cli_project_dir(seed, seed_file, seed_data=seed_data)
+
+    assert exc_info.value.exit_code == 1
+    assert mock_print.call_count == 1
+    assert "escapes" in mock_print.call_args[0][0]
+
+
+def test_resolve_cli_project_dir_uses_parent_when_context_reference_is_file(
+    tmp_path: Path,
+) -> None:
+    """A primary file reference should not become the runtime cwd itself."""
+    seed_file = tmp_path / "seed-library" / "seed.yaml"
+    seed_file.parent.mkdir()
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    target_dir = tmp_path / "work" / "myproject"
+    target_dir.mkdir(parents=True)
+    source_file = target_dir / "src" / "main.py"
+    source_file.parent.mkdir()
+    source_file.write_text("print('hi')\n", encoding="utf-8")
+    seed_data = {
+        **VALID_SEED_DATA,
+        "brownfield_context": {
+            "project_type": "brownfield",
+            "target_dir": str(target_dir),
+            "context_references": [
+                {"path": "src/main.py", "role": "primary", "summary": "target file"},
+            ],
+        },
+    }
+    seed = Seed.from_dict(seed_data)
+
+    assert (
+        _resolve_cli_project_dir(seed, seed_file, seed_data=seed_data)
+        == source_file.parent.resolve()
+    )
+
+
+def test_resolve_fat_harness_mode_defaults_to_disabled() -> None:
+    """Fresh runs use the default runner unless the seed opts into fat-harness."""
+    assert _resolve_fat_harness_mode(VALID_SEED_DATA) is False
 
 
 def test_resolve_fat_harness_mode_accepts_fat_harness_execution_mode() -> None:
@@ -113,12 +251,12 @@ def test_resolve_resume_fat_harness_mode_uses_persisted_contract() -> None:
     assert _resolve_resume_fat_harness_mode(seed_data, {"fat_harness_mode": False}) is False
 
 
-def test_resolve_resume_fat_harness_mode_migrates_missing_contract_conservatively() -> None:
-    """Only explicit historical legacy selectors resume ungated when contract is absent."""
-    legacy_seed = {**VALID_SEED_DATA, "orchestrator": {"execution_mode": "legacy"}}
+def test_resolve_resume_fat_harness_mode_migrates_missing_contract_to_default_runner() -> None:
+    """Only explicit fat-harness selectors resume with verifier-gated acceptance."""
+    fat_harness_seed = {**VALID_SEED_DATA, "orchestrator": {"execution_mode": "fat_harness"}}
 
-    assert _resolve_resume_fat_harness_mode(legacy_seed, {}) is False
-    assert _resolve_resume_fat_harness_mode(VALID_SEED_DATA, {}) is True
+    assert _resolve_resume_fat_harness_mode(fat_harness_seed, {}) is True
+    assert _resolve_resume_fat_harness_mode(VALID_SEED_DATA, {}) is False
 
 
 def test_resolve_max_decomposition_depth_defaults_to_two(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -306,12 +444,12 @@ async def test_run_orchestrator_passes_resolved_execution_caps_to_runner(tmp_pat
 
     assert mock_runner_cls.call_args.kwargs["max_decomposition_depth"] == 3
     assert mock_runner_cls.call_args.kwargs["max_parallel_workers"] == 7
-    assert mock_runner_cls.call_args.kwargs["fat_harness_mode"] is True
+    assert mock_runner_cls.call_args.kwargs["fat_harness_mode"] is False
 
 
 @pytest.mark.asyncio
-async def test_run_orchestrator_passes_default_fat_harness_mode_to_runner(tmp_path: Path) -> None:
-    """The default #920 PR-5 path selects fat-harness without seed opt-in."""
+async def test_run_orchestrator_passes_default_runner_mode_to_runner(tmp_path: Path) -> None:
+    """The default path leaves fat-harness disabled unless the seed opts in."""
     seed_file = tmp_path / "seed.yaml"
     seed_file.write_text("goal: ignored\n", encoding="utf-8")
 
@@ -350,7 +488,7 @@ async def test_run_orchestrator_passes_default_fat_harness_mode_to_runner(tmp_pa
         mock_event_store_cls.return_value.initialize = AsyncMock()
         await _run_orchestrator(seed_file)
 
-    assert mock_runner_cls.call_args.kwargs["fat_harness_mode"] is True
+    assert mock_runner_cls.call_args.kwargs["fat_harness_mode"] is False
 
 
 @pytest.mark.asyncio
@@ -456,6 +594,10 @@ async def test_run_orchestrator_uses_seed_relative_project_dir_for_runtime_and_q
     seed_dir.mkdir()
     seed_file = seed_dir / "seed.yaml"
     seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    # The fixture seed declares ``context_references[0].path = "repo-root"``;
+    # after the central-seed cwd fix the resolver requires reference candidates
+    # to exist on disk, so materialize the target directory.
+    (seed_dir / "repo-root").mkdir()
     expected_project_dir = (seed_dir / "repo-root").resolve()
 
     fake_exec = SimpleNamespace(
@@ -542,3 +684,187 @@ async def test_run_orchestrator_falls_back_when_artifact_generation_fails(tmp_pa
     qa_args = mock_qa_handle.call_args.args[0]
     assert qa_args["artifact"] == "Parallel Execution Verification Report"
     assert qa_args["reference"] == "Verification artifact generation failed: boom"
+
+
+# ---------------------------------------------------------------------------
+# Project-root detection (central seed cwd resolution)
+# ---------------------------------------------------------------------------
+
+
+class TestDetectProjectRootFromSeedPath:
+    """Tests for ouroboros.cli.commands.run._detect_project_root_from_seed_path."""
+
+    def test_returns_root_when_seed_lives_under_dot_ouroboros_seeds(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Central seeds at ``<root>/.ouroboros/seeds/seed.yaml`` resolve to ``<root>``."""
+        from ouroboros.cli.commands.run import _detect_project_root_from_seed_path
+
+        root = tmp_path / "project"
+        seeds_dir = root / ".ouroboros" / "seeds"
+        seeds_dir.mkdir(parents=True)
+        seed_file = seeds_dir / "seed.yaml"
+        seed_file.write_text("goal: x")
+
+        assert _detect_project_root_from_seed_path(seed_file) == root.resolve()
+
+    def test_returns_none_when_no_marker_found(self, tmp_path: Path) -> None:
+        from ouroboros.cli.commands.run import _detect_project_root_from_seed_path
+
+        seed_file = tmp_path / "seed.yaml"
+        seed_file.write_text("goal: x")
+
+        assert _detect_project_root_from_seed_path(seed_file) is None
+
+    def test_respects_max_levels_bound(self, tmp_path: Path) -> None:
+        """The walk is bounded so deeply nested seeds without a marker terminate."""
+        from ouroboros.cli.commands.run import _detect_project_root_from_seed_path
+
+        deep = tmp_path
+        for level in range(8):
+            deep = deep / f"l{level}"
+        deep.mkdir(parents=True)
+        seed_file = deep / "seed.yaml"
+        seed_file.write_text("goal: x")
+
+        # marker only at tmp_path (9 levels up); max_levels=6 must give up
+        (tmp_path / ".ouroboros").mkdir()
+        assert _detect_project_root_from_seed_path(seed_file, max_levels=6) is None
+
+    def test_finds_marker_within_bound(self, tmp_path: Path) -> None:
+        from ouroboros.cli.commands.run import _detect_project_root_from_seed_path
+
+        root = tmp_path / "p"
+        (root / ".ouroboros").mkdir(parents=True)
+        nested = root / ".ouroboros" / "seeds" / "extra"
+        nested.mkdir(parents=True)
+        seed_file = nested / "seed.yaml"
+        seed_file.write_text("goal: x")
+
+        assert _detect_project_root_from_seed_path(seed_file) == root.resolve()
+
+
+class TestResolveCliProjectDirForCentralSeed:
+    """End-to-end: central seed with only context_references must not yield a file cwd."""
+
+    def test_central_seed_with_reference_only_returns_project_root(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Reproduces #978/#920 observation blocker on fresh worktree.
+
+        Seed lives at ``<root>/.ouroboros/seeds/seed.yaml`` and declares a
+        primary brownfield reference pointing at a file that does **not**
+        exist relative to the seed's parent. Pre-fix this returned
+        ``<root>/.ouroboros/seeds/<reference.path>`` — a non-existent
+        join — as the runtime cwd. Post-fix the resolver:
+
+        1. detects the project root via the ``.ouroboros/`` marker so the
+           stable_base is ``<root>``, not ``<root>/.ouroboros/seeds``;
+        2. when the reference still does not resolve to an existing path
+           under that root, falls through to the detected root instead of
+           returning a synthetic join.
+        """
+        root = tmp_path / "project"
+        (root / ".ouroboros" / "seeds").mkdir(parents=True)
+        # Intentionally do NOT create the events.py reference target —
+        # this is the regression case where the resolver previously
+        # synthesized a non-existent file path as runtime cwd.
+
+        seed_file = root / ".ouroboros" / "seeds" / "seed_central.yaml"
+        seed_file.write_text("goal: dummy")
+
+        seed = SimpleNamespace(
+            metadata=None,
+            brownfield_context=SimpleNamespace(
+                context_references=[
+                    SimpleNamespace(path="src/ouroboros/events.py", role="primary"),
+                ],
+            ),
+        )
+
+        resolved = _resolve_cli_project_dir(seed, seed_file, seed_data={})
+
+        assert resolved == root.resolve()
+        # Hard regression guard: never return a path under .ouroboros/seeds/.
+        assert ".ouroboros/seeds" not in str(resolved)
+
+    def test_central_seed_with_existing_file_reference_returns_project_root(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Existing file references must not pull cwd into a subdirectory.
+
+        Pre-fix the resolver accepted any existing ``context_references[].path``
+        and let ``_directory_for_runtime`` collapse it to its parent. For a
+        central seed at ``<root>/.ouroboros/seeds/seed.yaml`` with a reference
+        to ``src/ouroboros/core/project_paths.py`` this returned
+        ``<root>/src/ouroboros/core`` as runtime cwd, so the task workspace,
+        agent execution, and post-run verification all ran from the wrong
+        directory. Post-fix the detected project root wins over heuristic
+        file-reference collapse for central seeds.
+        """
+        root = tmp_path / "project"
+        seeds_dir = root / ".ouroboros" / "seeds"
+        seeds_dir.mkdir(parents=True)
+        # Create the existing file the reference points at — this is the
+        # boundary the previous behavior mis-handled.
+        source_file = root / "src" / "ouroboros" / "core" / "project_paths.py"
+        source_file.parent.mkdir(parents=True)
+        source_file.write_text("# stub\n", encoding="utf-8")
+
+        seed_file = seeds_dir / "seed_central.yaml"
+        seed_file.write_text("goal: dummy")
+
+        seed = SimpleNamespace(
+            metadata=None,
+            brownfield_context=SimpleNamespace(
+                context_references=[
+                    SimpleNamespace(
+                        path="src/ouroboros/core/project_paths.py",
+                        role="primary",
+                    ),
+                ],
+            ),
+        )
+
+        resolved = _resolve_cli_project_dir(seed, seed_file, seed_data={})
+
+        assert resolved == root.resolve()
+        # Hard regression guard: cwd must never collapse into a file's parent
+        # when the detected project root is available.
+        assert resolved != source_file.parent.resolve()
+
+
+class TestResolveCliProjectDirForNonCentralSeed:
+    """Non-central seeds must not adopt project-root detection from an unrelated ``.ouroboros/``."""
+
+    def test_example_seed_under_project_with_dot_ouroboros_uses_seed_parent(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """A seed under ``examples/`` must resolve next to itself, not at repo root.
+
+        Without this scoping, any seed living inside a project tree whose root
+        contains ``.ouroboros/`` (e.g. running ``ooo run examples/dummy_seed.yaml``
+        from inside the Ouroboros repo) would have its runtime cwd silently
+        rewritten to the repository root. That would make example/local seeds
+        create or verify files at the wrong location.
+        """
+        from ouroboros.cli.commands.run import _resolve_cli_project_dir
+
+        repo_root = tmp_path / "repo"
+        # Marker dir exists, but seed does not live under .ouroboros/seeds/.
+        (repo_root / ".ouroboros").mkdir(parents=True)
+        examples_dir = repo_root / "examples"
+        examples_dir.mkdir()
+        seed_file = examples_dir / "dummy_seed.yaml"
+        seed_file.write_text("goal: dummy")
+
+        seed = SimpleNamespace(metadata=None, brownfield_context=None)
+
+        resolved = _resolve_cli_project_dir(seed, seed_file, seed_data={})
+
+        assert resolved == examples_dir.resolve()
+        assert resolved != repo_root.resolve()

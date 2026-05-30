@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractBaseUser
@@ -22,6 +23,7 @@ from oauthlib.oauth2.rfc8628.errors import (
 from allauth.account.adapter import get_adapter as get_account_adapter
 from allauth.account.internal.userkit import str_to_user_id, user_id_to_str
 from allauth.core.internal.cryptokit import compare_user_code
+from allauth.idp.oidc.internal.oauthlib.utils import get_validator_context
 from allauth.idp.oidc.models import Client
 
 
@@ -33,7 +35,8 @@ def cache_device_code_key(device_code: str) -> str:
     return f"allauth.idp.oidc.device_code[{device_code}]"
 
 
-def create(client_id: str, scope: list[str] | None, data: dict) -> None:
+def create(client_id: str, scope: list[str] | None, data: dict[str, Any]) -> None:
+    ctx = get_validator_context()
     cache.set(
         cache_user_code_key(data["user_code"]),
         data["device_code"],
@@ -48,6 +51,7 @@ def create(client_id: str, scope: list[str] | None, data: dict) -> None:
             "client_id": client_id,
             "scope": scope,
             "device": data,
+            "resources": ctx.requested_resources,
         },
         timeout=data["expires_in"],
     )
@@ -63,7 +67,7 @@ def lookup_client(client_id: str) -> Client | None:
 
 
 def validate_user_code(code: str) -> tuple[str, Client]:
-    data: dict | None = None
+    data: dict[str, Any] | None = None
     device_code = cache.get(cache_user_code_key(code))
     if device_code:
         data = cache.get(cache_device_code_key(device_code))
@@ -90,7 +94,7 @@ def confirm_or_deny_device_code(
     return update_device_state(device_code, data)
 
 
-def update_device_state(device_code: str, data: dict) -> bool:
+def update_device_state(device_code: str, data: dict[str, Any]) -> bool:
     timeout = int(data["expires_at"] - time.time())
     if timeout < 0:
         return False
@@ -100,7 +104,7 @@ def update_device_state(device_code: str, data: dict) -> bool:
 
 def poll_device_code(
     request: HttpRequest,
-) -> tuple[AbstractBaseUser, dict]:
+) -> tuple[AbstractBaseUser, dict[str, Any]]:
     client_id = request.POST.get("client_id")
     device_code = request.POST.get("device_code")
     if not client_id or not device_code:
@@ -130,4 +134,6 @@ def poll_device_code(
     user = get_user_model().objects.filter(pk=str_to_user_id(data["user"])).first()
     if user is None or not user.is_active:
         raise AccessDenied
+    ctx = get_validator_context()
+    ctx.granted_resources = data["resources"]
     return user, data

@@ -1,14 +1,12 @@
 ''' Timing Diagrams, based on WaveJSON format '''
 
 from __future__ import annotations
-from typing import Any
 import re
 import io
 import ast
 import tokenize
 import math
 import copy
-from contextlib import suppress
 from collections import namedtuple, ChainMap
 
 from ..elements import Element
@@ -17,22 +15,38 @@ from ..backends.svg import text_size
 from ..types import BBox
 from ..util import Point
 from ..style import validate_color, validate_linestyle
-from .timingwaves import Wave0, Wave1, WaveL, WaveH, Wavez, WaveV, WaveU, WaveD, WaveClk, getsplit
+from .timingwaves import (
+    Wave0, Wave1, WaveL, WaveH, Wavez,
+    WaveV, WaveU, WaveD, WaveC, WaveCbar,
+    WaveClk, WaveQ, WaveE, WaveW, getsplit
+    )
 
 LabelInfo = namedtuple('LabelInfo', ['name', 'row', 'height', 'level'])
 
 PTS_TO_UNITS = 2/72
 
 
-def state_level(state: str, ud: bool = False, np: bool = False) -> str:
+def state_level(state: str, prev: bool = False) -> str:
     ''' Get level of wave state (0, 1, V, z, -) '''
-    state = re.sub(r'[2-9]|\=|x', 'V', state)
-    state = re.sub('u', '1', state)
-    state = re.sub('d', '0', state)
-    state = re.sub('n|N', '1', state)
-    state = re.sub('p|P', '0', state)
-    state = re.sub('l|L', '0', state)
-    state = re.sub('h|H', '1', state)
+    if state in 'c' and prev:
+        return '0'
+    if state in 'c':
+        return '1'
+    if state in 'C' and prev:
+        return '1'
+    if state in 'C':
+        return '0'
+
+    if state in '23456789=xb':
+        return 'V'  # Low and High
+    if state in '1unNhHQw':
+        return '1'
+    if state in '0dpPlLqW':
+        return '0'
+    if state in 'e':
+        return '-'
+    if state in 'z-':
+        return state
     return state
 
 
@@ -56,9 +70,9 @@ def get_nrows(sig) -> int:
     ''' Get the number of signal rows in the signal list '''
     if isinstance(sig, dict):
         return 1
-    elif isinstance(sig[0], list):
+    if isinstance(sig[0], list):
         return sum(map(get_nrows, sig[0]))
-    elif isinstance(sig[0], str):
+    if isinstance(sig[0], str):
         return sum(map(get_nrows, sig[1:]))
     return 0
 
@@ -67,22 +81,22 @@ def getlabels(sig, row: int = 0, level: int = 0) -> list[LabelInfo]:
     ''' Get a list of group label info '''
     if isinstance(sig, dict) or sig == []:
         return []
-    elif all(isinstance(s, dict) for s in sig):
+    if all(isinstance(s, dict) for s in sig):
         return []
-    elif isinstance(sig[0], str):
+    if isinstance(sig[0], str):
         lbl = [LabelInfo(sig[0], row, get_nrows(sig), level)]
         n = 0
         for s in sig[1:]:
             lbl.extend(getlabels(s, row=row+n, level=level+1))
             n += get_nrows(s)
         return lbl
-    else:
-        lbl = []
-        n = 0
-        for s in sig:
-            lbl.extend(getlabels(s, row=row+n, level=level+1))
-            n += get_nrows(s)
-        return lbl
+
+    lbl = []
+    n = 0
+    for s in sig:
+        lbl.extend(getlabels(s, row=row+n, level=level+1))
+        n += get_nrows(s)
+    return lbl
 
 
 class TimingDiagram(Element):
@@ -107,6 +121,7 @@ class TimingDiagram(Element):
             ygap: Separation between two waveforms
             risetime: Rise/fall time for wave transitions
             fontsize: Size of label fonts
+            datafontsize: Size of data font
             nodesize: Size of node labels
             namecolor: Color for wave names
             datacolor: Color for wave data text
@@ -129,20 +144,32 @@ class TimingDiagram(Element):
                    'p': WaveClk,
                    'N': WaveClk,
                    'P': WaveClk,
+                   'c': WaveC,
+                   'C': WaveCbar,
+                   'Q': WaveQ,
+                   'q': WaveQ,
+                   'b': WaveQ,
+                   'e': WaveE,
+                   'w': WaveW,
+                   'W': WaveW,
                    }
     _element_defaults = {
         'yheight': 0.5,
         'ygap': 0.3,
         'risetime': 0.15,
         'fontsize': 12,
+        'datafontsize': 11,
         'nodesize': 8,
         'namecolor': 'blue',
         'datacolor': None,  # Inherit
         'nodecolor': None,  # Inherit
         'gridcolor': '#DDDDDD',
+        'gridlw': 1,
+        'gridls': ':',
         'edgecolor': 'blue',
         'tickcolor': '#888888',
         'grid': True,
+        'nodealign': 'signal'  # 'signal' or 'clock'
     }
     def __init__(self, waved: dict, **kwargs):
         super().__init__(**kwargs)
@@ -151,11 +178,15 @@ class TimingDiagram(Element):
         self.ygap = self.params['ygap']
         self.risetime = self.params['risetime']
         self.fontsize = self.params['fontsize']
+        self.datasize = self.params['datafontsize']
         self.nodesize = self.params['nodesize']
+        self.nodealign = self.params['nodealign']
         self.namecolor = self.params['namecolor']
         self.datacolor = self.params['datacolor']  # default: get color from theme
         self.nodecolor = self.params['nodecolor']
         self.gridcolor = self.params['gridcolor']
+        self.gridlw = self.params['gridlw']
+        self.gridls = self.params['gridls']
         self.edgecolor = self.params['edgecolor']
         self.tickcolor = self.params['tickcolor']
         validate_color(self.namecolor)
@@ -199,12 +230,15 @@ class TimingDiagram(Element):
 
             if 'async' in signal:
                 self._drawasync(signal, y0)
+            elif 'wave' not in signal:
+                self._drawdata(signal, y0, periods)
             else:
-                self._drawwave(signal, y0=y0)
+                self._drawwave(signal, y0=y0, periods=periods)
             self._drawnodes(signal, y0=y0)
             y0 -= (self.yheight+self.ygap)
 
         self._drawedges()
+        self._drawshading(periods, len(signals_flat))
         self._drawgroups(signals, labelwidth)
 
         if head:
@@ -249,7 +283,7 @@ class TimingDiagram(Element):
             self.segments.append(
                 Segment([(p*2*self.yheight*self.hscale, self.yheight+self.ygap/2),
                          (p*2*self.yheight*self.hscale, self.yheight-height)],
-                        ls=':', lw=1, color=self.gridcolor, zorder=0))
+                        ls=self.gridls, lw=self.gridlw, color=self.gridcolor, zorder=0))
 
     def _drawname(self, name, y0):
         ''' Draw name of one wave. Returns calculated unit width of the string. '''
@@ -259,7 +293,7 @@ class TimingDiagram(Element):
                         fontsize=self.fontsize, color=self.namecolor))
         return text_size(name, size=self.fontsize)[0] * PTS_TO_UNITS
 
-    def _drawwave(self, signal, y0=0):
+    def _drawwave(self, signal, y0=0, periods=1):
         ''' Draw one wave.
 
             Args:
@@ -268,24 +302,45 @@ class TimingDiagram(Element):
         '''
         wave = signal.get('wave', '')
         phase = signal.get('phase', 0)
-        waverise = signal.get('risetime', None)
+        level = signal.get('level', '0')
+        datasize = signal.get('fontsize', self.datasize)
+        waverise = signal.get('risetime', self.risetime)
         wavekwargs = ChainMap({'color': signal.get('color', None),
                                'lw': signal.get('lw', 1),
                                'clip': self.kwargs.get('clip')})
         data = copy.copy(signal.get('data', []))
-        if not isinstance(data, list):
-            data = data.split()  # Sometimes it's a space-separated string...
+        if isinstance(data, str):
+            if data.startswith('{'):
+                data = data[1:-1].replace(',', ' ').split()
+                data = (data * periods)[:periods]
+            else:
+                data = data.split()
+
+        if len(level) == 1:
+            level = level * len(wave)
+        elif len(level) != len(wave):
+            level += level[-1]*(len(wave)-len(level))
 
         period = 2*self.yheight*signal.get('period', 1) * self.hscale
-        y1 = y0 + self.yheight
+        signal_height = self.yheight
         i = 0
         pstate = '-'
+        y1_prev = y0 + signal_height
 
         x = -period*phase
         while i < len(wave):
             state = wave[i]
             splits = []
             periods = 1
+
+            try:
+                signal_height = int(level[i])/10 * self.yheight
+            except ValueError:
+                pass  # Keep height the same
+            else:
+                if signal_height == 0:
+                    signal_height = self.yheight
+
             k = i+1
             while k < len(wave) and wave[k] in '|.':
                 if wave[k] == '|':
@@ -294,21 +349,24 @@ class TimingDiagram(Element):
                 k += 1
             nstate = wave[k] if k < len(wave) else '-'
 
+            y1 = y0 + signal_height
             xend = x+periods*period
             params = {'state': state,
                       'pstate': pstate,
                       'nstate': nstate,
-                      'plevel': state_level(pstate),
-                      'nlevel': state_level(nstate),
+                      'plevel': state_level(pstate, prev=True),
+                      'nlevel': state_level(nstate, prev=False),
                       'periods': periods,
                       'period': period,
                       'x0': x,
                       'xend': xend,
                       'y0': y0,
                       'y1': y1,
-                      'rise': waverise if waverise is not None else self.risetime,
+                      'y1_prev': y1_prev,
+                      'rise': waverise,
                       'data': data,
                       'datacolor': self.datacolor,
+                      'datasize': datasize,
                       'kwargs': wavekwargs}
 
             wavecls = self._wavelookup.get(state, WaveV)
@@ -319,6 +377,7 @@ class TimingDiagram(Element):
                     getsplit(x + (split+1)*period-period/2, y0, y1))
 
             pstate = state
+            y1_prev = y1
             x += periods*period
             i = k
 
@@ -331,11 +390,10 @@ class TimingDiagram(Element):
         '''
         times = signal.get('async', '')
         wave = signal.get('wave', '')
-        waverise = signal.get('risetime', None)
+        waverise = signal.get('risetime', self.risetime)
         wavekwargs = ChainMap({'color': signal.get('color', None),
-                               'lw': signal.get('lw', 1), 
+                               'lw': signal.get('lw', 1),
                                'clip': self.kwargs.get('clip')})
-        rise = waverise if waverise is not None else self.risetime
 
         data = copy.copy(signal.get('data', []))
         if not isinstance(data, list):
@@ -349,25 +407,24 @@ class TimingDiagram(Element):
         period = 2*self.yheight*signal.get('period', 1) * self.hscale
         y1 = y0 + self.yheight
         pstate = '-'
-        for i in range(len(wave)):
-            state = wave[i]
+        for i, state in enumerate(wave):
             t0 = times[i]
             t1 = times[i+1]
-            nstate = wave[i+1] if i<len(wave)-1 else '-'
+            nstate = wave[i+1] if i < len(wave)-1 else '-'
             x = t0*period
             xend = t1*period
             params = {'state': state,
                       'pstate': pstate,
                       'nstate': nstate,
-                      'plevel': state_level(pstate),
-                      'nlevel': state_level(nstate),
+                      'plevel': state_level(pstate, prev=True),
+                      'nlevel': state_level(nstate, prev=False),
                       'periods': 0,
                       'period': period,
                       'x0': x,
                       'xend': xend,
                       'y0': y0,
                       'y1': y1,
-                      'rise': rise,
+                      'rise': waverise,
                       'data': data,
                       'datacolor': self.datacolor,
                       'kwargs': wavekwargs}
@@ -376,6 +433,28 @@ class TimingDiagram(Element):
             self.segments.extend(wavecls(params).segments())
             x = xend
             pstate = state
+
+    def _drawdata(self, signal, y0, periods):
+        ''' Draw data only '''
+        period = 2*self.yheight*signal.get('period', 1) * self.hscale
+        phase = signal.get('phase', 0)
+        fontsize = signal.get('fontsize', self.datasize)
+        data = signal.get('data', [])
+        if isinstance(data, str):
+            if data.startswith('{'):
+                data = data[1:-1].replace(',', ' ').split()
+                data = (data * periods)[:periods]
+            else:
+                data = data.split()
+
+        for i, data in enumerate(data):
+            x = (i + 0.5) * period + period*phase
+            self.segments.append(SegmentText(
+                (x, y0),
+                data,
+                color=self.params['datacolor'],
+                fontsize=fontsize,
+                align=('center', 'bottom')))
 
     def _drawnodes(self, signal, y0):
         ''' Draw nodes (labels along the wave) and define anchors for each
@@ -386,6 +465,7 @@ class TimingDiagram(Element):
         '''
         nodes = signal.get('node', '')
         phase = signal.get('phase', 0)
+        nodealign = signal.get('nodealign', self.nodealign)
         period = 2*self.yheight*signal.get('period', 1) * self.hscale
 
         y1 = y0 + self.yheight
@@ -395,7 +475,9 @@ class TimingDiagram(Element):
             w, h, _ = text_size(node, size=self.nodesize)
             w, h = w*PTS_TO_UNITS*2.5, h*PTS_TO_UNITS*2.5
             ycenter = (y0+y1)/2
-            xnode = j*period + self.risetime/2 - period*phase
+            xnode = j*period - period*phase
+            if nodealign == 'signal':
+                xnode += self.risetime/2
             if not node.isupper():  # Only uppercase nodes and symbols are drawn
                 self.segments.append(SegmentPoly([(xnode-w/2, ycenter-h/2), (xnode-w/2, ycenter+h/2),
                                                   (xnode+w/2, ycenter+h/2), (xnode+w/2, ycenter-h/2)],
@@ -407,6 +489,7 @@ class TimingDiagram(Element):
 
     def _drawedges(self):
         edges = self.wave.get('edge', [])  # type: ignore
+        signal = self.wave.get('signal', [])
         chrrad = self.nodesize / 60
         caplen = .1
         period = 2*self.yheight * self.hscale
@@ -423,10 +506,13 @@ class TimingDiagram(Element):
                 mode = edge[1:-1]
                 p0 = Point(self.anchors[f'node_{edge[0]}'])
                 pn = Point(self.anchors[f'node_{edge[-1]}'])
+                chrrad1 = 0 if edge[0].isupper() else chrrad
+                chrrad2 = 0 if edge[-1].isupper() else chrrad
 
             else:
                 # Extended node naming - [WaveNumber:Xposition]
                 assert len(nodes) == 2
+                chrrad1 = chrrad2 = 0
                 mode = re.subn(r'\[(.+?)\]', '', edge)[0]
                 endpoints = []
                 for node in nodes:
@@ -439,9 +525,19 @@ class TimingDiagram(Element):
                         ofst = -caplen*2
                     nodewave = nodewave.replace('^', '').replace('v', '')
                     wavenum = int(nodewave)
+                    try:
+                        phase = signal[wavenum].get('phase', 0)
+                        nodealign = signal[wavenum].get('nodealign', self.nodealign)
+                    except IndexError:
+                        phase = 0
+                        nodealign = self.nodealign
+
+                    nodex = nodet*period - period*phase
+                    if nodealign == 'signal':
+                        nodex += self.risetime/2
                     endpoints.append(
-                        Point((nodet*period+self.risetime/2,
-                               -wavenum*(self.yheight + self.ygap) + ofst)))
+                        Point((nodex, -wavenum*(self.yheight + self.ygap) + ofst))
+                    )
                 p0, pn = endpoints
 
             color = self.edgecolor
@@ -466,8 +562,8 @@ class TimingDiagram(Element):
             if mode == '-':  # Straight line
                 center = Point(((p0.x+pn.x)/2, (p0.y+pn.y)/2))
                 th0 = math.atan2((pn.y-p0.y), (pn.x-p0.x))
-                p0 = Point((p0.x + chrrad * math.cos(th0), p0.y + chrrad * math.sin(th0)))
-                pn = Point((pn.x - chrrad * math.cos(th0), pn.y - chrrad * math.sin(th0)))
+                p0 = Point((p0.x + chrrad1 * math.cos(th0), p0.y + chrrad1 * math.sin(th0)))
+                pn = Point((pn.x - chrrad2 * math.cos(th0), pn.y - chrrad2 * math.sin(th0)))
                 self.segments.append(Segment([p0, pn], lw=1, ls=ls, color=color,
                                              arrow=arrow, zorder=3))
 
@@ -486,8 +582,8 @@ class TimingDiagram(Element):
                 center = Point((p0.x, (p0.y+pn.y)/2))
                 dy = 1 if p0.y > pn.y else -1
                 dx = 1 if p0.x < pn.x else -1
-                p0 = p0 - Point((0, chrrad*dy))
-                pn = pn - Point((chrrad*dx, 0))
+                p0 = p0 - Point((0, chrrad1*dy))
+                pn = pn - Point((chrrad2*dx, 0))
                 p1 = Point((p0.x, pn.y))
                 self.segments.append(Segment((p0, p1, pn), lw=1, ls=ls, color=color, zorder=3, arrow=arrow))
 
@@ -495,8 +591,8 @@ class TimingDiagram(Element):
                 center = Point((pn.x, (p0.y+pn.y)/2))
                 dy = -1 if p0.y > pn.y else 1
                 dx = -1 if p0.x < pn.x else 1
-                p0 = p0 - Point((chrrad*dx, 0))
-                pn = pn - Point((0, chrrad*dy))
+                p0 = p0 - Point((chrrad1*dx, 0))
+                pn = pn - Point((0, chrrad2*dy))
                 p1 = Point((pn.x, p0.y))
                 self.segments.append(Segment((p0, p1, pn), lw=1, ls=ls, color=color, arrow=arrow, zorder=3))
 
@@ -506,13 +602,13 @@ class TimingDiagram(Element):
                 p0 = p0 + Point((chrrad*dx, 0))
                 p1 = Point((center.x, p0.y))
                 p2 = Point((center.x, pn.y))
-                pn = pn - Point((chrrad*dx, 0))
+                pn = pn - Point((chrrad1*dx, 0))
                 self.segments.append(Segment((p0, p1, p2, pn), lw=1, ls=ls, color=color, arrow=arrow, zorder=3))
 
             elif mode == '~':  # S-curve, start and end horizontally
                 center = Point(((p0.x+pn.x)/2, (p0.y+pn.y)/2))
-                p0 = p0 + Point((chrrad, 0))
-                p3 = pn - Point((chrrad, 0))
+                p0 = p0 + Point((chrrad1, 0))
+                p3 = pn - Point((chrrad2, 0))
                 dx = p3.x - p0.x
                 p1 = p0 + Point((dx*.6, 0))
                 p2 = p3 - Point((dx*.6, 0))
@@ -525,8 +621,8 @@ class TimingDiagram(Element):
                 p1 = p0 + Point((dx*.7, 0))
                 th0 = math.atan2((p1.y-p0.y), (p1.x-p0.x))
                 th2 = math.atan2((p1.y-pn.y), (p1.x-pn.x))
-                p0 = Point((p0.x + chrrad * math.cos(th0), p0.y + chrrad * math.sin(th0)))
-                pn = Point((pn.x - chrrad * math.cos(th0), pn.y + chrrad * math.sin(th2)))
+                p0 = Point((p0.x + chrrad1 * math.cos(th0), p0.y + chrrad1 * math.sin(th0)))
+                pn = Point((pn.x - chrrad2 * math.cos(th0), pn.y + chrrad2 * math.sin(th2)))
                 self.segments.append(SegmentBezier(
                     [p0, p1, pn], lw=1, ls=ls, color=color, arrow=arrow, zorder=3))
 
@@ -536,21 +632,16 @@ class TimingDiagram(Element):
                 p1 = pn - Point((dx*.6, 0))
                 th0 = math.atan2((p1.y-p0.y), (p1.x-p0.x))
                 th2 = math.atan2((p1.y-pn.y), (p1.x-pn.x))
-                p0 = Point((p0.x + chrrad * math.cos(th0), p0.y + chrrad * math.sin(th0)))
-                pn = Point((pn.x + chrrad * math.cos(th2), pn.y + chrrad * math.sin(th2)))
+                p0 = Point((p0.x + chrrad1 * math.cos(th0), p0.y + chrrad1 * math.sin(th0)))
+                pn = Point((pn.x + chrrad2 * math.cos(th2), pn.y + chrrad2 * math.sin(th2)))
                 self.segments.append(SegmentBezier(
                     [p0, p1, pn], lw=1, ls=ls, color=color, arrow=arrow, zorder=3))
 
             if label:
-                w, h, _ = text_size(label, size=self.nodesize)
-                w, h = w*PTS_TO_UNITS*1.5, h*PTS_TO_UNITS*1.5
-                self.segments.append(SegmentPoly([(center.x-w/2, center.y-h/2),
-                                                  (center.x-w/2, center.y+h/2),
-                                                  (center.x+w/2, center.y+h/2),
-                                                  (center.x+w/2, center.y-h/2)],
-                                     color='none', fill='bg', zorder=4))
                 self.segments.append(SegmentText(center, label, fontsize=self.nodesize,
-                                                 color=self.nodecolor, align=('center', 'center'),
+                                                 color=self.nodecolor,
+                                                 bgcolor='bg',
+                                                 align=('center', 'center'),
                                                  zorder=4))
 
     def _drawgroups(self, signals, labelwidth):
@@ -577,6 +668,46 @@ class TimingDiagram(Element):
                 SegmentText((xtext, ycenter), label.name, rotation=90,
                             align=('center', 'bottom'), color=self.namecolor,
                             fontsize=self.fontsize))
+
+    def _drawshading(self, periods, nsignals):
+        ''' Draw shading under certain periods '''
+        shading = self.wave.get('shade', [])
+        width = 2*self.yheight*self.hscale
+        signal_height = self.yheight + self.ygap
+        pad = .1
+
+        for shade in shading:
+            # Each item is a string with three values
+            # designating periods (x), signals (y), and color
+            try:
+                p, signals, color = shade.strip().split()
+            except ValueError as exc:
+                raise ValueError('shade string must have three values: periods, signals, color') from exc
+
+            validate_color(color)
+
+            for i in range(periods):
+                if str(i) in p.split(',') or (p == 'even' and i % 2 == 0) or (p == 'odd' and i % 2 != 0):
+
+                    x0 = i * width
+                    x1 = x0 + width
+                    if signals == '*':
+                        y0, y1 = self.yheight+pad, -signal_height * (nsignals-1) - pad
+                    else:
+
+                        try:
+                            sig1, sig2 = signals.split(':')
+                        except ValueError as exc:
+                            raise ValueError('shade signal be two signal number integers separated by colon, such as (0:2)') from exc
+                        y0 = self.yheight+pad -int(sig1) * signal_height
+                        y1 = -int(sig2) * signal_height - pad
+
+                    self.segments.append(
+                        SegmentPoly(((x0, y0), (x1, y0), (x1, y1), (x0, y1)),
+                                    color='none', fill=color,
+                                    zorder=0
+                            ))
+
 
     @classmethod
     def from_json(cls, wave: str, **kwargs):

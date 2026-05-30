@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tavily-cli
-Version: 0.1.2
+Version: 0.1.3
 Summary: CLI and agent tools for the Tavily API — search, extract, crawl, map, and research from the command line.
 Project-URL: Homepage, https://tavily.com
 Project-URL: Documentation, https://docs.tavily.com
@@ -23,7 +23,7 @@ Requires-Python: >=3.10
 Requires-Dist: click>=8.1.0
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: rich>=13.0.0
-Requires-Dist: tavily-python>=0.7.24
+Requires-Dist: tavily-python>=0.7.25
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0.0; extra == 'dev'
 Requires-Dist: ruff>=0.4.0; extra == 'dev'
@@ -63,6 +63,19 @@ pip install -e .
 ```
 
 ## Quick Start
+
+### Keyless mode
+
+`tvly search` and `tvly extract` work without an API key — try them right
+after installing. A fair-use rate-limit cap applies; when reached, the CLI
+prints a clear message with sign-up and continuation options. All other
+commands (`crawl`, `map`, `research`) require a key.
+
+```bash
+pip install tavily-cli
+tvly search "latest AI trends"
+tvly extract https://example.com
+```
 
 ### 1. Authenticate
 

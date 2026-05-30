@@ -53,7 +53,6 @@ from xdsl.dialects.builtin import (
 from xdsl.ir import Attribute, Data
 from xdsl.irdl import (
     AnyAttr,
-    AnyInt,
     AtMost,
     BaseAttr,
     ConstraintContext,
@@ -643,7 +642,7 @@ def test_tensor_constr():
     # int32 constraint with rank <= 3
     shape = ArrayOfConstraint(
         RangeLengthConstraint(
-            constraint=RangeOf(IntAttrConstraint(AnyInt())), length=AtMost(3)
+            constraint=RangeOf(IntAttrConstraint.get()), length=AtMost(3)
         )
     )
     constr = TensorType.constr(i32, shape)
@@ -917,6 +916,20 @@ def test_strides():
     assert ShapedType.strides_for_shape((1,), factor=2) == (2,)
     assert ShapedType.strides_for_shape((2, 3)) == (3, 1)
     assert ShapedType.strides_for_shape((4, 5, 6), factor=2) == (60, 12, 2)
+    # Dynamic index
+    assert ShapedType.strides_for_shape((DYNAMIC_INDEX,)) == (1,)
+    assert ShapedType.strides_for_shape((DYNAMIC_INDEX, 3)) == (
+        3,
+        1,
+    )
+    assert ShapedType.strides_for_shape((2, DYNAMIC_INDEX)) == (
+        None,
+        1,
+    )
+    assert ShapedType.strides_for_shape((2, DYNAMIC_INDEX), factor=4) == (
+        None,
+        4,
+    )
 
 
 def test_integer_type_repr():

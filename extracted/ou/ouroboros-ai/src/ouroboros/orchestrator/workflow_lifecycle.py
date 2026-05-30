@@ -31,6 +31,10 @@ MAX_WORKFLOW_LIFECYCLE_DATA_BYTES: Final[int] = 8192
 MAX_WORKFLOW_LIFECYCLE_REF_COUNT: Final[int] = 16
 MAX_WORKFLOW_LIFECYCLE_REF_BYTES: Final[int] = 512
 MAX_WORKFLOW_LIFECYCLE_REFS_BYTES: Final[int] = 4096
+MAX_WORKFLOW_LIFECYCLE_WORKFLOW_ID_LEN: Final[int] = 256
+MAX_WORKFLOW_LIFECYCLE_REASON_CODE_LEN: Final[int] = 1024
+MAX_WORKFLOW_LIFECYCLE_REF_LEN_CHARS: Final[int] = 512
+_MAX_NESTING_DEPTH: Final[int] = 32
 
 WORKFLOW_LIFECYCLE_AGGREGATE_TYPE: Final[str] = "workflow_ir"
 """EventStore aggregate-type bucket for #956 Workflow IR lifecycle events.
@@ -157,7 +161,12 @@ _NODE_STATE_BY_EVENT: Final[dict[WorkflowLifecycleEventType, WorkflowNodeLifecyc
 }
 
 _EVENT_SORT_ORDER: Final[dict[WorkflowLifecycleEventType, int]] = {
-    WorkflowLifecycleEventType.RUN_CREATED: 0,
+    # Terminal events sort before RUN_CREATED at the same timestamp so replay
+    # of "old run ended and new run began" converges on the fresh run.
+    WorkflowLifecycleEventType.RUN_COMPLETED: 0,
+    WorkflowLifecycleEventType.RUN_FAILED: 0,
+    WorkflowLifecycleEventType.RUN_CANCELLED: 0,
+    WorkflowLifecycleEventType.RUN_CREATED: 1,
     WorkflowLifecycleEventType.NODE_SCHEDULED: 10,
     WorkflowLifecycleEventType.NODE_STARTED: 20,
     WorkflowLifecycleEventType.NODE_FAILED: 30,
@@ -165,9 +174,6 @@ _EVENT_SORT_ORDER: Final[dict[WorkflowLifecycleEventType, int]] = {
     WorkflowLifecycleEventType.NODE_COMPLETED: 50,
     WorkflowLifecycleEventType.EDGE_TRAVERSED: 60,
     WorkflowLifecycleEventType.CHECKPOINT_SAVED: 70,
-    WorkflowLifecycleEventType.RUN_COMPLETED: 80,
-    WorkflowLifecycleEventType.RUN_FAILED: 80,
-    WorkflowLifecycleEventType.RUN_CANCELLED: 80,
 }
 
 
@@ -194,12 +200,12 @@ def _run_boundary_group_order(
     has_terminal_restart_tie: bool,
     prefer_restart_tie: bool,
 ) -> tuple[int, str]:
-    if not has_terminal_restart_tie or not prefer_restart_tie:
+    if not has_terminal_restart_tie:
         return (_EVENT_SORT_ORDER[event.event_type], event.event_type.value)
-    if event.event_type in _TERMINAL_RUN_EVENT_TYPES:
-        return (100, event.event_type.value)
     if event.event_type is WorkflowLifecycleEventType.RUN_CREATED:
-        return (101, event.event_type.value)
+        return (101 if prefer_restart_tie else 0, event.event_type.value)
+    if event.event_type in _TERMINAL_RUN_EVENT_TYPES:
+        return (100 if prefer_restart_tie else 1, event.event_type.value)
     return (_EVENT_SORT_ORDER[event.event_type], event.event_type.value)
 
 
@@ -369,7 +375,13 @@ def _is_replay_unsafe_ref(ref: str) -> bool:
     return any(_is_replay_unsafe_key(candidate) for candidate in candidates)
 
 
-def _normalize_json_value(name: str, value: Any, path: str) -> JsonValue:
+def _normalize_json_value(name: str, value: Any, path: str, _depth: int = 0) -> JsonValue:
+    if _depth > _MAX_NESTING_DEPTH:
+        msg = (
+            f"Workflow lifecycle {name} value at {path} exceeds maximum nesting depth "
+            f"of {_MAX_NESTING_DEPTH}"
+        )
+        raise ValueError(msg)
     if value is None or isinstance(value, str | int | bool):
         return value
     if isinstance(value, float):
@@ -385,11 +397,11 @@ def _normalize_json_value(name: str, value: Any, path: str) -> JsonValue:
             if _is_replay_unsafe_key(key):
                 msg = f"Workflow lifecycle {name} must not persist replay-unsafe key {key!r}"
                 raise ValueError(msg)
-            normalized[key] = _normalize_json_value(name, item, f"{path}.{key}")
+            normalized[key] = _normalize_json_value(name, item, f"{path}.{key}", _depth + 1)
         return normalized
     if isinstance(value, list | tuple):
         return [
-            _normalize_json_value(name, item, f"{path}[{index}]")
+            _normalize_json_value(name, item, f"{path}[{index}]", _depth + 1)
             for index, item in enumerate(value)
         ]
     msg = f"Workflow lifecycle {name} value at {path} must be JSON serializable"
@@ -436,6 +448,13 @@ def _normalize_refs(values: Iterable[str]) -> tuple[str, ...]:
             msg = f"Workflow lifecycle refs exceed {MAX_WORKFLOW_LIFECYCLE_REF_COUNT} entries"
             raise ValueError(msg)
         ref = _normalize_non_blank(f"refs[{index}]", value)
+        if len(ref) > MAX_WORKFLOW_LIFECYCLE_REF_LEN_CHARS:
+            msg = (
+                f"Workflow lifecycle refs exceed "
+                f"{MAX_WORKFLOW_LIFECYCLE_REF_LEN_CHARS} characters "
+                f"at index {index}"
+            )
+            raise ValueError(msg)
         ref_bytes = ref.encode("utf-8")
         if len(ref_bytes) > MAX_WORKFLOW_LIFECYCLE_REF_BYTES:
             msg = f"Workflow lifecycle ref exceeds {MAX_WORKFLOW_LIFECYCLE_REF_BYTES} bytes"
@@ -514,12 +533,30 @@ class WorkflowLifecycleEvent(BaseModel, frozen=True):
     @field_validator("workflow_id")
     @classmethod
     def _workflow_id_non_blank(cls, value: str) -> str:
-        return _normalize_non_blank("workflow_id", value)
+        normalized = _normalize_non_blank("workflow_id", value)
+        if len(normalized) > MAX_WORKFLOW_LIFECYCLE_WORKFLOW_ID_LEN:
+            msg = (
+                f"Workflow lifecycle workflow_id exceeds "
+                f"{MAX_WORKFLOW_LIFECYCLE_WORKFLOW_ID_LEN} characters"
+            )
+            raise ValueError(msg)
+        return normalized
 
     @field_validator("node_id", "edge_id", "reason_code")
     @classmethod
     def _optional_fields_non_blank(cls, value: str | None, info: Any) -> str | None:
-        return _normalize_optional_non_blank(str(info.field_name), value)
+        normalized = _normalize_optional_non_blank(str(info.field_name), value)
+        if (
+            normalized is not None
+            and info.field_name == "reason_code"
+            and len(normalized) > MAX_WORKFLOW_LIFECYCLE_REASON_CODE_LEN
+        ):
+            msg = (
+                f"Workflow lifecycle reason_code exceeds "
+                f"{MAX_WORKFLOW_LIFECYCLE_REASON_CODE_LEN} characters"
+            )
+            raise ValueError(msg)
+        return normalized
 
     @field_validator("refs", mode="before")
     @classmethod
@@ -1094,9 +1131,12 @@ def project_workflow_lifecycle(
 
 __all__ = [
     "MAX_WORKFLOW_LIFECYCLE_DATA_BYTES",
+    "MAX_WORKFLOW_LIFECYCLE_REASON_CODE_LEN",
     "MAX_WORKFLOW_LIFECYCLE_REF_BYTES",
     "MAX_WORKFLOW_LIFECYCLE_REF_COUNT",
+    "MAX_WORKFLOW_LIFECYCLE_REF_LEN_CHARS",
     "MAX_WORKFLOW_LIFECYCLE_REFS_BYTES",
+    "MAX_WORKFLOW_LIFECYCLE_WORKFLOW_ID_LEN",
     "WORKFLOW_LIFECYCLE_AGGREGATE_TYPE",
     "WORKFLOW_LIFECYCLE_EVENT_TYPES",
     "WORKFLOW_LIFECYCLE_SCHEMA_VERSION",

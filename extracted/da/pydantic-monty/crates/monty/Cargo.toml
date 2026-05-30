@@ -21,7 +21,7 @@ ruff_python_parser = { workspace = true }
 ruff_python_stdlib = { workspace = true }
 ruff_python_ast = { workspace = true }
 ruff_text_size = { workspace = true }
-ahash = { version = "0.8.0", features = ["serde"] }
+ahash = { workspace = true }
 indexmap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -37,13 +37,13 @@ libm = "0.2"
 chrono = { version = "0.4", features = ["serde"] }
 speedate = "0.17.0"
 itertools = "0.14.0"
-bytemuck = { version = "1.25.0", features = ["derive"] }
-jiter = { version = "0.13.0", features = ["num-bigint"] }
+jiter = { version = "0.15.0", features = ["num-bigint"] }
+monty-macros = { path = "../monty-macros" }
 
 [features]
 # ref-count-return changes behavior to return information on reference counts to check they're correct
 # should be used for testing only
-ref-count-return = []
+ref-count-return = ["test-hooks"]
 # memory-model-checks enables a Drop implementation on Value which catches heap allocated values that are dropped
 # without being dereferenced, and sets the default GC interval to 1 so garbage collection runs on every
 # GC-tracked allocation.

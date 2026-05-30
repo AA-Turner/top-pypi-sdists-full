@@ -8,12 +8,13 @@ from typing import Any
 
 import httpx
 
-from .rpc import ArtifactStatus, ArtifactTypeCode, RPCError, RPCMethod
+from ._row_adapters_artifacts import ArtifactRow
+from ._session_contracts import RpcCaller
+from .rpc import ArtifactTypeCode, RPCError, RPCMethod
 from .types import Artifact, ArtifactNotReadyError, ArtifactType
 
 logger = logging.getLogger(__name__)
 
-RpcCall = Callable[..., Awaitable[Any]]
 ListRawCallback = Callable[[str], Awaitable[list[Any]]]
 ListMindMapsCallback = Callable[[str], Awaitable[list[Any]]]
 ListArtifactsCallback = Callable[[str], Awaitable[list[Artifact]]]
@@ -28,6 +29,19 @@ _ARTIFACT_TYPE_CODES_BY_KIND = {
     ArtifactType.DATA_TABLE: ArtifactTypeCode.DATA_TABLE.value,
 }
 _KNOWN_ARTIFACT_TYPE_CODES = frozenset(_ARTIFACT_TYPE_CODES_BY_KIND.values())
+
+
+def iter_artifact_rows(candidates: Sequence[Any]) -> list[ArtifactRow]:
+    """Wrap raw list-shaped artifact candidates in ``ArtifactRow`` adapters."""
+    return [ArtifactRow(candidate) for candidate in candidates if isinstance(candidate, list)]
+
+
+def find_artifact_row_by_id(candidates: Sequence[Any], artifact_id: str) -> ArtifactRow | None:
+    """Find any artifact row by ID without filtering by completion status."""
+    for row in iter_artifact_rows(candidates):
+        if row.id == artifact_id:
+            return row
+    return None
 
 
 def _matches_artifact_type(artifact: Artifact, artifact_type: ArtifactType | None) -> bool:
@@ -54,10 +68,10 @@ def _matches_artifact_type(artifact: Artifact, artifact_type: ArtifactType | Non
 class ArtifactListingService:
     """List, filter, and select artifacts without depending on the facade."""
 
-    async def list_raw(self, notebook_id: str, *, rpc_call: RpcCall) -> list[Any]:
+    async def list_raw(self, notebook_id: str, *, rpc: RpcCaller) -> list[Any]:
         """Get raw studio artifact rows from NotebookLM."""
         params = [[2], notebook_id, 'NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"']
-        result = await rpc_call(
+        result = await rpc.rpc_call(
             RPCMethod.LIST_ARTIFACTS,
             params,
             source_path=f"/notebook/{notebook_id}",
@@ -126,36 +140,58 @@ class ArtifactListingService:
     ) -> Any:
         """Select an artifact from candidates by ID or return latest completed.
 
-        The error-key asymmetry is intentional: explicit-ID misses derive the
-        key from ``type_name`` while empty-filter results use
+        Position knowledge (``a[2]`` type, ``a[4]`` status, ``a[15][0]``
+        timestamp) is delegated to
+        :class:`notebooklm._row_adapters_artifacts.ArtifactRow` — when Google
+        reshapes the wire, the position constants change there and this
+        method adapts automatically.
+
+        The error-key asymmetry is intentional: explicit-ID misses
+        derive the key from ``type_name`` while empty-filter results use
         ``no_result_error_key`` verbatim.
+
+        Returns the **raw row** (not an :class:`ArtifactRow`) to preserve
+        the historical private helper contract. New internal callers that
+        need typed access should use :meth:`select_completed_artifact_row`.
         """
-        filtered = [
-            a
-            for a in candidates
-            if isinstance(a, list)
-            and len(a) > 4
-            and a[2] == type_code
-            and a[4] == ArtifactStatus.COMPLETED
-        ]
+        return self.select_completed_artifact_row(
+            candidates,
+            artifact_id,
+            type_name,
+            no_result_error_key,
+            type_code=type_code,
+        ).raw
+
+    def select_completed_artifact_row(
+        self,
+        candidates: Sequence[Any],
+        artifact_id: str | None,
+        type_name: str,
+        no_result_error_key: str,
+        *,
+        type_code: ArtifactTypeCode,
+    ) -> ArtifactRow:
+        """Select a completed artifact row by ID or latest timestamp."""
+        rows = iter_artifact_rows(candidates)
+        filtered = [row for row in rows if row.matches_type(type_code, completed_only=True)]
 
         if artifact_id:
-            artifact = next((a for a in filtered if a[0] == artifact_id), None)
-            if not artifact:
+            match = next((row for row in filtered if row.id == artifact_id), None)
+            if not match:
                 raise ArtifactNotReadyError(
                     type_name.lower().replace(" ", "_"), artifact_id=artifact_id
                 )
-            return artifact
+            return match
 
         if not filtered:
             raise ArtifactNotReadyError(no_result_error_key)
 
-        filtered.sort(
-            key=lambda a: (
-                (a[15][0] or 0) if len(a) > 15 and isinstance(a[15], list) and a[15] else 0
-            ),
-            reverse=True,
-        )
+        # Sort by raw timestamp so missing / ``None`` / non-list shapes
+        # coerce to ``0`` without crashing the comparison (mirrors the
+        # historical ``(a[15][0] or 0)`` falsy-coerce trick that pinned
+        # the ``test_handles_none_at_timestamp_position_without_typeerror``
+        # contract).
+        filtered.sort(key=lambda row: row.created_at_raw or 0, reverse=True)
         return filtered[0]
 
     def _filter_studio_artifacts(

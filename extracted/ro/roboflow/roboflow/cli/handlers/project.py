@@ -1,4 +1,4 @@
-"""Project management commands: list, get, create."""
+"""Project management commands: list, get, create, health."""
 
 from __future__ import annotations
 
@@ -76,6 +76,40 @@ def restore_project(
     """Restore a project from Trash."""
     args = ctx_to_args(ctx, project_id=project_id)
     _restore_project(args)
+
+
+@project_app.command("fork")
+def fork_project(
+    ctx: typer.Context,
+    source: Annotated[
+        str,
+        typer.Argument(help="Source project: Universe URL or '<workspace>/<project>' shorthand."),
+    ],
+    no_wait: Annotated[
+        bool,
+        typer.Option("--no-wait", help="Return immediately with the taskId instead of waiting."),
+    ] = False,
+    timeout: Annotated[
+        int,
+        typer.Option("--timeout", help="Seconds to wait for completion (0 = no timeout)."),
+    ] = 1800,
+) -> None:
+    """Fork a public Universe project into a workspace."""
+    args = ctx_to_args(ctx, source=source, no_wait=no_wait, timeout=timeout)
+    _fork_project(args)
+
+
+@project_app.command("health")
+def health_project(
+    ctx: typer.Context,
+    project_id: Annotated[str, typer.Argument(help="Project ID or shorthand (e.g. my-ws/my-project)")],
+    regenerate: Annotated[
+        bool, typer.Option("--regenerate", "-r", help="Force regeneration of health check data.")
+    ] = False,
+) -> None:
+    """Show dataset health check for a project (class balance, dimensions, splits)."""
+    args = ctx_to_args(ctx, project_id=project_id, regenerate=regenerate)
+    _health_project(args)
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +257,7 @@ def _create_project(args):  # noqa: ANN001
 
 def _delete_project(args):  # noqa: ANN001
     from roboflow.adapters import rfapi
-    from roboflow.cli._output import output, output_error
+    from roboflow.cli._output import confirm_destructive, output, output_api_error, output_error
     from roboflow.cli._resolver import resolve_resource
     from roboflow.config import load_roboflow_api_key
 
@@ -247,26 +281,52 @@ def _delete_project(args):  # noqa: ANN001
         )
         return
 
-    if not getattr(args, "yes", False) and not getattr(args, "json", False):
-        import typer
-
-        confirmed = typer.confirm(
-            f"Move '{workspace_url}/{project_slug}' to Trash? "
-            "(Retained for 30 days. Any in-flight trainings will be cancelled.)",
-            default=False,
-        )
-        if not confirmed:
-            output(args, {"cancelled": True}, text="Cancelled.")
-            return
+    if not confirm_destructive(
+        args,
+        f"Move '{workspace_url}/{project_slug}' to Trash? "
+        "(Retained for 30 days. Any in-flight trainings will be cancelled.)",
+    ):
+        return
 
     try:
         data = rfapi.delete_project(api_key, workspace_url, project_slug)
     except rfapi.RoboflowError as exc:
-        output_error(
+        # Idempotent re-delete: when the project is already in Trash the
+        # public API's URL filter excludes it, so the DELETE returns 404
+        # with a generic "endpoint does not exist" message. That looks like
+        # a permissions error to the user. Probe Trash explicitly — if the
+        # slug is there, treat the call as a no-op success so scripts can
+        # safely retry without special-casing the second attempt.
+        if getattr(exc, "status_code", None) == 404:
+            try:
+                trash = rfapi.list_trash(api_key, workspace_url)
+            except rfapi.RoboflowError:
+                trash = None
+            if trash is not None:
+                already = next(
+                    (p for p in trash.get("sections", {}).get("projects", []) if p.get("url") == project_slug),
+                    None,
+                )
+                if already is not None:
+                    data = {
+                        "deleted": True,
+                        "type": "project",
+                        "workspace": workspace_url,
+                        "project": project_slug,
+                        "projectId": already.get("id"),
+                        "trash": True,
+                        "alreadyInTrash": True,
+                    }
+                    output(
+                        args,
+                        data,
+                        text=f"{workspace_url}/{project_slug} is already in Trash (no-op).",
+                    )
+                    return
+        output_api_error(
             args,
-            str(exc),
+            exc,
             hint="Check your API key has 'project:update' scope on this workspace.",
-            exit_code=3,
         )
         return
 
@@ -279,7 +339,7 @@ def _delete_project(args):  # noqa: ANN001
 
 def _restore_project(args):  # noqa: ANN001
     from roboflow.adapters import rfapi
-    from roboflow.cli._output import output, output_error
+    from roboflow.cli._output import output, output_api_error, output_error
     from roboflow.cli._resolver import resolve_resource
     from roboflow.config import load_roboflow_api_key
 
@@ -306,11 +366,11 @@ def _restore_project(args):  # noqa: ANN001
     try:
         trash = rfapi.list_trash(api_key, workspace_url)
     except rfapi.RoboflowError as exc:
-        output_error(
+        output_api_error(
             args,
-            str(exc),
+            exc,
+            auth_hint="Check that ROBOFLOW_API_KEY is valid for this workspace.",
             hint="Check your API key has 'project:read' scope on this workspace.",
-            exit_code=3,
         )
         return
 
@@ -328,12 +388,126 @@ def _restore_project(args):  # noqa: ANN001
     try:
         data = rfapi.restore_trash_item(api_key, workspace_url, "project", match["id"])
     except rfapi.RoboflowError as exc:
-        output_error(
+        output_api_error(
             args,
-            str(exc),
+            exc,
             hint="Check your API key has 'project:update' scope on this workspace.",
-            exit_code=3,
         )
         return
 
     output(args, data, text=f"Restored {workspace_url}/{project_slug} from Trash.")
+
+
+def _fork_project(args):  # noqa: ANN001
+    from roboflow.adapters import rfapi
+    from roboflow.cli._output import output, output_error
+    from roboflow.cli._resolver import resolve_default_workspace
+    from roboflow.config import load_roboflow_api_key
+    from roboflow.core.async_tasks import poll_until_terminal
+
+    # The server accepts the full URL (or `<ws>/<proj>` shorthand) as `url`
+    # and parses it itself — forward verbatim so the CLI doesn't duplicate
+    # that logic.
+    source = (args.source or "").strip()
+    if not source:
+        output_error(
+            args,
+            "Source is required.",
+            hint="Use '<workspace>/<project>' or a Universe URL.",
+        )
+        return
+
+    dest_workspace = args.workspace or resolve_default_workspace(api_key=args.api_key)
+    if not dest_workspace:
+        output_error(
+            args,
+            "No workspace specified.",
+            hint="Use --workspace or run 'roboflow auth login'.",
+            exit_code=2,
+        )
+        return
+
+    api_key = args.api_key or load_roboflow_api_key(dest_workspace)
+    if not api_key:
+        output_error(
+            args,
+            "No API key found.",
+            hint="Set ROBOFLOW_API_KEY or run 'roboflow auth login'.",
+            exit_code=2,
+        )
+        return
+
+    try:
+        enqueued = rfapi.fork_project(api_key, dest_workspace, url=source)
+    except rfapi.RoboflowError as exc:
+        output_error(args, str(exc))
+        return
+
+    task_id = enqueued["taskId"]
+
+    if args.no_wait:
+        polling_url = enqueued.get("url")
+        text = f"Fork enqueued: taskId={task_id}"
+        if polling_url:
+            text += f"\nPoll: {polling_url}"
+        output(args, enqueued, text=text)
+        return
+
+    def _print_progress(status):  # noqa: ANN001
+        if args.json:
+            return
+        progress = status.get("progress")
+        if not isinstance(progress, dict):
+            return
+        # Don't use `or` here: `current == 0` is a legitimate value.
+        current = progress["current"] if "current" in progress else progress.get("completed")
+        total = progress.get("total")
+        if current is not None and total is not None:
+            print(f"Task progress: {current}/{total}", flush=True)
+
+    try:
+        final = poll_until_terminal(
+            api_key,
+            dest_workspace,
+            task_id,
+            timeout=args.timeout,
+            on_update=_print_progress,
+            polling_url=enqueued.get("url"),
+        )
+    except rfapi.RoboflowError as exc:
+        output_error(args, str(exc))
+        return
+    except TimeoutError as exc:
+        output_error(args, str(exc))
+        return
+
+    if final.get("status") == "failed":
+        output_error(args, final.get("error") or "Fork task failed.")
+        return
+
+    project_url = (final.get("result") or {}).get("url", "")
+    text = f"Forked.\nDestination URL: {project_url}" if project_url else "Forked."
+    output(args, final, text=text)
+
+
+def _health_project(args):  # noqa: ANN001
+    import json
+
+    import roboflow
+    from roboflow.cli._output import output, output_error, suppress_sdk_output
+
+    with suppress_sdk_output(args):
+        try:
+            rf = roboflow.Roboflow(api_key=args.api_key)
+            project = rf.workspace(args.workspace).project(args.project_id)
+        except Exception as exc:
+            output_error(args, str(exc))
+            return
+
+    try:
+        data = project.health(regenerate=args.regenerate)
+    except Exception as exc:
+        output_error(args, str(exc), exit_code=3)
+        return
+
+    output(args, data, text=json.dumps(data, indent=2))

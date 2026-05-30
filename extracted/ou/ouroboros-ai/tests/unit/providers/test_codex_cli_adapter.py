@@ -120,7 +120,7 @@ class TestCodexCliLLMAdapter:
 
     @staticmethod
     def _write_wrapper(path: Path) -> Path:
-        path.write_bytes(b"\xcf\xfa\xed\xfe")
+        path.write_bytes(b"\xcf\xfa\xed\xfe" + b"\0" * 32 + b"zeude codex-wrapper")
         path.chmod(0o755)
         return path
 
@@ -212,7 +212,7 @@ class TestCodexCliLLMAdapter:
         mock_warning.assert_called_once_with(
             "codex_cli_adapter.cli_wrapper_detected",
             wrapper_path=str(wrapper),
-            hint="Searching PATH for the real Node.js codex CLI.",
+            hint="Searching PATH for the real Codex CLI.",
         )
         mock_info.assert_called_once_with(
             "codex_cli_adapter.cli_resolved_via_fallback",
@@ -246,6 +246,21 @@ class TestCodexCliLLMAdapter:
         assert "--profile" in command
         assert "ouroboros-deep" in command
         assert "--model" not in command
+
+    def test_build_command_matches_codex_0134_unified_profile_v2_contract(self) -> None:
+        """Codex 0.134 uses --profile to load ~/.codex/<name>.config.toml files."""
+        adapter = CodexCliLLMAdapter(cli_path="codex")
+
+        command = adapter._build_command(
+            output_last_message_path="/tmp/out.txt",
+            output_schema_path=None,
+            model=None,
+            profile="ouroboros-frontier",
+        )
+
+        assert "--profile" in command
+        assert "--profile-v2" not in command
+        assert command[command.index("--profile") + 1] == "ouroboros-frontier"
 
     @pytest.mark.asyncio
     async def test_complete_resolves_codex_profile_from_task_role(self) -> None:

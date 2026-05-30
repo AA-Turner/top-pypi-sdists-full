@@ -35,7 +35,7 @@ djlint:
 
 .PHONY: flake8
 flake8:
-	flake8 allauth
+	flake8 allauth tests
 
 .PHONY: qa
 qa: validate-api-spec mypy djlint bandit black isort flake8

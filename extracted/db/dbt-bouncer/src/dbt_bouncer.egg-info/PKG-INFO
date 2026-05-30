@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-bouncer
-Version: 3.3.0
+Version: 3.4.0
 Summary: Configure and enforce conventions for your dbt project.
 Author-email: Padraic Slattery <pgoslatara@gmail.com>
 Maintainer-email: Padraic Slattery <pgoslatara@gmail.com>
@@ -42,14 +42,6 @@ Requires-Dist: ruff<1,>=0.8; extra == "dev"
 Requires-Dist: shandy-sqlfmt[jinjafmt]<1,>=0.7; extra == "dev"
 Requires-Dist: tombi>=0.7.32; extra == "dev"
 Requires-Dist: ty>=0.0.7; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: mike~=2.0; extra == "docs"
-Requires-Dist: mkdocs~=1.0; extra == "docs"
-Requires-Dist: mkdocstrings-python<3; extra == "docs"
-Requires-Dist: mkdocs-click~=0.0; extra == "docs"
-Requires-Dist: mkdocs-git-revision-date-localized-plugin~=1.0; extra == "docs"
-Requires-Dist: mkdocs-material~=9.0; extra == "docs"
-Requires-Dist: pymdown-extensions~=10.0; extra == "docs"
 Dynamic: license-file
 
 <p align="center">
@@ -70,8 +62,11 @@ Dynamic: license-file
   <a>
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg">
   </a>
-  <a>
-    <img alt="security: bandit" href="https://github.com/PyCQA/bandit" src="https://img.shields.io/badge/security-bandit-yellow.svg">
+  <a href="https://github.com/godatadriven/dbt-bouncer/actions/workflows/merge_pipeline.yml">
+    <img alt="coverage" src="https://raw.githubusercontent.com/godatadriven/dbt-bouncer/badges/coverage.svg">
+  </a>
+  <a href="https://github.com/PyCQA/bandit">
+    <img alt="security: bandit" src="https://img.shields.io/badge/security-bandit-yellow.svg">
   </a>
   <a>
     <img src="https://img.shields.io/github/last-commit/godatadriven/dbt-bouncer/main">

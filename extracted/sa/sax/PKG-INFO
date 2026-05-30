@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sax
-Version: 0.17.0
+Version: 0.18.1
 Summary: Autograd and XLA for S-parameters
 Author-email: Floris Laporte <floris.laporte@gmail.com>
 License: Apache Software License
@@ -41,7 +41,7 @@ Dynamic: license-file
 
 # SAX
 
-> 0.17.0
+> 0.18.1
 
 ![SAX LOGO](docs/assets/logo.svg)
 

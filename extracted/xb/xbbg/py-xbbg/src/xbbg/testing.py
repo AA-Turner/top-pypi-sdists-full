@@ -282,7 +282,7 @@ class mock_engine:
         return None
 
     async def _handle(self, context: blp.RequestContext, call_next):
-        match = self._pop_match(context.params_dict)
+        match = self._pop_match(context.to_dispatch_dict())
         if match is None:
             if self._strict:
                 raise LookupError(f"No mock response matched {context.params.service}::{context.params.operation}")
@@ -304,7 +304,7 @@ class mock_engine:
             context.frame = table
             return table
 
-        context.frame = blp._convert_backend(table, context.backend)
+        context.frame = blp._convert_result_backend(table, context.backend)
         return context.frame
 
     def __enter__(self):

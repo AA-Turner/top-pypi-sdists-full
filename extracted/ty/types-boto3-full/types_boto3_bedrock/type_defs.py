@@ -175,6 +175,7 @@ __all__ = (
     "AutomatedReasoningPolicyGeneratedTestCaseTypeDef",
     "AutomatedReasoningPolicyGeneratedTestCasesTypeDef",
     "AutomatedReasoningPolicyIngestContentAnnotationTypeDef",
+    "AutomatedReasoningPolicyIterativeRefinementContentTypeDef",
     "AutomatedReasoningPolicyMutationTypeDef",
     "AutomatedReasoningPolicyReportSourceDocumentTypeDef",
     "AutomatedReasoningPolicyRuleReportTypeDef",
@@ -3123,6 +3124,11 @@ class AutomatedReasoningPolicyGenerateFidelityReportContentTypeDef(TypedDict):
     documents: NotRequired[Sequence[AutomatedReasoningPolicyBuildWorkflowDocumentTypeDef]]
 
 
+class AutomatedReasoningPolicyIterativeRefinementContentTypeDef(TypedDict):
+    documents: Sequence[AutomatedReasoningPolicyBuildWorkflowDocumentTypeDef]
+    feedback: NotRequired[str]
+
+
 class ExternalSourceTypeDef(TypedDict):
     sourceType: ExternalSourceTypeType
     s3Location: NotRequired[S3ObjectDocTypeDef]
@@ -4039,6 +4045,9 @@ class AutomatedReasoningPolicyWorkflowTypeContentTypeDef(TypedDict):
     policyRepairAssets: NotRequired[AutomatedReasoningPolicyBuildWorkflowRepairContentTypeDef]
     generateFidelityReportContent: NotRequired[
         AutomatedReasoningPolicyGenerateFidelityReportContentTypeDef
+    ]
+    iterativeRefinementContent: NotRequired[
+        AutomatedReasoningPolicyIterativeRefinementContentTypeDef
     ]
 
 

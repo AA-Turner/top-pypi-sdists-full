@@ -62,7 +62,7 @@ class NystromformerTokenizer(metaclass=DummyObject):
 from transformers import (
     WEIGHTS_NAME,
     AutoConfig,
-    AutoModelWithLMHead,
+    AutoModelForMaskedLM,
     AutoTokenizer,
     AutoModelForCausalLM,
     BertConfig,
@@ -106,10 +106,16 @@ from transformers import (
     XLMRobertaTokenizer,
     GenerationConfig,
 )
-from transformers.data.datasets.language_modeling import (
-    LineByLineTextDataset,
-    TextDataset,
-)
+
+try:
+    from transformers.data.datasets.language_modeling import (
+        LineByLineTextDataset,
+        TextDataset,
+    )
+except ImportError:
+    warnings.warn(
+        "LineByLineTextDataset and TextDataset have been removed from transformers. Please downgrade transformers or use SimpleDataset."
+    )
 
 from simpletransformers.config.global_args import global_args
 from simpletransformers.config.model_args import LanguageModelingArgs, GenerationArgs
@@ -132,7 +138,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 MODEL_CLASSES = {
-    "auto": (AutoConfig, AutoModelWithLMHead, AutoTokenizer),
+    "auto": (AutoConfig, AutoModelForMaskedLM, AutoTokenizer),
     "bert": (BertConfig, BertForMaskedLM, BertTokenizer),
     "bigbird": (BigBirdConfig, BigBirdForMaskedLM, BigBirdTokenizer),
     "camembert": (CamembertConfig, CamembertForMaskedLM, CamembertTokenizer),

@@ -643,7 +643,9 @@ class HiveServer2Cursor(Cursor):
                          convert_types=self.convert_types,
                          convert_strings_to_unicode=self.convert_strings_to_unicode))
             if len(batch) == 0:
-                break
+                if not batch.expect_more_rows:
+                    break
+                continue
             batches.append(batch)
         return batches
 
@@ -918,7 +920,7 @@ def connect(host, port, timeout=None, use_ssl=False, ca_cert=None,
             user=None, password=None, kerberos_service_name='impala',
             auth_mechanism=None, krb_host=None, use_http_transport=False,
             http_path='', http_cookie_names=None, retries=3, jwt=None,
-            user_agent=None, get_user_custom_headers_func=None):
+            user_agent=None, get_user_custom_headers_func=None, verify_cert=False):
     log.debug('Connecting to HiveServer2 %s:%s with %s authentication '
               'mechanism', host, port, auth_mechanism)
 
@@ -928,11 +930,6 @@ def connect(host, port, timeout=None, use_ssl=False, ca_cert=None,
         kerberos_host = host
 
     if use_http_transport:
-        # TODO(#362): Add server authentication with thrift 0.12.
-        if ca_cert:
-            raise NotSupportedError("Server authentication is not supported " +
-                                    "with HTTP endpoints")
-
         transport = get_http_transport(
             host, port, http_path=http_path,
             use_ssl=use_ssl, ca_cert=ca_cert,
@@ -942,9 +939,10 @@ def connect(host, port, timeout=None, use_ssl=False, ca_cert=None,
             kerberos_service_name=kerberos_service_name,
             http_cookie_names=http_cookie_names,
             jwt=jwt, user_agent=user_agent,
-            get_user_custom_headers_func=get_user_custom_headers_func)
+            get_user_custom_headers_func=get_user_custom_headers_func,
+            verify_cert=verify_cert)
     else:
-        sock = get_socket(host, port, use_ssl, ca_cert)
+        sock = get_socket(host, port, use_ssl, ca_cert, verify_cert)
 
         if timeout is not None:
             timeout = timeout * 1000.  # TSocket expects millis
@@ -1041,10 +1039,16 @@ class CBatch(Batch):
                  convert_strings_to_unicode=True):
         self.expect_more_rows = expect_more_rows
         self.schema = schema
-        tcols = [_TTypeId_to_TColumnValue_getters[schema[i][1]](col)
-                 for (i, col) in enumerate(trowset.columns)]
-        num_cols = len(tcols)
-        num_rows = len(tcols[0].values)
+        if trowset:
+            tcols = [_TTypeId_to_TColumnValue_getters[schema[i][1]](col)
+                     for (i, col) in enumerate(trowset.columns)]
+            num_cols = len(tcols)
+            num_rows = len(tcols[0].values)
+        else:
+            # No results returned with STILL_EXECUTING_STATUS
+            tcols = []
+            num_cols = 0
+            num_rows = 0
         self.remaining_rows = num_rows
 
         log.debug('CBatch: input TRowSet num_cols=%s num_rows=%s tcols=%s',
@@ -1144,6 +1148,9 @@ class RBatch(Batch):
         self.expect_more_rows = expect_more_rows
         self.schema = schema
         self.rows = []
+        # Can be None with STILL_EXECUTING_STATUS
+        if not trowset:
+            return
         for trow in trowset.rows:
             row = []
             for (i, col_val) in enumerate(trow.colVals):

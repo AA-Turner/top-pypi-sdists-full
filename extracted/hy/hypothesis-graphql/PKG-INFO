@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hypothesis-graphql
-Version: 0.12.0
+Version: 0.13.0
 Summary: Hypothesis strategies for GraphQL queries
 Project-URL: Changelog, https://github.com/Stranger6667/hypothesis-graphql/blob/master/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/Stranger6667/hypothesis-graphql
@@ -18,8 +18,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -27,9 +25,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: graphql-core<3.3.0,>=3.1.0
 Requires-Dist: hypothesis<7.0,>=6.84.3
+Provides-Extra: bench
+Requires-Dist: pytest-codspeed>=5; extra == 'bench'
 Provides-Extra: cov
 Requires-Dist: coverage-enable-subprocess; extra == 'cov'
 Requires-Dist: coverage[toml]>=7; extra == 'cov'

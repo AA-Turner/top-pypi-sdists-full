@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stac-pydantic
-Version: 3.5.1
+Version: 3.5.2
 Summary: Pydantic data models for the STAC spec
 Project-URL: homepage, https://github.com/stac-utils/stac-pydantic
 Project-URL: repository, https://github.com/stac-utils/stac-pydantic.git

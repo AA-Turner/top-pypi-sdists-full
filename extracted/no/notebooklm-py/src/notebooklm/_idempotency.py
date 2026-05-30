@@ -10,19 +10,17 @@ This module hosts two cooperating pieces:
    wrapper inverts the direction: run with internal-retries disabled,
    then probe for a server-side commit before re-issuing.
 
-2. :class:`IdempotencyRegistry` — the 6-policy classification layer that
+2. :class:`IdempotencyRegistry` — the 5-policy classification layer that
    :class:`~notebooklm._rpc_executor.RpcExecutor` consults to compute the
-   *effective* ``disable_internal_retries`` value (and, for
-   ``CLIENT_TOKEN_DEDUPE`` policies, inject a fresh client-token into
-   request params before encoding). The registry is a single source of
-   truth that future RPCs can be classified against without touching the
+   *effective* ``disable_internal_retries`` value. The registry is a
+   single source of truth for every ``RPCMethod`` without touching the
    executor.
 
-   This foundation is intentionally **behavior-neutral**: every method
-   defaults to :attr:`IdempotencyPolicy.UNCLASSIFIED`, which is silent
-   and reproduces today's retry behavior. The Wave-2 classification
-   arc (see ADR-005, ``docs/adr/0005-idempotency-taxonomy.md``)
-   replaces these placeholders RPC-by-RPC.
+   The production registry is complete: every active ``RPCMethod`` has
+   an explicit default classification, with variant rows for wire shapes
+   like ``ADD_SOURCE`` and ``CREATE_NOTE`` where retry safety differs by
+   call site. ``UNCLASSIFIED`` remains available only as a hand-built
+   registry placeholder for tests and future development.
 
 Per-API probes used by :func:`idempotent_create` are caller-supplied
 because there is no universal probe key (notebooks: title +
@@ -31,17 +29,16 @@ baseline-diff; sources: url-match; ``add_text``: no probe possible — see
 
 This module is private (``_idempotency.py``); call sites live in the
 domain APIs (``_notebooks.py``, ``_sources.py``) and the RPC executor
-(``_rpc_executor.py``). The canonical home for the taxonomy itself, the
-six-policy axis, and the per-RPC classification rationale is
-ADR-005 (``docs/adr/0005-idempotency-taxonomy.md``).
+(``_rpc_executor.py``). The canonical home for the taxonomy itself and
+the per-RPC classification rationale is ADR-005
+(``docs/adr/0005-idempotency-taxonomy.md``).
 """
 
 from __future__ import annotations
 
 import logging
 import time
-import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, TypeVar
@@ -163,28 +160,24 @@ async def idempotent_create(
 
 
 # ============================================================================
-# Mutating-RPC idempotency registry (B1 foundation — P0-3 + P1-2)
+# RPC idempotency registry
 # ============================================================================
 #
 # The registry is the single source of truth for "how should this RPC behave
-# under retry?" It is consulted by ``RpcExecutor`` at five sites to compute
-# the *effective* ``disable_internal_retries`` value, and (for
-# ``CLIENT_TOKEN_DEDUPE`` policies) to inject a fresh client-token into
-# request params before encoding.
+# under retry?" It is consulted by ``RpcExecutor`` to compute the *effective*
+# ``disable_internal_retries`` value before request encoding.
 #
-# IMPORTANT — behavior-neutral foundation:
-#   This module is a foundation only. Every ``RPCMethod`` default-populates
-#   to ``IdempotencyPolicy.UNCLASSIFIED`` with the Wave-2 placeholder note.
-#   UNCLASSIFIED is silent (no log emission, no behavior change) and
-#   resolves to ``effective_disable_internal_retries=False`` so today's
-#   retries continue to fire identically. Wave 2 will classify individual
-#   RPCs without changing the executor.
+# IMPORTANT — complete production registry:
+#   The module-level registry seeds missing methods with UNCLASSIFIED only as a
+#   future-drift sentinel, then overwrites every current ``RPCMethod`` with an
+#   explicit policy below. Unit tests fail if a new enum member keeps the
+#   placeholder.
 
 
 class IdempotencyPolicy(str, Enum):
     """Classification axis for mutating-RPC retry safety.
 
-    Six policies — no more, no fewer. The axis was sized to cover all
+    Five policies — no more, no fewer. The axis was sized to cover all
     realistic NotebookLM RPC shapes without inventing per-method special
     cases. See ADR-005 (``docs/adr/0005-idempotency-taxonomy.md``) for
     the derivation and the per-policy rationale.
@@ -193,10 +186,10 @@ class IdempotencyPolicy(str, Enum):
 
     * **Safe to retry inside the transport**:
       :attr:`UNCLASSIFIED` (placeholder — preserves today's retries),
-      :attr:`IDEMPOTENT_SET_OP` (rename / delete — server is the
-      idempotence anchor), :attr:`CLIENT_TOKEN_DEDUPE` (server
-      deduplicates by injected token), :attr:`AT_LEAST_ONCE_ACCEPTED`
-      (caller has accepted at-least-once semantics; WARN logged).
+      :attr:`IDEMPOTENT_SET_OP` (read-only, rename / delete / set-state
+      operations where replay leaves the same server state),
+      :attr:`AT_LEAST_ONCE_ACCEPTED` (caller has accepted at-least-once
+      semantics; WARN logged).
 
     * **NOT safe to retry inside the transport**:
       :attr:`PROBE_THEN_CREATE` (callers own the probe loop; transport
@@ -212,7 +205,6 @@ class IdempotencyPolicy(str, Enum):
     UNCLASSIFIED = "unclassified"
     PROBE_THEN_CREATE = "probe_then_create"
     IDEMPOTENT_SET_OP = "idempotent_set_op"
-    CLIENT_TOKEN_DEDUPE = "client_token_dedupe"
     AT_LEAST_ONCE_ACCEPTED = "at_least_once_accepted"
     NON_IDEMPOTENT_NO_RETRY = "non_idempotent_no_retry"
 
@@ -233,8 +225,8 @@ _POLICIES_THAT_FORCE_DISABLE: frozenset[IdempotencyPolicy] = frozenset(
 
 # ProbeKeyFn signature: takes the encoded ``params`` list and returns an
 # opaque, hashable probe key the caller can use to identify "is this the
-# write I issued?" Currently informational — Wave 2 plumbs it into the
-# create-probe state machines. ``None`` is the no-probe sentinel.
+# write I issued?" Currently informational; future probe-loop work may plumb it
+# into create-probe state machines. ``None`` is the no-probe sentinel.
 ProbeKeyFn = Callable[[list[Any]], Any]
 
 
@@ -246,27 +238,20 @@ class IdempotencyEntry:
         policy: Classification for the ``(RPCMethod, operation_variant)``
             row this entry describes.
         probe_key_fn: Optional probe-key extractor for PROBE_THEN_CREATE
-            entries. ``None`` for policies that don't probe. Wave 2 wires
-            this into the per-API probe loops.
-        client_token_field: For CLIENT_TOKEN_DEDUPE entries, the slot
-            in the params payload that receives the auto-injected
-            ``uuid4().hex`` token. ``str`` keys are used when the RPC
-            params are a dict; ``int`` keys are used to inject into a
-            positional slot inside the list-shaped params that the
-            batchexecute encoder consumes. ``None`` for other policies.
+            entries. ``None`` for policies that don't probe. Future work may
+            wire this into the per-API probe loops.
         notes: Free-form human-readable note. UNCLASSIFIED entries
             registered without an explicit ``notes`` value receive the
-            placeholder marker that flags them for Wave 2 classification;
+            placeholder marker that flags them for explicit classification;
             all other policies default to an empty string.
     """
 
     policy: IdempotencyPolicy
     probe_key_fn: ProbeKeyFn | None = None
-    client_token_field: str | int | None = None
     notes: str = ""
 
 
-_UNCLASSIFIED_PLACEHOLDER_NOTE = "placeholder — Wave 2 must classify"
+_UNCLASSIFIED_PLACEHOLDER_NOTE = "placeholder — must classify"
 
 
 class IdempotencyRegistry:
@@ -284,9 +269,9 @@ class IdempotencyRegistry:
     * ``get_entry(method, operation_variant=v)`` when ``method`` has
       explicit variant entries but ``v`` is not among them → raises
       :class:`~notebooklm.exceptions.IdempotencyVariantError`. The
-      explicit variant table signals "Wave 2 has classified this method
-      by variant" — an unknown variant is almost certainly a caller typo
-      or API drift, not safe to mask via silent fallback.
+      explicit variant table signals "this method is classified by variant" —
+      an unknown variant is almost certainly a caller typo or API drift, not
+      safe to mask via silent fallback.
 
     Thread/loop-safety: the registry is populated at import time and is
     intended to be effectively immutable in production. Tests may
@@ -308,18 +293,17 @@ class IdempotencyRegistry:
         *,
         variant: str | None = None,
         probe_key_fn: ProbeKeyFn | None = None,
-        client_token_field: str | int | None = None,
         notes: str | None = None,
     ) -> None:
         """Register (or overwrite) the entry for ``(method, variant)``.
 
-        Wave 2 will call this once per method/variant at module import.
+        Production code calls this once per method/variant at module import.
         Tests may call it ad-hoc on a fresh :class:`IdempotencyRegistry`
         instance to exercise specific policies.
 
         Effective notes default: when ``policy == UNCLASSIFIED`` and the
         caller did not pass ``notes=...``, the placeholder marker
-        ``"placeholder — Wave 2 must classify"`` is used. Any other
+        ``"placeholder — must classify"`` is used. Any other
         policy defaults to ``""``.
         """
         if notes is None:
@@ -329,7 +313,6 @@ class IdempotencyRegistry:
         entry = IdempotencyEntry(
             policy=policy,
             probe_key_fn=probe_key_fn,
-            client_token_field=client_token_field,
             notes=notes,
         )
         self._entries.setdefault(method, {})[variant] = entry
@@ -379,42 +362,47 @@ class IdempotencyRegistry:
             raise KeyError(f"IdempotencyRegistry has no (method, None) default for {method.name!r}")
         return default
 
-    def _seed_defaults(self) -> None:
-        """Populate every :class:`~notebooklm.rpc.RPCMethod` with the
-        UNCLASSIFIED placeholder at ``variant=None``.
+    def iter_entries(self) -> Iterator[tuple[RPCMethod, str | None, IdempotencyEntry]]:
+        """Return an iterator over a snapshot of ``(method, variant, entry)`` rows."""
+        snapshot: list[tuple[RPCMethod, str | None, IdempotencyEntry]] = []
+        for method, method_entries in self._entries.items():
+            for variant, entry in method_entries.items():
+                snapshot.append((method, variant, entry))
+        return iter(snapshot)
 
-        Called once at module import to guarantee the registry is a
-        total function over ``RPCMethod``. Wave 2 will replace these
-        placeholders one at a time as it classifies each RPC.
+    def _seed_defaults(self) -> None:
+        """Populate missing :class:`~notebooklm.rpc.RPCMethod` defaults with
+        the UNCLASSIFIED placeholder.
+
+        Called once at module import to guarantee the registry is a total
+        function over ``RPCMethod``. The production registrations below
+        replace every current placeholder; guard tests fail if future enum
+        members are added without an explicit classification.
         """
         for method in RPCMethod:
-            # ``setdefault`` would lose the placeholder note if a future
-            # caller pre-registers a non-default entry. Use explicit
-            # absence check so we never overwrite a real Wave 2 entry.
+            # ``setdefault`` would lose the placeholder note if a future caller
+            # pre-registers a non-default entry. Use explicit absence check so
+            # we never overwrite a real classification.
             if method not in self._entries or None not in self._entries[method]:
                 self.register(method, IdempotencyPolicy.UNCLASSIFIED)
 
 
-# Module-level production registry. Wave 2 classifies individual RPCs in
-# two passes:
+# Module-level production registry. Classifications are registered in two
+# passes:
 #
-#   * Some entries (research/notes from b-research-notes, sources/
-#     ADD_SOURCE variants from b-sources) are registered *before* the
-#     default-fill seeding pass so ``_seed_defaults`` skips them (it only
-#     populates ``(method, None)`` entries that are absent). Variant
-#     entries (``variant != None``) sit alongside the ``None`` default;
-#     the seeder leaves them alone.
-#   * Other entries (delete/refresh/share from b-generation) are
-#     registered *after* the seeding pass and overwrite the
-#     UNCLASSIFIED placeholders that the seeder populated.
+#   * Some entries are registered *before* the default-fill seeding pass so
+#     ``_seed_defaults`` skips them. Variant entries (``variant != None``) sit
+#     alongside the ``None`` default; the seeder leaves them alone.
+#   * The remaining entries are registered *after* the seeding pass and
+#     overwrite any UNCLASSIFIED placeholders that the seeder populated.
 #
 # Both orderings yield the same final registry shape; the difference is
-# stylistic. Future Wave-2 classifications may use either approach.
+# stylistic. Future classifications may use either approach.
 IDEMPOTENCY_REGISTRY = IdempotencyRegistry()
 
 
 # ----------------------------------------------------------------------------
-# Wave 2 classifications — P0-3 (b-research-notes)
+# Active classifications — research and notes
 # ----------------------------------------------------------------------------
 #
 # Three RPCs in the research + notes family are ``NON_IDEMPOTENT_NO_RETRY``.
@@ -509,14 +497,15 @@ IDEMPOTENCY_REGISTRY.register(
     notes=_CREATE_NOTE_NOT_IDEMPOTENT_NOTE,
 )
 
-# Default-fill every remaining method with the UNCLASSIFIED placeholder.
+# Default-fill every remaining method with an UNCLASSIFIED placeholder. The
+# explicit registrations below must replace every placeholder before tests pass.
 # Methods classified above are skipped by the absence check inside
 # ``_seed_defaults``.
 IDEMPOTENCY_REGISTRY._seed_defaults()
 
 
 # ---------------------------------------------------------------------------
-# Wave 2 classifications
+# Active classifications — artifact and generation create patterns
 # ---------------------------------------------------------------------------
 #
 # CREATE_ARTIFACT (P0-3) — mutating create. Params are nested positional
@@ -527,7 +516,7 @@ IDEMPOTENCY_REGISTRY._seed_defaults()
 # caller-supplied client-token slot. The server allocates the artifact_id
 # in the response (``ArtifactGenerationService.parse_generation_result``
 # reads ``result[0][0]`` — see ``_artifact_generation.py``), so a
-# CLIENT_TOKEN_DEDUPE classification is impossible.
+# token-dedupe strategy is impossible.
 #
 # PROBE_THEN_CREATE forces ``effective_disable_internal_retries=True``,
 # which suppresses ``_perform_authed_post``'s inner retry loop. Without
@@ -555,7 +544,7 @@ IDEMPOTENCY_REGISTRY.register(
 # slot is structural (sources, content config, language, mode triple). The
 # response carries the mind-map JSON directly (line 614-622 reads
 # ``result[0][0]``) — there is no task_id to probe with after the fact, so
-# CLIENT_TOKEN_DEDUPE is impossible here too.
+# token-dedupe is impossible here too.
 #
 # Note: ``GENERATE_MIND_MAP`` itself does NOT persist the note server-side
 # (see ``tests/integration/test_mind_map_chain_vcr.py`` header). The actual
@@ -579,21 +568,27 @@ IDEMPOTENCY_REGISTRY.register(
         "forces the inner retry loop off so a 5xx after server-side "
         "generation does not trigger a fresh LLM inference whose result "
         "may diverge from the first (lost) response. The persisted-note "
-        "side of the mind-map chain (CREATE_NOTE / UPDATE_NOTE in "
-        "NoteService.create_note) remains UNCLASSIFIED and is the subject "
-        "of a follow-up classification task."
+        "side of the mind-map chain is classified separately: CREATE_NOTE "
+        "is NON_IDEMPOTENT_NO_RETRY and UPDATE_NOTE is an idempotent set op."
     ),
 )
 
 
 # ----------------------------------------------------------------------------
-# Wave 2 classifications (P0-3 side-effects + P1-2 notebooks)
+# Active classifications — side effects and notebooks
 # ----------------------------------------------------------------------------
 #
-# These entries replace the UNCLASSIFIED placeholders for the five mutating
-# RPCs whose side-effect semantics are well-understood and stable. The full
+# These entries replace the UNCLASSIFIED placeholders for mutating RPCs whose
+# side-effect semantics are well-understood and stable. The full
 # audit decision matrix lives in ADR-005
 # (``docs/adr/0005-idempotency-taxonomy.md``); the short version follows.
+#
+# CREATE_NOTEBOOK
+#   Mutating create with an executable wrapper in ``NotebooksAPI.create``:
+#   the caller captures a title/baseline probe before issuing the RPC and
+#   retries only after probing for a committed notebook. Classification:
+#   ``PROBE_THEN_CREATE`` so raw ``rpc_call(CREATE_NOTEBOOK, ...)`` disables
+#   blind transport retries too.
 #
 # DELETE_NOTEBOOK / DELETE_SOURCE / DELETE_ARTIFACT
 #   Server-side delete is idempotent: replaying the request after a 5xx /
@@ -621,6 +616,15 @@ IDEMPOTENCY_REGISTRY.register(
 #   re-issuing. Wave-2 scope is the classification (which suppresses the
 #   blind retry today); the caller-side probe-then-create wrapper is a
 #   follow-up.
+IDEMPOTENCY_REGISTRY.register(
+    RPCMethod.CREATE_NOTEBOOK,
+    IdempotencyPolicy.PROBE_THEN_CREATE,
+    notes=(
+        "notebook create has an executable title/baseline probe wrapper in "
+        "NotebooksAPI.create; raw rpc_call paths must also suppress blind "
+        "transport retries to avoid duplicate notebooks on commit-lost errors"
+    ),
+)
 IDEMPOTENCY_REGISTRY.register(
     RPCMethod.DELETE_NOTEBOOK,
     IdempotencyPolicy.IDEMPOTENT_SET_OP,
@@ -653,7 +657,7 @@ IDEMPOTENCY_REGISTRY.register(
 
 
 # ----------------------------------------------------------------------------
-# Wave 2 classifications — ADD_SOURCE + ADD_SOURCE_FILE (P0-3, P1-2)
+# Active classifications — ADD_SOURCE + ADD_SOURCE_FILE
 # ----------------------------------------------------------------------------
 #
 # ADD_SOURCE is variant-shaped: the call site distinguishes ``"url"`` (web /
@@ -680,10 +684,22 @@ IDEMPOTENCY_REGISTRY.register(
 # matches (>1 new source with the same filename) raise rather than guess.
 # PROBE_THEN_CREATE.
 #
-# These four entries flip the executor onto the probe-then-create path
-# via ``resolve_effective_disable_internal_retries`` — the per-API call
-# sites in ``_source_add.py`` / ``_source_upload.py`` own the probe loop.
+# These entries force-disable blind transport retries via
+# ``resolve_effective_disable_internal_retries``. The per-API call sites in
+# ``_source_add.py`` / ``_source_upload.py`` own the executable probe loop for
+# the URL, Drive, and file variants.
 
+_RAW_ADD_SOURCE_NOT_IDEMPOTENT_NOTE = (
+    "raw ADD_SOURCE without an operation_variant has no proven dedupe/probe "
+    "key. Public call sites must pass 'url', 'drive', or 'text'; direct "
+    "rpc_call users get first-failure surfacing rather than blind retry"
+)
+
+IDEMPOTENCY_REGISTRY.register(
+    RPCMethod.ADD_SOURCE,
+    IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
+    notes=_RAW_ADD_SOURCE_NOT_IDEMPOTENT_NOTE,
+)
 IDEMPOTENCY_REGISTRY.register(
     RPCMethod.ADD_SOURCE,
     IdempotencyPolicy.PROBE_THEN_CREATE,
@@ -714,15 +730,116 @@ IDEMPOTENCY_REGISTRY.register(
 
 
 # ----------------------------------------------------------------------------
+# Complete coverage — read-only / idempotent set-state RPCs
+# ----------------------------------------------------------------------------
+#
+# ``IDEMPOTENT_SET_OP`` is the retry-safe bucket for operations where replay
+# cannot create an additional server resource. This includes side-effect-free
+# reads and "set this state to X" mutations; both preserve the public retry
+# default because transport retries remain enabled.
+
+_IDEMPOTENT_READ_OR_SET_OP_NOTES: dict[RPCMethod, str] = {
+    RPCMethod.LIST_NOTEBOOKS: "read-only list; replay does not mutate notebook state",
+    RPCMethod.GET_NOTEBOOK: "read-only notebook fetch; replay does not mutate notebook state",
+    RPCMethod.RENAME_NOTEBOOK: (
+        "set notebook title/settings to caller-supplied values; replay leaves the same state"
+    ),
+    RPCMethod.GET_SOURCE: "read-only source content fetch; replay does not mutate source state",
+    RPCMethod.CHECK_SOURCE_FRESHNESS: (
+        "read-only freshness check; replay does not start a refresh job"
+    ),
+    RPCMethod.UPDATE_SOURCE: (
+        "set source metadata/title to caller-supplied values; replay leaves the same state"
+    ),
+    RPCMethod.SUMMARIZE: (
+        "response-only notebook summary generation; no persisted resource is created by replay"
+    ),
+    RPCMethod.GET_SOURCE_GUIDE: (
+        "response-only source guide fetch/generation; no persisted resource is created by replay"
+    ),
+    RPCMethod.GET_SUGGESTED_REPORTS: (
+        "response-only report suggestion generation; no persisted resource is created by replay"
+    ),
+    RPCMethod.LIST_ARTIFACTS: "read-only artifact list; replay does not mutate artifact state",
+    RPCMethod.RENAME_ARTIFACT: (
+        "set artifact title to a caller-supplied value; replay leaves the same state"
+    ),
+    RPCMethod.SHARE_ARTIFACT: (
+        "legacy public share-link state update; replay leaves the same share state"
+    ),
+    RPCMethod.GET_INTERACTIVE_HTML: (
+        "read-only artifact HTML fetch; replay does not mutate artifact state"
+    ),
+    RPCMethod.POLL_RESEARCH: "read-only research task poll; replay does not start a task",
+    RPCMethod.GET_NOTES_AND_MIND_MAPS: (
+        "read-only notes/mind-maps list; replay does not mutate note state"
+    ),
+    RPCMethod.UPDATE_NOTE: (
+        "set note content/title to caller-supplied values; replay leaves the same state"
+    ),
+    RPCMethod.DELETE_NOTE: "server-side note delete is idempotent (set-op semantics)",
+    RPCMethod.GET_LAST_CONVERSATION_ID: (
+        "read-only conversation id fetch; replay does not mutate chat state"
+    ),
+    RPCMethod.GET_CONVERSATION_TURNS: (
+        "read-only conversation history fetch; replay does not mutate chat state"
+    ),
+    RPCMethod.DELETE_CONVERSATION: (
+        "server-side conversation delete is idempotent (set-op semantics)"
+    ),
+    RPCMethod.GET_SHARE_STATUS: "read-only share status fetch; replay does not mutate ACL state",
+    RPCMethod.REMOVE_RECENTLY_VIEWED: (
+        "remove notebook from recents is idempotent; replay leaves it absent"
+    ),
+    RPCMethod.GET_USER_SETTINGS: "read-only settings fetch; replay does not mutate settings",
+    RPCMethod.SET_USER_SETTINGS: (
+        "set user settings to caller-supplied values; replay leaves the same state"
+    ),
+    RPCMethod.GET_USER_TIER: "read-only account tier fetch; replay does not mutate account state",
+}
+
+for _method, _notes in _IDEMPOTENT_READ_OR_SET_OP_NOTES.items():
+    IDEMPOTENCY_REGISTRY.register(
+        _method,
+        IdempotencyPolicy.IDEMPOTENT_SET_OP,
+        notes=_notes,
+    )
+
+
+# ----------------------------------------------------------------------------
+# Complete coverage — non-idempotent methods with no reliable probe/token
+# ----------------------------------------------------------------------------
+
+IDEMPOTENCY_REGISTRY.register(
+    RPCMethod.EXPORT_ARTIFACT,
+    IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
+    notes=(
+        "exports create an external Docs/Sheets artifact and return its URL; "
+        "there is no client-token slot or reliable post-failure probe to bind "
+        "a commit-lost export to this call"
+    ),
+)
+IDEMPOTENCY_REGISTRY.register(
+    RPCMethod.REVISE_SLIDE,
+    IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
+    notes=(
+        "slide revision starts a prompt-driven generation/update with no "
+        "client-token slot or probe; a blind retry may create a second, "
+        "divergent revision"
+    ),
+)
+
+
+# ----------------------------------------------------------------------------
 # AT_LEAST_ONCE_ACCEPTED rate-limited WARN logger
 # ----------------------------------------------------------------------------
 #
 # Per-method timestamp ledger so the WARN log fires at most once per
 # ``_AT_LEAST_ONCE_LOG_INTERVAL`` seconds per ``(method, variant)``. This
-# keeps the foundation behavior-neutral under load: even if Wave 2
-# classifies several hot-path RPCs as AT_LEAST_ONCE_ACCEPTED, callers
-# won't drown in WARN spam. The choice of 30s mirrors the cadence of
-# similar advisory-log throttles elsewhere in the codebase.
+# keeps the registry behavior manageable under load: even if several hot-path
+# RPCs are AT_LEAST_ONCE_ACCEPTED, callers won't drown in WARN spam. The choice
+# of 30s mirrors the cadence of similar advisory-log throttles elsewhere in the
+# codebase.
 _AT_LEAST_ONCE_LOG_INTERVAL: float = 30.0
 # Audit CC6: single-loop-per-client invariant per ADR-004; not safe for multi-loop fan-out.
 _at_least_once_last_logged: dict[tuple[RPCMethod, str | None], float] = {}
@@ -771,9 +888,10 @@ def resolve_effective_disable_internal_retries(
        emits a rate-limited WARN and returns ``caller_disable_internal_retries``
        unchanged. Caller has accepted at-least-once semantics; retries
        remain enabled.
-    4. All other policies (UNCLASSIFIED, IDEMPOTENT_SET_OP,
-       CLIENT_TOKEN_DEDUPE) → returns ``caller_disable_internal_retries``
-       unchanged. UNCLASSIFIED is silent (no log emission).
+    4. All other policies (UNCLASSIFIED, IDEMPOTENT_SET_OP) → returns
+       ``caller_disable_internal_retries`` unchanged. UNCLASSIFIED is
+       silent (no log emission) and should appear only in hand-built
+       test registries, not in the production registry.
 
     Raises :class:`~notebooklm.exceptions.IdempotencyVariantError` for
     unknown variants on methods with explicit variant tables.
@@ -791,83 +909,9 @@ def resolve_effective_disable_internal_retries(
         _maybe_log_at_least_once(method, operation_variant)
         return caller_disable_internal_retries
 
-    # UNCLASSIFIED / IDEMPOTENT_SET_OP / CLIENT_TOKEN_DEDUPE: silent,
-    # caller value passes through unchanged.
+    # UNCLASSIFIED / IDEMPOTENT_SET_OP: silent, caller value passes
+    # through unchanged.
     return caller_disable_internal_retries
-
-
-def maybe_inject_client_token(
-    registry: IdempotencyRegistry,
-    method: RPCMethod,
-    params: Any,
-    *,
-    operation_variant: str | None,
-) -> None:
-    """Inject a fresh ``uuid4().hex`` client-token for CLIENT_TOKEN_DEDUPE
-    methods, when (and only when) the caller did not already populate the
-    token slot.
-
-    ``params`` is mutated in place. Two shapes are supported, matching
-    the two shapes that ``RpcExecutor.execute`` is asked to encode:
-
-    * ``dict``-shaped params with a ``str`` ``client_token_field`` key:
-      ``params[field_name] = uuid4().hex`` if the key is absent or maps
-      to a falsy value.
-    * ``list``-shaped params (the batchexecute-typical shape) with an
-      ``int`` ``client_token_field`` index: ``params[index] = uuid4().hex``
-      when ``0 <= index < len(params)`` and the existing slot is falsy
-      (``None``, empty string). If the index is out of range the
-      function logs a warning and returns without raising — this is a
-      foundation safety guard so a mis-registered entry doesn't crash a
-      live RPC; Wave 2 owns the per-method registration audit.
-
-    No-op for policies other than ``CLIENT_TOKEN_DEDUPE``, for entries
-    without a ``client_token_field``, for entries where the slot already
-    holds a non-falsy value (caller-provided token wins), and for params
-    whose shape doesn't match the field type (``int`` field on a non-list
-    or ``str`` field on a non-dict). Raises
-    :class:`~notebooklm.exceptions.IdempotencyVariantError` for unknown
-    variants on methods with explicit variant tables.
-    """
-    entry = registry.get_entry(method, operation_variant=operation_variant)
-    if entry.policy is not IdempotencyPolicy.CLIENT_TOKEN_DEDUPE:
-        return
-    field_key = entry.client_token_field
-    if field_key is None:
-        return
-
-    if isinstance(field_key, str):
-        if not isinstance(params, dict):
-            # Shape mismatch — registry registered a dict-style field
-            # but caller passed a list. No-op rather than crash.
-            return
-        if params.get(field_key):
-            # Caller-provided token wins.
-            return
-        params[field_key] = uuid.uuid4().hex
-        return
-
-    # Positional injection into list params (batchexecute typical shape).
-    if not isinstance(params, list):
-        # Shape mismatch — registry registered a positional slot but
-        # caller passed a dict / scalar. No-op.
-        return
-    if not (0 <= field_key < len(params)):
-        # Out-of-range index — likely a Wave 2 mis-registration. Don't
-        # crash a live RPC; log once and let the caller surface it via
-        # logs rather than via exception.
-        logger.warning(
-            "CLIENT_TOKEN_DEDUPE for RPC %s has out-of-range "
-            "client_token_field=%d for params of length %d; skipping injection",
-            method.name,
-            field_key,
-            len(params),
-        )
-        return
-    if params[field_key]:
-        # Caller-provided token (or other truthy value) wins.
-        return
-    params[field_key] = uuid.uuid4().hex
 
 
 __all__ = [
@@ -878,5 +922,4 @@ __all__ = [
     "IDEMPOTENCY_REGISTRY",
     "ProbeKeyFn",
     "resolve_effective_disable_internal_retries",
-    "maybe_inject_client_token",
 ]

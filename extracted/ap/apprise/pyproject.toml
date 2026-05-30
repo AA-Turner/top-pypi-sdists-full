@@ -56,6 +56,7 @@ keywords = [
     "Alerts",
     "Apprise API",
     "Automated Packet Reporting System",
+    "Amazon Chime",
     "AWS",
     "Bark",
     "Blink(1)",
@@ -89,10 +90,12 @@ keywords = [
     "Gnome",
     "Google Chat",
     "Gotify",
+    "GroupMe",
     "Growl",
     "Guilded",
     "Home Assistant",
     "httpSMS",
+    "HumHub",
     "IFTTT",
     "IRC",
     "Jellyfin",
@@ -149,12 +152,14 @@ keywords = [
     "Reddit",
     "Resend",
     "Revolt",
+    "RingCentral",
     "Rocket.Chat",
     "RSyslog",
     "Ryver",
     "SendGrid",
     "SendPulse",
     "ServerChan",
+    "Session Open Group Server",
     "SES",
     "Seven",
     "SFR",
@@ -189,6 +194,7 @@ keywords = [
     "Vonage",
     "Webex",
     "Webpush",
+    "WeChat (WeCom)",
     "WeCom Bot",
     "WhatsApp",
     "Windows",
@@ -197,6 +203,7 @@ keywords = [
     "XBMC",
     "XML",
     "XMPP",
+    "Zoom",
     "Zulip",
 ]
 
@@ -225,9 +232,7 @@ all-plugins = [
     # provides growl:// support
     "gntp",
     # Provides mqtt:// support
-    # use any version other than 2.0.x due to:
-    #  - https://github.com/eclipse/paho.mqtt.python/issues/814
-    "paho-mqtt != 2.0.*",
+    "paho-mqtt >= 2.1.0",
 
      # Pretty Good Privacy (PGP) Provides mailto:// and deltachat:// support
     "PGPy",

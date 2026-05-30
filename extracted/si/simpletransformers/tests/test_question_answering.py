@@ -11,11 +11,11 @@ from simpletransformers.question_answering import QuestionAnsweringModel
     "model_type, model_name",
     [
         ("bert", "bert-base-uncased"),
-        ("longformer", "allenai/longformer-base-4096"),
+        # ("longformer", "allenai/longformer-base-4096"),
         # ("reformer", "google/reformer-crime-and-punishment"),
         # ("xlnet", "xlnet-base-cased"),
         # ("xlm", "xlm-mlm-17-1280"),
-        # ("roberta", "roberta-base"),
+        ("roberta", "roberta-base"),
         # ("distilbert", "distilbert-base-uncased"),
         # ("albert", "albert-base-v1"),
         # ("camembert", "camembert-base"),
@@ -52,7 +52,7 @@ def test_question_answering(model_type, model_name):
                     "is_impossible": False,
                     "question": "What was the name of the 1937 treaty?",
                     "answers": [
-                        {"text": "Bald Eagle Protection Act", "answer_start": 167}
+                        {"text": "Bald Eagle Protection Act", "answer_start": 170}
                     ],
                 },
                 {

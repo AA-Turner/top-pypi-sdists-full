@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litestar
-Version: 2.22.0
+Version: 2.23.0
 Summary: Litestar - A production-ready, highly performant, extensible ASGI API Framework
 Project-URL: Blog, https://blog.litestar.dev
 Project-URL: Changelog, https://github.com/litestar-org/litestar/releases/

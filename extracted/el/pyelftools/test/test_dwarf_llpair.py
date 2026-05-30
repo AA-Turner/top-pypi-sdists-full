@@ -12,7 +12,7 @@ from elftools.elf.elffile import ELFFile
 class TestLocListsPair(unittest.TestCase):
     def test_llpair(self):
         path = os.path.join('test', 'testfiles_for_unittests',
-                            'dwarf_llpair.elf')
+                            'dwarf_llpair.so.elf')
         with open(path, 'rb') as f:
             elffile = ELFFile(f)
             dwarfinfo = elffile.get_dwarf_info(follow_links=False)
@@ -23,7 +23,7 @@ class TestLocListsPair(unittest.TestCase):
             self.assertTrue(isinstance(llp, LocationListsPair))
             locparser = LocationParser(llp)
 
-            CUs = list(dwarfinfo.iter_CUs())     
+            CUs = list(dwarfinfo.iter_CUs())
 
             # The first CU is the v5 one
             # Just in case, make sure we can hit a loclist in a V5 section

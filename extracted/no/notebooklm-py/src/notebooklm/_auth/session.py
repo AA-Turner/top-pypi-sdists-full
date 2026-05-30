@@ -2,46 +2,48 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable
-from pathlib import Path
-from typing import Protocol
-
-import httpx
+from typing import TYPE_CHECKING
 
 from .._env import get_base_url
 from .._url_utils import is_google_auth_redirect
-from ..auth import AuthTokens, authuser_query, extract_wiz_field
 from ..exceptions import AuthExtractionError
+from .account import authuser_query
+from .extraction import extract_wiz_field
+from .tokens import AuthTokens
+
+if TYPE_CHECKING:
+    from .._cookie_persistence import CookiePersistence
+    from .._kernel import Kernel
+    from .._session_auth import AuthRefreshCoordinator
+    from .._session_lifecycle import ClientLifecycle
 
 
-class RefreshAuthCore(Protocol):
-    """Structural core boundary required by auth session refresh."""
+async def refresh_auth_session(
+    *,
+    auth: AuthTokens,
+    kernel: Kernel,
+    auth_coord: AuthRefreshCoordinator,
+    lifecycle: ClientLifecycle,
+    cookie_persistence: CookiePersistence,
+) -> AuthTokens:
+    """Refresh NotebookLM auth tokens through the raw homepage session path.
 
-    auth: AuthTokens
-
-    def get_http_client(self) -> httpx.AsyncClient:
-        """Return the live HTTP client."""
-        ...
-
-    def update_auth_tokens(self, csrf: str, session_id: str) -> Awaitable[None]:
-        """Atomically update auth token scalars."""
-        ...
-
-    def update_auth_headers(self) -> None:
-        """Refresh auth-dependent HTTP state after token mutation."""
-        ...
-
-    def save_cookies(self, jar: httpx.Cookies, path: Path | None = None) -> Awaitable[None]:
-        """Persist refreshed cookies."""
-        ...
-
-
-async def refresh_auth_session(core: RefreshAuthCore) -> AuthTokens:
-    """Refresh NotebookLM auth tokens through the raw homepage session path."""
-    http_client = core.get_http_client()
+    Wave 2 of plan ``host-protocol-removal`` replaced the legacy
+    Session-shaped core Protocol + ``ClientLifecycle`` argument shape
+    with five explicit keyword-only collaborators. The previous shape
+    required a Session-aliased core that re-declared the underlying
+    private slots (``auth`` / ``_kernel`` / ``update_auth_tokens`` /
+    ``update_auth_headers``) and a separate ``cast`` to satisfy the
+    lifecycle's ``host``-shaped ``save_cookies`` signature; both have
+    been lifted now that every collaborator the refresh path needs is
+    in scope directly. The single production caller
+    (:meth:`NotebookLMClient.refresh_auth`) sources the five
+    collaborators from ``self._auth`` and ``self._collaborators``.
+    """
+    http_client = kernel.get_http_client()
     url = f"{get_base_url()}/"
-    if core.auth.account_email or core.auth.authuser:
-        url = f"{url}?{authuser_query(core.auth.authuser, core.auth.account_email)}"
+    if auth.account_email or auth.authuser:
+        url = f"{url}?{authuser_query(auth.authuser, auth.account_email)}"
     response = await http_client.get(url)
     response.raise_for_status()
 
@@ -62,10 +64,15 @@ async def refresh_auth_session(core: RefreshAuthCore) -> AuthTokens:
 
     # Keep the csrf/session mutation centralized so RPC snapshots cannot
     # observe a torn token pair while refresh is in flight.
-    await core.update_auth_tokens(csrf or "", sid or "")
-    core.update_auth_headers()
-    # Persist through Session.save_cookies so refresh serializes with
-    # keepalive and close saves.
-    await core.save_cookies(http_client.cookies)
+    await auth_coord.update_auth_tokens(auth=auth, csrf=csrf or "", session_id=sid or "")
+    auth_coord.update_auth_headers(auth=auth, kernel=kernel)
+    # Persist through ``ClientLifecycle.save_cookies`` so refresh
+    # serializes with keepalive and close saves. The lifecycle's
+    # ``save_cookies`` now takes the :class:`CookiePersistence`
+    # collaborator directly — Wave 2 of plan ``host-protocol-removal``
+    # narrowed the first positional argument from a Session-shaped
+    # ``host`` to the cookie-persistence collaborator the caller already
+    # holds, eliminating the prior ``cast`` to a Protocol-typed host.
+    await lifecycle.save_cookies(cookie_persistence, http_client.cookies)
 
-    return core.auth
+    return auth

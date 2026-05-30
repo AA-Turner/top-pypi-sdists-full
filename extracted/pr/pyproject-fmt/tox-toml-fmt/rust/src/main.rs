@@ -1,0 +1,205 @@
+use std::collections::HashSet;
+use std::string::String;
+
+#[cfg(feature = "extension-module")]
+use pyo3::prelude::{PyModule, PyModuleMethods};
+use pyo3::{pyclass, pymethods};
+#[cfg(feature = "extension-module")]
+use pyo3::{pyfunction, pymodule, wrap_pyfunction, Bound, PyResult, Python};
+
+use tombi_config::TomlVersion;
+use tombi_syntax::SyntaxKind::KEY_VALUE;
+
+use crate::global::{
+    fix_envs, fix_root, normalize_aliases, normalize_strings, reorder_inline_tables, reorder_tables, sort_env_list,
+};
+use common::array::ensure_all_arrays_multiline;
+use common::table::{apply_table_formatting, count_unquoted_dots, first_unquoted_dot, split_table_name, Tables};
+
+pub mod global;
+#[cfg(test)]
+mod tests;
+
+#[pyclass(frozen, get_all)]
+pub struct Settings {
+    column_width: usize,
+    indent: usize,
+    table_format: String,
+    sub_table_spacing: String,
+    separate_root_table: String,
+    expand_tables: Vec<String>,
+    collapse_tables: Vec<String>,
+    skip_wrap_for_keys: Vec<String>,
+    pin_envs: Vec<String>,
+}
+
+#[pymethods]
+impl Settings {
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (*, column_width, indent, table_format, sub_table_spacing, separate_root_table, expand_tables, collapse_tables, skip_wrap_for_keys, pin_envs))]
+    fn new(
+        column_width: usize,
+        indent: usize,
+        table_format: String,
+        sub_table_spacing: String,
+        separate_root_table: String,
+        expand_tables: Vec<String>,
+        collapse_tables: Vec<String>,
+        skip_wrap_for_keys: Vec<String>,
+        pin_envs: Vec<String>,
+    ) -> Self {
+        Self {
+            column_width,
+            indent,
+            table_format,
+            sub_table_spacing,
+            separate_root_table,
+            expand_tables,
+            collapse_tables,
+            skip_wrap_for_keys,
+            pin_envs,
+        }
+    }
+}
+
+pub struct TableFormatConfig {
+    pub default_collapse: bool,
+    pub expand_tables: HashSet<String>,
+    pub collapse_tables: HashSet<String>,
+}
+
+impl TableFormatConfig {
+    pub fn from_settings(settings: &Settings) -> Self {
+        Self {
+            default_collapse: settings.table_format == "short",
+            expand_tables: settings.expand_tables.iter().cloned().collect(),
+            collapse_tables: settings.collapse_tables.iter().cloned().collect(),
+        }
+    }
+
+    pub fn should_collapse(&self, table_name: &str) -> bool {
+        let mut current = table_name;
+        loop {
+            if self.collapse_tables.contains(current) {
+                return true;
+            }
+            if self.expand_tables.contains(current) {
+                return false;
+            }
+            if count_unquoted_dots(current) == 0 {
+                break;
+            }
+            let (parent, _) = split_table_name(current);
+            current = parent;
+        }
+        self.default_collapse
+    }
+}
+
+fn parse(source: &str) -> tombi_syntax::SyntaxNode {
+    tombi_parser::parse(source).syntax_node().clone_for_update()
+}
+
+async fn format_with_tombi(content: &str, column_width: usize, indent: usize) -> String {
+    let options = common::format_options::create_format_options(column_width, indent);
+    let schema_store = tombi_schema_store::SchemaStore::new();
+    let formatter = tombi_formatter::Formatter::new(TomlVersion::default(), &options, None, &schema_store);
+    formatter.format(content).await.unwrap_or_else(|_| content.to_string())
+}
+
+#[cfg(feature = "extension-module")]
+#[pyfunction]
+#[pyo3(name = "format_toml")]
+fn format_toml_py(py: Python<'_>, content: &str, opt: &Settings) -> String {
+    py.detach(|| format_toml(content, opt))
+}
+
+#[must_use]
+pub fn format_toml(content: &str, opt: &Settings) -> String {
+    let root_ast = parse(content);
+    common::string::normalize_key_quotes(&root_ast);
+    let mut tables = Tables::from_ast(&root_ast);
+    let table_config = TableFormatConfig::from_settings(opt);
+
+    let mut prefixes: Vec<String> = vec![
+        String::from("env"),
+        String::from("env_run_base"),
+        String::from("env_pkg_base"),
+    ];
+    for key in tables.header_to_pos.keys() {
+        if let Some(env_name) = key.strip_prefix("env.") {
+            let first_seg = match count_unquoted_dots(env_name) {
+                0 => env_name,
+                _ => &env_name[..first_unquoted_dot(env_name)],
+            };
+            let env_prefix = format!("env.{first_seg}");
+            if !prefixes.contains(&env_prefix) {
+                prefixes.push(env_prefix);
+            }
+        }
+    }
+    let prefix_refs: Vec<&str> = prefixes.iter().map(|s| s.as_str()).collect();
+    apply_table_formatting(
+        &mut tables,
+        |name| {
+            if let Some(rest) = name.strip_prefix("env.") {
+                if count_unquoted_dots(rest) == 0 {
+                    return false;
+                }
+            }
+            table_config.should_collapse(name)
+        },
+        &prefix_refs,
+        opt.column_width,
+    );
+
+    tables.header_to_pos.retain(|name, positions| {
+        if !prefixes.contains(name) {
+            return true;
+        }
+        positions
+            .iter()
+            .all(|&pos| tables.table_set[pos].borrow().iter().any(|e| e.kind() == KEY_VALUE))
+    });
+
+    normalize_aliases(&tables);
+    fix_root(&tables);
+    fix_envs(&tables);
+    sort_env_list(&tables, &opt.pin_envs);
+    normalize_strings(&tables);
+    reorder_inline_tables(&root_ast);
+    reorder_tables(&root_ast, &tables, &opt.separate_root_table, &opt.sub_table_spacing);
+    ensure_all_arrays_multiline(&root_ast, opt.column_width);
+
+    let indent_string = " ".repeat(opt.indent);
+    common::string::wrap_all_long_strings(&root_ast, opt.column_width, &indent_string, &opt.skip_wrap_for_keys);
+
+    let modified_content = root_ast.to_string();
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let formatted = rt.block_on(format_with_tombi(&modified_content, opt.column_width, opt.indent));
+
+    let formatted_ast = parse(&formatted);
+    common::array::align_array_comments(&formatted_ast);
+    let aligned = formatted_ast.to_string();
+
+    common::util::limit_blank_lines(&aligned, 2)
+}
+
+/// # Errors
+///
+/// Will return `PyErr` if an error is raised during formatting.
+// Gated so sibling crates (pyproject-fmt) that pull this in as an rlib don't get a
+// duplicate `PyInit__lib` symbol from pyo3 at link time.
+#[cfg(feature = "extension-module")]
+#[pymodule(gil_used = false)]
+#[pyo3(name = "_lib")]
+pub fn _lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(format_toml_py, m)?)?;
+    m.add_class::<Settings>()?;
+    Ok(())
+}

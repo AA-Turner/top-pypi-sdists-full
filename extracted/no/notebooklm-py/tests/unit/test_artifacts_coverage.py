@@ -12,26 +12,27 @@ import httpx
 import pytest
 
 from notebooklm._artifacts import ArtifactsAPI
-from notebooklm._polling_registry import PollRegistry
+from notebooklm.exceptions import (
+    ArtifactInProgressTimeoutError,
+    ArtifactPendingTimeoutError,
+    ArtifactTimeoutError,
+)
 from notebooklm.rpc.decoder import RPCError
-from notebooklm.types import ArtifactDownloadError
+from notebooklm.types import ArtifactDownloadError, GenerationStatus
 
 
 @pytest.fixture
 def mock_artifacts_api():
     """Create an ArtifactsAPI with mocked core and notes API."""
-    mock_core = MagicMock()
-    mock_core.rpc_call = AsyncMock()
-    mock_core.get_source_ids = AsyncMock(return_value=[])
-    # Real registry backing. A MagicMock attribute would return a child Mock
-    # and confuse the ``existing is not None`` branch.
-    mock_core.poll_registry = PollRegistry()
-    mock_core.operation_scope = MagicMock(side_effect=lambda _label: _noop_operation_scope())
-    # ``bound_loop`` must be ``None`` (silent-no-op for the affinity
-    # guard) so the artifact polling helper does not raise on a
-    # ``MagicMock``-shaped loop value.
-    mock_core.bound_loop = None
-    mock_core.assert_bound_loop = MagicMock(return_value=None)
+    from _fixtures.fake_core import make_fake_core
+
+    mock_core = make_fake_core(
+        rpc_call=AsyncMock(),
+        get_source_ids=AsyncMock(return_value=[]),
+        operation_scope=MagicMock(side_effect=lambda _label: _noop_operation_scope()),
+    )
+    # ``ArtifactsAPI`` constructs its own ``PollRegistry`` internally
+    # (``_artifacts.py:217``); the fake core does not need to provide one.
     from notebooklm._mind_map import NoteBackedMindMapService
     from notebooklm._note_service import NoteService
 
@@ -41,7 +42,9 @@ def mock_artifacts_api():
     mock_notebooks = MagicMock()
     mock_notebooks.get_source_ids = AsyncMock(return_value=[])
     api = ArtifactsAPI(
-        mock_core,
+        rpc=mock_core,
+        drain=mock_core,
+        lifecycle=mock_core,
         notebooks=mock_notebooks,
         mind_maps=mind_maps,
         note_service=note_service,
@@ -74,7 +77,7 @@ class TestDownloadUrlsBatch:
         mock_response.raise_for_status = MagicMock()
 
         with (
-            patch("notebooklm._artifacts.load_httpx_cookies", return_value={}),
+            patch("notebooklm._artifact_downloads.load_httpx_cookies", return_value={}),
             patch("httpx.AsyncClient") as mock_client_cls,
         ):
             mock_client = AsyncMock()
@@ -115,7 +118,7 @@ class TestDownloadUrlsBatch:
         mock_response.raise_for_status = MagicMock()
 
         with (
-            patch("notebooklm._artifacts.load_httpx_cookies", return_value={}),
+            patch("notebooklm._artifact_downloads.load_httpx_cookies", return_value={}),
             patch("httpx.AsyncClient") as mock_client_cls,
         ):
             mock_client = AsyncMock()
@@ -148,7 +151,7 @@ class TestDownloadUrlsBatch:
         success_response.raise_for_status = MagicMock()
 
         with (
-            patch("notebooklm._artifacts.load_httpx_cookies", return_value={}),
+            patch("notebooklm._artifact_downloads.load_httpx_cookies", return_value={}),
             patch("httpx.AsyncClient") as mock_client_cls,
         ):
             mock_client = AsyncMock()
@@ -188,7 +191,7 @@ class TestCallGenerateRateLimit:
         api, mock_core = mock_artifacts_api
 
         # Simulate rate limit error from RPC
-        mock_core.rpc_call.side_effect = RPCError(
+        mock_core.rpc_executor.rpc_call.side_effect = RPCError(
             "Rate limit exceeded", rpc_code="USER_DISPLAYABLE_ERROR"
         )
 
@@ -204,7 +207,9 @@ class TestCallGenerateRateLimit:
         """Test that non-rate-limit RPC errors propagate."""
         api, mock_core = mock_artifacts_api
 
-        mock_core.rpc_call.side_effect = RPCError("Server error", rpc_code="INTERNAL_ERROR")
+        mock_core.rpc_executor.rpc_call.side_effect = RPCError(
+            "Server error", rpc_code="INTERNAL_ERROR"
+        )
 
         with pytest.raises(RPCError, match="Server error"):
             await api.generate_video("nb_123")
@@ -224,7 +229,7 @@ class TestWaitForCompletion:
         api, mock_core = mock_artifacts_api
 
         # Always return in_progress status via LIST_ARTIFACTS format
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 [
                     "task_123",
@@ -250,9 +255,102 @@ class TestWaitForCompletion:
         with (
             patch.object(loop, "time", mock_time),
             patch("asyncio.sleep", new_callable=AsyncMock),
-            pytest.raises(TimeoutError, match="timed out"),
+            pytest.raises(ArtifactInProgressTimeoutError, match="timed out"),
         ):
             await api.wait_for_completion("nb_123", "task_123", timeout=1.5)
+
+    @pytest.mark.asyncio
+    async def test_pending_timeout_raises_structured_artifact_timeout(self, mock_artifacts_api):
+        """A queued task timeout remains catchable as TimeoutError and exposes history."""
+        api, _ = mock_artifacts_api
+        api.poll_status = AsyncMock(
+            side_effect=[
+                GenerationStatus("task_123", "pending"),
+                GenerationStatus("task_123", "pending"),
+            ]
+        )
+
+        clock = 0.0
+        loop = asyncio.get_running_loop()
+
+        def mock_time():
+            return clock
+
+        async def fake_sleep(_delay: float) -> None:
+            nonlocal clock
+            clock += 0.01
+
+        with (
+            patch.object(loop, "time", mock_time),
+            patch("asyncio.sleep", fake_sleep),
+            pytest.raises(ArtifactPendingTimeoutError) as exc_info,
+        ):
+            await api.wait_for_completion(
+                "nb_123",
+                "task_123",
+                initial_interval=0.001,
+                max_interval=0.001,
+                timeout=0.005,
+            )
+
+        exc = exc_info.value
+        assert isinstance(exc, TimeoutError)
+        assert isinstance(exc, ArtifactTimeoutError)
+        assert exc.notebook_id == "nb_123"
+        assert exc.task_id == "task_123"
+        assert exc.timeout == 0.005
+        assert exc.timeout_seconds == 0.005
+        assert exc.last_status == "pending"
+        assert exc.status_history == ("pending",)
+        assert [status.status for status in exc.status_transitions] == ["pending"]
+        assert exc.stalled_phase == "pending"
+
+    @pytest.mark.asyncio
+    async def test_in_progress_timeout_preserves_status_transitions(self, mock_artifacts_api):
+        """A task that starts but never completes raises the running-timeout subclass."""
+        api, _ = mock_artifacts_api
+        api.poll_status = AsyncMock(
+            side_effect=[
+                GenerationStatus("task_123", "pending"),
+                GenerationStatus(
+                    "task_123",
+                    "in_progress",
+                    metadata={"raw_status": "completed", "media_ready": False},
+                ),
+            ]
+        )
+
+        clock = 0.0
+        loop = asyncio.get_running_loop()
+
+        def mock_time():
+            return clock
+
+        async def fake_sleep(_delay: float) -> None:
+            nonlocal clock
+            clock += 0.01
+
+        with (
+            patch.object(loop, "time", mock_time),
+            patch("asyncio.sleep", fake_sleep),
+            pytest.raises(ArtifactInProgressTimeoutError) as exc_info,
+        ):
+            await api.wait_for_completion(
+                "nb_123",
+                "task_123",
+                initial_interval=0.001,
+                max_interval=0.001,
+                timeout=0.005,
+            )
+
+        exc = exc_info.value
+        assert exc.last_status == "in_progress"
+        assert exc.status_history == ("pending", "in_progress")
+        assert [status.metadata for status in exc.status_transitions] == [
+            None,
+            {"raw_status": "completed", "media_ready": False},
+        ]
+        assert exc.stalled_phase == "in_progress"
 
     @pytest.mark.asyncio
     async def test_wait_completes_successfully(self, mock_artifacts_api):
@@ -260,7 +358,7 @@ class TestWaitForCompletion:
         api, mock_core = mock_artifacts_api
 
         # Return completed on second poll via LIST_ARTIFACTS format
-        mock_core.rpc_call.side_effect = [
+        mock_core.rpc_executor.rpc_call.side_effect = [
             # First poll - in_progress
             [
                 [
@@ -303,7 +401,7 @@ class TestWaitForCompletion:
         api, mock_core = mock_artifacts_api
 
         # LIST_ARTIFACTS returns list without our artifact ID
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 [  # Different artifact
                     "other_artifact",
@@ -337,7 +435,7 @@ class TestParseGenerationResult:
         the missing artifact_id descent. The "GenerationStatus(failed, '')"
         sentinel is the legacy fallback this test pins, so opt back into
         soft mode explicitly. Strict-mode coverage of the same input lives
-        in ``tests/integration/test_artifacts_drift.py``.
+        in ``tests/unit/test_artifacts_drift.py``.
         """
         monkeypatch.setenv("NOTEBOOKLM_STRICT_DECODE", "0")
         api, _ = mock_artifacts_api
@@ -410,7 +508,7 @@ class TestDeprecationWarnings:
         api, mock_core = mock_artifacts_api
 
         # Return completed immediately via LIST_ARTIFACTS format
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 [
                     "task_123",
@@ -746,7 +844,7 @@ class TestPollStatusMediaReadiness:
         api, mock_core = mock_artifacts_api
 
         # LIST_ARTIFACTS response
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 [  # LIST_ARTIFACTS response
                     "task_123",
@@ -777,7 +875,7 @@ class TestPollStatusMediaReadiness:
         api, mock_core = mock_artifacts_api
 
         # LIST_ARTIFACTS response - status=COMPLETED but no URL
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 [  # LIST_ARTIFACTS response - status=COMPLETED but no URL
                     "task_123",
@@ -794,13 +892,20 @@ class TestPollStatusMediaReadiness:
         status = await api.poll_status("nb_123", "task_123")
         # Should downgrade to in_progress because URL is missing
         assert status.status == "in_progress"
+        assert status.metadata == {
+            "artifact_type": "AUDIO",
+            "artifact_type_code": 1,
+            "media_ready": False,
+            "normalized_status": "in_progress",
+            "raw_status": "completed",
+        }
 
     @pytest.mark.asyncio
     async def test_poll_status_video_completed_with_url(self, mock_artifacts_api):
         """poll_status surfaces the video download URL when extractable."""
         api, mock_core = mock_artifacts_api
 
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 [
                     "task_123",
@@ -825,7 +930,7 @@ class TestPollStatusMediaReadiness:
         """poll_status surfaces the infographic image URL when extractable."""
         api, mock_core = mock_artifacts_api
 
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 [
                     "task_123",
@@ -847,7 +952,7 @@ class TestPollStatusMediaReadiness:
         """poll_status surfaces the slide-deck PDF URL when extractable."""
         api, mock_core = mock_artifacts_api
 
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 ["task_123", "Slides", 8, None, 3]
                 + [None] * 11
@@ -865,7 +970,7 @@ class TestPollStatusMediaReadiness:
         api, mock_core = mock_artifacts_api
 
         # LIST_ARTIFACTS - video with status=COMPLETED but no URL
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 [  # LIST_ARTIFACTS - video with status=COMPLETED but no URL
                     "task_123",
@@ -890,7 +995,7 @@ class TestPollStatusMediaReadiness:
         api, mock_core = mock_artifacts_api
 
         # LIST_ARTIFACTS - quiz
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 [  # LIST_ARTIFACTS - quiz
                     "task_123",
@@ -912,7 +1017,7 @@ class TestPollStatusMediaReadiness:
         api, mock_core = mock_artifacts_api
 
         # LIST_ARTIFACTS - audio still processing
-        mock_core.rpc_call.return_value = [
+        mock_core.rpc_executor.rpc_call.return_value = [
             [
                 [  # LIST_ARTIFACTS - audio still processing
                     "task_123",

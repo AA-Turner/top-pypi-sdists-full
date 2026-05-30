@@ -25,6 +25,7 @@ from .literals import (
     BlockResponseType,
     ConfidenceThresholdType,
     DnsThreatProtectionType,
+    DomainListTypeType,
     FirewallDomainListStatusType,
     FirewallDomainRedirectionActionType,
     FirewallDomainUpdateOperationType,
@@ -66,8 +67,18 @@ __all__ = (
     "AssociateResolverQueryLogConfigResponseTypeDef",
     "AssociateResolverRuleRequestTypeDef",
     "AssociateResolverRuleResponseTypeDef",
+    "BatchCreateFirewallRuleErrorTypeDef",
+    "BatchCreateFirewallRuleRequestTypeDef",
+    "BatchCreateFirewallRuleResponseTypeDef",
+    "BatchDeleteFirewallRuleErrorTypeDef",
+    "BatchDeleteFirewallRuleRequestTypeDef",
+    "BatchDeleteFirewallRuleResponseTypeDef",
+    "BatchUpdateFirewallRuleErrorTypeDef",
+    "BatchUpdateFirewallRuleRequestTypeDef",
+    "BatchUpdateFirewallRuleResponseTypeDef",
     "CreateFirewallDomainListRequestTypeDef",
     "CreateFirewallDomainListResponseTypeDef",
+    "CreateFirewallRuleEntryTypeDef",
     "CreateFirewallRuleGroupRequestTypeDef",
     "CreateFirewallRuleGroupResponseTypeDef",
     "CreateFirewallRuleRequestTypeDef",
@@ -82,6 +93,7 @@ __all__ = (
     "CreateResolverRuleResponseTypeDef",
     "DeleteFirewallDomainListRequestTypeDef",
     "DeleteFirewallDomainListResponseTypeDef",
+    "DeleteFirewallRuleEntryTypeDef",
     "DeleteFirewallRuleGroupRequestTypeDef",
     "DeleteFirewallRuleGroupResponseTypeDef",
     "DeleteFirewallRuleRequestTypeDef",
@@ -102,7 +114,10 @@ __all__ = (
     "DisassociateResolverQueryLogConfigResponseTypeDef",
     "DisassociateResolverRuleRequestTypeDef",
     "DisassociateResolverRuleResponseTypeDef",
+    "DnsThreatProtectionRuleTypeConfigTypeDef",
     "FilterTypeDef",
+    "FirewallAdvancedContentCategoryConfigTypeDef",
+    "FirewallAdvancedThreatCategoryConfigTypeDef",
     "FirewallConfigTypeDef",
     "FirewallDomainListMetadataTypeDef",
     "FirewallDomainListTypeDef",
@@ -110,6 +125,8 @@ __all__ = (
     "FirewallRuleGroupMetadataTypeDef",
     "FirewallRuleGroupTypeDef",
     "FirewallRuleTypeDef",
+    "FirewallRuleTypeDefinitionTypeDef",
+    "FirewallRuleTypeTypeDef",
     "GetFirewallConfigRequestTypeDef",
     "GetFirewallConfigResponseTypeDef",
     "GetFirewallDomainListRequestTypeDef",
@@ -160,6 +177,9 @@ __all__ = (
     "ListFirewallRuleGroupsRequestPaginateTypeDef",
     "ListFirewallRuleGroupsRequestTypeDef",
     "ListFirewallRuleGroupsResponseTypeDef",
+    "ListFirewallRuleTypesRequestPaginateTypeDef",
+    "ListFirewallRuleTypesRequestTypeDef",
+    "ListFirewallRuleTypesResponseTypeDef",
     "ListFirewallRulesRequestPaginateTypeDef",
     "ListFirewallRulesRequestTypeDef",
     "ListFirewallRulesResponseTypeDef",
@@ -218,6 +238,7 @@ __all__ = (
     "UpdateFirewallConfigResponseTypeDef",
     "UpdateFirewallDomainsRequestTypeDef",
     "UpdateFirewallDomainsResponseTypeDef",
+    "UpdateFirewallRuleEntryTypeDef",
     "UpdateFirewallRuleGroupAssociationRequestTypeDef",
     "UpdateFirewallRuleGroupAssociationResponseTypeDef",
     "UpdateFirewallRuleRequestTypeDef",
@@ -325,6 +346,13 @@ class ResolverRuleAssociationTypeDef(TypedDict):
     StatusMessage: NotRequired[str]
 
 
+class DeleteFirewallRuleEntryTypeDef(TypedDict):
+    FirewallRuleGroupId: str
+    FirewallDomainListId: NotRequired[str]
+    FirewallThreatProtectionId: NotRequired[str]
+    Qtype: NotRequired[str]
+
+
 class FirewallDomainListTypeDef(TypedDict):
     Id: NotRequired[str]
     Arn: NotRequired[str]
@@ -336,6 +364,8 @@ class FirewallDomainListTypeDef(TypedDict):
     CreatorRequestId: NotRequired[str]
     CreationTime: NotRequired[str]
     ModificationTime: NotRequired[str]
+    Category: NotRequired[str]
+    ManagedListType: NotRequired[DomainListTypeType]
 
 
 class FirewallRuleGroupTypeDef(TypedDict):
@@ -350,43 +380,6 @@ class FirewallRuleGroupTypeDef(TypedDict):
     ShareStatus: NotRequired[ShareStatusType]
     CreationTime: NotRequired[str]
     ModificationTime: NotRequired[str]
-
-
-class CreateFirewallRuleRequestTypeDef(TypedDict):
-    CreatorRequestId: str
-    FirewallRuleGroupId: str
-    Priority: int
-    Action: ActionType
-    Name: str
-    FirewallDomainListId: NotRequired[str]
-    BlockResponse: NotRequired[BlockResponseType]
-    BlockOverrideDomain: NotRequired[str]
-    BlockOverrideDnsType: NotRequired[Literal["CNAME"]]
-    BlockOverrideTtl: NotRequired[int]
-    FirewallDomainRedirectionAction: NotRequired[FirewallDomainRedirectionActionType]
-    Qtype: NotRequired[str]
-    DnsThreatProtection: NotRequired[DnsThreatProtectionType]
-    ConfidenceThreshold: NotRequired[ConfidenceThresholdType]
-
-
-class FirewallRuleTypeDef(TypedDict):
-    FirewallRuleGroupId: NotRequired[str]
-    FirewallDomainListId: NotRequired[str]
-    FirewallThreatProtectionId: NotRequired[str]
-    Name: NotRequired[str]
-    Priority: NotRequired[int]
-    Action: NotRequired[ActionType]
-    BlockResponse: NotRequired[BlockResponseType]
-    BlockOverrideDomain: NotRequired[str]
-    BlockOverrideDnsType: NotRequired[Literal["CNAME"]]
-    BlockOverrideTtl: NotRequired[int]
-    CreatorRequestId: NotRequired[str]
-    CreationTime: NotRequired[str]
-    ModificationTime: NotRequired[str]
-    FirewallDomainRedirectionAction: NotRequired[FirewallDomainRedirectionActionType]
-    Qtype: NotRequired[str]
-    DnsThreatProtection: NotRequired[DnsThreatProtectionType]
-    ConfidenceThreshold: NotRequired[ConfidenceThresholdType]
 
 
 class OutpostResolverTypeDef(TypedDict):
@@ -479,9 +472,22 @@ class DisassociateResolverRuleRequestTypeDef(TypedDict):
     ResolverRuleId: str
 
 
+class DnsThreatProtectionRuleTypeConfigTypeDef(TypedDict):
+    Value: str
+    ConfidenceThreshold: ConfidenceThresholdType
+
+
 class FilterTypeDef(TypedDict):
     Name: NotRequired[str]
     Values: NotRequired[Sequence[str]]
+
+
+class FirewallAdvancedContentCategoryConfigTypeDef(TypedDict):
+    Category: str
+
+
+class FirewallAdvancedThreatCategoryConfigTypeDef(TypedDict):
+    Category: str
 
 
 class FirewallConfigTypeDef(TypedDict):
@@ -497,6 +503,8 @@ class FirewallDomainListMetadataTypeDef(TypedDict):
     Name: NotRequired[str]
     CreatorRequestId: NotRequired[str]
     ManagedOwnerName: NotRequired[str]
+    ManagedListType: NotRequired[DomainListTypeType]
+    Category: NotRequired[str]
 
 
 class FirewallRuleGroupMetadataTypeDef(TypedDict):
@@ -506,6 +514,13 @@ class FirewallRuleGroupMetadataTypeDef(TypedDict):
     OwnerId: NotRequired[str]
     CreatorRequestId: NotRequired[str]
     ShareStatus: NotRequired[ShareStatusType]
+
+
+class FirewallRuleTypeDefinitionTypeDef(TypedDict):
+    RuleType: NotRequired[str]
+    Value: NotRequired[str]
+    DisplayName: NotRequired[str]
+    Description: NotRequired[str]
 
 
 class GetFirewallConfigRequestTypeDef(TypedDict):
@@ -635,6 +650,12 @@ class ListFirewallRuleGroupsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ListFirewallRuleTypesRequestTypeDef(TypedDict):
+    RuleType: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class ListFirewallRulesRequestTypeDef(TypedDict):
     FirewallRuleGroupId: str
     Priority: NotRequired[int]
@@ -702,23 +723,6 @@ class UpdateFirewallRuleGroupAssociationRequestTypeDef(TypedDict):
     Priority: NotRequired[int]
     MutationProtection: NotRequired[MutationProtectionStatusType]
     Name: NotRequired[str]
-
-
-class UpdateFirewallRuleRequestTypeDef(TypedDict):
-    FirewallRuleGroupId: str
-    FirewallDomainListId: NotRequired[str]
-    FirewallThreatProtectionId: NotRequired[str]
-    Priority: NotRequired[int]
-    Action: NotRequired[ActionType]
-    BlockResponse: NotRequired[BlockResponseType]
-    BlockOverrideDomain: NotRequired[str]
-    BlockOverrideDnsType: NotRequired[Literal["CNAME"]]
-    BlockOverrideTtl: NotRequired[int]
-    Name: NotRequired[str]
-    FirewallDomainRedirectionAction: NotRequired[FirewallDomainRedirectionActionType]
-    Qtype: NotRequired[str]
-    DnsThreatProtection: NotRequired[DnsThreatProtectionType]
-    ConfidenceThreshold: NotRequired[ConfidenceThresholdType]
 
 
 class UpdateIpAddressTypeDef(TypedDict):
@@ -962,6 +966,16 @@ class ListResolverRuleAssociationsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class BatchDeleteFirewallRuleErrorTypeDef(TypedDict):
+    FirewallRule: NotRequired[DeleteFirewallRuleEntryTypeDef]
+    Code: NotRequired[str]
+    Message: NotRequired[str]
+
+
+class BatchDeleteFirewallRuleRequestTypeDef(TypedDict):
+    DeleteFirewallRuleEntries: Sequence[DeleteFirewallRuleEntryTypeDef]
+
+
 class CreateFirewallDomainListResponseTypeDef(TypedDict):
     FirewallDomainList: FirewallDomainListTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -989,27 +1003,6 @@ class DeleteFirewallRuleGroupResponseTypeDef(TypedDict):
 
 class GetFirewallRuleGroupResponseTypeDef(TypedDict):
     FirewallRuleGroup: FirewallRuleGroupTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateFirewallRuleResponseTypeDef(TypedDict):
-    FirewallRule: FirewallRuleTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeleteFirewallRuleResponseTypeDef(TypedDict):
-    FirewallRule: FirewallRuleTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListFirewallRulesResponseTypeDef(TypedDict):
-    FirewallRules: list[FirewallRuleTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class UpdateFirewallRuleResponseTypeDef(TypedDict):
-    FirewallRule: FirewallRuleTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1154,6 +1147,12 @@ class ListResolverRulesRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
 
+class FirewallRuleTypeTypeDef(TypedDict):
+    FirewallAdvancedContentCategory: NotRequired[FirewallAdvancedContentCategoryConfigTypeDef]
+    FirewallAdvancedThreatCategory: NotRequired[FirewallAdvancedThreatCategoryConfigTypeDef]
+    DnsThreatProtection: NotRequired[DnsThreatProtectionRuleTypeConfigTypeDef]
+
+
 class GetFirewallConfigResponseTypeDef(TypedDict):
     FirewallConfig: FirewallConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1178,6 +1177,12 @@ class ListFirewallDomainListsResponseTypeDef(TypedDict):
 
 class ListFirewallRuleGroupsResponseTypeDef(TypedDict):
     FirewallRuleGroups: list[FirewallRuleGroupMetadataTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListFirewallRuleTypesResponseTypeDef(TypedDict):
+    FirewallRuleTypes: list[FirewallRuleTypeDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1243,6 +1248,11 @@ class ListFirewallRuleGroupAssociationsRequestPaginateTypeDef(TypedDict):
 
 
 class ListFirewallRuleGroupsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListFirewallRuleTypesRequestPaginateTypeDef(TypedDict):
+    RuleType: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1347,4 +1357,156 @@ class ListResolverRulesResponseTypeDef(TypedDict):
 
 class UpdateResolverRuleResponseTypeDef(TypedDict):
     ResolverRule: ResolverRuleTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateFirewallRuleEntryTypeDef(TypedDict):
+    CreatorRequestId: str
+    FirewallRuleGroupId: str
+    Priority: int
+    Action: ActionType
+    Name: str
+    FirewallDomainListId: NotRequired[str]
+    BlockResponse: NotRequired[BlockResponseType]
+    BlockOverrideDomain: NotRequired[str]
+    BlockOverrideDnsType: NotRequired[Literal["CNAME"]]
+    BlockOverrideTtl: NotRequired[int]
+    FirewallDomainRedirectionAction: NotRequired[FirewallDomainRedirectionActionType]
+    Qtype: NotRequired[str]
+    DnsThreatProtection: NotRequired[DnsThreatProtectionType]
+    ConfidenceThreshold: NotRequired[ConfidenceThresholdType]
+    FirewallRuleType: NotRequired[FirewallRuleTypeTypeDef]
+
+
+class CreateFirewallRuleRequestTypeDef(TypedDict):
+    CreatorRequestId: str
+    FirewallRuleGroupId: str
+    Priority: int
+    Action: ActionType
+    Name: str
+    FirewallDomainListId: NotRequired[str]
+    BlockResponse: NotRequired[BlockResponseType]
+    BlockOverrideDomain: NotRequired[str]
+    BlockOverrideDnsType: NotRequired[Literal["CNAME"]]
+    BlockOverrideTtl: NotRequired[int]
+    FirewallDomainRedirectionAction: NotRequired[FirewallDomainRedirectionActionType]
+    Qtype: NotRequired[str]
+    DnsThreatProtection: NotRequired[DnsThreatProtectionType]
+    ConfidenceThreshold: NotRequired[ConfidenceThresholdType]
+    FirewallRuleType: NotRequired[FirewallRuleTypeTypeDef]
+
+
+class FirewallRuleTypeDef(TypedDict):
+    FirewallRuleGroupId: NotRequired[str]
+    FirewallDomainListId: NotRequired[str]
+    FirewallThreatProtectionId: NotRequired[str]
+    Name: NotRequired[str]
+    Priority: NotRequired[int]
+    Action: NotRequired[ActionType]
+    BlockResponse: NotRequired[BlockResponseType]
+    BlockOverrideDomain: NotRequired[str]
+    BlockOverrideDnsType: NotRequired[Literal["CNAME"]]
+    BlockOverrideTtl: NotRequired[int]
+    CreatorRequestId: NotRequired[str]
+    CreationTime: NotRequired[str]
+    ModificationTime: NotRequired[str]
+    FirewallDomainRedirectionAction: NotRequired[FirewallDomainRedirectionActionType]
+    Qtype: NotRequired[str]
+    DnsThreatProtection: NotRequired[DnsThreatProtectionType]
+    ConfidenceThreshold: NotRequired[ConfidenceThresholdType]
+    FirewallRuleType: NotRequired[FirewallRuleTypeTypeDef]
+
+
+class UpdateFirewallRuleEntryTypeDef(TypedDict):
+    FirewallRuleGroupId: str
+    FirewallDomainListId: NotRequired[str]
+    FirewallThreatProtectionId: NotRequired[str]
+    Priority: NotRequired[int]
+    Action: NotRequired[ActionType]
+    BlockResponse: NotRequired[BlockResponseType]
+    BlockOverrideDomain: NotRequired[str]
+    BlockOverrideDnsType: NotRequired[Literal["CNAME"]]
+    BlockOverrideTtl: NotRequired[int]
+    Name: NotRequired[str]
+    FirewallDomainRedirectionAction: NotRequired[FirewallDomainRedirectionActionType]
+    Qtype: NotRequired[str]
+    DnsThreatProtection: NotRequired[DnsThreatProtectionType]
+    ConfidenceThreshold: NotRequired[ConfidenceThresholdType]
+    FirewallRuleType: NotRequired[FirewallRuleTypeTypeDef]
+
+
+class UpdateFirewallRuleRequestTypeDef(TypedDict):
+    FirewallRuleGroupId: str
+    FirewallDomainListId: NotRequired[str]
+    FirewallThreatProtectionId: NotRequired[str]
+    Priority: NotRequired[int]
+    Action: NotRequired[ActionType]
+    BlockResponse: NotRequired[BlockResponseType]
+    BlockOverrideDomain: NotRequired[str]
+    BlockOverrideDnsType: NotRequired[Literal["CNAME"]]
+    BlockOverrideTtl: NotRequired[int]
+    Name: NotRequired[str]
+    FirewallDomainRedirectionAction: NotRequired[FirewallDomainRedirectionActionType]
+    Qtype: NotRequired[str]
+    DnsThreatProtection: NotRequired[DnsThreatProtectionType]
+    ConfidenceThreshold: NotRequired[ConfidenceThresholdType]
+    FirewallRuleType: NotRequired[FirewallRuleTypeTypeDef]
+
+
+class BatchCreateFirewallRuleErrorTypeDef(TypedDict):
+    FirewallRule: NotRequired[CreateFirewallRuleEntryTypeDef]
+    Code: NotRequired[str]
+    Message: NotRequired[str]
+
+
+class BatchCreateFirewallRuleRequestTypeDef(TypedDict):
+    CreateFirewallRuleEntries: Sequence[CreateFirewallRuleEntryTypeDef]
+
+
+class BatchDeleteFirewallRuleResponseTypeDef(TypedDict):
+    DeletedFirewallRules: list[FirewallRuleTypeDef]
+    DeleteErrors: list[BatchDeleteFirewallRuleErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateFirewallRuleResponseTypeDef(TypedDict):
+    FirewallRule: FirewallRuleTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteFirewallRuleResponseTypeDef(TypedDict):
+    FirewallRule: FirewallRuleTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListFirewallRulesResponseTypeDef(TypedDict):
+    FirewallRules: list[FirewallRuleTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateFirewallRuleResponseTypeDef(TypedDict):
+    FirewallRule: FirewallRuleTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchUpdateFirewallRuleErrorTypeDef(TypedDict):
+    FirewallRule: NotRequired[UpdateFirewallRuleEntryTypeDef]
+    Code: NotRequired[str]
+    Message: NotRequired[str]
+
+
+class BatchUpdateFirewallRuleRequestTypeDef(TypedDict):
+    UpdateFirewallRuleEntries: Sequence[UpdateFirewallRuleEntryTypeDef]
+
+
+class BatchCreateFirewallRuleResponseTypeDef(TypedDict):
+    CreatedFirewallRules: list[FirewallRuleTypeDef]
+    CreateErrors: list[BatchCreateFirewallRuleErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchUpdateFirewallRuleResponseTypeDef(TypedDict):
+    UpdatedFirewallRules: list[FirewallRuleTypeDef]
+    UpdateErrors: list[BatchUpdateFirewallRuleErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

@@ -3,6 +3,7 @@
 These fixture names are Public API and need to be handled carefully as there are Xontribs dependent on them for testing
 """
 
+import builtins
 import importlib
 import os
 import sys
@@ -75,6 +76,14 @@ class XshFunction(pytest.Item):
         self._test_module = test_module
 
     def runtest(self, *args, **kwargs):
+        # `xession`/`xonsh_session` fixtures call `XSH.unload()` on teardown,
+        # which removes `builtins.__xonsh__`. Under pytest-xdist a worker
+        # can be assigned a session-using test before an .xsh test, so the
+        # initial `pytest_configure` setup is no longer in effect by the
+        # time we run. `setup()` is idempotent — it no-ops when __xonsh__
+        # is already present.
+        if not hasattr(builtins, "__xonsh__"):
+            setup(history_backend="dummy")
         self._test_func(*args, **kwargs)
 
     def repr_failure(self, excinfo, **_):
@@ -156,7 +165,7 @@ def xonsh_events():
     for name, oldevent in vars(events).items():
         # Heavily based on transmogrification
         species = oldevent.species
-        newevent = events._mkevent(name, species, species.__doc__)
+        newevent = events._mkevent(species, species.__doc__)
         setattr(events, name, newevent)
 
 

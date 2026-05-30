@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datamodel-code-generator
-Version: 0.58.0
+Version: 0.59.0
 Summary: Datamodel Code Generator
 Project-URL: Homepage, https://github.com/koxudaxi/datamodel-code-generator
 Project-URL: Source, https://github.com/koxudaxi/datamodel-code-generator
@@ -30,6 +30,7 @@ Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: tomli<3,>=2.2.1; python_version < '3.11'
 Provides-Extra: all
 Requires-Dist: graphql-core>=3.2.3; extra == 'all'
+Requires-Dist: grpcio-tools<2,>=1.62; extra == 'all'
 Requires-Dist: httpx>=0.24.1; extra == 'all'
 Requires-Dist: openapi-spec-validator<0.8,>=0.2.8; extra == 'all'
 Requires-Dist: prance>=0.18.2; extra == 'all'
@@ -42,6 +43,8 @@ Provides-Extra: graphql
 Requires-Dist: graphql-core>=3.2.3; extra == 'graphql'
 Provides-Extra: http
 Requires-Dist: httpx>=0.24.1; extra == 'http'
+Provides-Extra: protobuf
+Requires-Dist: grpcio-tools<2,>=1.62; extra == 'protobuf'
 Provides-Extra: ruff
 Requires-Dist: ruff>=0.9.10; extra == 'ruff'
 Provides-Extra: ryaml
@@ -69,7 +72,7 @@ Description-Content-Type: text/markdown
 
 ## ✨ What it does
 
-- 📄 Converts **OpenAPI 3**, **JSON Schema**, **GraphQL**, and raw data (JSON/YAML/CSV) into Python models
+- 📄 Converts **OpenAPI 3**, **AsyncAPI**, **JSON Schema**, **Apache Avro**, **XML Schema**, **Protocol Buffers/gRPC**, **GraphQL**, and raw data (JSON/YAML/CSV) into Python models
 - 🐍 Generates from **existing Python types** (Pydantic, dataclass, TypedDict) via `--input-model`
 - 🎯 Generates **Pydantic v2**, **Pydantic v2 dataclass**, **dataclasses**, **TypedDict**, or **msgspec** output
 - 🔗 Handles complex schemas: `$ref`, `allOf`, `oneOf`, `anyOf`, enums, and nested types
@@ -121,6 +124,11 @@ pip install 'datamodel-code-generator[http]'
 **With GraphQL support:**
 ```bash
 pip install 'datamodel-code-generator[graphql]'
+```
+
+**With Protocol Buffers support:**
+```bash
+pip install 'datamodel-code-generator[protobuf]'
 ```
 
 **Docker:**
@@ -207,7 +215,11 @@ class Pet(BaseModel):
 ## 📥 Supported Input
 
 - OpenAPI 3 (YAML/JSON)
+- AsyncAPI (YAML/JSON)
 - JSON Schema
+- Apache Avro schema (AVSC)
+- XML Schema (XSD)
+- Protocol Buffers / gRPC (`.proto`)
 - JSON / YAML / CSV data
 - GraphQL schema
 - Python types (Pydantic, dataclass, TypedDict) via `--input-model`

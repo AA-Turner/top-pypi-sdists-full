@@ -4,19 +4,13 @@ from typing import List, Union, Tuple, Callable, Optional, Any, Dict
 import fakeredis._msgs as msgs
 from fakeredis._command_args_parsing import extract_args
 from fakeredis._commands import Key, command, CommandItem, Int
-from fakeredis._helpers import SimpleError, casematch, OK, current_time, Database, SimpleString
-from fakeredis.model import XStream, StreamRangeTest, StreamGroup, StreamEntryKey, ClientInfo
-from fakeredis._typing import VersionType
+from fakeredis._helpers import SimpleError, casematch, OK, current_time, SimpleString, casematch_any
+from fakeredis.model import XStream, StreamRangeTest, StreamGroup, StreamEntryKey
+from fakeredis.commands_mixins._mixin_base import CommandsMixinBase
 
 
-class StreamsCommandsMixin:
+class StreamsCommandsMixin(CommandsMixinBase):
     _blocking: Callable[[Optional[Union[float, int]], Callable[[bool], Any]], Any]
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super(StreamsCommandsMixin, self).__init__(*args, **kwargs)
-        self._db: Database
-        self.version: VersionType
-        self._client_info: ClientInfo
 
     @command(name="XADD", fixed=(Key(),), repeat=(bytes,))
     def xadd(self, key: CommandItem, *args: bytes) -> Optional[bytes]:
@@ -76,7 +70,7 @@ class StreamsCommandsMixin:
         return self._xrange(key.value, _max, _min, True, count)
 
     @command(name="XREAD", fixed=(bytes,), repeat=(bytes,), flags=msgs.FLAG_SKIP_CONVERT_TO_RESP2)
-    def xread(self, *args: bytes) -> Optional[Dict[str, Any]]:
+    def xread(self, *args: bytes) -> Union[None, Dict[bytes, Any], List[List[Any]]]:
         ((count, timeout), left_args) = extract_args(args, ("+count", "+block"), error_on_unexpected=False)
         if len(left_args) < 3 or not casematch(left_args[0], b"STREAMS") or len(left_args) % 2 != 1:
             raise SimpleError(msgs.SYNTAX_ERROR_MSG)
@@ -99,7 +93,7 @@ class StreamsCommandsMixin:
     @command(name="XREADGROUP", fixed=(bytes, bytes, bytes), repeat=(bytes,))
     def xreadgroup(
         self, group_const: bytes, group_name: bytes, consumer_name: bytes, *args: bytes
-    ) -> Optional[List[List[Union[bytes, List[Tuple[bytes, List[bytes]]]]]]]:
+    ) -> Optional[Union[Dict[bytes, Any], List[List[Any]]]]:
         if not casematch(b"GROUP", group_const):
             raise SimpleError(msgs.SYNTAX_ERROR_MSG)
         (count, timeout, noack), left_args = extract_args(
@@ -152,7 +146,7 @@ class StreamsCommandsMixin:
         return group.ack(args)  # type: ignore
 
     @command(name="XPENDING", fixed=(Key(XStream), bytes), repeat=(bytes,))
-    def xpending(self, key: CommandItem, group_name: bytes, *args: bytes) -> Union[int, List[List[bytes]]]:
+    def xpending(self, key: CommandItem, group_name: bytes, *args: bytes) -> Union[int, List[Any]]:
         if key.value is None:
             return 0
         idle, start, end, count, consumer = None, None, None, None, None
@@ -300,6 +294,80 @@ class StreamsCommandsMixin:
         if self.version >= (7,):
             res.append([msg.encode() for msg in msgs_removed])
         return res
+
+    @command(name="XDELEX", fixed=(Key(XStream),), repeat=(bytes,), server_types=("redis",))
+    def xdelex(self, key: CommandItem, *args: bytes) -> List[int]:
+        """XDELEX key [KEEPREF | DELREF | ACKED] IDS numids id [id ...]"""
+        mode, ids = self._parse_xdelex_args(args, "XDELEX")
+        if key.value is None:
+            return [-1] * len(ids)
+        res = key.value.delete_ex(ids, mode)
+        key.updated()
+        return res
+
+    @command(name="XACKDEL", fixed=(Key(XStream), bytes), repeat=(bytes,), server_types=("redis",))
+    def xackdel(self, key: CommandItem, group_name: bytes, *args: bytes) -> List[int]:
+        """XACKDEL key group [KEEPREF | DELREF | ACKED] IDS numids id [id ...]"""
+        mode, ids = self._parse_xdelex_args(args, "XACKDEL")
+        if key.value is None:
+            return [-1] * len(ids)
+        group: StreamGroup = key.value.group_get(group_name)
+        if not group:
+            return [-1] * len(ids)
+        res = key.value.ackdel(group, ids, mode)
+        key.updated()
+        return res
+
+    @staticmethod
+    def _parse_xdelex_args(args: tuple, cmd_name: str):
+        """Parse [KEEPREF|DELREF|ACKED] IDS numids id [id ...] for XDELEX/XACKDEL."""
+        i = 0
+        mode = b"KEEPREF"
+        if i < len(args) and (casematch_any(args[i], b"KEEPREF", b"DELREF", b"ACKED")):
+            mode = args[i].upper()
+            i += 1
+        if i >= len(args) or not casematch(args[i], b"IDS"):
+            raise SimpleError(msgs.SYNTAX_ERROR_MSG)
+        i += 1
+        if i >= len(args):
+            raise SimpleError(msgs.SYNTAX_ERROR_MSG)
+        num_ids = Int.decode(args[i])
+        i += 1
+        if num_ids < 1 or i + num_ids > len(args):
+            raise SimpleError(msgs.WRONG_ARGS_MSG6.format(cmd_name.lower()))
+        ids = list(args[i : i + num_ids])
+        return mode, ids
+
+    @command(name="XNACK", fixed=(Key(XStream), bytes), repeat=(bytes,), server_types=("redis",))
+    def xnack(self, key: CommandItem, group_name: bytes, *args: bytes) -> int:
+        """XNACK key group mode IDS numids id [id ...]"""
+        if len(args) < 3:
+            raise SimpleError(msgs.WRONG_ARGS_MSG6.format("XNACK"))
+        if not casematch(args[0], b"SILENT") and not casematch(args[0], b"FAIL") and not casematch(args[0], b"FATAL"):
+            raise SimpleError(msgs.SYNTAX_ERROR_MSG)
+        mode = args[0].upper()
+        if not casematch(args[1], b"IDS"):
+            raise SimpleError(msgs.SYNTAX_ERROR_MSG)
+        num_ids = Int.decode(args[2])
+        if len(args) < 3 + num_ids:
+            raise SimpleError(msgs.SYNTAX_ERROR_MSG)
+        ids, remaining = args[3 : 3 + num_ids], args[3 + num_ids :]
+        (retry_count, force), _ = extract_args(remaining, ("+retrycount", "force"))
+
+        if key.value is None:
+            raise SimpleError(msgs.XGROUP_KEY_NOT_FOUND_MSG)
+        group: StreamGroup = key.value.group_get(group_name)
+        if not group:
+            raise SimpleError(msgs.XGROUP_GROUP_NOT_FOUND_MSG.format(group_name.decode(), key.key.decode()))
+        return group.nack_entries(ids, mode, retry_count, bool(force))
+
+    @command(name="XIDMPRECORD", fixed=(Key(XStream), bytes, bytes, bytes), repeat=(), server_types=("redis",))
+    def xidmprecord(self, key: CommandItem, pid: bytes, iid: bytes, stream_id: bytes) -> SimpleString:
+        if key.value is None:
+            raise SimpleError(msgs.NO_KEY_MSG)
+        key.value.record_idmp(pid, iid, stream_id)
+        key.updated()
+        return OK
 
     @command(name="XCFGSET", fixed=(Key(XStream),), repeat=(bytes,))
     def xcfgset(self, key: CommandItem, *args: bytes) -> SimpleString:

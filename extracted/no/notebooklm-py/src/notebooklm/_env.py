@@ -1,8 +1,12 @@
-"""Runtime environment helpers for NotebookLM endpoints and defaults.
+"""Internal environment/default resolvers for NotebookLM runtime behavior.
 
 Centralises lookup of environment variables that influence the live behavior
 of the client. Keeping these here avoids scattering ``os.environ.get`` calls
 across the codebase and gives each override a single, documented entry point.
+
+This is an implementation module. Public configuration imports stay on
+``notebooklm.config``, which deliberately re-exports only the supported subset
+of endpoint/language helpers from here.
 """
 
 from __future__ import annotations
@@ -107,7 +111,7 @@ def get_default_language() -> str:
     This value is threaded into two places:
 
     * The ``hl`` URL query parameter on every batchexecute RPC call
-      (``_core._build_url`` and ``_chat.ask``).
+      (``RpcExecutor.build_url`` and ``_chat.ask``).
     * Language-aware ``ArtifactsAPI.generate_*`` calls when callers pass
       ``language=None`` to opt in to environment/default resolution. Omitting
       ``language`` in the public Python API keeps the historical ``"en"``

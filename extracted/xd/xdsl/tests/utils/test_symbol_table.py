@@ -1,14 +1,23 @@
 import pytest
 
 from xdsl.dialects.builtin import ModuleOp, StringAttr
-from xdsl.dialects.test import TestOp
+from xdsl.dialects.test import TestOp, TestSymbolOp
 from xdsl.ir import Block, Region
 from xdsl.utils.symbol_table import (
     SymbolTable,
     SymbolTableCollection,
     Visibility,
+    get_name_if_symbol,
     walk_symbol_table,
 )
+
+
+def test_get_name_if_symbol():
+    symbol = TestSymbolOp(properties={"sym_name": StringAttr("a")})
+    not_symbol = TestOp()
+
+    assert get_name_if_symbol(symbol) == "a"
+    assert get_name_if_symbol(not_symbol) is None
 
 
 def test_walk_symbol_table():
@@ -40,37 +49,111 @@ def test_walk_symbol_table():
     assert len(unique_sym_names) == len(sym_names)
 
 
-# SymbolTable instance method tests
+def test_symbol_table_init():
+    op_a = TestSymbolOp(properties={"sym_name": StringAttr("a")})
+    op_b = TestSymbolOp(properties={"sym_name": StringAttr("b")})
+    op_not_symbol = TestOp(properties={"sym_name": StringAttr("c")})
+
+    module = ModuleOp([op_a, op_b, op_not_symbol])
+
+    assert SymbolTable(module) is not None
+
+    with pytest.raises(
+        AssertionError, match="Expected operation to have SymbolTable trait"
+    ):
+        SymbolTable(op_a)
+
+
 def test_symbol_table_lookup():
     """Test SymbolTable.lookup method."""
-    module = ModuleOp([], sym_name=StringAttr("test_module"))
-    symbol_table = SymbolTable(module)
+    op_a = TestSymbolOp(properties={"sym_name": StringAttr("a")})
+    op_b = TestSymbolOp(properties={"sym_name": StringAttr("b")})
 
-    # This will raise NotImplementedError until implemented
-    with pytest.raises(NotImplementedError):
-        symbol_table.lookup("test_symbol")
+    op_not_symbol = TestOp(properties={"sym_name": StringAttr("c")})
+
+    module = ModuleOp([op_a, op_b, op_not_symbol])
+    empty_module = ModuleOp([])
+
+    table = SymbolTable(module)
+    empty_table = SymbolTable(empty_module)
+
+    assert table.lookup("a") is op_a
+    assert table.lookup(StringAttr("a")) is op_a
+    assert table.lookup("b") is table.lookup(StringAttr("b"))
+
+    assert table.lookup("c") is None
+
+    assert empty_table.lookup("anything") is None
+
+    assert table.lookup("@a") is None
+    assert table.lookup("A") is None
 
 
 def test_symbol_table_remove():
     """Test SymbolTable.remove method."""
-    module = ModuleOp([], sym_name=StringAttr("test_module"))
-    symbol_table = SymbolTable(module)
-    test_op = TestOp()
+    op_a = TestSymbolOp(properties={"sym_name": StringAttr("a")})
+    op_b = TestSymbolOp(properties={"sym_name": StringAttr("b")})
+    op_c = TestSymbolOp(properties={"sym_name": StringAttr("c")})
 
-    # This will raise NotImplementedError until implemented
-    with pytest.raises(NotImplementedError):
-        symbol_table.remove(test_op)
+    module = ModuleOp([op_a, op_b])
+    empty_module = ModuleOp([])
+
+    table = SymbolTable(module)
+    empty_table = SymbolTable(empty_module)
+
+    assert table.lookup("a") is op_a
+    assert table.lookup("b") is op_b
+    assert op_b.parent is not None
+
+    table.remove(op_b)
+    assert table.lookup("a") is op_a
+    assert table.lookup("b") is None
+    assert op_b.parent is not None
+
+    with pytest.raises(
+        ValueError,
+        match="Expected this operation to be inside of the operation with this SymbolTable",
+    ):
+        empty_table.remove(op_a)
+
+    with pytest.raises(
+        ValueError,
+        match="Expected this operation to be inside of the operation with this SymbolTable",
+    ):
+        table.remove(op_b)
+
+    with pytest.raises(
+        ValueError,
+        match="Expected this operation to be inside of the operation with this SymbolTable",
+    ):
+        table.remove(op_c)
 
 
 def test_symbol_table_erase():
     """Test SymbolTable.erase method."""
-    module = ModuleOp([], sym_name=StringAttr("test_module"))
-    symbol_table = SymbolTable(module)
-    test_op = TestOp()
+    op_a = TestSymbolOp(properties={"sym_name": StringAttr("a")})
+    op_b = TestSymbolOp(properties={"sym_name": StringAttr("b")})
+    op_c = TestSymbolOp(properties={"sym_name": StringAttr("c")})
 
-    # This will raise NotImplementedError until implemented
-    with pytest.raises(NotImplementedError):
-        symbol_table.erase(test_op)
+    module = ModuleOp([op_a, op_b])
+
+    table = SymbolTable(module)
+
+    assert table.lookup("a") is op_a
+    assert op_b.parent is not None
+    assert table.lookup("b") is op_b
+
+    table.erase(op_b)
+
+    assert table.lookup("b") is None
+    assert op_b.parent is None
+    assert op_a.parent is not None
+
+    with pytest.raises(
+        ValueError,
+        match="Expected this operation to be inside of the operation with this SymbolTable",
+    ):
+        table.erase(op_c)
 
 
 def test_symbol_table_insert():

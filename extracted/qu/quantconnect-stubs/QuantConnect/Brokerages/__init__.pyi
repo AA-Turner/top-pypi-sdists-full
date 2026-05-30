@@ -3059,6 +3059,39 @@ class TradeStationBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
 
+class WebullBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
+    """Represents a brokerage model specific to Webull."""
+
+    def __init__(self, account_type: QuantConnect.AccountType = ...) -> None:
+        """
+        Constructor for Webull brokerage model.
+        
+        :param account_type: Cash or Margin
+        """
+        ...
+
+    def can_submit_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Returns true if the brokerage could accept this order. This takes into account
+        order type, security type, and order size limits.
+        
+        :param security: The security of the order
+        :param order: The order to be processed
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        :returns: True if the brokerage could process the order, false otherwise.
+        """
+        ...
+
+    def get_fee_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Orders.Fees.IFeeModel:
+        """
+        Provides the Webull fee model.
+        
+        :param security: Security
+        :returns: Webull fee model.
+        """
+        ...
+
+
 class TradingTechnologiesBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """Provides properties specific to Trading Technologies"""
 
@@ -3825,6 +3858,9 @@ class BrokerageName(IntEnum):
 
     DYDX = 34
     """Transaction and submit/execution rules will use dYdX models"""
+
+    WEBULL = 35
+    """Transaction and submit/execution rules will use Webull models"""
 
 
 class BrokerageModel(System.Object):

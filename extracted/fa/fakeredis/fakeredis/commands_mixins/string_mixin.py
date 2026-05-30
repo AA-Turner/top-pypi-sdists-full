@@ -1,6 +1,6 @@
 import math
 from abc import abstractmethod, ABC
-from typing import Tuple, Callable, List, Any, Optional, Dict
+from typing import Tuple, Callable, List, Any, Optional, Dict, Union
 
 from fakeredis import _msgs as msgs
 from fakeredis._command_args_parsing import extract_args
@@ -14,11 +14,12 @@ from fakeredis._commands import (
     fix_range_string,
     CommandItem,
 )
-from fakeredis._helpers import OK, SimpleError, casematch, Database, SimpleString
+from fakeredis._helpers import OK, SimpleError, casematch, SimpleString
 from fakeredis._typing import VersionType
+from fakeredis.commands_mixins._mixin_base import CommandsMixinBase
 
 
-def _lcs(s1: bytes, s2: bytes) -> Tuple[int, bytes, List[List[object]]]:
+def _lcs(s1: bytes, s2: bytes) -> Tuple[int, bytes, List[Any]]:
     l1 = len(s1)
     l2 = len(s2)
 
@@ -72,7 +73,7 @@ def _lcs(s1: bytes, s2: bytes) -> Tuple[int, bytes, List[List[object]]]:
     return opt[l1][l2], result.encode(), matches
 
 
-class StringCommandsMixin(ABC):
+class StringCommandsMixin(CommandsMixinBase, ABC):
     _encodeint: Callable[
         [
             int,
@@ -80,10 +81,6 @@ class StringCommandsMixin(ABC):
         bytes,
     ]
     _encodefloat: Callable[[float, bool], bytes]
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super(StringCommandsMixin, self).__init__(*args, **kwargs)
-        self._db: Database
 
     @property
     @abstractmethod
@@ -292,7 +289,7 @@ class StringCommandsMixin(ABC):
         return key.get(None)
 
     @command(fixed=(Key(bytes), Key(bytes)), repeat=(bytes,))
-    def lcs(self, k1: CommandItem, k2: CommandItem, *args: bytes) -> Dict[bytes, Any]:
+    def lcs(self, k1: CommandItem, k2: CommandItem, *args: bytes) -> Union[bytes, int, Dict[bytes, Any]]:
         s1 = k1.value or b""
         s2 = k2.value or b""
 
@@ -307,7 +304,7 @@ class StringCommandsMixin(ABC):
         if arg_len:
             return lcs_len
         arg_minmatchlen = arg_minmatchlen if arg_minmatchlen else 0
-        results = list(filter(lambda x: x[2] >= arg_minmatchlen, matches))
+        results: List[Any] = list(filter(lambda x: x[2] >= arg_minmatchlen, matches))
         if not arg_withmatchlen:
             results = [[x[0], x[1]] for x in results]
         return {b"matches": results, b"len": lcs_len}

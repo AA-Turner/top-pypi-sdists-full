@@ -75,6 +75,7 @@ from datamodel_code_generator import (
     generate,
 )
 from datamodel_code_generator.arguments import DEFAULT_ENCODING, arg_parser, namespace
+from datamodel_code_generator.deprecations import render_deprecations, warn_deprecated
 from datamodel_code_generator.format import (
     DateClassType,
     DatetimeClassType,
@@ -112,6 +113,8 @@ EXCLUDED_CONFIG_OPTIONS: frozenset[str] = frozenset({
     "debug",
     "no_color",
     "disable_warnings",
+    "list_deprecations",
+    "list_experimental",
     "watch",
     "watch_delay",
 })
@@ -275,15 +278,21 @@ class Config(BaseModel):  # noqa: PLR0904
         return values
 
     @model_validator(mode="before")  # ty: ignore
-    def validate_naming_strategy_migration(cls, values: dict[str, Any]) -> dict[str, Any]:  # noqa: N805
+    @classmethod
+    def validate_naming_strategy_migration(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Migrate deprecated --parent-scoped-naming to --naming-strategy."""
         if values.get("parent_scoped_naming") and not values.get("naming_strategy"):
             values["naming_strategy"] = NamingStrategy.ParentPrefixed
-            warnings.warn(
-                "--parent-scoped-naming is deprecated. Use --naming-strategy parent-prefixed instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
+            warn_deprecated("cli.parent-scoped-naming", stacklevel=2)
+        return values
+
+    @model_validator(mode="before")  # ty: ignore
+    @classmethod
+    def validate_allow_extra_fields_migration(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Migrate deprecated --allow-extra-fields to --extra-fields."""
+        if values.get("allow_extra_fields") and not values.get("extra_fields"):
+            values["extra_fields"] = "allow"
+            warn_deprecated("cli.allow-extra-fields", stacklevel=2)
         return values
 
     @model_validator(mode="before")  # ty: ignore
@@ -435,6 +444,7 @@ class Config(BaseModel):  # noqa: PLR0904
     disable_timestamp: bool = False
     enable_version_header: bool = False
     enable_command_header: bool = False
+    enable_generated_header_marker: bool = False
     allow_population_by_field_name: bool = False
     allow_extra_fields: bool = False
     extra_fields: Optional[str] = None  # noqa: UP045
@@ -548,6 +558,8 @@ class Config(BaseModel):  # noqa: PLR0904
     module_split_mode: Optional[ModuleSplitMode] = None  # noqa: UP045
     watch: bool = False
     watch_delay: float = 0.5
+    list_deprecations: Optional[str] = None  # noqa: UP045
+    list_experimental: Optional[str] = None  # noqa: UP045
     schema_version: Optional[str] = None  # noqa: UP045
     schema_version_mode: Optional[VersionMode] = None  # noqa: UP045
     external_ref_mapping: Optional[dict[str, str]] = None  # noqa: UP045
@@ -893,6 +905,7 @@ def run_generate_from_config(  # noqa: PLR0913, PLR0917
         disable_timestamp=config.disable_timestamp,
         enable_version_header=config.enable_version_header,
         enable_command_header=config.enable_command_header,
+        enable_generated_header_marker=config.enable_generated_header_marker,
         command_line=command_line,
         allow_population_by_field_name=config.allow_population_by_field_name,
         allow_extra_fields=config.allow_extra_fields,
@@ -1082,6 +1095,16 @@ def main(args: Sequence[str] | None = None) -> Exit:  # noqa: PLR0911, PLR0912, 
         print(e.message, file=sys.stderr)  # noqa: T201
         return Exit.ERROR
 
+    if config.list_deprecations:
+        print(render_deprecations(cast("Any", config.list_deprecations)), end="")  # noqa: T201
+        return Exit.OK
+
+    if config.list_experimental:
+        from datamodel_code_generator.experimental import render_experimental_features  # noqa: PLC0415
+
+        print(render_experimental_features(cast("Any", config.list_experimental)), end="")  # noqa: T201
+        return Exit.OK
+
     if not config.input and not config.url and not config.input_model and sys.stdin.isatty():
         print(  # noqa: T201
             "Not Found Input: require `stdin` or arguments `--input`, `--url`, or `--input-model`",
@@ -1150,13 +1173,12 @@ def main(args: Sequence[str] | None = None) -> Exit:  # noqa: PLR0911, PLR0912, 
         and namespace.use_annotated is None
         and pyproject_config.get("use_annotated") is None
     ):
-        warnings.warn(
-            "Pydantic v2 with --use-annotated is recommended for correct type annotations. "
-            "The current default (use_annotated=False) generates constrained types like "
-            "'conint(ge=1, le=365)' which are discouraged in Pydantic v2. "
-            "In a future version, --use-annotated will be enabled by default for Pydantic v2. "
-            "Please explicitly specify --use-annotated or --no-use-annotated.",
-            DeprecationWarning,
+        warn_deprecated(
+            "behavior.pydantic-v2-use-annotated-default",
+            details=(
+                "The current default (use_annotated=False) generates constrained types like "
+                "'conint(ge=1, le=365)' which are discouraged in Pydantic v2."
+            ),
             stacklevel=1,
         )
 

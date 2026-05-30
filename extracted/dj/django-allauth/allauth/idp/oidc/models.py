@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
@@ -22,11 +24,11 @@ def default_client_secret() -> str:
     return make_password(client_secret)
 
 
-def _values_from_text(text) -> list[str]:
+def _values_from_text(text: str) -> list[str]:
     return list(filter(None, [s.strip() for s in text.split("\n")]))
 
 
-def _values_to_text(values) -> str:
+def _values_to_text(values: list[str]) -> str:
     if isinstance(values, str):
         raise ValueError(values)
     return "\n".join(values)
@@ -38,6 +40,16 @@ class Client(models.Model):
         DEVICE_CODE = "urn:ietf:params:oauth:grant-type:device_code", _("Device code")
         CLIENT_CREDENTIALS = "client_credentials", _("Client credentials")
         REFRESH_TOKEN = "refresh_token", _("Refresh token")
+
+    class ResponseType(models.TextChoices):
+        CODE = "code", _("Code")
+        TOKEN = "token", _("Token")
+        ID_TOKEN = "id_token", _("ID token")
+        ID_TOKEN_TOKEN = "id_token token", _("ID token token")
+        CODE_TOKEN = "code token", _("Code token")
+        CODE_ID_TOKEN = "code id_token", _("Code ID token")
+        CODE_ID_TOKEN_TOKEN = "code id_token token", _("Code ID token token")
+        NONE = "none", _("None")
 
     class Type(models.TextChoices):
         CONFIDENTIAL = "confidential", _("Confidential")
@@ -151,7 +163,7 @@ class Client(models.Model):
     def set_grant_types(self, grant_types: list[str]) -> None:
         self.grant_types = _values_to_text(grant_types)
 
-    def set_secret(self, secret) -> None:
+    def set_secret(self, secret: str) -> None:
         self.secret = make_password(secret)
 
     def check_secret(self, secret: str) -> bool:
@@ -182,7 +194,7 @@ class Client(models.Model):
         return self.id
 
 
-class TokenQuerySet(models.query.QuerySet):
+class TokenQuerySet(models.query.QuerySet["Token"]):
     def valid(self) -> TokenQuerySet:
         return self.filter(
             Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
@@ -191,7 +203,7 @@ class TokenQuerySet(models.query.QuerySet):
     def by_value(self, value: str) -> TokenQuerySet:
         return self.filter(hash=get_adapter().hash_token(value))
 
-    def lookup(self, type, value) -> Token | None:
+    def lookup(self, type, value: str) -> Token | None:
         return self.valid().by_value(value).filter(type=type).first()
 
 
@@ -223,6 +235,9 @@ class Token(models.Model):
             return f"{self.get_type_display()} for user #{self.user_id}"
         return self.get_type_display()
 
+    def set_value(self, value: str) -> None:
+        self.hash = get_adapter().hash_token(value)
+
     def get_scopes(self) -> list[str]:
         return _values_from_text(self.scopes)
 
@@ -247,3 +262,20 @@ class Token(models.Model):
         if not isinstance(self.data, dict):
             return None
         return self.data.get("email")
+
+    def get_resources(self) -> list[str]:
+        if not isinstance(self.data, dict):
+            return []
+        resources = self.data.get("resources")
+        if not isinstance(resources, list) or not all(
+            isinstance(res, str) for res in resources
+        ):
+            return []
+        return resources
+
+    def set_resources(self, resources: Iterable[str]) -> None:
+        if self.data is None:
+            self.data = {}
+        if not isinstance(self.data, dict):
+            raise ValueError
+        self.data["resources"] = list(resources)

@@ -405,6 +405,7 @@ def _extract_and_write_files(
     cwd: Path,
     protected_files: set[str] | None = None,
     files_read: set[str] | None = None,
+    failed_writes: dict[str, str] | None = None,
 ) -> list[str]:
     """Parse model output for file blocks and write them to disk.
 
@@ -619,6 +620,8 @@ def _extract_and_write_files(
                             f"REJECTED {fp}: {hallucination_reason}. "
                             "Check AVAILABLE MODULES list before importing!"
                         )
+                        if failed_writes is not None:
+                            failed_writes[fp] = hallucination_reason
                         continue
 
                     is_valid, missing = _validate_imports_in_content(
@@ -627,22 +630,35 @@ def _extract_and_write_files(
                         pending_modules=pending_modules,
                     )
                     if not is_valid:
+                        err_msg = f"imports non-existent modules: {', '.join(missing)}"
                         if "test_" in fp or fp.startswith("tests/"):
                             renderer.debug_warning(
-                                f"REJECTED test file {fp}: imports non-existent modules: {', '.join(missing)}. "
+                                f"REJECTED test file {fp}: {err_msg}. "
                                 "Use SEARCH: to find actual modules in this codebase first."
                             )
                         else:
                             renderer.debug_warning(
-                                f"REJECTED {fp}: imports non-existent modules: {', '.join(missing)}. "
+                                f"REJECTED {fp}: {err_msg}. "
                                 "Either the modules don't exist or you need to create them first."
                             )
+                        if failed_writes is not None:
+                            failed_writes[fp] = err_msg
                         continue
 
             # Check for hallucinated duplicates of existing files
             is_duplicate, duplicate_reason = _detect_hallucinated_duplicate(fp, content, cwd)
             if is_duplicate:
                 renderer.debug_warning(f"REJECTED {fp}: {duplicate_reason}")
+                if failed_writes is not None:
+                    failed_writes[fp] = duplicate_reason
+                continue
+
+            # PRE-VALIDATION check before write
+            is_valid, error = _pre_validate_content(fp, content)
+            if not is_valid:
+                renderer.debug_warning(f"REJECTED {fp}: {error}")
+                if failed_writes is not None:
+                    failed_writes[fp] = error
                 continue
 
             # Strip SCAFFOLD_COMPLETE signal if it was accidentally captured
@@ -718,11 +734,22 @@ def _extract_and_write_files(
                 pending_modules=pending_modules,
             )
             if not is_valid:
+                err_msg = f"imports non-existent modules: {', '.join(missing)}"
                 renderer.debug_warning(
-                    f"Rejected test file {tag}: imports non-existent modules: {', '.join(missing)}. "
+                    f"Rejected test file {tag}: {err_msg}. "
                     "Use SEARCH: to find actual modules in this codebase first."
                 )
+                if failed_writes is not None:
+                    failed_writes[tag] = err_msg
                 continue
+
+        # PRE-VALIDATION check before write
+        is_valid, error = _pre_validate_content(tag, content)
+        if not is_valid:
+            renderer.debug_warning(f"REJECTED {tag}: {error}")
+            if failed_writes is not None:
+                failed_writes[tag] = error
+            continue
 
         result = _write_file(tag, content, cwd, protected_files=protected_files)
         if result:
@@ -1838,6 +1865,8 @@ def _route_to_principal_pipeline(
                 1 for s in report.review_scores.values() if s < 7.0
             ),
             "install_ok": report.install_ok,
+            "build_ok": report.build_ok,
+            "runs_ok": report.runs_ok,
             "tests_ok": report.tests_ok,
             "stuck_features": report.stuck_features,
             "feature_count": report.feature_count,
@@ -1863,7 +1892,7 @@ def _route_to_principal_pipeline(
             _print_log(
                 f"[green]Generated {report['file_count']} files across "
                 f"{report['feature_count']} features. "
-                f"install_ok={report['install_ok']} tests_ok={report['tests_ok']}"
+                f"install_ok={report['install_ok']} build_ok={report['build_ok']} runs_ok={report['runs_ok']} tests_ok={report['tests_ok']}"
                 f"{' STUCK=' + ','.join(report['stuck_features']) if report['stuck_features'] else ''}"
                 "[/green]"
             )

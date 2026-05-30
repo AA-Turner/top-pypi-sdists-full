@@ -4,6 +4,7 @@ import time
 from abc import ABC, abstractmethod
 from multiprocessing import Pipe, Queue
 from multiprocessing.connection import Connection
+from queue import Empty
 from typing import Optional
 from uuid import uuid4
 
@@ -32,6 +33,7 @@ from abstra_internals.repositories.models import (
     ControlQueueMessage,
     PreExecution,
     QueueMessage,
+    StopAllExecutionsMessage,
     StopExecutionMessage,
 )
 from abstra_internals.utils import serialize
@@ -58,6 +60,10 @@ class ProducerRepository(ABC):
 
     @abstractmethod
     def enqueue_control(self, message: ControlMessage) -> ConnectionProtocol:
+        raise NotImplementedError()
+
+    def clear_queue(self) -> None:
+        """Discard pending execution messages so no new executions start."""
         raise NotImplementedError()
 
     def consume_and_forward(self, conn: ConnectionProtocol, stage_id: str) -> None:
@@ -127,6 +133,15 @@ class LocalProducerRepository(ProducerRepository):
             )
         )
         return parent_conn
+
+    def clear_queue(self) -> None:
+        while True:
+            try:
+                self.queue.get_nowait()
+            except Empty:
+                return
+            except (OSError, ValueError):
+                return
 
 
 class RabbitMQProducerRepository(ProducerRepository):
@@ -271,6 +286,18 @@ class RabbitMQProducerRepository(ProducerRepository):
         )
 
         return rabbitmq_connection
+
+    def clear_queue(self) -> None:
+        try:
+            with self._connect_with_retry() as connection:
+                with connection.channel() as channel:
+                    channel: BlockingChannel
+                    channel.queue_declare(queue=self.queue_name, durable=True)
+                    channel.queue_purge(queue=self.queue_name)
+        except Exception as e:
+            AbstraLogger.warning(
+                f"[RabbitMQProducerRepository] Failed to purge queue {self.queue_name}: {e}"
+            )
 
     def enqueue_fire_and_forget(
         self, stage_id: str, context: ClientContext, user_jwt: Optional[str] = None
@@ -424,6 +451,24 @@ class WebEditorControlProducerRepository:
 
     def stop_execution(self, execution_id: str):
         payload = StopExecutionMessage.create(execution_id)
+
+        with self._connect_with_retry() as connection:
+            with connection.channel() as channel:
+                channel: BlockingChannel
+                channel.exchange_declare(
+                    exchange=self.exchange_name,
+                    exchange_type="fanout",
+                    durable=True,
+                )
+                channel.basic_publish(
+                    body=payload.dump_json(),
+                    routing_key="",
+                    exchange=self.exchange_name,
+                    properties=self.props,
+                )
+
+    def stop_all_executions(self):
+        payload = StopAllExecutionsMessage()
 
         with self._connect_with_retry() as connection:
             with connection.channel() as channel:

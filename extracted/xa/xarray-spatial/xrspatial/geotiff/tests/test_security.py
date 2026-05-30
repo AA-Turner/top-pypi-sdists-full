@@ -1,9 +1,9 @@
 """Security tests for the geotiff subpackage.
 
 Tests for:
-- Unbounded allocation guard (issue #1184)
-- VRT path traversal prevention (issue #1185)
-- GPU read and VRT read allocation guards (issue #1195)
+- Unbounded allocation guard
+- VRT path traversal prevention
+- GPU read and VRT read allocation guards
 """
 from __future__ import annotations
 
@@ -50,6 +50,116 @@ class TestDimensionGuard:
 
         # Relaxed: passes with large limit
         _check_dimensions(100_000, 100_000, 1, max_pixels=100_000_000_000)
+
+    def test_error_message_includes_gb_estimate(self):
+        """Error message reports both pixels and a GB allocation hint.
+
+        With no dtype passed the hint falls back to float32
+        (4 bytes/pixel). Real call sites pass the actual dtype.
+        """
+        # 50000 x 50000 x 1 = 2.5e9 pixels = 10.00 GB at 4 bytes/pixel
+        # MAX_PIXELS_DEFAULT = 1e9 pixels = 4.00 GB at 4 bytes/pixel
+        with pytest.raises(ValueError) as exc:
+            _check_dimensions(50_000, 50_000, 1, MAX_PIXELS_DEFAULT)
+        msg = str(exc.value)
+        # Pixel count still present (preserves existing assertions).
+        assert "2,500,000,000 pixels" in msg
+        assert "1,000,000,000 pixels" in msg
+        # GB hint added for both the requested and the limit allocations.
+        # Uses decimal GB (10**9 bytes) to match the docstring convention.
+        assert "~10.00 GB at 4 bytes/pixel" in msg
+        assert "~4.00 GB at 4 bytes/pixel" in msg
+
+    def test_error_message_uses_passed_dtype_for_gb_hint(self):
+        """When the caller passes the decoded dtype, the GB hint reports
+        the exact byte width: f64 → 8 bytes/pixel (double the float32
+        default), u8 → 1 byte/pixel (a quarter)."""
+        # float64: 1e9 pixels * 8 bytes = 8.00 GB
+        with pytest.raises(ValueError) as exc:
+            _check_dimensions(50_000, 50_000, 1, MAX_PIXELS_DEFAULT,
+                              dtype=np.float64)
+        assert "20.00 GB at 8 bytes/pixel" in str(exc.value)
+        assert "8.00 GB at 8 bytes/pixel" in str(exc.value)
+
+        # uint8: 1e9 pixels * 1 byte = 1.00 GB
+        with pytest.raises(ValueError) as exc:
+            _check_dimensions(50_000, 50_000, 1, MAX_PIXELS_DEFAULT,
+                              dtype=np.uint8)
+        assert "2.50 GB at 1 bytes/pixel" in str(exc.value)
+        assert "1.00 GB at 1 bytes/pixel" in str(exc.value)
+
+    def test_error_message_includes_window_suggestion(self):
+        """Error message suggests window= for reading a sub-region."""
+        with pytest.raises(ValueError) as exc:
+            _check_dimensions(50_000, 50_000, 1, MAX_PIXELS_DEFAULT)
+        msg = str(exc.value)
+        assert "window=(r0, c0, r1, c1)" in msg
+        # Concrete example uses the same chunk-side as the chunks hint.
+        assert "window=(0, 0, 1024, 1024)" in msg
+
+    def test_error_message_suggests_chunks_when_dask_installed(self,
+                                                               monkeypatch):
+        """When dask is importable, suggest chunks=."""
+        # Force the 'dask installed' branch regardless of test env.
+        monkeypatch.setattr(
+            'xrspatial.geotiff._layout.importlib.util.find_spec',
+            lambda name: object() if name == 'dask' else None,
+        )
+        with pytest.raises(ValueError) as exc:
+            _check_dimensions(50_000, 50_000, 1, MAX_PIXELS_DEFAULT)
+        msg = str(exc.value)
+        assert "chunks=1024" in msg
+        assert "lazily" in msg
+        # Should not recommend installing dask.
+        assert "pip install dask" not in msg
+        assert "conda install" not in msg
+
+    def test_error_message_recommends_install_when_dask_missing(self,
+                                                                monkeypatch):
+        """When dask is not importable, recommend installation."""
+        monkeypatch.setattr(
+            'xrspatial.geotiff._layout.importlib.util.find_spec',
+            lambda name: None,
+        )
+        with pytest.raises(ValueError) as exc:
+            _check_dimensions(50_000, 50_000, 1, MAX_PIXELS_DEFAULT)
+        msg = str(exc.value)
+        assert "pip install dask" in msg
+        assert "conda install -c conda-forge dask" in msg
+        # The chunks= number is still surfaced so the user knows what to
+        # pass once dask is installed.
+        assert "chunks=1024" in msg
+
+    def test_suggested_chunk_side_scales_with_max_pixels(self):
+        """The suggested chunk side fits under max_pixels for the given
+        band count and never exceeds 1024."""
+        from xrspatial.geotiff._layout import _suggest_chunk_side
+        # Default budget: capped at 1024.
+        assert _suggest_chunk_side(1_000_000_000, 1) == 1024
+        # Tight budget: 100 pixels, 1 band -> side 10.
+        assert _suggest_chunk_side(100, 1) == 10
+        # Multi-band reduces the per-side budget.
+        # 1_000_000 budget, 4 bands -> sqrt(250_000) = 500.
+        assert _suggest_chunk_side(1_000_000, 4) == 500
+        # Pathological inputs do not crash.
+        assert _suggest_chunk_side(0, 1) == 1
+        assert _suggest_chunk_side(10, 0) == 3
+
+    def test_gb_hint_helper_rounds_to_two_decimals(self):
+        """_gb_hint formats bytes/pixel * count as a ~X.XX GB string."""
+        from xrspatial.geotiff._layout import _gb_hint
+        # No dtype: 1 billion pixels * 4 bytes (float32 default) ->
+        # 4.00 GB hint, matching MAX_PIXELS_DEFAULT's docstring.
+        assert _gb_hint(1_000_000_000) == "~4.00 GB at 4 bytes/pixel"
+        # Zero pixels still formats sensibly.
+        assert _gb_hint(0) == "~0.00 GB at 4 bytes/pixel"
+        # With dtype: itemsize drives the byte multiplier.
+        assert _gb_hint(1_000_000_000, dtype=np.float64) == \
+            "~8.00 GB at 8 bytes/pixel"
+        assert _gb_hint(1_000_000_000, dtype=np.uint8) == \
+            "~1.00 GB at 1 bytes/pixel"
+        assert _gb_hint(1_000_000_000, dtype=np.int16) == \
+            "~2.00 GB at 2 bytes/pixel"
 
     def test_read_strips_rejects_huge_header(self):
         """_read_strips refuses to allocate when header claims huge dims."""
@@ -131,9 +241,41 @@ class TestDimensionGuard:
         with pytest.raises(ValueError, match="exceed the safety limit"):
             open_geotiff(path, max_pixels=10)
 
+    def test_open_geotiff_max_pixels_chunked_bounds_chunk(self, tmp_path):
+        """``open_geotiff(chunks=...)`` scopes max_pixels to the chunk (#2501).
+
+        A 6x6 image is 36 pixels. ``max_pixels=10`` would reject the eager
+        read, but ``chunks=2`` keeps each materialised buffer at 2x2=4
+        pixels, well under the cap. The cap still fires when a chunk
+        actually exceeds it.
+        """
+        from xrspatial.geotiff import open_geotiff
+
+        expected = np.arange(36, dtype=np.float32).reshape(6, 6)
+        data = make_minimal_tiff(6, 6, np.dtype('float32'),
+                                 pixel_data=expected)
+        path = str(tmp_path / "small_2501_chunked.tif")
+        with open(path, 'wb') as f:
+            f.write(data)
+
+        # Eager path still rejects: full image > max_pixels.
+        with pytest.raises(ValueError, match="exceed the safety limit"):
+            open_geotiff(path, max_pixels=10)
+
+        # Dask path with chunks small enough to fit: succeeds and
+        # round-trips the values.
+        da = open_geotiff(path, chunks=2, max_pixels=10)
+        np.testing.assert_array_equal(da.values, expected)
+
+        # Dask path with chunks too large for the cap: per-chunk guard
+        # fires at compute time.
+        da = open_geotiff(path, chunks=4, max_pixels=10)
+        with pytest.raises(ValueError, match="exceed the safety limit"):
+            da.compute()
+
 
 # ---------------------------------------------------------------------------
-# Cat 1c: Tile dimension guard (issue #1215)
+# Cat 1c: Tile dimension guard
 # ---------------------------------------------------------------------------
 
 class TestTileDimensionGuard:
@@ -234,9 +376,9 @@ class TestTileDimensionGuard:
             f.write(bytes(patched))
 
         # Two valid rejection points: parse_ifd catches the mismatch
-        # between forged tile dims and the actual TileOffsets count
-        # (issue #1901), or validate_tile_layout's safety-limit check
-        # fires later if pre-IFD validation is ever relaxed.
+        # between forged tile dims and the actual TileOffsets count, or
+        # validate_tile_layout's safety-limit check fires later if
+        # pre-IFD validation is ever relaxed.
         with pytest.raises(
             ValueError,
             match=r"exceed the safety limit|exceeds expected value",
@@ -245,7 +387,7 @@ class TestTileDimensionGuard:
 
 
 # ---------------------------------------------------------------------------
-# Cat 1b: VRT allocation guard (issue #1195)
+# Cat 1b: VRT allocation guard
 # ---------------------------------------------------------------------------
 
 class TestVRTAllocationGuard:
@@ -303,11 +445,11 @@ class TestVRTAllocationGuard:
 # ---------------------------------------------------------------------------
 # Cat 5: VRT path traversal
 #
-# Tightened in issue #1671: ``parse_vrt`` no longer accepts source paths
-# that resolve outside the VRT directory (or any explicit allowlist
-# entry). The realpath call by itself only normalised ``..`` segments;
-# it did not enforce containment, so a crafted VRT could still hand
-# ``read_to_array`` an arbitrary path.
+# ``parse_vrt`` does not accept source paths that resolve outside the
+# VRT directory (or any explicit allowlist entry). The realpath call by
+# itself only normalises ``..`` segments; it does not enforce
+# containment, so a crafted VRT could otherwise hand ``read_to_array``
+# an arbitrary path.
 # ---------------------------------------------------------------------------
 
 
@@ -358,7 +500,7 @@ class TestVRTPathTraversal:
 
     def test_absolute_path_outside_vrt_dir_rejected(self, tmp_path):
         """Absolute paths pointing outside the VRT directory are rejected
-        by default (issue #1671)."""
+        by default."""
         from xrspatial.geotiff._vrt import parse_vrt
 
         vrt_xml = '''<VRTDataset rasterXSize="4" rasterYSize="4">
@@ -377,7 +519,7 @@ class TestVRTPathTraversal:
 
 
 # ---------------------------------------------------------------------------
-# Tile layout validation (issue #1219)
+# Tile layout validation
 #
 # An adversarial TIFF can declare image dimensions that imply more tiles
 # than its TileOffsets tag supplies. The CPU path silently skipped the
@@ -440,7 +582,7 @@ def _make_short_offsets_tiff(
 
 
 class TestTileLayoutValidation:
-    """Regression tests for issue #1219."""
+    """Regression tests for the tile-layout count mismatch."""
 
     def test_validate_tile_layout_rejects_short_offsets(self):
         """validate_tile_layout raises when offsets count < declared grid."""
@@ -522,12 +664,12 @@ class TestTileLayoutValidation:
 
 
 # ---------------------------------------------------------------------------
-# HTTP COG: per-tile compressed-byte cap (issue #1536)
+# HTTP COG: per-tile compressed-byte cap
 #
 # A crafted TIFF served over HTTP can declare arbitrarily large
-# TileByteCounts. Without the cap added in #1536, _fetch_decode_cog_http_tiles
-# passes those values straight into Range GETs sized by the attacker.
-# The local-mmap path is naturally bounded by file size, so these tests
+# TileByteCounts. Without the cap, _fetch_decode_cog_http_tiles passes
+# those values straight into Range GETs sized by the attacker. The
+# local-mmap path is naturally bounded by file size, so these tests
 # only exercise the HTTP path through a mock _HTTPSource.
 # ---------------------------------------------------------------------------
 
@@ -632,7 +774,7 @@ class _MockHTTPSource:
 
 
 class TestHTTPTileByteCountCap:
-    """Regression tests for the HTTP COG byte_count cap (#1536)."""
+    """Regression tests for the HTTP COG byte_count cap."""
 
     def _build_forged_cog(self, tmp_path, byte_count_value: int) -> bytes:
         """Build a real tiled COG, then patch every TileByteCounts entry."""
@@ -724,9 +866,9 @@ class TestHTTPTileByteCountCap:
     def test_local_path_respects_default_cap(self, tmp_path):
         """Legitimate local reads stay well under the default cap.
 
-        Before #1664 the local path bypassed the cap entirely. Now the
-        cap is shared, so we just confirm the default (256 MiB) leaves
-        plenty of headroom for a normal small tiled COG.
+        The local path once bypassed the cap entirely. Now the cap is
+        shared, so we just confirm the default (256 MiB) leaves plenty
+        of headroom for a normal small tiled COG.
         """
         import xarray as xr
 
@@ -742,7 +884,7 @@ class TestHTTPTileByteCountCap:
 
 
 # ---------------------------------------------------------------------------
-# XML entity expansion (billion-laughs) -- issue #1579
+# XML entity expansion (billion-laughs)
 #
 # VRT and GDALMetadata payloads go through xml.etree.ElementTree, which by
 # default expands internal entities. A crafted file can OOM the host via
@@ -764,7 +906,7 @@ _BILLION_LAUGHS_PROLOGUE = (
 
 
 class TestVRTXMLEntityExpansion:
-    """Issue #1579: parse_vrt refuses XML entity (billion-laughs) payloads."""
+    """parse_vrt refuses XML entity (billion-laughs) payloads."""
 
     def test_parse_vrt_rejects_doctype(self, tmp_path):
         """A VRT that declares ``<!DOCTYPE ...>`` is rejected outright."""
@@ -814,7 +956,7 @@ class TestVRTXMLEntityExpansion:
 
 
 class TestGDALMetadataXMLEntityExpansion:
-    """Issue #1579: _parse_gdal_metadata refuses entity-expansion payloads."""
+    """_parse_gdal_metadata refuses entity-expansion payloads."""
 
     def test_parse_gdal_metadata_doctype_returns_empty(self):
         """A DOCTYPE in GDALMetadata yields an empty dict, not expansion.

@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: model2vec
-Version: 0.8.1
+Version: 0.8.2
 Summary: Fast State-of-the-Art Static Embeddings
-Author-email: Stéphan Tulkens <stephantul@gmail.com>, Thomas van Dongen <thomas123@live.nl>
+Author-email: Stéphan Tulkens <stephantul@gmail.com>, Thomas van Dongen <thomasvdongen@proton.me>
 License: MIT License
         
         Copyright (c) 2024 Thomas van Dongen
@@ -45,24 +45,22 @@ Description-Content-Type: text/markdown
 Requires-Dist: jinja2
 Requires-Dist: joblib
 Requires-Dist: numpy
-Requires-Dist: rich
 Requires-Dist: safetensors
-Requires-Dist: setuptools
 Requires-Dist: tokenizers>=0.20
 Requires-Dist: tqdm
 Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
 Requires-Dist: ipython; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
+Requires-Dist: setuptools; extra == "dev"
 Provides-Extra: distill
 Requires-Dist: torch; extra == "distill"
 Requires-Dist: transformers<5.4.0; extra == "distill"
 Requires-Dist: scikit-learn; extra == "distill"
-Requires-Dist: skeletoken>=0.3.2; extra == "distill"
+Requires-Dist: skeletoken>=0.3.3; extra == "distill"
 Provides-Extra: onnx
 Requires-Dist: onnx; extra == "onnx"
 Requires-Dist: torch; extra == "onnx"

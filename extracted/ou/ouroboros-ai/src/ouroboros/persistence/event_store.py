@@ -11,9 +11,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import and_, event, func, or_, select, text
+
+if TYPE_CHECKING:
+    from ouroboros.orchestrator.workflow_lifecycle import WorkflowLifecycleEvent
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -270,7 +273,12 @@ class EventStore:
             async with self._engine.begin() as conn:
                 await conn.run_sync(metadata.create_all)
 
-    async def append(self, event: BaseEvent) -> None:
+    async def append(
+        self,
+        event: BaseEvent,
+        *,
+        _skip_workflow_ir_guard: bool = False,
+    ) -> None:
         """Append an event to the store.
 
         The operation is wrapped in a transaction for atomicity.
@@ -289,6 +297,26 @@ class EventStore:
             )
         if not isinstance(event, BaseEvent):
             self._raise_invalid_append_input(event, operation="append")
+
+        # Guard the workflow IR lifecycle family from direct raw appends:
+        # ``WorkflowLifecycleEvent`` enforces the replay-unsafe key blocklist
+        # at the Pydantic model boundary, so a caller that constructs a raw
+        # ``BaseEvent`` with ``aggregate_type="workflow_ir"`` would bypass
+        # that redaction. Route lifecycle persistence exclusively through
+        # :meth:`append_workflow_lifecycle_event`. The internal-only
+        # ``_skip_workflow_ir_guard`` flag is used by that helper after it has
+        # already validated the event via ``WorkflowLifecycleEvent``.
+        if event.aggregate_type == "workflow_ir" and not _skip_workflow_ir_guard:
+            raise PersistenceError(
+                "Workflow IR lifecycle events must be persisted via "
+                "append_workflow_lifecycle_event() to preserve the "
+                "WorkflowLifecycleEvent redaction guard.",
+                operation="append",
+                details={
+                    "aggregate_type": event.aggregate_type,
+                    "event_type": event.type,
+                },
+            )
 
         for attempt in range(3):
             try:
@@ -343,6 +371,28 @@ class EventStore:
                 invalid_event,
                 operation="append_batch",
                 index=invalid_index,
+            )
+
+        # Mirror the ``append()`` workflow_ir guard so callers cannot bypass
+        # the ``WorkflowLifecycleEvent`` redaction blocklist by batching raw
+        # ``BaseEvent`` instances. Lifecycle persistence must go through
+        # :meth:`append_workflow_lifecycle_event`, which validates payloads
+        # at the Pydantic boundary before delegating to :meth:`append`.
+        # This check runs BEFORE any DB insert so a single bad row in the
+        # batch refuses the entire transaction.
+        from ouroboros.orchestrator.workflow_lifecycle import (
+            WORKFLOW_LIFECYCLE_AGGREGATE_TYPE,
+        )
+
+        workflow_ir_events = [
+            e for e in events if e.aggregate_type == WORKFLOW_LIFECYCLE_AGGREGATE_TYPE
+        ]
+        if workflow_ir_events:
+            raise PersistenceError(
+                "Workflow IR lifecycle events must be persisted via "
+                "append_workflow_lifecycle_event() and cannot be batched.",
+                operation="append_batch",
+                details={"count": len(workflow_ir_events)},
             )
 
         for attempt in range(3):
@@ -420,6 +470,9 @@ class EventStore:
         aggregate_type: str,
         aggregate_id: str,
         last_row_id: int = 0,
+        *,
+        limit: int | None = None,
+        max_row_id: int | None = None,
     ) -> tuple[list[BaseEvent], int]:
         """Get events for an aggregate after a given row ID.
 
@@ -431,6 +484,15 @@ class EventStore:
             aggregate_id: The unique identifier of the aggregate.
             last_row_id: The SQLite rowid of the last event processed.
                          Pass 0 to get all events from the beginning.
+            limit: Optional maximum number of events to materialize. When set,
+                   the page is ordered by ``rowid`` (the cursor dimension) and
+                   capped, so the returned ``max(rowid)`` is a true boundary and
+                   a follow-up poll resumes the remainder without skipping rows
+                   appended out of timestamp order. ``None`` keeps the unbounded
+                   timestamp-ordered fetch other callers rely on.
+            max_row_id: Optional inclusive upper bound on rowid. Lets a caller
+                   that has already chosen a global page boundary re-read exactly
+                   the rows at or before that boundary (``rowid <= max_row_id``).
 
         Returns:
             Tuple of (list of new events, max rowid seen).
@@ -450,13 +512,22 @@ class EventStore:
                 # Use SQLite's implicit rowid for efficient cursor-based pagination.
                 # This avoids deserializing all prior events just to slice the tail.
                 rowid_col = text("rowid")
-                result = await conn.execute(
+                query = (
                     select(events_table, rowid_col)
                     .where(events_table.c.aggregate_type == aggregate_type)
                     .where(events_table.c.aggregate_id == aggregate_id)
                     .where(text("rowid > :last_id").bindparams(last_id=last_row_id))
-                    .order_by(events_table.c.timestamp, events_table.c.id)
                 )
+                if max_row_id is not None:
+                    query = query.where(text("rowid <= :max_id").bindparams(max_id=max_row_id))
+                if limit is not None:
+                    # Page by rowid so max(rowid) is a contiguous boundary; ordering
+                    # a limited page by timestamp could advance the cursor past a
+                    # lower-rowid row appended out of order, skipping it forever.
+                    query = query.order_by(rowid_col).limit(limit)
+                else:
+                    query = query.order_by(events_table.c.timestamp, events_table.c.id)
+                result = await conn.execute(query)
                 rows = result.mappings().all()
                 if not rows:
                     return [], last_row_id
@@ -817,6 +888,7 @@ class EventStore:
         resolved_execution_id = execution_id or await self._resolve_execution_id_for_session(
             session_id,
         )
+        session_started_at = await self._resolve_session_started_at(session_id)
 
         conditions = _session_related_event_conditions(session_id, resolved_execution_id)
 
@@ -827,6 +899,8 @@ class EventStore:
                     .where(or_(*conditions))
                     .order_by(events_table.c.timestamp.desc())
                 )
+                if session_started_at is not None:
+                    query = query.where(events_table.c.timestamp >= session_started_at)
 
                 if event_type:
                     query = query.where(events_table.c.event_type == event_type)
@@ -918,12 +992,23 @@ class EventStore:
         execution_id: str | None = None,
         event_type: str | None = None,
         last_row_id: int = 0,
+        *,
+        limit: int | None = None,
+        max_row_id: int | None = None,
     ) -> tuple[list[BaseEvent], int]:
         """Incrementally query events across a session and related execution scopes.
 
         This is the multi-aggregate equivalent of ``get_events_after``. It uses
         the same exact session/execution payload predicates as
         ``query_session_related_events`` while advancing a single rowid cursor.
+
+        When ``limit`` is set the page is ordered by ``rowid`` and capped, so a
+        stale or first-time poll over a long-running session cannot load an
+        unbounded result set and the returned ``max(rowid)`` is a true boundary
+        a follow-up poll resumes from without skipping rows appended out of
+        timestamp order. ``max_row_id`` bounds the read to ``rowid <= max_row_id``
+        for callers that have already chosen a global page boundary. ``None``
+        for both keeps the unbounded timestamp-ordered fetch.
         """
         if self._engine is None:
             raise PersistenceError(
@@ -934,6 +1019,7 @@ class EventStore:
         resolved_execution_id = execution_id or await self._resolve_execution_id_for_session(
             session_id,
         )
+        session_started_at = await self._resolve_session_started_at(session_id)
         conditions = _session_related_event_conditions(session_id, resolved_execution_id)
 
         try:
@@ -943,11 +1029,21 @@ class EventStore:
                     select(events_table, rowid_col)
                     .where(or_(*conditions))
                     .where(text("rowid > :last_id").bindparams(last_id=last_row_id))
-                    .order_by(events_table.c.timestamp, events_table.c.id)
                 )
+                if max_row_id is not None:
+                    query = query.where(text("rowid <= :max_id").bindparams(max_id=max_row_id))
+                if session_started_at is not None:
+                    query = query.where(events_table.c.timestamp >= session_started_at)
 
                 if event_type:
                     query = query.where(events_table.c.event_type == event_type)
+
+                if limit is not None:
+                    # Page by rowid (see get_events_after) so the cursor boundary
+                    # is skip-safe even when timestamp order diverges from rowid.
+                    query = query.order_by(rowid_col).limit(limit)
+                else:
+                    query = query.order_by(events_table.c.timestamp, events_table.c.id)
 
                 result = await conn.execute(query)
                 rows = result.mappings().all()
@@ -998,6 +1094,27 @@ class EventStore:
                     return execution_id
             return None
 
+    async def _resolve_session_started_at(self, session_id: str) -> Any | None:
+        """Return the persisted start timestamp for a session, if available."""
+        if self._engine is None:
+            raise PersistenceError(
+                "EventStore not initialized. Call initialize() first.",
+                operation="resolve_session_started_at",
+            )
+
+        async with self._engine.begin() as conn:
+            query = (
+                select(events_table.c.timestamp)
+                .where(events_table.c.aggregate_type == "session")
+                .where(events_table.c.aggregate_id == session_id)
+                .where(events_table.c.event_type == "orchestrator.session.started")
+                .order_by(events_table.c.timestamp.asc())
+                .limit(1)
+            )
+            result = await conn.execute(query)
+            row = result.first()
+            return row[0] if row is not None else None
+
     async def get_all_lineages(self) -> list[BaseEvent]:
         """Get all lineage creation events.
 
@@ -1037,7 +1154,7 @@ class EventStore:
 
     async def append_workflow_lifecycle_event(
         self,
-        lifecycle_event: Any,
+        lifecycle_event: WorkflowLifecycleEvent,
     ) -> None:
         """Append a workflow IR lifecycle event to the durable event family.
 
@@ -1091,12 +1208,17 @@ class EventStore:
                 operation="append_workflow_lifecycle_event",
                 details={"event_type": base_event.type},
             )
-        await self.append(base_event)
+        # Bypass the ``workflow_ir`` guard in :meth:`append` because the
+        # caller-side ``WorkflowLifecycleEvent`` validation above is the
+        # authoritative redaction boundary. The guard exists to refuse
+        # *direct* raw appends; this helper has already enforced the
+        # equivalent invariants.
+        await self.append(base_event, _skip_workflow_ir_guard=True)
 
     async def replay_workflow_lifecycle(
         self,
         workflow_id: str,
-    ) -> list[Any]:
+    ) -> list[WorkflowLifecycleEvent]:
         """Replay durable workflow lifecycle events for a workflow id.
 
         Returns a list of
@@ -1104,13 +1226,38 @@ class EventStore:
         instances rehydrated from persisted ``BaseEvent`` rows. Other
         event families are not consulted.
         """
+        from pydantic import ValidationError
+
         from ouroboros.orchestrator.workflow_lifecycle import (
             WORKFLOW_LIFECYCLE_AGGREGATE_TYPE,
             WorkflowLifecycleEvent,
         )
 
         base_events = await self.replay(WORKFLOW_LIFECYCLE_AGGREGATE_TYPE, workflow_id)
-        return [WorkflowLifecycleEvent.from_base_event(base) for base in base_events]
+        rehydrated: list[WorkflowLifecycleEvent] = []
+        for base in base_events:
+            try:
+                rehydrated.append(WorkflowLifecycleEvent.from_base_event(base))
+            except (ValueError, ValidationError) as exc:
+                # A malformed row must not crash the entire replay. The
+                # :meth:`append` guard prevents new bypasses, but historical
+                # rows from before that guard (or rows inserted via direct
+                # SQL during recovery) can still fail strict rehydration —
+                # skip and log so the rest of the slice remains usable.
+                # The raw exception text can echo back replay-unsafe payload
+                # values when the malformed row was populated from a poisoned
+                # source, so emit only safe metadata and the exception class.
+                logger.warning(
+                    "event_store.replay_workflow_lifecycle.skip_malformed",
+                    extra={
+                        "event_id": getattr(base, "id", None),
+                        "event_type": getattr(base, "type", None),
+                        "aggregate_id": getattr(base, "aggregate_id", None),
+                        "error": type(exc).__name__,
+                    },
+                )
+                continue
+        return rehydrated
 
     async def replay_lineage(self, lineage_id: str) -> list[BaseEvent]:
         """Replay all events for a lineage aggregate.

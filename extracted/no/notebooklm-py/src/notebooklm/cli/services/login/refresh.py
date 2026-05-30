@@ -19,10 +19,10 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
-import click
 import httpx
 
 from ....auth import (
@@ -41,6 +41,7 @@ from ...rendering import console
 from ...runtime import run_async
 from .browser_accounts import _enumerate_browser_accounts, _read_browser_cookies
 from .cookie_writes import _select_account, _select_refresh_account, _write_extracted_cookies
+from .outcomes import BrowserCookieOutcome
 from .profile_targets import (
     _profiles_by_account_email,
     _resolve_all_accounts_target,
@@ -48,7 +49,29 @@ from .profile_targets import (
     email_to_profile_name,
 )
 
+# Type alias for the overwrite-confirmer callback. ``True`` means proceed
+# with the overwrite; ``False`` means abort. When no callback is injected,
+# overwrite is auto-accepted for tests and non-interactive callers. The
+# Click command layer injects ``functools.partial(click.confirm,
+# default=False)`` so interactive runs prompt before overwriting.
+ConfirmCallback = Callable[[str], bool]
+
 logger = logging.getLogger(__name__)
+
+
+def _exit_on_outcome(outcome: BrowserCookieOutcome) -> NoReturn:
+    """Render a helper-chain failure outcome and exit with code 1.
+
+    Preserves the pre-refactor text-mode behavior for refresh.py-driven
+    paths: the Rich-markup message is printed and the process exits.
+    This module is still in :data:`TRANSITIONAL_GUARDED_PATHS` (the
+    ``Pattern A`` inventory tracks the ``console.print`` +
+    ``exit_with_code`` pairs in each refresh driver function), so the
+    inline call is intentional. Lifting refresh.py to the typed-outcome
+    JSON envelope shape is tracked separately.
+    """
+    console.print(outcome.message)
+    exit_with_code(1)
 
 
 def _login_browser_cookies_single(
@@ -59,6 +82,7 @@ def _login_browser_cookies_single(
     profile_name: str | None,
     active_profile: str | None,
     include_domains: set[str] | None = None,
+    confirm: ConfirmCallback | None = None,
 ) -> None:
     """Extract one account from ``--browser-cookies`` into a profile.
 
@@ -68,6 +92,16 @@ def _login_browser_cookies_single(
     - ``--profile-name`` selects a sibling profile under the home dir.
     - Otherwise we write to the active profile, even when ``--account`` selects
       a non-default browser account.
+
+    Args:
+        confirm: Optional overwrite-confirmer for the
+            ``_confirm_profile_account_overwrite`` path. Receives the
+            confirmation prompt as a string and returns ``True`` to
+            proceed, ``False`` to abort. ``None`` (the default) skips the
+            confirmation entirely — used by tests and non-interactive
+            callers. The Click command layer injects ``click.confirm`` at
+            the boundary so interactive ``notebooklm login`` runs still
+            prompt.
     """
     explicit_storage = Path(storage) if storage else None
 
@@ -84,10 +118,14 @@ def _login_browser_cookies_single(
 
     # Path 2: targeted extraction. Select the requested browser account, then
     # write it to an explicit destination or to the active profile.
-    per_profile_cookies, accounts = _enumerate_browser_accounts(
-        browser_cookies, include_domains=include_domains
-    )
-    selected = _select_account(accounts, account_email=account_email)
+    enum_result = _enumerate_browser_accounts(browser_cookies, include_domains=include_domains)
+    if isinstance(enum_result, BrowserCookieOutcome):
+        _exit_on_outcome(enum_result)
+    per_profile_cookies, accounts = enum_result
+    selected_or_outcome = _select_account(accounts, account_email=account_email)
+    if isinstance(selected_or_outcome, BrowserCookieOutcome):
+        _exit_on_outcome(selected_or_outcome)
+    selected = selected_or_outcome
 
     target_profile: str | None
     if profile_name is not None:
@@ -102,15 +140,19 @@ def _login_browser_cookies_single(
             target_storage,
             profile=storage_profile,
             selected_email=selected.email,
+            confirm=confirm,
         )
 
-    _write_extracted_cookies(
+    write_outcome = _write_extracted_cookies(
         per_profile_cookies[selected.browser_profile],
         storage_path=target_storage,
         profile=storage_profile,
         authuser=selected.authuser,
         email=selected.email,
     )
+    if isinstance(write_outcome, BrowserCookieOutcome):
+        _exit_on_outcome(write_outcome)
+    console.print(f"  [green]✓[/green] {storage_profile or target_storage}  →  {selected.email}")
     _sync_server_language_to_config(storage_path=target_storage, profile=storage_profile)
 
 
@@ -119,8 +161,20 @@ def _confirm_profile_account_overwrite(
     *,
     profile: str | None,
     selected_email: str,
+    confirm: ConfirmCallback | None = None,
 ) -> None:
-    """Prompt before replacing a profile bound to a different Google account."""
+    """Prompt before replacing a profile bound to a different Google account.
+
+    Args:
+        confirm: Overwrite-confirmer callback injected by the Click
+            command layer. Receives the confirmation prompt string and
+            returns ``True`` to proceed with overwrite, ``False`` to
+            abort (which routes through ``console.print`` +
+            ``exit_with_code(1)``). When ``None``, the confirmation is
+            skipped (treated as auto-accept) — used by non-interactive
+            callers; production Click commands always inject
+            ``click.confirm`` at the boundary so interactive runs prompt.
+    """
     metadata = read_account_metadata(storage_path)
     existing_email = metadata.get("email")
     if isinstance(existing_email, str) and existing_email.strip():
@@ -138,9 +192,8 @@ def _confirm_profile_account_overwrite(
         if existing_email is not None
         else "saved auth without account metadata"
     )
-    if click.confirm(
-        f"{target} already has {conflict}. Overwrite it with {selected_email}?",
-        default=False,
+    if confirm is None or confirm(
+        f"{target} already has {conflict}. Overwrite it with {selected_email}?"
     ):
         return
 
@@ -173,9 +226,10 @@ def _login_all_accounts_from_browser(
     """
     from ....paths import list_profiles
 
-    per_profile_cookies, accounts = _enumerate_browser_accounts(
-        browser_cookies, include_domains=include_domains
-    )
+    enum_result = _enumerate_browser_accounts(browser_cookies, include_domains=include_domains)
+    if isinstance(enum_result, BrowserCookieOutcome):
+        _exit_on_outcome(enum_result)
+    per_profile_cookies, accounts = enum_result
     if not accounts:
         console.print("[yellow]No accounts discovered.[/yellow]")
         return
@@ -210,13 +264,16 @@ def _login_all_accounts_from_browser(
         claimed.add(target_profile)
 
         target_storage = get_storage_path(profile=target_profile)
-        _write_extracted_cookies(
+        write_outcome = _write_extracted_cookies(
             per_profile_cookies[account.browser_profile],
             storage_path=target_storage,
             profile=target_profile,
             authuser=account.authuser,
             email=account.email,
         )
+        if isinstance(write_outcome, BrowserCookieOutcome):
+            _exit_on_outcome(write_outcome)
+        console.print(f"  [green]✓[/green] {target_profile or target_storage}  →  {account.email}")
         language_sync_target = (target_storage, target_profile)
 
     if language_sync_target is not None:
@@ -233,16 +290,22 @@ def _refresh_from_browser_cookies(
     include_domains: set[str] | None = None,
 ) -> None:
     """Refresh the active profile from browser cookies, repairing account drift."""
-    per_profile_cookies, accounts = _enumerate_browser_accounts(
+    enum_result = _enumerate_browser_accounts(
         browser_name, verbose=not quiet, include_domains=include_domains
     )
+    if isinstance(enum_result, BrowserCookieOutcome):
+        _exit_on_outcome(enum_result)
+    per_profile_cookies, accounts = enum_result
     if not accounts:
         console.print(f"[red]No signed-in Google accounts found in {browser_name}.[/red]")
         exit_with_code(1)
 
     metadata = read_account_metadata(storage_path)
-    selected = _select_refresh_account(accounts, metadata, browser_name)
-    _write_extracted_cookies(
+    selected_or_outcome = _select_refresh_account(accounts, metadata, browser_name)
+    if isinstance(selected_or_outcome, BrowserCookieOutcome):
+        _exit_on_outcome(selected_or_outcome)
+    selected = selected_or_outcome
+    write_outcome = _write_extracted_cookies(
         per_profile_cookies[selected.browser_profile],
         storage_path=storage_path,
         profile=profile,
@@ -250,6 +313,8 @@ def _refresh_from_browser_cookies(
         email=selected.email,
         quiet=True,
     )
+    if isinstance(write_outcome, BrowserCookieOutcome):
+        _exit_on_outcome(write_outcome)
     _sync_server_language_to_config(storage_path=storage_path, profile=profile)
 
     if not quiet:
@@ -279,7 +344,10 @@ def _login_with_browser_cookies(
         include_domains: Optional ``--include-domains`` label set forwarded
             to :func:`_read_browser_cookies`.
     """
-    raw_cookies = _read_browser_cookies(browser_name, include_domains=include_domains)
+    cookies_result = _read_browser_cookies(browser_name, include_domains=include_domains)
+    if isinstance(cookies_result, BrowserCookieOutcome):
+        _exit_on_outcome(cookies_result)
+    raw_cookies = cookies_result
 
     # ``validate_with_recovery`` mutates ``raw_cookies`` in place if the
     # in-memory ``RotateCookies`` recovery succeeds (issue #990), so the

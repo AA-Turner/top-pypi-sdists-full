@@ -69,12 +69,18 @@ class MountsMixin(BaseConverter):
         pass
 
     @classmethod
+    def _get_tools_bin_context_mount(cls, read_only: bool = True):
+        pass
+
+    @classmethod
     def _get_mounts(
         cls,
         use_auth_context: bool,
         use_docker_context: bool,
         use_shm_context: bool,
         use_artifacts_context: bool,
+        use_tmux_context: bool = False,
+        use_sandbox_context: bool = False,
         run_path: Optional[str] = None,
     ) -> List:
         return []

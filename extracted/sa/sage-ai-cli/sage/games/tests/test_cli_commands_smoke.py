@@ -24,7 +24,7 @@ import pytest
 # Top-level commands sage advertises in `python -m sage --help`. New
 # commands added to main.py should appear here so they're smoke-tested.
 _COMMANDS: list[str] = [
-    "search", "image", "run", "chat", "ask", "list", "models",
+    "search", "image", "run", "ask", "models",
     "install", "update", "sync", "sync-catalog", "pull",
     "train-all", "train", "use", "rm",
     "login", "logout", "whoami", "fix-llama-cpp",

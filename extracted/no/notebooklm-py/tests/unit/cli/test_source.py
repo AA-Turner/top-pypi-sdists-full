@@ -79,6 +79,7 @@ class TestSourceList:
                         id="src_1",
                         title="Test Source",
                         url="https://example.com",
+                        _type_code=5,
                     ),
                 ]
             )
@@ -109,6 +110,7 @@ class TestSourceList:
                 "created_at",
             ]
             assert data["sources"][0]["id"] == "src_1"
+            assert data["sources"][0]["type"] == "web_page"
 
     def test_source_list_limit_caps_rows(self, runner, mock_auth):
         """`source list --limit N` returns at most N data rows."""
@@ -214,6 +216,7 @@ class TestSourceAdd:
                     id="src_new",
                     title="Example",
                     url="https://example.com",
+                    _type_code=5,
                 )
             )
             mock_client_cls.return_value = mock_client
@@ -407,6 +410,7 @@ class TestSourceAdd:
                     id="src_new",
                     title="Example",
                     url="https://example.com",
+                    _type_code=5,
                 )
             )
             mock_client_cls.return_value = mock_client
@@ -422,6 +426,7 @@ class TestSourceAdd:
             assert result.exit_code == 0
             data = json.loads(result.output)
             assert data["source"]["id"] == "src_new"
+            assert data["source"]["type"] == "web_page"
 
     def test_source_add_timeout_flag_threaded_to_client(self, runner, mock_auth):
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
@@ -1503,7 +1508,12 @@ class TestSourceGuide:
 
 class TestSourceStale:
     def test_source_stale_is_stale(self, runner, mock_auth):
-        """Test exit code 0 when source is stale (needs refresh)."""
+        """Default exit code is 0 (success) when the check completes — stale branch.
+
+        The freshness result is reported on stdout; callers branch on the
+        text (or, with --json, on the ``stale`` field). See
+        docs/cli-exit-codes.md.
+        """
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.sources.list = AsyncMock(
@@ -1518,12 +1528,12 @@ class TestSourceStale:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["source", "stale", "src_123", "-n", "nb_123"])
 
-            assert result.exit_code == 0  # 0 = stale (condition is true)
+            assert result.exit_code == 0  # success — check completed
             assert "stale" in result.output.lower()
             assert "refresh" in result.output.lower()
 
     def test_source_stale_is_fresh(self, runner, mock_auth):
-        """Test exit code 1 when source is fresh (no refresh needed)."""
+        """Default exit code is 0 (success) when the check completes — fresh branch."""
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.sources.list = AsyncMock(
@@ -1538,7 +1548,7 @@ class TestSourceStale:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["source", "stale", "src_123", "-n", "nb_123"])
 
-            assert result.exit_code == 1  # 1 = not stale (condition is false)
+            assert result.exit_code == 0  # success — check completed
             assert "fresh" in result.output.lower()
 
 
@@ -1987,6 +1997,7 @@ class TestSourceFulltext:
                     source_id="src_123",
                     title="Test Source",
                     content="Some content",
+                    _type_code=5,
                     char_count=12,
                     url=None,
                 )
@@ -2005,8 +2016,10 @@ class TestSourceFulltext:
             data = json.loads(result.output)
             assert data["source_id"] == "src_123"
             assert data["title"] == "Test Source"
+            assert data["kind"] == "web_page"
             assert data["content"] == "Some content"
             assert data["char_count"] == 12
+            assert "_type_code" not in data
 
     def test_source_fulltext_format_markdown_propagates(self, runner, mock_auth):
         """`-f markdown` propagates output_format='markdown' to the API."""
@@ -2716,8 +2729,10 @@ class TestSourceJsonOutput:
     1. Stdout is parseable JSON (no Rich color codes leaking onto stdout).
     2. The shape exposes the fields automation needs (``source_id``,
        ``status``, etc.).
-    3. ``source stale --json`` PRESERVES the inverted exit-code semantics
-       documented in ``docs/cli-exit-codes.md`` (stale=0, fresh=1).
+    3. ``source stale --json`` follows the standard CLI exit convention
+       (0=success regardless of freshness, 1=error). The inverted
+       predicate is available as an opt-in via ``--exit-on-stale``;
+       see ``docs/cli-exit-codes.md``.
     """
 
     def _patch_fetch_tokens(self):
@@ -2738,6 +2753,7 @@ class TestSourceJsonOutput:
                     id="src_123",
                     title="My Source",
                     url="https://example.com",
+                    _type_code=5,
                     created_at=datetime(2024, 1, 1, 12, 0),
                 )
             )
@@ -2751,6 +2767,7 @@ class TestSourceJsonOutput:
             assert data["found"] is True
             assert data["source"]["id"] == "src_123"
             assert data["source"]["title"] == "My Source"
+            assert data["source"]["type"] == "web_page"
             assert data["source"]["url"] == "https://example.com"
             assert data["source"]["created_at"] == "2024-01-01T12:00:00"
 
@@ -2900,7 +2917,7 @@ class TestSourceJsonOutput:
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.sources.add_drive = AsyncMock(
-                return_value=Source(id="src_drive", title="My Drive Doc")
+                return_value=Source(id="src_drive", title="My Drive Doc", _type_code=3)
             )
             mock_client_cls.return_value = mock_client
 
@@ -2925,15 +2942,17 @@ class TestSourceJsonOutput:
             assert data["action"] == "add-drive"
             assert data["source"]["id"] == "src_drive"
             assert data["source"]["title"] == "My Drive Doc"
+            assert data["source"]["type"] == "pdf"
             assert data["source"]["drive_file_id"] == "drive_file_xyz"
             assert data["source"]["mime_type"] == "pdf"
             assert data["notebook_id"] == "nb_123"
 
     def test_source_stale_json_is_stale_exits_zero(self, runner, mock_auth):
-        """``source stale --json`` PRESERVES the inverted exit-code semantics:
-        exit 0 when stale (predicate true), so the shell idiom
-        ``if notebooklm source stale ID; then refresh; fi`` still works in
-        JSON mode. See docs/cli-exit-codes.md.
+        """``source stale --json`` default: exit 0 on success (stale branch).
+
+        Default policy follows the standard CLI convention: exit 0 means
+        the check completed; callers branch on the ``stale``/``fresh``
+        JSON fields. See docs/cli-exit-codes.md.
         """
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
@@ -2946,7 +2965,7 @@ class TestSourceJsonOutput:
                     cli, ["source", "stale", "src_123", "-n", "nb_123", "--json"]
                 )
 
-            # Inverted exit code preserved in JSON mode.
+            # Standard exit code: success when the check completes.
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["stale"] is True
@@ -2954,7 +2973,7 @@ class TestSourceJsonOutput:
             assert data["source_id"] == "src_123"
 
     def test_source_stale_json_is_fresh_exits_one(self, runner, mock_auth):
-        """Inverted exit-code semantics, fresh branch: exit 1 (predicate false)."""
+        """``source stale --json`` default: exit 0 on success (fresh branch)."""
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.sources.list = AsyncMock(return_value=[Source(id="src_123", title="Fresh")])
@@ -2966,8 +2985,8 @@ class TestSourceJsonOutput:
                     cli, ["source", "stale", "src_123", "-n", "nb_123", "--json"]
                 )
 
-            # Inverted exit code preserved in JSON mode.
-            assert result.exit_code == 1, result.output
+            # Standard exit code: success when the check completes.
+            assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["stale"] is False
             assert data["fresh"] is True
@@ -3097,6 +3116,73 @@ class TestSourceAddStdinDash:
             call = mock_client.sources.add_text.call_args
             assert call.args[1] == "My Title"
             assert call.args[2] == "hello world"
+
+    def test_source_add_dash_with_explicit_text_type_reads_stdin(self, runner, mock_auth):
+        with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
+            mock_client = create_mock_client()
+            mock_client.sources.add_text = AsyncMock(
+                return_value=Source(id="src_text", title="Pasted Text")
+            )
+            mock_client_cls.return_value = mock_client
+
+            with patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(
+                    cli,
+                    ["source", "add", "-", "--type", "text", "-n", "nb_123"],
+                    input="typed stdin\n",
+                )
+
+            assert result.exit_code == 0, result.output
+            mock_client.sources.add_text.assert_awaited_once()
+            call = mock_client.sources.add_text.call_args
+            assert call.args[2] == "typed stdin"
+
+    @pytest.mark.parametrize("source_type", ["url", "file", "youtube"])
+    def test_source_add_dash_rejects_non_text_type(self, runner, mock_auth, source_type):
+        with (
+            patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls,
+            patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_fetch.return_value = ("csrf", "session")
+            result = runner.invoke(
+                cli,
+                ["source", "add", "-", "--type", source_type, "-n", "nb_123"],
+                input="content from stdin\n",
+            )
+
+        assert result.exit_code == 2
+        assert f"Cannot use '-' (stdin) with --type {source_type}" in result.output
+        mock_client_cls.assert_not_called()
+
+    def test_source_add_dash_rejects_non_text_type_json(self, runner, mock_auth):
+        with (
+            patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls,
+            patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_fetch.return_value = ("csrf", "session")
+            result = runner.invoke(
+                cli,
+                ["source", "add", "-", "--type", "url", "-n", "nb_123", "--json"],
+                input="content from stdin\n",
+            )
+
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data == {
+            "error": True,
+            "code": "VALIDATION_ERROR",
+            "message": (
+                "Cannot use '-' (stdin) with --type url; stdin content can only be added as text."
+            ),
+        }
+        mock_client_cls.assert_not_called()
 
     def test_source_add_literal_dash_path_unchanged(self, runner, mock_auth):
         """Regression: a normal text argument is not treated as stdin."""
@@ -3280,6 +3366,7 @@ class TestSourceBundleP1T2:
                     source_id="src_123",
                     title="Big Source",
                     content=body,
+                    _type_code=5,
                     char_count=len(body),
                     url=None,
                 )
@@ -3310,12 +3397,13 @@ class TestSourceBundleP1T2:
             assert data["bytes"] == len(body.encode("utf-8"))
             assert data["source_id"] == "src_123"
             assert data["title"] == "Big Source"
+            assert data["kind"] == "web_page"
             # Full content must not be in the metadata envelope.
             assert "content" not in data
 
     def test_source_fulltext_json_without_output_file_keeps_full_payload(self, runner, mock_auth):
         """Regression guard: when `-o` is OMITTED, `--json` mode still emits the
-        full asdict(SourceFulltext) payload on stdout — unchanged behavior."""
+        full public SourceFulltext payload on stdout."""
         with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
             mock_client = create_mock_client()
             mock_client.sources.list = AsyncMock(return_value=[Source(id="src_123", title="Tiny")])
@@ -3324,6 +3412,7 @@ class TestSourceBundleP1T2:
                     source_id="src_123",
                     title="Tiny",
                     content="hello",
+                    _type_code=5,
                     char_count=5,
                     url=None,
                 )
@@ -3337,8 +3426,10 @@ class TestSourceBundleP1T2:
 
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
+            assert data["kind"] == "web_page"
             assert data["content"] == "hello"
             assert data["char_count"] == 5
+            assert "_type_code" not in data
 
     # ------------------------------------------------------------------
     # Bug 5: source add spinner brackets the awaited upload

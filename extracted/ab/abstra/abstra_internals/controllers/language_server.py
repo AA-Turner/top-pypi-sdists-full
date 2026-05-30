@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
+from abstra_internals.settings import Settings
+
 
 class Position(BaseModel):
     line: int = 0
@@ -525,6 +527,13 @@ unsupported-operation = "error"
                     else:
                         # Late response after timeout — discard to prevent leak
                         pass
+                elif "id" in msg and "method" in msg:
+                    # Server-initiated request (e.g. client/registerCapability).
+                    # Ack with null so pyrefly doesn't block waiting on us.
+                    try:
+                        self._send({"jsonrpc": "2.0", "id": msg["id"], "result": None})
+                    except Exception:
+                        pass
                 elif msg.get("method") == "textDocument/publishDiagnostics":
                     params = msg.get("params", {})
                     uri = params.get("uri", "")
@@ -788,6 +797,23 @@ unsupported-operation = "error"
                 {"textDocument": {"uri": self._assert_paths()[0]}},
             )
 
+    def notify_file_changed(self, abs_path: str, change_type: int = 2) -> None:
+        # LSP FileChangeType: 1=Created, 2=Changed, 3=Deleted.
+        # Skip if the daemon isn't up yet — it'll read fresh state on next start.
+        if self._process is None or self._process.poll() is not None:
+            return
+        if not self._initialized.is_set():
+            return
+        if abs_path == self._temp_path or abs_path == self._config_path:
+            return
+        try:
+            self._notify(
+                "workspace/didChangeWatchedFiles",
+                {"changes": [{"uri": "file://" + abs_path, "type": change_type}]},
+            )
+        except Exception:
+            pass
+
     def read_external_file(self, file_uri: str) -> Optional[str]:
         """Read file content from a file:// URI (for viewing external definitions).
 
@@ -922,6 +948,15 @@ def read_external_file(file_uri: str) -> Optional[str]:
         return None
 
 
+def notify_file_changed(path, change_type: int = 2) -> None:
+    # change_type follows LSP FileChangeType: 1=Created, 2=Changed, 3=Deleted.
+    try:
+        abs_path = os.path.abspath(os.fspath(path))
+        _lsp.notify_file_changed(abs_path, change_type)
+    except Exception:
+        pass
+
+
 _TYPE_DISCIPLINE_HINT = (
     "Do not silence these errors with `Any`, `cast(Any, ...)`, untyped "
     "`list`/`dict`, or `# type: ignore`. Import the correct type from "
@@ -961,3 +996,33 @@ def analyze_python_syntax(code: str) -> dict:
         "warning_count": warning_count,
         "type_discipline_hint": _TYPE_DISCIPLINE_HINT if error_count > 0 else None,
     }
+
+
+def analyze_python_syntax_file(file: str) -> Optional[dict]:
+    """
+    Analyze a Python file for syntax and type errors using Pyrefly.
+
+    Args:
+        file (str): Relative path to the Python file from the project root
+            directory. Should include the `.py` extension.
+
+    Returns:
+        dict with keys:
+            - diagnostics (List[dict]): LSP Diagnostic objects with
+                range/severity/message/source. Severities: 1=Error, 2=Warning,
+                3=Information, 4=Hint.
+            - error_count (int): Number of severity=1 diagnostics.
+            - warning_count (int): Number of severity=2 diagnostics.
+            - type_discipline_hint (str | None): Short reminder pointing at the
+                Abstra SDK types. Set whenever there is at least one error.
+        None if the file does not exist or is not a regular file.
+
+    Copywritings:
+        Analyze a Python file for syntax and type errors
+        Analyzing Python file for errors...
+    """
+    file_path = Settings.root_path.joinpath(file)
+    if not file_path.is_file():
+        return None
+    code = file_path.read_text(encoding="utf-8")
+    return analyze_python_syntax(code)

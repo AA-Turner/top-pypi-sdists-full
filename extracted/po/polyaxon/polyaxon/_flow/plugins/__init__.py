@@ -20,11 +20,15 @@ class V1Plugins(BaseSchemaModel):
         auth: bool, optional, default: True
         docker: bool, optional, default: False
         shm: bool, optional, default: True
+        tmux: bool, optional, default: False
+        sandbox: bool, optional, default: False
         mount_artifacts_store: bool, optional, default: True
         collect_artifacts: bool, optional, default: True
         collect_logs: bool, optional, default: True
         collect_resources: bool, optional, default: True
+        sync_statuses: bool, optional, default: True
         auto_resume: bool, optional, default: True
+        external_host: bool, optional, default: False
         log_level: str, optional
         sidecar: V1PolyaxonSidecarContainer, optional
 
@@ -35,10 +39,13 @@ class V1Plugins(BaseSchemaModel):
     >>>   auth:
     >>>   docker:
     >>>   shm:
+    >>>   tmux:
+    >>>   sandbox:
     >>>   mountArtifactsStore:
     >>>   collectArtifacts:
     >>>   collectLogs:
     >>>   collectResources:
+    >>>   syncStatuses:
     >>>   autoResume:
     >>>   externalHost:
     >>>   logLevel:
@@ -52,11 +59,14 @@ class V1Plugins(BaseSchemaModel):
     >>> plugins = V1Plugins(
     >>>     auth=False,
     >>>     docker=True,
-    >>>     shm=True.
+    >>>     shm=True,
+    >>>     tmux=True,
+    >>>     sandbox=True,
     >>>     mount_artifacts_store=True,
     >>>     collect_artifacts=False,
     >>>     collect_logs=False,
-    >>>     collect_resources=False
+    >>>     collect_resources=False,
+    >>>     sync_statuses=True,
     >>>     auto_resume=False,
     >>>     external_host=False,
     >>>     log_level="INFO",
@@ -124,6 +134,42 @@ class V1Plugins(BaseSchemaModel):
     ```yaml
     >>> plugins:
     >>>   shm: false
+    ```
+
+    ### tmux
+
+    <blockquote class="light">This plugin is disabled by default.</blockquote>
+
+    This plugin ships a statically-linked `tmux` into the user container so
+    that the in-cluster shell session opened by `polyaxon ops shell` can attach
+    to a persistent terminal. Without it, `shell` falls back to `/bin/bash` and
+    the session ends as soon as the websocket disconnects.
+
+    To enable this plugin:
+
+    ```yaml
+    >>> plugins:
+    >>>   tmux: true
+    ```
+
+    ### sandbox
+
+    <blockquote class="light">This plugin is disabled by default.</blockquote>
+
+    This plugin enables the sandbox daemon for programmatic exec, filesystem,
+    and PTY access from SDKs, agents, and UIs.
+
+    Sandbox is supported for service runs only. When enabled, Polyaxon wraps the
+    main container command with `/opt/polyaxon/bin/bootstrap-sandbox.sh`. If no
+    command is provided, `plx-exec` runs as PID 1. If a workload is needed, set
+    an explicit `command`; args without command are not supported in v0. The
+    user image must provide `/bin/sh`.
+
+    To enable this plugin:
+
+    ```yaml
+    >>> plugins:
+    >>>   sandbox: true
     ```
 
     ### mountArtifactsStore
@@ -262,6 +308,9 @@ class V1Plugins(BaseSchemaModel):
     auth: Optional[BoolOrRef] = None
     docker: Optional[BoolOrRef] = None
     shm: Optional[BoolOrRef] = None
+    tmux: Optional[BoolOrRef] = None
+    sandbox: Optional[BoolOrRef] = None
+    ssh: Optional[BoolOrRef] = None
     mount_artifacts_store: Optional[BoolOrRef] = Field(
         alias="mountArtifactsStore", default=None
     )
@@ -297,6 +346,9 @@ class V1Plugins(BaseSchemaModel):
         config.set_sync_statuses()
         config.set_auto_resume()
         config.set_external_host()
+        config.set_tmux()
+        config.set_sandbox()
+        config.set_ssh()
         return config
 
     @staticmethod
@@ -362,3 +414,15 @@ class V1Plugins(BaseSchemaModel):
     def set_external_host(self, default: bool = False):
         if self.external_host is None:
             self.external_host = default
+
+    def set_tmux(self, default: bool = False):
+        if self.tmux is None:
+            self.tmux = default
+
+    def set_sandbox(self, default: bool = False):
+        if self.sandbox is None:
+            self.sandbox = default
+
+    def set_ssh(self, default: bool = False):
+        if self.ssh is None:
+            self.ssh = default

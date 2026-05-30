@@ -68,7 +68,9 @@ class AppSettings:
             return {}
         ret = {
             # OIDC device user code checks
-            "device_user_code": "5/m/ip"
+            "device_user_code": "5/m/ip",
+            # DCR
+            "client_registration": "3/m/ip",
         }
         ret.update(rls)
         return ret
@@ -94,6 +96,21 @@ class AppSettings:
         Setting this disables the built-in userinfo endpoint.
         """
         return self._setting("USERINFO_ENDPOINT", None)
+
+    @property
+    def DCR_ENABLED(self) -> bool:
+        """
+        Controls whether Dynamic Client Registration (RFC 7591) is enabled.
+        """
+        return self._setting("DCR_ENABLED", False)
+
+    @property
+    def DCR_REQUIRES_INITIAL_ACCESS_TOKEN(self) -> bool:
+        """
+        Controls whether or not an initial access token is required to
+        perform Dynamic Client Registration.
+        """
+        return self._setting("DCR_REQUIRES_INITIAL_ACCESS_TOKEN", True)
 
 
 _app_settings = AppSettings("IDP_OIDC_")

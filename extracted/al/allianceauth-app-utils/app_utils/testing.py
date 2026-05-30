@@ -323,10 +323,10 @@ def create_fake_user(
     character_id: int,
     character_name: str,
     corporation_id: Optional[int] = None,
-    corporation_name: Optional[str] = None,
+    corporation_name: Optional[str] = "",
     corporation_ticker: Optional[str] = None,
     alliance_id: Optional[int] = None,
-    alliance_name: Optional[str] = None,
+    alliance_name: Optional[str] = "",
     permissions: Optional[List[str]] = None,
 ) -> User:
     """Create a fake user incl. main character and (optional) permissions.
@@ -347,10 +347,10 @@ def create_fake_user(
         name=character_name,
         character_id=character_id,
         corp_id=corporation_id,
-        corp_name=corporation_name,
+        corp_name=corporation_name or "",
         corp_ticker=corporation_ticker,
         alliance_id=alliance_id,
-        alliance_name=alliance_name,
+        alliance_name=alliance_name or "",
     )
     if permissions:
         add_permissions_to_user_by_name(user=user, permission_names=permissions)

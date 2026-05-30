@@ -65,33 +65,22 @@ def test_godot_parser_extracts_blocks_from_prose_response(tmp_path):
     assert names == {"Main.gd", "Player.gd"}
 
 
-def test_godot_parser_falls_back_when_no_blocks_present(tmp_path):
-    """If the LLM produces only prose, write the placeholder Main.gd so
-    the project at least opens in the editor."""
+def test_godot_parser_raises_when_no_blocks_present(tmp_path):
     adapter = get_adapter("godot")
     adapter.scaffold(_plan(), tmp_path, log=lambda _: None)
 
     raw = "I can't help with that. Sorry."
-    written = adapter.emit_scripts(_plan(), tmp_path, generate=lambda _: raw,
-                                    log=lambda _: None)
-    assert len(written) == 1
-    assert written[0].name == "Main.gd"
-    body = written[0].read_text(encoding="utf-8")
-    # Verify the placeholder has a real `_ready` function that won't crash
-    # Godot's parser.
-    assert "extends Node2D" in body
-    assert "_ready" in body
+    with pytest.raises(RuntimeError, match="godot: LLM response had no parseable"):
+        adapter.emit_scripts(_plan(), tmp_path, generate=lambda _: raw,
+                            log=lambda _: None)
 
 
-def test_godot_parser_handles_empty_response(tmp_path):
-    """A model that returns an empty string must still produce a scene
-    that opens."""
+def test_godot_parser_raises_on_empty_response(tmp_path):
     adapter = get_adapter("godot")
     adapter.scaffold(_plan(), tmp_path, log=lambda _: None)
-    written = adapter.emit_scripts(_plan(), tmp_path, generate=lambda _: "",
-                                    log=lambda _: None)
-    assert len(written) == 1
-    assert written[0].name == "Main.gd"
+    with pytest.raises(RuntimeError, match="godot: LLM response had no parseable"):
+        adapter.emit_scripts(_plan(), tmp_path, generate=lambda _: "",
+                            log=lambda _: None)
 
 
 def test_godot_parser_accepts_extra_files_beyond_requested(tmp_path):
@@ -167,16 +156,12 @@ def test_unity_parser_extracts_cs_blocks_from_prose(tmp_path):
     assert names == {"PlayerController.cs", "EnemyAI.cs"}
 
 
-def test_unity_parser_falls_back_to_placeholder_when_empty(tmp_path):
+def test_unity_parser_raises_on_empty_response(tmp_path):
     adapter = get_adapter("unity")
     adapter.scaffold(_plan(), tmp_path, log=lambda _: None)
-    written = adapter.emit_scripts(_plan(), tmp_path, generate=lambda _: "",
-                                    log=lambda _: None)
-    assert len(written) == 1
-    assert written[0].name == "PlayerController.cs"
-    body = written[0].read_text(encoding="utf-8")
-    assert "MonoBehaviour" in body
-    assert "PlayerController" in body
+    with pytest.raises(RuntimeError, match="unity: LLM response had no parseable"):
+        adapter.emit_scripts(_plan(), tmp_path, generate=lambda _: "",
+                            log=lambda _: None)
 
 
 # ───────────────────────── Unreal parser ──────────────────────────────
@@ -227,18 +212,15 @@ def test_unreal_sanitize_name_preserves_user_casing(title, expected):
     assert _sanitize_name(title) == expected
 
 
-def test_unreal_parser_falls_back_to_default_gamemode_when_empty(tmp_path):
+def test_unreal_parser_raises_on_empty_response(tmp_path):
     adapter = get_adapter("unreal")
     plan = _plan(perspective="3d")
     plan.title = "EmptyResp"
     adapter.scaffold(plan, tmp_path, log=lambda _: None)
 
-    written = adapter.emit_scripts(plan, tmp_path, generate=lambda _: "",
-                                    log=lambda _: None)
-    names = {p.name for p in written}
-    # Sanitized project name is EmptyResp → fallback writes
-    # EmptyRespGameMode.h + EmptyRespGameMode.cpp
-    assert names == {"EmptyRespGameMode.h", "EmptyRespGameMode.cpp"}
+    with pytest.raises(RuntimeError, match="unreal: LLM response had no parseable"):
+        adapter.emit_scripts(plan, tmp_path, generate=lambda _: "",
+                            log=lambda _: None)
 
 
 # ───────────────────────── Bevy / Phaser / LÖVE / Pygame (raw bodies) ─
@@ -280,18 +262,14 @@ def test_raw_body_engines_strip_fences_and_prose(engine, filename, tmp_path):
         assert "pygame" in body
 
 
-def test_pygame_falls_back_to_placeholder_loop_when_empty(tmp_path):
-    """Empty LLM response → pygame must still emit a runnable main.py
-    (placeholder default declared in _stubs.py)."""
+def test_pygame_raises_on_empty_response(tmp_path):
     adapter = get_adapter("pygame")
     plan = _plan()
     plan.title = "X"
     adapter.scaffold(plan, tmp_path, log=lambda _: None)
-    written = adapter.emit_scripts(plan, tmp_path, generate=lambda _: "",
-                                    log=lambda _: None)
-    body = (tmp_path / "main.py").read_text(encoding="utf-8")
-    assert "pygame.init" in body
-    assert "pygame.display.set_mode" in body
+    with pytest.raises(RuntimeError, match="pygame: LLM returned empty body"):
+        adapter.emit_scripts(plan, tmp_path, generate=lambda _: "",
+                            log=lambda _: None)
 
 
 def test_pygame_propagates_generate_exception_as_runtime_error(tmp_path):

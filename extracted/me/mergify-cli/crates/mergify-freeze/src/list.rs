@@ -19,11 +19,9 @@ use std::io::Write;
 use anstyle::AnsiColor;
 use chrono::DateTime;
 use chrono::Utc;
-use mergify_core::ApiFlavor;
 use mergify_core::CliError;
-use mergify_core::HttpClient;
+use mergify_core::CommandContext;
 use mergify_core::Output;
-use mergify_core::auth;
 use mergify_tui::Theme;
 
 use crate::common::ScheduledFreeze;
@@ -39,14 +37,15 @@ pub struct ListOptions<'a> {
 
 /// Run the `freeze list` command.
 pub async fn run(opts: ListOptions<'_>, output: &mut dyn Output) -> Result<(), CliError> {
-    let repository = auth::resolve_repository(opts.repository)?;
-    let token = auth::resolve_token(opts.token)?;
-    let api_url = auth::resolve_api_url(opts.api_url)?;
+    let ctx = CommandContext::resolve(opts.repository, opts.token, opts.api_url)?;
 
-    output.status(&format!("Fetching scheduled freezes for {repository}…"))?;
+    output.status(&format!(
+        "Fetching scheduled freezes for {repo}…",
+        repo = ctx.repository,
+    ))?;
 
-    let client = HttpClient::new(api_url, token, ApiFlavor::Mergify)?;
-    let path = format!("/v1/repos/{repository}/scheduled_freeze");
+    let client = ctx.mergify_client()?;
+    let path = format!("/v1/repos/{}/scheduled_freeze", ctx.repository);
     let raw: serde_json::Value = client.get(&path).await?;
 
     // Python's `list_freezes` returns `data["scheduled_freezes"]`
@@ -189,16 +188,12 @@ fn write_row(
                 spaces = " ".repeat(pad),
             )?;
         } else if HEADERS[i] == "Status" {
+            // `Theme::fg` already collapses to `Style::new()` when
+            // colors are disabled — no need for an extra branch.
             let style = if cell == "active" {
-                if theme.enabled {
-                    theme.fg(AnsiColor::Green)
-                } else {
-                    anstyle::Style::new()
-                }
-            } else if theme.enabled {
-                theme.fg(AnsiColor::Yellow)
+                theme.fg(AnsiColor::Green)
             } else {
-                anstyle::Style::new()
+                theme.fg(AnsiColor::Yellow)
             };
             write!(
                 w,
@@ -227,7 +222,7 @@ fn write_separator(w: &mut dyn Write, widths: &[usize; 6]) -> std::io::Result<()
 #[cfg(test)]
 mod tests {
     use mergify_core::OutputMode;
-    use mergify_core::StdioOutput;
+    use mergify_test_support::Captured;
     use serde_json::json;
     use wiremock::Mock;
     use wiremock::MockServer;
@@ -237,39 +232,6 @@ mod tests {
     use wiremock::matchers::path;
 
     use super::*;
-
-    type SharedBytes = std::sync::Arc<std::sync::Mutex<Vec<u8>>>;
-
-    struct Captured {
-        output: StdioOutput,
-        stdout: SharedBytes,
-    }
-
-    fn make_output(mode: OutputMode) -> Captured {
-        let stdout: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let stderr: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let output = StdioOutput::with_sinks(
-            mode,
-            SharedWriter(std::sync::Arc::clone(&stdout)),
-            SharedWriter(std::sync::Arc::clone(&stderr)),
-        );
-        Captured { output, stdout }
-    }
-
-    fn stdout_string(cap: &Captured) -> String {
-        String::from_utf8(cap.stdout.lock().unwrap().clone()).unwrap()
-    }
-
-    struct SharedWriter(SharedBytes);
-    impl Write for SharedWriter {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
 
     fn freeze_sample() -> serde_json::Value {
         json!({
@@ -306,7 +268,7 @@ mod tests {
         let body = json!({"scheduled_freezes": [freeze.clone()]});
         arrange(&server, body).await;
 
-        let mut cap = make_output(OutputMode::Json);
+        let mut cap = Captured::new(OutputMode::Json);
         let api_url = server.uri();
         run(
             ListOptions {
@@ -320,7 +282,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = stdout_string(&cap);
+        let stdout = cap.stdout();
         let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
         assert_eq!(parsed, json!([freeze]));
     }
@@ -332,7 +294,7 @@ mod tests {
         let server = MockServer::start().await;
         arrange(&server, json!({"scheduled_freezes": []})).await;
 
-        let mut cap = make_output(OutputMode::Json);
+        let mut cap = Captured::new(OutputMode::Json);
         let api_url = server.uri();
         run(
             ListOptions {
@@ -346,7 +308,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = stdout_string(&cap);
+        let stdout = cap.stdout();
         let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
         assert_eq!(parsed, json!([]));
     }
@@ -356,7 +318,7 @@ mod tests {
         let server = MockServer::start().await;
         arrange(&server, json!({"scheduled_freezes": []})).await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             ListOptions {
@@ -370,7 +332,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = stdout_string(&cap);
+        let stdout = cap.stdout();
         assert!(
             stdout.contains("No scheduled freezes found"),
             "got: {stdout:?}"
@@ -382,7 +344,7 @@ mod tests {
         let server = MockServer::start().await;
         arrange(&server, json!({"scheduled_freezes": [freeze_sample()]})).await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             ListOptions {
@@ -396,7 +358,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = stdout_string(&cap);
+        let stdout = cap.stdout();
         assert!(stdout.contains("Scheduled Freezes"), "got: {stdout}");
         assert!(stdout.contains("emergency-fix"), "got: {stdout}");
         assert!(
@@ -435,7 +397,7 @@ mod tests {
         )
         .await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             ListOptions {
@@ -449,7 +411,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = stdout_string(&cap);
+        let stdout = cap.stdout();
         // The end column should render as a bare `-` (we don't pin
         // the surrounding whitespace because the table's column
         // widths depend on the row content).

@@ -34,6 +34,7 @@ Usage::
         ListIAMPolicyAssignmentsPaginator,
         ListIngestionsPaginator,
         ListNamespacesPaginator,
+        ListOAuthClientApplicationsPaginator,
         ListRoleMembershipsPaginator,
         ListTemplateAliasesPaginator,
         ListTemplateVersionsPaginator,
@@ -78,6 +79,7 @@ Usage::
     list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = client.get_paginator("list_iam_policy_assignments")
     list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
     list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
+    list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = client.get_paginator("list_o_auth_client_applications")
     list_role_memberships_paginator: ListRoleMembershipsPaginator = client.get_paginator("list_role_memberships")
     list_template_aliases_paginator: ListTemplateAliasesPaginator = client.get_paginator("list_template_aliases")
     list_template_versions_paginator: ListTemplateVersionsPaginator = client.get_paginator("list_template_versions")
@@ -150,6 +152,8 @@ from .type_defs import (
     ListIngestionsResponseTypeDef,
     ListNamespacesRequestPaginateTypeDef,
     ListNamespacesResponseTypeDef,
+    ListOAuthClientApplicationsRequestPaginateTypeDef,
+    ListOAuthClientApplicationsResponseTypeDef,
     ListRoleMembershipsRequestPaginateTypeDef,
     ListRoleMembershipsResponseTypeDef,
     ListTemplateAliasesRequestPaginateTypeDef,
@@ -214,6 +218,7 @@ __all__ = (
     "ListIAMPolicyAssignmentsPaginator",
     "ListIngestionsPaginator",
     "ListNamespacesPaginator",
+    "ListOAuthClientApplicationsPaginator",
     "ListRoleMembershipsPaginator",
     "ListTemplateAliasesPaginator",
     "ListTemplateVersionsPaginator",
@@ -631,6 +636,26 @@ class ListNamespacesPaginator(_ListNamespacesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListNamespaces.html#QuickSight.Paginator.ListNamespaces.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listnamespacespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListOAuthClientApplicationsPaginatorBase = Paginator[
+        ListOAuthClientApplicationsResponseTypeDef
+    ]
+else:
+    _ListOAuthClientApplicationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListOAuthClientApplicationsPaginator(_ListOAuthClientApplicationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListOAuthClientApplications.html#QuickSight.Paginator.ListOAuthClientApplications)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listoauthclientapplicationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListOAuthClientApplicationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListOAuthClientApplicationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListOAuthClientApplications.html#QuickSight.Paginator.ListOAuthClientApplications.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listoauthclientapplicationspaginator)
         """
 
 if TYPE_CHECKING:

@@ -44,6 +44,7 @@ from sqladmin.helpers import (
     slugify_action_name,
 )
 from sqladmin.models import BaseView, ModelView
+from sqladmin.secret import Secret
 from sqladmin.templating import Jinja2Templates
 
 __all__ = [
@@ -70,6 +71,8 @@ class BaseAdmin:
         base_url: str = "/admin",
         title: str = "Admin",
         logo_url: str | None = None,
+        logo_width: int = 64,
+        logo_height: int = 64,
         favicon_url: str | None = None,
         templates_dir: str = "templates",
         middlewares: Sequence[Middleware] | None = None,
@@ -81,6 +84,8 @@ class BaseAdmin:
         self.templates_dir = templates_dir
         self.title = title
         self.logo_url = logo_url
+        self.logo_width = logo_width
+        self.logo_height = logo_height
         self.favicon_url = favicon_url
 
         if session_maker:
@@ -123,6 +128,7 @@ class BaseAdmin:
         templates.env.globals["is_list"] = lambda x: isinstance(x, (list, set))
         templates.env.globals["get_object_identifier"] = get_object_identifier
         templates.env.globals["get_flashed_messages"] = get_flashed_messages
+        templates.env.globals["Secret"] = Secret
 
         return templates
 
@@ -405,6 +411,8 @@ class Admin(BaseAdminView):
         base_url: str = "/admin",
         title: str = "Admin",
         logo_url: str | None = None,
+        logo_width: int = 64,
+        logo_height: int = 64,
         favicon_url: str | None = None,
         middlewares: Sequence[Middleware] | None = None,
         debug: bool = False,
@@ -419,6 +427,8 @@ class Admin(BaseAdminView):
             base_url: Base URL for Admin interface.
             title: Admin title.
             logo_url: URL of logo to be displayed instead of title.
+            logo_width: Width of the logo image in pixels. Defaults to 64.
+            logo_height: Height of the logo image in pixels. Defaults to 64.
             favicon_url: URL of favicon to be displayed.
         """
 
@@ -429,6 +439,8 @@ class Admin(BaseAdminView):
             base_url=base_url,
             title=title,
             logo_url=logo_url,
+            logo_width=logo_width,
+            logo_height=logo_height,
             favicon_url=favicon_url,
             templates_dir=templates_dir,
             middlewares=middlewares,
@@ -576,6 +588,32 @@ class Admin(BaseAdminView):
         url = url.include_query_params(**referer_params)
         return PlainTextResponse(content=str(url))
 
+    async def _resolve_after_change_response(
+        self,
+        request: Request,
+        context: dict,
+        obj: Any,
+        template: str,
+        identity: str,
+    ) -> Response | None:
+        """Return an override response from ``after_model_change`` or the
+        one-time secret modal, if either is set on ``request.state``."""
+
+        after_response = getattr(request.state, "_sqladmin_after_change_response", None)
+        if isinstance(after_response, Response):
+            return after_response
+
+        if Secret.get(request) is not None:
+            context["obj"] = obj
+            context["secret_next_url"] = str(
+                request.url_for("admin:list", identity=identity)
+            )
+            response = await self.templates.TemplateResponse(request, template, context)
+            Secret.apply_no_store_headers(response)
+            return response
+
+        return None
+
     @login_required
     async def create(self, request: Request) -> Response:
         """Create model endpoint."""
@@ -613,6 +651,12 @@ class Admin(BaseAdminView):
             return await self.templates.TemplateResponse(
                 request, model_view.create_template, context, status_code=400
             )
+
+        override = await self._resolve_after_change_response(
+            request, context, obj, model_view.create_template, identity
+        )
+        if override is not None:
+            return override
 
         url = self.get_save_redirect_url(
             request=request,
@@ -669,6 +713,12 @@ class Admin(BaseAdminView):
             return await self.templates.TemplateResponse(
                 request, model_view.edit_template, context, status_code=400
             )
+
+        override = await self._resolve_after_change_response(
+            request, context, obj, model_view.edit_template, identity
+        )
+        if override is not None:
+            return override
 
         url = self.get_save_redirect_url(
             request=request,

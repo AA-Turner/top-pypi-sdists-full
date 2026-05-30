@@ -1,6 +1,30 @@
+from typing import Any
+
+import click
+
 from clipped.formatting import Printer
 from clipped.utils.dicts import dict_to_tabulate
 from clipped.utils.json import orjson_dumps
+
+
+class CommandSeparatorCommand(click.Command):
+    def parse_args(self, ctx, args):
+        if not ctx.resilient_parsing and not any(a in ("--help", "-h") for a in args):
+            if "--" not in args:
+                raise click.UsageError("command required after --")
+            if args.index("--") == len(args) - 1:
+                raise click.UsageError("command required after --")
+        return super().parse_args(ctx, args)
+
+
+def write_stream(data, err: bool = False):
+    if not data:
+        return
+    if isinstance(data, bytes):
+        data = data.decode("utf-8", "replace")
+    stream = click.get_text_stream("stderr" if err else "stdout")
+    stream.write(data)
+    stream.flush()
 
 
 def get_entity_details(entity: any, entity_name: str):
@@ -32,7 +56,7 @@ def get_entity_details(entity: any, entity_name: str):
     Printer.dict_tabulate(response)
 
 
-def handle_output(response: any, output: str):
+def handle_output(response: Any, output: str):
     if output == "json":
         Printer.pprint(response)
         return

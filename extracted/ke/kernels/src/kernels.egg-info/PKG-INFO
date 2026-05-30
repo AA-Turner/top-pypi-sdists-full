@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kernels
-Version: 0.14.1
+Version: 0.15.1
 Summary: Download compute kernels
 Author-email: Daniel de Kok <daniel@huggingface.co>, David Holtz <david@huggingface.co>
 License: Apache-2.0
@@ -12,8 +12,6 @@ Requires-Dist: packaging>=20.0
 Requires-Dist: pyyaml>=6
 Requires-Dist: tomli>=2.0; python_version < "3.11"
 Requires-Dist: tomlkit>=0.13.3
-Provides-Extra: abi-check
-Requires-Dist: kernel-abi-check<0.7.0,>=0.6.2; extra == "abi-check"
 Provides-Extra: benchmark
 Requires-Dist: matplotlib>=3.7.0; extra == "benchmark"
 Requires-Dist: numpy>=2.0.2; extra == "benchmark"
@@ -74,3 +72,13 @@ the Hub.
 ## 📚 Documentation
 
 Read the [documentation of kernels](https://huggingface.co/docs/kernels/).
+
+## Test coverage
+
+To reproduce the coverage number reported on PRs locally:
+
+```bash
+uv run pytest --cov=kernels --cov-report=term-missing tests
+```
+
+CI measures coverage on a single canonical matrix cell (Python 3.10 / Torch 2.12.0) and posts a sticky comment on the PR; the threshold is 80% (warn-only — the check stays green either way).

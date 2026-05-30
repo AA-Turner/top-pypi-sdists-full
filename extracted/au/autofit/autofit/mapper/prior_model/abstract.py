@@ -1275,12 +1275,17 @@ class AbstractPriorModel(AbstractModel):
     def items(self):
         """Return (name, value) pairs for all public, non-internal attributes.
 
-        Excludes private attributes (prefixed with ``_``), ``cls``, and ``id``.
+        Excludes private attributes (prefixed with ``_``), ``cls``, ``id``,
+        and any ``cached_property``-style descriptors declared on the class
+        (see ``AbstractModel._cached_property_names``).
         """
+        excluded = type(self)._cached_property_names()
         return [
             (key, value)
             for key, value in self.__dict__.items()
-            if not key.startswith("_") and key not in ("cls", "id")
+            if not key.startswith("_")
+            and key not in ("cls", "id")
+            and key not in excluded
         ]
 
     @property
@@ -1863,8 +1868,22 @@ class AbstractPriorModel(AbstractModel):
     def parameterization(self) -> str:
         """
         Describes the path to each of the PriorModels, its class
-        and its number of free parameters
+        and its number of free parameters.
+
+        Cached on first access in ``self.__dict__`` under the
+        ``_`` -prefixed key ``_parameterization_cache`` so that
+        ``Collection._instance_for_arguments`` and
+        ``ModelInstance.dict`` (which iterate ``__dict__`` and filter
+        underscore-prefixed keys) do not propagate the cached string
+        onto the constructed ``ModelInstance``. A plain
+        ``functools.cached_property`` writes to ``__dict__[name]``
+        without a leading underscore, which would leak the string as
+        a non-array JAX pytree leaf and break ``jax.jit(fit_from)``.
         """
+        cached = self.__dict__.get("_parameterization_cache")
+        if cached is not None:
+            return cached
+
         from .prior_model import Model
 
         formatter = TextFormatter(line_length=info_whitespace())
@@ -1899,6 +1918,7 @@ class AbstractPriorModel(AbstractModel):
         for group in find_groups(paths, limit=0):
             formatter.add(*group)
 
+        self.__dict__["_parameterization_cache"] = formatter.text
         return formatter.text
 
     @property

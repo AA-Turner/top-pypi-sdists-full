@@ -88,6 +88,10 @@ class CommandItem:
     def updated(self) -> None:
         self._modified = True
 
+    @property
+    def is_modified(self) -> bool:
+        return self._modified or self._expireat_modified
+
     def writeback(self, remove_empty_val: bool = True) -> None:
         if self._modified:
             self.db.notify_watch(self.key)
@@ -335,14 +339,6 @@ class StringTest(RedisType):
             return cls(value[1:], False)
         else:
             raise SimpleError(msgs.INVALID_MIN_MAX_STR_MSG)
-
-    # def to_scoretest(self, zset: ZSet) -> ScoreTest:
-    #     if isinstance(self.value, BeforeAny):
-    #         return ScoreTest(float("-inf"), False)
-    #     if isinstance(self.value, AfterAny):
-    #         return ScoreTest(float("inf"), False)
-    #     val: float = zset.get(self.value, None)
-    #     return ScoreTest(val, self.exclusive)
 
 
 class Signature:

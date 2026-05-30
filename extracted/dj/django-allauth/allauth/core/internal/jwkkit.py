@@ -1,7 +1,10 @@
 # https://github.com/jpadilla/pyjwt/issues/1032
+from __future__ import annotations
+
 import base64
 import hashlib
 import json
+from typing import Any
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
@@ -17,7 +20,7 @@ JWK_REQUIRED_MEMBERS = {
 }
 
 
-def jwk_thumbprint(jwk_dict: dict) -> str:
+def jwk_thumbprint(jwk_dict: dict[str, Any]) -> str:
     key_type = jwk_dict["kty"]
     members = JWK_REQUIRED_MEMBERS.get(key_type)
     if members is None:
@@ -40,7 +43,7 @@ def load_pem(pem: str) -> RSAPrivateKey:
     return private_key
 
 
-def load_jwk_from_pem(pem: str) -> tuple[dict, RSAPrivateKey]:
+def load_jwk_from_pem(pem: str) -> tuple[dict[str, Any], RSAPrivateKey]:
     private_key = load_pem(pem)
     public_key = private_key.public_key()
     jwk_dict = json.loads(RSAAlgorithm.to_jwk(public_key))

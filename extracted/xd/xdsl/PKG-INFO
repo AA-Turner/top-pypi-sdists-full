@@ -1,46 +1,51 @@
 Metadata-Version: 2.4
 Name: xdsl
-Version: 0.64.0
+Version: 0.65.0
 Summary: xDSL
 Author-email: Mathieu Fehr <mathieu.fehr@ed.ac.uk>
 License: Apache License v2.0 with LLVM Exceptions
-Project-URL: Homepage, https://xdsl.dev/
-Project-URL: Source Code, https://github.com/xdslproject/xdsl
 Project-URL: Issue Tracker, https://github.com/xdslproject/xdsl/issues
+Project-URL: Source Code, https://github.com/xdslproject/xdsl
+Project-URL: Homepage, https://xdsl.dev/
 Platform: Linux
 Platform: Mac OS-X
 Platform: Unix
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: immutabledict<4.3.2
+Requires-Dist: ordered-set==4.1
 Requires-Dist: typing-extensions<5,>=4.7
-Requires-Dist: ordered-set==4.1.0
 Provides-Extra: dev
-Requires-Dist: toml<0.11; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: coverage<8.0.0; extra == "dev"
-Requires-Dist: ipykernel; extra == "dev"
-Requires-Dist: pytest<9.1; extra == "dev"
-Requires-Dist: nbval<0.12; extra == "dev"
+Requires-Dist: coverage<8; extra == "dev"
 Requires-Dist: filecheck==1.0.3; extra == "dev"
-Requires-Dist: lit<19.0.0; extra == "dev"
+Requires-Dist: ipykernel; extra == "dev"
+Requires-Dist: lit<19; extra == "dev"
 Requires-Dist: marimo<0.24,>=0.23; extra == "dev"
+Requires-Dist: nbconvert<8,>=7.7.2; extra == "dev"
+Requires-Dist: nbval<0.12; extra == "dev"
 Requires-Dist: prek~=0.4.0; extra == "dev"
-Requires-Dist: ruff==0.15.12; extra == "dev"
-Requires-Dist: nbconvert<8.0.0,>=7.7.2; extra == "dev"
-Requires-Dist: textual-dev==1.8.0; extra == "dev"
-Requires-Dist: pytest-asyncio==1.3.0; extra == "dev"
 Requires-Dist: pyright==1.1.409; extra == "dev"
-Requires-Dist: sympy==1.14.0; extra == "dev"
+Requires-Dist: pytest<9.1; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: ruff==0.15.15; extra == "dev"
+Requires-Dist: sympy==1.14; extra == "dev"
+Requires-Dist: textual-dev==1.8; extra == "dev"
+Requires-Dist: toml<0.11; extra == "dev"
 Provides-Extra: gui
-Requires-Dist: textual<9,>=8; extra == "gui"
 Requires-Dist: pyclip==0.7; extra == "gui"
+Requires-Dist: textual<9,>=8; extra == "gui"
+Provides-Extra: heir
+Requires-Dist: heir-py==2026.5.18; (python_version >= "3.11" and python_version < "3.13") and extra == "heir"
 Provides-Extra: llvm
 Requires-Dist: llvmlite~=0.47.0; extra == "llvm"
-Provides-Extra: heir
-Requires-Dist: heir_py==2026.5.1; (python_version >= "3.11" and python_version < "3.13") and extra == "heir"
 Dynamic: license-file
 
 <!-- markdownlint-disable-next-line MD041 -->
@@ -137,16 +142,14 @@ pip install xdsl[gui] # or [jax], [riscv]
 Check out the dedicated [Getting Started guide](https://docs.xdsl.dev)
 for a comprehensive tutorial.
 
-To get familiar with xDSL, we recommend starting with our Jupyter notebooks. The
+To get familiar with xDSL, we recommend starting with our tutorial notebooks. The
 notebooks provide hands-on examples and documentation of xDSL's core concepts: data
 structures, the Python-embedded abstraction definition language, and end-to-end custom
 compilers construction, like a database compiler.
 There also exists a small documentation showing how to connect xDSL with MLIR
 for users interested in that use case.
 
-- [A Database example](https://xdsl.dev/xdsl/lab/index.html?path=database_example.ipynb)
-- [A simple introduction](https://xdsl.dev/xdsl/lab/index.html?path=tutorial.ipynb)
-- [A DSL for defining new IRs](https://xdsl.dev/xdsl/lab/index.html?path=irdl.ipynb)
+- [Tutorial notebooks](https://docs.xdsl.dev/marimo)
 - [Connecting xDSL with MLIR](docs/guides/mlir_interoperation.md)
 
 We provide a [Makefile](https://github.com/xdslproject/xdsl/blob/main/Makefile)

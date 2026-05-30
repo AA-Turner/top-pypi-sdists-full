@@ -30,6 +30,7 @@ import click
 import cloup
 
 from . import context
+from .accessibility import AccessibleOption
 from .colorize import (
     ColorOption,
     ExtraHelpColorsMixin,
@@ -47,11 +48,12 @@ from .config import (
 )
 from .context import ExtraContext
 from .envvar import clean_envvar_id, param_envvar_ids
+from .execution import TimerOption
 from .logging import VerboseOption, VerbosityOption
+from .man_page import ManOption
 from .parameters import ExtraOption, ShowParamsOption
 from .table import TableFormatOption
 from .theme import ThemeOption
-from .timer import TimerOption
 from .version import ExtraVersionOption
 
 TYPE_CHECKING = False
@@ -82,12 +84,17 @@ def default_extra_params() -> list[click.Option]:
             behavior and value of the other options.
     #. ``--no-config``
     #. ``--validate-config CONFIG_PATH``
+    #. ``--accessible``
+        .. hint::
+            ``--accessible`` is placed before ``--color`` and ``--table-format`` so it
+            can lower their defaults (via ``default_map``) before they are resolved.
     #. ``--color``, ``--ansi`` / ``--no-color``, ``--no-ansi``
     #. ``--theme``
     #. ``--show-params``
     #. ``--table-format FORMAT``
     #. ``--verbosity LEVEL``
     #. ``-v``, ``--verbose``
+    #. ``--man``
     #. ``--version``
     #. ``-h``, ``--help``
         .. attention::
@@ -122,12 +129,14 @@ def default_extra_params() -> list[click.Option]:
         ConfigOption(),
         NoConfigOption(),
         ValidateConfigOption(),
+        AccessibleOption(),
         ColorOption(),
         ThemeOption(),
         ShowParamsOption(),
         TableFormatOption(),
         VerbosityOption(),
         VerboseOption(),
+        ManOption(),
         ExtraVersionOption(),
         # @click.decorators.help_option(),
     ]

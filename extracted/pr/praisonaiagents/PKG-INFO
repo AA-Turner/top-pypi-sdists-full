@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: praisonaiagents
-Version: 1.6.46
+Version: 1.6.48
 Summary: Praison AI agents for completing complex tasks with Self Reflection Agents
 Author: Mervin Praison
 Requires-Python: >=3.10

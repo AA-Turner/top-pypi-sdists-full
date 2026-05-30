@@ -39,19 +39,21 @@ if TYPE_CHECKING:
 from ._artifacts import ArtifactsAPI
 from ._auth.session import refresh_auth_session
 from ._chat import ChatAPI
+from ._client_composed import ClientComposed
+from ._client_seams import resolve_client_seams
 from ._env import get_base_url as get_base_url
 from ._mind_map import NoteBackedMindMapService
 from ._note_service import NoteService
 from ._notebooks import NotebooksAPI
 from ._notes import NotesAPI
 from ._research import ResearchAPI
-from ._session import Session
 from ._session_config import (
     DEFAULT_KEEPALIVE_MIN_INTERVAL,
     DEFAULT_MAX_CONCURRENT_RPCS,
     DEFAULT_MAX_CONCURRENT_UPLOADS,
     DEFAULT_TIMEOUT,
 )
+from ._session_init import compose_client_internals
 from ._session_lifecycle import CookieRotator, CookieSaver
 from ._settings import SettingsAPI
 from ._sharing import SharingAPI
@@ -142,7 +144,7 @@ class NotebookLMClient:
                 Sleeps for ``Retry-After`` when the server provides a
                 parseable header; otherwise falls back to capped exponential
                 backoff ``min(2 ** attempt, 30)`` seconds with ±20% jitter.
-                See :class:`Session` for full sleep semantics.
+                See the retry middleware docs for full sleep semantics.
             server_error_max_retries: Max automatic retries for retryable
                 transient failures: HTTP 5xx and network-layer
                 ``httpx.RequestError`` (timeouts, connect errors). Defaults to
@@ -214,7 +216,7 @@ class NotebookLMClient:
                 the keepalive loop.
         """
         # Normalize the effective storage path onto the auth object so every
-        # downstream code path (refresh_auth, Session.close on-close save,
+        # downstream code path (refresh_auth, lifecycle on-close save,
         # the keepalive loop) writes to the same file. Without this, an
         # explicit ``storage_path=`` kwarg only reaches the keepalive loop
         # while ``auth.storage_path is None`` causes refresh and on-close
@@ -224,6 +226,26 @@ class NotebookLMClient:
         # client's path leak into another.
         if storage_path is not None and auth.storage_path != storage_path:
             auth = dataclasses.replace(auth, storage_path=storage_path)
+
+        # Direct client-owned reference to the authoritative ``AuthTokens``
+        # instance. Set AFTER the ``storage_path`` normalization above so it
+        # captures the same (possibly rebound) instance that
+        # :func:`compose_client_internals` then propagates into
+        # :class:`CookiePersistence`, the snapshot-provider lambdas,
+        # and :class:`SourceUploadPipeline`. ADR-016's Auth Instance
+        # Invariant requires every reference across the live object graph
+        # to alias this exact same mutable object so
+        # :meth:`AuthRefreshCoordinator.update_auth_tokens` in-place
+        # mutations are observed everywhere.
+        #
+        # ``refresh_auth()``, the public ``auth`` property, and the
+        # ``SourceUploadPipeline(auth=...)`` constructor argument all back
+        # off this field instead of any former Session-owned auth
+        # reference. The client shell helper
+        # (``tests/_helpers/client_factory.build_client_shell_for_tests``)
+        # mirrors the production attribute shape so tests exercise the
+        # same code path as production.
+        self._auth = auth
 
         # Canonicalize the keepalive storage path so different representations
         # of the same physical file (relative vs absolute, ``~`` shorthand,
@@ -237,19 +259,19 @@ class NotebookLMClient:
         # and firing duplicate ``RotateCookies`` POSTs.
         # NOTE: the public ``storage_path`` argument and ``auth.storage_path``
         # are intentionally left as the caller provided them — only the
-        # internal-derived ``Session._keepalive_storage_path`` is
+        # internal-derived keepalive storage path is
         # canonicalized.
         keepalive_storage_path: Path | None = auth.storage_path
         if keepalive_storage_path is not None:
             keepalive_storage_path = Path(keepalive_storage_path).expanduser().resolve()
 
         # Cross-validate the RPC throttle against the underlying httpx pool
-        # before ``Session`` swallows the ``limits=None`` sentinel into
-        # its own ``ConnectionLimits()`` synthesis.
+        # before the collaborator builder swallows the ``limits=None``
+        # sentinel into its own ``ConnectionLimits()`` synthesis.
         # Performed here so the constraint is enforced uniformly regardless
         # of whether the caller passed an explicit ``ConnectionLimits``
-        # instance or relied on the default — ``Session.__init__`` can't
-        # see the caller's intent once the default has been substituted.
+        # instance or relied on the default — scalar config validation
+        # can't see the caller's intent once the default has been substituted.
         # Skip when either side opts out (``max_concurrent_rpcs is None``
         # means "no gate"; we deliberately don't second-guess the caller's
         # external-throttle setup).
@@ -267,10 +289,26 @@ class NotebookLMClient:
                     "clean back-pressure."
                 )
 
-        # Pass refresh_auth as callback for automatic retry on auth failures
-        # Note: refresh_auth calls update_auth_headers internally
-        self._session = Session(
-            auth,
+        # Stage B1 PR 2 of the post-refactoring plan inverted the
+        # composition root. Session-elimination Phase 3 finishes the
+        # ownership move: :func:`compose_client_internals` binds
+        # composition state onto ``self._composed`` and returns only the
+        # collaborators + executor that feature adapters need.
+        #
+        # The public NotebookLMClient kwarg surface is unchanged — the
+        # four seam kwargs (``decode_response`` / ``sleep`` /
+        # ``is_auth_error`` / ``async_client_factory``) live on
+        # ``compose_client_internals`` and the client-shell test helper
+        # only.
+        self._seams = resolve_client_seams(
+            decode_response=None,
+            sleep=None,
+            is_auth_error=None,
+        )
+        self._composed = ClientComposed(max_concurrent_rpcs=max_concurrent_rpcs)
+
+        internals = compose_client_internals(
+            auth=auth,
             timeout=timeout,
             refresh_callback=self.refresh_auth,
             keepalive=keepalive,
@@ -288,38 +326,75 @@ class NotebookLMClient:
             # ``_default_cookie_rotator``.
             cookie_saver=cookie_saver,
             cookie_rotator=cookie_rotator,
+            seams=self._seams,
+            composed=self._composed,
         )
+        # Owned reference to the collaborator bundle so
+        # :meth:`metrics_snapshot` (and any future
+        # NotebookLMClient-side collaborator consumers) read from the
+        # same bundle feature internals use.
+        self._collaborators = internals.collaborators
+        # Owned reference to the RPC executor so ``client.rpc_call``
+        # dispatches through it directly rather than through a
+        # compatibility wrapper. The executor satisfies the
+        # ``RpcCaller`` Protocol and is the same instance the feature
+        # APIs receive (``internals.executor`` is shared with
+        # ``SourcesAPI`` / ``NotebooksAPI`` / ``ArtifactsRuntimeAdapter``
+        # / ``ChatAPI`` / etc., so a test that swaps the executor's
+        # ``rpc_call`` sees the swap on every feature consumer).
+        self._rpc_executor = internals.executor
 
-        # Wire the upload pipeline explicitly with the concrete capability
-        # surfaces (UploadRuntime via the Session, plus Kernel and AuthMetadata).
-        # NotebookLMClient is the only composition root that knows these
-        # internals — SourcesAPI no longer reads them back off the session.
+        # ADR-014 Rule 2: the upload pipeline takes its three runtime
+        # collaborators (``rpc`` + ``drain`` + ``lifecycle``) directly
+        # instead of via a composite-runtime adapter. ``Kernel`` and
+        # ``AuthMetadata`` continue to flow as separate parameters per
+        # the ADR-014 Rule 6 example. ``NotebookLMClient.__init__`` is
+        # the composition root that knows these internals;
+        # ``SourcesAPI`` no longer reads them back off a broad host.
         source_uploader = SourceUploadPipeline(
-            self._session,
-            self._session.kernel,
-            self._session.auth,
+            rpc=internals.executor,
+            drain=internals.collaborators.drain_tracker,
+            lifecycle=internals.collaborators.lifecycle,
+            kernel=internals.collaborators.kernel,
+            # ADR-016's Auth Instance Invariant: the upload pipeline
+            # reads the client-owned ``self._auth`` reference set above
+            # instead of a detached auth copy. Production refresh-time
+            # mutation is therefore observed by the uploader unchanged.
+            auth=self._auth,
             upload_timeout=upload_timeout,
             max_concurrent_uploads=max_concurrent_uploads,
-            record_upload_queue_wait=self._session.record_upload_queue_wait,
+            record_upload_queue_wait=internals.collaborators.metrics.record_upload_queue_wait,
         )
+        # ADR-014 Rule 3 Stage B (Stage B1 PR 2 of the post-refactoring
+        # plan): simple features take their RpcCaller dependency directly
+        # from the composition root's executor, not from a Stage A
+        # accessor on the deleted Session surface.
         self.sources = SourcesAPI(
-            self._session,
+            internals.executor,
             uploader=source_uploader,
             upload_timeout=upload_timeout,
             max_concurrent_uploads=max_concurrent_uploads,
         )
-        self.notebooks = NotebooksAPI(self._session, sources_api=self.sources)
+        self.notebooks = NotebooksAPI(internals.executor, sources_api=self.sources)
         # Phase 5 wiring per docs/refactor-history.md Migration Plan steps 6-7:
-        # the legacy single-service handoff (``MindMapService(self._session)``
-        # passed as ``mind_map_service=``) is replaced with the explicit
+        # the legacy single-service handoff passed as ``mind_map_service=``
+        # is replaced with the explicit
         # NoteService + NoteBackedMindMapService split. NoteService owns the
         # raw row primitives; NoteBackedMindMapService is the mind-map-only
         # adapter the download path uses; the artifact-generation path uses
         # NoteService.create_note directly to persist a generated mind map.
-        note_service = NoteService(self._session)
+        note_service = NoteService(internals.executor)
         mind_maps = NoteBackedMindMapService(note_service)
+        # ADR-014 Rule 2: the artifacts API takes its three runtime
+        # collaborators (``rpc`` + ``drain`` + ``lifecycle``) directly
+        # instead of via a composite-runtime adapter. ``rpc`` covers
+        # RPC dispatch; ``drain`` covers ``operation_scope`` and the
+        # close-time ``register_drain_hook`` used by the polling
+        # service; ``lifecycle`` covers ``assert_bound_loop``.
         self.artifacts = ArtifactsAPI(
-            self._session,
+            rpc=internals.executor,
+            drain=internals.collaborators.drain_tracker,
+            lifecycle=internals.collaborators.lifecycle,
             notebooks=self.notebooks,
             mind_maps=mind_maps,
             note_service=note_service,
@@ -330,26 +405,57 @@ class NotebookLMClient:
         # exists at NotesAPI construction time. Phase 6 (refactor-history.md
         # Step 8, ADR-013) moves saved-chat ownership to ChatAPI and
         # has NotesAPI delegate via constructor injection.
-        self.chat = ChatAPI(self._session, notebooks=self.notebooks)
+        #
+        # Wave 8 of session-decoupling (ADR-014 Rule 2 Corollary): ChatAPI
+        # takes its four direct collaborators (RpcCaller, SessionTransport,
+        # ReqidCounter, LoopGuard) by keyword argument. The transport is
+        # sourced from ``self._composed``; other runtime fields come from
+        # the :class:`ClientInternals` returned by the composition root.
+        self.chat = ChatAPI(
+            rpc=internals.executor,
+            transport=self._composed.transport,
+            reqid=internals.collaborators.reqid,
+            loop_guard=internals.collaborators.lifecycle,
+            notebooks=self.notebooks,
+        )
         self.notes = NotesAPI(
             notes=note_service,
             mind_maps=mind_maps,
             save_chat_answer=self.chat.save_answer_as_note,
         )
-        # Pure-RPC features (Phase 1 retypes: typed as `rpc: RpcCaller`).
-        self.research = ResearchAPI(self._session)
-        self.settings = SettingsAPI(self._session)
-        self.sharing = SharingAPI(self._session)
+        # Pure-RPC features (typed as ``rpc: RpcCaller``). Wave 7 of
+        # session-decoupling: pass the ``RpcExecutor`` collaborator
+        # directly. Stage B1 PR 2 updated the source from
+        # the deleted Session executor accessor to the
+        # composed executor.
+        self.research = ResearchAPI(internals.executor)
+        self.settings = SettingsAPI(internals.executor)
+        self.sharing = SharingAPI(internals.executor)
 
     @property
     def auth(self) -> AuthTokens:
-        """Get the authentication tokens."""
-        return self._session.auth
+        """Get the authentication tokens.
+
+        ADR-016's Auth Instance Invariant requires every reference across
+        the live object graph to alias the same mutable
+        :class:`AuthTokens` object set in :meth:`__init__`, so the public
+        ``client.auth`` identity and behavior are unchanged.
+        """
+        return self._auth
 
     async def __aenter__(self) -> NotebookLMClient:
         """Open the client connection."""
         logger.debug("Opening NotebookLM client")
-        await self._session.open()
+        # Preserve the historical fail-fast check that composition is complete.
+        _ = self._composed.transport
+        await self._collaborators.lifecycle.open(
+            auth=self._auth,
+            drain_tracker=self._collaborators.drain_tracker,
+            auth_coord=self._collaborators.auth_coord,
+            reqid=self._collaborators.reqid,
+            cookie_persistence=self._collaborators.cookie_persistence,
+            composed=self._composed,
+        )
         return self
 
     async def __aexit__(
@@ -380,8 +486,13 @@ class NotebookLMClient:
             raise
 
     async def drain(self, timeout: float | None = None) -> None:
-        """Stop accepting new operations and wait for in-flight operations to finish."""
-        await self._session.drain(timeout=timeout)
+        """Stop accepting new operations and wait for in-flight operations to finish.
+
+        Delegates directly to the :class:`TransportDrainTracker` that
+        owns the in-flight counter; the public client-side behavior
+        (drain semantics and timeout propagation) is unchanged.
+        """
+        await self._collaborators.drain_tracker.drain(timeout=timeout)
 
     async def close(
         self,
@@ -411,7 +522,7 @@ class NotebookLMClient:
         manual ``task.cancel()``), the underlying transport is STILL torn
         down before the cancellation propagates. The drain await
         explicitly catches ``CancelledError`` and schedules
-        ``Session.close()`` through ``asyncio.shield`` — the shield wraps
+        lifecycle close through ``asyncio.shield`` — the shield wraps
         the inner close in a ``Task`` that survives the outer
         cancellation, so the ``Kernel.aclose()`` it drives runs to
         completion in the background. On the normal-success and
@@ -427,14 +538,14 @@ class NotebookLMClient:
           ``is_connected is False`` and the underlying
           ``httpx.AsyncClient`` is closed synchronously.
         - **Cancel-during-drain path** (single cancellation): the
-          shielded ``Session.close()`` runs to completion synchronously
+          shielded lifecycle close runs to completion synchronously
           before ``CancelledError`` is re-raised — Python does not
           re-raise ``CancelledError`` to the same task without an
           explicit re-cancel, so the await on the shielded Task
           blocks normally. On return, ``is_connected is False`` and
           the transport is closed.
         - **Cancel-during-drain path** (re-cancellation while awaiting
-          the shielded close): the shielded ``Session.close()`` Task is
+          the shielded close): the shielded lifecycle close Task is
           isolated from the second cancel by ``asyncio.shield`` and
           continues running in the background; the second cancel
           surfaces in the awaiter, is suppressed, and the *original*
@@ -443,10 +554,39 @@ class NotebookLMClient:
           ``await asyncio.sleep(0)`` or poll to observe it).
 
         There is no path that leaves a live transport behind.
+
+        Drain-hook ordering (issue #1161): feature-owned cancel hooks
+        (e.g. ``artifacts.polls``) run BEFORE the drain wait, not just in
+        the shielded lifecycle close below. In-flight artifact polls wrap
+        themselves in ``TransportDrainTracker.operation_scope`` (see
+        :meth:`notebooklm._artifact_polling.ArtifactPollingService._run_poll_loop_in_scope`),
+        which increments the same in-flight counter ``drain()`` waits on.
+        Without firing the cancel hooks first, ``drain()`` would block on a
+        poll that the cancel hook is supposed to short-circuit — up to the
+        poll's own 300s timeout. Running the hooks first lets ``drain()``
+        observe a cancelled-then-settled count instead of parking on it. The
+        lifecycle close below still re-runs the hooks; for the only
+        production hook (``artifacts.polls``) that re-run is a cheap no-op
+        because already-settled poll tasks are filtered out of
+        :meth:`notebooklm._polling_registry.PollRegistry.active_tasks`.
+
+        Note: the cancel-hook fire is NOT bounded by ``drain_timeout`` — that
+        deadline budgets the drain *wait*. The production poll-cancel hook
+        settles near-instantly (it cancels its tasks and awaits the
+        cancellation gather), so this is a non-issue in practice; a custom
+        feature hook that blocks indefinitely could still extend shutdown,
+        and such hooks should bound their own work.
         """
         if drain:
             drain_timeout_exc: TimeoutError | None = None
             try:
+                # Fire feature-owned cancel hooks BEFORE the drain wait (see
+                # the "Drain-hook ordering" section of the docstring above for
+                # why). Awaited inside this ``try`` so a *caller* CancelledError
+                # arriving during the hook fire still routes through the I12
+                # shielded-close path below; ``run_drain_hooks`` itself never
+                # re-raises (it gathers with ``return_exceptions=True``).
+                await self._collaborators.drain_tracker.run_drain_hooks()
                 await self.drain(timeout=drain_timeout)
             except TimeoutError as exc:
                 # Drain deadline missed. Hold onto the exception and
@@ -463,12 +603,18 @@ class NotebookLMClient:
                 # completion synchronously (Python does not re-raise
                 # CancelledError without an explicit re-cancel). If a
                 # SECOND cancel arrives while we're parked here,
-                # ``asyncio.shield`` isolates the inner Session.close()
+                # ``asyncio.shield`` isolates the inner lifecycle close
                 # Task so it continues in the background; the second
                 # cancel hits the awaiter and is swallowed below so the
                 # original CancelledError surfaces unchanged.
                 try:
-                    await asyncio.shield(self._session.close())
+                    await asyncio.shield(
+                        self._collaborators.lifecycle.close(
+                            auth_coord=self._collaborators.auth_coord,
+                            drain_tracker=self._collaborators.drain_tracker,
+                            cookie_persistence=self._collaborators.cookie_persistence,
+                        )
+                    )
                 except (Exception, asyncio.CancelledError):
                     # Swallow regular close failures and any re-cancel
                     # propagated through the shield await so the
@@ -489,7 +635,13 @@ class NotebookLMClient:
             # ``test_close_with_invalid_drain_does_not_close_transport``.
 
             try:
-                await asyncio.shield(self._session.close())
+                await asyncio.shield(
+                    self._collaborators.lifecycle.close(
+                        auth_coord=self._collaborators.auth_coord,
+                        drain_tracker=self._collaborators.drain_tracker,
+                        cookie_persistence=self._collaborators.cookie_persistence,
+                    )
+                )
             except Exception as close_exc:
                 if drain_timeout_exc is not None:
                     logger.warning(
@@ -502,22 +654,29 @@ class NotebookLMClient:
             if drain_timeout_exc is not None:
                 raise drain_timeout_exc
             return
-        await self._session.close()
+        await self._collaborators.lifecycle.close(
+            auth_coord=self._collaborators.auth_coord,
+            drain_tracker=self._collaborators.drain_tracker,
+            cookie_persistence=self._collaborators.cookie_persistence,
+        )
 
     def metrics_snapshot(self) -> ClientMetricsSnapshot:
-        """Return cumulative observability counters for this client."""
-        return self._session.metrics_snapshot()
+        """Return cumulative observability counters for this client.
+
+        Stage B1 PR 2 of the post-refactoring plan migrated the read off
+        the deleted Stage A collaborator accessor onto the
+        bundle stored by :meth:`__init__` from the composition root's
+        :class:`ClientInternals`.
+        """
+        return self._collaborators.metrics.snapshot()
 
     async def rpc_call(
         self,
         method: RPCMethod,
         params: list[Any],
-        source_path: str | None = None,
         allow_null: bool = False,
-        _is_retry: bool | None = None,
         *,
         disable_internal_retries: bool = False,
-        operation_variant: str | None = None,
     ) -> Any:
         """Make a raw NotebookLM RPC call.
 
@@ -526,62 +685,28 @@ class NotebookLMClient:
         (``client.notebooks``, ``client.sources``, etc.) when possible. Import
         ``RPCMethod`` from ``notebooklm.rpc``.
 
-        .. deprecated:: 0.5.0
-            The following keyword arguments are deprecated and will be removed
-            in v0.6.0 (see :doc:`/deprecations`):
+        The wrapper forwards to :meth:`RpcExecutor.rpc_call` on the
+        executor that was bound during :meth:`__init__` (and that every
+        feature API shares). Internal call sites that need to bind the
+        underlying internal-only parameters do so against the executor
+        surface directly, not via this public wrapper.
 
-            * ``source_path`` — omit the argument; the default ``"/"`` is
-              applied automatically. Passing ``"/"`` explicitly is still
-              silent (it matches the default).
-            * ``_is_retry`` — internal-only; never reach for this. Any
-              explicit value (``True`` or ``False``) warns, because callers
-              should not bind to this surface at all.
-            * ``operation_variant`` — internal-only; will be removed once
-              the mutating-RPC idempotency registry stabilizes.
-
-        The default-shape call (``client.rpc_call(method, params)``) remains
-        silent and forwards to :meth:`Session.rpc_call` with today's literal
-        defaults.
+        .. versionchanged:: 0.6.0
+            The deprecated keyword arguments previously documented here
+            were removed (see :doc:`/deprecations`). The default-shape
+            call (``client.rpc_call(method, params)``) is unchanged.
         """
-        if source_path is not None and source_path != "/":
-            warnings.warn(
-                "rpc_call(source_path=...) is deprecated; removal v0.6.0",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        if _is_retry is not None:
-            warnings.warn(
-                "rpc_call(_is_retry=...) is deprecated; this is internal; removal v0.6.0",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        if operation_variant is not None:
-            warnings.warn(
-                "rpc_call(operation_variant=...) is deprecated; removal v0.6.0",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        # Coerce sentinels back to today's literal defaults before
-        # delegating, so the forwarded keyword-for-keyword shape stays
-        # identical to the pre-deprecation contract. ``bool(None) is
-        # False``, so a single ``bool(_is_retry)`` collapses the
-        # not-None / None branches into one expression.
-        resolved_source_path = "/" if source_path is None else source_path
-        resolved_is_retry = bool(_is_retry)
-        return await self._session.rpc_call(
+        return await self._rpc_executor.rpc_call(
             method=method,
             params=params,
-            source_path=resolved_source_path,
             allow_null=allow_null,
-            _is_retry=resolved_is_retry,
             disable_internal_retries=disable_internal_retries,
-            operation_variant=operation_variant,
         )
 
     @property
     def is_connected(self) -> bool:
         """Check if the client is connected."""
-        return self._session.is_open
+        return self._collaborators.lifecycle.is_open()
 
     @classmethod
     def from_storage(
@@ -698,13 +823,32 @@ class NotebookLMClient:
         This helps prevent 'Session Expired' errors by obtaining a fresh CSRF
         token (SNlM0e) and session ID (FdrFJe).
 
+        Wave 2 of plan ``host-protocol-removal`` rewired this call site
+        onto explicit collaborators sourced from ``self._auth`` and
+        ``self._collaborators``. The five kwargs mirror the new
+        :func:`refresh_auth_session` signature: ``auth`` is the
+        client-owned :class:`AuthTokens` instance (the Auth Instance
+        Invariant guarantees this is the same object every auth consumer
+        observes), and the remaining four come from the collaborator
+        bundle the composition root produced
+        (:func:`compose_client_internals`). The
+        ``tests/_helpers/client_factory.build_client_shell_for_tests``
+        helper wires ``_auth`` and ``_collaborators`` from the composed
+        runtime directly, so test shells observe the same resolution path.
+
         Returns:
             Updated AuthTokens.
 
         Raises:
             ValueError: If token extraction fails (page structure may have changed).
         """
-        return await refresh_auth_session(self._session)
+        return await refresh_auth_session(
+            auth=self._auth,
+            kernel=self._collaborators.kernel,
+            auth_coord=self._collaborators.auth_coord,
+            lifecycle=self._collaborators.lifecycle,
+            cookie_persistence=self._collaborators.cookie_persistence,
+        )
 
 
 class _FromStorageContext:

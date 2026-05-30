@@ -29,15 +29,12 @@ use std::collections::HashSet;
 use std::io::Write;
 
 use anstyle::AnsiColor;
-use anstyle::Style;
 use chrono::DateTime;
 use chrono::Utc;
-use indexmap::IndexMap;
-use mergify_core::ApiFlavor;
 use mergify_core::CliError;
-use mergify_core::HttpClient;
+use mergify_core::CommandContext;
 use mergify_core::Output;
-use mergify_core::auth;
+use mergify_tui::StyledGlyph;
 use mergify_tui::Theme;
 use mergify_tui::relative_time;
 use mergify_tui::tree;
@@ -125,14 +122,15 @@ struct Author {
 
 /// Run the `queue status` command.
 pub async fn run(opts: StatusOptions<'_>, output: &mut dyn Output) -> Result<(), CliError> {
-    let repository = auth::resolve_repository(opts.repository)?;
-    let token = auth::resolve_token(opts.token)?;
-    let api_url = auth::resolve_api_url(opts.api_url)?;
+    let ctx = CommandContext::resolve(opts.repository, opts.token, opts.api_url)?;
 
-    output.status(&format!("Fetching merge queue status for {repository}…"))?;
+    output.status(&format!(
+        "Fetching merge queue status for {repo}…",
+        repo = ctx.repository,
+    ))?;
 
-    let client = HttpClient::new(api_url, token, ApiFlavor::Mergify)?;
-    let path = build_path(&repository, opts.branch);
+    let client = ctx.mergify_client()?;
+    let path = build_path(&ctx.repository, opts.branch);
 
     let raw: serde_json::Value = client.get(&path).await?;
 
@@ -141,7 +139,7 @@ pub async fn run(opts: StatusOptions<'_>, output: &mut dyn Output) -> Result<(),
     } else {
         let view: StatusView = serde_json::from_value(raw)
             .map_err(|e| CliError::Generic(format!("decode merge queue status response: {e}")))?;
-        emit_human(output, &repository, &view)?;
+        emit_human(output, &ctx.repository, &view)?;
     }
     Ok(())
 }
@@ -195,28 +193,48 @@ fn emit_human(output: &mut dyn Output, repository: &str, view: &StatusView) -> s
     })
 }
 
-/// Map a queue batch status code to a foreground color, honoring
-/// the theme's enabled flag. Mirrors Python's `STATUS_STYLES`;
-/// unknown codes render dim.
-fn batch_status_style(theme: &Theme, code: &str) -> Style {
-    if !theme.enabled {
-        return Style::new();
-    }
-    match code {
-        "running" => theme.fg(AnsiColor::Green),
-        // Python rendered `merged` as `"dim green"` — bold off,
-        // green on, dimmed. anstyle composes the same effect by
-        // setting `dimmed()` on the green style.
-        "merged" => theme.fg(AnsiColor::Green).dimmed(),
-        "failed" => theme.fg(AnsiColor::Red),
-        "bisecting"
-        | "preparing"
-        | "waiting_for_previous_batches"
-        | "waiting_for_requeue"
-        | "waiting_schedule" => theme.fg(AnsiColor::Yellow),
-        "waiting_for_merge" | "frozen" => theme.fg(AnsiColor::Cyan),
-        _ => theme.dim,
-    }
+/// Map a queue batch status code to its [`StyledGlyph`]. Mirrors
+/// Python's `STATUS_STYLES` (icon + color side); unknown codes fall
+/// back to a dim `?`.
+fn batch_glyph(theme: &Theme, code: &str) -> StyledGlyph {
+    // `theme.fg` already collapses to `Style::new()` when colors are
+    // off — except for `merged`, which we compose as `green.dimmed()`.
+    // When colors are off the `dimmed` attribute would still emit a
+    // dim escape, so short-circuit here to keep the plain output
+    // truly plain.
+    let style = if theme.enabled {
+        match code {
+            "running" => theme.fg(AnsiColor::Green),
+            // Python rendered `merged` as `"dim green"` — bold off,
+            // green on, dimmed. anstyle composes the same effect by
+            // setting `dimmed()` on the green style.
+            "merged" => theme.fg(AnsiColor::Green).dimmed(),
+            "failed" => theme.fg(AnsiColor::Red),
+            "bisecting"
+            | "preparing"
+            | "waiting_for_previous_batches"
+            | "waiting_for_requeue"
+            | "waiting_schedule" => theme.fg(AnsiColor::Yellow),
+            "waiting_for_merge" | "frozen" => theme.fg(AnsiColor::Cyan),
+            _ => theme.dim,
+        }
+    } else {
+        anstyle::Style::new()
+    };
+    let icon = match code {
+        "running" => "●",
+        "bisecting" => "◑",
+        "preparing" => "◌",
+        "failed" => "✗",
+        "merged" => "✓",
+        "waiting_for_merge" => "◎",
+        "waiting_for_previous_batches" | "waiting_for_batch" => "⏳",
+        "waiting_for_requeue" => "↻",
+        "waiting_schedule" => "⏰",
+        "frozen" => "❄",
+        _ => "?",
+    };
+    StyledGlyph::new(icon, style)
 }
 
 fn print_pause(
@@ -282,12 +300,12 @@ fn print_batch_line(
     batch: &Batch,
     now: DateTime<Utc>,
 ) -> std::io::Result<()> {
-    let icon = status_icon(&batch.status.code);
-    let icon_style = batch_status_style(theme, &batch.status.code);
+    let glyph = batch_glyph(theme, &batch.status.code);
     write!(
         w,
         "{branch}{S}{icon} {code}{R}",
-        S = icon_style,
+        S = glyph.style,
+        icon = glyph.icon,
         code = batch.status.code,
         R = theme.reset,
     )?;
@@ -380,24 +398,6 @@ fn print_waiting_prs(
     Ok(())
 }
 
-/// Map a batch-status code to a compact Unicode icon. Same icons as
-/// the Python implementation; unknown codes fall back to `?`.
-fn status_icon(code: &str) -> &'static str {
-    match code {
-        "running" => "●",
-        "bisecting" => "◑",
-        "preparing" => "◌",
-        "failed" => "✗",
-        "merged" => "✓",
-        "waiting_for_merge" => "◎",
-        "waiting_for_previous_batches" | "waiting_for_batch" => "⏳",
-        "waiting_for_requeue" => "↻",
-        "waiting_schedule" => "⏰",
-        "frozen" => "❄",
-        _ => "?",
-    }
-}
-
 /// Topological sort of batches by `parent_ids`. Roots come first,
 /// children follow their parents — matches the Python
 /// `_topological_sort`. Cycles are impossible by API contract, but
@@ -431,14 +431,20 @@ fn visit<'a>(
     result.push(batch);
 }
 
-/// Group batches by scope, preserving insertion order for the
+/// Group batches by scope, preserving first-seen order for the
 /// scopes (matches Python dict iteration). A batch with no scopes
 /// is grouped under `"default"` to match the Python fallback. A
 /// batch with multiple scopes appears in every group it claims —
 /// the Python implementation does the same so users see each batch
 /// in every scope it affects.
-fn group_by_scope<'a>(batches: &[&'a Batch]) -> IndexMap<String, Vec<&'a Batch>> {
-    let mut groups: IndexMap<String, Vec<&Batch>> = IndexMap::new();
+///
+/// Returns a `Vec<(scope, batches)>` rather than a hashmap because
+/// (a) we need insertion-order iteration and (b) typical N is
+/// 1–3 scopes per repo — the linear-lookup `entry_or_insert`
+/// below is cheaper than the hashing overhead of `IndexMap` at
+/// this scale.
+fn group_by_scope<'a>(batches: &[&'a Batch]) -> Vec<(String, Vec<&'a Batch>)> {
+    let mut groups: Vec<(String, Vec<&Batch>)> = Vec::new();
     for batch in batches {
         let scopes: Vec<String> = if batch.scopes.is_empty() {
             vec!["default".to_string()]
@@ -446,7 +452,10 @@ fn group_by_scope<'a>(batches: &[&'a Batch]) -> IndexMap<String, Vec<&'a Batch>>
             batch.scopes.clone()
         };
         for scope in scopes {
-            groups.entry(scope).or_default().push(batch);
+            match groups.iter_mut().find(|(s, _)| *s == scope) {
+                Some((_, bs)) => bs.push(batch),
+                None => groups.push((scope, vec![batch])),
+            }
         }
     }
     groups
@@ -454,8 +463,7 @@ fn group_by_scope<'a>(batches: &[&'a Batch]) -> IndexMap<String, Vec<&'a Batch>>
 
 #[cfg(test)]
 mod tests {
-    use mergify_core::OutputMode;
-    use mergify_core::StdioOutput;
+    use mergify_test_support::Captured;
     use wiremock::Mock;
     use wiremock::MockServer;
     use wiremock::ResponseTemplate;
@@ -465,28 +473,6 @@ mod tests {
     use wiremock::matchers::query_param;
 
     use super::*;
-
-    type SharedBytes = std::sync::Arc<std::sync::Mutex<Vec<u8>>>;
-
-    struct Captured {
-        output: StdioOutput,
-        stdout: SharedBytes,
-    }
-
-    fn make_output(mode: OutputMode) -> Captured {
-        let stdout: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let stderr: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let output = StdioOutput::with_sinks(
-            mode,
-            SharedWriter(std::sync::Arc::clone(&stdout)),
-            SharedWriter(std::sync::Arc::clone(&stderr)),
-        );
-        Captured { output, stdout }
-    }
-
-    fn stdout_string(cap: &Captured) -> String {
-        String::from_utf8(cap.stdout.lock().unwrap().clone()).unwrap()
-    }
 
     #[test]
     fn build_path_no_branch() {
@@ -543,13 +529,17 @@ mod tests {
         assert_eq!(sorted[0].id, "only");
     }
 
+    fn has_scope(groups: &[(String, Vec<&Batch>)], scope: &str) -> bool {
+        groups.iter().any(|(s, _)| s == scope)
+    }
+
     #[test]
     fn group_by_scope_default_when_empty_scopes() {
         let batches = [sample_batch("a", &[])];
         let refs: Vec<&Batch> = batches.iter().collect();
         let groups = group_by_scope(&refs);
         assert_eq!(groups.len(), 1);
-        assert!(groups.contains_key("default"));
+        assert!(has_scope(&groups, "default"));
     }
 
     #[test]
@@ -562,27 +552,34 @@ mod tests {
         let refs: Vec<&Batch> = batches.iter().collect();
         let groups = group_by_scope(&refs);
         assert_eq!(groups.len(), 2);
-        assert!(groups.contains_key("foo"));
-        assert!(groups.contains_key("bar"));
+        assert!(has_scope(&groups, "foo"));
+        assert!(has_scope(&groups, "bar"));
     }
 
     #[test]
-    fn status_icon_known_codes() {
-        assert_eq!(status_icon("running"), "●");
-        assert_eq!(status_icon("merged"), "✓");
-        assert_eq!(status_icon("failed"), "✗");
+    fn batch_glyph_known_codes() {
+        // Pin a no-color theme so we exercise the icon mapping
+        // without coupling the assertions to the ANSI escape format.
+        let theme = Theme::new(false);
+        assert_eq!(batch_glyph(&theme, "running").icon, "●");
+        assert_eq!(batch_glyph(&theme, "merged").icon, "✓");
+        assert_eq!(batch_glyph(&theme, "failed").icon, "✗");
         // Two pairs that share an icon vs. a different icon —
         // mirrors the Python `STATUS_STYLES` table, so a future
         // table edit can't silently swap glyphs without updating
         // this test.
-        assert_eq!(status_icon("waiting_for_previous_batches"), "⏳");
-        assert_eq!(status_icon("waiting_for_batch"), "⏳");
-        assert_eq!(status_icon("waiting_for_requeue"), "↻");
+        assert_eq!(
+            batch_glyph(&theme, "waiting_for_previous_batches").icon,
+            "⏳"
+        );
+        assert_eq!(batch_glyph(&theme, "waiting_for_batch").icon, "⏳");
+        assert_eq!(batch_glyph(&theme, "waiting_for_requeue").icon, "↻");
     }
 
     #[test]
-    fn status_icon_unknown_falls_back() {
-        assert_eq!(status_icon("brand-new-status"), "?");
+    fn batch_glyph_unknown_falls_back() {
+        let theme = Theme::new(false);
+        assert_eq!(batch_glyph(&theme, "brand-new-status").icon, "?");
     }
 
     fn sample_batch(id: &str, parents: &[&str]) -> Batch {
@@ -624,7 +621,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             StatusOptions {
@@ -639,7 +636,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = stdout_string(&cap);
+        let stdout = cap.stdout();
         let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
         assert_eq!(parsed, response);
     }
@@ -659,7 +656,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             StatusOptions {
@@ -674,7 +671,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = stdout_string(&cap);
+        let stdout = cap.stdout();
         assert!(stdout.contains("Merge Queue: owner/repo"), "got {stdout}");
         assert!(stdout.contains("Queue is paused"), "got {stdout}");
         assert!(stdout.contains("deploy freeze"), "got {stdout}");
@@ -695,7 +692,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             StatusOptions {
@@ -710,7 +707,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = stdout_string(&cap);
+        let stdout = cap.stdout();
         assert!(stdout.contains("Queue is empty"), "got {stdout}");
     }
 
@@ -761,7 +758,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             StatusOptions {
@@ -776,7 +773,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = stdout_string(&cap);
+        let stdout = cap.stdout();
         assert!(stdout.contains("Batches"), "got {stdout}");
         assert!(stdout.contains("running"), "got {stdout}");
         assert!(stdout.contains("checks 3/5"), "got {stdout}");
@@ -822,7 +819,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             StatusOptions {
@@ -837,7 +834,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = stdout_string(&cap);
+        let stdout = cap.stdout();
         // Two scopes → each labelled by its own name (no
         // generic "Batches" header).
         assert!(stdout.contains("frontend"), "got {stdout}");
@@ -861,7 +858,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             StatusOptions {
@@ -899,7 +896,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             StatusOptions {
@@ -913,16 +910,5 @@ mod tests {
         )
         .await
         .unwrap();
-    }
-
-    struct SharedWriter(SharedBytes);
-    impl Write for SharedWriter {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
     }
 }

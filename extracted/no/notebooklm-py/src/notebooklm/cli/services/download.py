@@ -14,10 +14,10 @@ Public API (the three names ADR-008 / phase-3.md P3.T2 requires):
 - :func:`build_download_plan` — synchronous validation + plan assembly.
 - :func:`execute_download` — coroutine that performs the actual download.
 
-The split is deliberate: ``build_download_plan`` raises ``UsageError`` on flag
-conflicts at the Click decorator boundary (so users see standard Click error
-messaging); ``execute_download`` performs all I/O. The Click handler wires
-the two together inside ``run_client_workflow``.
+The split is deliberate: ``build_download_plan`` rejects flag conflicts
+synchronously with :class:`DownloadPlanValidationError`, while
+``execute_download`` performs all I/O. The Click handler owns the ADR-015
+JSON envelope vs. text ``UsageError`` translation.
 """
 
 from __future__ import annotations
@@ -27,8 +27,6 @@ from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 from typing import Any, Protocol
-
-import click
 
 from ...types import Artifact, ArtifactType
 from ..download_helpers import (
@@ -136,6 +134,17 @@ _DownloadFn = Callable[..., Awaitable[str | None]]
 
 
 @dataclass(frozen=True)
+class DownloadPlanValidationError(Exception):
+    """Service-level validation error for command-layer rendering."""
+
+    message: str
+    code: str = "VALIDATION_ERROR"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "args", (self.message,))
+
+
+@dataclass(frozen=True)
 class DownloadPlan:
     """One validated download invocation.
 
@@ -172,6 +181,7 @@ class DownloadPlan:
     force: bool
     no_clobber: bool
     format_choice: str = ""
+    warnings: tuple[str, ...] = ()
     # Captured at plan-build time so the executor doesn't have to re-derive
     # it; ``Path.cwd()`` at executor time would be wrong if the caller
     # changed directories between ``build_download_plan`` and the awaited
@@ -183,10 +193,9 @@ def _resolve_format_extension(
     spec: DownloadTypeSpec,
     output_path: str | None,
     format_choice: str,
-    warn_sink: Callable[[str], None],
     *,
     download_all: bool = False,
-) -> str:
+) -> tuple[str, tuple[str, ...]]:
     """Compute the effective extension given the spec + user's ``--format``.
 
     Matches the historical wiring exactly:
@@ -198,40 +207,39 @@ def _resolve_format_extension(
       ``output_path``).
     - leaves with no ``--format`` flag → ``spec.extension`` unchanged.
 
-    ``warn_sink`` is the per-call adapter (``click.echo`` with ``err=True``
-    in the live path; configurable for testability). The mismatch warning
-    is suppressed when ``download_all`` is true because the user-supplied
-    path then names a destination *directory* (not a file), so an extension
-    check is meaningless and the warning would be a false positive.
+    A mismatch warning is returned with the extension so the command layer can
+    render it. The warning is suppressed when ``download_all`` is true because
+    the user-supplied path then names a destination *directory* (not a file),
+    so an extension check is meaningless and the warning would be a false positive.
     """
     if not spec.format_choices:
-        return spec.extension
+        return spec.extension, ()
     effective_ext = spec.format_extension_map.get(format_choice, spec.extension)
     # Only warn when the user supplied an output path whose extension doesn't
     # match the chosen --format AND we're in single-file mode (--all uses the
     # path as a directory destination, not a target filename).
     if output_path and not download_all and not output_path.endswith(effective_ext):
-        warn_sink(
-            f"Warning: output path '{output_path}' does not end with "
-            f"'{effective_ext}' but --format {format_choice} was requested."
+        return (
+            effective_ext,
+            (
+                f"Warning: output path '{output_path}' does not end with "
+                f"'{effective_ext}' but --format {format_choice} was requested.",
+            ),
         )
-    return effective_ext
+    return effective_ext, ()
 
 
 def build_download_plan(
     config: DownloadTypeSpec,
     args: dict[str, Any],
     cwd: Path | None = None,
-    *,
-    warn_sink: Callable[[str], None] | None = None,
 ) -> DownloadPlan:
     """Validate + assemble a :class:`DownloadPlan` from raw Click args.
 
-    Synchronous: rejects flag conflicts with ``click.UsageError`` so the
-    error surfaces through Click's standard usage path; resolves the
-    notebook id via the shared ``require_notebook`` helper (no I/O). Does
-    NOT perform the async :func:`resolve_notebook_id` lookup — that runs
-    inside :func:`execute_download`.
+    Synchronous: rejects flag conflicts with a typed validation exception and
+    resolves the notebook id via the shared ``require_notebook`` helper (no
+    I/O). Does NOT perform the async :func:`resolve_notebook_id` lookup — that
+    runs inside :func:`execute_download`.
 
     Args:
         config: One ``DownloadTypeSpec`` row from the registry.
@@ -243,22 +251,20 @@ def build_download_plan(
             (used for derived-output-path resolution inside the executor).
             ``None`` is fine — the executor falls back to ``Path.cwd()`` at
             call time.
-        warn_sink: Optional callback for the "output path does not end with
-            .ext" warning. Defaults to ``click.echo(..., err=True)``.
-
     Returns:
         Frozen ``DownloadPlan`` ready for :func:`execute_download`.
 
     Raises:
-        click.UsageError: when flag combinations conflict.
+        DownloadPlanValidationError: when flag combinations conflict. The
+            command layer translates this into Click usage text or the
+            ADR-015 JSON envelope.
     """
-    # Flag conflicts — same checks as the pre-refactor _download_artifacts_generic.
     if args.get("force") and args.get("no_clobber"):
-        raise click.UsageError("Cannot specify both --force and --no-clobber")
+        raise DownloadPlanValidationError("Cannot specify both --force and --no-clobber")
     if args.get("latest") and args.get("earliest"):
-        raise click.UsageError("Cannot specify both --latest and --earliest")
+        raise DownloadPlanValidationError("Cannot specify both --latest and --earliest")
     if args.get("download_all") and args.get("artifact_id"):
-        raise click.UsageError("Cannot specify both --all and --artifact")
+        raise DownloadPlanValidationError("Cannot specify both --all and --artifact")
 
     nb_id = require_notebook(args.get("notebook_id"))
 
@@ -272,12 +278,10 @@ def build_download_plan(
             args.get(config.format_param_name, config.format_default) or config.format_default
         )
 
-    sink = warn_sink if warn_sink is not None else (lambda msg: click.echo(msg, err=True))
-    file_extension = _resolve_format_extension(
+    file_extension, warnings = _resolve_format_extension(
         config,
         output_path=args.get("output_path"),
         format_choice=format_choice,
-        warn_sink=sink,
         download_all=bool(args.get("download_all", False)),
     )
 
@@ -296,6 +300,7 @@ def build_download_plan(
         force=bool(args.get("force", False)),
         no_clobber=bool(args.get("no_clobber", False)),
         format_choice=format_choice,
+        warnings=warnings,
         cwd=cwd if cwd is not None else Path.cwd(),
     )
 

@@ -1,5 +1,13 @@
 import pytest
-from sage.core.sms_bridge import SAGEMessageBridge, SMSConfig
+import os
+from sage.core.sms_bridge import (
+    SAGEMessageBridge,
+    SMSConfig,
+    _is_recipient_verified_globally,
+    _send_imessage,
+    _send_macos_sms,
+    _send_via_kdeconnect
+)
 
 class DummyBackend:
     def __init__(self, *args, **kwargs):
@@ -9,6 +17,10 @@ class DummyBackend:
             {"provider_id": "google.com", "email": "linked@gmail.com"},
             {"provider_id": "apple.com", "phone_number": "+15555551234"}
         ]
+    def _get(self, path):
+        if path == "/billing/me":
+            return {"email": "primary@example.com"}
+        return {}
 
 def test_recipient_verification(monkeypatch):
     monkeypatch.setattr("sage.core.sms_bridge.SAGEBackend", DummyBackend)
@@ -40,3 +52,38 @@ def test_recipient_verification(monkeypatch):
     assert bridge._is_recipient_verified("other@example.com") is False
     assert bridge._is_recipient_verified("+19999999999") is False
     assert bridge._is_recipient_verified("9999999999@vtext.com") is False
+
+
+def test_global_recipient_verification(monkeypatch):
+    # Set the force test env var so that the check is actually run instead of bypassed in tests
+    monkeypatch.setenv("SAGE_SMS_FORCE_VERIFICATION_TEST", "1")
+    monkeypatch.setattr("sage.core.sms_bridge.SAGEBackend", DummyBackend)
+    
+    # Mock load_auth to return the primary email
+    monkeypatch.setattr("sage.core.cli_auth.load_auth", lambda: {"email": "primary@example.com"})
+    monkeypatch.setattr("sage.core.sms_bridge._load_sage_token", lambda: ("fake_token", "http://fake"))
+    
+    # Verify verified contacts
+    assert _is_recipient_verified_globally("primary@example.com") is True
+    assert _is_recipient_verified_globally("linked@gmail.com") is True
+    assert _is_recipient_verified_globally("+15555551234") is True
+    assert _is_recipient_verified_globally("5555551234") is True
+    assert _is_recipient_verified_globally("5555551234@tmomail.net") is True
+    
+    # Verify unverified contacts are blocked
+    assert _is_recipient_verified_globally("other@example.com") is False
+    assert _is_recipient_verified_globally("lily@example.com") is False
+    assert _is_recipient_verified_globally("+19999999999") is False
+
+
+def test_send_functions_refuse_unverified(monkeypatch):
+    # Enable verification checks in testing
+    monkeypatch.setenv("SAGE_SMS_FORCE_VERIFICATION_TEST", "1")
+    monkeypatch.setattr("sage.core.sms_bridge.SAGEBackend", DummyBackend)
+    monkeypatch.setattr("sage.core.cli_auth.load_auth", lambda: {"email": "primary@example.com"})
+    monkeypatch.setattr("sage.core.sms_bridge._load_sage_token", lambda: ("fake_token", "http://fake"))
+    
+    # Trying to send to unverified must return False immediately without executing subprocesses or osascript
+    assert _send_imessage("lily@example.com", "hello") is False
+    assert _send_macos_sms("+19999999999", "hello") is False
+    assert _send_via_kdeconnect("+19999999999", "hello") is False

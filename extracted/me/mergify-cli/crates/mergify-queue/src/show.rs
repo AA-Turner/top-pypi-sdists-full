@@ -27,14 +27,12 @@
 use std::io::Write;
 
 use anstyle::AnsiColor;
-use anstyle::Style;
 use chrono::DateTime;
 use chrono::Utc;
-use mergify_core::ApiFlavor;
 use mergify_core::CliError;
-use mergify_core::HttpClient;
+use mergify_core::CommandContext;
 use mergify_core::Output;
-use mergify_core::auth;
+use mergify_tui::StyledGlyph;
 use mergify_tui::Theme;
 use mergify_tui::relative_time;
 use mergify_tui::tree;
@@ -105,13 +103,12 @@ const fn default_match_true() -> bool {
 
 /// Run the `queue show` command.
 pub async fn run(opts: ShowOptions<'_>, output: &mut dyn Output) -> Result<(), CliError> {
-    let repository = auth::resolve_repository(opts.repository)?;
-    let token = auth::resolve_token(opts.token)?;
-    let api_url = auth::resolve_api_url(opts.api_url)?;
+    let ctx = CommandContext::resolve(opts.repository, opts.token, opts.api_url)?;
 
-    let client = HttpClient::new(api_url, token, ApiFlavor::Mergify)?;
+    let client = ctx.mergify_client()?;
     let path = format!(
-        "/v1/repos/{repository}/merge-queue/pull/{pr_number}",
+        "/v1/repos/{repo}/merge-queue/pull/{pr_number}",
+        repo = ctx.repository,
         pr_number = opts.pr_number,
     );
 
@@ -233,11 +230,12 @@ fn print_checks_section(
     now: DateTime<Utc>,
 ) -> std::io::Result<()> {
     writeln!(w)?;
-    let (icon, style) = check_state_glyph(theme, &mc.ci_state);
+    let glyph = check_state_glyph(theme, &mc.ci_state);
     write!(
         w,
         "  CI State: {S}{icon} {state}{R}",
-        S = style,
+        S = glyph.style,
+        icon = glyph.icon,
         state = mc.ci_state,
         R = theme.reset,
     )?;
@@ -270,7 +268,7 @@ fn print_checks_table(w: &mut dyn Write, theme: &Theme, checks: &[Check]) -> std
         .max()
         .unwrap_or(0);
     for check in checks {
-        let (icon, style) = check_state_glyph(theme, &check.state);
+        let glyph = check_state_glyph(theme, &check.state);
         let pad = name_width.saturating_sub(check.name.chars().count());
         writeln!(
             w,
@@ -279,7 +277,8 @@ fn print_checks_table(w: &mut dyn Write, theme: &Theme, checks: &[Check]) -> std
             name = check.name,
             spaces = " ".repeat(pad),
             R = theme.reset,
-            S = style,
+            S = glyph.style,
+            icon = glyph.icon,
             state = check.state,
         )?;
     }
@@ -328,11 +327,12 @@ fn print_checks_summary(w: &mut dyn Write, theme: &Theme, checks: &[Check]) -> s
             check.state.as_str(),
             "failure" | "error" | "timed_out" | "action_required"
         ) {
-            let (icon, style) = check_state_glyph(theme, &check.state);
+            let glyph = check_state_glyph(theme, &check.state);
             writeln!(
                 w,
                 "    {S}{icon} {state}{R}  {D}{name}{R}",
-                S = style,
+                S = glyph.style,
+                icon = glyph.icon,
                 state = check.state,
                 R = theme.reset,
                 D = theme.dim,
@@ -343,17 +343,17 @@ fn print_checks_summary(w: &mut dyn Write, theme: &Theme, checks: &[Check]) -> s
     Ok(())
 }
 
-/// Map a check state string to (icon, ANSI style). Mirrors Python's
+/// Map a check state string to its [`StyledGlyph`]. Mirrors Python's
 /// `CHECK_STATE_STYLES`; unknown states fall back to a dim `?` so
 /// the renderer never crashes on a new API code.
-fn check_state_glyph(theme: &Theme, state: &str) -> (&'static str, Style) {
+fn check_state_glyph(theme: &Theme, state: &str) -> StyledGlyph {
     match state {
-        "success" => ("✓", theme.fg(AnsiColor::Green)),
-        "pending" => ("◌", theme.fg(AnsiColor::Yellow)),
-        "failure" | "error" | "action_required" => ("✗", theme.fg(AnsiColor::Red)),
-        "timed_out" => ("⏰", theme.fg(AnsiColor::Red)),
-        "cancelled" | "neutral" | "skipped" | "stale" => ("○", theme.dim),
-        _ => ("?", theme.dim),
+        "success" => StyledGlyph::new("✓", theme.fg(AnsiColor::Green)),
+        "pending" => StyledGlyph::new("◌", theme.fg(AnsiColor::Yellow)),
+        "failure" | "error" | "action_required" => StyledGlyph::new("✗", theme.fg(AnsiColor::Red)),
+        "timed_out" => StyledGlyph::new("⏰", theme.fg(AnsiColor::Red)),
+        "cancelled" | "neutral" | "skipped" | "stale" => StyledGlyph::new("○", theme.dim),
+        _ => StyledGlyph::new("?", theme.dim),
     }
 }
 
@@ -449,15 +449,16 @@ fn write_condition_tree(
     let last = nodes.len() - 1;
     for (i, node) in nodes.iter().enumerate() {
         let (branch, continuation) = tree::branch_chars(i == last);
-        let (icon, style) = if node.r#match {
-            ("✓", theme.fg(AnsiColor::Green))
+        let glyph = if node.r#match {
+            StyledGlyph::new("✓", theme.fg(AnsiColor::Green))
         } else {
-            ("✗", theme.fg(AnsiColor::Red))
+            StyledGlyph::new("✗", theme.fg(AnsiColor::Red))
         };
         writeln!(
             w,
             "{prefix}{branch}{S}{icon}{R} {label}",
-            S = style,
+            S = glyph.style,
+            icon = glyph.icon,
             R = theme.reset,
             label = node.label,
         )?;
@@ -470,7 +471,7 @@ fn write_condition_tree(
 #[cfg(test)]
 mod tests {
     use mergify_core::OutputMode;
-    use mergify_core::StdioOutput;
+    use mergify_test_support::Captured;
     use serde_json::json;
     use wiremock::Mock;
     use wiremock::MockServer;
@@ -480,40 +481,6 @@ mod tests {
     use wiremock::matchers::path;
 
     use super::*;
-
-    type SharedBytes = std::sync::Arc<std::sync::Mutex<Vec<u8>>>;
-
-    struct Captured {
-        output: StdioOutput,
-        stdout: SharedBytes,
-        stderr: SharedBytes,
-    }
-
-    fn make_output(mode: OutputMode) -> Captured {
-        let stdout: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let stderr: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let output = StdioOutput::with_sinks(
-            mode,
-            SharedWriter(std::sync::Arc::clone(&stdout)),
-            SharedWriter(std::sync::Arc::clone(&stderr)),
-        );
-        Captured {
-            output,
-            stdout,
-            stderr,
-        }
-    }
-
-    struct SharedWriter(SharedBytes);
-    impl Write for SharedWriter {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
 
     fn pull_response() -> serde_json::Value {
         json!({
@@ -570,7 +537,7 @@ mod tests {
         let server = MockServer::start().await;
         arrange(&server, pull_response(), 200).await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             ShowOptions {
@@ -586,7 +553,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = String::from_utf8(cap.stdout.lock().unwrap().clone()).unwrap();
+        let stdout = cap.stdout();
         assert!(stdout.contains("PR #123"), "got: {stdout:?}");
         assert!(stdout.contains("Position:"), "got: {stdout:?}");
         assert!(stdout.contains("CI State:"), "got: {stdout:?}");
@@ -607,7 +574,7 @@ mod tests {
         let server = MockServer::start().await;
         arrange(&server, pull_response(), 200).await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             ShowOptions {
@@ -623,7 +590,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = String::from_utf8(cap.stdout.lock().unwrap().clone()).unwrap();
+        let stdout = cap.stdout();
         // Verbose table: every check name appears as its own row.
         assert!(stdout.contains("tests"), "got: {stdout:?}");
         assert!(stdout.contains("linters"), "got: {stdout:?}");
@@ -645,7 +612,7 @@ mod tests {
         body["future_field"] = json!("preserved");
         arrange(&server, body, 200).await;
 
-        let mut cap = make_output(OutputMode::Json);
+        let mut cap = Captured::new(OutputMode::Json);
         let api_url = server.uri();
         run(
             ShowOptions {
@@ -661,7 +628,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = String::from_utf8(cap.stdout.lock().unwrap().clone()).unwrap();
+        let stdout = cap.stdout();
         let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
         assert_eq!(parsed["number"], json!(123));
         assert_eq!(parsed["future_field"], json!("preserved"));
@@ -677,7 +644,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         let err = run(
             ShowOptions {
@@ -718,7 +685,7 @@ mod tests {
         });
         arrange(&server, body, 200).await;
 
-        let mut cap = make_output(OutputMode::Human);
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             ShowOptions {
@@ -734,7 +701,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = String::from_utf8(cap.stdout.lock().unwrap().clone()).unwrap();
+        let stdout = cap.stdout();
         assert!(
             stdout.contains("Waiting for mergeability check"),
             "got: {stdout:?}",
@@ -810,13 +777,5 @@ mod tests {
             }],
         };
         assert_eq!(child_label(&nested), "leaf");
-    }
-
-    // Suppress dead-code warnings for the captured-stderr accessor:
-    // the existing tests use stdout assertions, but the field is
-    // wired up the same way as in pause/unpause/status for parity.
-    #[allow(dead_code)]
-    fn _stderr_accessor_lives(c: &Captured) -> SharedBytes {
-        std::sync::Arc::clone(&c.stderr)
     }
 }

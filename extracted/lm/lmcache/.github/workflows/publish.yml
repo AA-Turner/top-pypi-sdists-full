@@ -33,7 +33,9 @@ jobs:
         permissions:
             pull-requests: read
         outputs:
-            lmcache: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags/') || steps.filter.outputs.lmcache == 'true' }}
+            # Skip the whole pipeline for operator releases (tags like `operator-v*`).
+            # operator_release.yml handles those; this workflow is lmcache-only.
+            lmcache: ${{ !startsWith(github.ref_name, 'operator-') && (github.event_name == 'release' || startsWith(github.ref, 'refs/tags/') || steps.filter.outputs.lmcache == 'true') }}
         steps:
             - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
               if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
@@ -118,14 +120,7 @@ jobs:
               uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
               with:
                 disable-sudo-and-containers: false
-                egress-policy: block
-                allowed-endpoints: >
-                  ghcr.io:443
-                  pkg-containers.githubusercontent.com:443
-                  test.pypi.org:443
-                  tuf-repo-cdn.sigstore.dev:443
-                  fulcio.sigstore.dev:443
-                  rekor.sigstore.dev:443
+                egress-policy: audit
 
             - name: Fetch release artifacts
               uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -157,14 +152,7 @@ jobs:
               uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
               with:
                 disable-sudo-and-containers: false
-                egress-policy: block
-                allowed-endpoints: >
-                  ghcr.io:443
-                  pkg-containers.githubusercontent.com:443
-                  test.pypi.org:443
-                  tuf-repo-cdn.sigstore.dev:443
-                  fulcio.sigstore.dev:443
-                  rekor.sigstore.dev:443
+                egress-policy: audit
 
             - name: Fetch CLI release artifacts
               uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -200,16 +188,7 @@ jobs:
               uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
               with:
                   disable-sudo-and-containers: false
-                  egress-policy: block
-                  allowed-endpoints: >
-                    api.github.com:443
-                    uploads.github.com:443
-                    ghcr.io:443
-                    pkg-containers.githubusercontent.com:443
-                    upload.pypi.org:443
-                    tuf-repo-cdn.sigstore.dev:443
-                    fulcio.sigstore.dev:443
-                    rekor.sigstore.dev:443
+                  egress-policy: audit
 
             - name: Fetch release artifacts
               uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -245,16 +224,7 @@ jobs:
               uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
               with:
                   disable-sudo-and-containers: false
-                  egress-policy: block
-                  allowed-endpoints: >
-                    api.github.com:443
-                    uploads.github.com:443
-                    ghcr.io:443
-                    pkg-containers.githubusercontent.com:443
-                    upload.pypi.org:443
-                    tuf-repo-cdn.sigstore.dev:443
-                    fulcio.sigstore.dev:443
-                    rekor.sigstore.dev:443
+                  egress-policy: audit
 
             - name: Fetch CLI release artifacts
               uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -290,10 +260,7 @@ jobs:
               uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
               with:
                   disable-sudo-and-containers: false
-                  egress-policy: block
-                  allowed-endpoints: >
-                    api.github.com:443
-                    uploads.github.com:443
+                  egress-policy: audit
 
             - name: Fetch cu12.9 release artifacts
               uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -337,29 +304,7 @@ jobs:
               uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
               with:
                 disable-sudo-and-containers: false
-                egress-policy: block
-                allowed-endpoints: >
-                  github.com:443
-                  registry-1.docker.io:443
-                  index.docker.io:443
-                  production.cloudflare.docker.com:443
-                  auth.docker.io:443
-                  azure.archive.ubuntu.com:80
-                  archive.ubuntu.com:80
-                  security.ubuntu.com:80
-                  astral.sh:443
-                  releases.astral.sh:443
-                  objects.githubusercontent.com:443
-                  pypi.org:443
-                  pypi.nvidia.com:443
-                  files.pythonhosted.org:443
-                  release-assets.githubusercontent.com:443
-                  wrapdb.mesonbuild.com:443
-                  nvcr.io:443
-                  layers.nvcr.io:443
-                  wheels.vllm.ai:443
-                  download.pytorch.org:443
-                  download-r2.pytorch.org:443
+                egress-policy: audit
 
             - name: Login to DockerHub
               uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
@@ -393,6 +338,12 @@ jobs:
                 --tag lmcache/vllm-openai:latest --tag lmcache/vllm-openai:${{ env.LATEST_TAG }} \
                 --file docker/Dockerfile .
 
+            # `lmcache --help` exercises eager CLI subcommand discovery,
+            # so a missing runtime dep fails the build before the image ships.
+            - name: Smoke test lmcache/vllm-openai (cu13)
+              run: |
+                docker run --rm --entrypoint lmcache lmcache/vllm-openai:${{ env.LATEST_TAG }} --help
+
             - name: Push lmcache/vllm-openai container image to DockerHub
               run: |
                 docker push lmcache/vllm-openai:latest
@@ -408,6 +359,10 @@ jobs:
                 docker build \
                 --tag lmcache/vllm-openai:lightweight --tag lmcache/vllm-openai:${{ env.LATEST_TAG }}-lightweight \
                 --file docker/Dockerfile.lightweight .
+
+            - name: Smoke test lmcache/vllm-openai:lightweight
+              run: |
+                docker run --rm --entrypoint lmcache lmcache/vllm-openai:${{ env.LATEST_TAG }}-lightweight --help
 
             - name: Push lmcache/vllm-openai:lightweight image to DockerHub
               run: |
@@ -429,6 +384,10 @@ jobs:
                 --tag lmcache/standalone:latest --tag lmcache/standalone:${{ env.LATEST_TAG }} \
                 --tag lmcache/standalone:latest-cu130 --tag lmcache/standalone:${{ env.LATEST_TAG }}-cu130 \
                 --file docker/Dockerfile.standalone .
+
+            - name: Smoke test lmcache/standalone (cu13)
+              run: |
+                docker run --rm --entrypoint lmcache lmcache/standalone:${{ env.LATEST_TAG }} --help
 
             - name: Push lmcache/standalone container image to DockerHub
               run: |
@@ -453,6 +412,11 @@ jobs:
                 --tag lmcache/vllm-openai:latest-cu129 --tag lmcache/vllm-openai:${{ env.LATEST_TAG }}-cu129 \
                 --file docker/Dockerfile .
 
+            - name: Smoke test lmcache/vllm-openai (cu12.9)
+              if: needs.publish-cu129-github-release.result == 'success'
+              run: |
+                docker run --rm --entrypoint lmcache lmcache/vllm-openai:${{ env.LATEST_TAG }}-cu129 --help
+
             - name: Push lmcache/vllm-openai cu129 container image to DockerHub
               if: needs.publish-cu129-github-release.result == 'success'
               run: |
@@ -473,6 +437,11 @@ jobs:
                 --target lmcache-final \
                 --tag lmcache/standalone:latest-cu129 --tag lmcache/standalone:${{ env.LATEST_TAG }}-cu129 \
                 --file docker/Dockerfile.standalone .
+
+            - name: Smoke test lmcache/standalone (cu12.9)
+              if: needs.publish-cu129-github-release.result == 'success'
+              run: |
+                docker run --rm --entrypoint lmcache lmcache/standalone:${{ env.LATEST_TAG }}-cu129 --help
 
             - name: Push lmcache/standalone cu129 container image to DockerHub
               if: needs.publish-cu129-github-release.result == 'success'

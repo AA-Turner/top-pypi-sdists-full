@@ -14,6 +14,7 @@ from allauth.account import app_settings
 from allauth.account.authentication import AUTHENTICATION_METHODS_SESSION_KEY
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.models import Authenticator
+from allauth.mfa.totp.internal.auth import SECRET_SESSION_KEY
 
 
 def test_activate_totp_with_incorrect_code(auth_client, reauthentication_bypass):
@@ -71,6 +72,7 @@ def test_activate_totp_success(
     assert len(mailoutbox) == 1
     assert "Authenticator App Activated" in mailoutbox[0].subject
     assert "Authenticator app activated." in mailoutbox[0].body
+    assert SECRET_SESSION_KEY not in auth_client.session
 
 
 def test_deactivate_totp_success(

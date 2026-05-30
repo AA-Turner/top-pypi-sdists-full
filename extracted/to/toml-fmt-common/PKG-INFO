@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toml-fmt-common
-Version: 1.3.3
+Version: 1.3.5
 Summary: Common logic to the TOML formatter.
 License-Expression: MIT
 License-File: LICENSE.txt

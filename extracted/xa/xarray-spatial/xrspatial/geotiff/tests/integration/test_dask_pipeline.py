@@ -1,10 +1,8 @@
 """Dask-only pipeline integration tests for the GeoTIFF reader.
 
-Consolidated from the issue-numbered files mapped in
-``CLUSTER_AUDIT_PR9.md``. Covers chunk/tile alignment, integer-nodata
-chunking, no-op astype optimisations, overview level selection,
-planar multiband, max-pixels guards, streaming writes, and the
-accessor IO surface.
+Covers chunk/tile alignment, integer-nodata chunking, no-op astype
+optimisations, overview level selection, planar multiband, max-pixels
+guards, streaming writes, and the accessor IO surface.
 """
 from __future__ import annotations
 
@@ -17,7 +15,6 @@ from xrspatial.geotiff._writer import write
 
 # ----------------------------------------------------------
 # Section: dask_chunk_tile_misalignment
-# Source: test_dask_chunk_tile_misalignment.py
 # ----------------------------------------------------------
 tifffile_dask_chunk_tile_misalignment = pytest.importorskip("tifffile")
 dask_array_dask_chunk_tile_misalignment = pytest.importorskip("dask.array")
@@ -109,7 +106,6 @@ def test_chunk_tuple_doubly_unaligned(tmp_path):
 
 # ----------------------------------------------------------
 # Section: dask_int_nodata_chunks
-# Source: test_dask_int_nodata_chunks_1597.py
 # ----------------------------------------------------------
 
 
@@ -177,9 +173,8 @@ def test_dask_chunks_2_per_chunk_dtype_uniform(
 def test_dask_keeps_dtype_for_out_of_range_sentinel(tmp_path):
     """Out-of-range sentinels (uint16 + nodata=-9999) stay uint16.
 
-    The fix should not regress #1581: when the sentinel cannot match
-    any pixel, no float64 promotion is needed and the dask path keeps
-    the file's native dtype.
+    When the sentinel cannot match any pixel, no float64 promotion is
+    needed and the dask path keeps the file's native dtype.
     """
     arr = np.array([[1, 2, 3, 4]] * 4, dtype=np.uint16)
     path = str(tmp_path / 'uint16_out_of_range_1597.tif')
@@ -211,7 +206,6 @@ def test_dask_float_input_with_sentinel_in_one_chunk(tmp_path):
 
 # ----------------------------------------------------------
 # Section: dask_max_pixels_default_guard
-# Source: test_dask_max_pixels_default_guard_1838.py
 # ----------------------------------------------------------
 
 
@@ -258,22 +252,36 @@ def _write_oversized_dask_max_pixels_default_guard(path, *, h: int, w: int) -> N
     path.write_bytes(bytes(raw))
 
 
-def test_default_max_pixels_guard_fires_for_full_region(tmp_path):
-    """``max_pixels=None`` must apply the module default cap at the
-    up-front region guard, matching the eager / VRT paths.
+def test_default_max_pixels_guard_does_not_fire_up_front(tmp_path):
+    """The dask path no longer rejects an oversized full image at graph-
+    build time (#2501). The cap is now per-chunk, so a forged
+    multi-billion-pixel header builds a lazy graph without erroring;
+    each chunk task decodes against ``max_pixels`` separately.
     """
-    path = tmp_path / "tmp_1838_oversized.tif"
+    path = tmp_path / "tmp_2501_oversized.tif"
     side = int((MAX_PIXELS_DEFAULT ** 0.5)) + 2
     _write_oversized_dask_max_pixels_default_guard(path, h=side, w=side)
-    with pytest.raises(ValueError, match=r"max_pixels"):
-        read_geotiff_dask(str(path))
+    # The graph builds; the up-front guard is gone. Chunk-level decode
+    # may still fail when a task actually runs, but that is a separate
+    # path. ``read_geotiff_dask(...)`` itself returns a DataArray.
+    da = read_geotiff_dask(str(path))
+    assert da.shape == (side, side)
 
 
-def test_explicit_max_pixels_still_enforced(tmp_path):
-    path = tmp_path / "tmp_1838_explicit_cap.tif"
-    _write_oversized_dask_max_pixels_default_guard(path, h=2048, w=2048)
-    with pytest.raises(ValueError, match=r"max_pixels"):
-        read_geotiff_dask(str(path), max_pixels=1024)
+def test_explicit_max_pixels_enforced_per_chunk(tmp_path):
+    """Per-chunk decode honours ``max_pixels`` even when the full image
+    would have fit under it (#2501). Build a real 64x64 file, request
+    chunks of 32, and set ``max_pixels`` below the per-chunk cost.
+    """
+    arr = np.arange(64 * 64, dtype=np.uint8).reshape(64, 64)
+    path = tmp_path / "tmp_2501_per_chunk_cap.tif"
+    tifffile_dask_max_pixels_default_guard.imwrite(
+        str(path), arr, tile=(16, 16),
+        photometric="minisblack", compression="none")
+    # 32x32 chunk = 1024 pixels; cap is 100. Graph builds, compute fails.
+    da = read_geotiff_dask(str(path), chunks=32, max_pixels=100)
+    with pytest.raises(ValueError, match="exceed the safety limit"):
+        da.compute()
 
 
 def test_small_region_unaffected(tmp_path):
@@ -288,7 +296,6 @@ def test_small_region_unaffected(tmp_path):
 
 # ----------------------------------------------------------
 # Section: dask_no_op_astype
-# Source: test_dask_no_op_astype_1624.py
 # ----------------------------------------------------------
 
 
@@ -314,7 +321,7 @@ def uint16_with_sentinel_in_first_chunk_dask_no_op_astype(tmp_path):
 
 
 def test_uint16_mask_path_still_promotes(uint16_with_sentinel_in_first_chunk_dask_no_op_astype):
-    """The #1597 promotion still runs when sentinels are present."""
+    """The int-sentinel float64 promotion still runs when sentinels are present."""
     path, arr = uint16_with_sentinel_in_first_chunk_dask_no_op_astype
     eager = open_geotiff(path)
     dk = open_geotiff(path, chunks=4)
@@ -377,10 +384,9 @@ def test_astype_skipped_when_dtypes_match(float32_no_nodata_tif_dask_no_op_astyp
         return tracked, meta
 
     # ``read_geotiff_dask``'s per-chunk worker calls the alias
-    # ``_read_to_array`` bound in ``xrspatial.geotiff._backends.dask``
-    # (since #1886). Patch that binding; patching
-    # ``_reader.read_to_array`` would not affect the already-imported
-    # alias. See issue #1708 for why ``read_to_array`` is internal.
+    # ``_read_to_array`` bound in ``xrspatial.geotiff._backends.dask``.
+    # Patch that binding; patching ``_reader.read_to_array`` would not
+    # affect the already-imported alias.
     monkeypatch.setattr(gt, '_read_to_array', wrapped_r2a)
 
     dk = read_geotiff_dask(path, chunks=4)
@@ -407,7 +413,6 @@ def test_caller_supplied_dtype_still_casts(float32_no_nodata_tif_dask_no_op_asty
 
 # ----------------------------------------------------------
 # Section: dask_overview_level
-# Source: test_dask_overview_level.py
 # ----------------------------------------------------------
 
 
@@ -501,7 +506,6 @@ def test_dask_overview_level_none_returns_full_res(tmp_path):
 
 # ----------------------------------------------------------
 # Section: dask_planar_multiband
-# Source: test_dask_planar_multiband.py
 # ----------------------------------------------------------
 
 
@@ -600,7 +604,6 @@ def test_dask_planar_separate_chunks_tuple(tmp_path):
 
 # ----------------------------------------------------------
 # Section: dask_streaming_write_degenerate
-# Source: test_dask_streaming_write_degenerate_2026_05_15.py
 # ----------------------------------------------------------
 
 
@@ -680,7 +683,7 @@ class TestStreamingWrite1xN_dask_streaming_write_degenerate:
         np.testing.assert_array_equal(result.values, arr)
 
     def test_1xN_wide_segmented_by_buffer(self, tmp_path):
-        """Wide single row segmented by streaming_buffer_bytes (#1485)."""
+        """Wide single row segmented by streaming_buffer_bytes."""
         arr = np.arange(64, dtype=np.float32).reshape(1, 64)
         da = xr.DataArray(arr, dims=['y', 'x']).chunk({'y': 1, 'x': 16})
         path = str(tmp_path / '1xN_seg.tif')
@@ -877,7 +880,6 @@ class TestStreamingWriteFloatPredictor_dask_streaming_write_degenerate:
 
 # ----------------------------------------------------------
 # Section: accessor_io
-# Source: test_accessor_io.py
 # ----------------------------------------------------------
 
 
@@ -1032,3 +1034,318 @@ class TestDatasetOpenGeotiff_accessor_io:
         })
         result = template.xrs.open_geotiff(path, name='myname')
         assert result.name == 'myname'
+
+
+# ---------------------------------------------------------------------------
+# DataArray.xrs.open_geotiff (issue #2557 - DataArray-side windowed read
+# with backend inference and auto-reproject on CRS mismatch)
+# ---------------------------------------------------------------------------
+
+
+class TestDataArrayOpenGeotiff_2557:
+    def test_windowed_read(self, tmp_path):
+        big = _make_da_accessor_io(height=20, width=20)
+        big_path = str(tmp_path / 'test_2557_da_window.tif')
+        to_geotiff(big, big_path, compression='none')
+
+        y_sub = big.coords['y'].values[5:15]
+        x_sub = big.coords['x'].values[5:15]
+        template = xr.DataArray(
+            np.zeros((len(y_sub), len(x_sub)), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': y_sub, 'x': x_sub},
+            attrs={'crs': 4326},
+        )
+        result = template.xrs.open_geotiff(big_path)
+        # Half-pixel expansion may include one extra edge row/col
+        assert len(y_sub) <= result.shape[0] <= len(y_sub) + 2
+        assert len(x_sub) <= result.shape[1] <= len(x_sub) + 2
+
+    def test_no_coords_raises(self, tmp_path):
+        da = _make_da_accessor_io()
+        path = str(tmp_path / 'test_2557_da_nocoords.tif')
+        to_geotiff(da, path, compression='none')
+
+        bad = xr.DataArray(np.zeros(5), dims=['z'])
+        with pytest.raises(ValueError, match="'y' and 'x' coordinates"):
+            bad.xrs.open_geotiff(path)
+
+    def test_kwargs_forwarded(self, tmp_path):
+        da = _make_da_accessor_io(height=8, width=10)
+        path = str(tmp_path / 'test_2557_da_kwargs.tif')
+        to_geotiff(da, path, compression='none')
+
+        template = xr.DataArray(
+            np.zeros_like(da.values),
+            dims=['y', 'x'],
+            coords={'y': da.coords['y'].values,
+                    'x': da.coords['x'].values},
+            attrs={'crs': 4326},
+        )
+        result = template.xrs.open_geotiff(path, name='myname')
+        assert result.name == 'myname'
+
+
+# ---------------------------------------------------------------------------
+# Backend inference: caller backend -> result backend (issue #2557)
+# ---------------------------------------------------------------------------
+
+
+class TestOpenGeotiffBackendInference_2557:
+    def test_numpy_caller_returns_numpy(self, tmp_path):
+        big = _make_da_accessor_io(height=10, width=10)
+        path = str(tmp_path / 'test_2557_numpy.tif')
+        to_geotiff(big, path, compression='none')
+
+        template = xr.DataArray(
+            np.zeros((10, 10), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': big.coords['y'].values,
+                    'x': big.coords['x'].values},
+            attrs={'crs': 4326},
+        )
+        result = template.xrs.open_geotiff(path)
+        assert isinstance(result.data, np.ndarray)
+        assert result.chunks is None
+
+    def test_dask_caller_returns_dask_with_inferred_chunks(self, tmp_path):
+        import dask.array as dda
+        big = _make_da_accessor_io(height=12, width=12)
+        path = str(tmp_path / 'test_2557_dask.tif')
+        to_geotiff(big, path, compression='none')
+
+        template = xr.DataArray(
+            dda.zeros((12, 12), chunks=(4, 4), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': big.coords['y'].values,
+                    'x': big.coords['x'].values},
+            attrs={'crs': 4326},
+        )
+        result = template.xrs.open_geotiff(path)
+        assert isinstance(result.data, dda.Array)
+        # First y-chunk should match the caller (4)
+        assert result.chunks[0][0] == 4
+
+    def test_explicit_chunks_override_inference(self, tmp_path):
+        import dask.array as dda
+        big = _make_da_accessor_io(height=12, width=12)
+        path = str(tmp_path / 'test_2557_chunks_override.tif')
+        to_geotiff(big, path, compression='none')
+
+        template = xr.DataArray(
+            dda.zeros((12, 12), chunks=(4, 4), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': big.coords['y'].values,
+                    'x': big.coords['x'].values},
+            attrs={'crs': 4326},
+        )
+        result = template.xrs.open_geotiff(path, chunks=3)
+        assert isinstance(result.data, dda.Array)
+        # Caller asked for 3, override wins over inferred 4
+        assert result.chunks[0][0] == 3
+
+    def test_dataset_caller_infers_from_first_var(self, tmp_path):
+        import dask.array as dda
+        big = _make_da_accessor_io(height=10, width=10)
+        path = str(tmp_path / 'test_2557_ds_backend.tif')
+        to_geotiff(big, path, compression='none')
+
+        var = xr.DataArray(
+            dda.zeros((10, 10), chunks=(5, 5), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': big.coords['y'].values,
+                    'x': big.coords['x'].values},
+            attrs={'crs': 4326},
+        )
+        ds = xr.Dataset({'elevation': var})
+        result = ds.xrs.open_geotiff(path)
+        assert isinstance(result.data, dda.Array)
+        assert result.chunks[0][0] == 5
+
+
+# ---------------------------------------------------------------------------
+# CRS mismatch handling (issue #2557)
+# ---------------------------------------------------------------------------
+
+
+class TestOpenGeotiffCRSMismatch_2557:
+    def test_mismatch_raises_by_default(self, tmp_path):
+        # File in EPSG:4326
+        big = _make_da_accessor_io(height=10, width=10, crs=4326)
+        path = str(tmp_path / 'test_2557_mismatch.tif')
+        to_geotiff(big, path, compression='none')
+
+        # Caller in EPSG:3857
+        template = xr.DataArray(
+            np.zeros((4, 4), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': np.linspace(5e6, 4.9e6, 4),
+                    'x': np.linspace(-1.3e7, -1.32e7, 4)},
+            attrs={'crs': 3857},
+        )
+        with pytest.raises(ValueError, match="CRS mismatch"):
+            template.xrs.open_geotiff(path)
+
+    def test_auto_reproject_returns_caller_crs(self, tmp_path):
+        # File in EPSG:4326 over a small mid-latitude box
+        height, width = 30, 30
+        arr = np.arange(height * width,
+                        dtype=np.float32).reshape(height, width)
+        y = np.linspace(45.5, 44.5, height)
+        x = np.linspace(-120.5, -119.5, width)
+        file_da = xr.DataArray(
+            arr, dims=['y', 'x'],
+            coords={'y': y, 'x': x},
+            attrs={'crs': 4326},
+        )
+        path = str(tmp_path / 'test_2557_autoreproj.tif')
+        to_geotiff(file_da, path, compression='none')
+
+        # Caller in EPSG:3857 over the same region
+        from pyproj import Transformer
+        tr = Transformer.from_crs(4326, 3857, always_xy=True)
+        x0, y0 = tr.transform(-120.25, 45.25)
+        x1, y1 = tr.transform(-119.75, 44.75)
+        template = xr.DataArray(
+            np.zeros((6, 6), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': np.linspace(max(y0, y1), min(y0, y1), 6),
+                    'x': np.linspace(min(x0, x1), max(x0, x1), 6)},
+            attrs={'crs': 3857},
+        )
+        result = template.xrs.open_geotiff(path, auto_reproject=True)
+        # Result coords are in caller's CRS (mercator metres). Check the
+        # bbox roughly matches the caller's bbox so a future regression
+        # in projection direction would be caught. Tolerance is one
+        # output pixel's worth of metres at this latitude (~150 km of
+        # bbox / 6 pixels).
+        tol = abs(float(template.coords['x'][1] - template.coords['x'][0]))
+        assert abs(float(result.coords['x'].min())
+                   - float(template.coords['x'].min())) < 2 * tol
+        assert abs(float(result.coords['x'].max())
+                   - float(template.coords['x'].max())) < 2 * tol
+
+    def test_chained_open_geotiff_with_wkt_crs(self, tmp_path):
+        # After auto_reproject, xrspatial.reproject sets attrs['crs'] to
+        # a WKT string. Calling open_geotiff again on that DataArray must
+        # not crash on int() conversion (regression for PR #2598 review).
+        height, width = 20, 20
+        arr = np.arange(height * width,
+                        dtype=np.float32).reshape(height, width)
+        y = np.linspace(45.5, 44.5, height)
+        x = np.linspace(-120.5, -119.5, width)
+        file_da = xr.DataArray(
+            arr, dims=['y', 'x'],
+            coords={'y': y, 'x': x},
+            attrs={'crs': 4326},
+        )
+        path = str(tmp_path / 'test_2557_wkt.tif')
+        to_geotiff(file_da, path, compression='none')
+
+        # Synthesize a caller with a WKT-string crs (what reproject sets)
+        from pyproj import CRS as _PyprojCRS
+        wkt_3857 = _PyprojCRS(3857).to_wkt()
+        from pyproj import Transformer
+        tr = Transformer.from_crs(4326, 3857, always_xy=True)
+        x0, y0 = tr.transform(-120.25, 45.25)
+        x1, y1 = tr.transform(-119.75, 44.75)
+        template = xr.DataArray(
+            np.zeros((4, 4), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': np.linspace(max(y0, y1), min(y0, y1), 4),
+                    'x': np.linspace(min(x0, x1), max(x0, x1), 4)},
+            attrs={'crs': wkt_3857},
+        )
+        # Should raise ValueError (mismatch), not TypeError/ValueError
+        # from int(wkt_string)
+        with pytest.raises(ValueError, match="CRS mismatch"):
+            template.xrs.open_geotiff(path)
+        # And auto_reproject path also works. reproject preserves the
+        # file's native pixel resolution, so the result shape reflects
+        # the windowed slice of the file rather than the caller's
+        # template shape -- the (20x20-pixel, 1deg-extent) file at a
+        # ~0.5deg caller bbox gives ~10 pixels per side plus boundary
+        # rounding. Bound generously.
+        result = template.xrs.open_geotiff(path, auto_reproject=True)
+        assert result.ndim == 2
+        assert 4 <= result.shape[0] <= 20
+        assert 4 <= result.shape[1] <= 20
+
+    def test_no_caller_crs_no_mismatch_check(self, tmp_path):
+        # Caller without attrs['crs'] should skip mismatch logic and
+        # proceed (preserves prior behavior).
+        big = _make_da_accessor_io(height=10, width=10, crs=4326)
+        path = str(tmp_path / 'test_2557_nocrs.tif')
+        to_geotiff(big, path, compression='none')
+
+        template = xr.DataArray(
+            np.zeros((10, 10), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': big.coords['y'].values,
+                    'x': big.coords['x'].values},
+            # No attrs['crs']
+        )
+        # Should not raise
+        result = template.xrs.open_geotiff(path)
+        np.testing.assert_array_equal(result.values, big.values)
+
+    def test_dataset_crs_falls_back_from_ds_attrs(self, tmp_path):
+        # CRS on Dataset attrs, not on the data_var, should still be
+        # picked up.
+        big = _make_da_accessor_io(height=10, width=10, crs=4326)
+        path = str(tmp_path / 'test_2557_ds_crs_attr.tif')
+        to_geotiff(big, path, compression='none')
+
+        var = xr.DataArray(
+            np.zeros((4, 4), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': np.linspace(5e6, 4.9e6, 4),
+                    'x': np.linspace(-1.3e7, -1.32e7, 4)},
+        )
+        ds = xr.Dataset({'elevation': var}, attrs={'crs': 3857})
+        with pytest.raises(ValueError, match="CRS mismatch"):
+            ds.xrs.open_geotiff(path)
+
+    def test_malformed_crs_raises(self, tmp_path):
+        # A garbage attrs['crs'] must raise rather than silently skip
+        # the mismatch check (follow-up review hardening).
+        big = _make_da_accessor_io(height=10, width=10, crs=4326)
+        path = str(tmp_path / 'test_2557_bad_crs.tif')
+        to_geotiff(big, path, compression='none')
+
+        template = xr.DataArray(
+            np.zeros((4, 4), dtype=np.float32),
+            dims=['y', 'x'],
+            coords={'y': big.coords['y'].values[:4],
+                    'x': big.coords['x'].values[:4]},
+            attrs={'crs': 'not-a-real-crs'},
+        )
+        with pytest.raises(ValueError, match="not a valid CRS"):
+            template.xrs.open_geotiff(path)
+
+
+# ---------------------------------------------------------------------------
+# GPU backend inference (gated on CUDA + cupy availability) - issue #2557
+# ---------------------------------------------------------------------------
+
+from xrspatial.tests.general_checks import cuda_and_cupy_available  # noqa: E402
+
+
+@cuda_and_cupy_available
+class TestOpenGeotiffGPUBackendInference_2557:
+    def test_cupy_caller_returns_cupy(self, tmp_path):
+        import cupy as cp
+        big = _make_da_accessor_io(height=10, width=10)
+        path = str(tmp_path / 'test_2557_cupy.tif')
+        to_geotiff(big, path, compression='none')
+
+        template = xr.DataArray(
+            cp.zeros((10, 10), dtype=cp.float32),
+            dims=['y', 'x'],
+            coords={'y': big.coords['y'].values,
+                    'x': big.coords['x'].values},
+            attrs={'crs': 4326},
+        )
+        result = template.xrs.open_geotiff(path)
+        # Result should be cupy-backed (gpu=True was inferred)
+        assert type(result.data).__module__.split('.')[0] == 'cupy'

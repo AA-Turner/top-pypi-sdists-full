@@ -1,11 +1,12 @@
 """MetricsMiddleware — per-RPC telemetry emitter for the Tier-12 chain.
 
 Per ADR-009 §"Chain ordering" and master plan §2, ``MetricsMiddleware`` sits
-just inside ``DrainMiddleware`` (and just outside ``RetryMiddleware``) in the
-final chain ordering ``[Drain, Metrics, Retry, AuthRefresh, ErrorInjection,
-Tracing]``. PR 12.4 ships it as the OUTERMOST of two seeded middlewares
-(``[Metrics, Tracing]``); PRs 12.5–12.8 prepend the remaining middlewares
-to its left.
+just inside ``DrainMiddleware`` (and just outside ``SemaphoreMiddleware``) in
+the final chain ordering
+``[Drain, Metrics, Semaphore, Retry, AuthRefresh, ErrorInjection, Tracing]``.
+PR 12.4 ships it as the OUTERMOST of two seeded middlewares
+(``[Metrics, Tracing]``); PRs 12.5–12.9 insert the remaining middlewares
+around it while preserving Metrics outside the semaphore.
 
 Pure observer: never mutates ``request`` or transforms ``response``. Around
 ``next_call`` it captures the wall-clock elapsed time of the chain-inner
@@ -19,7 +20,8 @@ per logical RPC:
   :class:`RpcTelemetryEvent` so application-level ``on_rpc_event``
   callbacks fire (Prometheus exporter, OTEL bridge, custom logger, …).
 
-The emit fires only when ``request.context["rpc_method"]`` is present.
+The emit fires only when ``RPC_CONTEXT_RPC_METHOD`` is present in
+``request.context``.
 Other code paths through the chain (e.g. the chat streaming path in
 ``_chat_transport.send_authed_post``, which calls
 ``Session._perform_authed_post`` directly without minting an
@@ -37,20 +39,18 @@ caller-initiated unwinds, not RPC failures; they propagate without
 incrementing counters or emitting events. Same scope as TracingMiddleware,
 same reason.
 
-This PR also lifts the per-RPC telemetry block from
-``RpcExecutor.execute_with_telemetry`` (which previously increment-and-
-emitted around ``_rpc_call_impl``). The chain now owns that emission, and
-``execute_with_telemetry`` keeps only the ``rpc_calls_started`` counter
-plus the reqid + drain-token plumbing — concerns that live OUTSIDE the
-chain and are not transport-layer events.
+This PR also lifts the per-RPC telemetry block from the logical RPC wrapper.
+The chain now owns that emission, and ``RpcExecutor.rpc_call`` keeps only the
+``rpc_calls_started`` counter plus the reqid plumbing — concerns that live
+OUTSIDE the chain and are not transport-layer events.
 
 Semantic refinement vs. pre-PR-12.4: decode-time errors (e.g. ``NoData``
 raised after a 200-OK transport return) previously incremented
-``rpc_calls_failed`` because the old block wrapped ``_rpc_call_impl``,
+``rpc_calls_failed`` because the old block wrapped raw RPC dispatch,
 which includes decode. The chain wraps only the transport leg, so
 decode-only failures no longer count as ``rpc_calls_failed``. This is the
-intended Tier-13 endpoint shape (``Session.rpc_call`` decodes AFTER the
-chain returns) and disentangles two failure modes that the old counter
+intended Tier-13 endpoint shape (:meth:`RpcExecutor.rpc_call` decodes AFTER
+the chain returns) and disentangles two failure modes that the old counter
 conflated — chain failures = transport failures, decode failures track
 separately if anyone wants to add them.
 
@@ -66,6 +66,7 @@ from typing import TYPE_CHECKING
 
 from ._logging import get_request_id
 from ._middleware import NextCall, RpcRequest, RpcResponse
+from ._middleware_context import RPC_CONTEXT_RPC_METHOD
 from ._types.common import RpcTelemetryEvent
 
 if TYPE_CHECKING:
@@ -102,7 +103,7 @@ class MetricsMiddleware:
         the pre-PR-12.4 behavior. When present, the value flows into
         :attr:`RpcTelemetryEvent.method`.
         """
-        rpc_method = request.context.get("rpc_method")
+        rpc_method = request.context.get(RPC_CONTEXT_RPC_METHOD)
         # ``perf_counter`` is monotonic and clock-jump-safe. The reading
         # happens here (not inside the success/failure branches) so the
         # elapsed accounting is identical across paths and trivially

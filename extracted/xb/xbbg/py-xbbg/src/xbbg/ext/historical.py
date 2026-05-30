@@ -113,12 +113,10 @@ if TYPE_CHECKING:
 
 def _get_empty_dataframe() -> IntoDataFrame:
     """Return empty DataFrame using configured backend."""
+    from xbbg import blp
     from xbbg._core import ArrowTable
-    from xbbg.backend import get_default_backend
-    from xbbg.blp import _convert_backend, get_backend
 
-    backend = get_backend() or get_default_backend()
-    return _convert_backend(ArrowTable.empty(["ticker", "field", "value"]), backend)
+    return blp._convert_result_backend(ArrowTable.empty(["ticker", "field", "value"]), None)
 
 
 # =============================================================================

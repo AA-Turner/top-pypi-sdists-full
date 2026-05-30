@@ -77,6 +77,8 @@ _DATA_DIR = Path.home() / ".ouroboros" / "data"
 _SUGGESTED_INTERVIEW_ID_RE = re.compile(r"^interview_[a-f0-9]{16}$")
 
 _LIVE_AMBIGUITY_MAX_RETRIES = 3
+_QUESTION_GENERATION_ENVELOPE_VIOLATION = "ToolUseBlockViolation"
+_QUESTION_GENERATION_ENVELOPE_REASON_CODE = "question_generation_envelope_violation"
 
 REQUIRED_CLIENT_GATES: tuple[str, ...] = (
     # TODO(#1008): derive required gate names from the interview skill /
@@ -430,6 +432,23 @@ def _length_guard_meta_fields() -> dict[str, Any]:
         "expected_action": "resend_with_summary",
         "max_chars": MAX_PROMPT_SAFE_INITIAL_CONTEXT_CHARS,
     }
+
+
+def _provider_error_type(error: Any) -> str | None:
+    details = getattr(error, "details", None)
+    if isinstance(details, dict):
+        error_type = details.get("error_type")
+        if isinstance(error_type, str) and error_type:
+            return error_type
+    return None
+
+
+def _is_question_generation_envelope_violation(error: Any) -> bool:
+    """Return true for strict provider tool-envelope violations."""
+    provider_error_type = _provider_error_type(error)
+    if provider_error_type == _QUESTION_GENERATION_ENVELOPE_VIOLATION:
+        return True
+    return _QUESTION_GENERATION_ENVELOPE_VIOLATION in str(error)
 
 
 def _interview_reasoning_meta(
@@ -847,7 +866,8 @@ class GenerateSeedHandler:
             description=(
                 "Generate an immutable Seed from a completed interview session. "
                 "The seed contains structured requirements (goal, constraints, acceptance criteria) "
-                "extracted from the interview conversation. Generation requires ambiguity_score <= 0.2."
+                "extracted from the interview conversation. Generation requires ambiguity_score <= 0.2 "
+                "unless force=true is passed to deliberately bypass the gate."
             ),
             parameters=(
                 MCPToolParameter(
@@ -876,6 +896,18 @@ class GenerateSeedHandler:
                     required=False,
                     items={"type": "string"},
                 ),
+                MCPToolParameter(
+                    name="force",
+                    type=ToolInputType.BOOLEAN,
+                    description=(
+                        "Bypass the ambiguity-score threshold and generate the seed even "
+                        "when ambiguity_score > 0.2. Mirrors the CLI 'Generate Seed anyway' "
+                        "opt-in: the real score is still recorded in seed metadata for "
+                        "provenance, and the bypass is emitted to the audit log. "
+                        "Defaults to false."
+                    ),
+                    required=False,
+                ),
             ),
         )
 
@@ -901,6 +933,7 @@ class GenerateSeedHandler:
             )
 
         ambiguity_score_value = arguments.get("ambiguity_score")
+        force = bool(arguments.get("force", False))
         client_gate_status = get_client_gate_status(arguments)
         client_gate_error = _client_gate_error(client_gate_status)
         if client_gate_error is not None:
@@ -910,7 +943,14 @@ class GenerateSeedHandler:
             "mcp.tool.generate_seed",
             session_id=session_id,
             ambiguity_score=ambiguity_score_value,
+            force=force,
         )
+        if force:
+            log.warning(
+                "mcp.tool.generate_seed.force_bypass",
+                session_id=session_id,
+                caller_ambiguity_score=ambiguity_score_value,
+            )
 
         # --- Subagent dispatch: gate on runtime + opencode_mode ---
         if should_dispatch_via_plugin(self.agent_runtime_backend, self.opencode_mode):
@@ -939,7 +979,14 @@ class GenerateSeedHandler:
             if effective_score is None:
                 effective_score = interview_state.ambiguity_score  # persisted
 
-            if not interview_state.is_complete:
+            # force=True intentionally bypasses BOTH the ambiguity threshold
+            # AND the "no score / no answered rounds" completeness guard for
+            # this plugin path — broader than #1107's domain-layer scope, but
+            # matches the CLI ``init`` "Generate Seed anyway" opt-in which
+            # forwards the same flag past the same guards. The real ambiguity
+            # score is still recorded in seed metadata for provenance and the
+            # bypass is emitted to the audit log.
+            if not interview_state.is_complete and not force:
                 answered_rounds = [r for r in interview_state.rounds if r.user_response is not None]
                 if effective_score is not None:
                     # Have a score — enforce threshold
@@ -948,7 +995,8 @@ class GenerateSeedHandler:
                             MCPToolError(
                                 f"Ambiguity score {effective_score:.2f} exceeds "
                                 f"threshold {_THRESHOLD}. Continue interviewing "
-                                f"to reduce ambiguity before seed generation.",
+                                f"to reduce ambiguity before seed generation, "
+                                f"or pass force=true to bypass the gate.",
                                 tool_name="ouroboros_generate_seed",
                             )
                         )
@@ -970,6 +1018,7 @@ class GenerateSeedHandler:
                 ambiguity_score=effective_score,
                 transcript=transcript,
                 client_gates=client_gate_status["accepted_client_gates"],
+                force=force,
             )
             await emit_subagent_dispatched_event(
                 self.event_store,
@@ -982,6 +1031,7 @@ class GenerateSeedHandler:
                     "session_id": session_id,
                     "status": "delegated_to_subagent",
                     "dispatch_mode": "plugin",
+                    "force": force,
                     **client_gate_status,
                 },
             )
@@ -1064,8 +1114,10 @@ class GenerateSeedHandler:
                 model=get_clarification_model(self.llm_backend),
             )
 
-            # Generate seed
-            seed_result = await generator.generate(state, ambiguity_score)
+            # Generate seed; force bypasses the ambiguity threshold gate inside
+            # SeedGenerator.generate while still stamping the real score into
+            # SeedMetadata for provenance.
+            seed_result = await generator.generate(state, ambiguity_score, force=force)
 
             if seed_result.is_err:
                 error = seed_result.error
@@ -1113,6 +1165,7 @@ class GenerateSeedHandler:
                         "seed_id": seed.metadata.seed_id,
                         "interview_id": seed.metadata.interview_id,
                         "ambiguity_score": seed.metadata.ambiguity_score,
+                        "force": force,
                         **client_gate_status,
                     },
                 )
@@ -1280,6 +1333,61 @@ class InterviewHandler:
         return score
 
     @staticmethod
+    def _parent_question_handoff_response(
+        state: InterviewState,
+        session_id: str,
+        *,
+        phase: str,
+        score: AmbiguityScore | None,
+        error: Any,
+    ) -> Result[MCPToolResult, MCPServerError]:
+        """Build a non-error response asking the parent session to ask the user."""
+        provider_error_type = _provider_error_type(error)
+        return Result.ok(
+            MCPToolResult(
+                content=(
+                    MCPContentItem(
+                        type=ContentType.TEXT,
+                        text=(
+                            f"Session {session_id}\n\n"
+                            "Ask the user exactly one natural Socratic clarification "
+                            "question yourself. Do not mention MCP, provider failures, "
+                            "tool envelopes, retries, or internal recovery. When the "
+                            "user answers, call ouroboros_interview with "
+                            f'session_id="{session_id}", answer=<user answer>, and '
+                            "last_question=<the exact question you asked>."
+                        ),
+                    ),
+                ),
+                is_error=False,
+                meta={
+                    "session_id": session_id,
+                    "status": "parent_question_required",
+                    "recoverable": True,
+                    "retry_mcp": False,
+                    "ask_user_directly": True,
+                    "last_question_required": True,
+                    "reason_code": _QUESTION_GENERATION_ENVELOPE_REASON_CODE,
+                    "question_source": "parent_session",
+                    "provider_error_type": provider_error_type,
+                    "ambiguity_score": score.overall_score if score is not None else None,
+                    "milestone": _milestone_for_score(score),
+                    "seed_ready": score.is_ready_for_seed if score is not None else None,
+                    **_interview_reasoning_meta(
+                        state=state,
+                        session_id=session_id,
+                        phase=phase,
+                        next_action=(
+                            "ask one direct user question, then resume with last_question"
+                        ),
+                        score=score,
+                        recoverable=True,
+                    ),
+                },
+            )
+        )
+
+    @staticmethod
     def _ambiguity_gate_response(
         session_id: str,
         score: AmbiguityScore | None,
@@ -1326,6 +1434,8 @@ class InterviewHandler:
         state: InterviewState,
         session_id: str,
         score: AmbiguityScore | None = None,
+        *,
+        seed_ready_override: bool | None = None,
     ) -> Result[MCPToolResult, MCPServerError]:
         """Complete the interview and return a Seed-ready MCP response."""
         complete_result = await engine.complete_interview(state)
@@ -1376,7 +1486,13 @@ class InterviewHandler:
                     "completed": True,
                     "ambiguity_score": score.overall_score if score is not None else None,
                     "milestone": _milestone_for_score(score),
-                    "seed_ready": score.is_ready_for_seed if score is not None else None,
+                    "seed_ready": (
+                        seed_ready_override
+                        if seed_ready_override is not None
+                        else score.is_ready_for_seed
+                        if score is not None
+                        else None
+                    ),
                     "required_client_gates": REQUIRED_CLIENT_GATES,
                     **_interview_reasoning_meta(
                         state=state,
@@ -1805,6 +1921,31 @@ class InterviewHandler:
                 live_score = None
                 question_result = await engine.ask_next_question(state)
                 if question_result.is_err:
+                    if _is_question_generation_envelope_violation(question_result.error):
+                        from ouroboros.events.interview import interview_question_parent_handoff
+
+                        self._emit_event_bg(
+                            interview_question_parent_handoff(
+                                state.interview_id,
+                                phase="start_question_generation",
+                                reason_code=_QUESTION_GENERATION_ENVELOPE_REASON_CODE,
+                                provider_error_type=_provider_error_type(question_result.error),
+                            )
+                        )
+                        log.warning(
+                            "mcp.tool.interview.question_generation_parent_handoff",
+                            session_id=state.interview_id,
+                            phase="start_question_generation",
+                            reason_code=_QUESTION_GENERATION_ENVELOPE_REASON_CODE,
+                        )
+                        return self._parent_question_handoff_response(
+                            state,
+                            state.interview_id,
+                            phase="start_question_parent_handoff",
+                            score=live_score,
+                            error=question_result.error,
+                        )
+
                     error_msg = str(question_result.error)
                     event_error_msg = _format_interview_failure_event_error(question_result.error)
                     from ouroboros.events.interview import interview_failed
@@ -2115,6 +2256,34 @@ class InterviewHandler:
                                 advance_streak=False,
                                 reset_on_failure=True,
                             )
+                        # Safe-default synthesis is emitted only after the
+                        # auto driver has filled every remaining required
+                        # ledger gap with audited conservative defaults. Do
+                        # not require the semantic ambiguity scorer to also
+                        # cross the normal human "done" threshold; that score
+                        # can lag behind the ledger and would leave a trailing
+                        # unanswered question in the persisted transcript.
+                        if is_safe_default_synthesis:
+                            if has_pending_round:
+                                state.rounds.pop()
+                            from ouroboros.bigbang.interview import InterviewRound
+
+                            state.rounds.append(
+                                InterviewRound(
+                                    round_number=len(state.rounds) + 1,
+                                    question=last_question or "[driver safe-default finalization]",
+                                    user_response=answer,
+                                )
+                            )
+                            state.clear_stored_ambiguity()
+                            state.mark_updated()
+                            return await self._complete_interview_response(
+                                engine,
+                                state,
+                                session_id,
+                                None,
+                                seed_ready_override=True,
+                            )
                         if exit_score is not None and qualifies_for_seed_completion(
                             exit_score,
                             is_brownfield=state.is_brownfield,
@@ -2255,7 +2424,9 @@ class InterviewHandler:
                             is_brownfield=state.is_brownfield,
                         )
 
-                    if not state.rounds:
+                    if not state.rounds and last_question:
+                        pending_question = last_question
+                    elif not state.rounds:
                         return Result.err(
                             MCPToolError(
                                 "Cannot record answer - no questions have been asked yet",
@@ -2291,7 +2462,9 @@ class InterviewHandler:
                         else "initial"
                     )
 
-                    if state.rounds[-1].user_response is None:
+                    if not state.rounds:
+                        pass
+                    elif state.rounds[-1].user_response is None:
                         pending_question = last_question or state.rounds[-1].question
                         state.rounds.pop()
                     else:
@@ -2384,6 +2557,31 @@ class InterviewHandler:
                     live_score = _load_state_ambiguity_score(state)
                     question_result = await engine.ask_next_question(state)
                 if question_result.is_err:
+                    if _is_question_generation_envelope_violation(question_result.error):
+                        from ouroboros.events.interview import interview_question_parent_handoff
+
+                        self._emit_event_bg(
+                            interview_question_parent_handoff(
+                                session_id,
+                                phase="next_question_generation",
+                                reason_code=_QUESTION_GENERATION_ENVELOPE_REASON_CODE,
+                                provider_error_type=_provider_error_type(question_result.error),
+                            )
+                        )
+                        log.warning(
+                            "mcp.tool.interview.question_generation_parent_handoff",
+                            session_id=session_id,
+                            phase="next_question_generation",
+                            reason_code=_QUESTION_GENERATION_ENVELOPE_REASON_CODE,
+                        )
+                        return self._parent_question_handoff_response(
+                            state,
+                            session_id,
+                            phase="next_question_parent_handoff",
+                            score=live_score,
+                            error=question_result.error,
+                        )
+
                     error_msg = str(question_result.error)
                     event_error_msg = _format_interview_failure_event_error(question_result.error)
                     from ouroboros.events.interview import interview_failed

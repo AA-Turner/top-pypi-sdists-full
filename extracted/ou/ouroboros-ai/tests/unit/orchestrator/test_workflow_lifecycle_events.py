@@ -33,8 +33,11 @@ from ouroboros.orchestrator.workflow_ir import (
 )
 from ouroboros.orchestrator.workflow_lifecycle import (
     MAX_WORKFLOW_LIFECYCLE_DATA_BYTES,
+    MAX_WORKFLOW_LIFECYCLE_REASON_CODE_LEN,
     MAX_WORKFLOW_LIFECYCLE_REF_BYTES,
     MAX_WORKFLOW_LIFECYCLE_REF_COUNT,
+    MAX_WORKFLOW_LIFECYCLE_REF_LEN_CHARS,
+    MAX_WORKFLOW_LIFECYCLE_WORKFLOW_ID_LEN,
     WORKFLOW_LIFECYCLE_AGGREGATE_TYPE,
     WORKFLOW_LIFECYCLE_EVENT_TYPES,
     WorkflowLifecycleEvent,
@@ -424,6 +427,35 @@ def test_projection_is_deterministic_across_input_orderings() -> None:
     assert project_workflow_lifecycle(spec.spec_id, mixed) == canonical
 
 
+def test_projection_same_timestamp_restart_boundary_prefers_fresh_run() -> None:
+    spec = _spec()
+    timestamp = _t(1)
+    events = (
+        WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.RUN_CREATED,
+            workflow_id=spec.spec_id,
+            timestamp=_t(0),
+        ),
+        WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.RUN_COMPLETED,
+            workflow_id=spec.spec_id,
+            timestamp=timestamp,
+            reason_code="old_run_completed",
+        ),
+        WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.RUN_CREATED,
+            workflow_id=spec.spec_id,
+            timestamp=timestamp,
+        ),
+    )
+
+    projection = project_workflow_lifecycle(spec.spec_id, tuple(reversed(events)))
+
+    assert projection.run_state is WorkflowRunLifecycleState.CREATED
+    assert projection.terminal_reason_code is None
+    assert not projection.is_terminal()
+
+
 def test_projection_tie_breaks_same_timestamp_node_attempts() -> None:
     spec = _spec()
     timestamp = _t(1)
@@ -656,3 +688,104 @@ async def test_persisted_db_row_payload_contains_no_raw_streams() -> None:
             assert needle not in serialized, (
                 f"persisted DB row leaks forbidden substring {needle!r}: {serialized!r}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Wave 2 #1142 / #956 — hardened storage-DoS / recursion bounds
+# ---------------------------------------------------------------------------
+
+
+def test_lifecycle_event_rejects_oversized_reason_code() -> None:
+    """Reason code over the bound is rejected to prevent storage DoS."""
+    spec = _spec()
+    oversized = "x" * (MAX_WORKFLOW_LIFECYCLE_REASON_CODE_LEN + 1)
+    with pytest.raises(ValidationError, match="reason_code exceeds"):
+        WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.RUN_FAILED,
+            workflow_id=spec.spec_id,
+            reason_code=oversized,
+        )
+
+
+def test_lifecycle_event_rejects_oversized_workflow_id() -> None:
+    """Workflow id over the bound is rejected to prevent storage DoS."""
+    oversized = "wf_" + ("x" * MAX_WORKFLOW_LIFECYCLE_WORKFLOW_ID_LEN)
+    with pytest.raises(ValidationError, match="workflow_id exceeds"):
+        WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.RUN_CREATED,
+            workflow_id=oversized,
+        )
+
+
+def test_lifecycle_event_rejects_too_many_refs_entries() -> None:
+    """Ref count above ``MAX_WORKFLOW_LIFECYCLE_REF_COUNT`` is rejected.
+
+    Exercises the pre-existing per-event ref-count ceiling (the operative
+    bound is ``MAX_WORKFLOW_LIFECYCLE_REF_COUNT``). The input size is the
+    smallest value that trips the limit so a regression that loosens the
+    bound by even one slot is caught.
+    """
+    spec = _spec()
+    refs = tuple(
+        f"control://contract/ref-{index}" for index in range(MAX_WORKFLOW_LIFECYCLE_REF_COUNT + 1)
+    )
+    with pytest.raises(
+        ValidationError,
+        match=f"refs exceed {MAX_WORKFLOW_LIFECYCLE_REF_COUNT} entries",
+    ):
+        WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.RUN_CREATED,
+            workflow_id=spec.spec_id,
+            refs=refs,
+        )
+
+
+def test_lifecycle_event_rejects_large_ref_generator_without_full_materialization() -> None:
+    spec = _spec()
+    yielded = 0
+
+    def refs():
+        nonlocal yielded
+        for index in range(10_000):
+            yielded += 1
+            yield f"control://contract/ref-{index}"
+
+    with pytest.raises(
+        ValidationError,
+        match=f"refs exceed {MAX_WORKFLOW_LIFECYCLE_REF_COUNT} entries",
+    ):
+        WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.RUN_CREATED,
+            workflow_id=spec.spec_id,
+            refs=refs(),
+        )
+
+    assert yielded == MAX_WORKFLOW_LIFECYCLE_REF_COUNT + 1
+
+
+def test_lifecycle_event_rejects_individual_ref_over_char_bound() -> None:
+    """A single oversized ref string is rejected at the validator entry point."""
+    spec = _spec()
+    refs = ("x" * (MAX_WORKFLOW_LIFECYCLE_REF_LEN_CHARS + 1),)
+    with pytest.raises(ValidationError, match="refs exceed"):
+        WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.RUN_CREATED,
+            workflow_id=spec.spec_id,
+            refs=refs,
+        )
+
+
+def test_lifecycle_event_rejects_deeply_nested_data_no_recursion_error() -> None:
+    """A 33-level nested ``data`` mapping is rejected cleanly without RecursionError."""
+    spec = _spec()
+    # Build a dict nested deeper than _MAX_NESTING_DEPTH (32).
+    payload: dict[str, object] = {"leaf": "value"}
+    for _ in range(33):
+        payload = {"nested": payload}
+    with pytest.raises(ValidationError, match="nesting depth"):
+        WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.NODE_COMPLETED,
+            workflow_id=spec.spec_id,
+            node_id="node_a",
+            data=payload,
+        )

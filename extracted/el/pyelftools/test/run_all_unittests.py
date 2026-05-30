@@ -7,9 +7,8 @@
 # Eli Bendersky (eliben@gmail.com)
 # This code is in the public domain
 #-------------------------------------------------------------------------------
-from __future__ import print_function
-
-import os, sys
+import os
+import sys
 import unittest
 
 # Make it possible to run this file from the root dir of pyelftools without

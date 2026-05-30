@@ -36,7 +36,7 @@ from ouroboros.bigbang.pm_completion import (
     maybe_complete_pm_interview,
 )
 from ouroboros.bigbang.pm_document import save_pm_document
-from ouroboros.bigbang.pm_interview import PMInterviewEngine
+from ouroboros.bigbang.pm_interview import PM_UNCERTAINTY_GUIDANCE, PMInterviewEngine
 from ouroboros.config import get_clarification_model
 from ouroboros.core.initial_context import resolve_initial_context_input
 from ouroboros.core.types import Result
@@ -714,6 +714,7 @@ class PMInterviewHandler:
         cwd: str,
         *,
         selected_repos: list[str] | None = None,
+        interview_id: str | None = None,
     ) -> Result[MCPToolResult, MCPServerError]:
         """Start a new PM interview session.
 
@@ -761,6 +762,7 @@ class PMInterviewHandler:
 
         result = await engine.ask_opening_and_start(
             user_response=initial_context,
+            interview_id=interview_id,
             brownfield_repos=brownfield_repos,
         )
         if result.is_err:
@@ -846,7 +848,10 @@ class PMInterviewHandler:
         )
 
         # Build response text — include skip hint when applicable
-        start_text = f"PM interview started. Session ID: {state.interview_id}\n\n{question}"
+        start_text = (
+            f"PM interview started. Session ID: {state.interview_id}\n\n"
+            f"{PM_UNCERTAINTY_GUIDANCE}\n\n{question}"
+        )
         if is_decide_later:
             start_text += (
                 "\n\n💡 This question can be deferred. "
@@ -1016,6 +1021,7 @@ class PMInterviewHandler:
             saved_context,
             cwd,
             selected_repos=selected_repos,
+            interview_id=session_id,
         )
 
     # ──────────────────────────────────────────────────────────────

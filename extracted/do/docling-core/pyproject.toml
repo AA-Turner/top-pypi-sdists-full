@@ -1,6 +1,6 @@
 [project]
 name = "docling-core"
-version = "2.77.1"  # DO NOT EDIT, updated automatically
+version = "2.78.0"  # DO NOT EDIT, updated automatically
 description = "A python library to define and validate data types in Docling."
 license = "MIT"
 license-files = ["LICENSE"]
@@ -113,7 +113,7 @@ dev = [
     "pandas-stubs~=2.1",
     "ipykernel~=6.29",
     "coverage~=7.6",
-    "pytest~=8.3",
+    "pytest~=9.0.3",
     "pytest-cov>=6.1.1",
     "python-semantic-release~=7.32",
     'tree-sitter-java-orchard (>=0.3.0,<1.0.0); python_version >= "3.10"',

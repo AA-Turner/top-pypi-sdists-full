@@ -22,24 +22,13 @@ except ImportError:
 if TYPE_CHECKING:
     import cupy as cp
 
-# Import kernel utilities
-try:
-    from AOT_biomaps.AOT_Recon.AOT_Kernels import (
-        check_cuda_available,
-        check_pycuda_available,
-        sparse_matrix_vector_product_csr
-    )
-    KERNELS_AVAILABLE = True
-except ImportError:
-    KERNELS_AVAILABLE = False
-
 
 class SMatrix_CSR:
     """
     Construction of a CSR matrix from a `manip` object.
     
     Supports both CPU and GPU implementations:
-    - On GPU: Uses CuPy for memory management and custom CUDA kernels
+    - On GPU: Uses CuPy for memory management and custom CUDA kernels (compiled from source)
     - On CPU: Uses NumPy arrays and CPU implementations
     
     Usage:
@@ -53,6 +42,9 @@ class SMatrix_CSR:
     - norm_factor_inv: Normalization factor (host)
     - For GPU: row_ptr_gpu, col_ind_gpu, values_gpu, norm_factor_inv_gpu
     """
+    
+    # Class-level cache for compiled CUDA module
+    _compiled_module = None
 
     def __init__(self, manip, block_rows: int = 64, relative_threshold: float = 0.3, 
                  device: Optional[str] = None):
@@ -94,9 +86,15 @@ class SMatrix_CSR:
         self.norm_factor_inv_gpu = None
         self.sparse_mod = None
         
-        # Path to CUDA module
-        cubin_parent_dir = os.path.dirname(os.path.dirname(__file__))
-        self.module_path = os.path.join(cubin_parent_dir, "AOT_biomaps_kernels.cubin")
+        # Preconditioner attributes
+        self.preconditioner = None
+        self.preconditioner_inv = None
+        self.preconditioner_gpu = None
+        self.preconditioner_inv_gpu = None
+        
+        # Path to CUDA source file
+        cuda_parent_dir = os.path.dirname(os.path.dirname(__file__))
+        self.cuda_source_path = os.path.join(cuda_parent_dir, "AOT_biomaps_kernels.cu")
 
     def __enter__(self):
         return self
@@ -114,26 +112,36 @@ class SMatrix_CSR:
             return False
         return True
 
-    def load_precompiled_module(self):
-        """
-        Load the pre-compiled CUDA module (.cubin) using CuPy.
-        """
+    def load_module(self):
+        """Compile and load CUDA kernels from source using CuPy."""
         if not self._check_gpu_available():
             return
+        
+        # Use global cache to avoid recompiling multiple times
+        if SMatrix_CSR._compiled_module is None:
+            if not os.path.exists(self.cuda_source_path):
+                warnings.warn(
+                    f"CUDA source file {os.path.basename(self.cuda_source_path)} not found at: {self.cuda_source_path}. "
+                    "Falling back to CPU implementation."
+                )
+                self.device = 'cpu'
+                return
             
-        if not os.path.exists(self.module_path):
-            warnings.warn(
-                f"CUDA module {os.path.basename(self.module_path)} not found at: {self.module_path}. "
-                "Falling back to CPU implementation."
-            )
-            self.device = 'cpu'
-            return
-            
-        try:
-            self.sparse_mod = cp.cuda.runtime.moduleFromFile(self.module_path)
-        except Exception as e:
-            warnings.warn(f"Failed to load CUDA module: {e}. Falling back to CPU.")
-            self.device = 'cpu'
+            try:
+                # Read CUDA source code
+                with open(self.cuda_source_path, 'r', encoding='utf-8') as f:
+                    cuda_source = f.read()
+                
+                # Compile with CuPy (uses cache automatically)
+                SMatrix_CSR._compiled_module = cp.cuda.compile_with_cache(cuda_source)
+                
+            except Exception as e:
+                warnings.warn(f"Failed to compile CUDA module: {e}. Falling back to CPU.")
+                self.device = 'cpu'
+                return
+        
+        # Use the cached compiled module
+        self.sparse_mod = SMatrix_CSR._compiled_module
 
     def estimate_nnz_cpu(self) -> int:
         """
@@ -217,7 +225,7 @@ class SMatrix_CSR:
         # Try GPU first
         if self._check_gpu_available():
             try:
-                self.load_precompiled_module()
+                self.load_module()
                 if self.sparse_mod is not None:
                     self._allocate_gpu()
                     return
@@ -355,6 +363,97 @@ class SMatrix_CSR:
         if self._check_gpu_available():
             self.norm_factor_inv_gpu = cp.cuda.alloc(self.norm_factor_inv.nbytes)
             cp.cuda.memcpy_htod(self.norm_factor_inv_gpu, self.norm_factor_inv)
+
+    def compute_preconditioner(self, preconditioner_type='diagonal'):
+        """
+        Compute preconditioner for the system matrix.
+        
+        Args:
+            preconditioner_type: Type of preconditioner ('diagonal' or 'none')
+            
+        Returns:
+            tuple: (preconditioner, preconditioner_inv) on appropriate device
+        """
+        from AOT_biomaps.AOT_Recon.ReconEnums import PreconditionerType
+        
+        if preconditioner_type == PreconditionerType.NONE or preconditioner_type == 'none':
+            self.preconditioner = None
+            self.preconditioner_inv = None
+            self.preconditioner_gpu = None
+            self.preconditioner_inv_gpu = None
+            return None, None
+        
+        ZX = self.Z * self.X
+        TN = self.N * self.T
+        
+        if self._check_gpu_available() and self.sparse_mod is not None:
+            # GPU implementation using backprojection
+            ones_gpu = cp.cuda.alloc(TN * np.dtype(np.float32).itemsize)
+            cp.cuda.memset_d32(ones_gpu, 0x3f800000, TN)  # 1.0f bit pattern
+            
+            c_gpu = cp.cuda.alloc(ZX * np.dtype(np.float32).itemsize)
+            cp.cuda.memset_d32(c_gpu, 0, ZX)
+            
+            bp_kernel = self.sparse_mod.get_function('backprojection_kernel__CSR')
+            threads = 256
+            blocks = (TN + threads - 1) // threads
+            
+            bp_kernel(
+                grid=(blocks, 1, 1), block=(threads, 1, 1),
+                args=[c_gpu.data.ptr, self.values_gpu, self.row_ptr_gpu, self.col_ind_gpu,
+                      ones_gpu, np.int32(TN)]
+            )
+            cp.cuda.Stream.null.synchronize()
+            
+            c_host = np.empty(ZX, dtype=np.float32)
+            cp.cuda.memcpy_dtoh(c_host, c_gpu)
+            ones_gpu.free()
+            c_gpu.free()
+            
+            # Store preconditioner
+            self.preconditioner = c_host.copy()
+            self.preconditioner = np.maximum(self.preconditioner, 1e-6)
+            self.preconditioner_inv = (1.0 / self.preconditioner).astype(np.float32)
+            
+            # Copy to GPU
+            self.preconditioner_gpu = cp.cuda.alloc(self.preconditioner.nbytes)
+            self.preconditioner_inv_gpu = cp.cuda.alloc(self.preconditioner_inv.nbytes)
+            cp.cuda.memcpy_htod(self.preconditioner_gpu, self.preconditioner)
+            cp.cuda.memcpy_htod(self.preconditioner_inv_gpu, self.preconditioner_inv)
+            
+            return self.preconditioner_gpu, self.preconditioner_inv_gpu
+        else:
+            # CPU implementation
+            ones = np.ones(TN, dtype=np.float32)
+            c_host = self.backward_projection(ones)
+            
+            # Store preconditioner
+            self.preconditioner = c_host.copy()
+            self.preconditioner = np.maximum(self.preconditioner, 1e-6)
+            self.preconditioner_inv = (1.0 / self.preconditioner).astype(np.float32)
+            
+            return self.preconditioner, self.preconditioner_inv
+
+    def apply_preconditioner(self, U):
+        """
+        Apply preconditioner to a vector.
+        
+        Args:
+            U: Vector to precondition
+            
+        Returns:
+            Preconditioned vector
+        """
+        if self._check_gpu_available() and self.preconditioner_inv_gpu is not None:
+            U_gpu = cp.asarray(U) if not isinstance(U, cp.ndarray) else U
+            return U_gpu * cp.asarray(self.preconditioner_inv_gpu)
+        elif self.preconditioner_inv is not None:
+            U_cpu = np.asarray(U) if not isinstance(U, np.ndarray) else U
+            if isinstance(U_cpu, cp.ndarray):
+                U_cpu = cp.asnumpy(U_cpu)
+            return U_cpu * self.preconditioner_inv
+        else:
+            return U
 
     def forward_projection(self, theta: Union[np.ndarray, "cp.ndarray"]) -> Union[np.ndarray, "cp.ndarray"]:
         """

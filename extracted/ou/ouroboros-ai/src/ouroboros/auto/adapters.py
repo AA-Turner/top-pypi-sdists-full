@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+import contextlib
 from dataclasses import dataclass
 import hashlib
+import os
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import yaml
 
@@ -21,11 +24,14 @@ from ouroboros.mcp.tools.authoring_handlers import (
     InterviewHandler,
 )
 from ouroboros.mcp.tools.evaluation_handlers import LateralThinkHandler
-from ouroboros.mcp.tools.execution_handlers import StartExecuteSeedHandler
+from ouroboros.mcp.tools.execution_handlers import ExecuteSeedHandler, StartExecuteSeedHandler
 from ouroboros.mcp.tools.qa import QAHandler
 from ouroboros.mcp.tools.ralph_handlers import RalphHandler
 from ouroboros.mcp.tools.subagent import should_dispatch_via_plugin
 from ouroboros.mcp.types import MCPToolResult
+from ouroboros.orchestrator.runtime_evidence import HeadlessRunProbe, RuntimeEvidence
+from ouroboros.orchestrator.session import SessionRepository, SessionStatus
+from ouroboros.persistence.event_store import EventStore
 from ouroboros.resilience.lateral import ThinkingPersona
 
 _SAFE_SEED_ID_FILENAME_CHARS = frozenset(
@@ -47,6 +53,34 @@ _SEED_FILENAME_STEM_MAX_BYTES = _SEED_FILENAME_COMPONENT_MAX_BYTES - len(
 
 class HandlerError(RuntimeError):
     """Raised when an MCP handler returns an error result."""
+
+
+class EnvRuntimeProbeRunner:
+    """Runtime probe runner configured through public CLI/MCP environment.
+
+    ``OUROBOROS_RUNTIME_PROBE_COMMAND`` opt-in keeps default behavior unchanged,
+    while giving production entrypoints a real probe path whose failures can
+    block PRODUCT_COMPLETE.
+    """
+
+    def __init__(self, *, env: dict[str, str] | None = None) -> None:
+        self._env = env if env is not None else os.environ
+
+    async def __call__(self, state: Any) -> tuple[RuntimeEvidence, ...]:
+        command = self._env.get("OUROBOROS_RUNTIME_PROBE_COMMAND")
+        if not command:
+            return ()
+        raw_timeout = self._env.get("OUROBOROS_RUNTIME_PROBE_TIMEOUT_SECONDS")
+        timeout: float | None = 60.0
+        if raw_timeout:
+            timeout = float(raw_timeout)
+        evidence = await asyncio.to_thread(
+            HeadlessRunProbe().run,
+            cwd=Path(state.cwd),
+            command=command,
+            timeout_seconds=timeout,
+        )
+        return (evidence,)
 
 
 class PartialInterviewStartError(HandlerError):
@@ -152,18 +186,28 @@ class HandlerSeedGenerator:
     def __init__(self, handler: GenerateSeedHandler) -> None:
         self.handler = handler
 
-    async def __call__(self, session_id: str) -> Seed:
+    async def __call__(self, session_id: str, *, force: bool = False) -> Seed:
         # AutoPipeline reaches this adapter only after its own interview driver
         # closure gate records a seed-ready interview. Pass the maintained
         # first-party acknowledgement set so the opt-in MCP hard gate can be
         # enabled without breaking `ooo auto` seed generation.
+        #
+        # ``force`` is set by ``AutoPipeline`` when the interview closed on
+        # ledger evidence (``interview_closure_mode in {ledger_only,
+        # safe_default}``) per SSOT #1157 *Closure Policy* (2026-05-27).
+        # That bypasses the persisted-ambiguity gate in
+        # ``GenerateSeedHandler`` / ``SeedGenerator.generate`` — necessary
+        # because under ledger-primary closure the backend ambiguity score
+        # is acknowledged-stale by design and would otherwise re-block at
+        # exactly the same threshold the interview driver chose to ignore.
+        arguments: dict[str, object] = {
+            "session_id": session_id,
+            "client_gates": REQUIRED_CLIENT_GATES,
+        }
+        if force:
+            arguments["force"] = True
         result = _unwrap(
-            await self.handler.handle(
-                {
-                    "session_id": session_id,
-                    "client_gates": REQUIRED_CLIENT_GATES,
-                }
-            ),
+            await self.handler.handle(arguments),
             tool_name="ouroboros_generate_seed",
         )
         text = result.content[0].text if result.content else ""
@@ -177,15 +221,26 @@ class HandlerSeedGenerator:
 class HandlerRunStarter:
     """Callable run starter backed by ``ouroboros_start_execute_seed``."""
 
-    def __init__(self, handler: StartExecuteSeedHandler, *, cwd: str) -> None:
+    def __init__(
+        self,
+        handler: StartExecuteSeedHandler,
+        *,
+        cwd: str,
+        use_worktree: bool = True,
+    ) -> None:
         self.handler = handler
         self.cwd = cwd
+        self.use_worktree = use_worktree
 
     async def __call__(self, seed: Seed, *, idempotency_key: str = "") -> dict[str, object]:
         seed_yaml = yaml.dump(
             seed.to_dict(), default_flow_style=False, allow_unicode=True, sort_keys=False
         )
-        arguments: dict[str, object] = {"seed_content": seed_yaml, "cwd": self.cwd}
+        arguments: dict[str, object] = {
+            "seed_content": seed_yaml,
+            "cwd": self.cwd,
+            "use_worktree": self.use_worktree,
+        }
         if idempotency_key:
             arguments["idempotency_key"] = idempotency_key
         result = _unwrap(
@@ -197,23 +252,151 @@ class HandlerRunStarter:
             "job_id": _optional_str(meta.get("job_id")),
             "session_id": _optional_str(meta.get("session_id")),
             "execution_id": _optional_str(meta.get("execution_id")),
+            "status": _optional_str(meta.get("status")),
         }
+        if isinstance(meta.get("success"), bool):
+            run_meta["success"] = meta["success"]
         if isinstance(meta.get("_subagent"), dict):
             run_meta["_subagent"] = meta["_subagent"]
         return run_meta
+
+
+class HandlerSynchronousRunStarter:
+    """Callable run starter backed by inline ``ouroboros_execute_seed`` execution."""
+
+    synchronous_execution = True
+
+    def __init__(
+        self,
+        handler: ExecuteSeedHandler,
+        *,
+        cwd: str,
+        skip_qa: bool = True,
+        terminal_poll_interval_seconds: float = 2.0,
+    ) -> None:
+        self.handler = handler
+        self.cwd = cwd
+        self.skip_qa = skip_qa
+        self.terminal_poll_interval_seconds = terminal_poll_interval_seconds
+        self._latest_run_meta: dict[str, object] | None = None
+
+    async def __call__(self, seed: Seed, *, idempotency_key: str = "") -> dict[str, object]:  # noqa: ARG002
+        seed_yaml = yaml.dump(
+            seed.to_dict(), default_flow_style=False, allow_unicode=True, sort_keys=False
+        )
+        session_id = f"orch_{uuid4().hex[:12]}"
+        execution_id = f"exec_{uuid4().hex[:12]}"
+        self._latest_run_meta = {
+            "job_id": None,
+            "session_id": session_id,
+            "execution_id": execution_id,
+            "status": "running",
+        }
+        task = asyncio.create_task(
+            self.handler.handle(
+                {"seed_content": seed_yaml, "cwd": self.cwd, "skip_qa": self.skip_qa},
+                execution_id=execution_id,
+                session_id_override=session_id,
+                synchronous=True,
+            )
+        )
+        task.add_done_callback(_consume_background_result)
+        try:
+            while True:
+                done, _pending = await asyncio.wait(
+                    {task},
+                    timeout=max(0.1, self.terminal_poll_interval_seconds),
+                )
+                if done:
+                    result = _unwrap(await task, tool_name="ouroboros_execute_seed")
+                    break
+                recovered = await self.recover_timed_out_run()
+                if recovered is not None:
+                    return recovered
+        except asyncio.CancelledError:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+            if self._latest_run_meta is not None:
+                self._latest_run_meta = {
+                    **self._latest_run_meta,
+                    "status": "cancelled",
+                    "success": False,
+                }
+            raise
+        meta = result.meta or {}
+        run_meta: dict[str, object] = {
+            "job_id": None,
+            "session_id": _optional_str(meta.get("session_id")),
+            "execution_id": _optional_str(meta.get("execution_id")),
+            "status": _optional_str(meta.get("status")),
+        }
+        if isinstance(meta.get("success"), bool):
+            run_meta["success"] = meta["success"]
+        if isinstance(meta.get("_subagent"), dict):
+            run_meta["_subagent"] = meta["_subagent"]
+        self._latest_run_meta = dict(run_meta)
+        return run_meta
+
+    async def recover_timed_out_run(self) -> dict[str, object] | None:
+        """Recover terminal metadata if inline execution finished during handler teardown."""
+        latest = self._latest_run_meta
+        if not latest:
+            return None
+        session_id = _optional_str(latest.get("session_id"))
+        execution_id = _optional_str(latest.get("execution_id"))
+        if not session_id:
+            return None
+
+        event_store = EventStore()
+        try:
+            await event_store.initialize()
+            result = await SessionRepository(event_store).reconstruct_session(session_id)
+        finally:
+            close_result = event_store.close()
+            if asyncio.iscoroutine(close_result):
+                await close_result
+        if result.is_err:
+            return None
+
+        tracker = result.value
+        if tracker.status == SessionStatus.RUNNING:
+            return None
+        status = tracker.status.value
+        recovered: dict[str, object] = {
+            "job_id": None,
+            "session_id": tracker.session_id,
+            "execution_id": execution_id or tracker.execution_id,
+            "status": status,
+            "_allow_deadline_completion_grace": True,
+        }
+        if tracker.status == SessionStatus.COMPLETED:
+            recovered["success"] = True
+        elif tracker.status in (SessionStatus.FAILED, SessionStatus.CANCELLED):
+            recovered["success"] = False
+        self._latest_run_meta = dict(recovered)
+        return recovered
+
+
+def _consume_background_result(task: asyncio.Task[Any]) -> None:
+    try:
+        task.result()
+    except asyncio.CancelledError:
+        return
+    except Exception:
+        return
 
 
 class HandlerRalphStarter:
     """Callable Ralph starter backed by ``ouroboros_ralph``.
 
     Bridges :class:`AutoPipeline`'s RUN → RALPH_HANDOFF transition to the
-    runtime-owned Ralph loop introduced in Q00/ouroboros#528. Awaits the
-    background job to a terminal state in non-plugin runtimes so the auto
-    pipeline can produce a final ``COMPLETE`` / ``BLOCKED`` / ``FAILED``
-    auto phase from the same ``AutoPipeline.run()`` call. In plugin mode
-    the handler returns ``delegated_to_plugin`` immediately and the
-    pipeline records ``ralph_dispatch_mode="plugin"`` without invoking
-    job tools.
+    runtime-owned Ralph loop introduced in Q00/ouroboros#528. By default it
+    returns as soon as the background job is durably dispatched; waiting for a
+    terminal Ralph verdict is opt-in via ``return_after_dispatch=False`` so MCP
+    clients do not get pinned to long-running work. In plugin mode the handler
+    returns ``delegated_to_plugin`` immediately and the pipeline records
+    ``ralph_dispatch_mode="plugin"`` without invoking job tools.
     """
 
     def __init__(self, handler: RalphHandler, *, project_dir: str | None = None) -> None:
@@ -238,8 +421,14 @@ class HandlerRalphStarter:
         on_started: Callable[[dict[str, Any]], None] | None = None,
         reattach_terminal: bool = True,
         reuse_existing: bool = True,
+        return_after_dispatch: bool = True,
+        commit_policy: str | None = None,
+        auto_session_id: str | None = None,
+        execution_id: str | None = None,
+        checkpoint_commits: list[dict[str, Any]] | None = None,
+        checkpoint_attempted_ac_ids: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Dispatch the Ralph loop and wait for terminal completion.
+        """Dispatch the Ralph loop and optionally wait for terminal completion.
 
         ``on_dispatched`` is invoked with the dispatch envelope *before*
         the wait-for-terminal poll begins, so callers (notably
@@ -271,20 +460,22 @@ class HandlerRalphStarter:
                         "status": "reattaching",
                     }
                 )
-            terminal_meta = await _wait_for_job_terminal(
+            terminal_meta = await _wait_for_job_terminal_with_cancel_cleanup(
                 job_manager,
                 existing_job_id,
                 timeout_seconds=max_total_seconds,
             )
             terminal_status = _optional_str(terminal_meta.get("status")) or "failed"
             stop_reason = _optional_str(terminal_meta.get("stop_reason"))
-            return {
+            reattach_result: dict[str, Any] = {
                 "job_id": existing_job_id,
                 "lineage_id": lineage_id,
                 "dispatch_mode": "job",
                 "terminal_status": terminal_status,
                 "stop_reason": stop_reason,
             }
+            _forward_checkpoint_meta(reattach_result, terminal_meta)
+            return reattach_result
 
         seed_yaml = yaml.dump(
             seed.to_dict(), default_flow_style=False, allow_unicode=True, sort_keys=False
@@ -295,6 +486,16 @@ class HandlerRalphStarter:
         }
         if self.project_dir is not None:
             arguments["project_dir"] = self.project_dir
+        if commit_policy is not None:
+            arguments["commit_policy"] = commit_policy
+        if auto_session_id is not None:
+            arguments["auto_session_id"] = auto_session_id
+        if execution_id is not None:
+            arguments["execution_id"] = execution_id
+        if checkpoint_commits is not None:
+            arguments["checkpoint_commits"] = checkpoint_commits
+        if checkpoint_attempted_ac_ids is not None:
+            arguments["checkpoint_attempted_ac_ids"] = checkpoint_attempted_ac_ids
         if max_total_seconds is not None:
             arguments["max_total_seconds"] = max_total_seconds
         if per_iteration_timeout_seconds is not None:
@@ -350,9 +551,11 @@ class HandlerRalphStarter:
             if dispatch_callback is not None:
                 dispatch_callback(envelope)
             return envelope
-        # Job mode: wait for the background job to terminate, then map the
-        # final job snapshot back into the structured terminal status the
-        # pipeline maps onto an auto phase.
+        # Job mode: return the tracking handle immediately by default. Callers
+        # that explicitly pass ``return_after_dispatch=False`` can still wait
+        # for the background job to terminate and map the final snapshot back
+        # into the structured terminal status the pipeline maps onto an auto
+        # phase.
         job_id = _optional_str(meta.get("job_id"))
         if not job_id:
             raise HandlerError("ouroboros_ralph did not return a job_id")
@@ -368,10 +571,18 @@ class HandlerRalphStarter:
                     "dispatch_mode": "job",
                 }
             )
+        if return_after_dispatch:
+            return {
+                "job_id": job_id,
+                "lineage_id": _optional_str(meta.get("lineage_id")) or lineage_id,
+                "dispatch_mode": "job",
+                "terminal_status": "running_async",
+                "stop_reason": "foreground_timeout_elapsed",
+            }
         if max_total_seconds is None:
             terminal_meta = await _wait_for_job_terminal(job_manager, job_id)
         else:
-            terminal_meta = await _wait_for_job_terminal(
+            terminal_meta = await _wait_for_job_terminal_with_cancel_cleanup(
                 job_manager,
                 job_id,
                 timeout_seconds=max_total_seconds,
@@ -397,6 +608,7 @@ class HandlerRalphStarter:
             # ``_optional_str`` would collapse the empty string to None and
             # silently skip EVALUATE.
             terminal_result["result_text"] = artifact_text
+        _forward_checkpoint_meta(terminal_result, terminal_meta)
         return terminal_result
 
 
@@ -429,12 +641,18 @@ class HandlerRalphPoller:
     ) -> dict[str, Any]:
         job_manager = self.handler._job_manager  # noqa: SLF001
         if max_total_seconds is None:
-            terminal_meta = await _wait_for_job_terminal(job_manager, job_id)
-        else:
             terminal_meta = await _wait_for_job_terminal(
                 job_manager,
                 job_id,
+                timeout_seconds=0,
+                detach_on_timeout=True,
+            )
+        else:
+            terminal_meta = await _wait_for_job_terminal_with_cancel_cleanup(
+                job_manager,
+                job_id,
                 timeout_seconds=max_total_seconds,
+                detach_on_timeout=True,
             )
         terminal_status = _optional_str(terminal_meta.get("status")) or "failed"
         stop_reason = _optional_str(terminal_meta.get("stop_reason"))
@@ -455,6 +673,7 @@ class HandlerRalphPoller:
             # VALID graded artifact, so use ``_artifact_text`` rather than
             # ``_optional_str``.
             result["result_text"] = artifact_text
+        _forward_checkpoint_meta(result, terminal_meta)
         return result
 
 
@@ -703,6 +922,8 @@ async def _wait_for_job_terminal(
     *,
     poll_interval: float = 0.05,
     timeout_seconds: float | None = None,
+    cancel_on_timeout: bool = False,
+    detach_on_timeout: bool = False,
 ) -> dict[str, Any]:
     """Poll the job manager until ``job_id`` reaches a terminal state.
 
@@ -734,6 +955,14 @@ async def _wait_for_job_terminal(
         if deadline is not None:
             remaining = deadline - loop.time()
             if remaining <= 0:
+                if detach_on_timeout:
+                    return {
+                        "job_id": job_id,
+                        "status": "running_async",
+                        "stop_reason": "foreground_timeout_elapsed",
+                    }
+                if cancel_on_timeout:
+                    await _cancel_job_after_terminal_wait_timeout(job_manager, job_id)
                 return {
                     "job_id": job_id,
                     "status": "failed",
@@ -742,6 +971,37 @@ async def _wait_for_job_terminal(
             await asyncio.sleep(min(poll_interval, remaining))
             continue
         await asyncio.sleep(poll_interval)
+
+
+async def _wait_for_job_terminal_with_cancel_cleanup(
+    job_manager: JobManager,
+    job_id: str,
+    *,
+    timeout_seconds: float,
+    detach_on_timeout: bool = False,
+) -> dict[str, Any]:
+    try:
+        return await _wait_for_job_terminal(
+            job_manager,
+            job_id,
+            timeout_seconds=timeout_seconds,
+            cancel_on_timeout=not detach_on_timeout,
+            detach_on_timeout=detach_on_timeout,
+        )
+    except asyncio.CancelledError:
+        await _cancel_job_after_terminal_wait_timeout(job_manager, job_id)
+        raise
+
+
+async def _cancel_job_after_terminal_wait_timeout(job_manager: JobManager, job_id: str) -> None:
+    """Best-effort cleanup for jobs that outlive the auto pipeline deadline."""
+    cancel_job = getattr(job_manager, "cancel_job", None)
+    if cancel_job is None:
+        return
+    try:
+        await cancel_job(job_id)
+    except Exception:
+        return
 
 
 def _terminal_job_status(status: JobStatus) -> str:
@@ -828,6 +1088,13 @@ def _turn_from_result(
     result: MCPToolResult, *, fallback_session_id: str | None = None
 ) -> InterviewTurn:
     meta = result.meta or {}
+    if meta.get("status") == "parent_question_required":
+        session_id = _optional_str(meta.get("session_id")) or fallback_session_id
+        detail = f" for session {session_id}" if session_id else ""
+        raise HandlerError(
+            "ouroboros_interview requires a parent-session user question"
+            f"{detail}; auto cannot answer the recovery instruction"
+        )
     session_id = _optional_str(meta.get("session_id")) or fallback_session_id
     if not session_id:
         raise HandlerError("ouroboros_interview did not return a session_id")
@@ -900,6 +1167,34 @@ def _current_generation_from_meta(meta: dict[str, Any]) -> int | None:
     if generations_generation is not None:
         return generations_generation
     return _optional_int(meta.get("iterations"))
+
+
+def _forward_checkpoint_meta(target: dict[str, Any], terminal_meta: dict[str, Any]) -> None:
+    """Copy AC checkpoint metadata from a terminal Ralph job snapshot.
+
+    ``RalphLoopResult.to_tool_result`` surfaces ``checkpoint_commits`` /
+    ``checkpoint_attempted_ac_ids`` in the job ``result_meta`` that
+    :func:`_wait_for_job_terminal` returns. The job-mode adapters rebuild a
+    *structured* terminal dict (rather than passing ``terminal_meta`` through
+    verbatim) and so must explicitly preserve these two lists, otherwise
+    :meth:`AutoPipeline._handoff_to_ralph` — which reads them off the returned
+    ``ralph_meta`` — never persists the durable commit list or the
+    retry-idempotency attempt set onto ``AutoPipelineState``. Dropping them
+    diverges the auto state from git side effects already performed inside the
+    managed worktree and makes a later resume re-attempt already-committed ACs
+    (Q00/ouroboros#1281 review ``req_1780029496_276``).
+
+    Only forwards a key when the snapshot actually carries a list for it, so
+    callers whose terminal metadata has no checkpoint fields keep their exact
+    prior shape. Entries are type-filtered to mirror the ``AutoPipelineState``
+    invariants (commits are objects, attempted AC ids are strings).
+    """
+    commits = terminal_meta.get("checkpoint_commits")
+    if isinstance(commits, list):
+        target["checkpoint_commits"] = [item for item in commits if isinstance(item, dict)]
+    attempts = terminal_meta.get("checkpoint_attempted_ac_ids")
+    if isinstance(attempts, list):
+        target["checkpoint_attempted_ac_ids"] = [item for item in attempts if isinstance(item, str)]
 
 
 def _artifact_text(value: object) -> str | None:

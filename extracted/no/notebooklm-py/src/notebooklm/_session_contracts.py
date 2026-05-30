@@ -2,9 +2,8 @@
 
 This module defines the narrow structural Protocols feature APIs depend
 on. Per ADR-013, a Protocol lives here only when **shared by ≥2
-features**; single-consumer capabilities (e.g. chat's ``transport_post``
-+ ``next_reqid``, artifact polling's ``register_drain_hook``) stay
-local to their owning feature module.
+features**; single-consumer capabilities (e.g. artifact polling's
+``register_drain_hook``) stay local to their owning feature module.
 
 Contents:
 
@@ -16,13 +15,17 @@ Contents:
 
 The broad ``Session`` Protocol that previously bundled all of these
 together was deleted in Phase 7 (refactor-history.md §Migration Plan step 10).
-Feature APIs that need more than one capability either compose the
-shared Protocols here or define a feature-local runtime in their own
-module (``ChatRuntime`` in ``_chat.py``, ``ArtifactsRuntime`` in
-``_artifacts.py``, ``UploadRuntime`` in ``_source_upload.py``). The
-standalone ``DrainHookRegistration`` Protocol that lived here in the
-broad-``Session`` era was deleted in the same step; the canonical
-``DrainHookRegistration`` is now the local one in ``_artifacts.py``.
+Feature APIs that need more than one capability take their direct
+collaborators by keyword-only constructor argument (``ChatAPI`` in
+``_chat.py``, ``ArtifactsAPI`` in ``_artifacts.py``, and
+``SourceUploadPipeline`` in ``_source_upload.py``). The feature-local
+composite Protocols ``ArtifactsRuntime`` and ``UploadRuntime`` (and
+their corresponding adapter dataclasses) that previously bundled three
+capability Protocols apiece were retired once it was clear they only
+hid three stable collaborators with exactly one production satisfier;
+the surviving narrow Protocols (``RpcCaller``, ``LoopGuard``,
+``OperationScopeProvider``, ``AsyncWorkRuntime``) here continue to
+describe the per-capability shapes feature constructors consume.
 """
 
 from __future__ import annotations
@@ -71,9 +74,9 @@ class RpcCaller(Protocol):
     ``disable_internal_retries`` / ``operation_variant`` parameters are
     preserved as-is.
 
-    A concrete :class:`notebooklm._session.Session` structurally
-    satisfies this Protocol; features that only need to issue RPC
-    calls depend on this narrow surface so they are not coupled to
+    ``NotebookLMClient`` and ``RpcExecutor`` structurally satisfy this
+    Protocol; features that only need to issue RPC calls depend on this
+    narrow surface so they are not coupled to
     transport, loop affinity, or close-time-hook concerns.
     """
 

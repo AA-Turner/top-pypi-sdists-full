@@ -4,11 +4,26 @@ This module provides a single entry point — :func:`make_fake_core` — that
 returns a ``FakeSession`` instance shaped to satisfy the **shared
 capability Protocols** in :mod:`notebooklm._session_contracts`
 (``RpcCaller``, ``LoopGuard``, ``OperationScopeProvider``,
-``AsyncWorkRuntime``, ``AuthMetadata``, ``Kernel``) plus the
-feature-local runtime Protocols (``ChatRuntime``, ``ArtifactsRuntime``,
-``UploadRuntime``) that compose them. Tests pass the result to a
-sub-client constructor (``NotebooksAPI(fake)``) instead of constructing
-a real ``Session`` and mutating its attributes after the fact.
+``AsyncWorkRuntime``, ``AuthMetadata``, ``Kernel``). Feature APIs that
+need more than one capability take their direct collaborators by
+keyword-only constructor argument (``ChatAPI`` in ``_chat.py``,
+``ArtifactsAPI`` in ``_artifacts.py``, ``SourceUploadPipeline`` in
+``_source_upload.py``); the feature-local composite Protocols
+``ArtifactsRuntime`` and ``UploadRuntime`` (and their adapter
+dataclasses) were retired once it was clear they only hid three stable
+collaborators with one production satisfier. (``ChatRuntime`` was
+deleted earlier on the same grounds — ADR-014 Rule 2 Corollary.) The
+``RpcCaller`` surface is exposed two ways: directly as
+``fake.rpc_call`` (legacy single-attribute access path that some tests
+still use) AND as ``fake.rpc_executor.rpc_call`` mirroring the
+production composition where ``NotebookLMClient`` stores
+``composed.executor`` as ``self._rpc_executor`` and passes it to every
+feature API. Both attributes are wired to the same underlying mock so
+``fake.rpc_call.assert_awaited`` and
+``fake.rpc_executor.rpc_call.assert_awaited`` observe the same calls.
+Tests pass the result to a sub-client constructor (e.g.
+``NotebooksAPI(fake.rpc_executor)``) instead of constructing a real
+``Session`` and mutating its attributes after the fact.
 
 Phase 7 (refactor-history.md §Migration Plan step 10) deleted the broad
 ``Session`` Protocol that this factory's defaults dict previously
@@ -19,8 +34,8 @@ shared Protocols.
 
 See :doc:`docs/adr/0007-test-monkeypatch-policy.md` for the policy that
 makes this factory the only sanctioned substitute for the forbidden
-``monkeypatch.setattr("notebooklm.…")`` and ``core.rpc_call = AsyncMock(…)``
-patterns.
+``monkeypatch.setattr("notebooklm.…")`` and
+``target.rpc_call = AsyncMock(…)`` patterns.
 
 Design choices (documented in ADR-007 "Alternatives considered"):
 
@@ -79,12 +94,19 @@ def make_fake_core(**overrides: Any) -> FakeSession:
     Passing an unknown keyword raises ``TypeError`` early so test typos
     don't silently no-op.
 
+    The historical ``rpc_call=`` keyword is preserved as a convenience —
+    it is unwrapped into ``rpc_executor=SimpleNamespace(rpc_call=<value>)``
+    so the live ``RpcCaller`` Protocol surface on the fake matches the
+    production shape (``NotebookLMClient.__init__`` stores
+    ``composed.executor`` as ``self._rpc_executor`` and passes it to
+    every feature API).
+
     Example::
 
         fake = make_fake_core(rpc_call=AsyncMock(return_value=[payload]))
-        api = NotebooksAPI(fake)
+        api = NotebooksAPI(fake.rpc_executor)
         result = await api.list()
-        fake.rpc_call.assert_awaited_once()
+        fake.rpc_executor.rpc_call.assert_awaited_once()
     """
 
     def _operation_scope(_label: str):
@@ -108,26 +130,36 @@ def make_fake_core(**overrides: Any) -> FakeSession:
     # New entries should only be added when a real test site exercises
     # the attribute — mirroring the ADR-013 promotion criterion for
     # shared Protocols (≥2 consumers).
+    # ``rpc_call`` is shared between the direct ``fake.rpc_call`` and the
+    # ``fake.rpc_executor.rpc_call`` mirror so both attribute paths see
+    # the same observed calls. Fresh list per call so tests can mutate
+    # the response without bleeding into siblings.
+    rpc_call_mock = AsyncMock(side_effect=lambda *a, **kw: [])
+
     defaults: dict[str, Any] = {
         # AuthMetadata + Kernel — consumed by SourceUploadPipeline test sites.
         "auth": auth,
         "kernel": kernel,
-        # RpcCaller — every feature API uses this. Fresh list per call so
-        # tests can mutate the response without bleeding into siblings.
-        "rpc_call": AsyncMock(side_effect=lambda *a, **kw: []),
-        # ChatRuntime — chat-only transport + reqid helpers consumed via
-        # the chat composite runtime; kept here so the same FakeSession
-        # can satisfy ChatRuntime, ArtifactsRuntime, and UploadRuntime
-        # for tests that wire the bag through several sub-clients.
-        "transport_post": AsyncMock(),
-        "next_reqid": AsyncMock(return_value=100000),
+        # RpcCaller — every feature API uses this. The fake exposes the
+        # executor as a SimpleNamespace mirror so test sites address it
+        # the same way production code does (``fake.rpc_executor.rpc_call``
+        # mirrors ``client._rpc_executor.rpc_call``); the direct
+        # ``rpc_call`` attribute is kept for composite Protocols
+        # (``ArtifactsRuntime``) that the fake satisfies as a single
+        # bag-of-attributes.
+        "rpc_call": rpc_call_mock,
+        "rpc_executor": SimpleNamespace(rpc_call=rpc_call_mock),
         # AsyncWorkRuntime (LoopGuard + OperationScopeProvider) — used by
         # ArtifactsAPI polling and SourceUploadPipeline.
         "assert_bound_loop": MagicMock(return_value=None),
         "operation_scope": MagicMock(side_effect=_operation_scope),
         # DrainHookRegistration (local in ``_artifacts.py``) — close-time
         # hook the artifacts runtime registers against in
-        # ``ArtifactsAPI.__init__``.
+        # ``ArtifactsAPI.__init__``. Wave 2 of session-decoupling moved
+        # the storage onto ``TransportDrainTracker`` (ADR-014 Rule 1); we
+        # keep ``_drain_hooks`` as a public attribute on the fake so test
+        # sites that previously read ``fake._drain_hooks["name"]`` still
+        # work (the fake doesn't have a real ``_drain_tracker``).
         "_drain_hooks": {},
         "register_drain_hook": MagicMock(return_value=None),
         # Upload-pipeline glue: queue-wait recorder consumed by the
@@ -144,6 +176,13 @@ def make_fake_core(**overrides: Any) -> FakeSession:
         defaults["_drain_hooks"][name] = hook
 
     defaults["register_drain_hook"] = MagicMock(side_effect=_register_drain_hook)
+
+    # Convenience: ``rpc_call=AsyncMock(...)`` overrides BOTH the direct
+    # ``rpc_call`` attribute AND the ``rpc_executor.rpc_call`` mirror with
+    # the same mock so test idioms using either path observe the same
+    # interactions.
+    if "rpc_call" in overrides:
+        overrides["rpc_executor"] = SimpleNamespace(rpc_call=overrides["rpc_call"])
 
     # Validate overrides early so a typo like ``rpc_cal=`` fails loudly
     # rather than landing as an unread attribute.

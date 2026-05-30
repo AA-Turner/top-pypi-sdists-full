@@ -15,11 +15,13 @@ name: Codacy Security Scan
 
 on:
   schedule:
-    - cron: '59 11 27 * *'
+    - cron: "59 11 27 * *"
   push:
-    branches: [ "master" ]
+    branches: ["master"]
+  merge_group:
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
     types: [opened, reopened, synchronize, ready_for_review]
   # workflow_run:
   #   workflows: [Test Changes]
@@ -28,15 +30,11 @@ on:
   workflow_call:
   workflow_dispatch:
     inputs:
-      logLevel:
-        description: 'Log level'
+      branch_commit_or_ref:
+        description: "Run this workflow in what branch/commit?"
         required: true
-        default: 'warning'
-        type: choice
-        options:
-        - info
-        - warning
-        - debug
+        type: string
+        default: master
 
 permissions:
   contents: read
@@ -49,10 +47,18 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: Codacy Security Scan
     runs-on: ubuntu-latest
+    if: |
+      (  (!github.event.pull_request.draft) &&
+         (github.event.action != 'labeled') &&
+         (!contains( github.event.pull_request.labels.*.name, 'prevent-ci')) )
+      || ((github.event.action != 'labeled') && contains( github.event.pull_request.labels.*.name, 'force-ci'))
+      || (github.event.label.name == 'force-ci')
     steps:
       # Checkout the repository to the GitHub Actions runner
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout code at ${{ inputs.branch_commit_or_ref || github.ref }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.branch_commit_or_ref || github.ref }}
 
       # Execute Codacy Analysis CLI and generate a SARIF output with the security issues identified during the analysis
       - name: Run Codacy Analysis CLI
@@ -72,6 +78,9 @@ jobs:
 
       # Upload the SARIF file generated in the previous step
       - name: Upload SARIF results file
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
+          category: codacy
+
+## End of codacy-security-scan job ##

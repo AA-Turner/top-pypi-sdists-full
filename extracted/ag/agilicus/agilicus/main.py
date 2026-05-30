@@ -1605,6 +1605,11 @@ def delete_js_injection(ctx, *args, **kwargs):
 @click.option("--source-address-override", default=None)
 @click.option("--dynamic-source-port-override", type=bool, default=None)
 @click.option("--set-token-cookie", type=bool, default=None)
+@click.option(
+    "--external-network-forwarding-mode",
+    type=click.Choice(apps.FORWARDING_MODE_CHOICES),
+    default=None,
+)
 @click.pass_context
 def update_application_service(ctx, id, **kwargs):
     output_entry(ctx, apps.update_application_service(ctx, id, **kwargs))

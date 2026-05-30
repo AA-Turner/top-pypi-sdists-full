@@ -79,7 +79,7 @@ class BertForMultiLabelSequenceClassification(BertPreTrainedModel):
         self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)
         self.pos_weight = pos_weight
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -131,7 +131,7 @@ class LayoutLMForMultiLabelSequenceClassification(LayoutLMPreTrainedModel):
         self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)
         self.pos_weight = pos_weight
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -185,7 +185,7 @@ class RemBertForMultiLabelSequenceClassification(RemBertPreTrainedModel):
         self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)
         self.pos_weight = pos_weight
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -313,7 +313,7 @@ class XLNetForMultiLabelSequenceClassification(XLNetPreTrainedModel):
         self.sequence_summary = XLNetSequenceSummary(config)
         self.logits_proj = nn.Linear(config.d_model, config.num_labels)
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -371,7 +371,7 @@ class XLMForMultiLabelSequenceClassification(XLMPreTrainedModel):
         self.transformer = XLMModel(config)
         self.sequence_summary = XLMSequenceSummary(config)
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -453,7 +453,7 @@ class DistilBertForMultiLabelSequenceClassification(DistilBertPreTrainedModel):
         self.classifier = nn.Linear(config.dim, config.num_labels)
         self.dropout = nn.Dropout(config.seq_classif_dropout)
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -500,7 +500,7 @@ class AlbertForMultiLabelSequenceClassification(AlbertPreTrainedModel):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -554,7 +554,7 @@ class FlaubertForMultiLabelSequenceClassification(FlaubertModel):
         self.transformer = FlaubertModel(config)
         self.sequence_summary = FlaubertSequenceSummary(config)
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -611,7 +611,7 @@ class LongformerForMultiLabelSequenceClassification(LongformerPreTrainedModel):
         self.longformer = LongformerModel(config)
         self.classifier = LongformerClassificationHead(config)
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -880,7 +880,7 @@ class ElectraForQuestionAnswering(ElectraPreTrainedModel):
         self.electra = ElectraModel(config)
         self.qa_outputs = nn.Linear(config.hidden_size, config.num_labels)
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -951,7 +951,7 @@ class BigBirdForMultiLabelSequenceClassification(BigBirdPreTrainedModel):
         self.classifier = BigBirdClassificationHead(config)
         self.pos_weight = pos_weight
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -1001,7 +1001,7 @@ class NystromformerForMultiLabelSequenceClassification(NystromformerPreTrainedMo
         self.classifier = NystromformerClassificationHead(config)
         self.pos_weight = pos_weight
 
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,
@@ -1086,7 +1086,7 @@ class ColBERTModel(BertPreTrainedModel):
         self.bert = BertModel(config)
         self.linear = nn.Linear(config.hidden_size, dim, bias=False)
 
-        self.init_weights()
+        self.post_init()
 
     def forward(self, Q, D):
         Q = Q["input_ids"], Q["attention_mask"]

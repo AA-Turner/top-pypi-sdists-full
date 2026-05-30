@@ -91,6 +91,10 @@ class ExecutionRepository(ABC):
     def stop_execution(self, execution_id: str) -> None:
         raise NotImplementedError()
 
+    @abstractmethod
+    def stop_all_running(self) -> None:
+        raise NotImplementedError()
+
 
 class LocalExecutionRepository(ExecutionRepository):
     def __init__(self):
@@ -179,6 +183,37 @@ class LocalExecutionRepository(ExecutionRepository):
         except Exception:
             pass
 
+    def stop_all_running(self) -> None:
+        running = self.list(ExecutionFilter(status="running", limit=10000)).executions
+        pids = [execution.pid for execution in running if execution.pid]
+
+        for pid in pids:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except Exception:
+                pass
+
+        # Single shared 2s budget for graceful shutdown.
+        deadline = time.time() + 2.0
+        survivors = list(pids)
+        while survivors and time.time() < deadline:
+            still_alive = []
+            for pid in survivors:
+                try:
+                    os.kill(pid, 0)
+                    still_alive.append(pid)
+                except OSError:
+                    pass
+            survivors = still_alive
+            if survivors:
+                time.sleep(0.1)
+
+        for pid in survivors:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except Exception:
+                pass
+
 
 class WebEditorExecutionRepository(LocalExecutionRepository):
     def __init__(self, rabbitmq_uri: str):
@@ -191,6 +226,12 @@ class WebEditorExecutionRepository(LocalExecutionRepository):
         except Exception:
             # Fallback to local kill if message fails? Unlikely to work but maybe safe to try?
             # No, if we are in web editor, local kill is useless.
+            pass
+
+    def stop_all_running(self) -> None:
+        try:
+            self.control_producer.stop_all_executions()
+        except Exception:
             pass
 
 
@@ -251,4 +292,7 @@ class ProductionExecutionRepository(ExecutionRepository):
         raise NotImplementedError()
 
     def stop_execution(self, execution_id: str) -> None:
+        raise NotImplementedError()
+
+    def stop_all_running(self) -> None:
         raise NotImplementedError()

@@ -22,17 +22,7 @@ IGNORED_PATHS = [
     ".abstra/",
     ".venv",
     "__pycache__",
-    ".git/index.lock",
-    ".git/HEAD.lock",
-    ".git/config.lock",
-    ".git/refs/",
-    ".git/objects/",
-    ".git/hooks/",
-    ".git/logs/",
-    ".git/COMMIT_EDITMSG",
-    ".git/MERGE_HEAD",
-    ".git/FETCH_HEAD",
-    ".git/ORIG_HEAD",
+    ".git/",
 ]
 FSEventType = Literal["changed", "created", "deleted", "moved"]
 Handler = Callable[[Path, FSEventType, Optional[str]], None]
@@ -137,6 +127,9 @@ class FileWatcher(FileSystemEventHandler):
 
     def should_ignore_path(self, path: Union[Path, PurePath]) -> bool:
         path_str = str(path).replace("\\", "/")
+
+        if ".abstra/persistent/" in path_str or path_str.endswith(".abstra/persistent"):
+            return False
 
         for ignored_pattern in IGNORED_PATHS:
             normalized_pattern = ignored_pattern.replace("\\", "/")

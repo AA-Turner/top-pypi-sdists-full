@@ -47,6 +47,7 @@ class TestRabbitConsumerFailure(unittest.TestCase):
             "amqp://localhost",
             connection_factory=cast(Type[BlockingConnection], factory),
         )
+        consumer._stop_heartbeat_thread()
 
         # Use consumer.iter() instead of iter(consumer)
         it = consumer.iter()
@@ -92,6 +93,7 @@ class TestRabbitConsumerFailure(unittest.TestCase):
             "amqp://localhost",
             connection_factory=cast(Type[BlockingConnection], factory),
         )
+        consumer._stop_heartbeat_thread()
 
         # Use consumer.iter() instead of iter(consumer)
         it = consumer.iter()

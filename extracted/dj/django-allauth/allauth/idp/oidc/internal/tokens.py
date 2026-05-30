@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import jwt
 
 from allauth.core.internal import jwkkit
@@ -9,7 +11,7 @@ from allauth.idp.oidc.adapter import get_adapter
 
 def decode_jwt_token(
     value: str, *, client_id: str | None = None, verify_exp: bool, verify_iss: bool
-) -> dict | None:
+) -> dict[str, Any] | None:
     if not value:
         return None
     try:

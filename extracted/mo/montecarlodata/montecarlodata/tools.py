@@ -67,10 +67,18 @@ class AdvancedOptions(Option):
         """
         Handle any conflicts, missing values or any required hidden prompts.
         """
-        cli_friendly_name = normalize_gql(self.name)  # type: ignore
+        # Click typing has `Option.name: str | None`, but it's always set by
+        # the time `handle_parse_result` runs. The assert narrows the type for
+        # pyright uniformly across Python versions — without it, pyright on
+        # 3.8/3.9 flags the `str | None → str` calls below as type errors,
+        # while pyright on 3.10+ narrows automatically. An inline
+        # `# type: ignore` works on 3.8/3.9 but gets flagged as unnecessary
+        # on 3.10+, so neither version-specific suppression is portable.
+        assert self.name is not None
+        cli_friendly_name = normalize_gql(self.name)
 
         if self.name in opts:
-            name_opt = cast(str, opts[self.name])  # type: ignore  (should always be set)
+            name_opt = cast(str, opts[self.name])
             if self.mutually_exclusive_options.intersection(opts):
                 raise click.BadParameter(
                     f"Cannot use '{cli_friendly_name}' with {self._friendly_mutual_args}."

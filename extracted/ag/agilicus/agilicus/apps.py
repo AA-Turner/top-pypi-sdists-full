@@ -26,10 +26,13 @@ from .output.table import (
     subtable,
 )
 
+from . import agilicus_api
+from .model_helpers import model_enum_to_list
 from .resource_helpers import standard_page_fields
 
 
 CONNECTION_MAPPING_OPTS = ("default", "one-to-one")
+FORWARDING_MODE_CHOICES = model_enum_to_list(agilicus_api.ExternalNetworkForwardingMode)
 
 application_service_page_fields = standard_page_fields
 page_fields = standard_page_fields
@@ -1149,6 +1152,7 @@ def update_application_service(  # noqa: C901
     diagnostic_mode=None,
     connector_instance_id=None,
     set_token_cookie=None,
+    external_network_forwarding_mode=None,
 ):
 
     token = context.get_token(ctx)
@@ -1212,9 +1216,29 @@ def update_application_service(  # noqa: C901
         diagnostic_mode=diagnostic_mode,
     )
 
+    service.external_network_config = _build_ext_net_config(
+        service.external_network_config, external_network_forwarding_mode
+    )
+
     return apiclient.app_services_api.replace_application_service(
         id, application_service=service
     ).to_dict()
+
+
+def _build_ext_net_config(existing, external_network_forwarding_mode):
+    if external_network_forwarding_mode is None:
+        return existing
+    if existing is None:
+        existing = agilicus_api.ExternalNetworkConfig(
+            forwarding_mode=agilicus_api.ExternalNetworkForwardingMode(
+                external_network_forwarding_mode
+            )
+        )
+
+    existing.forwarding_mode = agilicus_api.ExternalNetworkForwardingMode(
+        external_network_forwarding_mode
+    )
+    return existing
 
 
 def configure_port(config, port_range):

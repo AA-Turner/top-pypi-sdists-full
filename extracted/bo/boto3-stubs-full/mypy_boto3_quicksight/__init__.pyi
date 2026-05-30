@@ -33,6 +33,7 @@ Usage::
         ListIAMPolicyAssignmentsPaginator,
         ListIngestionsPaginator,
         ListNamespacesPaginator,
+        ListOAuthClientApplicationsPaginator,
         ListRoleMembershipsPaginator,
         ListTemplateAliasesPaginator,
         ListTemplateVersionsPaginator,
@@ -78,6 +79,7 @@ Usage::
     list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = client.get_paginator("list_iam_policy_assignments")
     list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
     list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
+    list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = client.get_paginator("list_o_auth_client_applications")
     list_role_memberships_paginator: ListRoleMembershipsPaginator = client.get_paginator("list_role_memberships")
     list_template_aliases_paginator: ListTemplateAliasesPaginator = client.get_paginator("list_template_aliases")
     list_template_versions_paginator: ListTemplateVersionsPaginator = client.get_paginator("list_template_versions")
@@ -122,6 +124,7 @@ from .paginator import (
     ListIAMPolicyAssignmentsPaginator,
     ListIngestionsPaginator,
     ListNamespacesPaginator,
+    ListOAuthClientApplicationsPaginator,
     ListRoleMembershipsPaginator,
     ListTemplateAliasesPaginator,
     ListTemplatesPaginator,
@@ -167,6 +170,7 @@ __all__ = (
     "ListIAMPolicyAssignmentsPaginator",
     "ListIngestionsPaginator",
     "ListNamespacesPaginator",
+    "ListOAuthClientApplicationsPaginator",
     "ListRoleMembershipsPaginator",
     "ListTemplateAliasesPaginator",
     "ListTemplateVersionsPaginator",

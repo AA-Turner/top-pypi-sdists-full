@@ -57,4 +57,11 @@ def get_editor_bp(controller: MainController):
         LinterEventController.broadcast(checks)
         return AbstraLibApiEditorLintersFixResponse(success=True).to_dict()
 
+    @bp.post("/refresh")
+    @editor_usage
+    def _refresh_linters():
+        checks = controller.linter_repository.update_checks()
+        LinterEventController.broadcast(checks)
+        return AbstraLibApiEditorLintersFixResponse(success=True).to_dict()
+
     return bp

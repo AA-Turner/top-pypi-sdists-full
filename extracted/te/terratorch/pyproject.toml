@@ -1,5 +1,5 @@
 [build-system]
-requires = [ "setuptools" ]
+requires = [ "setuptools>=77" ]
 build-backend = 'setuptools.build_meta'
 
 [tool.setuptools.packages.find]
@@ -7,9 +7,10 @@ include = ["terratorch*"]
 
 [project]
 name = "terratorch"
-version = "v1.2.7"
+version = "v1.2.8"
 description = "TerraTorch - The geospatial foundation model fine-tuning toolkit"
-license = { "text" = "Apache License, Version 2.0" }
+license = "Apache-2.0 AND MIT"
+license-files = ["LICENSE", "MIT_FILES.txt"]
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["fine-tuning", "geospatial foundation models", "artificial intelligence"]
@@ -48,7 +49,7 @@ dependencies = [
   "torchvision",
   "rioxarray",
   "albumentations",
-  "albucore", 
+  "albucore",
   "rasterio",
   "torchmetrics",
   "geopandas",
@@ -65,7 +66,6 @@ dependencies = [
   "tifffile",
   "python-box",
   "tqdm",
-  "tacoreader==0.5.6",
   "tensorboard",
   "diffusers",
   "scikit-learn>=1.3.2",
@@ -155,10 +155,14 @@ vllm_test = [
   "imagehash",
 ]
 
+tortilla = [
+  "tacoreader==0.5.6",
+]
+
 [project.urls]
-Documentation = "https://terrastackai.github.io/terratorch/"
-Issues = "https://github.com/terrastackai/terratorch/issues"
-Source = "https://github.com/terrastackai/terratorch"
+Documentation = "https://torchgeo.github.io/terratorch/"
+Issues = "https://github.com/torchgeo/terratorch/issues"
+Source = "https://github.com/torchgeo/terratorch"
 
 [project.scripts]
 terratorch = "terratorch.__main__:main"

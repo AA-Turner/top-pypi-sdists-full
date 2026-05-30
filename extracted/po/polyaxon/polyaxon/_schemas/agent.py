@@ -1,5 +1,4 @@
 import os
-
 from typing import Dict, List, Optional
 
 from clipped.compact.pydantic import (
@@ -10,8 +9,6 @@ from clipped.compact.pydantic import (
     validation_before,
 )
 from clipped.config.schema import skip_partial, to_partial
-from vents.connections import ConnectionCatalog
-
 from polyaxon._auxiliaries import (
     V1DefaultScheduling,
     V1PolyaxonCleaner,
@@ -33,7 +30,6 @@ from polyaxon._env_vars.keys import (
     ENV_KEYS_AGENT_ENABLE_HEALTH_CHECKS,
     ENV_KEYS_AGENT_EXECUTOR_REFRESH_INTERVAL,
     ENV_KEYS_AGENT_INIT,
-    ENV_KEYS_AGENT_IS_REPLICA,
     ENV_KEYS_AGENT_NOTIFIER,
     ENV_KEYS_AGENT_RUNS_SA,
     ENV_KEYS_AGENT_SECRET_NAME,
@@ -48,6 +44,7 @@ from polyaxon._env_vars.keys import (
 from polyaxon._fs.utils import get_store_path
 from polyaxon._schemas.base import BaseSchemaModel
 from polyaxon.exceptions import PolyaxonSchemaError
+from vents.connections import ConnectionCatalog
 
 
 def validate_agent_config(
@@ -203,7 +200,6 @@ class AgentConfig(BaseAgentConfig):
         "default_scheduling",
     }
 
-    is_replica: Optional[bool] = Field(default=None, alias=ENV_KEYS_AGENT_IS_REPLICA)
     watch_cluster: Optional[bool] = Field(default=None, alias=ENV_KEYS_WATCH_CLUSTER)
     single_namespace: Optional[bool] = Field(
         default=None, alias=ENV_KEYS_SINGLE_NAMESPACE
@@ -249,12 +245,6 @@ class AgentConfig(BaseAgentConfig):
 
     @model_validator(**validation_before)
     def handle_camel_case_agent(cls, values):
-        if (
-            not values.get("is_replica")
-            and not values.get(ENV_KEYS_AGENT_IS_REPLICA)
-            and "isReplica" in values
-        ):
-            values[ENV_KEYS_AGENT_IS_REPLICA] = values["isReplica"]
         if (
             not values.get("watch_cluster")
             and not values.get(ENV_KEYS_WATCH_CLUSTER)

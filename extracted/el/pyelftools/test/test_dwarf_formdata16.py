@@ -12,7 +12,7 @@ from elftools.elf.elffile import ELFFile
 class TestFormData16(unittest.TestCase):
     def test_formdata16(self):
         path = os.path.join('test', 'testfiles_for_unittests',
-                            'dwarf_lineprog_data16.elf')
+                            'dwarf_lineprog_data16.so.elf')
         with open(path, 'rb') as f:
             elffile = ELFFile(f)
             dwarfinfo = elffile.get_dwarf_info(follow_links=False)
@@ -25,7 +25,7 @@ class TestFormData16(unittest.TestCase):
             self.assertEqual(lp.header.file_name_entry_format[2].content_type, 'DW_LNCT_MD5')
             # The correct hash value was taken from llvm-dwarfdump output
             hash = lp.header.file_names[0]['DW_LNCT_MD5']
-            hash = ''.join("%02x" % b for b in hash)
+            hash = bytes(hash).hex()
             self.assertEqual(hash, '00dbc7f4edc56417c80f1aa512c4c051')
 
 

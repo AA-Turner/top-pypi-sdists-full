@@ -13,6 +13,7 @@ from typing import Any, NoReturn
 import click
 
 from ..exceptions import (
+    ArtifactTimeoutError,
     AuthError,
     ConfigurationError,
     NetworkError,
@@ -34,23 +35,22 @@ ALLOWED_CLICK_EXCEPTION_SITES: list[tuple[str, int, str]] = [
     ("src/notebooklm/cli/input.py", 80, "prompt-file path validation"),
     ("src/notebooklm/cli/input.py", 84, "prompt-file read validation"),
     ("src/notebooklm/cli/input.py", 86, "prompt-file UTF-8 validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 149, "profile path/name validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 151, "profile create duplicate validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 171, "profile path/name validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 175, "profile switch target validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 189, "profile config write validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 210, "profile path/name validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 216, "profile delete active/default validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 222, "profile delete target validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 249, "profile path/name validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 252, "profile rename source validation"),
-    ("src/notebooklm/cli/profile_cmd.py", 254, "profile rename destination validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 52, "profile name validation translation"),
+    ("src/notebooklm/cli/profile_cmd.py", 53, "profile name validation translation"),
+    ("src/notebooklm/cli/profile_cmd.py", 176, "profile path/name validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 178, "profile create duplicate validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 198, "profile path/name validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 202, "profile switch target validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 216, "profile config write validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 237, "profile path/name validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 243, "profile delete active/default validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 249, "profile delete target validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 276, "profile path/name validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 279, "profile rename source validation"),
+    ("src/notebooklm/cli/profile_cmd.py", 281, "profile rename destination validation"),
     ("src/notebooklm/cli/resolve.py", 58, "entity ID argument validation"),
-    (
-        "src/notebooklm/cli/services/login/profile_targets.py",
-        26,
-        "shared profile-name argument validation",
-    ),
+    ("src/notebooklm/cli/session_cmd.py", 161, "login profile-name validation translation"),
+    ("src/notebooklm/cli/session_cmd.py", 162, "login profile-name validation translation"),
 ]
 
 # Raw ``raise SystemExit`` should live in this module. If a future path truly
@@ -80,6 +80,18 @@ def current_json_output(default: bool = False) -> bool:
 def exit_with_code(exit_code: int = 1) -> NoReturn:
     """Canonical raw exit path for callers that already emitted their payload."""
     raise SystemExit(exit_code)
+
+
+def _generation_status_extra(status: Any) -> dict[str, Any]:
+    """Serialize a GenerationStatus-like object for JSON error payloads."""
+    return {
+        "task_id": getattr(status, "task_id", None),
+        "status": getattr(status, "status", None),
+        "url": getattr(status, "url", None),
+        "error": getattr(status, "error", None),
+        "error_code": getattr(status, "error_code", None),
+        "metadata": getattr(status, "metadata", None),
+    }
 
 
 def _output_error(
@@ -248,6 +260,25 @@ def handle_errors(verbose: bool = False, json_output: bool = False) -> Generator
             json_output,
             1,
             extra=e.to_error_response_extra(),
+        )
+    except ArtifactTimeoutError as e:
+        extra_data = {
+            "notebook_id": e.notebook_id,
+            "task_id": e.task_id,
+            "timeout_seconds": e.timeout_seconds,
+            "last_status": e.last_status,
+            "status_history": list(e.status_history),
+            "status_transitions": [
+                _generation_status_extra(status) for status in e.status_transitions
+            ],
+            "stalled_phase": e.stalled_phase,
+        }
+        _output_error(
+            f"Artifact timeout: {e}",
+            "ARTIFACT_TIMEOUT",
+            json_output,
+            1,
+            extra=extra_data,
         )
     except NotebookLMError as e:
         extra_info: dict[str, Any] | None = None

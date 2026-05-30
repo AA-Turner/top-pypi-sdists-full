@@ -16,13 +16,13 @@ shape established by earlier ADR-008 extractions:
   It returns a frozen :class:`GenerationPlan` dataclass.
 * :func:`execute_generation` is the async orchestration: open-client
   scope is the caller's; this function resolves notebook/source IDs,
-  emits queued warnings, dispatches to the right ``client.artifacts.*``
-  method, runs the retry-with-backoff loop via the existing
-  ``services/artifact_generation.py`` core, and handles output / wait.
+  dispatches to the right ``client.artifacts.*`` method, runs the
+  retry-with-backoff loop via the existing ``services/artifact_generation.py``
+  core, and returns a typed result for command-layer rendering.
 
 The Click handlers in ``cli/generate_cmd.py`` shrink to a thin shell:
 build the raw_args dict from Click params, call
-``build_generation_plan(kind, raw_args, parameter_source)``, then call
+``build_generation_plan(kind, raw_args, parameter_explicit)``, then call
 ``execute_generation(plan, client)`` inside an ``async with
 NotebookLMClient(...) as client:`` block.
 
@@ -34,12 +34,11 @@ and is reused as-is; see phase-3.md → P3.T1 must_not_do).
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable, Mapping
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
-
-import click
-from click.core import ParameterSource
 
 from ...types import (
     AudioFormat,
@@ -58,7 +57,7 @@ from ...types import (
 
 if TYPE_CHECKING:
     from ...client import NotebookLMClient
-    from ...types import GenerationStatus
+    from .artifact_generation import GenerationOutcome
 
 GenerationKind = Literal[
     "audio",
@@ -188,9 +187,10 @@ _REPORT_FORMAT_MAP: Mapping[str, ReportFormat] = {
     "custom": ReportFormat.CUSTOM,
 }
 
-# Cinematic-video defaults to a longer wait ceiling (Veo 3 takes ~30-40 min).
-# Preserved from cli/generate_cmd.py pre-extraction.
-_CINEMATIC_DEFAULT_TIMEOUT = 1800.0
+# Cinematic generation is frequently queue-bound. Standard video gets its
+# 1800s default from the Click option so programmatic callers can pass their
+# own raw timeout without being clobbered here.
+_CINEMATIC_DEFAULT_TIMEOUT = 3600.0
 
 
 @dataclass(frozen=True)
@@ -223,9 +223,9 @@ class GenerationPlan:
             (currently ``revise-slide``, ``quiz``, ``flashcards``).
         wait: Whether to wait for completion before returning. Mind-map
             ignores this field and renders synchronously.
-        timeout: Wait timeout in seconds. For cinematic-video this is
-            defaulted to 1800.0 when the user did not pass ``--timeout``
-            explicitly.
+        timeout: Wait timeout in seconds. The CLI supplies 1800.0 for video;
+            cinematic-video is coerced to 3600.0 when the user did not pass
+            ``--timeout`` explicitly.
         interval: Polling interval in seconds for the wait loop.
         max_retries: Number of retry-after-rate-limit attempts. ``0``
             means a single attempt with no retry.
@@ -253,10 +253,31 @@ class GenerationPlan:
     warnings: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class GenerationPlanValidationError(Exception):
+    """Service-level generation validation error for command-layer rendering."""
+
+    message: str
+    code: str = "VALIDATION_ERROR"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "args", (self.message,))
+
+
+@dataclass(frozen=True)
+class GenerationExecutionResult:
+    """Typed generation executor result for command-layer rendering."""
+
+    kind: GenerationKind
+    display_name: str
+    generation: GenerationOutcome | None = None
+    mind_map: Any = None
+
+
 def build_generation_plan(
     kind: str,
     raw_args: Mapping[str, Any],
-    parameter_source: Callable[[str], ParameterSource] | None = None,
+    parameter_explicit: Callable[[str], bool] | None = None,
     *,
     language_resolver: Callable[[str | None], str] | None = None,
 ) -> GenerationPlan:
@@ -273,12 +294,10 @@ def build_generation_plan(
             ``language``, ``wait``, ``timeout``, ``interval``,
             ``max_retries``, ``json_output``. Kind-specific keys: see
             internal builders below.
-        parameter_source: Optional callable returning Click's
-            ``ParameterSource`` for a given param name. Used to detect
-            "user did not pass --format / --timeout" cases for the
-            cinematic-video alias. If ``None``, defaults to "every
-            parameter is treated as DEFAULT", which is the right behavior
-            for unit tests that supply args directly.
+        parameter_explicit: Optional callable returning whether a parameter
+            was supplied explicitly by the user. Used to detect "user did
+            not pass --format / --timeout" cases for the cinematic-video
+            alias. If ``None``, defaults to false for every parameter.
         language_resolver: Optional callable that resolves a raw
             ``--language`` value through the env/config/default chain.
             When ``None``, the raw value is passed through unchanged
@@ -290,14 +309,14 @@ def build_generation_plan(
         A frozen :class:`GenerationPlan` ready for :func:`execute_generation`.
 
     Raises:
-        click.UsageError: For invalid parameter combinations (cinematic
-            video + ``--style-prompt``, ``--style custom`` without
-            ``--style-prompt``, ``cinematic-video --format <non-cinematic>``).
+        GenerationPlanValidationError: For invalid parameter combinations
+            (cinematic video + ``--style-prompt``, ``--style custom``
+            without ``--style-prompt``, ``cinematic-video --format
+            <non-cinematic>``). The command layer renders the error through
+            the ADR-015 JSON/text surface.
         ValueError: When ``kind`` is not recognized.
     """
-    source: Callable[[str], ParameterSource] = parameter_source or (
-        lambda _name: ParameterSource.DEFAULT
-    )
+    is_explicit: Callable[[str], bool] = parameter_explicit or (lambda _name: False)
     # Default resolver mirrors the canonical ``"en"`` fallback used by
     # ``cli/generate_cmd.py:resolve_language`` so unit tests that omit a
     # resolver get a stable string back. Production calls (from the Click
@@ -310,7 +329,7 @@ def build_generation_plan(
     builder = _BUILDERS.get(kind)
     if builder is None:
         raise ValueError(f"Unknown generation kind: {kind!r}")
-    return builder(raw_args, source, resolve_language)
+    return builder(raw_args, is_explicit, resolve_language)
 
 
 # ---------------------------------------------------------------------------
@@ -334,7 +353,7 @@ def _common(raw_args: Mapping[str, Any]) -> dict[str, Any]:
 
 def _build_audio_plan(
     raw_args: Mapping[str, Any],
-    _source: Callable[[str], ParameterSource],
+    _source: Callable[[str], bool],
     resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     common = _common(raw_args)
@@ -360,17 +379,16 @@ def _build_audio_plan(
 
 def _build_video_plan_for_kind(
     raw_args: Mapping[str, Any],
-    source: Callable[[str], ParameterSource],
+    source: Callable[[str], bool],
     resolve_language: Callable[[str | None], str],
     *,
     alias: bool,
 ) -> GenerationPlan:
     """Shared builder for ``video`` and the ``cinematic-video`` alias.
 
-    ``alias=True`` enforces the cinematic-video flag rules: an explicit
-    ``--format <non-cinematic>`` raises UsageError, the format is coerced
-    to cinematic when not passed, and the timeout defaults to 1800s when
-    the user did not pass ``--timeout``.
+    ``alias=True`` enforces the cinematic-video flag rules. Validation
+    failures are raised as typed service errors for the command layer to
+    render via text or the ADR-015 JSON envelope.
     """
     common = _common(raw_args)
     video_format = raw_args.get("video_format", "explainer")
@@ -378,9 +396,9 @@ def _build_video_plan_for_kind(
     style_prompt_raw = raw_args.get("style_prompt")
 
     if alias:
-        format_explicit = source("video_format") == ParameterSource.COMMANDLINE
+        format_explicit = source("video_format")
         if format_explicit and video_format != "cinematic":
-            raise click.UsageError(
+            raise GenerationPlanValidationError(
                 "--format must be 'cinematic' for the cinematic-video subcommand "
                 "(use 'generate video --format <other>' for other formats)"
             )
@@ -391,16 +409,15 @@ def _build_video_plan_for_kind(
         style_prompt_raw.strip() if isinstance(style_prompt_raw, str) else None
     )
     if is_cinematic and normalized_style_prompt:
-        raise click.UsageError("--style-prompt cannot be used with cinematic video")
+        raise GenerationPlanValidationError("--style-prompt cannot be used with cinematic video")
     if not is_cinematic and style == "custom" and not normalized_style_prompt:
-        raise click.UsageError("--style custom requires --style-prompt")
+        raise GenerationPlanValidationError("--style custom requires --style-prompt")
     if not is_cinematic and normalized_style_prompt and style != "custom":
-        raise click.UsageError("--style-prompt requires --style custom")
+        raise GenerationPlanValidationError("--style-prompt requires --style custom")
 
     timeout_value = common["timeout"]
-    if is_cinematic and source("timeout") != ParameterSource.COMMANDLINE:
+    if is_cinematic and not source("timeout"):
         timeout_value = _CINEMATIC_DEFAULT_TIMEOUT
-
     language = resolve_language(raw_args.get("language"))
 
     if is_cinematic:
@@ -443,7 +460,7 @@ def _build_video_plan_for_kind(
 
 def _build_video_plan(
     raw_args: Mapping[str, Any],
-    source: Callable[[str], ParameterSource],
+    source: Callable[[str], bool],
     resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     return _build_video_plan_for_kind(raw_args, source, resolve_language, alias=False)
@@ -451,7 +468,7 @@ def _build_video_plan(
 
 def _build_cinematic_video_plan(
     raw_args: Mapping[str, Any],
-    source: Callable[[str], ParameterSource],
+    source: Callable[[str], bool],
     resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     return _build_video_plan_for_kind(raw_args, source, resolve_language, alias=True)
@@ -459,7 +476,7 @@ def _build_cinematic_video_plan(
 
 def _build_slide_deck_plan(
     raw_args: Mapping[str, Any],
-    _source: Callable[[str], ParameterSource],
+    _source: Callable[[str], bool],
     resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     common = _common(raw_args)
@@ -484,7 +501,7 @@ def _build_slide_deck_plan(
 
 def _build_revise_slide_plan(
     raw_args: Mapping[str, Any],
-    _source: Callable[[str], ParameterSource],
+    _source: Callable[[str], bool],
     _resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     common = _common(raw_args)
@@ -510,7 +527,7 @@ def _build_revise_slide_plan(
 
 def _build_quiz_plan(
     raw_args: Mapping[str, Any],
-    _source: Callable[[str], ParameterSource],
+    _source: Callable[[str], bool],
     _resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     common = _common(raw_args)
@@ -535,7 +552,7 @@ def _build_quiz_plan(
 
 def _build_flashcards_plan(
     raw_args: Mapping[str, Any],
-    _source: Callable[[str], ParameterSource],
+    _source: Callable[[str], bool],
     _resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     common = _common(raw_args)
@@ -560,7 +577,7 @@ def _build_flashcards_plan(
 
 def _build_infographic_plan(
     raw_args: Mapping[str, Any],
-    _source: Callable[[str], ParameterSource],
+    _source: Callable[[str], bool],
     resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     common = _common(raw_args)
@@ -586,7 +603,7 @@ def _build_infographic_plan(
 
 def _build_data_table_plan(
     raw_args: Mapping[str, Any],
-    _source: Callable[[str], ParameterSource],
+    _source: Callable[[str], bool],
     resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     common = _common(raw_args)
@@ -608,7 +625,7 @@ def _build_data_table_plan(
 
 def _build_mind_map_plan(
     raw_args: Mapping[str, Any],
-    _source: Callable[[str], ParameterSource],
+    _source: Callable[[str], bool],
     resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     common = _common(raw_args)
@@ -630,7 +647,7 @@ def _build_mind_map_plan(
 
 def _build_report_plan(
     raw_args: Mapping[str, Any],
-    _source: Callable[[str], ParameterSource],
+    _source: Callable[[str], bool],
     resolve_language: Callable[[str | None], str],
 ) -> GenerationPlan:
     common = _common(raw_args)
@@ -684,7 +701,7 @@ _BUILDERS: Mapping[
     Callable[
         [
             Mapping[str, Any],
-            Callable[[str], ParameterSource],
+            Callable[[str], bool],
             Callable[[str | None], str],
         ],
         GenerationPlan,
@@ -790,46 +807,24 @@ def _build_call_kwargs(plan: GenerationPlan, *, notebook_id: str, sources: Any) 
     return base
 
 
-def _emit_warnings(plan: GenerationPlan) -> None:
-    """Emit any warnings queued by ``build_generation_plan`` to stderr.
-
-    Plan warnings (e.g. ``--append`` with ``--format custom``) match the
-    pre-extraction ``click.echo(..., err=True)`` semantics. Suppressed in
-    JSON mode so stdout stays parseable AND stderr stays JSON-machine-
-    consumer friendly (the warning text is human prose, not structured).
-    """
-    if plan.json_output or not plan.warnings:
-        return
-    for line in plan.warnings:
-        click.echo(line, err=True)
-
-
 async def execute_generation(
     plan: GenerationPlan,
     client: NotebookLMClient,
-) -> GenerationStatus | None:
+    *,
+    retry_sink: Callable[[Any], None] | None = None,
+    wait_context: Callable[[str, str], AbstractAsyncContextManager[None]] | None = None,
+    wait_start_sink: Callable[[str], None] | None = None,
+    mind_map_context: Callable[[], AbstractAsyncContextManager[None]] | None = None,
+) -> GenerationExecutionResult:
     """Drive a single generation request end-to-end.
 
     Caller responsibility: open and close the ``NotebookLMClient`` scope.
-    This function resolves notebook/source IDs, emits queued warnings,
-    dispatches to the matching ``client.artifacts.<method>``, runs the
-    retry-with-backoff loop, then either renders the mind-map result via
-    the legacy text/JSON formatter or hands off to
-    ``handle_generation_result`` (wait + status output + non-zero exit on
-    failure).
-
-    Returns the final :class:`GenerationStatus` (or ``None`` when the
-    underlying call resolved without a status). For ``mind-map`` returns
-    ``None`` — output is rendered inline.
+    This function resolves notebook/source IDs, dispatches to the matching
+    ``client.artifacts.<method>``, runs the retry-with-backoff loop, and
+    returns a typed result for the command layer to render.
     """
-    # Local imports defer heavy CLI-layer wiring (rendering, error_handler)
-    # until execution time and keep the import graph testable.
-    from .. import generate_cmd  # late import: avoids module-load cycles
     from ..resolve import resolve_notebook_id, resolve_source_ids
     from .artifact_generation import generate_with_retry, handle_generation_result
-    from .polling import status_with_elapsed
-
-    _emit_warnings(plan)
 
     nb_id_resolved = await resolve_notebook_id(
         client, plan.notebook_id, json_output=plan.json_output
@@ -851,39 +846,47 @@ async def execute_generation(
         return await api_method(nb_id_resolved, **call_kwargs)
 
     if plan.kind == "mind-map":
-        # Mind-map has a custom output path: no retry loop, optional
-        # spinner, custom formatter. Stay inside the generate_cmd module
-        # for _output_mind_map_result because tests patch it as a
-        # module-level attribute.
         if plan.json_output:
             result = await _generate()
         else:
-            async with status_with_elapsed(
-                "Generating mind map...",
-                json_output=False,
-            ):
+            context = mind_map_context or contextlib.nullcontext
+            async with context():
                 result = await _generate()
-        generate_cmd._output_mind_map_result(result, plan.json_output)
-        return None
+        return GenerationExecutionResult(
+            kind=plan.kind,
+            display_name=plan.display_name,
+            mind_map=result,
+        )
 
     result = await generate_with_retry(
-        _generate, plan.max_retries, plan.display_name, plan.json_output
+        _generate,
+        plan.max_retries,
+        plan.display_name,
+        on_retry=retry_sink,
     )
-    return await handle_generation_result(
+    outcome = await handle_generation_result(
         client,
         nb_id_resolved,
         result,
         plan.display_name,
         plan.wait,
-        plan.json_output,
         timeout=plan.timeout,
         interval=plan.interval,
+        wait_context=wait_context,
+        wait_start_sink=wait_start_sink,
+    )
+    return GenerationExecutionResult(
+        kind=plan.kind,
+        display_name=plan.display_name,
+        generation=outcome,
     )
 
 
 __all__ = [
     "GenerationKind",
+    "GenerationExecutionResult",
     "GenerationPlan",
+    "GenerationPlanValidationError",
     "build_generation_plan",
     "execute_generation",
 ]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.15.83
+Version: 0.15.87
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -135,9 +135,15 @@ Requires-Dist: okta-client-python<1.0.0,>=0.2.0; extra == "auth"
 Provides-Extra: drmcpbase
 Requires-Dist: starlette>=1.0.1; extra == "drmcpbase"
 Requires-Dist: fastmcp<4.0.0,>=3.2.0; extra == "drmcpbase"
+Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drmcpbase"
+Requires-Dist: aiohttp-retry<3.0.0,>=2.8.3; extra == "drmcpbase"
+Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "drmcpbase"
 Provides-Extra: drmcp
 Requires-Dist: starlette>=1.0.1; extra == "drmcp"
 Requires-Dist: fastmcp<4.0.0,>=3.2.0; extra == "drmcp"
+Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drmcp"
+Requires-Dist: aiohttp-retry<3.0.0,>=2.8.3; extra == "drmcp"
+Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "drmcp"
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "drmcp"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drmcp"
 Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "drmcp"
@@ -170,8 +176,8 @@ Requires-Dist: opentelemetry-api<2.0.0,>=1.22.0; extra == "drmcp"
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.22.0; extra == "drmcp"
 Requires-Dist: opentelemetry-exporter-otlp<2.0.0,>=1.22.0; extra == "drmcp"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.22.0; extra == "drmcp"
-Requires-Dist: aiohttp-retry<3.0.0,>=2.8.3; extra == "drmcp"
 Requires-Dist: datarobot-early-access==3.14.0.2026.3.18.162920; extra == "drmcp"
+Requires-Dist: async-lru>=2.3.0; extra == "drmcp"
 Provides-Extra: drtools
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "drtools"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drtools"

@@ -1,6 +1,6 @@
 [package]
 name = "aerospike-py-native"
-version = "0.12.1"
+version = "0.12.2"
 edition = "2021"
 license = "Apache-2.0"
 # MSRV: 1.80 reflects what the codebase already requires — clippy

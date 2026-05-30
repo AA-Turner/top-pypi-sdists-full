@@ -1,11 +1,14 @@
 """
 Debugging utilities for constructs
 """
-from __future__ import print_function
+from __future__ import annotations
+
 import sys
 import traceback
 import pdb
 import inspect
+from typing import IO, Any
+
 from .core import Construct, Subconstruct
 from .lib import HexString, Container, ListContainer
 
@@ -33,15 +36,15 @@ class Probe(Construct):
         UBInt8("b"),
     )
     """
-    __slots__ = [
+    __slots__ = (
         "printname", "show_stream", "show_context", "show_stack",
         "stream_lookahead"
-    ]
+    )
     counter = 0
 
-    def __init__(self, name = None, show_stream = True,
-                 show_context = True, show_stack = True,
-                 stream_lookahead = 100):
+    def __init__(self, name: str | None = None, show_stream: bool = True,
+            show_context: bool = True, show_stack: bool = True,
+            stream_lookahead: int = 100) -> None:
         Construct.__init__(self, None)
         if name is None:
             Probe.counter += 1
@@ -51,16 +54,16 @@ class Probe(Construct):
         self.show_context = show_context
         self.show_stack = show_stack
         self.stream_lookahead = stream_lookahead
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "%s(%r)" % (self.__class__.__name__, self.printname)
-    def _parse(self, stream, context):
+    def _parse(self, stream: IO[bytes], context: Container) -> None:
         self.printout(stream, context)
-    def _build(self, obj, stream, context):
+    def _build(self, obj: Any, stream: IO[bytes], context: Container) -> None:
         self.printout(stream, context)
-    def _sizeof(self, context):
+    def _sizeof(self, context: Container) -> int:
         return 0
 
-    def printout(self, stream, context):
+    def printout(self, stream: IO[bytes], context: Container) -> None:
         obj = Container()
         if self.show_stream:
             obj.stream_position = stream.tell()
@@ -70,7 +73,6 @@ class Probe(Construct):
             else:
                 stream.seek(-len(follows), 1)
                 obj.following_stream_data = HexString(follows)
-            print
 
         if self.show_context:
             obj.context = context
@@ -81,7 +83,7 @@ class Probe(Construct):
             frames.reverse()
             for f in frames:
                 a = Container()
-                a.__update__(f.f_locals)
+                a.update(f.f_locals)
                 obj.stack.append(a)
 
         print("=" * 80)
@@ -106,8 +108,8 @@ class Debugger(Subconstruct):
         )
     )
     """
-    __slots__ = ["retval"]
-    def _parse(self, stream, context):
+    __slots__ = ("retval",)
+    def _parse(self, stream: IO[bytes], context: Container) -> Any:
         try:
             return self.subcon._parse(stream, context)
         except Exception:
@@ -118,12 +120,12 @@ class Debugger(Subconstruct):
                 raise
             else:
                 return self.retval
-    def _build(self, obj, stream, context):
+    def _build(self, obj: Any, stream: IO[bytes], context: Container) -> None:
         try:
             self.subcon._build(obj, stream, context)
         except Exception:
             self.handle_exc()
-    def handle_exc(self, msg = None):
+    def handle_exc(self, msg: str | None = None) -> None:
         print("=" * 80)
         print("Debugging exception of %s:" % (self.subcon,))
         print("".join(traceback.format_exception(*sys.exc_info())[1:]))

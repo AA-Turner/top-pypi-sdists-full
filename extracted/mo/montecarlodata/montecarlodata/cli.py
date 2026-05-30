@@ -3,6 +3,7 @@ import sys
 import click
 
 import montecarlodata.settings as settings
+from montecarlodata.agent_traces.commands import agent_traces
 from montecarlodata.agents.commands import agents
 from montecarlodata.collector.commands import collectors
 from montecarlodata.common.user import UserService
@@ -110,6 +111,7 @@ entry_point.add_command(import_subcommand)
 entry_point.add_command(insights)
 entry_point.add_command(management)
 entry_point.add_command(agents)
+entry_point.add_command(agent_traces)
 entry_point.add_command(keys)
 entry_point.add_command(secrets)
 entry_point.add_command(platform)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 from typing import Any, MutableMapping, Union, Optional, TYPE_CHECKING
 from collections import ChainMap
-import warnings
 import math
 
 from . import default_canvas
@@ -178,7 +177,6 @@ class Drawing:
             if len(self.dwg._state) > 0:
                 self.dwg._here, self.dwg._theta = self.dwg._state.pop()
 
-
     def __init__(self, canvas: Optional[Union[Backends,
                                         xml.etree.ElementTree.Element,
                                         matplotlib.pyplot.Axes]] = None,
@@ -228,7 +226,7 @@ class Drawing:
         ''' Add a container to the drawing. Use as a context manager,
             such that elemnents inside the `with` are surrounded by
             the container.
-            
+
             >>> with drawing.container():
             >>>    elm.Resistor()
             >>>    ...
@@ -257,7 +255,7 @@ class Drawing:
 
         if self.outfile is not None:
             self.save(self.outfile, **self.saveopts)
-        if not self.fig:
+        if self.show and not self.fig:
             self.draw(show=False)
         if self.show and not hasattr(self.canvas, 'plot'):
             try:

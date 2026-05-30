@@ -2391,6 +2391,21 @@ def test_positive_string_skips_infeasible_boundary_lengths(pctx):
     assert_conform(covered, schema)
 
 
+@pytest.mark.parametrize(
+    "schema",
+    [
+        # Boundary-length variants only generate quickly once the bound is baked into the quantifier.
+        {"type": "string", "pattern": "[A-Za-z][A-Za-z0-9_.-]*", "minLength": 1, "maxLength": 255},
+        {"type": "string", "pattern": "[a-z0-9_][a-z0-9_-]+[a-z0-9_]", "minLength": 3, "maxLength": 63},
+        {"type": "string", "pattern": "[a-z][0-9]+", "minLength": 4, "maxLength": 12},
+    ],
+)
+def test_unanchored_pattern_boundary_lengths_conform(pctx, schema):
+    covered = list(_positive_string(pctx, schema))
+    assert covered
+    assert_conform(covered, schema)
+
+
 def test_path_pattern_with_literal_slash_is_unsatisfiable(ctx_factory):
     # Pattern's literal / conflicts with the path-parameter transport constraint.
     path_ctx = ctx_factory(location=ParameterLocation.PATH, generation_modes=[GenerationMode.POSITIVE])
@@ -2402,6 +2417,44 @@ def test_path_pattern_with_literal_slash_is_unsatisfiable(ctx_factory):
     }
     with pytest.raises(Unsatisfiable):
         path_ctx.generate_from_schema(schema)
+
+
+@pytest.mark.parametrize("location", [ParameterLocation.HEADER, ParameterLocation.COOKIE])
+def test_header_pattern_requiring_non_alnum_skips_positive_string(ctx_factory, location):
+    # Header/cookie values are alphanumeric-only; an ARN's literal `:` can't satisfy that, so nothing is emitted.
+    ctx = ctx_factory(location=location, generation_modes=[GenerationMode.POSITIVE])
+    schema = {
+        "type": "string",
+        "pattern": "arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}",
+        "minLength": 1,
+        "maxLength": 1024,
+    }
+    assert list(_positive_string(ctx, schema)) == []
+
+
+def test_header_alnum_pattern_still_generates(ctx_factory):
+    # A purely alphanumeric pattern is compatible with the header restriction — values must still be produced.
+    ctx = ctx_factory(location=ParameterLocation.HEADER, generation_modes=[GenerationMode.POSITIVE])
+    schema = {"type": "string", "pattern": "[A-Za-z0-9]+", "minLength": 1, "maxLength": 16}
+    covered = list(_positive_string(ctx, schema))
+    assert covered
+    compiled = re.compile(schema["pattern"])
+    for value in covered:
+        assert isinstance(value.value, str)
+        assert compiled.fullmatch(value.value)
+
+
+def test_query_pattern_requiring_non_alnum_not_skipped(ctx_factory):
+    # Query parameters carry no alphanumeric-only restriction, so the ARN pattern is satisfiable there.
+    ctx = ctx_factory(location=ParameterLocation.QUERY, generation_modes=[GenerationMode.POSITIVE])
+    schema = {
+        "type": "string",
+        "pattern": "arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}",
+        "minLength": 1,
+        "maxLength": 1024,
+    }
+    covered = list(_positive_string(ctx, schema))
+    assert covered
 
 
 def test_items_false_with_prefix_items(pctx):

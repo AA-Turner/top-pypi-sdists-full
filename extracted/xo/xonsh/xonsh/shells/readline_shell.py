@@ -96,6 +96,13 @@ def _ensure_newline():
     fd = sys.stdin.fileno()
     if not os.isatty(fd):
         return
+    # When running inside an SSH session, do not issue the DSR query.
+    # The terminal's reply travels through stdin and is observed by the
+    # local ssh client, which uses byte-stream state to detect tilde
+    # escape sequences; a DSR reply arriving between the user's Enter
+    # and a following `~` silently breaks ssh's `~.` etc. (issue #5686).
+    if os.environ.get("SSH_TTY") or os.environ.get("SSH_CONNECTION"):
+        return
     old = termios.tcgetattr(fd)
     try:
         tty.setcbreak(fd)
@@ -389,6 +396,30 @@ def _render_completions(completions, prefix, prefix_len):
     return rendered_completions
 
 
+def _rendered_keeps_prefix(rendered, prefix):
+    """Return True if a rendered completion is compatible with readline's
+    word-replacement (i.e. won't shrink readline's Greatest Common Prefix
+    below what the user already typed).
+
+    A rendered completion is compatible when:
+
+    * it begins with the typed ``prefix`` (the common case), OR
+    * a quoted path completer prepended a single leading ``'`` or ``"`` so
+      the rendered form looks like ``'file with spaces' `` for a typed
+      ``file``. The completion is still valid — readline will replace
+      ``file`` with ``'file with `` (the LCP) on the first tab — but the
+      simple ``startswith`` test would otherwise reject it.
+
+    True substring matches (e.g. ``_json`` for prefix ``jso``) are still
+    filtered out, which is what motivated the original check (#6209).
+    """
+    if rendered.startswith(prefix):
+        return True
+    if rendered[:1] in ("'", '"') and rendered[1:].startswith(prefix):
+        return True
+    return False
+
+
 DEDENT_TOKENS = LazyObject(
     lambda: frozenset(["raise", "return", "pass", "break", "continue"]),
     globals(),
@@ -537,13 +568,14 @@ class ReadlineShell(BaseShell, cmd.Cmd):
             cursor_index=len(prev_text) + endidx,
         )
         rtn_completions = _render_completions(completions, prefix, plen)
-        # Filter out completions that don't start with the readline prefix.
-        # Substring matches (e.g. _json for prefix "jso") would cause readline's
-        # Greatest Common Prefix to shrink below what was typed.
+        # Filter out completions that would shrink readline's Greatest
+        # Common Prefix below what was typed (e.g. ``_json`` for prefix
+        # ``jso``, issue #6209), while still allowing quoted path forms
+        # like ``'file with spaces.txt' `` for an unquoted prefix (#2865).
         filtered = [
             (r, c)
             for r, c in zip(rtn_completions, completions, strict=True)
-            if r.startswith(prefix)
+            if _rendered_keeps_prefix(r, prefix)
         ]
         if filtered:
             rtn_completions, completions = zip(*filtered, strict=True)

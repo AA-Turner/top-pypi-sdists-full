@@ -1,12 +1,24 @@
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # elftools tests
 #
 # Gabriele Digregorio - Io_no
 # This code is in the public domain
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+from __future__ import annotations
 
-from elftools.elf.elffile import ELFFile
+import os
+import tempfile
 import unittest
+from typing import IO
+
+from elftools.common.exceptions import ELFError
+from elftools.elf.elffile import ELFFile
+
+try:
+    from typeguard import suppress_type_checks
+except ImportError:
+    def suppress_type_checks(f):  # type: ignore[no-redef]
+        return f
 
 
 class TestDebuglink(unittest.TestCase):
@@ -16,7 +28,7 @@ class TestDebuglink(unittest.TestCase):
         We verify that the subprograms are correctly retrieved from the debug file.
     """
 
-    def stream_loader(self, external_filename: str) -> 'IO[bytes]':
+    def stream_loader(self, external_filename: str) -> IO[bytes]:
         """
         This function takes an external filename to load a supplementary object file,
         and returns a stream suitable for creating a new ELFFile.
@@ -26,11 +38,11 @@ class TestDebuglink(unittest.TestCase):
         Returns:
             stream (IO[bytes]): A stream suitable for creating a new ELFFile.
         """
-        self.assertEqual(external_filename, b'debuglink.debug')
-        stream = open(b'test/testfiles_for_unittests/' + external_filename, 'rb')
+        self.assertEqual(external_filename, 'debuglink.debug')
+        stream = open('test/testfiles_for_unittests/' + external_filename, 'rb')
         return stream
 
-    def subprograms_from_debuglink(self, elf: ELFFile) -> dict[str, (int, int)]:
+    def subprograms_from_debuglink(self, elf: ELFFile) -> dict[str, tuple[int, int]]:
         """Returns a dictionary containing the subprograms of the specified ELF file from the linked
         debug file.
         Args:
@@ -87,7 +99,38 @@ class TestDebuglink(unittest.TestCase):
         elf = ELFFile.load_from_path('test/testfiles_for_unittests/debuglink')
         subprograms = self.subprograms_from_debuglink(elf)
         self.assertEqual(subprograms, {b'main': (0x1161, 0x52), b'addNumbers': (0x1149, 0x18)})
+        elf.close()
+
+    def test_relative_loader_rejects_path_traversal(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_path = os.path.join(tmpdir, 'bin', 'sample.elf')
+            os.makedirs(os.path.dirname(base_path))
+            loader = ELFFile.make_relative_loader(base_path)
+
+            with self.assertRaisesRegex(ELFError, 'escapes the ELF file directory'):
+                loader('../outside.debug')
+
+    def test_relative_loader_rejects_absolute_paths(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_path = os.path.join(tmpdir, 'bin', 'sample.elf')
+            os.makedirs(os.path.dirname(base_path))
+            loader = ELFFile.make_relative_loader(base_path)
+
+            with self.assertRaisesRegex(ELFError, 'must be relative'):
+                loader(os.path.abspath(os.path.join(tmpdir, 'outside.debug')))
+
+    @suppress_type_checks
+    def test_relative_loader_rejects_bytes_paths(self):
+        with self.assertRaisesRegex(TypeError, 'base_path must be str'):
+            ELFFile.make_relative_loader(b'sample.elf')
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_path = os.path.join(tmpdir, 'bin', 'sample.elf')
+            os.makedirs(os.path.dirname(base_path))
+            loader = ELFFile.make_relative_loader(base_path)
+
+            with self.assertRaisesRegex(TypeError, 'rel_path must be str'):
+                loader(b'outside.debug')
 
 if __name__ == '__main__':
     unittest.main()
-

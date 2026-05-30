@@ -1,32 +1,27 @@
-"""Integration tests for the empty middleware chain wired into ``Session``.
+"""Integration tests for the authed-post middleware chain.
 
-PR 12.2 of the Tier-12/13 greenfield migration wires
-:func:`notebooklm._middleware.build_chain` into
-:meth:`Session.__init__` with an empty middleware list. The chain leaf
-(:meth:`Session._authed_post_chain_terminal`) reads
-``build_request`` / ``log_label`` / ``disable_internal_retries`` from
-``RpcRequest.context`` and delegates to
-:meth:`AuthedTransport.perform_authed_post` — the shared seam covering both
-:meth:`Session._perform_authed_post` AND ``RpcExecutor.execute`` (which
-calls ``self._owner._perform_authed_post`` at ``_rpc_executor.py:275``).
+:func:`notebooklm._middleware.build_chain` is wired by
+:func:`compose_client_internals` against the chain leaf on
+:class:`MiddlewareChainHost`
+(:meth:`MiddlewareChainHost._authed_post_chain_terminal`), which
+consumes the populated ``RpcRequest.url`` / ``headers`` / ``body``
+envelope and delegates directly to ``Kernel.post`` — the transport
+seam under both :meth:`SessionTransport.perform_authed_post` AND
+``RpcExecutor._execute_once``. The ``NotebookLMClient._perform_authed_post``
+compatibility forward was deleted in Wave 11c of session-decoupling;
+tests now drive the canonical collaborator method directly.
 
 These tests verify the wiring contract from
-``.sisyphus/plans/tier-12-13-greenfield-migration.md`` line 160 and ADR-009
-§"RpcRequest.context keys":
+ADR-009 §"RpcRequest.context keys":
 
-1. Both call paths (``Session._perform_authed_post`` directly and
-   ``RpcExecutor.execute`` indirectly) flow through the empty chain to the
-   transport.
+1. Both call paths (``SessionTransport.perform_authed_post`` directly
+   and the ``RpcExecutor._execute_once`` keyword shape) flow through
+   the chain terminal to the transport.
 2. ``RpcRequest.context`` carries ``build_request`` / ``log_label`` /
-   ``disable_internal_retries`` exactly as the leaf expects them.
+   ``disable_internal_retries`` for retry/rebuild metadata while the terminal
+   reads the envelope itself.
 3. The leaf returns an :class:`RpcResponse` wrapping the
    :class:`httpx.Response` from the transport.
-
-The terminal adapter resolves ``self._get_authed_transport()`` per
-invocation so swapping the transport mid-test (the idiom used here) still
-affects live behavior — a property the existing
-``test_authed_transport.py`` test suite already relies on for its
-monkeypatch surface.
 """
 
 from __future__ import annotations
@@ -37,9 +32,7 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-# pytest puts ``tests/`` on ``sys.path``; ``_fixtures.chain`` is the
-# canonical import path documented in ``tests/_fixtures/__init__.py``.
-from _fixtures.chain import FakeAuthedPost
+from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm._middleware import (
     Middleware,
     NextCall,
@@ -47,15 +40,16 @@ from notebooklm._middleware import (
     RpcResponse,
     build_chain,
 )
-from notebooklm._session import Session
+from notebooklm._transport_errors import TransportServerError
+from notebooklm.client import NotebookLMClient
 
 
-def _make_core() -> Session:
-    """Build a ``Session`` instance without opening an HTTP client.
+def _make_core() -> NotebookLMClient:
+    """Build a ``NotebookLMClient`` instance without opening an HTTP client.
 
-    ``Session.__init__`` is event-loop-agnostic, so we can construct an
-    instance in synchronous test setup. The transport is then swapped in
-    each test for a :class:`FakeAuthedPost` so no real HTTP call fires.
+    ``NotebookLMClient.__init__`` is event-loop-agnostic, so we can construct an
+    instance in synchronous test setup. Tests replace ``Kernel.post`` directly
+    so no real HTTP call fires.
     """
     auth = MagicMock()
     auth.storage_path = None
@@ -63,39 +57,52 @@ def _make_core() -> Session:
     auth.account_email = None
     auth.csrf_token = "csrf-token"
     auth.session_id = "session-id"
-    return Session(auth=auth)
+    return build_client_shell_for_tests(auth=auth)
 
 
-def _swap_transport(core: Session, fake: FakeAuthedPost) -> None:
-    """Replace ``core._get_authed_transport`` with a callable returning ``fake``.
+class FakeKernelPost:
+    """Programmable stub for ``Kernel.post``."""
 
-    The chain terminal calls ``self._get_authed_transport()`` per
-    invocation; overriding the bound method on the instance is sufficient
-    because Python's attribute lookup finds the instance attribute before
-    the class method. This keeps the swap local to the test (no shared
-    module-level monkeypatch).
-    """
-    core._get_authed_transport = lambda: fake  # type: ignore[method-assign]
+    def __init__(self, response: httpx.Response | None = None) -> None:
+        self.response = response or httpx.Response(status_code=200, content=b"")
+        self.calls: list[dict[str, Any]] = []
+
+    @property
+    def call_count(self) -> int:
+        return len(self.calls)
+
+    async def post(
+        self,
+        url: str,
+        *,
+        headers: Any,
+        body: bytes,
+    ) -> httpx.Response:
+        self.calls.append({"url": url, "headers": headers, "body": body})
+        return self.response
+
+
+def _swap_kernel_post(core: NotebookLMClient, fake: FakeKernelPost) -> None:
+    core._collaborators.kernel.post = fake.post  # type: ignore[method-assign]
 
 
 @pytest.mark.asyncio
-async def test_empty_chain_routes_perform_authed_post_to_transport() -> None:
-    """``Session._perform_authed_post`` flows through the empty chain to transport.
+async def test_chain_routes_perform_authed_post_to_transport() -> None:
+    """``SessionTransport.perform_authed_post`` flows through the chain.
 
-    Covers the first of the two call paths from master plan line 160:
-    direct callers of ``Session._perform_authed_post`` (the chat path
-    in ``_chat_transport.py:64`` and any first-party caller via
-    ``client._session._perform_authed_post``).
+    Covers direct callers of ``SessionTransport.perform_authed_post``:
+    the chat path in ``_chat_transport.py:64`` and any first-party
+    caller via ``client._composed.transport.perform_authed_post``.
     """
     expected_response = httpx.Response(status_code=200, content=b"chain-routed")
-    fake = FakeAuthedPost(response=expected_response)
+    fake = FakeKernelPost(response=expected_response)
     core = _make_core()
-    _swap_transport(core, fake)
+    _swap_kernel_post(core, fake)
 
     def build_request(snapshot: Any) -> tuple[str, bytes, dict[str, str] | None]:
         return ("https://fake/url", b"body", None)
 
-    response = await core._perform_authed_post(
+    response = await core._composed.transport.perform_authed_post(
         build_request=build_request,
         log_label="test-log-label",
         disable_internal_retries=False,
@@ -104,40 +111,40 @@ async def test_empty_chain_routes_perform_authed_post_to_transport() -> None:
     assert response is expected_response
     assert fake.call_count == 1
     call = fake.calls[0]
-    assert call["build_request"] is build_request
-    assert call["log_label"] == "test-log-label"
-    assert call["disable_internal_retries"] is False
+    assert call["url"] == "https://fake/url"
+    assert call["headers"] == {}
+    assert call["body"] == b"body"
 
 
 @pytest.mark.asyncio
-async def test_empty_chain_routes_rpc_executor_path_to_transport() -> None:
-    """``RpcExecutor.execute`` → ``_perform_authed_post`` flows through the chain too.
+async def test_chain_routes_rpc_executor_path_to_transport() -> None:
+    """``RpcExecutor._execute_once`` → ``perform_authed_post`` flows through the chain too.
 
-    Covers the second of the two call paths from master plan line 160:
-    ``RpcExecutor.execute`` (``_rpc_executor.py:275``) calls
-    ``self._owner._perform_authed_post(...)`` which is precisely
-    :meth:`Session._perform_authed_post`. Routing both paths through
-    one seam is the whole point of wiring at ``_perform_authed_post``
-    rather than at each call site.
+    ``RpcExecutor._execute_once`` calls
+    ``self._transport.perform_authed_post(...)`` (Wave 4 of
+    session-decoupling: the executor takes :class:`SessionTransport`
+    directly instead of reaching through NotebookLMClient). Routing both paths
+    through one seam is the whole point of wiring at
+    ``perform_authed_post`` rather than at each call site.
 
-    We exercise the route by calling ``_perform_authed_post`` with the
-    keyword shape ``RpcExecutor.execute`` uses (the
-    ``log_label=f"RPC {method.name}"`` template at ``_rpc_executor.py:277``)
+    We exercise the route by calling ``perform_authed_post`` with the
+    keyword shape ``RpcExecutor._execute_once`` uses (the
+    ``log_label=f"RPC {method.name}"`` template)
     and asserting the chain leaf hands those exact kwargs to the
     transport. We do NOT spin up a full ``RpcExecutor`` here because that
     pulls in the idempotency registry and encoder fixtures; the seam
-    invariant is "the chain receives whatever ``_perform_authed_post``
+    invariant is "the chain receives whatever ``perform_authed_post``
     receives," which a direct call validates without the extra surface.
     """
     expected_response = httpx.Response(status_code=200, content=b"rpc-path")
-    fake = FakeAuthedPost(response=expected_response)
+    fake = FakeKernelPost(response=expected_response)
     core = _make_core()
-    _swap_transport(core, fake)
+    _swap_kernel_post(core, fake)
 
     def build_request(snapshot: Any) -> tuple[str, bytes, dict[str, str] | None]:
         return ("https://fake/rpc", b"rpc-body", {"X-Goog-AuthUser": "0"})
 
-    response = await core._perform_authed_post(
+    response = await core._composed.transport.perform_authed_post(
         build_request=build_request,
         log_label="RPC LIST_NOTEBOOKS",
         disable_internal_retries=True,
@@ -146,12 +153,9 @@ async def test_empty_chain_routes_rpc_executor_path_to_transport() -> None:
     assert response is expected_response
     assert fake.call_count == 1
     call = fake.calls[0]
-    assert call["build_request"] is build_request
-    assert call["log_label"] == "RPC LIST_NOTEBOOKS"
-    # The ``disable_internal_retries`` bool resolved by
-    # ``_idempotency.resolve_effective_disable_internal_retries`` upstream
-    # propagates through the chain unchanged.
-    assert call["disable_internal_retries"] is True
+    assert call["url"] == "https://fake/rpc"
+    assert call["headers"] == {"X-Goog-AuthUser": "0"}
+    assert call["body"] == b"rpc-body"
 
 
 @pytest.mark.asyncio
@@ -160,80 +164,98 @@ async def test_chain_terminal_reads_context_keys() -> None:
 
     Drives the terminal adapter directly with a hand-built ``RpcRequest``
     so we can assert the contract independently of
-    :meth:`Session._perform_authed_post`'s context-construction code.
+    :meth:`SessionTransport.perform_authed_post`'s context-construction code.
     This is what every middleware PR 12.3–12.8 will rely on when it
     builds a chain over ``[*middlewares, ...]`` and lets the leaf adapt
     the request into a transport call.
     """
     expected_response = httpx.Response(status_code=204, content=b"")
-    fake = FakeAuthedPost(response=expected_response)
+    fake = FakeKernelPost(response=expected_response)
     core = _make_core()
-    _swap_transport(core, fake)
-
-    def build_request(snapshot: Any) -> tuple[str, bytes, dict[str, str] | None]:
-        return ("https://fake/ctx", b"ctx-body", None)
+    _swap_kernel_post(core, fake)
 
     request = RpcRequest(
-        url="",
-        headers={},
-        body=b"",
+        url="https://fake/ctx",
+        headers={"X-Test": "yes"},
+        body=b"ctx-body",
         context={
-            "build_request": build_request,
             "log_label": "context-test",
             "disable_internal_retries": False,
         },
     )
 
-    result = await core._authed_post_chain_terminal(request)
+    result = await core._composed.chain_host._authed_post_chain_terminal(request)
 
     assert isinstance(result, RpcResponse)
     assert result.response is expected_response
     # The ``RpcResponse.context`` propagates the same dict the request
     # carried, so middlewares above the leaf can read additions a deeper
-    # link made. The empty chain leaves the dict unchanged.
+    # link made. The terminal adapter leaves the dict unchanged.
     assert result.context is request.context
     assert fake.call_count == 1
-    assert fake.calls[0]["build_request"] is build_request
-    assert fake.calls[0]["log_label"] == "context-test"
-    assert fake.calls[0]["disable_internal_retries"] is False
+    assert fake.calls[0] == {
+        "url": "https://fake/ctx",
+        "headers": {"X-Test": "yes"},
+        "body": b"ctx-body",
+    }
 
 
 @pytest.mark.asyncio
 async def test_chain_terminal_disable_internal_retries_defaults_false() -> None:
     """When ``context`` omits ``disable_internal_retries`` the leaf reads ``False``.
 
-    ``_perform_authed_post`` always populates the key, but the leaf
+    ``perform_authed_post`` always populates the key, but the leaf
     defends against a missing entry so middlewares that build a request
-    without the key (e.g. a future ``Session.transport_post`` raw-POST
-    seam, master plan section 3) cannot trip the leaf with a
-    ``KeyError``.
+    without the key cannot trip the leaf with a ``KeyError``.
     """
-    fake = FakeAuthedPost()
+    fake = FakeKernelPost()
     core = _make_core()
-    _swap_transport(core, fake)
-
-    def build_request(snapshot: Any) -> tuple[str, bytes, dict[str, str] | None]:
-        return ("https://fake/no-retry-flag", b"", None)
+    _swap_kernel_post(core, fake)
 
     request = RpcRequest(
-        url="",
+        url="https://fake/no-retry-flag",
         headers={},
         body=b"",
         context={
-            "build_request": build_request,
             "log_label": "default-flag",
         },
     )
 
-    await core._authed_post_chain_terminal(request)
+    await core._composed.chain_host._authed_post_chain_terminal(request)
 
     assert fake.call_count == 1
-    assert fake.calls[0]["disable_internal_retries"] is False
+    assert fake.calls[0]["url"] == "https://fake/no-retry-flag"
+
+
+@pytest.mark.asyncio
+async def test_chain_terminal_log_label_defaults_for_direct_calls() -> None:
+    """Direct terminal calls without context metadata still map errors safely."""
+    core = _make_core()
+
+    async def raise_network_error(
+        url: str,
+        *,
+        headers: Any,
+        body: bytes,
+    ) -> httpx.Response:
+        request = httpx.Request("POST", url, headers=dict(headers), content=body)
+        raise httpx.RequestError("boom", request=request)
+
+    core._collaborators.kernel.post = raise_network_error  # type: ignore[method-assign]
+    request = RpcRequest(
+        url="https://fake/no-log-label",
+        headers={},
+        body=b"",
+        context={},
+    )
+
+    with pytest.raises(TransportServerError, match="<unknown-chain-call> network error"):
+        await core._composed.chain_host._authed_post_chain_terminal(request)
 
 
 @pytest.mark.asyncio
 async def test_chain_seeded_with_final_adr_009_ordering() -> None:
-    """``Session.__init__`` seeds the chain with the FINAL ADR-009 ordering.
+    """``NotebookLMClient.__init__`` seeds the chain with the FINAL ADR-009 ordering.
 
     PR 12.3 landed ``TracingMiddleware`` at the innermost position; PR 12.4
     prepended ``MetricsMiddleware``; PR 12.5 prepended ``DrainMiddleware``
@@ -268,14 +290,14 @@ async def test_chain_seeded_with_final_adr_009_ordering() -> None:
     from notebooklm._middleware_tracing import TracingMiddleware
 
     core = _make_core()
-    assert len(core._middlewares) == 7
-    assert isinstance(core._middlewares[0], DrainMiddleware)
-    assert isinstance(core._middlewares[1], MetricsMiddleware)
-    assert isinstance(core._middlewares[2], SemaphoreMiddleware)
-    assert isinstance(core._middlewares[3], RetryMiddleware)
-    assert isinstance(core._middlewares[4], AuthRefreshMiddleware)
-    assert isinstance(core._middlewares[5], ErrorInjectionMiddleware)
-    assert isinstance(core._middlewares[6], TracingMiddleware)
+    assert len(core._composed.middlewares) == 7
+    assert isinstance(core._composed.middlewares[0], DrainMiddleware)
+    assert isinstance(core._composed.middlewares[1], MetricsMiddleware)
+    assert isinstance(core._composed.middlewares[2], SemaphoreMiddleware)
+    assert isinstance(core._composed.middlewares[3], RetryMiddleware)
+    assert isinstance(core._composed.middlewares[4], AuthRefreshMiddleware)
+    assert isinstance(core._composed.middlewares[5], ErrorInjectionMiddleware)
+    assert isinstance(core._composed.middlewares[6], TracingMiddleware)
 
 
 @pytest.mark.asyncio
@@ -287,7 +309,7 @@ async def test_chain_with_test_middleware_observes_request_and_response() -> Non
     assert the middleware saw both the inbound request and the outbound
     response. This is the wire-up smoke test for middleware extractions.
 
-    Builds the chain locally (rather than mutating ``core._middlewares``
+    Builds the chain locally (rather than mutating ``core._composed.middlewares``
     in-place) because production code does not yet support hot-swapping
     the chain — that's a PR 12.3 concern when ``TracingMiddleware`` lands.
     """
@@ -300,25 +322,21 @@ async def test_chain_with_test_middleware_observes_request_and_response() -> Non
         return response
 
     expected_response = httpx.Response(status_code=200, content=b"observed")
-    fake = FakeAuthedPost(response=expected_response)
+    fake = FakeKernelPost(response=expected_response)
     core = _make_core()
-    _swap_transport(core, fake)
+    _swap_kernel_post(core, fake)
 
     # Build a chain with one observer middleware around the production
-    # terminal. The production chain stays empty; this is a per-test
-    # composition that validates the leaf's contract against
-    # ``build_chain`` rather than ``Session.__init__``.
-    chain: NextCall = build_chain([observer], core._authed_post_chain_terminal)
-
-    def build_request(snapshot: Any) -> tuple[str, bytes, dict[str, str] | None]:
-        return ("https://fake/observe", b"", None)
+    # terminal. This per-test composition validates the leaf's contract
+    # against ``build_chain`` without mutating ``NotebookLMClient.__init__``'s
+    # production chain.
+    chain: NextCall = build_chain([observer], core._composed.chain_host._authed_post_chain_terminal)
 
     request = RpcRequest(
-        url="",
+        url="https://fake/observe",
         headers={},
         body=b"",
         context={
-            "build_request": build_request,
             "log_label": "observer-test",
             "disable_internal_retries": False,
         },
@@ -331,14 +349,15 @@ async def test_chain_with_test_middleware_observes_request_and_response() -> Non
     assert observed["response"].response is expected_response
     assert result.response is expected_response
     assert fake.call_count == 1
+    assert fake.calls[0]["url"] == "https://fake/observe"
 
 
 def test_build_chain_empty_returns_terminal_unchanged() -> None:
     """:func:`build_chain` returns the terminal unchanged when ``middlewares`` is empty.
 
     Pins the contract that ``_middleware.build_chain([], terminal) is terminal``
-    so :meth:`Session.__init__`'s ``self._authed_post_chain is
-    self._authed_post_chain_terminal`` invariant from
+    so the ``chain_host._authed_post_chain is
+    chain_host._authed_post_chain_terminal`` invariant from
     :func:`test_chain_is_empty_by_default` does not silently flip if
     ``build_chain``'s identity behavior changes. Synchronous test —
     no event-loop overhead.
@@ -356,16 +375,21 @@ def test_build_chain_empty_returns_terminal_unchanged() -> None:
 
 
 def test_perform_authed_post_signature_unchanged() -> None:
-    """The keyword-only signature of ``_perform_authed_post`` is unchanged.
+    """The keyword-only signature of ``perform_authed_post`` is unchanged.
 
-    Many call sites pass the three kwargs by name
-    (``_rpc_executor.py:275``, ``_chat_transport.py:64``, integration tests).
-    The chain wiring inside the body must NOT change the public-ish
-    signature; this guard catches an accidental rename.
+    Many call sites pass the three kwargs by name, including the RPC executor,
+    chat transport, and integration tests. The chain wiring inside the body
+    must NOT change the public-ish signature; this guard catches an
+    accidental rename. The NotebookLMClient-level ``_perform_authed_post`` forward
+    was deleted in Wave 11c of session-decoupling; the signature contract
+    now lives on the canonical collaborator method
+    (``SessionTransport.perform_authed_post``).
     """
     import inspect
 
-    sig = inspect.signature(Session._perform_authed_post)
+    from notebooklm._session_transport import SessionTransport
+
+    sig = inspect.signature(SessionTransport.perform_authed_post)
     params = sig.parameters
     assert "build_request" in params
     assert "log_label" in params

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.12.1
+Version: 2.13.0
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -58,7 +58,7 @@ Requires-Dist: keyring==25.7.0
 Requires-Dist: linkify-it-py==2.1.0
 Requires-Dist: markdown-it-py==4.0.0
 Requires-Dist: markdownify==1.2.2
-Requires-Dist: mcp==1.27.0
+Requires-Dist: mcp==1.27.1
 Requires-Dist: mdit-py-plugins==0.5.0
 Requires-Dist: mdurl==0.1.2
 Requires-Dist: mistralai==2.4.4
@@ -105,6 +105,7 @@ Requires-Dist: textual==8.2.7
 Requires-Dist: tomli-w==1.2.0
 Requires-Dist: tree-sitter-bash==0.25.1
 Requires-Dist: tree-sitter==0.25.2
+Requires-Dist: truststore==0.10.4
 Requires-Dist: typing-extensions==4.15.0
 Requires-Dist: typing-inspection==0.4.2
 Requires-Dist: uc-micro-py==2.0.0
@@ -542,6 +543,16 @@ Vibe supports multiple ways to configure your API keys:
    Vibe automatically loads API keys from `~/.vibe/.env` on startup. Environment variables take precedence over the `.env` file if both are set.
 
 **Note**: The `.env` file is specifically for API keys and other provider credentials. General Vibe configuration should be done in `config.toml`.
+
+### TLS and Corporate Certificate Authorities
+
+By default, Vibe uses the bundled `certifi` certificate roots for outbound HTTPS requests. If your organization installs private certificate authorities in the operating system trust store, you can opt in to the system trust store in `config.toml`:
+
+```toml
+enable_system_trust_store = true
+```
+
+`SSL_CERT_FILE` and `SSL_CERT_DIR` are still supported and are loaded as additional trust anchors.
 
 ### Custom System Prompts
 

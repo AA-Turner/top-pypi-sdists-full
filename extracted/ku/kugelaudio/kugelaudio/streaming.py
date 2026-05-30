@@ -420,6 +420,74 @@ class StreamingSession:
         self._last_word_timestamps = []
         return stats
 
+    async def cancel_current(self) -> None:
+        """Interrupt (barge-in) the current generation, keeping the socket open.
+
+        Use this when the end user starts speaking over the agent: it tells
+        the server to **stop generating audio for the current turn
+        immediately** and drop any text that was buffered or queued but not
+        yet spoken. Unlike :meth:`end_session` / :meth:`drain`, no remaining
+        text is flushed — the turn is abandoned.
+
+        The WebSocket stays open and a fresh session is ready, so the next
+        :meth:`send` starts the next user turn immediately (config is re-sent
+        automatically on that first send).
+
+        Returns once the server acknowledges with an ``interrupted`` frame, or
+        after a quiet timeout if the server stays silent. Any audio chunks the
+        server still has in flight at cancel time are received and discarded so
+        they don't leak into the next turn.
+
+        Example:
+            # VAD detected the user speaking over the agent:
+            await session.cancel_current()
+            # Socket is still open — start the next turn immediately:
+            async for chunk in session.send(next_text, flush=True):
+                play(chunk)
+        """
+        if not self._ws:
+            return
+
+        # A pending drain()/end_session() handshake is moot once we barge in.
+        self._session_ended = False
+        self._session_stats = {}
+
+        try:
+            await self._ws.send(json.dumps({"cancel": True}))
+
+            # Drain until the server acks ``interrupted``. The per-recv timeout
+            # resets on every frame, so late audio chunks from the cancelled
+            # turn (which we discard) keep the wait alive; only a genuinely
+            # silent server trips the quiet fuse.
+            while True:
+                msg = await asyncio.wait_for(
+                    self._ws.recv(), timeout=_DEFAULT_RECV_TIMEOUT_S
+                )
+                data = json.loads(msg)
+                if data.get("error"):
+                    _raise_for_error(data)
+                if data.get("interrupted"):
+                    break
+                # Discard any stale audio / timestamps from the cancelled turn.
+        except asyncio.TimeoutError:
+            # Server stayed silent — treat the barge-in as acknowledged.
+            pass
+        except Exception as e:
+            # Underlying socket died — tear down so the next send() reconnects
+            # cleanly instead of writing to a dead socket.
+            if "ConnectionClosed" in str(type(e)) or isinstance(
+                e, (OSError, asyncio.TimeoutError)
+            ):
+                self._ws = None
+                self._is_started = False
+            else:
+                raise
+
+        # The server starts a fresh session after a cancel — reset so the
+        # next send() re-sends config.
+        self._config_sent = False
+        self._last_word_timestamps = []
+
     def update_config(self, config: Optional[StreamConfig] = None, **kwargs) -> None:
         """Update session configuration for the next session.
 
@@ -515,6 +583,13 @@ class StreamingSessionSync:
             return chunks
 
         return self._loop.run_until_complete(collect())
+
+    def cancel_current(self) -> None:
+        """Interrupt (barge-in) the current generation, keeping the socket open.
+
+        See :meth:`StreamingSession.cancel_current` for the rationale.
+        """
+        return self._loop.run_until_complete(self._session.cancel_current())
 
     @property
     def last_word_timestamps(self) -> List[WordTimestamp]:
@@ -889,11 +964,19 @@ class MultiContextSession:
         ):
             yield chunk
 
-    async def close_context(self, context_id: str) -> AsyncIterator[AudioChunk]:
+    async def close_context(
+        self, context_id: str, immediate: bool = False
+    ) -> AsyncIterator[AudioChunk]:
         """Close a specific context and get remaining audio.
 
         Args:
             context_id: Context to close
+            immediate: When ``True``, **barge-in**: the server cancels the
+                context's in-flight generation immediately and discards any
+                buffered or queued text instead of draining it. Use when the
+                end user speaks over the agent — the iterator then yields
+                little or no tail audio. When ``False`` (default), queued
+                sentences finish first.
 
         Yields:
             AudioChunk for any remaining buffered text
@@ -901,14 +984,13 @@ class MultiContextSession:
         if not self._is_started or context_id not in self._contexts:
             return
 
-        await self._ws.send(
-            json.dumps(
-                {
-                    "close_context": True,
-                    "context_id": context_id,
-                }
-            )
-        )
+        msg: Dict[str, Any] = {
+            "close_context": True,
+            "context_id": context_id,
+        }
+        if immediate:
+            msg["immediate"] = True
+        await self._ws.send(json.dumps(msg))
 
         async for chunk in self._receive_audio(context_id, wait_for_close=True):
             yield chunk

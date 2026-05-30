@@ -34,11 +34,24 @@ from sage.games.assets import MeshGenerator, MeshResult
 from sage.games.assets.manifest import AssetManifest
 from sage.games.assets.meshes import (
     _BLENDER_SCRIPT_TEMPLATE,
-    _PLACEHOLDER_GLB,
     _pick_primitive,
 )
 from sage.games.engines import get_adapter
 from sage.games.engines.base import GamePlan, GameRequest
+
+
+def _build_placeholder_glb() -> bytes:
+    import struct as _struct
+    json_payload = b'{"asset":{"version":"2.0","generator":"sage-placeholder"}}'
+    pad = (-len(json_payload)) % 4
+    json_payload += b" " * pad
+    json_chunk_header = _struct.pack("<I", len(json_payload)) + b"JSON"
+    total_length = 12 + len(json_chunk_header) + len(json_payload)
+    header = b"glTF" + _struct.pack("<II", 2, total_length)
+    return header + json_chunk_header + json_payload
+
+
+_PLACEHOLDER_GLB = _build_placeholder_glb()
 
 
 # ───────────────────────── primitive classifier ───────────────────────
@@ -121,10 +134,13 @@ def test_blender_subprocess_invocation_uses_correct_flags(tmp_path, monkeypatch)
                 # Read the script and find the out_path.
                 script_text = Path(args[i + 1]).read_text(encoding="utf-8")
                 for line in script_text.splitlines():
-                    if 'filepath="' in line:
-                        out = line.split('filepath="', 1)[1].split('"', 1)[0]
-                        Path(out).write_bytes(_PLACEHOLDER_GLB)
-                        break
+                    if 'filepath=' in line:
+                        import re as _re
+                        match = _re.search(r"filepath=['\"]([^'\"]+)['\"]", line)
+                        if match:
+                            out = match.group(1)
+                            Path(out).write_bytes(_PLACEHOLDER_GLB)
+                            break
 
         class _P:
             returncode = 0
@@ -269,10 +285,9 @@ def test_3d_mesh_pipeline_handles_billboards_via_2d_sprite_path(tmp_path):
 # ───────────────────────── 3D pipeline end-to-end ─────────────────────
 
 
-def test_3d_request_decomposer_forces_mesh_role(tmp_path, monkeypatch):
-    """A 3D request (perspective=first-person / third-person / 3d) MUST
-    end up with at least one mesh role in the plan, even if the LLM
-    doesn't supply any. This is the sanity floor in _decompose."""
+def test_3d_request_decomposer_no_synthetic_mesh(tmp_path, monkeypatch):
+    """Under the updated design, asset roles must come from the LLM — no synthetic
+    fallbacks. Empty meshes in the LLM response should result in empty meshes in the plan."""
     monkeypatch.setattr("sage.games.assets.meshes._find_blender", lambda: None)
 
     from sage.games.pipeline import _decompose
@@ -281,11 +296,9 @@ def test_3d_request_decomposer_forces_mesh_role(tmp_path, monkeypatch):
         perspective="first-person", target="windows",
         raw_prompt="an FPS",
     )
-    # Empty decompose JSON → plan should still floor in a mesh role.
     plan = _decompose(req, generate=lambda _p: '{"title":"X","meshes":[]}',
                      log=lambda _: None)
-    assert plan.mesh_roles, "3D request must seed at least one mesh role"
-    assert plan.mesh_roles[0][0] == "player"
+    assert not plan.mesh_roles
 
 
 def test_3d_request_skips_audio_floor_when_provided(tmp_path):

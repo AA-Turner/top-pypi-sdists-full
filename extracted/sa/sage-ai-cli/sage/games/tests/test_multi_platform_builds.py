@@ -46,6 +46,7 @@ def _force_offline_assets(monkeypatch):
     when the engine adapter tries to copy it. Forcing the audio fallback
     to write a silent file directly (no subprocess) keeps the test
     focused on what we actually care about: engine-binary invocations."""
+    monkeypatch.setenv("SAGE_TESTING", "0")
     monkeypatch.setattr("sage.games.assets.audio._ffmpeg_available", lambda: False)
     monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
     # Same logic for meshes — Blender shells out; mesh.placeholder is fine.
@@ -124,8 +125,8 @@ def _fake_generate(prompt: str) -> str:
 @pytest.mark.parametrize("target,preset,ext", [
     ("web",     "Web",             "html"),
     ("windows", "Windows Desktop", "exe"),
-    ("mac",     "macOS",           "app"),
-    ("linux",   "Linux/X11",       "x86_64"),
+    ("mac",     "macOS",           "zip"),
+    ("linux",   "Linux",           "x86_64"),
 ])
 def test_godot_build_uses_correct_preset_and_extension(target, preset, ext, tmp_path, monkeypatch):
     """The Godot adapter exposes 4 export presets. The pipeline's `target`
@@ -193,13 +194,37 @@ def test_unity_build_invokes_correct_executemethod(target, method, tmp_path, mon
     fake_unity.write_text("#!/bin/sh\n")
     monkeypatch.setattr(adapter, "detect", lambda: fake_unity)
 
+    _TARGET_TO_BUILDTARGET = {
+        "web": "WebGL",
+        "windows": "StandaloneWindows64",
+        "mac": "StandaloneOSX",
+        "linux": "StandaloneLinux64",
+        "android": "Android",
+        "ios": "iOS",
+    }
+
     def write_unity_build(cwd, args):
-        # Unity post-build check is `(out_dir / "Build").exists()` — create it.
+        project_path = cwd
         for i, a in enumerate(args):
             if a == "-projectPath" and i + 1 < len(args):
-                build = Path(args[i + 1]) / "Build"
-                build.mkdir(parents=True, exist_ok=True)
-                (build / "stub").write_bytes(b"u")
+                project_path = Path(args[i + 1])
+                break
+        build_subdir = project_path / "Build" / _TARGET_TO_BUILDTARGET[target]
+        build_subdir.mkdir(parents=True, exist_ok=True)
+        preferred_name = {
+            "web": "index.html",
+            "windows": "game.exe",
+            "mac": "game.app",
+            "linux": "game.x86_64",
+            "android": "game.apk",
+            "ios": "Unity-iPhone.xcodeproj",
+        }[target]
+        output = build_subdir / preferred_name
+        if target in ("mac", "ios"):
+            output.mkdir(parents=True, exist_ok=True)
+            (output / "dummy_file").write_text("dummy", encoding="utf-8")
+        else:
+            output.write_text("dummy", encoding="utf-8")
 
     spy = _SubprocessSpy(write_artifact_at=write_unity_build)
     monkeypatch.setattr("sage.games.engines.unity.subprocess.run", spy)

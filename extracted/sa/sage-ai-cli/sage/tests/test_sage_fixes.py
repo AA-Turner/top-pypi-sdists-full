@@ -270,7 +270,7 @@ def test_route_to_principal_pipeline_progress_logs(monkeypatch, tmp_path):
     from sage.core.principal_builder import PrincipalBuildReport
     
     # 1. Setup mocks
-    monkeypatch.setattr("sage.main._pick_build_model", lambda m: (m, "Mock swap reason"))
+    monkeypatch.setattr("sage.core.validation_helpers._pick_build_model", lambda m: (m, "Mock swap reason"))
     monkeypatch.setattr("sage.core.principal_engineer.decompose_multi_build_request", lambda prompt: [("mock-proj", prompt)])
     
     dummy_report = PrincipalBuildReport(
@@ -349,6 +349,563 @@ def test_route_to_principal_pipeline_progress_logs(monkeypatch, tmp_path):
     assert report_clean is not None
     # In clean mode, progress/routing prints should be suppressed
     assert len(printed_lines) == 0
+
+
+def test_concurrent_token_refresh(monkeypatch):
+    """Test that concurrent calls to get_valid_token() refresh the token exactly once under thread-safety lock."""
+    import threading
+    import time
+    from sage.core import cli_auth
+
+    # Ensure SAGE_TESTING is NOT set to "1" for this test, otherwise get_valid_token just returns "fake-test-token"
+    monkeypatch.delenv("SAGE_TESTING", raising=False)
+
+    # Mock token data
+    expired_auth = {
+        "id_token": "expired-token",
+        "refresh_token": "refresh-token",
+        "expires_at": time.time() - 3600  # expired
+    }
+    
+    refreshed_auth = {
+        "id_token": "fresh-token",
+        "refresh_token": "refresh-token",
+        "expires_at": time.time() + 3600  # valid
+    }
+
+    # Track how many times load_auth, save_auth, and _refresh_token are called
+    state = {"auth": expired_auth, "refresh_calls": 0}
+
+    def mock_load_auth():
+        return state["auth"]
+
+    def mock_save_auth(data):
+        state["auth"] = data
+
+    def mock_refresh_token(auth):
+        state["refresh_calls"] += 1
+        # Simulate some network delay to increase chances of race conditions if lock wasn't working
+        time.sleep(0.1)
+        res = refreshed_auth.copy()
+        mock_save_auth(res)
+        return res
+
+    monkeypatch.setattr(cli_auth, "load_auth", mock_load_auth)
+    monkeypatch.setattr(cli_auth, "save_auth", mock_save_auth)
+    monkeypatch.setattr(cli_auth, "_refresh_token", mock_refresh_token)
+
+    # Spawn multiple threads calling get_valid_token()
+    results = []
+    def run_get_token():
+        try:
+            token = cli_auth.get_valid_token()
+            results.append(token)
+        except Exception as e:
+            results.append(e)
+
+    threads = [threading.Thread(target=run_get_token) for _ in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    # All threads should have received "fresh-token"
+    assert all(r == "fresh-token" for r in results), f"Expected all results to be 'fresh-token', got {results}"
+    # _refresh_token should only be called once because the subsequent threads saw the refreshed token
+    assert state["refresh_calls"] == 1, f"Expected exactly 1 refresh call, got {state['refresh_calls']}"
+
+
+def test_parse_fixes_from_llm_json_strict_false():
+    """Verify that json parsing with strict=False allows literal control characters (newlines/tabs)."""
+    from sage.core.dynamic_builder import _parse_fixes_from_llm
+    from pathlib import Path
+
+    # JSON with a literal newline inside a string property
+    raw = """
+    {
+      "app/main.py": "from fastapi import FastAPI
+app = FastAPI()"
+    }
+    """
+    fixes = _parse_fixes_from_llm(raw, [Path("app/main.py")], [], Path("/tmp"))
+    assert fixes is not None
+    assert fixes["app/main.py"] == "from fastapi import FastAPI\napp = FastAPI()"
+
+
+def test_parse_fixes_from_llm_markdown_fallback():
+    """Verify that Markdown code block extraction maps comments to target files."""
+    from sage.core.dynamic_builder import _parse_fixes_from_llm
+    from pathlib import Path
+
+    raw = """
+    We need to update two files.
+    
+    Here is the first file:
+    ```python
+    # filepath: app/core/security.py
+    ALGORITHM = "HS256"
+    ```
+    
+    And here is the second file:
+    ```python
+    # app/webhooks/handlers.py
+    import jwt
+    ```
+    """
+    relevant = [Path("/tmp/app/core/security.py"), Path("/tmp/app/webhooks/handlers.py")]
+    fixes = _parse_fixes_from_llm(raw, relevant, [], Path("/tmp"))
+    assert fixes is not None
+    assert "app/core/security.py" in fixes
+    assert "app/webhooks/handlers.py" in fixes
+    assert 'ALGORITHM = "HS256"' in fixes["app/core/security.py"]
+    assert "import jwt" in fixes["app/webhooks/handlers.py"]
+
+
+def test_parse_fixes_from_llm_single_file_fallback():
+    """Verify that single target file fallback maps raw code output to that target."""
+    from sage.core.dynamic_builder import _parse_fixes_from_llm
+    from pathlib import Path
+
+    raw = """
+    ```python
+    def health_check():
+        return {"status": "ok"}
+    ```
+    """
+    fixes = _parse_fixes_from_llm(raw, [Path("/tmp/app/api/health.py")], [], Path("/tmp"))
+    assert fixes is not None
+    assert "app/api/health.py" in fixes
+    assert "def health_check():" in fixes["app/api/health.py"]
+
+
+def test_attempt_repair_validation_retry_loop(tmp_path, monkeypatch):
+    """Verify that _attempt_repair retries validation failures and writes valid code."""
+    from sage.core.dynamic_builder import _attempt_repair
+    from sage.core.install_verify import StepResult
+    from sage.core import principal_builder
+    
+    # Setup mock project
+    class DummyProject:
+        def __init__(self, root):
+            self.kind = "python"
+            self.root = root
+            
+    project = DummyProject(tmp_path)
+    step = StepResult(name="pytest", ok=False, returncode=1, log="undefined name: ALGORITHM", duration_s=1.0)
+    
+    # We will simulate the LLM outputting:
+    # 1. Broken code (NameError/undefined name)
+    # 2. Corrected code (defining ALGORITHM)
+    attempts = []
+    def mock_generate(prompt):
+        attempts.append(prompt)
+        if len(attempts) == 1:
+            # First attempt: uses ALGORITHM without defining it
+            return '{"app/core/security.py": "print(ALGORITHM)"}'
+        else:
+            # Second attempt: defines ALGORITHM
+            return '{"app/core/security.py": "ALGORITHM = \\"HS256\\"\\nprint(ALGORITHM)"}'
+            
+    # Mock _likely_files_for_step
+    monkeypatch.setattr("sage.core.dynamic_builder._likely_files_for_step", lambda p, s: [tmp_path / "app/core/security.py"])
+    
+    # Pre-create the file so read_text() inside _attempt_repair succeeds
+    target_file = tmp_path / "app/core/security.py"
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    target_file.write_text("print(ALGORITHM)", encoding="utf-8")
+    
+    # Run repair
+    mock_log = []
+    _attempt_repair(project, step, generate=mock_generate, log=mock_log.append)
+    
+    # Verify that it retried once and succeeded on the second attempt
+    assert len(attempts) == 2
+    # Verify validation warning was logged
+    assert any("failed validation" in m for m in mock_log)
+    # Verify file was written
+    target = tmp_path / "app/core/security.py"
+    assert target.exists()
+    assert 'ALGORITHM = "HS256"' in target.read_text()
+
+
+def test_verify_report_build_and_runs_ok():
+    """Verify that VerifyReport correctly parses build_ok and runs_ok from steps."""
+    from sage.core.install_verify import VerifyReport, StepResult, DiscoveredProject
+    
+    project = DiscoveredProject(kind="python", root=Path("/tmp"))
+    
+    # Test all None if steps are empty or mismatching names
+    report_empty = VerifyReport(project=project, steps=[])
+    assert report_empty.build_ok is None
+    assert report_empty.runs_ok is None
+    
+    # Test build_ok matches compile or build
+    report_build_fail = VerifyReport(project=project, steps=[
+        StepResult(name="npm run build", ok=False, returncode=1, log="", duration_s=1.0)
+    ])
+    assert report_build_fail.build_ok is False
+    assert report_build_fail.runs_ok is None
+
+    report_compile_ok = VerifyReport(project=project, steps=[
+        StepResult(name="go compile", ok=True, returncode=0, log="", duration_s=1.0)
+    ])
+    assert report_compile_ok.build_ok is True
+    assert report_compile_ok.runs_ok is None
+
+    # Test runs_ok matches run check, start check, import check
+    report_run_fail = VerifyReport(project=project, steps=[
+        StepResult(name="start check", ok=False, returncode=1, log="", duration_s=1.0)
+    ])
+    assert report_run_fail.build_ok is None
+    assert report_run_fail.runs_ok is False
+
+    report_import_ok = VerifyReport(project=project, steps=[
+        StepResult(name="python import check", ok=True, returncode=0, log="", duration_s=1.0)
+    ])
+    assert report_import_ok.build_ok is None
+    assert report_import_ok.runs_ok is True
+
+
+def test_repl_agent_task_ok_requires_build_and_run(monkeypatch):
+    """Verify that REPLAgent.execute_task_prompt requires install_ok, build_ok, runs_ok, and tests_ok to all be True/not-False."""
+    from sage.main import SAGEAgent
+    from pathlib import Path
+
+    class DummyRenderer:
+        def __init__(self):
+            self.infos = []
+        def info(self, msg, *args, **kwargs):
+            self.infos.append(msg)
+        def get_output_mode(self):
+            return "normal"
+        def print_assistant_response(self, *args, **kwargs):
+            pass
+
+    class DummyEngine:
+        def __init__(self):
+            self.system_prompt = "system prompt"
+            self._messages = []
+        def clear(self):
+            pass
+
+    dummy_agent = SAGEAgent(
+        cwd=Path("/tmp"),
+        renderer=DummyRenderer(),
+        engine=DummyEngine(),
+        router=None,
+        model_id="test-model",
+        temp=0.1,
+        tokens=4096,
+        model_locked=False,
+        is_local=False,
+    )
+
+    # Make sure we route to principal pipeline by forcing looks_like_build_request to True
+    monkeypatch.setattr("sage.core.principal_engineer.looks_like_build_request", lambda prompt: True)
+
+    # 1. Test case when install_ok is False
+    monkeypatch.setattr("sage.main._route_to_principal_pipeline", lambda *args, **kwargs: {
+        "install_ok": False,
+        "build_ok": True,
+        "runs_ok": True,
+        "tests_ok": True,
+        "out_dir": "/tmp",
+    })
+    _, task_ok = dummy_agent.execute_task_prompt("Build an app", save_history=False, enhanced_mode=True)
+    assert task_ok is False
+
+    # 2. Test case when build_ok is False
+    monkeypatch.setattr("sage.main._route_to_principal_pipeline", lambda *args, **kwargs: {
+        "install_ok": True,
+        "build_ok": False,
+        "runs_ok": True,
+        "tests_ok": True,
+        "out_dir": "/tmp",
+    })
+    _, task_ok = dummy_agent.execute_task_prompt("Build an app", save_history=False, enhanced_mode=True)
+    assert task_ok is False
+
+    # 3. Test case when runs_ok is False
+    monkeypatch.setattr("sage.main._route_to_principal_pipeline", lambda *args, **kwargs: {
+        "install_ok": True,
+        "build_ok": True,
+        "runs_ok": False,
+        "tests_ok": True,
+        "out_dir": "/tmp",
+    })
+    _, task_ok = dummy_agent.execute_task_prompt("Build an app", save_history=False, enhanced_mode=True)
+    assert task_ok is False
+
+    # 4. Test case when tests_ok is False
+    monkeypatch.setattr("sage.main._route_to_principal_pipeline", lambda *args, **kwargs: {
+        "install_ok": True,
+        "build_ok": True,
+        "runs_ok": True,
+        "tests_ok": False,
+        "out_dir": "/tmp",
+    })
+    _, task_ok = dummy_agent.execute_task_prompt("Build an app", save_history=False, enhanced_mode=True)
+    assert task_ok is False
+
+    # 5. Test case when all 4 are True
+    monkeypatch.setattr("sage.main._route_to_principal_pipeline", lambda *args, **kwargs: {
+        "install_ok": True,
+        "build_ok": True,
+        "runs_ok": True,
+        "tests_ok": True,
+        "out_dir": "/tmp",
+    })
+    _, task_ok = dummy_agent.execute_task_prompt("Build an app", save_history=False, enhanced_mode=True)
+    assert task_ok is True
+
+
+def test_pre_validate_content_rejects_incomplete():
+    """Verify that pre_validate_content flags placeholder stubs, TODOs, and syntax errors."""
+    from sage.core.validation import pre_validate_content
+    
+    # 1. Placeholder stubs in functions
+    incomplete_fn = "def do_something(x):\n    pass"
+    ok, error = pre_validate_content("main.py", incomplete_fn)
+    assert ok is False
+    assert "empty function" in error or "stub" in error
+    
+    # 2. raise NotImplementedError
+    nie_code = "def process():\n    raise NotImplementedError('TODO')"
+    ok, error = pre_validate_content("main.py", nie_code)
+    assert ok is False
+    assert "placeholder" in error or "NotImplementedError" in error or "stub" in error
+
+    # 3. Truncated file ending in ...
+    truncated_code = "def helper():\n    return 42\n..."
+    ok, error = pre_validate_content("main.py", truncated_code)
+    assert ok is False
+    assert "truncated" in error
+
+    # 4. Correct complete code
+    valid_code = "def helper():\n    return 42\n\ndef run():\n    res = helper()\n    print(res)"
+    ok, error = pre_validate_content("main.py", valid_code)
+    assert ok is True
+
+
+def test_extract_and_write_files_captures_failed_writes(tmp_path):
+    """Verify that _extract_and_write_files records validation errors in failed_writes."""
+    from sage.core.validation_helpers import _extract_and_write_files
+    
+    # JSON content containing syntax error + placeholder
+    failed_writes = {}
+    bad_code_response = """
+FILE: failed_test.py
+```python
+def broken_syntax(x)  # Missing colon
+    pass
+```
+    """
+    written = _extract_and_write_files(
+        bad_code_response,
+        tmp_path,
+        failed_writes=failed_writes
+    )
+    assert len(written) == 0
+    assert "failed_test.py" in failed_writes
+    assert "Syntax error" in failed_writes["failed_test.py"] or "syntax" in failed_writes["failed_test.py"].lower()
+
+
+def test_repl_agent_retries_on_failed_file_writes(monkeypatch, tmp_path):
+    """Verify that SAGEAgent.process_response triggers the retry flow on failed writes."""
+    from sage.main import SAGEAgent
+    from pathlib import Path
+
+    class DummyRenderer:
+        def __init__(self):
+            self.infos = []
+        def info(self, msg, *args, **kwargs):
+            self.infos.append(msg)
+        def warning(self, msg, *args, **kwargs):
+            pass
+        def error(self, msg, *args, **kwargs):
+            pass
+        def set_bottom_dock_status(self, *args, **kwargs):
+            pass
+        def print_files_written(self, *args, **kwargs):
+            pass
+        def get_output_mode(self):
+            return "normal"
+
+    class DummyEngine:
+        def __init__(self):
+            self.system_prompt = "system prompt"
+            self._messages = []
+
+    dummy_agent = SAGEAgent(
+        cwd=tmp_path,
+        renderer=DummyRenderer(),
+        engine=DummyEngine(),
+        router=None,
+        model_id="test-model",
+        temp=0.1,
+        tokens=4096,
+        model_locked=False,
+        is_local=False,
+    )
+
+    # We will simulate:
+    # 1. First response: writes a broken python file (missing colon)
+    # 2. Model retry: returns a corrected version
+    model_responses = [
+        # Correct response on retry
+        """
+FILE: corrected.py
+```python
+def build_me():
+    return "done"
+```
+        """
+    ]
+
+    def mock_send(prompt):
+        # Check that prompt mentions the validation defect
+        assert "defect" in prompt.lower() or "rejected" in prompt.lower()
+        assert "corrected.py" in prompt
+        return model_responses.pop(0)
+
+    # Monkeypatch looks_like_build_request and _get_current_task_prompt
+    monkeypatch.setattr("sage.core.principal_engineer.looks_like_build_request", lambda prompt: False)
+    monkeypatch.setattr("sage.main._get_current_task_prompt", lambda: "Build a helper function")
+
+    # Initial response containing a syntax error
+    initial_response = """
+FILE: corrected.py
+```python
+def build_me()
+    pass
+```
+    """
+
+    written, final_response = dummy_agent.process_response(
+        initial_response,
+        send_fn=mock_send
+    )
+
+    assert "corrected.py" in written
+    assert len(model_responses) == 0  # mock_send was called to retrieve the corrected version
+    assert (tmp_path / "corrected.py").exists()
+    assert 'return "done"' in (tmp_path / "corrected.py").read_text()
+
+
+def test_scaffold_continuation_empty_round_handling(monkeypatch, tmp_path):
+    """Verify that scaffold continuation breaks after empty rounds when model returns premature SCAFFOLD_COMPLETE."""
+    from sage.main import SAGEAgent
+    from pathlib import Path
+    
+    warnings = []
+    class DummyRenderer:
+        def __init__(self):
+            self.infos = []
+        def info(self, msg, *args, **kwargs):
+            self.infos.append(msg)
+        def success(self, msg, *args, **kwargs):
+            pass
+        def warning(self, msg, *args, **kwargs):
+            warnings.append(msg)
+        def phase(self, *args, **kwargs):
+            pass
+        def get_output_mode(self):
+            return "normal"
+        def activate_bottom_dock(self, *args, **kwargs):
+            return True
+        def set_bottom_dock_todos(self, *args, **kwargs):
+            pass
+        def set_bottom_dock_status(self, *args, **kwargs):
+            pass
+        def print_validation_start(self, *args, **kwargs):
+            pass
+        def print_validation_success(self, *args, **kwargs):
+            pass
+        def print_validation_failure(self, *args, **kwargs):
+            pass
+        def print_files_written(self, *args, **kwargs):
+            pass
+        def clear_bottom_dock_todos(self, *args, **kwargs):
+            pass
+        def deactivate_bottom_dock(self, *args, **kwargs):
+            pass
+            
+    class DummyEngine:
+        def __init__(self):
+            self.system_prompt = "system prompt"
+            self._messages = []
+        def clear(self):
+            pass
+            
+    dummy_agent = SAGEAgent(
+        cwd=tmp_path,
+        renderer=DummyRenderer(),
+        engine=DummyEngine(),
+        router=None,
+        model_id="test-model",
+        temp=0.1,
+        tokens=4096,
+        model_locked=False,
+        is_local=False,
+    )
+    
+    # Enable greenfield manifest with missing file
+    dummy_agent._greenfield_manifest = ["app/main.py"]
+    
+    # Mock helpers
+    monkeypatch.setattr("sage.core.principal_engineer.looks_like_build_request", lambda prompt: False)
+    monkeypatch.setattr("sage.main._get_current_task_prompt", lambda: "Build a brand new platform")
+    monkeypatch.setattr("sage.main._auto_validate", lambda *args, **kwargs: None)
+    monkeypatch.setattr("sage.core.validation.pre_validate_content", lambda *args, **kwargs: (True, ""))
+    monkeypatch.setattr("sage.core.validation_helpers._pre_validate_content", lambda *args, **kwargs: (True, ""))
+    
+    # First response (multistep plan/planning response)
+    responses = [
+        "FILE_MANIFEST:\napp/main.py\n\nI will do this.\n\nFILE: app/utils.py\n```python\n# Utils\n```",
+        # Batch continuation responses
+        "SCAFFOLD_COMPLETE\nNo new files.",
+        "SCAFFOLD_COMPLETE\nNo new files.",
+    ]
+    
+    # Set SAGE_BATCH_LIMIT to 5
+    monkeypatch.setenv("SAGE_BATCH_LIMIT", "5")
+    
+    send_calls = []
+    def mock_send(prompt):
+        send_calls.append(prompt)
+        if responses:
+            return responses.pop(0)
+        return "SCAFFOLD_COMPLETE"
+        
+    # Mock _execute_multistep to simulate writing the first file
+    def mock_execute_multistep(prompt, send_fn, classification=None):
+        # Write first file
+        (tmp_path / "app/utils.py").parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "app/utils.py").write_text("# Utils", encoding="utf-8")
+        dummy_agent._greenfield_manifest = ["app/main.py"]
+        return ["app/utils.py"], "FILE_MANIFEST:\napp/main.py\n\nFILE: app/utils.py\n```python\n# Utils\n```"
+        
+    monkeypatch.setattr(dummy_agent, "_execute_multistep", mock_execute_multistep)
+    
+    # Run task prompt
+    written, task_ok = dummy_agent.execute_task_prompt(
+        "Build a brand new platform",
+        save_history=False,
+        enhanced_mode=True,
+        sender=mock_send
+    )
+    
+    # Verify the warning is present in the prompt for batch 3 (send_calls[2]) after model declared done in batch 2
+    assert len(send_calls) >= 3
+    assert "⚠️ WARNING: In the previous batch, you output SCAFFOLD_COMPLETE" in send_calls[2]
+    
+    # Check that it warns "Model declared done but 1 manifest files still missing"
+    assert any("still missing — continuing" in w for w in warnings)
+
+
+
+
+
 
 
 

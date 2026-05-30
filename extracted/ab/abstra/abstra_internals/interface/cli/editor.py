@@ -34,7 +34,10 @@ from abstra_internals.repositories.producer import (
 )
 from abstra_internals.server.apps import get_local_app
 from abstra_internals.services.file_watcher import FileWatcher
-from abstra_internals.services.requirements import RequirementsChangeNotifier
+from abstra_internals.services.notifiers import (
+    AbstraJsonChangeNotifier,
+    RequirementsChangeNotifier,
+)
 from abstra_internals.services.web_editor_heartbeat import WebEditorHeartbeat
 from abstra_internals.settings import Settings
 from abstra_internals.signals import SignalHandlers
@@ -223,19 +226,26 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     StdioPatcher.apply(main_controller)
 
     codebase_event_controller = CodebaseEventController(repositories)
-    watcher = FileWatcher(
-        [
-            codebase_event_controller.reload_env,
-            codebase_event_controller.reload_modules,
-            codebase_event_controller.lint_files,
-            codebase_event_controller.broadcast_changes,
-        ]
+    CodebaseEventController.configure(
+        repositories, controller_driven=use_rabbitmq_workers
     )
-    watcher.start()
+
+    watcher: Optional[FileWatcher] = None
+    if not use_rabbitmq_workers:
+        watcher = FileWatcher(
+            [
+                codebase_event_controller.reload_env,
+                codebase_event_controller.reload_modules,
+                codebase_event_controller.lint_files,
+                codebase_event_controller.broadcast_changes,
+            ]
+        )
+        watcher.start()
 
     RequirementsChangeNotifier.register(
         CodebaseEventController.notify_requirements_changed
     )
+    AbstraJsonChangeNotifier.register(CodebaseEventController.notify_project_saved)
 
     # Run all linters once on startup in a background thread
     def _initial_lint():

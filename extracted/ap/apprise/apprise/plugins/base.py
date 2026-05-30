@@ -29,12 +29,15 @@ import asyncio
 from collections.abc import Generator
 from datetime import tzinfo
 from functools import partial
+import math
 import re
 from typing import Any, ClassVar, Optional, TypedDict, Union
 from zoneinfo import ZoneInfo
 
 from ..apprise_attachment import AppriseAttachment
 from ..common import (
+    APPRISE_MAX_SERVICE_RETRY,
+    APPRISE_MAX_SERVICE_WAIT,
     NOTIFY_FORMATS,
     OVERFLOW_MODES,
     NotifyFormat,
@@ -212,6 +215,66 @@ class NotifyBase(URLBase):
     # Default Emoji Interpretation
     interpret_emojis = False
 
+    # Default retry count for failed notifications.  Plugins may override
+    # via ?retry=N in their URL; the asset's default_service_retry is used
+    # when no per-plugin value is set.
+    # Always in [0, APPRISE_MAX_SERVICE_RETRY].
+    service_retry = 0
+
+    # Default wait (seconds) between retry attempts.  Plugins may override
+    # via ?wait=N in their URL; the asset's default_service_wait is used when
+    # no per-plugin value is set.  Always in [0.0, APPRISE_MAX_SERVICE_WAIT].
+    service_wait = 0.0
+
+    # When set to True, a delivery failure for this individual service is
+    # silently absorbed by all three dispatch paths (sequential, thread-pool,
+    # and asyncio coroutine).  The overall notify() / async_notify() call
+    # still returns True even if this particular endpoint could not be
+    # reached, provided that every *required* (non-optional) service in
+    # the same batch succeeded.
+    #
+    # This flag is designed for "nice to have" services -- endpoints that
+    # you want to notify when they are available but whose unavailability
+    # must not be treated as a delivery failure by the calling application.
+    #
+    # Concrete example -- four Kodi home screens tagged "media":
+    #
+    #   Configure every Kodi entry with optional=yes.  When the application
+    #   calls notify(tag="media"), Apprise attempts delivery to whichever
+    #   screens are currently powered on and reachable.  If none of the four
+    #   respond (all are off or unreachable), the call still returns True
+    #   because every failing service was optional.  The application is
+    #   never penalised for transient screen availability.
+    #
+    # Important behaviour details:
+    #   - Retries are still performed up to the configured retry count
+    #     before a service is considered to have failed.  The optional flag
+    #     only fires *after* all retry attempts have been exhausted without
+    #     a successful delivery.  In other words, optional does not bypass
+    #     the retry loop -- it only changes the meaning of the final result.
+    #   - Setting optional=True does NOT skip the service.  Delivery is
+    #     still attempted on every call.  Only the *outcome* is affected:
+    #     a failure is reported as True instead of False to the caller.
+    #   - A batch that mixes optional and required services returns False
+    #     only if one of the *required* (optional=False) services fails.
+    #     Optional failures are never included in the aggregate result.
+    #   - The flag is per-instance.  Different URLs that share a tag can
+    #     have different optional values, so you can mix required and
+    #     optional endpoints within the same tag group.
+    #
+    # Ways to enable this flag:
+    #   - URL query parameter  : append ?optional=yes  to the service URL
+    #   - YAML configuration   : add  optional: yes    under the URL entry
+    #   - Python constructor   : MyPlugin(host="...", optional=True)
+    #   - Direct assignment    : server.optional = True
+    #
+    # Accepted truthy values  : "yes", "true", "on", "1", True
+    # Accepted falsy  values  : "no", "false", "off", "0", False
+    #
+    # Defaults to False -- every delivery failure is propagated to the
+    # caller unchanged.
+    optional = False
+
     # Support Attachments; this defaults to being disabled.
     # Since apprise allows you to send attachments without a body or title
     # defined, by letting Apprise know the plugin won't support attachments
@@ -292,6 +355,28 @@ class NotifyBase(URLBase):
                 # runtime.
                 "_lookup_default": "timezone",
             },
+            "retry": {
+                "name": _("Service Retry"),
+                "type": "int",
+                "min": 0,
+                "max": APPRISE_MAX_SERVICE_RETRY,
+                "default": service_retry,
+                "_lookup_default": "service_retry",
+            },
+            "wait": {
+                "name": _("Inter-Retry Wait"),
+                "type": "float",
+                "min": 0.0,
+                "max": APPRISE_MAX_SERVICE_WAIT,
+                "default": service_wait,
+                "_lookup_default": "service_wait",
+            },
+            "optional": {
+                "name": _("Optional Service"),
+                "type": "bool",
+                "default": optional,
+                "_lookup_default": "optional",
+            },
         },
     )
 
@@ -349,12 +434,118 @@ class NotifyBase(URLBase):
     # automatically initialized by specifying ?tz= on the Apprise URLs
     __tzinfo = None
 
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        """Automatically wrap any __len__ defined on a subclass so that it
+        multiplies its base target count by (retry + 1).
+
+        This ensures every plugin's __len__ reflects the total number of
+        transmission attempts (targets * retry-factor) without requiring
+        each plugin to be updated individually.
+        """
+        super().__init_subclass__(**kwargs)
+        if "__len__" in cls.__dict__:
+            _orig = cls.__dict__["__len__"]
+
+            def _retry_aware_len(self, _orig=_orig):
+                return _orig(self) * (getattr(self, "retry", 0) + 1)
+
+            cls.__len__ = _retry_aware_len
+
     def __init__(self, **kwargs):
         """Initialize some general configuration that will keep things
         consistent when working with the notifiers that will inherit this
         class."""
 
         super().__init__(**kwargs)
+
+        # Initialize retry count from (in priority order):
+        #   1. kwargs["retry"]  (from ?retry= URL param or YAML retry: key)
+        #   2. asset.default_service_retry
+        # Always clamped to [0, APPRISE_MAX_SERVICE_RETRY].
+        _retry_raw = kwargs.get("retry")
+        if _retry_raw is not None:
+            try:
+                _retry_val = int(_retry_raw)
+                if _retry_val < 0:
+                    msg = f"Service retry count must be >= 0; got {_retry_raw}"
+                    self.logger.warning(msg)
+                    raise TypeError(msg)
+                self.retry = min(_retry_val, APPRISE_MAX_SERVICE_RETRY)
+            except (TypeError, ValueError):
+                self.logger.warning(
+                    "Invalid retry value specified (%s); using default",
+                    _retry_raw,
+                )
+                self.retry = min(
+                    max(0, self.asset.default_service_retry),
+                    APPRISE_MAX_SERVICE_RETRY,
+                )
+        else:
+            self.retry = min(
+                max(0, self.asset.default_service_retry),
+                APPRISE_MAX_SERVICE_RETRY,
+            )
+
+        # Initialize wait (inter-retry delay) from (in priority order):
+        #   1. kwargs["wait"]  (from ?wait= URL param or YAML wait: key)
+        #   2. asset.default_service_wait
+        # Only valid non-negative finite floats are accepted; integers are
+        # promoted to float.  Invalid values fall back to the asset default.
+        # Negative values raise TypeError.
+        _wait_raw = kwargs.get("wait")
+        if _wait_raw is not None:
+            try:
+                _wait_val = float(_wait_raw)
+                if not math.isfinite(_wait_val) or _wait_val < 0.0:
+                    msg = f"Service retry wait must be >= 0; got {_wait_raw}"
+                    self.logger.warning(msg)
+                    raise TypeError(msg)
+                self.wait = min(_wait_val, APPRISE_MAX_SERVICE_WAIT)
+            except (TypeError, ValueError):
+                self.logger.warning(
+                    "Invalid wait value specified (%s); using default",
+                    _wait_raw,
+                )
+                self.wait = min(
+                    max(0.0, self.asset.default_service_wait),
+                    APPRISE_MAX_SERVICE_WAIT,
+                )
+        else:
+            self.wait = min(
+                max(0.0, self.asset.default_service_wait),
+                APPRISE_MAX_SERVICE_WAIT,
+            )
+
+        # Initialize the optional= flag from kwargs if provided, otherwise
+        # fall back to the class-level attribute (default: False).
+        #
+        # Priority order (highest to lowest):
+        #   1. kwargs["optional"]  -- supplied via ?optional=yes/no URL
+        #      parameter, YAML optional: yes/no key, or a direct Python
+        #      keyword argument to the constructor.
+        #   2. The class-level 'optional' attribute on the plugin class
+        #      (or any of its superclasses).  Plugin authors can ship
+        #      with optional=True as the default simply by overriding
+        #      the class attribute -- no extra __init__ boilerplate needed.
+        #
+        # parse_bool() is used for the string -> bool conversion so that
+        # all of the canonical truthy/falsy representations that Apprise
+        # accepts elsewhere are valid here too: "yes"/"no", "true"/"false",
+        # "on"/"off", "1"/"0", and native Python booleans.  The function
+        # returns the 'default' argument (False) for unrecognised strings,
+        # so garbage input silently falls back to the safe behaviour
+        # (propagate failures) rather than raising an exception.
+        _optional_raw = kwargs.get("optional")
+        if _optional_raw is not None:
+            # An explicit value was passed in -- parse it and store on
+            # this instance, shadowing the class-level attribute only for
+            # this particular service object.
+            self.optional = parse_bool(_optional_raw)
+        # else: kwargs did not include "optional".  Leave self.optional
+        #   unset so that normal Python attribute lookup falls through to
+        #   the class-level default (NotifyBase.optional = False, or the
+        #   value set by a plugin subclass that overrides it).
 
         # Store our interpret_emoji's setting
         # If asset emoji value is set to a default of True and the user
@@ -917,6 +1108,16 @@ class NotifyBase(URLBase):
             "send() is not implemented by the child class."
         )
 
+    def __len__(self):
+        """Returns the number of HTTP requests this instance will make,
+        factoring in the configured retry count.
+
+        Subclasses that override this are automatically wrapped by
+        __init_subclass__ to apply the same retry multiplier, so they
+        should return their raw target count without worrying about retry.
+        """
+        return self.retry + 1
+
     def url_parameters(
         self,
         *args: Any,
@@ -941,6 +1142,26 @@ class NotifyBase(URLBase):
         if self.persistent_storage != NotifyBase.persistent_storage:
             params["store"] = "yes" if self.persistent_storage else "no"
 
+        # Always emit retry=, wait=, and optional= in the URL regardless
+        # of whether they hold their zero/False defaults.  Emitting them
+        # unconditionally keeps the URL fully self-describing: a service
+        # URL that is round-tripped through parse_url() -> __init__() will
+        # reconstruct an identical object with the same settings.  This
+        # property is important for configuration-file generators, UI
+        # tooling, and any code that serialises service objects to strings
+        # and needs to restore them later without silent data loss.
+        #
+        # retry= and wait= are emitted as strings because URL query strings
+        # are inherently text.  The receiving __init__() will re-parse them
+        # with int() and float() respectively.
+        #
+        # optional= is emitted as the canonical lower-case pair "yes"/"no"
+        # that parse_bool() recognises on the receiving end, ensuring the
+        # round-trip is lossless even for the boolean case.
+        params["retry"] = str(self.retry)
+        params["wait"] = str(self.wait)
+        params["optional"] = "yes" if self.optional else "no"
+
         params.update(super().url_parameters(*args, **kwargs))
 
         # return default parameters
@@ -956,6 +1177,14 @@ class NotifyBase(URLBase):
 
         This is very specific and customized for Apprise.
 
+        In addition to the fields extracted by URLBase.parse_url(), this
+        method extracts the NotifyBase-level query-string parameters:
+        ``format``, ``overflow``, ``emojis``, ``tz``, ``store``, ``retry``,
+        ``wait``, and ``optional``.  The extracted values are placed
+        directly in the returned results dict under their respective keys,
+        ready to be consumed by NotifyBase.__init__() (or a subclass).
+        Child classes should call this method via ``super()`` and then
+        layer their own parameter extraction on top of the returned dict.
 
         Args:
             url (str): The URL you want to fully parse.
@@ -1008,6 +1237,34 @@ class NotifyBase(URLBase):
 
         if "store" in results["qsd"]:
             results["store"] = results["qsd"]["store"]
+
+        # Global per-plugin retry count (?retry=N)
+        if "retry" in results["qsd"] and results["qsd"]["retry"]:
+            results["retry"] = results["qsd"]["retry"]
+
+        # Global per-plugin inter-retry wait (?wait=N)
+        if "wait" in results["qsd"] and results["qsd"]["wait"]:
+            results["wait"] = results["qsd"]["wait"]
+
+        # Global optional flag (?optional=yes/no).
+        #
+        # parse_bool() converts the raw query-string value to a native
+        # Python bool using Apprise's canonical truth table: "yes", "true",
+        # "on", "1" -> True; "no", "false", "off", "0" -> False.
+        # Unrecognised strings fall back to False (the safe default).
+        #
+        # The parsed bool is stored in results["optional"] so that
+        # NotifyBase.__init__() receives a value it can pass straight
+        # through parse_bool() again without loss (parse_bool(True) is
+        # True and parse_bool(False) is False).
+        #
+        # When ?optional= is absent from the URL entirely, this block is
+        # skipped and results["optional"] is never set.  NotifyBase.__init__
+        # will then leave self.optional at its class-level default (False),
+        # which means the absence of the parameter is indistinguishable from
+        # passing ?optional=no -- both result in failures being propagated.
+        if "optional" in results["qsd"]:
+            results["optional"] = parse_bool(results["qsd"]["optional"])
 
         return results
 

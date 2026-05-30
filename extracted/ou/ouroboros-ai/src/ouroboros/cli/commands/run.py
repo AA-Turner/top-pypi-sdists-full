@@ -23,7 +23,7 @@ from ouroboros.cli.formatters import console
 from ouroboros.cli.formatters.panels import print_error, print_info, print_success, print_warning
 from ouroboros.config.loader import get_max_parallel_workers
 from ouroboros.core.errors import ConfigError
-from ouroboros.core.project_paths import resolve_seed_project_path
+from ouroboros.core.project_paths import resolve_path_against_base, resolve_seed_project_path
 from ouroboros.core.security import InputValidator
 from ouroboros.core.worktree import (
     TaskWorkspace,
@@ -113,20 +113,131 @@ def _load_seed_from_yaml(seed_file: Path) -> dict[str, Any]:
         raise typer.Exit(1) from e
 
 
-def _resolve_cli_project_dir(seed: "Seed", seed_file: Path) -> Path:
+def _resolve_raw_metadata_project_dir(
+    seed_data: dict[str, Any],
+    *,
+    stable_base: Path,
+) -> Path | None:
+    """Resolve legacy raw metadata project_dir/working_directory fields."""
+    metadata = seed_data.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+
+    raw_project_dir = metadata.get("project_dir") or metadata.get("working_directory")
+    if not isinstance(raw_project_dir, str) or not raw_project_dir.strip():
+        return None
+
+    resolved = resolve_path_against_base(
+        raw_project_dir,
+        stable_base=stable_base,
+        enforce_containment=True,
+    )
+    if resolved is None:
+        print_error(
+            "Seed metadata encodes a project_dir/working_directory path that escapes "
+            f"the seed stable project directory ({stable_base}). Refusing to fall back "
+            "silently — edit the seed metadata to use a path inside the seed directory "
+            "or rerun with --project-dir pointing at the target project."
+        )
+        raise typer.Exit(1)
+    return resolved
+
+
+def _resolve_brownfield_target_dir(seed_data: dict[str, Any]) -> Path | None:
+    """Return an existing brownfield target_dir from raw seed data, if present."""
+    brownfield_context = seed_data.get("brownfield_context")
+    if not isinstance(brownfield_context, dict):
+        return None
+
+    raw_target_dir = brownfield_context.get("target_dir")
+    if not isinstance(raw_target_dir, str) or not raw_target_dir.strip():
+        return None
+
+    target_dir = Path(raw_target_dir).expanduser().resolve()
+    return target_dir if target_dir.is_dir() else None
+
+
+def _directory_for_runtime(path: Path) -> Path:
+    """Normalize a resolved project candidate into a runtime cwd."""
+    return path.parent if path.is_file() else path
+
+
+def _detect_project_root_from_seed_path(seed_file: Path, *, max_levels: int = 6) -> Path | None:
+    """Recover the project root for a *central* seed.
+
+    Central seeds authored by the seed generator live at
+    ``<project_root>/.ouroboros/seeds/<...>/seed.yaml`` (any nesting depth
+    under ``.ouroboros/seeds/``). When such a seed is invoked from a fresh
+    worktree without ``--project-dir``, the seed's parent directory is
+    inside ``.ouroboros/seeds/`` — not the project root — so joining
+    seed-relative reference paths against it produces non-existent
+    locations. Walking up the ancestry until ``.ouroboros/seeds`` is
+    found recovers the intended project root.
+
+    Detection is intentionally scoped to the ``.ouroboros/seeds`` ancestry,
+    not to any ancestor that happens to contain a ``.ouroboros/`` directory.
+    Non-central seeds such as ``examples/dummy_seed.yaml`` continue to
+    resolve via the existing ``seed_file.parent`` fallback in the caller
+    even when they live inside a project tree whose root has
+    ``.ouroboros/``; otherwise local/example seeds would create or verify
+    files at the repository root rather than next to the seed.
+
+    Returns ``None`` when no ``.ouroboros/seeds`` ancestry is found within
+    ``max_levels`` parents; the caller falls back to ``seed_file.parent``
+    in that case.
+    """
+    current = seed_file.parent.resolve()
+    for _ in range(max_levels):
+        if current.name == "seeds" and current.parent.name == ".ouroboros":
+            return current.parent.parent
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+    return None
+
+
+def _resolve_cli_project_dir(
+    seed: "Seed",
+    seed_file: Path,
+    *,
+    seed_data: dict[str, Any] | None = None,
+    project_dir: Path | None = None,
+) -> Path:
     """Resolve the project directory for CLI execution and verification."""
-    stable_base = seed_file.parent.resolve()
+    if project_dir is not None:
+        return project_dir.expanduser().resolve()
+
+    seed_data = seed_data or {}
+    detected_root = _detect_project_root_from_seed_path(seed_file)
+    seed_base = detected_root or seed_file.parent.resolve()
+    metadata_project_dir = _resolve_raw_metadata_project_dir(seed_data, stable_base=seed_base)
+    if metadata_project_dir is not None:
+        return _directory_for_runtime(metadata_project_dir)
+
+    target_dir = _resolve_brownfield_target_dir(seed_data)
+    stable_base = target_dir or seed_base
     resolution = resolve_seed_project_path(seed, stable_base=stable_base)
-    if resolution.path is not None:
-        return resolution.path
     if resolution.rejected:
         print_error(
             "Seed encodes a project_dir/brownfield path that escapes the seed "
-            f"file's directory ({stable_base}). Refusing to fall back silently — "
-            "edit the seed to use a path inside the seed directory or rerun "
-            "with the seed copied next to the target project."
+            f"stable project directory ({stable_base}). Refusing to fall back silently — "
+            "edit the seed to use a path inside the project directory or rerun "
+            "with --project-dir pointing at the target project."
         )
         raise typer.Exit(1)
+    if detected_root is not None and target_dir is None:
+        # Central seed: the detected root *is* the project root.
+        # context_references are documentation pointers — collapsing an
+        # existing-file reference (e.g. ``src/.../foo.py``) to its parent
+        # would push the runtime cwd into a subdirectory and break the
+        # downstream task workspace and verification cwd. The metadata
+        # branch above already handled any user-declared override, and
+        # the containment check above still surfaces escapes. Honor the
+        # detected root directly.
+        return detected_root
+    if resolution.path is not None:
+        return _directory_for_runtime(resolution.path)
     return stable_base
 
 
@@ -243,27 +354,31 @@ def _load_skip_completed_markers(
 
 
 def _resolve_fat_harness_mode(seed_data: dict[str, Any]) -> bool:
-    """Typed evidence plus verifier PASS is the only CLI acceptance path.
+    """Resolve the fresh-run fat-harness selector.
 
-    ``seed.orchestrator.execution_mode`` was the temporary #920 PR-4 opt-in
-    selector. After #978 P5, ``legacy`` is rejected instead of silently
-    accepting a self-report fallback selector.
+    Fat-harness acceptance is opt-in until the shipped authoring/QA pipeline can
+    reliably produce profile-compatible typed evidence for every AC. Seeds that
+    request ``seed.orchestrator.execution_mode: fat_harness`` keep the stricter
+    verifier-gated path; missing/blank selectors use the legacy runner.
     """
     orchestrator_config = seed_data.get("orchestrator")
     if not isinstance(orchestrator_config, dict):
-        return True
+        return False
 
     execution_mode = orchestrator_config.get("execution_mode")
     if execution_mode == "legacy":
         print_error(
             "seed.orchestrator.execution_mode='legacy' was removed after #978 P5; "
-            "typed evidence plus verifier PASS is now required for acceptance."
+            "omit the selector for the default runner or set execution_mode='fat_harness' "
+            "to opt in to typed evidence plus verifier PASS acceptance."
         )
         raise typer.Exit(1)
-    if execution_mode not in (None, "", "fat_harness"):
+    if execution_mode in (None, ""):
+        return False
+    if execution_mode != "fat_harness":
         print_error(
-            "seed.orchestrator.execution_mode is no longer configurable after "
-            f"the fat-harness default flip (got {execution_mode!r})."
+            "seed.orchestrator.execution_mode must be 'fat_harness' when set "
+            f"(got {execution_mode!r})."
         )
         raise typer.Exit(1)
 
@@ -277,18 +392,18 @@ def _resolve_resume_fat_harness_mode(
     """Resolve resume acceptance mode from persisted contract with safe migration.
 
     New sessions persist ``fat_harness_mode`` at prepare time. Historical
-    sessions may not have that field, so only an explicit historical
-    ``execution_mode: legacy`` selector resumes ungated; unknown/missing state
-    falls back to the conservative typed-evidence gate.
+    sessions may not have that field, so only an explicit ``fat_harness``
+    selector resumes with verifier-gated typed-evidence enforcement;
+    unknown/missing state falls back to the default runner.
     """
     persisted = progress.get("fat_harness_mode")
     if isinstance(persisted, bool):
         return persisted
 
     orchestrator_config = seed_data.get("orchestrator")
-    return not (
+    return (
         isinstance(orchestrator_config, dict)
-        and orchestrator_config.get("execution_mode") == "legacy"
+        and orchestrator_config.get("execution_mode") == "fat_harness"
     )
 
 
@@ -380,6 +495,7 @@ async def _run_orchestrator(
     runtime_backend: str | None = None,
     max_decomposition_depth: int | None = None,
     skip_completed: str | None = None,
+    project_dir: Path | None = None,
 ) -> None:
     """Run workflow via orchestrator mode.
 
@@ -394,6 +510,7 @@ async def _run_orchestrator(
         runtime_backend: Optional orchestrator runtime backend override.
         max_decomposition_depth: Optional recursive decomposition depth cap override.
         skip_completed: Optional path to a marker file for already-satisfied ACs.
+        project_dir: Optional explicit project directory for seed path resolution.
     """
     from ouroboros.core.seed import Seed
     from ouroboros.orchestrator import OrchestratorRunner, create_agent_runtime
@@ -431,7 +548,7 @@ async def _run_orchestrator(
         print_info(f"Max decomposition depth: {resolved_max_decomposition_depth}")
         print_info(f"Max parallel workers: {resolved_max_parallel_workers}")
         if resolved_fat_harness_mode:
-            print_info("Execution mode: fat_harness (default)")
+            print_info("Execution mode: fat_harness")
         if externally_satisfied_acs:
             print_info(f"Externally satisfied ACs: {len(externally_satisfied_acs)}")
 
@@ -448,7 +565,12 @@ async def _run_orchestrator(
     event_store = EventStore(f"sqlite+aiosqlite:///{db_path}")
     await event_store.initialize()
 
-    project_dir = _resolve_cli_project_dir(seed, seed_file)
+    project_dir = _resolve_cli_project_dir(
+        seed,
+        seed_file,
+        seed_data=seed_data,
+        project_dir=project_dir,
+    )
     session_repo = SessionRepository(event_store)
     workspace: TaskWorkspace | None = None
     execution_id: str | None = None
@@ -630,6 +752,16 @@ def workflow(
             help="Prefix to add to all MCP tool names (e.g., 'mcp_').",
         ),
     ] = "",
+    project_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--project-dir",
+            help="Explicit project directory for resolving seed-relative paths.",
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+        ),
+    ] = None,
     dry_run: Annotated[
         bool,
         typer.Option("--dry-run", "-n", help="Validate seed without executing."),
@@ -752,6 +884,7 @@ def workflow(
                     runtime_backend=runtime.value if runtime else None,
                     max_decomposition_depth=max_decomposition_depth,
                     skip_completed=skip_completed,
+                    project_dir=project_dir,
                 )
             )
         except (ValueError, NotImplementedError) as e:

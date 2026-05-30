@@ -170,6 +170,41 @@ class TestLoginMultiAccount:
             "email": "bob@gmail.com",
         }
 
+    def test_account_profile_name_invalid_name_exits_with_click_error(self, runner, tmp_path):
+        mock_rk = _multiaccount_rookiepy_mock()
+        target_root = tmp_path / "profiles"
+
+        with (
+            patch.dict("sys.modules", {"rookiepy": mock_rk}),
+            patch_session_login_dual(
+                "get_storage_path",
+                side_effect=_profile_storage_path(target_root),
+            ),
+            patch("notebooklm.auth.enumerate_accounts", new=_account_enum()),
+            patch_session_login_dual(
+                "fetch_tokens_with_domains",
+                new_callable=AsyncMock,
+                return_value=("csrf", "sess"),
+            ),
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "login",
+                    "--browser-cookies",
+                    "chrome",
+                    "--account",
+                    "bob@gmail.com",
+                    "--profile-name",
+                    ".bad",
+                ],
+            )
+
+        assert result.exit_code == 1
+        assert "Invalid profile name '.bad'." in result.output
+        assert "Must start with a letter or digit." in result.output
+        assert not target_root.exists()
+
     def test_account_storage_bypasses_profile_targeting(self, runner, tmp_path):
         mock_rk = _multiaccount_rookiepy_mock()
         target = tmp_path / "custom-storage.json"
@@ -270,8 +305,9 @@ class TestLoginMultiAccount:
             )
 
         assert result.exit_code != 0
-        assert "already has auth for alice@example.com" in result.output
-        assert "not overwriting with bob@gmail.com" in result.output
+        output_normalized = " ".join(result.output.split())
+        assert "already has auth for alice@example.com" in output_normalized
+        assert "not overwriting with bob@gmail.com" in output_normalized
         assert _read_account(storage_file) == {
             "authuser": 0,
             "email": "alice@example.com",

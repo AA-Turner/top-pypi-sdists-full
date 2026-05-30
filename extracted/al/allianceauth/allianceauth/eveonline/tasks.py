@@ -49,8 +49,8 @@ def update_corp(self, corp_id: int) -> None:
 @rate_limit_retry_task
 def update_alliance(self, alliance_id: int) -> None:
     """Update given alliance from ESI"""
-    EveAllianceInfo.objects.update_alliance(alliance_id)
-    EveAllianceInfo.objects.get(alliance_id).populate_alliance()
+    EveAllianceInfo.objects.get(alliance_id=alliance_id).update_alliance()
+    EveAllianceInfo.objects.get(alliance_id=alliance_id).populate_alliance()
 
 
 @shared_task(bind=True)

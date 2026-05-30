@@ -138,7 +138,7 @@ class AbstractApplication(models.Model):
         blank=True,
         default=generate_client_secret,
         db_index=True,
-        help_text=_("Hashed on Save. Copy it now if this is a new secret."),
+        help_text=_("Client secret for authentication"),
     )
     hash_client_secret = models.BooleanField(default=True)
     name = models.CharField(max_length=255, blank=True)
@@ -562,7 +562,7 @@ class RefreshToken(AbstractRefreshToken):
 class AbstractIDToken(models.Model):
     """
     An IDToken instance represents the actual token to
-    access user's resources, as in :openid:`2`.
+    access user's resources, as defined in the OpenID Connect specification.
 
     Fields:
 
@@ -736,10 +736,12 @@ class DeviceCodeResponse:
     verification_uri_complete: Optional[Union[str, Callable]] = None
 
 
-def create_device_grant(device_request: DeviceRequest, device_response: DeviceCodeResponse) -> DeviceGrant:
+def create_device_grant(
+    device_request: DeviceRequest, device_response: DeviceCodeResponse
+) -> AbstractDeviceGrant:
     now = datetime.now(tz=dt_timezone.utc)
 
-    return DeviceGrant.objects.create(
+    return get_device_grant_model().objects.create(
         client_id=device_request.client_id,
         device_code=device_response.device_code,
         user_code=device_response.user_code,

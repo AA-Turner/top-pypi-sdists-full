@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 import yaml
 
 from ouroboros.cli.commands.status import app
+from ouroboros.cli.formatters import console
 
 runner = CliRunner(env={"COLUMNS": "240"})
 
@@ -30,6 +32,20 @@ API_ENV_KEYS = [
     "OUROBOROS_OPENCODE_CLI_PATH",
     "CODEX_HOME",
 ]
+
+
+@pytest.fixture(autouse=True)
+def _wide_rich_console() -> None:
+    """Keep Rich health tables from truncating asserted status details."""
+    previous_width = console._width  # noqa: SLF001
+    previous_height = console._height  # noqa: SLF001
+    console._width = 240  # noqa: SLF001
+    console._height = 80  # noqa: SLF001
+    try:
+        yield
+    finally:
+        console._width = previous_width  # noqa: SLF001
+        console._height = previous_height  # noqa: SLF001
 
 
 def _clear_auth_env(monkeypatch) -> None:
@@ -70,6 +86,13 @@ def _write_credentials(config_dir: Path, api_key: str = "sk-present") -> None:
     (config_dir / "credentials.yaml").write_text(
         yaml.dump({"providers": {"anthropic": {"api_key": api_key}}})
     )
+
+
+def test_status_auto_invalid_session_id_exits_nonzero() -> None:
+    result = runner.invoke(app, ["auto", "missing"])
+
+    assert result.exit_code == 1
+    assert "auto_session_id must start with auto_" in result.output
 
 
 def test_health_reports_all_ok(monkeypatch, tmp_path: Path) -> None:
@@ -127,6 +150,32 @@ def test_health_exits_nonzero_when_runtime_cli_missing(monkeypatch, tmp_path: Pa
     assert "Runtime backend" in result.output
     assert "CLI not found" in result.output
     assert str(missing_cli) in result.output
+
+
+def test_health_emits_copyable_full_detail_lines_for_long_diagnostics(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _clear_auth_env(monkeypatch)
+    narrow_runner = CliRunner(env={"COLUMNS": "80"})
+    config_dir = tmp_path / ("config-" + "c" * 120)
+    (config_dir / "data").mkdir(parents=True)
+    missing_cli = tmp_path / ("very-long-runtime-path-" + "x" * 180) / "claude"
+    _write_config(config_dir, cli_path=missing_cli)
+    _write_credentials(config_dir)
+    monkeypatch.setattr("ouroboros.config.models.get_config_dir", lambda: config_dir)
+    monkeypatch.setattr("shutil.which", lambda _name: None)
+
+    result = narrow_runner.invoke(app, ["health"])
+
+    assert result.exit_code == 1
+    expected_config = config_dir / "config.yaml"
+    expected_database = config_dir / "data" / "ouroboros.db"
+    assert f"Configuration: ok - {expected_config}" in result.output
+    assert (
+        "Database: warning - missing; will be created on first run: "
+        f"data/ouroboros.db ({expected_database})"
+    ) in result.output
+    assert f"Runtime backend: error - claude CLI not found: {missing_cli}" in result.output
 
 
 def test_health_exits_nonzero_when_credentials_file_missing(monkeypatch, tmp_path: Path) -> None:

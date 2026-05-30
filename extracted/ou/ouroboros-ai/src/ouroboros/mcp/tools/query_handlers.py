@@ -14,6 +14,7 @@ import structlog
 from ouroboros.auto.state import AutoPhase, AutoStore
 from ouroboros.core.types import Result
 from ouroboros.mcp.errors import MCPServerError, MCPToolError
+from ouroboros.mcp.job_manager import JobManager, JobStatus
 from ouroboros.mcp.tools.ac_tree_hud_handler import (
     format_subtask_progress_summary,
     summarize_subtask_events,
@@ -124,7 +125,29 @@ class SessionStatusHandler:
             }
         return None
 
-    def _handle_auto_session(
+    async def _reconcile_auto_state_from_execution_job(self, state: Any) -> None:
+        """Project a completed run job onto non-complete-product status displays."""
+        if not state.job_id:
+            return
+        if (
+            state.phase is AutoPhase.RALPH_HANDOFF
+            or state.ralph_job_id is not None
+            or state.ralph_lineage_id is not None
+        ):
+            return
+        try:
+            snapshot = await JobManager().get_snapshot(state.job_id)
+        except Exception:
+            return
+        if snapshot.status is JobStatus.COMPLETED:
+            state.phase = AutoPhase.COMPLETE
+            state.last_error = None
+            state.last_error_code = None
+            state.last_progress_message = "execution job completed"
+            state.ralph_job_status = "completed"
+            state.ralph_stop_reason = None
+
+    async def _handle_auto_session(
         self,
         session_id: str,
     ) -> Result[MCPToolResult, MCPServerError]:
@@ -144,6 +167,7 @@ class SessionStatusHandler:
                     tool_name="ouroboros_session_status",
                 )
             )
+        await self._reconcile_auto_state_from_execution_job(state)
 
         # Gap window per the issue contract: between RUN's run_handoff_status
         # transitioning to "started" and the RALPH_HANDOFF entry persisting a
@@ -173,6 +197,20 @@ class SessionStatusHandler:
             f"Terminal: {is_terminal}",
             f"Last progress: {state.last_progress_message}",
         ]
+        if state.pending_question:
+            lines.append("Pending question:")
+            for line in str(state.pending_question).strip().splitlines() or [""]:
+                lines.append(f"  {line}")
+        recent_auto_answers = state.auto_answer_log[-3:]
+        if recent_auto_answers:
+            lines.append(f"Recent auto answers (last {len(recent_auto_answers)}):")
+            for entry in recent_auto_answers:
+                round_value = entry.get("round", "?")
+                source = entry.get("source", "?")
+                question = str(entry.get("question", "")).strip()
+                answer = str(entry.get("answer", "")).strip()
+                lines.append(f"  round {round_value} [{source}] Q: {question}")
+                lines.append(f"    A: {answer}")
         if state.last_grade:
             lines.append(f"Seed grade: {state.last_grade}")
         if is_gap_window:
@@ -190,6 +228,8 @@ class SessionStatusHandler:
             ):
                 if key in ralph_block:
                     lines.append(f"  {key}: {ralph_block[key]}")
+        if state.last_error:
+            lines.append(f"Blocker: {state.last_error}")
         status_text = "\n".join(lines) + "\n"
 
         meta: dict[str, Any] = {
@@ -202,6 +242,10 @@ class SessionStatusHandler:
             "last_progress_message": state.last_progress_message,
             "last_progress_at": state.last_progress_at,
         }
+        if state.pending_question:
+            meta["pending_question"] = state.pending_question
+        if recent_auto_answers:
+            meta["auto_answer_log"] = recent_auto_answers
         if state.last_error:
             meta["blocker"] = state.last_error
         if is_gap_window:
@@ -248,7 +292,7 @@ class SessionStatusHandler:
         # linked or is being prepared.
         if isinstance(session_id, str) and session_id.startswith("auto_"):
             try:
-                return self._handle_auto_session(session_id)
+                return await self._handle_auto_session(session_id)
             except Exception as e:  # pragma: no cover - defensive
                 log.error("mcp.tool.session_status.auto_error", error=str(e))
                 return Result.err(

@@ -34,11 +34,17 @@ from ouroboros.orchestrator.parallel_executor import (
     _effective_evidence_schema_for_ac,
     _message_contains_test_success,
     _runtime_messages_support_command_claim,
+    _runtime_messages_support_test_claim,
     render_parallel_completion_message,
     render_parallel_verification_report,
 )
 from ouroboros.orchestrator.profile_loader import EvidenceSchema, load_profile
 from ouroboros.orchestrator.verifier import VerifierVerdict
+
+
+def test_stall_timeout_default_allows_realistic_test_suites() -> None:
+    """The default stall watchdog should not kill long quiet test commands too early."""
+    assert STALL_TIMEOUT_SECONDS == 900.0
 
 
 def _make_seed(*acceptance_criteria: str) -> Seed:
@@ -829,6 +835,10 @@ def _make_replaying_event_store() -> tuple[AsyncMock, list[BaseEvent]]:
         ("3 passed in 1.2s", True),
         ("0 failed, 3 passed", True),
         ("0 failed, 0 errors, 1 passed", True),
+        ("Tests run: 3, Failures: 0, Errors: 0, Skipped: 0", False),
+        ("Tests run: 3, Failures: 1, Errors: 0, Skipped: 0", False),
+        ("Tests run: 3, Failures: 0, Errors: 0, Skipped: 0\n[INFO] BUILD SUCCESS", True),
+        ("Tests run: 3, Failures=0, Errors=0, Skipped=0\n[INFO] BUILD SUCCESS", True),
         ("no errors, 3 passed", True),
         ("no tests failed, 3 passed", True),
         ("exit code 0", True),
@@ -1097,6 +1107,418 @@ def test_command_claim_rejects_inner_command_after_non_setup_preamble() -> None:
         "python scripts/generate.py",
         (message,),
     )
+
+
+def test_gradle_command_claim_supports_quoted_target_and_tail_pipe() -> None:
+    """A clean Gradle claim matches a quoted runtime command with output plumbing."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": (
+                    "/bin/bash -lc 'set -o pipefail && ./gradlew test "
+                    '--tests "com.example.app.unit.SomeNewTest" -i 2>&1 | tail -100\''
+                )
+            }
+        },
+    )
+
+    assert _runtime_messages_support_command_claim(
+        "./gradlew test --tests com.example.app.unit.SomeNewTest -i",
+        (message,),
+    )
+
+
+def test_gradle_tests_passed_claim_supports_class_target_and_build_success() -> None:
+    """Gradle BUILD SUCCESSFUL output can back a class-level tests_passed claim."""
+    command_message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": (
+                    "/bin/bash -lc 'set -o pipefail && ./gradlew test "
+                    '--tests "com.example.app.unit.SomeNewTest" -i 2>&1 | tail -100\''
+                )
+            }
+        },
+    )
+    result_message = AgentMessage(
+        type="tool_result",
+        content="> Task :test\nBUILD SUCCESSFUL in 8s",
+        tool_name=None,
+        data={
+            "subtype": "tool_result",
+            "output": "> Task :test\nBUILD SUCCESSFUL in 8s",
+        },
+    )
+
+    assert _runtime_messages_support_test_claim(
+        value="com.example.app.unit.SomeNewTest",
+        backed_commands=("./gradlew test --tests com.example.app.unit.SomeNewTest -i",),
+        messages=(command_message, result_message),
+        task_cwd=None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("runtime_command", "claimed_command"),
+    (
+        ("./gradlew test -x test", "./gradlew test -x test"),
+        ("./gradlew check -x test", "./gradlew check -x test"),
+        ("./gradlew test --exclude-task test", "./gradlew test --exclude-task test"),
+        ("./gradlew check --exclude-task :test", "./gradlew check --exclude-task :test"),
+        ("mvn -DskipTests verify", "mvn -DskipTests verify"),
+        ("mvn -D skipTests test", "mvn -D skipTests test"),
+        ("mvn -Dmaven.test.skip=true test", "mvn -Dmaven.test.skip=true test"),
+        ("mvn --define skipTests test", "mvn --define skipTests test"),
+        ("mvn --define=skipTests=true test", "mvn --define=skipTests=true test"),
+    ),
+)
+def test_gradle_maven_tests_passed_rejects_skip_test_invocations(
+    runtime_command: str,
+    claimed_command: str,
+) -> None:
+    """Build success cannot prove tests_passed when the command skipped tests."""
+    command_message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": runtime_command}},
+    )
+    result_message = AgentMessage(
+        type="tool_result",
+        content="BUILD SUCCESSFUL in 8s",
+        tool_name=None,
+        data={"subtype": "tool_result", "output": "BUILD SUCCESSFUL in 8s"},
+    )
+
+    assert not _runtime_messages_support_test_claim(
+        value=claimed_command,
+        backed_commands=(claimed_command,),
+        messages=(command_message, result_message),
+        task_cwd=None,
+    )
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "mvn -DskipTests=false test",
+        "mvn -Dmaven.test.skip=false test",
+    ),
+)
+def test_maven_tests_passed_supports_explicit_false_skip_properties(command: str) -> None:
+    """Explicit false Maven skip properties still run tests and can prove success."""
+    command_message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    result_message = AgentMessage(
+        type="tool_result",
+        content="[INFO] BUILD SUCCESS",
+        tool_name=None,
+        data={"subtype": "tool_result", "output": "[INFO] BUILD SUCCESS"},
+    )
+
+    assert _runtime_messages_support_test_claim(
+        value=command,
+        backed_commands=(command,),
+        messages=(command_message, result_message),
+        task_cwd=None,
+    )
+
+
+@pytest.mark.parametrize(
+    "output",
+    (
+        "> Task :test NO-SOURCE\nBUILD SUCCESSFUL in 1s",
+        "> Task :test SKIPPED\nBUILD SUCCESSFUL in 1s",
+        "0 tests completed\nBUILD SUCCESSFUL",
+    ),
+)
+def test_gradle_tests_passed_rejects_successful_build_with_no_tests(output: str) -> None:
+    """Gradle build success without executed tests cannot prove tests_passed."""
+    command_message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": "./gradlew test"}},
+    )
+    result_message = AgentMessage(
+        type="tool_result",
+        content=output,
+        tool_name=None,
+        data={"subtype": "tool_result", "output": output},
+    )
+
+    assert not _runtime_messages_support_test_claim(
+        value="./gradlew test",
+        backed_commands=("./gradlew test",),
+        messages=(command_message, result_message),
+        task_cwd=None,
+    )
+
+
+def test_maven_tests_passed_supports_surefire_zero_failure_summary() -> None:
+    """Standard Surefire zero-failure fields plus build success prove Maven tests."""
+    output = "[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0\n[INFO] BUILD SUCCESS"
+    command_message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": "mvn test"}},
+    )
+    result_message = AgentMessage(
+        type="tool_result",
+        content=output,
+        tool_name=None,
+        data={"subtype": "tool_result", "output": output},
+    )
+
+    assert _runtime_messages_support_test_claim(
+        value="mvn test",
+        backed_commands=("mvn test",),
+        messages=(command_message, result_message),
+        task_cwd=None,
+    )
+
+
+def test_command_claim_supports_command_with_output_redirection_and_pager_pipe() -> None:
+    """A clean ``commands_run`` claim matches a run wrapped in ``2>&1 | tail``.
+
+    Regression: agents routinely run ``<cmd> 2>&1 | tail -20`` while citing the
+    clean ``<cmd>`` in evidence. The trailing redirection and output-only pager
+    pipe must not block the match (which previously failed the whole AC as
+    FABRICATION_SUSPECTED).
+    """
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": (
+                    "python -m ruff check src/poc/structure_extractor.py "
+                    "tests/test_structure_and_draft_substance.py 2>&1 | tail -20"
+                )
+            }
+        },
+    )
+
+    assert _runtime_messages_support_command_claim(
+        "python -m ruff check src/poc/structure_extractor.py "
+        "tests/test_structure_and_draft_substance.py",
+        (message,),
+    )
+
+
+def test_command_claim_supports_inner_command_after_safe_preamble_with_output_plumbing() -> None:
+    """Safe shell preambles still peel presentation-only output plumbing."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": (
+                    "/bin/bash -lc 'cd /workspace && python -m ruff check "
+                    "src/foo.py tests/test_foo.py 2>&1 | tail -20'"
+                )
+            }
+        },
+    )
+
+    assert _runtime_messages_support_command_claim(
+        "python -m ruff check src/foo.py tests/test_foo.py",
+        (message,),
+    )
+
+
+def test_command_claim_rejects_inner_command_after_safe_preamble_with_grep_filter() -> None:
+    """Shell-wrapper peeling must not strip evidence-transforming filters."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": "/bin/bash -lc 'cd /workspace && pytest tests/test_foo.py | grep PASSED'"
+            }
+        },
+    )
+
+    assert not _runtime_messages_support_command_claim("pytest tests/test_foo.py", (message,))
+
+
+def test_test_invocation_supports_shell_preamble_with_pipefail_output_plumbing() -> None:
+    """Test proof can strip pager plumbing only when pipefail preserves status."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": (
+                    "/bin/bash -lc 'set -o pipefail && cd /workspace && "
+                    "pytest tests/test_foo.py 2>&1 | tail -20'"
+                )
+            }
+        },
+    )
+
+    assert _runtime_messages_support_command_claim("pytest tests/test_foo.py", (message,))
+
+
+def test_test_invocation_rejects_status_masking_output_pipe() -> None:
+    """A clean pytest claim is not proven by a pipeline whose final filter can mask failure."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": "/bin/bash -lc 'cd /workspace && pytest tests/test_foo.py | cat'"
+            },
+            "exit_code": 0,
+        },
+    )
+
+    assert not _runtime_messages_support_command_claim("pytest tests/test_foo.py", (message,))
+
+
+def test_test_invocation_rejects_pipefail_text_without_shell_option() -> None:
+    """The pipefail guard must prove a shell option, not arbitrary command text."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": (
+                    "/bin/bash -lc 'cd /workspace && "
+                    "pytest tests/test_pipefail.py 2>&1 | cat # pipefail mentioned'"
+                )
+            },
+            "exit_code": 0,
+        },
+    )
+
+    assert not _runtime_messages_support_command_claim("pytest tests/test_pipefail.py", (message,))
+
+
+def test_test_invocation_rejects_pipefail_set_after_output_pipe() -> None:
+    """Pipefail must be enabled before the pipeline it is meant to protect."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": (
+                    "/bin/bash -lc 'cd /workspace && "
+                    "pytest tests/test_foo.py 2>&1 | cat && set -o pipefail'"
+                )
+            },
+            "exit_code": 0,
+        },
+    )
+
+    assert not _runtime_messages_support_command_claim("pytest tests/test_foo.py", (message,))
+
+
+def test_command_claim_keeps_meaningful_pipeline_segments() -> None:
+    """Only output-filter pipes are stripped; real pipelines are not over-matched."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": "python gen.py | python process.py"}},
+    )
+
+    # ``process.py`` is not an output filter, so the pipe stays and the partial
+    # ``python gen.py`` claim is not proven by this runtime command.
+    assert not _runtime_messages_support_command_claim("python gen.py", (message,))
+
+
+def test_command_claim_rejects_grep_filtered_run_as_clean_command() -> None:
+    """A ``... | grep <token>`` run must not back a clean ``commands_run`` claim.
+
+    ``grep`` can hide failure output and rewrite the evidence stream the
+    verifier sees, so treating it as removable presentation plumbing would
+    weaken the anti-fabrication boundary: a filtered ``pytest tests/foo.py |
+    grep passed`` run could "prove" the clean ``pytest tests/foo.py`` claim
+    even when the unfiltered run had failures.
+    """
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": "pytest tests/unit/test_foo.py | grep passed"}},
+    )
+
+    assert not _runtime_messages_support_command_claim("pytest tests/unit/test_foo.py", (message,))
+
+
+def test_command_claim_rejects_grep_filtered_run_as_tests_passed_claim() -> None:
+    """A grep-filtered test run must not back a ``tests_passed`` claim either.
+
+    ``_normalized_command_claim_aliases`` is also consumed on the
+    ``tests_passed`` path, so the same anti-fabrication invariant has to hold
+    there: a grep-filtered run is not equivalent to the unfiltered test
+    command for evidence-matching purposes.
+    """
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": "pytest tests/unit/test_foo.py -x | grep PASSED"}},
+    )
+
+    assert not _runtime_messages_support_command_claim(
+        "pytest tests/unit/test_foo.py -x", (message,)
+    )
+
+
+def test_command_claim_rejects_wc_collapsed_run_as_clean_command() -> None:
+    """``... | wc -l`` collapses the evidence stream to a count and must not match.
+
+    ``wc`` discards every line of the underlying output, so a verifier looking
+    at the runtime transcript would no longer see the unfiltered command's
+    output. Treating ``wc`` as removable plumbing would let a filtered run
+    silently back a clean ``commands_run`` claim.
+    """
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": "pytest tests/unit/test_foo.py | wc -l"}},
+    )
+
+    assert not _runtime_messages_support_command_claim("pytest tests/unit/test_foo.py", (message,))
+
+
+def test_command_claim_rejects_tee_redirected_run_as_clean_command() -> None:
+    """``... | tee out.log`` diverts the evidence stream and must not back a claim.
+
+    ``tee`` is a side-effecting redirector, not presentation-only output
+    filtering — the file write means the unfiltered runtime stream is no
+    longer the only observable evidence. Keep alias matching strict so the
+    filtered command does not prove a clean ``commands_run`` claim.
+    """
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": "pytest tests/unit/test_foo.py | tee pytest.log"}},
+    )
+
+    assert not _runtime_messages_support_command_claim("pytest tests/unit/test_foo.py", (message,))
 
 
 class TestProfileAwareDecompositionAudit:
@@ -5008,6 +5430,189 @@ class TestParallelACExecutor:
         assert evidence_event.data["verifier_failure_class"] == "FABRICATION_SUSPECTED"
 
     @pytest.mark.asyncio
+    async def test_fat_harness_verifier_accepts_pytest_node_id_claim_backed_by_transcript_command(
+        self, tmp_path
+    ) -> None:
+        """A transcript ``pytest <file>`` run backs node-id ``tests_passed`` claims.
+
+        Regression: candidate test commands were sourced only from
+        ``commands_run`` evidence. When the agent listed lint in
+        ``commands_run`` but ran ``pytest`` (recorded in the transcript) without
+        echoing it into ``commands_run``, every node-id ``tests_passed`` claim
+        was rejected as FABRICATION_SUSPECTED even though the run is real and
+        green. The Bash message's own command is now also a candidate, so a
+        transcript-proven test run supports the claim.
+        """
+        source_file = tmp_path / "string_utils.py"
+        test_file = tmp_path / "test_slugify.py"
+        source_file.write_text(
+            "def slugify(text):\n    return text.lower().replace(' ', '-')\n",
+            encoding="utf-8",
+        )
+        test_file.write_text(
+            "from string_utils import slugify\n\n"
+            "def test_spaces():\n"
+            "    assert slugify('Hello World') == 'hello-world'\n",
+            encoding="utf-8",
+        )
+
+        lint_command = "python -m ruff check string_utils.py test_slugify.py"
+        pytest_command = "python -m pytest test_slugify.py -q"
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py", "test_slugify.py"],\n'
+                f'  "commands_run": ["{lint_command}"],\n'
+                '  "tests_passed": ["test_slugify.py::test_spaces"]\n'
+                "}\n"
+                "```",
+                native_session_id="session-pytest-node-id-transcript-only",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {test_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(test_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Bash: {lint_command}",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": lint_command},
+                            "output": "All checks passed!",
+                            "exit_code": 0,
+                        },
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Bash: {pytest_command}",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": pytest_command},
+                            "output": "1 passed in 0.01s",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and pytest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_node_id_claim_backed_only_by_non_test_command(
+        self, tmp_path
+    ) -> None:
+        """The new candidate source must not let a non-test command back a test claim.
+
+        Guards the message-command candidate path added for node-id ``tests_passed``
+        support: a Bash message whose command merely prints a fake success line
+        (``cat fake_results.txt`` whose output is ``test_x.py::test_y passed``) is
+        not a test command, so ``_looks_like_test_command`` must exclude it and the
+        node-id claim stays unsupported (FABRICATION_SUSPECTED) — even though the
+        recorded output literally contains the node-id-plus-"passed" marker.
+        """
+        source_file = tmp_path / "string_utils.py"
+        source_file.write_text("def slugify(text):\n    return text\n", encoding="utf-8")
+
+        fake_command = "cat fake_results.txt"
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py"],\n'
+                f'  "commands_run": ["{fake_command}"],\n'
+                '  "tests_passed": ["test_slugify.py::test_spaces"]\n'
+                "}\n"
+                "```",
+                native_session_id="session-node-id-non-test-command-only",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Bash: {fake_command}",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": fake_command},
+                            "output": "test_slugify.py::test_spaces passed",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and pytest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "tests_passed:" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_failure_class"] == "FABRICATION_SUSPECTED"
+
+    @pytest.mark.asyncio
     async def test_fat_harness_verifier_rejects_unittest_summary_missing_from_runtime(
         self, tmp_path
     ) -> None:
@@ -5612,16 +6217,32 @@ class TestParallelACExecutor:
             atomic_verifier=_rejecting_verifier,
         )
 
-        result = await executor._execute_atomic_ac(
-            ac_index=0,
-            ac_content="Implement AC 1",
+        with patch("ouroboros.orchestrator.parallel_executor.log") as log_mock:
+            result = await executor._execute_atomic_ac(
+                ac_index=0,
+                ac_content="Implement AC 1",
+                session_id="orch_123",
+                tools=["Read"],
+                tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+                system_prompt="system",
+                seed_goal="Ship the feature",
+                depth=0,
+                start_time=datetime.now(UTC),
+            )
+
+        log_mock.warning.assert_any_call(
+            "parallel_executor.ac.verifier_rejected",
             session_id="orch_123",
-            tools=["Read"],
-            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
-            system_prompt="system",
-            seed_goal="Ship the feature",
+            execution_id="",
+            ac_index=0,
             depth=0,
-            start_time=datetime.now(UTC),
+            reason="Fat-harness verifier failed (claimed test command did not support the AC).",
+            typed_evidence_present=True,
+            typed_evidence_valid=True,
+            verifier_ran=True,
+            verifier_passed=False,
+            verifier_reasons=["claimed test command did not support the AC"],
+            verifier_failure_class="FABRICATION_SUSPECTED",
         )
 
         assert result.success is False
@@ -6411,6 +7032,49 @@ class TestParallelACExecutor:
         assert "Implemented manually" in result.results[0].final_message
         assert "abc1234" in result.results[0].final_message
         executor._execute_ac_batch.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_execute_parallel_logs_dependency_edges(self) -> None:
+        """The inferred dependency graph should be visible before cascaded skips."""
+        seed = _make_seed("AC 0 foundation", "AC 1 dependent flow")
+        dependency_graph = DependencyGraph(
+            nodes=(
+                ACNode(index=0, content=seed.acceptance_criteria[0], depends_on=()),
+                ACNode(index=1, content=seed.acceptance_criteria[1], depends_on=(0,)),
+            ),
+            execution_levels=((0,), (1,)),
+        )
+        executor = _make_executor()
+        executor._execute_ac_batch = AsyncMock(
+            return_value=[
+                ACExecutionResult(
+                    ac_index=0,
+                    ac_content=seed.acceptance_criteria[0],
+                    success=False,
+                    error="Foundation failed",
+                    outcome=ACExecutionOutcome.FAILED,
+                )
+            ]
+        )
+
+        with patch("ouroboros.orchestrator.parallel_executor.log") as log_mock:
+            await executor.execute_parallel(
+                seed=seed,
+                execution_plan=dependency_graph.to_execution_plan(),
+                session_id="orch_dependency_log",
+                execution_id="exec_dependency_log",
+                tools=["Read"],
+                tool_catalog=None,
+                system_prompt="system",
+            )
+
+        log_mock.info.assert_any_call(
+            "parallel_executor.dependency_graph",
+            session_id="orch_dependency_log",
+            execution_id="exec_dependency_log",
+            total_acs=2,
+            dependency_edges=[{"ac_index": 1, "depends_on": (0,)}],
+        )
 
     @pytest.mark.asyncio
     async def test_externally_satisfied_ac_blocked_when_dependency_failed(self) -> None:

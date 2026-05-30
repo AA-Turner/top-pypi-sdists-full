@@ -138,6 +138,7 @@ __all__ = (
     "RestApiMethodType",
     "SchemaTypeType",
     "SearchTypeType",
+    "SecretSourceTypeType",
     "ServerProtocolType",
     "ServiceName",
     "StatusType",
@@ -359,6 +360,7 @@ ResourceTypeType = Literal["CUSTOM", "SYSTEM"]
 RestApiMethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
 SearchTypeType = Literal["SEMANTIC"]
+SecretSourceTypeType = Literal["EXTERNAL", "MANAGED"]
 ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
 StatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"

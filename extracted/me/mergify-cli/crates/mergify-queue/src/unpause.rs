@@ -7,12 +7,10 @@
 
 use std::io::Write;
 
-use mergify_core::ApiFlavor;
 use mergify_core::CliError;
+use mergify_core::CommandContext;
 use mergify_core::DeleteOutcome;
-use mergify_core::HttpClient;
 use mergify_core::Output;
-use mergify_core::auth;
 
 pub struct UnpauseOptions<'a> {
     pub repository: Option<&'a str>,
@@ -22,14 +20,15 @@ pub struct UnpauseOptions<'a> {
 
 /// Run the `queue unpause` command.
 pub async fn run(opts: UnpauseOptions<'_>, output: &mut dyn Output) -> Result<(), CliError> {
-    let repository = auth::resolve_repository(opts.repository)?;
-    let token = auth::resolve_token(opts.token)?;
-    let api_url = auth::resolve_api_url(opts.api_url)?;
+    let ctx = CommandContext::resolve(opts.repository, opts.token, opts.api_url)?;
 
-    output.status(&format!("Unpausing merge queue for {repository}…"))?;
+    output.status(&format!(
+        "Unpausing merge queue for {repo}…",
+        repo = ctx.repository,
+    ))?;
 
-    let client = HttpClient::new(api_url, token, ApiFlavor::Mergify)?;
-    let path = format!("/v1/repos/{repository}/merge-queue/pause");
+    let client = ctx.mergify_client()?;
+    let path = format!("/v1/repos/{}/merge-queue/pause", ctx.repository);
 
     match client.delete_if_exists(&path).await? {
         DeleteOutcome::Deleted => {
@@ -48,8 +47,7 @@ fn emit_resumed(output: &mut dyn Output) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use mergify_core::OutputMode;
-    use mergify_core::StdioOutput;
+    use mergify_test_support::Captured;
     use wiremock::Mock;
     use wiremock::MockServer;
     use wiremock::ResponseTemplate;
@@ -58,24 +56,6 @@ mod tests {
     use wiremock::matchers::path;
 
     use super::*;
-
-    type SharedBytes = std::sync::Arc<std::sync::Mutex<Vec<u8>>>;
-
-    struct Captured {
-        output: StdioOutput,
-        stdout: SharedBytes,
-    }
-
-    fn make_output() -> Captured {
-        let stdout: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let stderr: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let output = StdioOutput::with_sinks(
-            OutputMode::Human,
-            SharedWriter(std::sync::Arc::clone(&stdout)),
-            SharedWriter(std::sync::Arc::clone(&stderr)),
-        );
-        Captured { output, stdout }
-    }
 
     #[tokio::test]
     async fn run_unpauses_on_2xx() {
@@ -88,7 +68,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             UnpauseOptions {
@@ -101,7 +81,7 @@ mod tests {
         .await
         .unwrap();
 
-        let stdout = String::from_utf8(cap.stdout.lock().unwrap().clone()).unwrap();
+        let stdout = cap.stdout();
         assert!(stdout.contains("Queue resumed"), "got: {stdout:?}");
     }
 
@@ -115,7 +95,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         let api_url = server.uri();
         let err = run(
             UnpauseOptions {
@@ -130,16 +110,5 @@ mod tests {
         assert!(matches!(err, CliError::MergifyApi(_)));
         assert!(err.to_string().contains("not currently paused"));
         assert_eq!(err.exit_code(), mergify_core::ExitCode::MergifyApiError);
-    }
-
-    struct SharedWriter(SharedBytes);
-    impl Write for SharedWriter {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
     }
 }

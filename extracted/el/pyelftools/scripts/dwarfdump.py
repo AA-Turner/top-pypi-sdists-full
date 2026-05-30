@@ -13,9 +13,13 @@
 # Eli Bendersky (eliben@gmail.com)
 # This code is in the public domain
 #-------------------------------------------------------------------------------
+from __future__ import annotations
+
 import argparse
-import os, sys
+import os
+import sys
 import traceback
+from typing import IO, TYPE_CHECKING, overload
 
 # For running from development directory. It should take precedence over the
 # installed pyelftools.
@@ -25,18 +29,23 @@ from elftools import __version__
 from elftools.common.exceptions import DWARFError, ELFError
 from elftools.common.utils import bytes2str
 from elftools.elf.elffile import ELFFile
-from elftools.dwarf.locationlists import LocationParser, LocationEntry, LocationExpr, LocationViewPair, BaseAddressEntry as LocBaseAddressEntry
+from elftools.dwarf.locationlists import LocationParser, LocationEntry, LocationExpr, BaseAddressEntry as LocBaseAddressEntry
 from elftools.dwarf.ranges import RangeEntry # ranges.BaseAddressEntry collides with the one above
 import elftools.dwarf.ranges
-from elftools.dwarf.enums import *
+import elftools.dwarf.enums as e
 from elftools.dwarf.dwarf_expr import DWARFExprParser, DWARFExprOp
-from elftools.dwarf.datatype_cpp import DIE_name, describe_cpp_datatype
+from elftools.dwarf.datatype_cpp import describe_cpp_datatype
 from elftools.dwarf.descriptions import describe_reg_name
 
+if TYPE_CHECKING:
+    from elftools.dwarf.compileunit import CompileUnit
+    from elftools.dwarf.die import DIE
+
+
 # ------------------------------
 # ------------------------------
 
-def _get_cu_base(cu):
+def _get_cu_base(cu: CompileUnit):
     top_die = cu.get_top_DIE()
     attr = top_die.attributes
     if 'DW_AT_low_pc' in attr:
@@ -46,10 +55,10 @@ def _get_cu_base(cu):
     else:
         raise ValueError("Can't find the base IP (low_pc) for a CU")
 
-def _addr_str_length(die):
+def _addr_str_length(die: DIE) -> int:
     return die.cu.header.address_size*2
 
-def _DIE_name(die):
+def _DIE_name(die: DIE) -> str:
     if 'DW_AT_name' in die.attributes:
         return bytes2str(die.attributes['DW_AT_name'].value)
     elif 'DW_AT_linkage_name' in die.attributes:
@@ -57,15 +66,19 @@ def _DIE_name(die):
     else:
         raise DWARFError()
 
-def _DIE_linkage_name(die):
+def _DIE_linkage_name(die: DIE) -> str:
     if 'DW_AT_linkage_name' in die.attributes:
         return bytes2str(die.attributes['DW_AT_linkage_name'].value)
     elif 'DW_AT_name' in die.attributes:
         return bytes2str(die.attributes['DW_AT_name'].value)
     else:
-        raise DWARFError()        
+        raise DWARFError()
 
-def _safe_DIE_name(die, default=None):
+@overload
+def _safe_DIE_name(die: DIE, default: str) -> str: ...
+@overload
+def _safe_DIE_name(die: DIE) -> str | None: ...
+def _safe_DIE_name(die: DIE, default: str | None = None) -> str | None:
     if 'DW_AT_name' in die.attributes:
         return bytes2str(die.attributes['DW_AT_name'].value)
     elif 'DW_AT_linkage_name' in die.attributes:
@@ -73,7 +86,11 @@ def _safe_DIE_name(die, default=None):
     else:
         return default
 
-def _safe_DIE_linkage_name(die, default=None):
+@overload
+def _safe_DIE_linkage_name(die: DIE, default: str) -> str: ...
+@overload
+def _safe_DIE_linkage_name(die: DIE) -> str | None: ...
+def _safe_DIE_linkage_name(die: DIE, default: str | None = None) -> str | None:
     if 'DW_AT_linkage_name' in die.attributes:
         return bytes2str(die.attributes['DW_AT_linkage_name'].value)
     elif 'DW_AT_name' in die.attributes:
@@ -81,7 +98,7 @@ def _safe_DIE_linkage_name(die, default=None):
     else:
         return default
 
-def _desc_ref(attr, die, extra=''):
+def _desc_ref(attr, die: DIE, extra: str = '') -> str:
     if extra:
         extra = " \"%s\"" % extra
     if attr.form == 'DW_FORM_ref_addr':
@@ -89,19 +106,19 @@ def _desc_ref(attr, die, extra=''):
     if attr.form == 'DW_FORM_ref_sig8':
         return "0x%016x" % attr.value
     # TODO: leading zeros on the addend to CU - sometimes present, sometimes not.
-    # Check by the LLVM sources.    
+    # Check by the LLVM sources.
     return "cu + 0x%04x => {0x%08x}%s" % (
         attr.raw_value,
         die.cu.cu_offset + attr.raw_value,
         extra)
 
-def _desc_data(attr, die):
+def _desc_data(attr, die: DIE) -> str:
     """ Hex with length driven by form
     """
     len = int(attr.form[12:]) * 2
     return "0x%0*x" % (len, attr.value,)
 
-def _desc_strx(attr, die):
+def _desc_strx(attr, die: DIE) -> str:
     return "indexed (%08x) string = \"%s\"" % (attr.raw_value, bytes2str(attr.value).replace("\\", "\\\\"))
 
 FORM_DESCRIPTIONS = dict(
@@ -120,9 +137,9 @@ FORM_DESCRIPTIONS = dict(
     DW_FORM_data2=_desc_data,
     DW_FORM_data4=_desc_data,
     DW_FORM_data8=_desc_data,
-    DW_FORM_block1=lambda attr, die: "<0x%02x> %s " % (len(attr.value), " ".join("%02x" %b for b in attr.value)),
-    DW_FORM_block2=lambda attr, die: "<0x%04x> %s " % (len(attr.value), " ".join("%02x" %b for b in attr.value)),
-    DW_FORM_block4=lambda attr, die: "<0x%08x> %s " % (len(attr.value), " ".join("%02x" %b for b in attr.value)),
+    DW_FORM_block1=lambda attr, die: "<0x%02x> %s " % (len(attr.value), bytes(attr.value).hex(" ")),
+    DW_FORM_block2=lambda attr, die: "<0x%04x> %s " % (len(attr.value), bytes(attr.value).hex(" ")),
+    DW_FORM_block4=lambda attr, die: "<0x%08x> %s " % (len(attr.value), bytes(attr.value).hex(" ")),
     DW_FORM_ref=_desc_ref,
     DW_FORM_ref1=_desc_ref, DW_FORM_ref2=_desc_ref,
     DW_FORM_ref4=_desc_ref, DW_FORM_ref8=_desc_ref,
@@ -130,16 +147,16 @@ FORM_DESCRIPTIONS = dict(
     DW_FORM_exprloc=lambda attr, die: _desc_expression(attr.value, die)
 )
 
-def _desc_enum(attr, enum):
+def _desc_enum(attr, enum: dict[str, int]) -> str:
     """For attributes like DW_AT_language, physically
     int, logically an enum
     """
     return next((k for (k, v) in enum.items() if v == attr.value), str(attr.value))
 
-def _cu_comp_dir(cu):
+def _cu_comp_dir(cu: CompileUnit) -> str:
     return bytes2str(cu.get_top_DIE().attributes['DW_AT_comp_dir'].value)
 
-def _desc_decl_file(attr, die):
+def _desc_decl_file(attr, die: DIE) -> str:
     # Filename/dirname arrays are 0 based in DWARFv5
     cu = die.cu
     if not hasattr(cu, "_lineprogram"):
@@ -162,7 +179,7 @@ def _desc_decl_file(attr, die):
     return "\"%s\"" % (os.path.join(dir, file_name),)
 
 
-def _desc_ranges(attr, die):
+def _desc_ranges(attr, die: DIE) -> str:
     di = die.cu.dwarfinfo
     if not hasattr(di, '_rnglists'):
         di._rangelists = di.range_lists()
@@ -184,7 +201,7 @@ def _desc_ranges(attr, die):
     prefix = "indexed (0x%x) rangelist = " % attr.raw_value if attr.form == 'DW_FORM_rnglistx' else ''
     return ("%s0x%08x\n" % (prefix, attr.value)) + "\n".join(lines)
 
-def _desc_locations(attr, die):
+def _desc_locations(attr, die: DIE) -> str:
     cu = die.cu
     di = cu.dwarfinfo
     if not hasattr(di, '_loclists'):
@@ -214,25 +231,25 @@ def _desc_locations(attr, die):
         return ("%s0x%08x:\n" % (prefix, attr.value)) + "\n".join(lines)
 
 # By default, numeric arguments are spelled in hex with a leading 0x
-def _desc_operationarg(s, cu):
+def _desc_operationarg(s: str | int | list, cu: CompileUnit) -> str:
     if isinstance(s, str):
         return s
     elif isinstance(s, int):
         return hex(s)
     elif isinstance(s, list): # Could be a blob (list of ints), could be a subexpression
-        if len(s) > 0 and isinstance(s[0], DWARFExprOp): # Subexpression
+        if s and isinstance(s[0], DWARFExprOp): # Subexpression
             return '(' + '; '.join(_desc_operation(op.op, op.op_name, op.args, cu) for op in s) + ')'
         else:
-            return " ".join((hex(len(s)),) + tuple("0x%02x" % b for b in s))
+            return " ".join((hex(len(s)), *("0x%02x" % b for b in s)))
 
-def _arch(cu):
+def _arch(cu: CompileUnit) -> str:
     return cu.dwarfinfo.config.machine_arch
 
-def _desc_reg(reg_no, cu):
+def _desc_reg(reg_no: int, cu: CompileUnit) -> str:
     reg_name = describe_reg_name(reg_no, _arch(cu), False)
     return reg_name.upper() if reg_name else ""
 
-def _desc_operation(op, op_name, args, cu):
+def _desc_operation(op, op_name: str, args, cu: CompileUnit) -> str:
     # Not sure about regx(regno) and bregx(regno, offset)
     if 0x50 <= op <= 0x6f: # reg0...reg31 - decode reg name
         return op_name + " " + _desc_reg(op - 0x50, cu)
@@ -275,7 +292,7 @@ UNSUPPORTED_OPS = (
     'DW_OP_GNU_convert',
     'DW_OP_GNU_regval_type')
 
-def _desc_expression(expr, die):
+def _desc_expression(expr, die: DIE) -> str:
     cu = die.cu
     if not hasattr(cu, '_exprparser'):
         cu._exprparser = DWARFExprParser(cu.structs)
@@ -291,37 +308,37 @@ def _desc_expression(expr, die):
         lines.append("<decoding error> " + " ".join("%02x" % b for b in expr[start_of_unparsed:]))
     return ", ".join(lines)
 
-def _desc_datatype(attr, die):
+def _desc_datatype(attr, die: DIE) -> str:
     """Oy vey
     """
     return _desc_ref(attr, die, describe_cpp_datatype(die))
 
-def _get_origin_name(die):
+def _get_origin_name(die: DIE) -> str:
     func_die = die.get_DIE_from_attribute('DW_AT_abstract_origin')
     name = _safe_DIE_linkage_name(func_die, '')
     if not name:
         if 'DW_AT_specification' in func_die.attributes:
             name = _DIE_linkage_name(func_die.get_DIE_from_attribute('DW_AT_specification'))
         elif 'DW_AT_abstract_origin' in func_die.attributes:
-            return _get_origin_name(func_die)    
+            return _get_origin_name(func_die)
     return name
 
-def _desc_origin(attr, die):
+def _desc_origin(attr, die: DIE) -> str:
     return _desc_ref(attr, die, _get_origin_name(die))
 
-def _desc_spec(attr, die):
+def _desc_spec(attr, die: DIE) -> str:
     return _desc_ref(attr, die,
         _DIE_linkage_name(die.get_DIE_from_attribute('DW_AT_specification')))
 
-def _desc_value(attr, die):
+def _desc_value(attr, die: DIE) -> str:
     return str(attr.value)
 
 ATTR_DESCRIPTIONS = dict(
-    DW_AT_language=lambda attr, die: _desc_enum(attr, ENUM_DW_LANG),
-    DW_AT_encoding=lambda attr, die: _desc_enum(attr, ENUM_DW_ATE),
-    DW_AT_accessibility=lambda attr, die: _desc_enum(attr, ENUM_DW_ACCESS),
-    DW_AT_inline=lambda attr, die: _desc_enum(attr, ENUM_DW_INL),
-    DW_AT_calling_convention=lambda attr, die: _desc_enum(attr, ENUM_DW_CC),
+    DW_AT_language=lambda attr, die: _desc_enum(attr, e.ENUM_DW_LANG),
+    DW_AT_encoding=lambda attr, die: _desc_enum(attr, e.ENUM_DW_ATE),
+    DW_AT_accessibility=lambda attr, die: _desc_enum(attr, e.ENUM_DW_ACCESS),
+    DW_AT_inline=lambda attr, die: _desc_enum(attr, e.ENUM_DW_INL),
+    DW_AT_calling_convention=lambda attr, die: _desc_enum(attr, e.ENUM_DW_CC),
     DW_AT_decl_file=_desc_decl_file,
     DW_AT_decl_line=_desc_value,
     DW_AT_ranges=_desc_ranges,
@@ -337,11 +354,11 @@ ATTR_DESCRIPTIONS = dict(
     DW_AT_GNU_call_site_value=lambda attr, die: _desc_expression(attr.value, die) if attr.form.startswith('DW_FORM_block') else _desc_locations(attr, die),
 )
 
-class ReadElf(object):
+class ReadElf:
     """ dump_xxx is used to dump the respective section.
     Mimics the output of dwarfdump with --verbose
     """
-    def __init__(self, filename, file, output):
+    def __init__(self, filename: str, file: IO[bytes], output: IO[str]) -> None:
         """ file:
                 stream object with the ELF file to read
 
@@ -356,17 +373,17 @@ class ReadElf(object):
         bits = self.elffile.elfclass
         self._emitline("%s:	file format elf%d-%s" % (filename, bits, arch))
 
-    def _emit(self, s=''):
+    def _emit(self, s: str = '') -> None:
         """ Emit an object to output
         """
         self.output.write(str(s))
 
-    def _emitline(self, s=''):
+    def _emitline(self, s: str = '') -> None:
         """ Emit an object to output, followed by a newline
         """
         self.output.write(str(s).rstrip() + '\n')
 
-    def dump_info(self):
+    def dump_info(self) -> None:
         # TODO: DWARF64 will cause discrepancies in hex offset sizes
         self._emitline(".debug_info contents:")
         for cu in self._dwarfinfo.iter_CUs():
@@ -389,7 +406,7 @@ class ReadElf(object):
             for die in cu.iter_DIEs():
                 if die.get_parent() == parent:
                     parent = die
-                if not die.is_null(): 
+                if not die.is_null():
                     self._emitline("0x%08x: %s [%d] %s %s" % (
                         die.offset,
                         die.tag if isinstance(die.tag, str) else "DW_TAG_unknown_%x" % die.tag,
@@ -407,8 +424,8 @@ class ReadElf(object):
                     parent = die.get_parent()
                 self._emitline()
 
-    def describe_attr_value(self, die, attr):
-        """This describes the attribute value in the way that's compatible 
+    def describe_attr_value(self, die: DIE, attr) -> str:
+        """This describes the attribute value in the way that's compatible
         with llvm_dwarfdump. Somewhat duplicates the work of describe_attr_value() in descriptions
         """
         if attr.name in ATTR_DESCRIPTIONS:
@@ -418,16 +435,16 @@ class ReadElf(object):
         else:
             return str(attr.value)
 
-    def dump_loc(self):
+    def dump_loc(self) -> None:
         pass
 
-    def dump_loclists(self):
+    def dump_loclists(self) -> None:
         pass
 
-    def dump_ranges(self):
+    def dump_ranges(self) -> None:
         pass
 
-    def dump_v4_rangelist(self, rangelist, cu_map):
+    def dump_v4_rangelist(self, rangelist, cu_map) -> None:
         cu = cu_map[rangelist[0].entry_offset]
         addr_str_len = cu.header.address_size*2
         base_ip = _get_cu_base(cu)
@@ -441,11 +458,12 @@ class ReadElf(object):
             elif isinstance(entry, elftools.dwarf.ranges.BaseAddressEntry):
                 base_ip = entry.base_address
             else:
-                raise NotImplementedError("Unknown object in a range list")    
+                raise NotImplementedError("Unknown object in a range list")
 
-    def dump_rnglists(self):
+    def dump_rnglists(self) -> None:
         self._emitline(".debug_rnglists contents:")
         ranges_sec = self._dwarfinfo.range_lists()
+        assert ranges_sec is not None
         if ranges_sec.version < 5:
             return
 
@@ -477,7 +495,7 @@ class ReadElf(object):
     def dump_v5_rangelist(self, rangelist, cu_map, max_type_len):
         cu = cu_map[rangelist[0].entry_offset]
         addr_str_len = cu.header.address_size*2
-        base_ip = _get_cu_base(cu)        
+        base_ip = _get_cu_base(cu)
         for entry in rangelist:
             type = entry.entry_type
             self._emit("0x%08x: [%s]:  " % (entry.entry_offset, type.ljust(max_type_len)))
@@ -510,7 +528,7 @@ class ReadElf(object):
 SCRIPT_DESCRIPTION = 'Display information about the contents of ELF format files'
 VERSION_STRING = '%%(prog)s: based on pyelftools %s' % __version__
 
-def main(stream=None):
+def main(stream: IO[str] | None = None) -> None:
     # parse the command-line arguments and invoke ReadElf
     argparser = argparse.ArgumentParser(
             usage='usage: %(prog)s [options] <elf-file>',
@@ -541,11 +559,11 @@ def main(stream=None):
         sys.exit(0)
 
     # A compatibility hack on top of a compatibility hack :(
-    del ENUM_DW_TAG["DW_TAG_template_type_param"]
-    del ENUM_DW_TAG["DW_TAG_template_value_param"]
-    ENUM_DW_TAG['DW_TAG_template_type_parameter'] = 0x2f
-    ENUM_DW_TAG['DW_TAG_template_value_parameter'] = 0x30
-    del ENUM_DW_TAG['DW_TAG_lo_user'] # dwarfdump dumps it as unknown
+    del e.ENUM_DW_TAG["DW_TAG_template_type_param"]
+    del e.ENUM_DW_TAG["DW_TAG_template_value_param"]
+    e.ENUM_DW_TAG['DW_TAG_template_type_parameter'] = 0x2f
+    e.ENUM_DW_TAG['DW_TAG_template_value_parameter'] = 0x30
+    del e.ENUM_DW_TAG['DW_TAG_lo_user'] # dwarfdump dumps it as unknown
 
     with open(args.file, 'rb') as file:
         try:

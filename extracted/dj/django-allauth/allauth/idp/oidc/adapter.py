@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from collections.abc import Iterable
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.base_user import AbstractBaseUser
@@ -20,6 +20,10 @@ from allauth.core.internal.adapter import BaseAdapter
 from allauth.core.internal.cryptokit import generate_user_code
 from allauth.idp.oidc import app_settings
 from allauth.utils import import_attribute
+
+
+if TYPE_CHECKING:
+    from allauth.idp.oidc.models import Client, Token
 
 
 class DefaultOIDCAdapter(BaseAdapter):
@@ -65,7 +69,11 @@ class DefaultOIDCAdapter(BaseAdapter):
         return self.request.build_absolute_uri("/").rstrip("/")
 
     def populate_id_token(
-        self, id_token: dict, client, scopes: Iterable[str], **kwargs
+        self,
+        id_token: dict[str, Any],
+        client: Client,
+        scopes: Iterable[str],
+        **kwargs: Any,
     ) -> None:
         """
         This method can be used to alter the ID token payload. It is already populated
@@ -76,12 +84,12 @@ class DefaultOIDCAdapter(BaseAdapter):
 
     def populate_access_token(
         self,
-        access_token: dict,
+        access_token: dict[str, Any],
         *,
-        client,
+        client: Client,
         scopes: Iterable[str],
         user: AbstractBaseUser,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """
         This method can be used to alter the JWT access token payload. It is already
@@ -93,15 +101,15 @@ class DefaultOIDCAdapter(BaseAdapter):
         self,
         purpose: Literal["id_token", "userinfo"],
         user: AbstractBaseUser,
-        client,
+        client: Client,
         scopes: Iterable[str],
         email: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """
         Return the claims to be included in the ID token or userinfo response.
         """
-        claims: dict = {"sub": self.get_user_sub(client, user)}
+        claims: dict[str, Any] = {"sub": self.get_user_sub(client, user)}
         if "email" in scopes:
             address: EmailAddress | None = None
             if email:
@@ -137,13 +145,13 @@ class DefaultOIDCAdapter(BaseAdapter):
                     claims[claim_key] = claim_value
         return claims
 
-    def get_user_sub(self, client, user: AbstractBaseUser) -> str:
+    def get_user_sub(self, client: Client, user: AbstractBaseUser) -> str:
         """
         Returns the "sub" (subject identifier) for the given user.
         """
         return user_id_to_str(user)
 
-    def get_user_by_sub(self, client, sub: str):
+    def get_user_by_sub(self, client: Client, sub: str) -> AbstractBaseUser | None:
         """
         Looks up a user, given its subject identifier. Returns `None` if no
         such user was found.
@@ -156,6 +164,46 @@ class DefaultOIDCAdapter(BaseAdapter):
         if not user or not user.is_active:
             return None
         return user
+
+    def validate_client_registration(
+        self,
+        *,
+        client: Client,
+        client_metadata: dict[str, Any],
+        token: Token | None,
+        bearer_token: str | None,
+        **kwargs: Any,
+    ) -> None:
+        """
+        This method is called after all builtin validation was successful,
+        and just before the actual client is being created. To intervene, raise
+        a ``ValidationError`` or an ``ImmediateHttpResponse``.
+
+        ``client``: The ``Client`` instance that is about to be saved.
+        ``client_metadata``: The raw JSON payload from the DCR request.
+        ``token``: The ``Token`` instance corresponding to the initial access
+            token, or ``None`` if no token was provided.
+        ``bearer_token``: The raw bearer token string from the ``Authorization``
+            header, or ``None`` if no token was provided.
+        """
+        pass
+
+    def validate_resource_uris(self, *, uris: list[str], **kwargs: Any) -> None:
+        """
+        Allows for custom validation of resource URIs (RFC 8707).
+        Throw a ``ValidationError`` to reject the resource.
+        """
+        pass
+
+    def populate_server_metadata(self, data: dict[str, str | list[str]]) -> None:
+        """
+        Allows for customizing the ``/.well-known/openid-configuration``
+        payload, as specified in `RFC 8414`_ (OAuth 2.0 Authorization Server
+        Metadata).
+
+        .. _RFC 8414: https://www.rfc-editor.org/info/rfc8414
+        """
+        pass
 
 
 def get_adapter() -> DefaultOIDCAdapter:

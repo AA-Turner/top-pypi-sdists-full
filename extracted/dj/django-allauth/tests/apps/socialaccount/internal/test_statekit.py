@@ -21,13 +21,25 @@ def test_get_oldest_state_empty():
 
 
 def test_gc_states():
+    now = time.time()
     states = {}
     for i in range(statekit.MAX_STATES + 1):
-        states[f"state-{i}"] = [{"i": i}, 1000 + i]
+        states[f"state-{i}"] = [{"i": i}, now + i]
     assert len(states) == statekit.MAX_STATES + 1
     statekit.gc_states(states)
     assert len(states) == statekit.MAX_STATES
     assert "state-0" not in states
+
+
+def test_gc_states_expires():
+    now = time.time()
+    states = {
+        "fresh": [{"id": "fresh"}, now],
+        "expired": [{"id": "expired"}, now - statekit.STATE_TTL - 1],
+    }
+    statekit.gc_states(states)
+    assert "fresh" in states
+    assert "expired" not in states
 
 
 def test_stashing(rf):
@@ -53,5 +65,17 @@ def test_stashing(rf):
     assert state is None
     state = statekit.unstash_state(request, state_id)
     assert state == {"foo": "bar"}
+    state = statekit.unstash_state(request, state_id)
+    assert state is None
+
+
+def test_unstash_expired_state(rf):
+    request = rf.get("/")
+    request.session = {}
+    state_id = statekit.stash_state(request, {"foo": "bar"})
+    # Backdate the timestamp to simulate expiry
+    states = statekit.get_states(request)
+    states[state_id] = (states[state_id][0], time.time() - statekit.STATE_TTL - 1)
+    request.session[statekit.STATES_SESSION_KEY] = states
     state = statekit.unstash_state(request, state_id)
     assert state is None

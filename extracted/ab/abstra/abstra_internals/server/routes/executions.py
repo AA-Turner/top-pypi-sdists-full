@@ -32,6 +32,12 @@ def get_editor_bp(controller: MainController):
         controller.stop_execution(execution_id)
         return {"status": "stopping"}
 
+    @bp.post("/stop-all")
+    @editor_usage
+    def _stop_all_executions():
+        controller.stop_all_executions()
+        return {"status": "stopping_all"}
+
     @bp.delete("/clear")
     @editor_usage
     def _clear_executions():

@@ -1,12 +1,14 @@
 Metadata-Version: 2.4
 Name: detect_agent
-Version: 0.2.0
+Version: 0.3.0
 Summary: Detect if code is running in an AI agent or automated development environment
 Project-URL: Homepage, https://github.com/togethercomputer/detect_agent
 Project-URL: Repository, https://github.com/togethercomputer/detect_agent
 Project-URL: Changelog, https://github.com/togethercomputer/detect_agent/blob/main/CHANGELOG.md
+License-File: LICENSE
 Requires-Python: >=3.9
 Provides-Extra: dev
+Requires-Dist: mypy>=1.0; extra == 'dev'
 Requires-Dist: pytest>=7.0; extra == 'dev'
 Requires-Dist: ruff>=0.8.0; extra == 'dev'
 Description-Content-Type: text/markdown
@@ -47,6 +49,7 @@ This package can detect the following AI agents and development environments:
 - **Antigravity** (Google DeepMind)
 - **GitHub Copilot** (via `AI_AGENT=github-copilot|github-copilot-cli`, `COPILOT_MODEL`, `COPILOT_ALLOW_ALL`, or `COPILOT_GITHUB_TOKEN`)
 - **Replit** (online IDE)
+- **v0** (Vercel's AI assistant, via `AI_AGENT=v0`)
 
 ## The AI_AGENT Standard
 

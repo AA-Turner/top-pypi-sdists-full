@@ -19,7 +19,6 @@
 # Eli Bendersky (eliben@gmail.com)
 # This code is in the public domain
 #-------------------------------------------------------------------------------
-from __future__ import print_function
 import sys
 
 # If pyelftools is not installed, the example can also run from the root or
@@ -94,15 +93,11 @@ def show_loclist(loclist, dwarfinfo, indent, cu_offset):
     """ Display a location list nicely, decoding the DWARF expressions
         contained within.
     """
-    d = []
-    for loc_entity in loclist:
-        if isinstance(loc_entity, LocationEntry):
-            d.append('%s <<%s>>' % (
-                loc_entity,
-                describe_DWARF_expr(loc_entity.loc_expr, dwarfinfo.structs, cu_offset)))
-        else:
-            d.append(str(loc_entity))
-    return '\n'.join(indent + s for s in d)
+    return "\n".join(
+        f"{indent}{loc_entity}"
+        f"{f' <<{describe_DWARF_expr(loc_entity.loc_expr, dwarfinfo.structs, cu_offset)}>>' if isinstance(loc_entity, LocationEntry) else ''}"
+        for loc_entity in loclist
+    )
 
 if __name__ == '__main__':
     if sys.argv[1] == '--test':

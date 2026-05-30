@@ -13,9 +13,11 @@ import os
 from typing import Any
 
 import click
+from click.core import ParameterSource
 
 from ..client import NotebookLMClient
 from .auth_runtime import with_client
+from .error_handler import current_json_output, output_error
 from .input import resolve_prompt
 from .language_cmd import SUPPORTED_LANGUAGES, get_language
 from .options import (
@@ -30,14 +32,20 @@ from .options import (
     wait_option,
     wait_polling_options,
 )
+from .polling_ui import status_with_elapsed
 from .rendering import (
     console,
     json_error_response,
     json_output_response,
 )
 from .resolve import require_notebook
+from .services.artifact_generation import (
+    GenerationOutcome,
+)
 from .services.generate import (
     _INFOGRAPHIC_STYLE_MAP,
+    GenerationExecutionResult,
+    GenerationPlanValidationError,
     build_generation_plan,
     execute_generation,
 )
@@ -51,31 +59,49 @@ def resolve_language(language: str | None) -> str:
     Priority: ``--language`` flag > ``NOTEBOOKLM_HL`` env var > config file
     > "en" default. Uses explicit None checks to avoid treating empty
     string as falsy. Validates each candidate against the supported list.
+
+    Invalid codes route through :func:`output_error` per ADR-015: under
+    ``--json`` the typed JSON envelope is emitted on stdout
+    (``code: "VALIDATION_ERROR"``, exit 1); in text mode the same message
+    is written to stderr (exit 1, no Click usage footer). The active
+    ``--json`` flag is inferred via :func:`current_json_output` so this
+    helper stays callable from both the Click handler and the service-layer
+    plan builder without threading the flag through its signature.
     """
     if language is not None:
         if language not in SUPPORTED_LANGUAGES:
-            raise click.BadParameter(
+            output_error(
                 f"Unknown language code: {language}\n"
                 "Run 'notebooklm language list' to see supported codes.",
-                param_hint="'--language'",
+                "VALIDATION_ERROR",
+                current_json_output(),
+                1,
             )
         return language
     env_lang = os.environ.get("NOTEBOOKLM_HL", "").strip()
     if env_lang:
         if env_lang not in SUPPORTED_LANGUAGES:
-            raise click.BadParameter(
-                f"Unknown language code: {env_lang}\n"
+            # Distinguish the env-var source so the user knows which input is
+            # at fault (the ``in config`` branch below already disambiguates;
+            # the CLI flag is the unqualified default since it's the most
+            # common path).
+            output_error(
+                f"Unknown language code from NOTEBOOKLM_HL: {env_lang}\n"
                 "Run 'notebooklm language list' to see supported codes.",
-                param_hint="'NOTEBOOKLM_HL'",
+                "VALIDATION_ERROR",
+                current_json_output(),
+                1,
             )
         return env_lang
     config_lang = get_language()
     if config_lang is not None:
         if config_lang not in SUPPORTED_LANGUAGES:
-            raise click.BadParameter(
+            output_error(
                 f"Unknown language code in config: {config_lang}\n"
                 "Run 'notebooklm language list' to see supported codes.",
-                param_hint="config",
+                "VALIDATION_ERROR",
+                current_json_output(),
+                1,
             )
         return config_lang
     return DEFAULT_LANGUAGE
@@ -110,6 +136,55 @@ def _output_mind_map_result(result: Any, json_output: bool) -> None:
         console.print(result)
 
 
+def _output_generation_outcome(outcome: GenerationOutcome, json_output: bool) -> None:
+    """Render a generation outcome and apply command-layer exit policy."""
+    if outcome.status in {"failed", "rate_limited"}:
+        message = outcome.error or f"{outcome.artifact_type.title()} generation failed"
+        if outcome.hint is None:
+            output_error(message, outcome.error_code, json_output, outcome.exit_code)
+        else:
+            output_error(
+                message,
+                outcome.error_code,
+                json_output,
+                outcome.exit_code,
+                hint=outcome.hint,
+            )
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    if json_output:
+        if outcome.status == "completed":
+            json_output_response(
+                {"task_id": outcome.task_id, "status": "completed", "url": outcome.url}
+            )
+        else:
+            json_output_response({"task_id": outcome.task_id, "status": "pending"})
+        return
+
+    if outcome.status == "completed":
+        if outcome.url:
+            console.print(f"[green]{outcome.artifact_type.title()} ready:[/green] {outcome.url}")
+        else:
+            console.print(f"[green]{outcome.artifact_type.title()} ready[/green]")
+    else:
+        console.print(f"[yellow]Started:[/yellow] {outcome.task_id or outcome.raw_status}")
+
+
+def _render_generation_result(result: GenerationExecutionResult, json_output: bool) -> None:
+    if result.kind == "mind-map":
+        _output_mind_map_result(result.mind_map, json_output)
+        return
+    if result.generation is None:
+        output_error(
+            f"{result.display_name.title()} generation failed",
+            "GENERATION_FAILED",
+            json_output,
+            1,
+        )
+        raise AssertionError("unreachable")  # pragma: no cover
+    _output_generation_outcome(result.generation, json_output)
+
+
 # Click-handler params that are not part of the service-layer raw_args
 # contract. ``ctx`` carries the parameter-source probe; ``client_auth`` is
 # the AuthTokens injected by ``@with_client``; ``prompt_file`` has already
@@ -133,16 +208,55 @@ def _run_generate(*, kind: str, **handler_locals: Any) -> Any:
     client_auth = handler_locals["client_auth"]
     raw_args = {k: v for k, v in handler_locals.items() if k not in _NON_RAW_ARG_KEYS}
     raw_args["notebook_id"] = require_notebook(raw_args["notebook_id"])
-    plan = build_generation_plan(
-        kind,
-        raw_args,
-        parameter_source=ctx.get_parameter_source,
-        language_resolver=resolve_language,
-    )
+    try:
+        plan = build_generation_plan(
+            kind,
+            raw_args,
+            parameter_explicit=lambda name: (
+                ctx.get_parameter_source(name) == ParameterSource.COMMANDLINE
+            ),
+            language_resolver=resolve_language,
+        )
+    except GenerationPlanValidationError as exc:
+        output_error(exc.message, exc.code, raw_args["json_output"], 1)
+        raise AssertionError("unreachable") from exc  # pragma: no cover
+
+    if not plan.json_output:
+        for line in plan.warnings:
+            click.echo(line, err=True)
 
     async def _run() -> Any:
         async with NotebookLMClient(client_auth) as client:
-            return await execute_generation(plan, client)
+            result = await execute_generation(
+                plan,
+                client,
+                retry_sink=(
+                    None
+                    if plan.json_output
+                    else lambda event: console.print(
+                        f"[yellow]{plan.display_name.title()} rate limited. "
+                        f"Retrying in {int(event.delay)}s "
+                        f"(attempt {event.next_attempt_number}/{event.total_attempts})...[/yellow]"
+                    )
+                ),
+                wait_context=lambda message, resume_hint: status_with_elapsed(
+                    message,
+                    json_output=plan.json_output,
+                    resume_hint=resume_hint,
+                ),
+                wait_start_sink=(
+                    None
+                    if plan.json_output
+                    else lambda task_id: console.print(
+                        f"[yellow]Generating {plan.display_name}...[/yellow] Task: {task_id}"
+                    )
+                ),
+                mind_map_context=lambda: status_with_elapsed(
+                    "Generating mind map...",
+                    json_output=plan.json_output,
+                ),
+            )
+            _render_generation_result(result, plan.json_output)
 
     return _run()
 
@@ -195,7 +309,7 @@ def generate():
 @language_option
 @multi_source_option
 @wait_option
-@wait_polling_options(default_timeout=300, default_interval=2)
+@wait_polling_options(default_timeout=1200, default_interval=2)
 @retry_option
 @json_option
 @with_client
@@ -262,7 +376,11 @@ def generate_audio(
 @language_option
 @multi_source_option
 @wait_option
-@wait_polling_options(default_timeout=600, default_interval=2)
+@wait_polling_options(
+    default_timeout=1800,
+    default_interval=2,
+    timeout_help="Maximum seconds to wait (default: 1800; cinematic format defaults to 3600)",
+)
 @retry_option
 @json_option
 @with_client

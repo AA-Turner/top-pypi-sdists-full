@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangocms-text
-Version: 0.9.7
+Version: 0.9.8
 Summary: Rich Text Plugin for django CMS
 Author-email: Django CMS Association and contributors <info@django-cms.org>
 Maintainer-email: Django CMS Association and contributors <info@django-cms.org>

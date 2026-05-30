@@ -12,7 +12,8 @@ from typing import Any
 import httpx
 import pytest
 
-from notebooklm._session import Session
+from _fixtures.kernel_test_helpers import install_http_client_for_test
+from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm.auth import AuthTokens
 
 
@@ -24,7 +25,7 @@ def install_post_as_stream(
     """Adapt a ``fake_post(...) -> Response`` mock to the streaming API.
 
     The RPC POST path uses :meth:`httpx.AsyncClient.stream` (so a running
-    size guard can enforce :data:`notebooklm._authed_transport.MAX_RPC_RESPONSE_BYTES`).
+    size guard can enforce :data:`notebooklm._streaming_post.MAX_RPC_RESPONSE_BYTES`).
     The bulk of the unit suite predates that switch and still expresses test
     intent as ``monkeypatch.setattr(client, "post", fake_post)``. This helper
     bridges the gap: it installs an ``async with client.stream(...)``-compatible
@@ -142,23 +143,26 @@ async def make_core(refresh_callback=None, transport=None, refresh_retry_delay=0
         session_id="SID_OLD",
         cookies={"SID": "old_sid_cookie"},
     )
-    core = Session(
+    core = build_client_shell_for_tests(
         auth=auth,
         refresh_callback=refresh_callback,
         refresh_retry_delay=refresh_retry_delay,
     )
-    await core.open()
+    await core.__aenter__()
     if transport is not None:
         # Replace the auto-built client with one that uses our transport so we
         # can observe real httpx.Request construction (cookie merge, headers).
         # Capture the cookie jar BEFORE aclose() — reading attributes off a
         # closed AsyncClient is brittle across httpx versions.
-        prior_cookies = core._kernel.get_http_client().cookies
-        await core._kernel.get_http_client().aclose()
-        core._kernel.http_client = httpx.AsyncClient(
-            cookies=prior_cookies,
-            transport=transport,
-            timeout=httpx.Timeout(connect=1.0, read=5.0, write=5.0, pool=1.0),
+        prior_cookies = core._collaborators.kernel.get_http_client().cookies
+        await core._collaborators.kernel.get_http_client().aclose()
+        install_http_client_for_test(
+            core._collaborators.kernel,
+            httpx.AsyncClient(
+                cookies=prior_cookies,
+                transport=transport,
+                timeout=httpx.Timeout(connect=1.0, read=5.0, write=5.0, pool=1.0),
+            ),
         )
     try:
         yield core

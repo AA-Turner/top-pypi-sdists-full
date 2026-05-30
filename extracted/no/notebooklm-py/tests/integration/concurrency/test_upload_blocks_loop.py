@@ -101,15 +101,16 @@ def _make_sources_api() -> tuple[SourcesAPI, MagicMock]:
     unit/ and integration/concurrency/.
     """
     core = MagicMock()
-    core.rpc_call = AsyncMock()
+    core.rpc_executor.rpc_call = AsyncMock()
     core.auth = MagicMock()
     core.auth.authuser = 0
     core.auth.account_email = None
     core.auth.cookie_jar = MagicMock(name="auth_cookie_jar")
     core.get_http_client.return_value.cookies = MagicMock(name="live_cookie_jar")
     core.kernel = core
-    core._begin_transport_post = AsyncMock(return_value=object())
-    core._finish_transport_post = AsyncMock()
+    core._drain_tracker = MagicMock()
+    core._drain_tracker.begin_transport_post = AsyncMock(return_value=object())
+    core._drain_tracker.finish_transport_post = AsyncMock()
     core.operation_scope = MagicMock()
 
     def operation_scope(_label):
@@ -126,12 +127,14 @@ def _make_sources_api() -> tuple[SourcesAPI, MagicMock]:
     # must therefore be installed explicitly.
     core.assert_bound_loop = MagicMock()
     uploader = SourceUploadPipeline(
-        core,
-        core.kernel,
-        core.auth,
+        rpc=core.rpc_executor,
+        drain=core,
+        lifecycle=core,
+        kernel=core.kernel,
+        auth=core.auth,
         record_upload_queue_wait=core.record_upload_queue_wait,
     )
-    return SourcesAPI(core, uploader=uploader), core
+    return SourcesAPI(core.rpc_executor, uploader=uploader), core
 
 
 class _SlowReadFile:
@@ -264,7 +267,7 @@ async def test_upload_file_streaming_fd_path_does_not_block_event_loop() -> None
 
         async def _upload() -> None:
             await sources_api._upload_file_streaming(
-                "https://upload.example.com/session",
+                "https://notebooklm.google.com/upload/_/?upload_id=session",
                 file_obj,
                 filename="slow.bin",
             )
@@ -318,7 +321,7 @@ async def test_upload_file_streaming_path_fallback_does_not_block_event_loop(
 
         async def _upload() -> None:
             await sources_api._upload_file_streaming(
-                "https://upload.example.com/session",
+                "https://notebooklm.google.com/upload/_/?upload_id=session",
                 test_file,
             )
 
@@ -378,10 +381,12 @@ async def test_add_file_open_runs_off_loop_thread(
     # land before ``add_file`` returns: GET_NOTEBOOK (baseline list) and
     # ADD_SOURCE_FILE (register). The "[[[['src_t1']]]]" shape feeds the
     # standard SOURCE_ID walker in ``_extract_register_file_source_id``.
-    _core.rpc_call.return_value = [[[["src_t1"]]]]
+    _core.rpc_executor.rpc_call.return_value = [[[["src_t1"]]]]
 
     mock_start_response = MagicMock()
-    mock_start_response.headers = {"x-goog-upload-url": "https://upload.example.com/session"}
+    mock_start_response.headers = {
+        "x-goog-upload-url": "https://notebooklm.google.com/upload/_/?upload_id=session"
+    }
     mock_upload_response = MagicMock()
     mock_upload_response.raise_for_status = MagicMock()
 

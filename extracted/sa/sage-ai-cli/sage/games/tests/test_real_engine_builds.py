@@ -31,6 +31,16 @@ from sage.games.engines.base import GameRequest
 from sage.games.pipeline import build_game
 
 
+# ───────────────────────── real environment ───────────────────────────
+
+
+@pytest.fixture(autouse=True)
+def _real_build_env(monkeypatch):
+    """Force SAGE_TESTING=0 for the real build tests so that they invoke actual
+    subprocess commands on the host's installed engines."""
+    monkeypatch.setenv("SAGE_TESTING", "0")
+
+
 # ───────────────────────── fake LLM (still real builds) ───────────────
 
 

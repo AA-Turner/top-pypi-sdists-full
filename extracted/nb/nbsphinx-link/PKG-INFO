@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nbsphinx-link
-Version: 1.4.0
+Version: 1.4.1
 Summary: A sphinx extension for including notebook files outside sphinx source root
 Author-email: Vidar Tonaas Fauske <vidartf@gmail.com>
 License-Expression: BSD-3-Clause

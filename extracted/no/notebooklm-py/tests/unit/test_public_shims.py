@@ -12,6 +12,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+pytestmark = pytest.mark.repo_lint
+
 # ---------------------------------------------------------------------------
 # Documented public import manifest (stability spec)
 #
@@ -112,6 +114,7 @@ def test_public_import_manifest_has_no_duplicates() -> None:
 def test_public_facade_imports_are_identity_reexports() -> None:
     """Compatibility facades must keep returning the canonical public objects."""
     import notebooklm
+    import notebooklm._auth.tokens as private_tokens
     import notebooklm.auth as public_auth
     import notebooklm.rpc as public_rpc
     import notebooklm.rpc.overrides as rpc_overrides
@@ -119,6 +122,7 @@ def test_public_facade_imports_are_identity_reexports() -> None:
     import notebooklm.types as public_types
 
     assert notebooklm.AuthTokens is public_auth.AuthTokens
+    assert public_auth.AuthTokens is private_tokens.AuthTokens
     assert notebooklm.ConnectionLimits is public_types.ConnectionLimits
     assert public_rpc.RPCMethod is rpc_types.RPCMethod
     assert public_rpc.resolve_rpc_id is rpc_overrides.resolve_rpc_id
@@ -167,6 +171,27 @@ def test_research_api_backward_compat_classmethod_delegates():
 
     result = ResearchAPI.select_cited_sources([], "")
     assert isinstance(result, CitedSourceSelection)
+
+
+def test_research_api_extract_report_urls_backward_compat_classmethod_delegates(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """notebooklm._research.ResearchAPI.extract_report_urls still works."""
+    import notebooklm.research as research_module
+    from notebooklm._research import ResearchAPI
+
+    report = "See [Example](https://Example.com/path/)."
+    sentinel = {"delegated"}
+    calls: list[str] = []
+
+    def fake_extract_report_urls(value: str) -> set[str]:
+        calls.append(value)
+        return sentinel
+
+    monkeypatch.setattr(research_module, "extract_report_urls", fake_extract_report_urls)
+
+    assert ResearchAPI.extract_report_urls(report) is sentinel
+    assert calls == [report]
 
 
 def test_research_api_reexports_cited_source_selection_for_back_compat():
@@ -247,10 +272,14 @@ _FROZEN_TYPES_ALL = [
     "SourceTimeoutError",
     "SourceNotFoundError",
     "ArtifactError",
+    "ArtifactFeatureUnavailableError",
     "ArtifactNotFoundError",
     "ArtifactNotReadyError",
     "ArtifactParseError",
     "ArtifactDownloadError",
+    "ArtifactTimeoutError",
+    "ArtifactPendingTimeoutError",
+    "ArtifactInProgressTimeoutError",
     "UnknownTypeWarning",
     "SourceType",
     "ArtifactType",
@@ -335,18 +364,26 @@ _TYPES_EXCEPTION_REEXPORTS = [
     "SourceTimeoutError",
     "SourceNotFoundError",
     "ArtifactError",
+    "ArtifactFeatureUnavailableError",
     "ArtifactNotFoundError",
     "ArtifactNotReadyError",
     "ArtifactParseError",
     "ArtifactDownloadError",
+    "ArtifactTimeoutError",
+    "ArtifactPendingTimeoutError",
+    "ArtifactInProgressTimeoutError",
 ]
 
 _TOP_LEVEL_EXCEPTION_EXPORTS = [
     "ArtifactDownloadError",
     "ArtifactError",
+    "ArtifactFeatureUnavailableError",
+    "ArtifactInProgressTimeoutError",
     "ArtifactNotFoundError",
     "ArtifactNotReadyError",
     "ArtifactParseError",
+    "ArtifactPendingTimeoutError",
+    "ArtifactTimeoutError",
     "AuthError",
     "AuthExtractionError",
     "ChatError",
@@ -356,6 +393,7 @@ _TOP_LEVEL_EXCEPTION_EXPORTS = [
     "DecodingError",
     "NetworkError",
     "NonIdempotentRetryError",
+    "NotFoundError",
     "NotebookError",
     "NotebookLimitError",
     "NotebookLMError",
@@ -382,7 +420,6 @@ _TYPES_PRIVATE_HELPER_SEAMS = [
     "_extract_audio_artifact_url",
     "_extract_infographic_artifact_url",
     "_extract_slide_deck_artifact_url",
-    "_extract_source_created_at",
     "_extract_source_url",
     "_extract_video_artifact_url",
     "_is_valid_artifact_url",
@@ -390,7 +427,15 @@ _TYPES_PRIVATE_HELPER_SEAMS = [
     "_warned_source_types",
 ]
 
-_TYPES_PRIVATE_EXTERNAL_COMPAT_SEAMS: list[str] = []
+# Private helpers that are no longer imported by first-party code but
+# must remain exportable through ``notebooklm.types`` for downstream
+# compatibility. ``_extract_source_created_at`` moved here when the
+# row-adapter migration (see ``_row_adapters.SourceRow.created_at``)
+# replaced its sole first-party consumer
+# (``_source_listing._parse_source``).
+_TYPES_PRIVATE_EXTERNAL_COMPAT_SEAMS: list[str] = [
+    "_extract_source_created_at",
+]
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -406,6 +451,11 @@ def _iter_types_private_helper_import_files() -> list[Path]:
         assert root.exists(), f"tracked private seam scan root disappeared: {root}"
         paths.extend(path for path in root.rglob("*.py") if "__pycache__" not in path.parts)
     return sorted(paths)
+
+
+def _may_reference_private_types_seam(text: str) -> bool:
+    """Cheap prefilter before AST parsing the private ``notebooklm.types`` audit."""
+    return "types" in text and "_" in text
 
 
 @pytest.mark.parametrize("enum_name", _REEXPORTED_RPC_ENUMS)
@@ -523,7 +573,10 @@ def test_types_private_helper_seam_manifest_matches_first_party_imports() -> Non
 
     imported_private_names: set[str] = set()
     for path in _iter_types_private_helper_import_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+        if not _may_reference_private_types_seam(text):
+            continue
+        tree = ast.parse(text)
         type_module_aliases: set[str] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -948,50 +1001,71 @@ def test_auth_subpackage_init_wires_new_seam_modules() -> None:
     assert hasattr(_auth, "refresh")
 
 
-def test_auth_validation_preserves_private_warning_state(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Facade validation must not clobber a private validation's warning state."""
-    import notebooklm.auth as auth
+def test_auth_validation_is_identity_re_export() -> None:
+    """ADR-014 + Wave 4 T2.2: ``auth._validate_required_cookies`` is now a
+    direct re-export of ``_auth.cookie_policy._validate_required_cookies``.
+
+    Round-2 reviewer finding (codex/momus): the prior write-through that
+    copy-forwarded ``MINIMUM_REQUIRED_COOKIES`` / ``_EXTRACTION_HINT`` /
+    ``_has_valid_secondary_binding`` from ``auth.py`` into ``_cookie_policy``
+    before delegation was a behaviour-change risk. Wave 4 T2.2 inverts the
+    dependency: tests that need to rebind policy must patch
+    ``_auth.cookie_policy.X`` directly. Identity is the contract that
+    survives.
+    """
+    from notebooklm import auth
     from notebooklm._auth import cookie_policy
 
-    monkeypatch.setattr(auth, "_SECONDARY_BINDING_WARNED", False)
-    cookie_policy._validate_required_cookies({"SID", "__Secure-1PSIDTS"})
-
-    auth._validate_required_cookies({"SID", "__Secure-1PSIDTS", "OSID"})
-
-    assert auth._SECONDARY_BINDING_WARNED is True
-    assert cookie_policy._SECONDARY_BINDING_WARNED is True
+    assert auth._validate_required_cookies is cookie_policy._validate_required_cookies
 
 
-def test_auth_validation_uses_facade_policy_rebindings(
+def test_auth_validation_uses_cookie_policy_rebindings_directly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Validation accepts a single cookie only when the facade policy is rebound."""
-    import notebooklm.auth as auth
+    """Validation rebindings must target the canonical home in ``_auth.cookie_policy``.
 
-    monkeypatch.setattr(auth, "MINIMUM_REQUIRED_COOKIES", {"SID"})
-    monkeypatch.setattr(auth, "_has_valid_secondary_binding", lambda names: True)
+    Wave 4 T2.2 of the session-decoupling plan removed the auth.py
+    write-through that previously copy-forwarded facade-level rebinds into
+    ``_cookie_policy``. Tests that want to rebind policy names patch the
+    canonical module directly.
+    """
+    from notebooklm import auth
+    from notebooklm._auth import cookie_policy
 
+    monkeypatch.setattr(cookie_policy, "MINIMUM_REQUIRED_COOKIES", {"SID"})
+    monkeypatch.setattr(cookie_policy, "_has_valid_secondary_binding", lambda names: True)
+
+    # ``auth._validate_required_cookies`` is the same object as
+    # ``cookie_policy._validate_required_cookies`` (see identity test
+    # above), so calling either reaches the canonical implementation
+    # which observes the rebind.
     auth._validate_required_cookies({"SID"})
 
 
-def test_auth_validation_uses_facade_extraction_hint(
+def test_auth_validation_extraction_hint_lives_on_cookie_policy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Authentication errors still read the compatibility facade's extraction hint."""
-    import notebooklm.auth as auth
+    """The validator's error message uses ``_cookie_policy._EXTRACTION_HINT``."""
+    from notebooklm import auth
+    from notebooklm._auth import cookie_policy
 
-    monkeypatch.setattr(auth, "MINIMUM_REQUIRED_COOKIES", {"SID", "SIDTS"})
-    monkeypatch.setattr(auth, "_EXTRACTION_HINT", "custom extraction hint")
+    monkeypatch.setattr(cookie_policy, "MINIMUM_REQUIRED_COOKIES", {"SID", "SIDTS"})
+    monkeypatch.setattr(cookie_policy, "_EXTRACTION_HINT", "custom extraction hint")
 
     with pytest.raises(ValueError, match="custom extraction hint"):
         auth._validate_required_cookies({"SID"})
 
 
 @pytest.mark.asyncio
-async def test_client_rpc_call_delegates_keyword_for_keyword() -> None:
-    """NotebookLMClient.rpc_call is a public delegator to Session.rpc_call."""
+async def test_client_rpc_call_forwards_supported_kwargs() -> None:
+    """NotebookLMClient.rpc_call forwards its supported kwargs to the executor.
+
+    After the v0.6.0 cut, the public wrapper exposes only the supported
+    surface (``method``, ``params``, ``allow_null``, and the keyword-only
+    ``disable_internal_retries``); the previously-deprecated
+    ``source_path`` / ``_is_retry`` / ``operation_variant`` kwargs were
+    removed and are no longer forwarded by this layer.
+    """
     from notebooklm import NotebookLMClient
     from notebooklm.auth import AuthTokens
     from notebooklm.rpc import RPCMethod
@@ -1003,38 +1077,27 @@ async def test_client_rpc_call_delegates_keyword_for_keyword() -> None:
             session_id="session",
         )
     )
-    client._session.rpc_call = AsyncMock(return_value={"ok": True})
+    client._rpc_executor.rpc_call = AsyncMock(return_value={"ok": True})
 
-    # This test intentionally exercises the deprecated kwargs to pin the
-    # forwarded keyword-for-keyword shape. Wrapping in pytest.warns keeps
-    # the existing forwarding asserts alive while documenting that the
-    # call SHOULD emit deprecations (source_path != "/" and explicit
-    # _is_retry both warn).
-    with pytest.warns(DeprecationWarning):
-        result = await client.rpc_call(
-            RPCMethod.CREATE_NOTEBOOK,
-            ["My Notebook"],
-            source_path="/notebook/abc",
-            allow_null=True,
-            _is_retry=True,
-            disable_internal_retries=True,
-        )
+    result = await client.rpc_call(
+        RPCMethod.CREATE_NOTEBOOK,
+        ["My Notebook"],
+        allow_null=True,
+        disable_internal_retries=True,
+    )
 
     assert result == {"ok": True}
-    client._session.rpc_call.assert_awaited_once_with(
+    client._rpc_executor.rpc_call.assert_awaited_once_with(
         method=RPCMethod.CREATE_NOTEBOOK,
         params=["My Notebook"],
-        source_path="/notebook/abc",
         allow_null=True,
-        _is_retry=True,
         disable_internal_retries=True,
-        operation_variant=None,
     )
 
 
 @pytest.mark.asyncio
 async def test_client_rpc_call_forwards_default_arguments() -> None:
-    """The public delegator must preserve Session.rpc_call defaults."""
+    """The default-shape call forwards minimal kwargs and inherits executor defaults."""
     from notebooklm import NotebookLMClient
     from notebooklm.auth import AuthTokens
     from notebooklm.rpc import RPCMethod
@@ -1046,21 +1109,21 @@ async def test_client_rpc_call_forwards_default_arguments() -> None:
             session_id="session",
         )
     )
-    # No async context is needed: this test replaces the core RPC coroutine
-    # before any real transport initialization can be required.
-    client._session.rpc_call = AsyncMock(return_value=[])
+    # No async context is needed: this test replaces the executor's RPC
+    # coroutine before any real transport initialization can be required.
+    client._rpc_executor.rpc_call = AsyncMock(return_value=[])
 
     result = await client.rpc_call(RPCMethod.LIST_NOTEBOOKS, [])
 
     assert result == []
-    client._session.rpc_call.assert_awaited_once_with(
+    # The wrapper forwards only the kwargs it owns; the rest of
+    # RpcExecutor.rpc_call's signature (source_path, _is_retry,
+    # operation_variant) keeps its module-level defaults.
+    client._rpc_executor.rpc_call.assert_awaited_once_with(
         method=RPCMethod.LIST_NOTEBOOKS,
         params=[],
-        source_path="/",
         allow_null=False,
-        _is_retry=False,
         disable_internal_retries=False,
-        operation_variant=None,
     )
 
 

@@ -1,5 +1,6 @@
 """Re-usable functions for dbt-bouncer."""
 
+import contextlib
 import hashlib
 import importlib
 import importlib.util
@@ -380,14 +381,50 @@ def _build_check_module_map() -> dict[str, dict[str, str]]:
     return mapping
 
 
+def _hash_py_tree(h: "hashlib._Hash", root: Path) -> None:
+    """Update ``h`` with relative paths and mtimes of all ``.py`` files under ``root``.
+
+    Args:
+        h: A hash object (e.g. ``hashlib.sha256()``) updated in place.
+        root: Directory to scan.
+
+    """
+    py_files = sorted(f for f in root.glob("**/*.py") if f.is_file())
+    for f in py_files:
+        h.update(str(f.relative_to(root)).encode())
+        h.update(str(f.stat().st_mtime_ns).encode())
+
+
+@lru_cache(maxsize=1)
+def _internal_checks_digest() -> bytes:
+    """Return a digest of the packaged ``checks/`` tree.
+
+    Cached for the lifetime of the interpreter — internal check files do not
+    change during a single dbt-bouncer invocation, so this avoids re-globbing
+    the tree on every cache-key computation. Tests that simulate edits to the
+    tree must call ``_internal_checks_digest.cache_clear()`` between runs.
+
+    Returns:
+        bytes: The 32-byte SHA-256 digest of the tree.
+
+    """
+    h = hashlib.sha256()
+    _hash_py_tree(h, Path(__file__).parent / "checks")
+    return h.digest()
+
+
 def _compute_cache_fingerprint(
     version_str: str, custom_checks_dir: Path | None = None
 ) -> str:
-    """Compute a short hash incorporating the version, custom checks, and entry points.
+    """Compute a short hash incorporating the version, check files, and entry points.
 
     The hash covers:
     - The dbt-bouncer version string.
-    - Sorted relative paths **and modification times** of ``.py`` files in
+    - Sorted relative paths and modification times of internal ``.py`` files
+      in the packaged ``checks/`` directory. This catches editable installs
+      where developers add a new check but the version string stays at
+      ``"0.0.0"``.
+    - Sorted relative paths and modification times of ``.py`` files in
       *custom_checks_dir* (if provided).
     - Sorted entry point names from the ``dbt_bouncer.checks`` group.
 
@@ -397,21 +434,72 @@ def _compute_cache_fingerprint(
     """
     h = hashlib.sha256(version_str.encode())
 
-    # Custom checks file paths and modification times
-    if custom_checks_dir is not None and custom_checks_dir.exists():
-        custom_py_files = sorted(
-            f for f in custom_checks_dir.glob("**/*.py") if f.is_file()
-        )
-        for f in custom_py_files:
-            h.update(str(f.relative_to(custom_checks_dir)).encode())
-            h.update(str(f.stat().st_mtime_ns).encode())
+    h.update(_internal_checks_digest())
 
-    # Entry point names
+    if custom_checks_dir is not None and custom_checks_dir.exists():
+        _hash_py_tree(h, custom_checks_dir)
+
     ep_names = sorted(ep.name for ep in entry_points(group=_ENTRY_POINT_GROUP))
     for name in ep_names:
         h.update(name.encode())
 
     return h.hexdigest()[:8]
+
+
+def compute_conf_cache_key(
+    version_str: str,
+    config_file_contents: Mapping[str, Any],
+    check_categories: list[str],
+    custom_checks_dir: Path | None = None,
+) -> str:
+    """Compute a hash key for the validated bouncer-config cache.
+
+    The key invalidates whenever something that could influence the resulting
+    ``DbtBouncerConfBase`` instance changes: the package version, packaged
+    check files, custom-check files, installed entry points, the raw config
+    contents, the configured categories, or env vars that feed into Pydantic
+    ``default_factory`` callables on ``DbtBouncerConfBase``.
+
+    Today the only such env var is ``DBT_PROJECT_DIR`` (read by
+    ``DbtBouncerConfBase.dbt_artifacts_dir``'s ``default_factory``). If a new
+    base field gains an env-var-driven default, add it to the hash below or
+    cached results will silently diverge from a fresh validation.
+
+    Returns:
+        str: 16-character hex digest used to name the cache file.
+
+    """
+    import orjson
+
+    h = hashlib.sha256(version_str.encode())
+
+    h.update(_internal_checks_digest())
+
+    if custom_checks_dir is not None and custom_checks_dir.exists():
+        _hash_py_tree(h, custom_checks_dir)
+
+    for name in sorted(ep.name for ep in entry_points(group=_ENTRY_POINT_GROUP)):
+        h.update(name.encode())
+
+    h.update(orjson.dumps(config_file_contents, option=orjson.OPT_SORT_KEYS))
+
+    for cat in sorted(check_categories):
+        h.update(cat.encode())
+
+    # DBT_PROJECT_DIR feeds DbtBouncerConfBase.dbt_artifacts_dir default_factory.
+    h.update((os.environ.get("DBT_PROJECT_DIR") or "").encode())
+
+    return h.hexdigest()[:16]
+
+
+def get_cache_dir() -> Path:
+    """Return the on-disk cache directory used by dbt-bouncer.
+
+    Returns:
+        Path: ``~/.cache/dbt-bouncer/``.
+
+    """
+    return Path.home() / ".cache" / "dbt-bouncer"
 
 
 def _get_check_module_map_cached(
@@ -438,7 +526,7 @@ def _get_check_module_map_cached(
 
     ver = version()
     fingerprint = _compute_cache_fingerprint(ver, custom_checks_dir)
-    cache_dir = Path.home() / ".cache" / "dbt-bouncer"
+    cache_dir = get_cache_dir()
     cache_file = cache_dir / f"check_registry_{ver}_{fingerprint}.json"
 
     if cache_file.exists():
@@ -452,10 +540,30 @@ def _get_check_module_map_cached(
     try:
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_file.write_bytes(orjson.dumps(mapping))
+        _prune_stale_cache_files(cache_dir, keep=cache_file)
     except OSError:
         pass  # Can't write cache (e.g. read-only filesystem), continue without it
 
     return mapping
+
+
+def _prune_stale_cache_files(cache_dir: Path, keep: Path) -> None:
+    """Delete other ``check_registry_*.json`` files in ``cache_dir``.
+
+    Why: in editable installs the version is ``"0.0.0"`` and the fingerprint
+    component changes whenever check files are touched, so stale files
+    accumulate over time without ever being reused.
+
+    Args:
+        cache_dir: Directory holding cached registry files.
+        keep: The freshly-written cache file to retain.
+
+    """
+    for f in cache_dir.glob("check_registry_*.json"):
+        if f == keep:
+            continue
+        with contextlib.suppress(OSError):
+            f.unlink()
 
 
 def get_check_objects_for_names(

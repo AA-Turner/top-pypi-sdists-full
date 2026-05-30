@@ -30,6 +30,17 @@ def test_auto_help_uses_direct_goal_command_shape() -> None:
     assert "Goal/task for ooo auto" in output
 
 
+def test_auto_help_documents_detached_wait_and_retrieve_commands() -> None:
+    result = runner.invoke(app, ["auto", "--help"])
+
+    assert result.exit_code == 0
+    output = _plain(result.output)
+    assert "Detached auto background work is non-terminal tracked work" in output
+    assert "ouroboros job wait JOB_ID" in output
+    assert "Retrieve completed results with:" in output
+    assert "ouroboros job result JOB_ID" in output
+
+
 def test_auto_goal_skip_run_does_not_require_subcommand() -> None:
     result_value = AutoPipelineResult(
         status="complete",
@@ -51,6 +62,122 @@ def test_auto_goal_skip_run_does_not_require_subcommand() -> None:
     assert run_auto.called
     assert "Auto session:" in result.output
     assert "auto_test" in result.output
+
+
+def test_auto_detached_start_output_includes_handles_and_wait_retrieve_guidance() -> None:
+    def result_value() -> AutoPipelineResult:
+        return AutoPipelineResult(
+            status="detached",
+            auto_session_id="auto_detached_123",
+            phase=AutoPhase.RALPH_HANDOFF.value,
+            grade="A",
+            seed_path="/tmp/seed.yaml",
+            job_id="job_execute_123",
+            execution_id="exec_detached_123",
+            run_session_id="orch_detached_123",
+            run_handoff_status="started",
+            ralph_job_id="job_ralph_456",
+            ralph_lineage_id="lineage_ralph_789",
+            ralph_dispatch_mode="job",
+        )
+
+    def consume(coro):
+        coro.close()
+        return result_value()
+
+    with patch("ouroboros.cli.commands.auto.asyncio.run", side_effect=consume):
+        first = runner.invoke(app, ["auto", "safe detached goal", "--complete-product"])
+        second = runner.invoke(app, ["auto", "safe detached goal", "--complete-product"])
+
+    assert first.exit_code == 0
+    assert second.exit_code == 0
+    output = _plain(first.output)
+    assert output == _plain(second.output)
+    assert not re.search(r"\b\d{4}-\d{2}-\d{2}[T ][0-9:.+-]", output)
+    assert "Last progress at:" not in output
+    assert "Attached at:" not in output
+    assert "Run reconciled at:" not in output
+    assert output == (
+        "╭───────── Info ─────────╮\n"
+        "│ Auto pipeline detached │\n"
+        "╰────────────────────────╯\n"
+        "Auto session: auto_detached_123\n"
+        "Status: detached\n"
+        "Product status: not verified complete; background work is still running\n"
+        "Authoring backend: in-process (unspecified)\n"
+        "Run backend: unspecified\n"
+        "Seed grade: A\n"
+        "Seed: /tmp/seed.yaml\n"
+        "Seed origin: none\n"
+        "Execution started:\n"
+        "  Job ID: job_execute_123\n"
+        "  Execution ID: exec_detached_123\n"
+        "  Session ID: orch_detached_123\n"
+        "Run handoff status: started\n"
+        "Detached result handles:\n"
+        "  Auto session ID: auto_detached_123\n"
+        "  Execution job ID: job_execute_123\n"
+        "  Ralph job ID: job_ralph_456\n"
+        "  Ralph lineage ID: lineage_ralph_789\n"
+        "Wait: ooo auto --resume auto_detached_123\n"
+        "Retrieve: ooo auto --status --resume auto_detached_123\n"
+        "Wait job (CLI): ouroboros job wait job_ralph_456\n"
+        "Retrieve job (CLI): ouroboros job result job_ralph_456\n"
+        'Wait job (MCP): ouroboros_job_wait(job_id="job_ralph_456")\n'
+        'Retrieve job (MCP): ouroboros_job_result(job_id="job_ralph_456")\n'
+        "Resume: ooo auto --resume auto_detached_123\n"
+    )
+    assert "Auto pipeline detached" in output
+    assert "Status: detached" in output
+    assert "Product status: not verified complete; background work is still running" in output
+    assert "Auto pipeline completed" not in output
+    assert "Auto session: auto_detached_123" in output
+    assert "Execution started:" in output
+    assert "Job ID: job_execute_123" in output
+    assert "Execution ID: exec_detached_123" in output
+    assert "Session ID: orch_detached_123" in output
+    assert "Run handoff status: started" in output
+    assert "Detached result handles:" in output
+    assert "Auto session ID: auto_detached_123" in output
+    assert "Execution job ID: job_execute_123" in output
+    assert "Ralph job ID: job_ralph_456" in output
+    assert "Ralph lineage ID: lineage_ralph_789" in output
+    assert "Wait: ooo auto --resume auto_detached_123" in output
+    assert "Retrieve: ooo auto --status --resume auto_detached_123" in output
+    assert "Wait job (CLI): ouroboros job wait job_ralph_456" in output
+    assert "Retrieve job (CLI): ouroboros job result job_ralph_456" in output
+    assert 'Wait job (MCP): ouroboros_job_wait(job_id="job_ralph_456")' in output
+    assert 'Retrieve job (MCP): ouroboros_job_result(job_id="job_ralph_456")' in output
+
+
+def test_auto_detached_start_output_includes_pollable_cli_job_handle() -> None:
+    """Runnable CLI check for the detached auto job handle printed at start."""
+    result_value = AutoPipelineResult(
+        status="detached",
+        auto_session_id="auto_pollable_start",
+        phase=AutoPhase.RALPH_HANDOFF.value,
+        grade="A",
+        seed_path="/tmp/seed.yaml",
+        job_id="job_execute_pollable",
+        ralph_job_id="job_ralph_pollable",
+        ralph_lineage_id="lineage_pollable",
+        ralph_dispatch_mode="job",
+    )
+
+    def consume(coro):
+        coro.close()
+        return result_value
+
+    with patch("ouroboros.cli.commands.auto.asyncio.run", side_effect=consume):
+        result = runner.invoke(app, ["auto", "safe detached goal", "--complete-product"])
+
+    output = _plain(result.output)
+    assert result.exit_code == 0
+    assert "Status: detached" in output
+    assert "Detached result handles:" in output
+    assert "Ralph job ID: job_ralph_pollable" in output
+    assert "Wait job (CLI): ouroboros job wait job_ralph_pollable" in output
+    assert "Retrieve job (CLI): ouroboros job result job_ralph_pollable" in output
 
 
 def _persisted_state_with_bounds(tmp_path, *, max_interview_rounds: int, max_repair_rounds: int):
@@ -240,6 +367,47 @@ def test_run_auto_uses_default_state_interview_timeout_for_new_sessions() -> Non
 
     assert result.status == "complete"
     assert captured["driver_timeout_seconds"] == 600.0
+
+
+def test_run_auto_policy_args_override_detected_coding_defaults(tmp_path, monkeypatch) -> None:
+    import asyncio
+
+    from ouroboros.auto.state import AutoCommitPolicy, AutoWorktreePolicy
+    from ouroboros.cli.commands.auto import _run_auto
+
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    captured: dict[str, object] = {}
+
+    async def fake_pipeline_run(self, run_state):  # noqa: ARG001
+        captured["domain"] = run_state.active_domain_profile_name
+        captured["commit_policy"] = run_state.commit_policy
+        captured["worktree_policy"] = run_state.worktree_policy
+        return AutoPipelineResult(
+            status="complete",
+            auto_session_id=run_state.auto_session_id,
+            phase="complete",
+            grade="A",
+        )
+
+    with patch("ouroboros.cli.commands.auto.AutoPipeline.run", new=fake_pipeline_run):
+        result = asyncio.run(
+            _run_auto(
+                goal="Build a CLI",
+                resume=None,
+                runtime="claude",
+                max_interview_rounds=None,
+                max_repair_rounds=None,
+                skip_run=True,
+                commit_policy="none",
+                worktree_policy="current",
+            )
+        )
+
+    assert result.status == "complete"
+    assert captured["domain"] == "coding"
+    assert captured["commit_policy"] is AutoCommitPolicy.NONE
+    assert captured["worktree_policy"] is AutoWorktreePolicy.CURRENT
 
 
 def test_resume_rejects_lower_bound_override(tmp_path) -> None:
@@ -500,6 +668,15 @@ def _capture_result(result: AutoPipelineResult) -> str:
     return _plain(capture.get())
 
 
+def _capture_result_with_ledger(result: AutoPipelineResult) -> str:
+    """Capture :func:`_print_result` with the optional ledger block enabled."""
+    from ouroboros.cli.formatters import console
+
+    with console.capture() as capture:
+        _print_result(result, show_ledger=True)
+    return _plain(capture.get())
+
+
 def _state_in_phase(phase: AutoPhase) -> AutoPipelineState:
     state = AutoPipelineState(goal="Build a CLI", cwd="/tmp/project")
     state.auto_session_id = "auto_render"
@@ -526,6 +703,51 @@ def test_print_status_resume_capability_resume() -> None:
     assert "Resume (partial)" not in output
     assert "Retry:" not in output
     assert "Start fresh" not in output
+
+
+def test_print_status_renders_full_pending_question_without_truncation() -> None:
+    state = _state_in_phase(AutoPhase.INTERVIEW)
+    state.pending_question = (
+        "This is a deliberately long pending question that should remain visible "
+        "because operators need to understand what the autonomous interview is "
+        "asking before the answerer responds, even when the question is longer "
+        "than the old compact one-line preview limit."
+    )
+
+    output = _capture_status(state)
+
+    assert "Pending question:" in output
+    assert "old" in output
+    assert "compact one-line preview limit." in output
+    assert "..." not in output
+
+
+def test_print_result_show_ledger_renders_assumption_sources() -> None:
+    from ouroboros.auto.ledger import AssumptionRecord
+
+    result = AutoPipelineResult(
+        status="complete",
+        auto_session_id="auto_assumptions",
+        phase="complete",
+        assumption_sources=(
+            AssumptionRecord(
+                text="Existing patterns",
+                source="conservative_default",
+                confidence=0.85,
+            ),
+            AssumptionRecord(
+                text="Use [project] defaults",
+                source="assumption[ledger]",
+                confidence=0.7,
+            ),
+        ),
+    )
+
+    output = _capture_result_with_ledger(result)
+
+    assert "Assumption sources:" in output
+    assert ("source=conservative_default; confidence=0.85; text=Existing patterns") in output
+    assert ("source=assumption[ledger]; confidence=0.70; text=Use [project] defaults") in output
 
 
 def test_print_status_resume_capability_partial() -> None:

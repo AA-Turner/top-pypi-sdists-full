@@ -353,18 +353,37 @@ def _find_kdeconnectd() -> str | None:
         candidates += [
             "/Applications/KDE Connect.app/Contents/MacOS/kdeconnectd",
             os.path.expanduser("~/Applications/KDE Connect.app/Contents/MacOS/kdeconnectd"),
+            os.path.expanduser("~/Applications/KDE/KDE Connect.app/Contents/MacOS/kdeconnectd"),
+            "/opt/homebrew/bin/kdeconnectd",
+            "/opt/homebrew/opt/kdeconnect/bin/kdeconnectd",
+            "/opt/homebrew/opt/kdeconnect/libexec/kdeconnectd",
+            "/usr/local/bin/kdeconnectd",
         ]
     elif sys.platform == "win32":
-        # KDE Connect Windows installer puts it under Program Files; also
-        # the Microsoft Store version may live elsewhere — best effort.
         candidates += [
             r"C:\Program Files\KDE Connect\kdeconnectd.exe",
+            r"C:\Program Files\KDE Connect\bin\kdeconnectd.exe",
             r"C:\Program Files (x86)\KDE Connect\kdeconnectd.exe",
+            r"C:\Program Files (x86)\KDE Connect\bin\kdeconnectd.exe",
         ]
         local_appdata = os.environ.get("LOCALAPPDATA")
         if local_appdata:
+            candidates.append(os.path.join(local_appdata, "KDE Connect", "bin", "kdeconnectd.exe"))
             candidates.append(os.path.join(local_appdata, "Programs", "KDE Connect", "bin", "kdeconnectd.exe"))
-        candidates.append(os.path.expanduser("~/AppData/Local/Programs/KDE Connect/bin/kdeconnectd.exe"))
+            candidates.append(os.path.join(local_appdata, "Programs", "KDE Connect", "kdeconnectd.exe"))
+        
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            candidates.append(os.path.join(appdata, "KDE Connect", "bin", "kdeconnectd.exe"))
+            candidates.append(os.path.join(appdata, "Programs", "KDE Connect", "bin", "kdeconnectd.exe"))
+            candidates.append(os.path.join(appdata, "Programs", "KDE Connect", "kdeconnectd.exe"))
+
+        candidates += [
+            os.path.expanduser("~/AppData/Local/KDE Connect/bin/kdeconnectd.exe"),
+            os.path.expanduser("~/AppData/Local/Programs/KDE Connect/bin/kdeconnectd.exe"),
+            os.path.expanduser("~/AppData/Roaming/KDE Connect/bin/kdeconnectd.exe"),
+            os.path.expanduser("~/AppData/Roaming/Programs/KDE Connect/bin/kdeconnectd.exe"),
+        ]
     else:
         candidates += [
             "/usr/bin/kdeconnectd",
@@ -372,6 +391,7 @@ def _find_kdeconnectd() -> str | None:
             "/usr/libexec/kdeconnectd",
             "/usr/lib/kde6/libexec/kdeconnectd",
             "/usr/lib/kdeconnectd",
+            "/usr/lib/libexec/kdeconnectd",
         ]
     for c in candidates:
         if os.path.exists(c):
@@ -710,6 +730,11 @@ class KDEConnectInboundListener:
 
     def send_sms(self, phone_number: str, text: str) -> bool:
         """Send an SMS through any active session. Returns True if dispatched."""
+        from sage.core.sms_bridge import _is_recipient_verified_globally
+        if not _is_recipient_verified_globally(phone_number):
+            logger.warning("🛡 Refusing to send KDE Connect takeover SMS to unverified recipient: %s", phone_number)
+            return False
+
         with self._sessions_lock:
             if not self._sessions:
                 return False

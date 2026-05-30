@@ -1,0 +1,2 @@
+import{U as r,D as d}from"./NewEditor-CPPd43iy.js";(function(){try{var e=typeof window<"u"?window:typeof global<"u"?global:typeof self<"u"?self:{},n=new Error().stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="0f46677c-7536-4f97-8058-f6673c497d01",e._sentryDebugIdIdentifier="sentry-dbid-0f46677c-7536-4f97-8058-f6673c497d01")}catch{}})();const s=(e,n)=>r.lang.round(d.parse(e)[n]);export{s as c};
+//# sourceMappingURL=channel-5Ha-JVZZ.js.map

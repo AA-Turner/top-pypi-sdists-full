@@ -3,14 +3,12 @@ from typing import List, Dict, Any
 from fakeredis import _msgs as msgs
 from fakeredis._command_args_parsing import extract_args
 from fakeredis._commands import command, CommandItem, Int, Key, Float
-from fakeredis._helpers import SimpleString, SimpleError, OK, Database
+from fakeredis._helpers import SimpleString, SimpleError, OK
+from fakeredis.commands_mixins._mixin_base import CommandsMixinBase
 from fakeredis.model import TDigest
 
 
-class TDigestCommandsMixin:
-    def __init__(self, *args, **kwargs):
-        self._db: Database
-
+class TDigestCommandsMixin(CommandsMixinBase):
     @command(
         name="TDIGEST.CREATE",
         fixed=(Key(TDigest),),
@@ -67,18 +65,15 @@ class TDigestCommandsMixin:
             raise SimpleError(msgs.WRONG_ARGS_MSG6.format("tdigest.merge"))
         sources_names = args[:numkeys]
         (compression, override), _ = extract_args(args[numkeys:], ("+compression", "override"))
-        sources = [self._db.get(name).value for name in sources_names if name in self._db]
+        sources: List[TDigest] = [self._db.get(name).value for name in sources_names if name in self._db]  # type:ignore
         if len(sources) != len(sources_names):
             raise SimpleError(msgs.TDIGEST_KEY_NOT_EXISTS)
 
-        if override:
-            if dest.value is None:
-                compression = compression or max([source.compression for source in sources])
-                dest.value = TDigest(compression)
-            else:
-                dest.value.clear()
         if dest.value is None:
-            raise SimpleError(msgs.TDIGEST_KEY_NOT_EXISTS)
+            compression = compression or max([source.compression for source in sources])
+            dest.value = TDigest(compression)
+        elif override:
+            dest.value.clear()
         for source in sources:
             dest.value.update(source)
         dest.updated()
@@ -92,7 +87,8 @@ class TDigestCommandsMixin:
             raise SimpleError(msgs.TDIGEST_KEY_NOT_EXISTS)
         if len(key.value) == 0:
             return float("nan")
-        return key.value[-1]
+        val: float = key.value[-1]
+        return val
 
     @command(
         name="TDIGEST.MIN", fixed=(Key(TDigest),), repeat=(), flags=msgs.FLAG_DO_NOT_CREATE + msgs.FLAG_LEAVE_EMPTY_VAL
@@ -102,7 +98,8 @@ class TDigestCommandsMixin:
             raise SimpleError(msgs.TDIGEST_KEY_NOT_EXISTS)
         if len(key.value) == 0:
             return float("nan")
-        return key.value[0]
+        val: float = key.value[0]
+        return val
 
     @command(
         name="TDIGEST.RANK",
@@ -221,7 +218,7 @@ class TDigestCommandsMixin:
             return float("nan")
         left = int(lower * len(key.value))
         right = int(upper * len(key.value))
-        res = key.value[(left + right) // 2]
+        res: float = key.value[(left + right) // 2]
         if right == left + 1:
             res = (res + key.value[right]) / 2
         return res

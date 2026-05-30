@@ -348,14 +348,21 @@ class Searcher(FilterMixin):
             return orig_recurrence_set
 
         ## Ensure timezone is set.  Ensure start and end are datetime objects.
-        for attr in ("start", "end", "alarm_start", "alarm_end"):
-            value = getattr(self, attr)
-            if value:
-                if not isinstance(value, datetime):
-                    logging.warning(
-                        "Date-range searches not well supported yet; use datetime rather than dates"
-                    )
-                setattr(self, attr, _normalize_dt(value))
+        ## Compute normalised copies locally — do NOT mutate self, as check_component()
+        ## must be idempotent and safe to call multiple times on the same Searcher.
+        def _normalise_dt_local(value: datetime | None) -> datetime | None:
+            if not value:
+                return value
+            if not isinstance(value, datetime):
+                logging.warning(
+                    "Date-range searches not well supported yet; use datetime rather than dates"
+                )
+            return _normalize_dt(value)
+
+        _start = _normalise_dt_local(self.start)
+        _end = _normalise_dt_local(self.end)
+        _alarm_start = _normalise_dt_local(self.alarm_start)
+        _alarm_end = _normalise_dt_local(self.alarm_end)
 
         ## recurrence_set is our internal generator/iterator containing
         ## everything that hasn't been filtered out yet (in most
@@ -407,10 +414,11 @@ class Searcher(FilterMixin):
                 ## filtering out occurrences with properties added by expansion.
                 skip_undef_for_expanded = True
 
-        ## self.include_completed should default to False if todo is explicity set,
-        ## otherwise True
-        if self.include_completed is None:
-            self.include_completed = not self.todo
+        ## include_completed should default to False if todo is explicitly set, otherwise True.
+        ## Compute locally — do NOT mutate self.include_completed so the Searcher stays reusable.
+        _include_completed = self.include_completed
+        if _include_completed is None:
+            _include_completed = not self.todo
 
         ## Component type flags are a bit difficult.  In the CalDAV library,
         ## if all of them are None, everything should be returned.  If only
@@ -421,19 +429,18 @@ class Searcher(FilterMixin):
         ## correct solution from the start: 1) if any flags are True,
         ## then consider flags set as None as False.  2) if any flags
         ## are still None, then consider those to be True.  3) List
-        ## the flags that are True as acceptable component types:
+        ## the flags that are True as acceptable component types.
+        ## Computed locally — do NOT mutate self.todo / self.event / self.journal.
 
         comptypesl = ("todo", "event", "journal")
         if any(getattr(self, x) for x in comptypesl):
-            for x in comptypesl:
-                if getattr(self, x) is None:
-                    setattr(self, x, False)
+            ## At least one type is explicitly True: treat remaining Nones as False (opt-in mode)
+            _compflags = {x: bool(getattr(self, x)) for x in comptypesl}
         else:
-            for x in comptypesl:
-                if getattr(self, x) is None:
-                    setattr(self, x, True)
+            ## No type is explicitly True: treat Nones as True, but respect explicit Falses (opt-out mode)
+            _compflags = {x: getattr(self, x) is not False for x in comptypesl}
 
-        comptypesu = set([f"V{x.upper()}" for x in comptypesl if getattr(self, x)])
+        comptypesu = set([f"V{x.upper()}" for x in comptypesl if _compflags[x]])
 
         ## if expand_only, expand all comptypes, otherwise only the comptypes specified in the filters
         comptypes_for_expansion = ["VTODO", "VEVENT", "VJOURNAL"] if expand_only else comptypesu
@@ -444,15 +451,21 @@ class Searcher(FilterMixin):
         if not expand_only:
             ## OPTIMIZATION TODO: If the object was recurring, we should
             ## probably trust recur.between to do the right thing?
-            if not _ignore_rrule_and_time and (self.start or self.end):
-                recurrence_set = (x for x in recurrence_set if self._check_range(x))
+            if not _ignore_rrule_and_time and (_start or _end):
+                recurrence_set = (
+                    x for x in recurrence_set if self._check_range(x, _start=_start, _end=_end)
+                )
 
             ## This if is just to save some few CPU cycles - skip filtering if it's not needed
-            if not all(getattr(self, x) for x in comptypesl):
+            if not all(_compflags[x] for x in comptypesl):
                 recurrence_set = (x for x in recurrence_set if x.name in comptypesu)
 
             ## Filter based on include_completed setting
-            recurrence_set = (x for x in recurrence_set if self._check_completed_filter(x))
+            recurrence_set = (
+                x
+                for x in recurrence_set
+                if self._check_completed_filter(x, _include_completed=_include_completed)
+            )
 
             ## Apply property filters
             if self._property_filters or self._property_operator:
@@ -463,8 +476,12 @@ class Searcher(FilterMixin):
                 )
 
             ## Apply alarm filters
-            if not _ignore_rrule_and_time and (self.alarm_start or self.alarm_end):
-                recurrence_set = (x for x in recurrence_set if self._check_alarm_range(x))
+            if not _ignore_rrule_and_time and (_alarm_start or _alarm_end):
+                recurrence_set = (
+                    x
+                    for x in recurrence_set
+                    if self._check_alarm_range(x, _alarm_start=_alarm_start, _alarm_end=_alarm_end)
+                )
 
         if self.expand:
             ## TODO: fix wrapping, if needed
@@ -831,11 +848,16 @@ class Searcher(FilterMixin):
 
         2.1) All components in the recurrence set should have the same UID
 
-        2.2) First element ("master") of the recurrence set may have the RRULE
-        property set
+        2.2) Exactly one element ("master") of the recurrence set may
+        have the RRULE property set.  RFC 5545 does not mandate any
+        particular ordering inside a VCALENDAR, so the master may
+        appear in any position; this method will move it to the head
+        of the returned list so downstream expansion code can rely on
+        ``components[0]`` being the master.
 
-        2.3) Any following elements of a recurrence set ("exception
-        recurrences") should have the RECURRENCE-ID property set.
+        2.3) Any non-master elements of a recurrence set ("exception
+        recurrences") should have the RECURRENCE-ID property set and
+        must not have RRULE.
 
         2.4) (there are more properties that may only be set in the
         master or only in the recurrences, but currently we don't do
@@ -853,25 +875,33 @@ class Searcher(FilterMixin):
         ## We shouldn't get here.  There should always be a valid component.
         if not len(components):
             raise ValueError("Empty component?")
-        first = components[0]
 
-        ## A recurrence set should always be one "master" with
-        ## rrule-id set, followed by zero or more objects without
-        ## rrule-id but with recurrence-id set
+        ## A recurrence set should be exactly one "master" (with RRULE) plus zero
+        ## or more "exception recurrences" (with RECURRENCE-ID and without RRULE),
+        ## OR zero masters plus one-or-more standalone occurrences (all with
+        ## RECURRENCE-ID).  RFC 5545 does not mandate an ordering inside the
+        ## VCALENDAR, so we accept the master in any position and reorder it to
+        ## the head.  Some servers (notably calendar.mail.ru) emit overrides
+        ## before the master.
         if len(components) > 1:
-            if (
-                ("RRULE" not in components[0] and "RECURRENCE-ID" not in components[0])
-                or not all("recurrence-id" in x for x in components[1:])
-                or any("RRULE" in x for x in components[1:])
-            ):
+            masters = [c for c in components if "rrule" in c and "recurrence-id" not in c]
+            non_masters = [c for c in components if c not in masters]
+            if len(masters) > 1 or any("rrule" in c for c in non_masters):
                 raise ValueError(
                     "Expected a valid recurrence set, either with one master component followed with special recurrences or with only occurrences"
                 )
+            if not all("recurrence-id" in c for c in non_masters):
+                raise ValueError(
+                    "Expected a valid recurrence set, either with one master component followed with special recurrences or with only occurrences"
+                )
+            if masters:
+                components = masters + non_masters
 
         ## components should typically be a list with only one component.
         ## if there are more components, it should be a recurrence set
         ## one of the things identifying a recurrence set is that the
         ## uid is the same for all components in the set
+        first = components[0]
         if any(x for x in components if x["uid"] != first["uid"]):
             raise ValueError(
                 "Input parameter component is supposed to contain a single component or a recurrence set - but multiple UIDs found"

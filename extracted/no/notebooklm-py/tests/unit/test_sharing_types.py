@@ -183,87 +183,91 @@ class TestSharingAPIValidation:
     @pytest.mark.asyncio
     async def test_add_user_rejects_owner_permission(self):
         """Test that add_user rejects OWNER permission."""
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
+        from _fixtures.fake_core import make_fake_core
         from notebooklm._sharing import SharingAPI
 
-        mock_core = MagicMock()
-        mock_core.rpc_call = AsyncMock()
+        mock_core = make_fake_core(rpc_call=AsyncMock())
         api = SharingAPI(mock_core)
 
         with pytest.raises(ValueError, match="Cannot assign OWNER permission"):
             await api.add_user("nb_123", "test@example.com", SharePermission.OWNER)
 
         # Verify no RPC call was made
-        mock_core.rpc_call.assert_not_called()
+        mock_core.rpc_executor.rpc_call.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_add_user_rejects_remove_permission(self):
         """Test that add_user rejects _REMOVE permission."""
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
+        from _fixtures.fake_core import make_fake_core
         from notebooklm._sharing import SharingAPI
 
-        mock_core = MagicMock()
-        mock_core.rpc_call = AsyncMock()
+        mock_core = make_fake_core(rpc_call=AsyncMock())
         api = SharingAPI(mock_core)
 
         with pytest.raises(ValueError, match="Use remove_user"):
             await api.add_user("nb_123", "test@example.com", SharePermission._REMOVE)
 
-        mock_core.rpc_call.assert_not_called()
+        mock_core.rpc_executor.rpc_call.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_add_user_accepts_editor_permission(self):
         """Test that add_user accepts EDITOR permission."""
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
+        from _fixtures.fake_core import make_fake_core
         from notebooklm._sharing import SharingAPI
 
-        mock_core = MagicMock()
         # Return empty list for share call, then mock get_status
-        mock_core.rpc_call = AsyncMock(
-            side_effect=[
-                [],  # SHARE_NOTEBOOK response
-                [  # GET_SHARE_STATUS response
-                    [["test@example.com", 2, [], ["Test", "https://avatar"]]],
-                    [False],
-                    1000,
-                ],
-            ]
+        mock_core = make_fake_core(
+            rpc_call=AsyncMock(
+                side_effect=[
+                    [],  # SHARE_NOTEBOOK response
+                    [  # GET_SHARE_STATUS response
+                        [["test@example.com", 2, [], ["Test", "https://avatar"]]],
+                        [False],
+                        1000,
+                    ],
+                ]
+            )
         )
         api = SharingAPI(mock_core)
 
         status = await api.add_user("nb_123", "test@example.com", SharePermission.EDITOR)
 
-        assert mock_core.rpc_call.call_count == 2
+        assert mock_core.rpc_executor.rpc_call.call_count == 2
         assert len(status.shared_users) == 1
         assert status.shared_users[0].permission == SharePermission.EDITOR
 
     @pytest.mark.asyncio
     async def test_add_user_accepts_viewer_permission(self):
         """Test that add_user accepts VIEWER permission (default)."""
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import AsyncMock
 
+        from _fixtures.fake_core import make_fake_core
         from notebooklm._sharing import SharingAPI
 
-        mock_core = MagicMock()
-        mock_core.rpc_call = AsyncMock(
-            side_effect=[
-                [],  # SHARE_NOTEBOOK response
-                [  # GET_SHARE_STATUS response
-                    [["test@example.com", 3, [], ["Test", "https://avatar"]]],
-                    [False],
-                    1000,
-                ],
-            ]
+        mock_core = make_fake_core(
+            rpc_call=AsyncMock(
+                side_effect=[
+                    [],  # SHARE_NOTEBOOK response
+                    [  # GET_SHARE_STATUS response
+                        [["test@example.com", 3, [], ["Test", "https://avatar"]]],
+                        [False],
+                        1000,
+                    ],
+                ]
+            )
         )
         api = SharingAPI(mock_core)
 
         # Use default permission (VIEWER)
         status = await api.add_user("nb_123", "test@example.com")
 
-        assert mock_core.rpc_call.call_count == 2
+        assert mock_core.rpc_executor.rpc_call.call_count == 2
         assert status.shared_users[0].permission == SharePermission.VIEWER
 
 

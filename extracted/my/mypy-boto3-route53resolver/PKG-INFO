@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-route53resolver
-Version: 1.43.6
-Summary: Type annotations for boto3 Route53Resolver 1.43.6 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.18
+Summary: Type annotations for boto3 Route53Resolver 1.43.18 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,8 +43,8 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 Route53Resolver 1.43.6](https://pypi.org/project/boto3/) compatible with
-[VSCode](https://code.visualstudio.com/),
+[boto3 Route53Resolver 1.43.18](https://pypi.org/project/boto3/) compatible
+with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
 [Sublime Text](https://www.sublimetext.com/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.6' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.18' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Route53Resolver` service.
 4. Use provided commands to install generated packages.
@@ -346,6 +346,7 @@ from mypy_boto3_route53resolver.paginator import (
     ListFirewallDomainsPaginator,
     ListFirewallRuleGroupAssociationsPaginator,
     ListFirewallRuleGroupsPaginator,
+    ListFirewallRuleTypesPaginator,
     ListFirewallRulesPaginator,
     ListOutpostResolversPaginator,
     ListResolverConfigsPaginator,
@@ -377,6 +378,9 @@ list_firewall_rule_group_associations_paginator: ListFirewallRuleGroupAssociatio
 )
 list_firewall_rule_groups_paginator: ListFirewallRuleGroupsPaginator = client.get_paginator(
     "list_firewall_rule_groups"
+)
+list_firewall_rule_types_paginator: ListFirewallRuleTypesPaginator = client.get_paginator(
+    "list_firewall_rule_types"
 )
 list_firewall_rules_paginator: ListFirewallRulesPaginator = client.get_paginator(
     "list_firewall_rules"

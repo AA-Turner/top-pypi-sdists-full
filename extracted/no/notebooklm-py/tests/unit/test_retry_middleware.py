@@ -18,7 +18,7 @@ ADR-009 §"Chain ordering":
 - **Metrics**: ``rpc_rate_limit_retries`` / ``rpc_server_error_retries``
   increment per retry (NOT for the original failed attempt — same
   semantics as the pre-PR-12.7 legacy loop in
-  ``AuthedTransport.perform_authed_post``).
+  the transport POST path).
 - **Log lines** match the legacy "rate-limited (HTTP 429); sleeping (…);
   retrying (n/N)" / "server/network error (…); backing off …; retrying
   (n/N)" shape so log-grep alerts keep matching.
@@ -39,10 +39,10 @@ import pytest
 # pytest puts ``tests/`` on ``sys.path``; ``_fixtures.chain`` is the canonical
 # import path documented in ``tests/_fixtures/__init__.py``.
 from _fixtures.chain import make_request
-from notebooklm._authed_transport import TransportRateLimited, TransportServerError
 from notebooklm._client_metrics import ClientMetrics
 from notebooklm._middleware import NextCall, RpcRequest, RpcResponse, build_chain
 from notebooklm._middleware_retry import RetryMiddleware
+from notebooklm._transport_errors import TransportRateLimited, TransportServerError
 
 
 def _recording_sleep() -> tuple[Callable[[float], Awaitable[None]], list[float]]:
@@ -181,6 +181,107 @@ async def test_retries_on_429_until_success() -> None:
 
 
 @pytest.mark.asyncio
+async def test_429_retry_after_larger_than_remaining_timeout_does_not_sleep() -> None:
+    """A large ``Retry-After`` fails fast when no retry can fit in the deadline."""
+    slept: list[float] = []
+    clock = 0.0
+
+    def monotonic() -> float:
+        return clock
+
+    async def sleep(seconds: float) -> None:
+        nonlocal clock
+        slept.append(seconds)
+        clock += seconds
+
+    first_429 = _rate_limited(retry_after=300)
+    terminal, calls = _scripted_terminal(
+        [
+            first_429,
+            httpx.Response(200, content=b"late-success"),
+        ]
+    )
+    middleware = RetryMiddleware(
+        rate_limit_max_retries=3,
+        server_error_max_retries=3,
+        retry_timeout=1.0,
+        sleep=sleep,
+        monotonic=monotonic,
+    )
+    chain = build_chain([middleware], terminal)
+
+    with pytest.raises(TransportRateLimited) as excinfo:
+        await chain(make_request(context={"log_label": "RPC LIST_NOTEBOOKS"}))
+
+    assert excinfo.value is first_429
+    assert len(calls) == 1
+    assert slept == []
+    assert clock == 0.0
+
+
+@pytest.mark.asyncio
+async def test_429_does_not_sleep_when_attempt_already_exhausted_retry_timeout() -> None:
+    """Time spent in the failed attempt counts against the aggregate retry timeout."""
+    slept: list[float] = []
+    clock = 0.0
+    first_429 = _rate_limited(retry_after=1)
+    calls: list[RpcRequest] = []
+
+    def monotonic() -> float:
+        return clock
+
+    async def sleep(seconds: float) -> None:
+        slept.append(seconds)
+
+    async def terminal(request: RpcRequest) -> RpcResponse:
+        nonlocal clock
+        calls.append(request)
+        clock = 1.5
+        raise first_429
+
+    middleware = RetryMiddleware(
+        rate_limit_max_retries=3,
+        server_error_max_retries=3,
+        retry_timeout=1.0,
+        sleep=sleep,
+        monotonic=monotonic,
+    )
+    chain = build_chain([middleware], terminal)
+
+    with pytest.raises(TransportRateLimited) as excinfo:
+        await chain(make_request(context={"log_label": "RPC LIST_NOTEBOOKS"}))
+
+    assert excinfo.value is first_429
+    assert len(calls) == 1
+    assert slept == []
+
+
+@pytest.mark.asyncio
+async def test_429_retry_timeout_none_disables_aggregate_deadline() -> None:
+    """``None`` preserves the historical retry-count-only behavior."""
+    sleep, slept = _recording_sleep()
+    terminal, calls = _scripted_terminal(
+        [
+            _rate_limited(retry_after=1),
+            httpx.Response(200, content=b"ok"),
+        ]
+    )
+    middleware = RetryMiddleware(
+        rate_limit_max_retries=3,
+        server_error_max_retries=3,
+        retry_timeout=lambda: None,
+        sleep=sleep,
+    )
+    chain = build_chain([middleware], terminal)
+
+    response = await chain(make_request(context={"log_label": "RPC LIST_NOTEBOOKS"}))
+
+    assert len(calls) == 2
+    assert slept == [1.0]
+    assert response.response.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_429_without_retry_after_uses_exponential_backoff() -> None:
     """``Retry-After`` absent → exponential backoff with min-floor."""
     sleep, slept = _recording_sleep()
@@ -260,6 +361,45 @@ async def test_retries_on_503_until_success() -> None:
     assert len(slept) == 1
     assert slept[0] >= 0.1
     assert response.response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_5xx_backoff_larger_than_remaining_timeout_does_not_sleep() -> None:
+    """5xx backoff uses the same aggregate deadline guard as the 429 path."""
+    slept: list[float] = []
+    clock = 0.0
+
+    def monotonic() -> float:
+        return clock
+
+    async def sleep(seconds: float) -> None:
+        nonlocal clock
+        slept.append(seconds)
+        clock += seconds
+
+    first_503 = _server_error(status=503)
+    terminal, calls = _scripted_terminal(
+        [
+            first_503,
+            httpx.Response(200, content=b"late-success"),
+        ]
+    )
+    middleware = RetryMiddleware(
+        rate_limit_max_retries=3,
+        server_error_max_retries=3,
+        retry_timeout=0.05,
+        sleep=sleep,
+        monotonic=monotonic,
+    )
+    chain = build_chain([middleware], terminal)
+
+    with pytest.raises(TransportServerError) as excinfo:
+        await chain(make_request(context={"log_label": "RPC LIST_NOTEBOOKS"}))
+
+    assert excinfo.value is first_503
+    assert len(calls) == 1
+    assert slept == []
+    assert clock == 0.0
 
 
 @pytest.mark.asyncio
@@ -580,7 +720,7 @@ async def test_non_transport_exception_propagates_without_retry() -> None:
 
     A generic ``RuntimeError`` from a deeper middleware (e.g. drain
     rejection) must propagate without consuming the retry budget.
-    Pre-PR-12.7 the legacy ``AuthedTransport`` loop only caught
+    Pre-PR-12.7 the legacy transport loop only caught
     ``httpx.HTTPStatusError`` / ``httpx.RequestError``; the middleware
     only catches the two named transport-exception types so
     ``DrainMiddleware``'s ``RuntimeError("draining…")`` still propagates.

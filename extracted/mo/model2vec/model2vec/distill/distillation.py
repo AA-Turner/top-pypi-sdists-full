@@ -5,15 +5,13 @@ import os
 import re
 from typing import cast
 
-import numpy as np
 from huggingface_hub.hf_api import model_info
 from skeletoken import TokenizerModel
 from skeletoken.external.transformers import reshape_embeddings
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerFast
 from transformers.modeling_utils import PreTrainedModel
-from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
-from model2vec.distill.inference import PCADimType, PoolingMode, create_embeddings, post_process_embeddings
+from model2vec.distill.inference import PCADimType, PoolingMode, apply_pca, compute_weights, create_embeddings
 from model2vec.distill.utils import select_optimal_device
 from model2vec.model import StaticModel
 from model2vec.quantization import DType, quantize_embeddings
@@ -35,8 +33,7 @@ def distill_from_model(
     vocabulary_quantization: int | None = None,
     pooling: PoolingMode | str = PoolingMode.MEAN,
 ) -> StaticModel:
-    """
-    Distill a staticmodel from a sentence transformer.
+    """Distill a staticmodel from a sentence transformer.
 
     This function creates a set of embeddings from a sentence transformer. It does this by doing either
     a forward pass for all subword tokens in the tokenizer, or by doing a forward pass for all tokens in a passed
@@ -67,7 +64,7 @@ def distill_from_model(
         'first': use the first token's hidden state ([CLS] token in BERT-style models).
         'pooler': use the pooler output (if available). This is often a non-linear projection of the [CLS] token.
     :return: A StaticModel.
-    :raises: ValueError if the vocabulary is empty after preprocessing.
+    :raises ValueError: if the vocabulary is empty after preprocessing.
 
     """
     quantize_to = DType(quantize_to)
@@ -88,12 +85,6 @@ def distill_from_model(
 
     # Create the vocabulary in the new tokenizer.
     tokenizer_model = clean_and_create_vocabulary(tokenizer_model, vocabulary, token_remove_regex=token_remove_regex)
-    # Remove the post processor, this is not necessary.
-    tokenizer_model.post_processor = None
-    # Prune again now that the post processor is gone.
-    # We can't do this before because we need the post processor and associated
-    # tokens before to add eos/bos.
-    tokenizer_model = tokenizer_model.prune_added_tokens()
 
     # All tokens in a single list.
     all_tokens = tokenizer_model.sorted_vocabulary
@@ -115,16 +106,19 @@ def distill_from_model(
         pooling=pooling,
     )
 
-    # Maybe apply quantization
+    # Apply quantization
     if vocabulary_quantization is not None:
-        _, weights = post_process_embeddings(np.asarray(embeddings), None, sif_coefficient=sif_coefficient)
+        weights = compute_weights(len(embeddings), sif_coefficient=sif_coefficient)
         embeddings, token_mapping, weights = quantize_vocabulary(
-            n_clusters=vocabulary_quantization, weights=weights, embeddings=np.asarray(embeddings)
+            n_clusters=vocabulary_quantization, weights=weights, embeddings=embeddings
         )
-        embeddings, _ = post_process_embeddings(embeddings, pca_dims, sif_coefficient=sif_coefficient)
+        embeddings = apply_pca(embeddings, pca_dims)
     else:
         # Post-process the embeddings.
-        embeddings, weights = post_process_embeddings(np.asarray(embeddings), pca_dims, sif_coefficient=sif_coefficient)
+        weights = compute_weights(len(embeddings), sif_coefficient=sif_coefficient)
+        embeddings = apply_pca(embeddings, pca_dims)
+        embeddings = embeddings * weights[:, None]
+        weights = None
         token_mapping = None
     # Quantize the embeddings.
     embeddings = quantize_embeddings(embeddings, quantize_to)
@@ -173,15 +167,14 @@ def _validate_parameters(
     sif_coefficient: float | None,
     token_remove_pattern: str | None,
 ) -> tuple[float | None, re.Pattern[str] | None]:
-    """
-    Validate the parameters passed to the distillation function.
+    """Validate the parameters passed to the distillation function.
 
     :param sif_coefficient: The SIF coefficient to use. If this is None, no weighting is applied.
         Should be a value >= 0 and < 1.0. A value of 1e-4 is a good default.
     :param token_remove_pattern: If this is set to a string, we compile this into a regex. Any tokens that conform to
         this regex pattern will be removed from the vocabulary.
     :return: The SIF coefficient to use.
-    :raises: ValueError if the regex can't be compiled.
+    :raises ValueError: if the regex can't be compiled.
 
     """
     if sif_coefficient is not None:
@@ -210,8 +203,7 @@ def distill(
     vocabulary_quantization: int | None = None,
     pooling: PoolingMode | str = PoolingMode.MEAN,
 ) -> StaticModel:
-    """
-    Distill a staticmodel from a sentence transformer.
+    """Distill a staticmodel from a sentence transformer.
 
     This function creates a set of embeddings from a sentence transformer. It does this by doing either
     a forward pass for all subword tokens in the tokenizer, or by doing a forward pass for all tokens in a passed

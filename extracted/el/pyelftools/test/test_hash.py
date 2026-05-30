@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
 # elftools tests
 #
@@ -6,10 +5,11 @@
 # This code is in the public domain
 #-------------------------------------------------------------------------------
 import unittest
+import unittest.mock
 import os
 
 from elftools.elf.elffile import ELFFile
-from elftools.elf.hash import ELFHashTable, GNUHashTable
+from elftools.elf.hash import ELFHashTable, GNUHashTable, _SymbolTable
 
 class TestELFHash(unittest.TestCase):
     """ Tests for the ELF hash table.
@@ -23,7 +23,7 @@ class TestELFHash(unittest.TestCase):
         self.assertEqual(ELFHashTable.elf_hash('main'), 0x000737fe)
         self.assertEqual(ELFHashTable.elf_hash('printf'), 0x077905a6)
         self.assertEqual(ELFHashTable.elf_hash('exit'), 0x0006cf04)
-        self.assertEqual(ELFHashTable.elf_hash(u'ïó®123'), 0x0efddae3)
+        self.assertEqual(ELFHashTable.elf_hash('ïó®123'), 0x0efddae3)
         self.assertEqual(ELFHashTable.elf_hash(b'\xe4\xbd\xa0\xe5\xa5\xbd'),
                          0x0f07f00d)
 
@@ -42,7 +42,7 @@ class TestELFHash(unittest.TestCase):
 
             _, hash_offset = dynamic_segment.get_table_offset('DT_HASH')
 
-            hash_section = ELFHashTable(elf, hash_offset, dynamic_segment)
+            hash_section = ELFHashTable(elf, hash_offset, None, dynamic_segment)
             self.assertIsNotNone(hash_section)
             self.assertEqual(hash_section.get_number_of_symbols(), 4)
 
@@ -57,7 +57,16 @@ class TestELFHash(unittest.TestCase):
             self.assertIsNotNone(hash_section)
             symbol_main = hash_section.get_symbol('main')
             self.assertIsNotNone(symbol_main)
-            self.assertEqual(symbol_main['st_value'], int(0x400790))
+            self.assertEqual(symbol_main['st_value'], 0x400790)
+
+    def test_empty_table_without_header(self):
+        """ Verify we can handle an empty (0 byte) ELF hash section.
+        """
+        elffile = unittest.mock.MagicMock(ELFFile)
+        symboltable = unittest.mock.MagicMock(_SymbolTable)
+        empty_hash_section = ELFHashTable(elffile, 0, 0, symboltable)
+        self.assertEqual(empty_hash_section.get_number_of_symbols(), 0)
+        self.assertEqual(empty_hash_section.params['nbuckets'], 0)
 
 
 class TestGNUHash(unittest.TestCase):
@@ -72,7 +81,7 @@ class TestGNUHash(unittest.TestCase):
         self.assertEqual(GNUHashTable.gnu_hash('main'), 0x7c9a7f6a)
         self.assertEqual(GNUHashTable.gnu_hash('printf'), 0x156b2bb8)
         self.assertEqual(GNUHashTable.gnu_hash('exit'), 0x7c967e3f)
-        self.assertEqual(GNUHashTable.gnu_hash(u'ïó®123'), 0x8025a693)
+        self.assertEqual(GNUHashTable.gnu_hash('ïó®123'), 0x8025a693)
         self.assertEqual(GNUHashTable.gnu_hash(b'\xe4\xbd\xa0\xe5\xa5\xbd'),
                          0x296eec2d)
 
@@ -82,7 +91,7 @@ class TestGNUHash(unittest.TestCase):
         """
 
         with open(os.path.join('test', 'testfiles_for_unittests',
-                               'lib_versioned64.so.1.elf'), 'rb') as f:
+                               'lib_versioned64.so.elf'), 'rb') as f:
             elf = ELFFile(f)
             hash_section = elf.get_section_by_name('.gnu.hash')
             self.assertIsNotNone(hash_section)
@@ -92,13 +101,13 @@ class TestGNUHash(unittest.TestCase):
         """ Verify we can get a specific symbol from a GNU hash section.
         """
         with open(os.path.join('test', 'testfiles_for_unittests',
-                               'lib_versioned64.so.1.elf'), 'rb') as f:
+                               'lib_versioned64.so.elf'), 'rb') as f:
             elf = ELFFile(f)
             hash_section = elf.get_section_by_name('.gnu.hash')
             self.assertIsNotNone(hash_section)
             symbol_f1 = hash_section.get_symbol('function1_ver1_1')
             self.assertIsNotNone(symbol_f1)
-            self.assertEqual(symbol_f1['st_value'], int(0x9a2))
+            self.assertEqual(symbol_f1['st_value'], 0x9a2)
 
     def test_get_symbol_big_endian(self):
         """ Verify we can get a specific symbol from a GNU hash section in a
@@ -112,4 +121,4 @@ class TestGNUHash(unittest.TestCase):
             self.assertIsNotNone(hash_section)
             symbol_f1 = hash_section.get_symbol('caller')
             self.assertIsNotNone(symbol_f1)
-            self.assertEqual(symbol_f1['st_value'], int(0x5a4))
+            self.assertEqual(symbol_f1['st_value'], 0x5a4)

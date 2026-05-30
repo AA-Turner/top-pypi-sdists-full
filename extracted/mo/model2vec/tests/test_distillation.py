@@ -9,12 +9,12 @@ import numpy as np
 import pytest
 from pytest import LogCaptureFixture
 from skeletoken import TokenizerModel
-from transformers import BertTokenizerFast
+from transformers import BertTokenizer
 from transformers.modeling_utils import PreTrainedModel
-from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
+from transformers.tokenization_utils_tokenizers import PreTrainedTokenizerFast
 
 from model2vec.distill.distillation import distill, distill_from_model
-from model2vec.distill.inference import PoolingMode, create_embeddings, post_process_embeddings
+from model2vec.distill.inference import PoolingMode, apply_pca, compute_weights, create_embeddings
 from model2vec.model import StaticModel
 from model2vec.tokenizer import clean_and_create_vocabulary
 
@@ -37,6 +37,8 @@ rng = np.random.default_rng()
         (None, 1024, None),  # Subword, PCA set high, SIF off
         (None, None, 1e-4),  # No PCA, SIF on
         (None, 0.9, 1e-4),  # PCA as float (variance), SIF on
+        (["star wars"], 8, None),  # Multiword vocabulary
+        (["..."], 8, None),  # Crashing multiword vocabulary
     ],
 )
 @patch.object(import_module("model2vec.distill.distillation"), "model_info")
@@ -79,13 +81,49 @@ def test_distill_from_model(
     assert json.loads(static_model.tokenizer.to_str()) == json.loads(static_model2.tokenizer.to_str())
     assert static_model.base_model_name == static_model2.base_model_name
 
+    for token in vocabulary or []:
+        # Normalized tokens are for single-word tokens.
+        # Other tokens are added as addedtokens, as is.
+        normalized = static_model.tokenizer.normalizer.normalize_str(token)
+        assert token in static_model.tokens or normalized in static_model.tokens
+
+
+@patch.object(import_module("model2vec.distill.distillation"), "model_info")
+@patch("transformers.AutoModel.from_pretrained")
+def test_distill_quantization(
+    mock_auto_model: MagicMock,
+    mock_model_info: MagicMock,
+    mock_berttokenizer: PreTrainedTokenizerFast,
+    mock_transformer: PreTrainedModel,
+) -> None:
+    """Test distill function with different parameters."""
+    # Mock the return value of model_info to avoid calling the Hugging Face API
+    mock_model_info.return_value = type("ModelInfo", (object,), {"cardData": {"language": "en"}})
+    mock_auto_model.return_value = mock_transformer
+
+    static_model = distill_from_model(
+        model=mock_transformer,
+        tokenizer=mock_berttokenizer,
+        vocabulary=None,
+        device="cpu",
+        pca_dims="auto",
+        sif_coefficient=1e-4,
+        token_remove_pattern=None,
+        vocabulary_quantization=3,
+    )
+
+    assert static_model.embedding.shape == (3, 768)
+    assert static_model.weights is not None
+    assert static_model.token_mapping is not None
+    assert len(static_model.weights) == static_model.tokenizer.get_vocab_size()
+
 
 @patch.object(import_module("model2vec.distill.distillation"), "model_info")
 @patch("transformers.AutoModel.from_pretrained")
 def test_distill_removal_pattern_all_tokens(
     mock_auto_model: MagicMock,
     mock_model_info: MagicMock,
-    mock_berttokenizer: BertTokenizerFast,
+    mock_berttokenizer: BertTokenizer,
     mock_transformer: PreTrainedModel,
 ) -> None:
     """Test the removal pattern."""
@@ -251,7 +289,9 @@ def test__post_process_embeddings(
         # The implementation logs a warning and skips reduction; no exception expected.
         pass
 
-    processed_embeddings, _ = post_process_embeddings(embeddings, pca_dims, sif_coefficient)
+    processed_embeddings = apply_pca(embeddings, pca_dims)
+    weights = compute_weights(len(processed_embeddings), sif_coefficient=sif_coefficient)
+    processed_embeddings = processed_embeddings * weights[:, None]
 
     # Assert the shape is correct
     assert processed_embeddings.shape == expected_shape

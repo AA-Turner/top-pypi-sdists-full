@@ -13,7 +13,10 @@ from abstra_internals.cloud.metrics_reporter import (
 )
 from abstra_internals.controllers.execution.debug_monitor import DebugMonitor
 from abstra_internals.controllers.execution.executor_config import ExecutorConfig
-from abstra_internals.controllers.execution.executor_pool import ExecutorPool
+from abstra_internals.controllers.execution.executor_pool import (
+    ExecutorDiedError,
+    ExecutorPool,
+)
 from abstra_internals.controllers.execution.executor_types import RabbitMQParams
 from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import (
@@ -30,6 +33,7 @@ from abstra_internals.repositories.consumer import (
 )
 from abstra_internals.repositories.models import (
     RunSnippetMessage,
+    StopAllExecutionsMessage,
     StopExecutionMessage,
 )
 from abstra_internals.repositories.producer import (
@@ -112,6 +116,16 @@ class ConsumerController:
                             self.executor_pool.kill_execution(
                                 control_msg.payload.execution_id
                             )
+                    elif isinstance(control_msg, StopAllExecutionsMessage):
+                        with self.executor_pool.lock:
+                            active_ids = list[str](
+                                self.executor_pool.execution_to_executor.keys()
+                            )
+                        AbstraLogger.info(
+                            f"[ConsumerController] Received stop_all request, killing {len(active_ids)} active execution(s)"
+                        )
+                        for execution_id in active_ids:
+                            self.executor_pool.force_kill_execution(execution_id)
                     elif control_msg.type == "ping":
                         AbstraLogger.debug(
                             "[ConsumerController] Received ping message for worker warmup"
@@ -264,6 +278,10 @@ class ConsumerController:
         )
 
         try:
+            if msg.redelivered:
+                message_handled = True
+                raise Exception("Execution did not complete on a previous delivery")
+
             stage = self.main_controller.get_stage(msg.preexecution.stage_id)
 
             if stage is None:
@@ -306,6 +324,19 @@ class ConsumerController:
                 raise NonCleanExit(f"Execution failed: {response.error}")
 
             self.consumer.threadsafe_ack(msg)
+            message_handled = True
+
+        except ExecutorDiedError as e:
+            AbstraLogger.warning(
+                f"[ConsumerController] Executor died during [{msg.delivery_tag}] "
+                f"execution_id={execution_id}: {e}; requeuing to mark failed on redelivery"
+            )
+            try:
+                self.consumer.threadsafe_nack(msg, requeue=True)
+            except Exception as nack_error:
+                AbstraLogger.error(
+                    f"[ConsumerController] Failed to nack [{msg.delivery_tag}]: {nack_error}"
+                )
             message_handled = True
 
         except Exception as e:

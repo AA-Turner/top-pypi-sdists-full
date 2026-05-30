@@ -164,21 +164,21 @@ set(LIB_SOURCE_FILES
     src/h3lib/include/baseCells.h
     src/h3lib/include/faceijk.h
     src/h3lib/include/vertex.h
-    src/h3lib/include/vertexGraph.h
     src/h3lib/include/mathExtensions.h
     src/h3lib/include/iterators.h
     src/h3lib/include/constants.h
     src/h3lib/include/coordijk.h
     src/h3lib/include/algos.h
+    src/h3lib/include/adder.h
+    src/h3lib/include/area.h
+    src/h3lib/include/cellsToMultiPoly.h
     src/h3lib/lib/h3Assert.c
     src/h3lib/lib/algos.c
-    src/h3lib/lib/coordijk.c
     src/h3lib/lib/bbox.c
     src/h3lib/lib/polygon.c
     src/h3lib/lib/polyfill.c
     src/h3lib/lib/h3Index.c
     src/h3lib/lib/vec2d.c
-    src/h3lib/lib/vec3d.c
     src/h3lib/lib/vertex.c
     src/h3lib/lib/linkedGeo.c
     src/h3lib/lib/localij.c
@@ -186,9 +186,10 @@ set(LIB_SOURCE_FILES
     src/h3lib/lib/directedEdge.c
     src/h3lib/lib/mathExtensions.c
     src/h3lib/lib/iterators.c
-    src/h3lib/lib/vertexGraph.c
     src/h3lib/lib/faceijk.c
-    src/h3lib/lib/baseCells.c)
+    src/h3lib/lib/baseCells.c
+    src/h3lib/lib/area.c
+    src/h3lib/lib/cellsToMultiPoly.c)
 set(APP_SOURCE_FILES
     src/apps/applib/include/kml.h
     src/apps/applib/include/benchmark.h
@@ -215,7 +216,6 @@ set(OTHER_SOURCE_FILES
     src/apps/filters/gridDiskUnsafe.c
     src/apps/testapps/testBaseCells.c
     src/apps/testapps/testBaseCellsInternal.c
-    src/apps/testapps/testVertexGraphInternal.c
     src/apps/testapps/testCompactCells.c
     src/apps/testapps/testPolygonToCells.c
     src/apps/testapps/testPolygonToCellsExperimental.c
@@ -245,7 +245,6 @@ set(OTHER_SOURCE_FILES
     src/apps/testapps/testGridRing.c
     src/apps/testapps/testGridRingInternal.c
     src/apps/testapps/testGridRingUnsafe.c
-    src/apps/testapps/testH3SetToVertexGraphInternal.c
     src/apps/testapps/testBBoxInternal.c
     src/apps/testapps/testVertex.c
     src/apps/testapps/testVertexInternal.c
@@ -254,14 +253,18 @@ set(OTHER_SOURCE_FILES
     src/apps/testapps/testPolyfillInternal.c
     src/apps/testapps/testVec2dInternal.c
     src/apps/testapps/testVec3dInternal.c
+    src/apps/testapps/testVec3.c
     src/apps/testapps/testDirectedEdge.c
     src/apps/testapps/testDirectedEdgeExhaustive.c
     src/apps/testapps/testLinkedGeoInternal.c
+    src/apps/testapps/testLinkedGeoConvert.c
     src/apps/testapps/mkRandGeo.c
     src/apps/testapps/testH3Api.c
     src/apps/testapps/testIndexDigits.c
     src/apps/testapps/testConstructCell.c
     src/apps/testapps/testCellsToLinkedMultiPolygon.c
+    src/apps/testapps/testCellsToMultiPoly.c
+    src/apps/testapps/testCellsToMultiPolyInternal.c
     src/apps/testapps/testCellToLocalIj.c
     src/apps/testapps/testCellToLocalIjInternal.c
     src/apps/testapps/testCellToLocalIjExhaustive.c
@@ -278,6 +281,7 @@ set(OTHER_SOURCE_FILES
     src/apps/testapps/testH3IteratorsInternal.c
     src/apps/testapps/testMathExtensionsInternal.c
     src/apps/testapps/testDescribeH3Error.c
+    src/apps/testapps/testGeoLoopArea.c
     src/apps/miscapps/cellToBoundaryHier.c
     src/apps/miscapps/cellToLatLngHier.c
     src/apps/miscapps/generateBaseCellNeighbors.c
@@ -287,6 +291,7 @@ set(OTHER_SOURCE_FILES
     src/apps/fuzzers/fuzzerLatLngToCell.c
     src/apps/fuzzers/fuzzerCellToLatLng.c
     src/apps/fuzzers/fuzzerGridDisk.c
+    src/apps/fuzzers/fuzzerCellsToMultiPolygon.c
     src/apps/fuzzers/fuzzerCellsToLinkedMultiPolygon.c
     src/apps/fuzzers/fuzzerDistances.c
     src/apps/fuzzers/fuzzerCellArea.c
@@ -310,14 +315,15 @@ set(OTHER_SOURCE_FILES
     src/apps/benchmarks/benchmarkPolygonToCells.c
     src/apps/benchmarks/benchmarkPolygonToCellsExperimental.c
     src/apps/benchmarks/benchmarkPolygon.c
-    src/apps/benchmarks/benchmarkCellsToLinkedMultiPolygon.c
+    src/apps/benchmarks/benchmarkCellsToPolyAlgos.c
     src/apps/benchmarks/benchmarkCellToChildren.c
     src/apps/benchmarks/benchmarkGridDiskCells.c
     src/apps/benchmarks/benchmarkGridPathCells.c
     src/apps/benchmarks/benchmarkDirectedEdge.c
     src/apps/benchmarks/benchmarkVertex.c
     src/apps/benchmarks/benchmarkIsValidCell.c
-    src/apps/benchmarks/benchmarkH3Api.c)
+    src/apps/benchmarks/benchmarkH3Api.c
+    src/apps/benchmarks/benchmarkArea.c)
 
 set(ALL_SOURCE_FILES
     ${LIB_SOURCE_FILES} ${APP_SOURCE_FILES} ${TEST_APP_SOURCE_FILES}
@@ -503,6 +509,9 @@ macro(add_h3_executable name)
         )
         target_compile_options(${name} PRIVATE ${H3_COMPILE_FLAGS})
         target_link_libraries(${name} PRIVATE ${H3_LINK_FLAGS})
+        if(ENABLE_COVERAGE)
+            target_compile_definitions(${name} PRIVATE H3_COVERAGE_TEST=1)
+        endif()
     endif()
 endmacro()
 
@@ -613,6 +622,8 @@ if(BUILD_FUZZERS)
     add_h3_fuzzer(fuzzerLatLngToCell src/apps/fuzzers/fuzzerLatLngToCell.c)
     add_h3_fuzzer(fuzzerCellToLatLng src/apps/fuzzers/fuzzerCellToLatLng.c)
     add_h3_fuzzer(fuzzerGridDisk src/apps/fuzzers/fuzzerGridDisk.c)
+    add_h3_fuzzer(fuzzerCellsToMultiPolygon
+                  src/apps/fuzzers/fuzzerCellsToMultiPolygon.c)
     add_h3_fuzzer(fuzzerCellsToLinkedMultiPolygon
                   src/apps/fuzzers/fuzzerCellsToLinkedMultiPolygon.c)
     add_h3_fuzzer(fuzzerDistances src/apps/fuzzers/fuzzerDistances.c)
@@ -664,14 +675,16 @@ if(BUILD_BENCHMARKS)
     add_h3_benchmark(benchmarkVertex src/apps/benchmarks/benchmarkVertex.c)
     add_h3_benchmark(benchmarkIsValidCell
                      src/apps/benchmarks/benchmarkIsValidCell.c)
-    add_h3_benchmark(benchmarkCellsToLinkedMultiPolygon
-                     src/apps/benchmarks/benchmarkCellsToLinkedMultiPolygon.c)
+    add_h3_benchmark(benchmarkCellsToPolyAlgos
+                     src/apps/benchmarks/benchmarkCellsToPolyAlgos.c)
     add_h3_benchmark(benchmarkCellToChildren
                      src/apps/benchmarks/benchmarkCellToChildren.c)
     add_h3_benchmark(benchmarkPolygonToCells
                      src/apps/benchmarks/benchmarkPolygonToCells.c)
     add_h3_benchmark(benchmarkPolygonToCellsExperimental
                      src/apps/benchmarks/benchmarkPolygonToCellsExperimental.c)
+    add_h3_benchmark(benchmarkArea
+                     src/apps/benchmarks/benchmarkArea.c)
     if(ENABLE_REQUIRES_ALL_SYMBOLS)
         add_h3_benchmark(benchmarkPolygon
                          src/apps/benchmarks/benchmarkPolygon.c)
@@ -794,3 +807,6 @@ set(CPACK_DEBIAN_LIBH3-DEV_PACKAGE_SECTION "libdevel")
 set(CPACK_DEBIAN_H3_PACKAGE_SECTION "science")
 
 include(CPack)
+
+configure_file(h3.pc.in ${CMAKE_BINARY_DIR}/h3.pc @ONLY)
+install(FILES ${CMAKE_BINARY_DIR}/h3.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)

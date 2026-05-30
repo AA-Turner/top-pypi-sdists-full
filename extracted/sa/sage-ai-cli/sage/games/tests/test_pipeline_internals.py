@@ -78,35 +78,29 @@ def test_decompose_happy_path_parses_llm_json():
     assert plan.mesh_roles == []
 
 
-def test_decompose_3d_request_forces_at_least_one_mesh():
+def test_decompose_3d_request_no_synthetic_mesh():
     plan = _decompose(
         _req(perspective="3d"),
         generate=lambda _p: json.dumps({"title": "x", "meshes": []}),
         log=lambda _: None,
     )
-    assert plan.mesh_roles, "3D games must have at least one mesh role"
-    assert plan.mesh_roles[0][0] == "player"
+    assert not plan.mesh_roles
 
 
-def test_decompose_falls_back_when_llm_raises():
+def test_decompose_propagates_exception_when_llm_raises():
     def boom(_prompt: str) -> str:
         raise RuntimeError("provider down")
-    plan = _decompose(_req(), generate=boom, log=lambda _: None)
-    # Must NOT propagate — we built a minimal plan instead.
-    assert plan.title == "Sage Game"
-    assert plan.sprite_roles, "must still seed at least one sprite for 2D"
+    with pytest.raises(RuntimeError, match="provider down"):
+        _decompose(_req(), generate=boom, log=lambda _: None)
 
 
-def test_decompose_recovers_from_malformed_json():
-    plan = _decompose(
-        _req(),
-        generate=lambda _p: "this is not JSON {{{",
-        log=lambda _: None,
-    )
-    assert plan.title == "Sage Game"
-    # Sanity floor still applies — 2D game gets a player sprite + audio.
-    roles = {r for r, _ in plan.sprite_roles}
-    assert "player" in roles
+def test_decompose_raises_on_malformed_json():
+    with pytest.raises(RuntimeError, match="decompose: LLM response had no JSON object"):
+        _decompose(
+            _req(),
+            generate=lambda _p: "this is not JSON {{{",
+            log=lambda _: None,
+        )
 
 
 def test_decompose_strips_surrounding_prose_around_json():
@@ -134,7 +128,11 @@ def test_decompose_ignores_malformed_list_entries():
 # ───────────────────────── _generate_assets ───────────────────────────
 
 
-def test_generate_assets_writes_manifest_files(tmp_path):
+def test_generate_assets_writes_manifest_files(tmp_path, monkeypatch):
+    from sage.games.assets import sprites as s
+    monkeypatch.setattr(s, "_vertex_available", lambda: True)
+    monkeypatch.setattr(s, "_imagen_generate", lambda prompt, size, out_path, style: out_path.write_bytes(b"\x89PNG\r\n\x1a\n"))
+
     plan = GamePlan(
         request=_req(), title="x", description="x",
         sprite_roles=[("hero", "blue ninja"), ("enemy", "red slime")],
@@ -157,15 +155,18 @@ def test_generate_assets_isolates_per_role_failures(tmp_path, monkeypatch):
     land in the manifest — the build shouldn't fail because one sprite
     couldn't be drawn."""
     from sage.games.assets import sprites as s
+    monkeypatch.setattr(s, "_vertex_available", lambda: True)
 
-    original = s.SpriteGenerator.generate
     call_log: list[str] = []
 
     def selective(self, role, prompt, *, size=(256, 256)):
         call_log.append(role)
         if role == "broken":
             raise RuntimeError("simulated imagen quota")
-        return original(self, role, prompt, size=size)
+        path = self.out_dir / f"{role}.png"
+        path.write_bytes(b"\x89PNG\r\n\x1a\n")
+        from sage.games.assets.sprites import SpriteResult
+        return SpriteResult(role, path, "imagen", *size)
 
     monkeypatch.setattr(s.SpriteGenerator, "generate", selective)
 
@@ -182,7 +183,11 @@ def test_generate_assets_isolates_per_role_failures(tmp_path, monkeypatch):
     assert set(call_log) == {"good", "broken", "alsoGood"}
 
 
-def test_generate_assets_progress_reports_totals(tmp_path):
+def test_generate_assets_progress_reports_totals(tmp_path, monkeypatch):
+    from sage.games.assets import sprites as s
+    monkeypatch.setattr(s, "_vertex_available", lambda: True)
+    monkeypatch.setattr(s, "_imagen_generate", lambda prompt, size, out_path, style: out_path.write_bytes(b"\x89PNG\r\n\x1a\n"))
+
     plan = GamePlan(
         request=_req(), title="x", description="x",
         sprite_roles=[("a", "x"), ("b", "y")],
@@ -260,10 +265,8 @@ def test_report_as_dict_round_trips():
     assert d["scripts_written"] == ["a.gd", "b.gd"]
 
 
-def test_build_game_decompose_failure_still_runs_pipeline(tmp_path, monkeypatch):
-    """If the decompose LLM call raises, the pipeline still produces a
-    scaffold + report — the user gets a placeholder game instead of an
-    exception."""
+def test_build_game_decompose_failure_propagates_exception(tmp_path, monkeypatch):
+    """If the decompose LLM call raises, the pipeline should propagate the exception."""
     adapter = get_adapter("godot")
     monkeypatch.setattr(adapter, "detect", lambda: Path(sys.executable))
 
@@ -281,24 +284,23 @@ def test_build_game_decompose_failure_still_runs_pipeline(tmp_path, monkeypatch)
     def flaky_generate(prompt: str) -> str:
         if "Output JSON" in prompt:
             raise RuntimeError("decompose model offline")
-        # emit_scripts still gets a valid response
         return "```Main.gd\nextends Node2D\nfunc _ready(): pass\n```\n"
 
-    report = build_game(
-        _req(engine="godot"), tmp_path / "out", flaky_generate,
-        progress=lambda _: None, heal_rounds=1,
-    )
-    assert report.engine == "godot"
-    assert report.build_artifact is not None
-    # Sanity-floor sprite/audio still emitted despite decompose failure.
-    assert report.sprite_count >= 1
-    assert report.audio_count >= 1
+    with pytest.raises(RuntimeError, match="decompose model offline"):
+        build_game(
+            _req(engine="godot"), tmp_path / "out", flaky_generate,
+            progress=lambda _: None, heal_rounds=1,
+        )
 
 
 def test_build_game_buildnotsupported_returns_partial_report(tmp_path, monkeypatch):
     """If the adapter raises BuildNotSupported mid-build (rare but valid),
     we must still return the partial report, not raise."""
     from sage.games.exceptions import BuildNotSupported
+    from sage.games.assets import sprites as s
+    monkeypatch.setattr(s, "_vertex_available", lambda: True)
+    monkeypatch.setattr(s, "_imagen_generate", lambda prompt, size, out_path, style: out_path.write_bytes(b"\x89PNG\r\n\x1a\n"))
+
     adapter = get_adapter("godot")
     monkeypatch.setattr(adapter, "detect", lambda: Path(sys.executable))
 
@@ -307,9 +309,13 @@ def test_build_game_buildnotsupported_returns_partial_report(tmp_path, monkeypat
     monkeypatch.setattr(adapter, "build", gui_only)
     monkeypatch.setitem(REGISTRY, "godot", lambda: adapter)
 
+    def gen(prompt: str) -> str:
+        if "Output JSON" in prompt:
+            return _decompose_json()
+        return "```Main.gd\nextends Node2D\nfunc _ready(): pass\n```\n"
+
     report = build_game(
-        _req(engine="godot"), tmp_path / "out",
-        lambda _: _decompose_json(),
+        _req(engine="godot"), tmp_path / "out", gen,
         progress=lambda _: None, heal_rounds=1,
     )
     # No artifact, but a real report carrying what got scaffolded.
@@ -320,6 +326,10 @@ def test_build_game_buildnotsupported_returns_partial_report(tmp_path, monkeypat
 def test_build_game_pipeline_carries_scripts_written_in_report(tmp_path, monkeypatch):
     """scripts_written should list the files relative to out_dir — the CLI
     prints these to the user as 'wrote N scripts'."""
+    from sage.games.assets import sprites as s
+    monkeypatch.setattr(s, "_vertex_available", lambda: True)
+    monkeypatch.setattr(s, "_imagen_generate", lambda prompt, size, out_path, style: out_path.write_bytes(b"\x89PNG\r\n\x1a\n"))
+
     adapter = get_adapter("godot")
     monkeypatch.setattr(adapter, "detect", lambda: Path(sys.executable))
 

@@ -12,5 +12,10 @@ pub mod git_refs;
 pub mod github_event;
 pub mod queue_info;
 pub mod queue_metadata;
+pub mod scopes_detect;
 pub mod scopes_send;
+pub mod tests_quarantine;
 pub mod tests_show;
+
+#[cfg(test)]
+mod testing;

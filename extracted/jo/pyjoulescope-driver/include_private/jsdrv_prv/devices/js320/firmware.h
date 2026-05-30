@@ -22,9 +22,9 @@
 #include <stdint.h>
 
 #define JS320_FIRMWARE_VERSION_MAJOR 0
-#define JS320_FIRMWARE_VERSION_MINOR 5
-#define JS320_FIRMWARE_VERSION_PATCH 8
-#define JS320_FIRMWARE_SIZE          523180
+#define JS320_FIRMWARE_VERSION_MINOR 6
+#define JS320_FIRMWARE_VERSION_PATCH 0
+#define JS320_FIRMWARE_SIZE          523483
 
 extern const uint8_t js320_firmware[];
 

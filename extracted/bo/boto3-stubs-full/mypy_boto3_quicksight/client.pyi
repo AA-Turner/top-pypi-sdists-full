@@ -49,6 +49,7 @@ from .paginator import (
     ListIAMPolicyAssignmentsPaginator,
     ListIngestionsPaginator,
     ListNamespacesPaginator,
+    ListOAuthClientApplicationsPaginator,
     ListRoleMembershipsPaginator,
     ListTemplateAliasesPaginator,
     ListTemplatesPaginator,
@@ -106,6 +107,8 @@ from .type_defs import (
     CreateIngestionResponseTypeDef,
     CreateNamespaceRequestTypeDef,
     CreateNamespaceResponseTypeDef,
+    CreateOAuthClientApplicationRequestTypeDef,
+    CreateOAuthClientApplicationResponseTypeDef,
     CreateRefreshScheduleRequestTypeDef,
     CreateRefreshScheduleResponseTypeDef,
     CreateRoleMembershipRequestTypeDef,
@@ -164,6 +167,8 @@ from .type_defs import (
     DeleteIdentityPropagationConfigResponseTypeDef,
     DeleteNamespaceRequestTypeDef,
     DeleteNamespaceResponseTypeDef,
+    DeleteOAuthClientApplicationRequestTypeDef,
+    DeleteOAuthClientApplicationResponseTypeDef,
     DeleteRefreshScheduleRequestTypeDef,
     DeleteRefreshScheduleResponseTypeDef,
     DeleteRoleCustomPermissionRequestTypeDef,
@@ -266,6 +271,8 @@ from .type_defs import (
     DescribeKeyRegistrationResponseTypeDef,
     DescribeNamespaceRequestTypeDef,
     DescribeNamespaceResponseTypeDef,
+    DescribeOAuthClientApplicationRequestTypeDef,
+    DescribeOAuthClientApplicationResponseTypeDef,
     DescribeQPersonalizationConfigurationRequestTypeDef,
     DescribeQPersonalizationConfigurationResponseTypeDef,
     DescribeQuickSightQSearchConfigurationRequestTypeDef,
@@ -360,6 +367,8 @@ from .type_defs import (
     ListIngestionsResponseTypeDef,
     ListNamespacesRequestTypeDef,
     ListNamespacesResponseTypeDef,
+    ListOAuthClientApplicationsRequestTypeDef,
+    ListOAuthClientApplicationsResponseTypeDef,
     ListRefreshSchedulesRequestTypeDef,
     ListRefreshSchedulesResponseTypeDef,
     ListRoleMembershipsRequestTypeDef,
@@ -492,6 +501,8 @@ from .type_defs import (
     UpdateIpRestrictionResponseTypeDef,
     UpdateKeyRegistrationRequestTypeDef,
     UpdateKeyRegistrationResponseTypeDef,
+    UpdateOAuthClientApplicationRequestTypeDef,
+    UpdateOAuthClientApplicationResponseTypeDef,
     UpdatePublicSharingSettingsRequestTypeDef,
     UpdatePublicSharingSettingsResponseTypeDef,
     UpdateQPersonalizationConfigurationRequestTypeDef,
@@ -796,6 +807,16 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_namespace)
         """
 
+    def create_o_auth_client_application(
+        self, **kwargs: Unpack[CreateOAuthClientApplicationRequestTypeDef]
+    ) -> CreateOAuthClientApplicationResponseTypeDef:
+        """
+        Creates an OAuthClientApplication.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_o_auth_client_application.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_o_auth_client_application)
+        """
+
     def create_refresh_schedule(
         self, **kwargs: Unpack[CreateRefreshScheduleRequestTypeDef]
     ) -> CreateRefreshScheduleResponseTypeDef:
@@ -1090,6 +1111,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_namespace.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_namespace)
+        """
+
+    def delete_o_auth_client_application(
+        self, **kwargs: Unpack[DeleteOAuthClientApplicationRequestTypeDef]
+    ) -> DeleteOAuthClientApplicationResponseTypeDef:
+        """
+        Deletes an OAuthClientApplication.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_o_auth_client_application.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_o_auth_client_application)
         """
 
     def delete_refresh_schedule(
@@ -1611,6 +1642,16 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_namespace)
         """
 
+    def describe_o_auth_client_application(
+        self, **kwargs: Unpack[DescribeOAuthClientApplicationRequestTypeDef]
+    ) -> DescribeOAuthClientApplicationResponseTypeDef:
+        """
+        Describes an OAuthClientApplication.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_o_auth_client_application.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_o_auth_client_application)
+        """
+
     def describe_q_personalization_configuration(
         self, **kwargs: Unpack[DescribeQPersonalizationConfigurationRequestTypeDef]
     ) -> DescribeQPersonalizationConfigurationResponseTypeDef:
@@ -2090,6 +2131,17 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_namespaces.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_namespaces)
+        """
+
+    def list_o_auth_client_applications(
+        self, **kwargs: Unpack[ListOAuthClientApplicationsRequestTypeDef]
+    ) -> ListOAuthClientApplicationsResponseTypeDef:
+        """
+        Lists all OAuthClientApplications in the current Amazon Web Services Region
+        that belong to this Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_o_auth_client_applications.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_o_auth_client_applications)
         """
 
     def list_refresh_schedules(
@@ -2757,6 +2809,16 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_key_registration)
         """
 
+    def update_o_auth_client_application(
+        self, **kwargs: Unpack[UpdateOAuthClientApplicationRequestTypeDef]
+    ) -> UpdateOAuthClientApplicationResponseTypeDef:
+        """
+        Updates an OAuthClientApplication.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_o_auth_client_application.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_o_auth_client_application)
+        """
+
     def update_public_sharing_settings(
         self, **kwargs: Unpack[UpdatePublicSharingSettingsRequestTypeDef]
     ) -> UpdatePublicSharingSettingsResponseTypeDef:
@@ -3193,6 +3255,17 @@ class QuickSightClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_namespaces"]
     ) -> ListNamespacesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_o_auth_client_applications"]
+    ) -> ListOAuthClientApplicationsPaginator:
         """
         Create a paginator for an operation.
 

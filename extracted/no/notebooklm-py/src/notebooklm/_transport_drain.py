@@ -45,11 +45,16 @@ D1-audit-full once its callers migrated; the field itself remains on
 from __future__ import annotations
 
 import asyncio
+import logging
 import weakref
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
 from ._loop_affinity import assert_bound_loop
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -106,6 +111,11 @@ class TransportDrainTracker:
         # to the loop that constructed it). ``None`` is a silent no-op
         # for standalone fixtures.
         self._bound_loop: asyncio.AbstractEventLoop | None = None
+        # ADR-014 Rule 1: close-time drain hooks are owned here, not on
+        # ``Session``. Insertion order is preserved (Python 3.7+ dict
+        # invariant) and :meth:`run_drain_hooks` fires them in that order
+        # under ``ClientLifecycle.close``.
+        self._drain_hooks: dict[str, Callable[[], Awaitable[None]]] = {}
 
     def set_bound_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
         """Capture or clear the event-loop binding for the affinity guard.
@@ -115,6 +125,30 @@ class TransportDrainTracker:
         clears the binding for the next ``open()`` (which will rebind).
         """
         self._bound_loop = loop
+
+    def reset_after_open(self) -> None:
+        """Clear the drain flag so a reopened client admits new transport work.
+
+        Called from :meth:`ClientLifecycle.open` (immediately after the
+        per-collaborator ``set_bound_loop`` propagation and before the
+        ``Kernel.open`` await) so a previously-drained-then-reopened client
+        admits new top-level operations again. Encapsulates the legacy
+        direct write ``host._drain_tracker._draining = False`` (Wave 1 of
+        plan ``host-protocol-removal``) so the lifecycle never touches the
+        private ``_draining`` field on this collaborator.
+
+        Deliberately narrow: this resets ONLY the ``_draining`` flag. The
+        ``_in_flight_posts`` counter, ``_operation_depths`` map, and lazily
+        bound ``_drain_condition`` are left untouched — clearing those would
+        break the load-bearing in-flight bookkeeping invariants asserted by
+        ``tests/unit/test_observability.py::test_drain_allows_nested_work_inside_accepted_operation``
+        and ``tests/unit/concurrency/test_close_cancellation_leak.py``.
+        Field-level locking is intentionally not used here: the legacy
+        direct write was an unlocked assignment, asyncio is single-threaded,
+        and the assignment is atomic in CPython — adding a condition acquire
+        would only serialise a no-op against in-flight transport begins.
+        """
+        self._draining = False
 
     def get_drain_condition(self) -> asyncio.Condition:
         """Return the per-instance drain ``asyncio.Condition``, creating it lazily.
@@ -212,6 +246,66 @@ class TransportDrainTracker:
             self._in_flight_posts -= 1
             if self._in_flight_posts == 0:
                 condition.notify_all()
+
+    @asynccontextmanager
+    async def operation_scope(self, label: str) -> AsyncIterator[None]:
+        """Drain-tracked operation scope for feature-owned work (ADR-014 Rule 1).
+
+        Wraps :meth:`begin_transport_post` / :meth:`finish_transport_post`
+        so feature code can write ``async with tracker.operation_scope("upload"):``
+        without managing the token by hand. Satisfies ``OperationScopeProvider``
+        directly — ``Session.operation_scope`` becomes a thin forward.
+        """
+        token = await self.begin_transport_post(label)
+        try:
+            yield None
+        finally:
+            await self.finish_transport_post(token)
+
+    def register_drain_hook(self, name: str, hook: Callable[[], Awaitable[None]]) -> None:
+        """Register or replace a feature-owned close-time drain hook.
+
+        ADR-014 Rule 1 + close-out for plan Wave 0.5: the storage moved from
+        ``Session._drain_hooks`` to this tracker so ``DrainHookRegistration``
+        is satisfied directly. ``ClientLifecycle.close`` fires registered
+        hooks via :meth:`run_drain_hooks`.
+        """
+        self._drain_hooks[name] = hook
+
+    async def run_drain_hooks(self) -> None:
+        """Fire every registered drain hook in registration order.
+
+        Called from two sites during a graceful ``close(drain=True)``: first
+        from ``NotebookLMClient.close`` *before* the drain wait (so a poll
+        counted in ``operation_scope`` is cancelled-and-settled rather than
+        blocking ``drain()`` — issue #1161), then again from
+        ``ClientLifecycle.close`` after the auth-refresh task has been
+        cancelled and before the HTTP client is shut down. Hooks must
+        therefore tolerate being re-run; the production poll hook
+        (``artifacts.polls``) is a no-op on the second run because
+        already-settled poll tasks are filtered out of
+        ``PollRegistry.active_tasks``. The ``drain=False`` and lifecycle-only
+        paths invoke it just once.
+
+        Exceptions in individual hooks are caught and logged via
+        ``logger.warning`` (with the registration ``name`` so operators can
+        identify the misbehaving feature), then suppressed so a single
+        misbehaving hook cannot block the shutdown path. The hooks fire
+        concurrently via ``asyncio.gather(..., return_exceptions=True)`` —
+        the per-hook log happens after the gather completes.
+        """
+        named_hooks = list(self._drain_hooks.items())
+        if not named_hooks:
+            return
+        results = await asyncio.gather(
+            *(hook() for _name, hook in named_hooks),
+            return_exceptions=True,
+        )
+        for (name, _hook), result in zip(named_hooks, results, strict=True):
+            if isinstance(result, BaseException):
+                logger.warning(
+                    "Drain hook %r raised during close: %s", name, result, exc_info=result
+                )
 
     async def drain(self, timeout: float | None = None) -> None:
         """Stop accepting new top-level work and wait for in-flight ops to finish.

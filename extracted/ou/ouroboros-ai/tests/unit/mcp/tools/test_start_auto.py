@@ -14,15 +14,27 @@ from datetime import UTC, datetime, timedelta
 import inspect
 import json
 import os
+import re
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from ouroboros.auto.ledger import SeedDraftLedger
 from ouroboros.auto.pipeline import AutoPipelineResult
-from ouroboros.auto.state import AutoPipelineState, AutoStore
+from ouroboros.auto.state import (
+    AutoCommitPolicy,
+    AutoPipelineState,
+    AutoStore,
+    AutoWorktreePolicy,
+)
 from ouroboros.core.types import Result
-from ouroboros.mcp.tools.auto_handler import AutoHandler, StartAutoHandler
+from ouroboros.mcp.job_manager import JobManager, JobStatus
+from ouroboros.mcp.tools.auto_handler import (
+    AutoHandler,
+    StartAutoHandler,
+    _reconcile_execution_job_snapshot,
+)
+from ouroboros.mcp.tools.job_handlers import JobResultHandler, JobStatusHandler, JobWaitHandler
 from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
 from ouroboros.persistence.event_store import EventStore
 
@@ -66,6 +78,98 @@ Success criteria:
 Important dispatch rule:
 If `ouroboros_auto` is unavailable or interpreted as normal text, stop and report failure.
 """
+
+
+_AUTO_ID_RE = re.compile(r"auto_[0-9a-f]+")
+_UUID_HEX_RE = re.compile(r"\b[0-9a-f]{32}\b")
+
+
+def _normalize_detached_auto_response(value):
+    """Scrub generated handles while preserving rendered response structure."""
+    if isinstance(value, dict):
+        return {key: _normalize_detached_auto_response(item) for key, item in sorted(value.items())}
+    if isinstance(value, (list, tuple)):
+        return [_normalize_detached_auto_response(item) for item in value]
+    if isinstance(value, str):
+        value = _AUTO_ID_RE.sub("auto_<id>", value)
+        value = _UUID_HEX_RE.sub("<uuid>", value)
+        return value
+    return value
+
+
+def _serializable_tool_result(result: MCPToolResult) -> dict[str, object]:
+    return {
+        "content": [
+            {
+                "type": item.type.value,
+                "text": item.text,
+                "data": item.data,
+                "mime_type": item.mime_type,
+                "uri": item.uri,
+            }
+            for item in result.content
+        ],
+        "is_error": result.is_error,
+        "meta": result.meta,
+    }
+
+
+def _assert_detached_start_text_has_guidance_without_handles(
+    result: MCPToolResult,
+    *,
+    job_id: str,
+    auto_session_id: str,
+) -> None:
+    text = result.text_content
+    assert text == (
+        "Started background auto session.\n\n"
+        "Status: queued\n\n"
+        "Track with ouroboros_job_wait / ouroboros_job_status until terminal, "
+        "then fetch ouroboros_job_result. Use response metadata for job_id "
+        "and auto_session_id."
+    )
+    assert "ouroboros_job_wait" in text
+    assert "ouroboros_job_status" in text
+    assert "ouroboros_job_result" in text
+    assert job_id not in text
+    assert auto_session_id not in text
+    assert not _AUTO_ID_RE.search(text)
+    assert not _UUID_HEX_RE.search(text)
+
+
+@pytest.mark.asyncio
+async def test_reconcile_execution_job_does_not_complete_detached_ralph_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Execution completion must not override active Ralph detached evidence."""
+
+    class FakeJobManager:
+        async def get_snapshot(self, job_id: str):  # pragma: no cover
+            raise AssertionError(f"should not inspect execution job for {job_id}")
+
+    monkeypatch.setattr(
+        "ouroboros.mcp.tools.auto_handler.JobManager",
+        lambda: FakeJobManager(),
+    )
+    result = AutoPipelineResult(
+        status="detached",
+        auto_session_id="auto_detached",
+        phase="ralph_handoff",
+        job_id="job_execution_done",
+        execution_id="exec_done",
+        run_session_id="orch_done",
+        ralph_job_id="job_ralph_running",
+        ralph_lineage_id="lin_ralph_running",
+        ralph_dispatch_mode="job",
+        execution_job_status=JobStatus.COMPLETED.value,
+    )
+
+    reconciled = await _reconcile_execution_job_snapshot(result)
+
+    assert reconciled is result
+    assert reconciled.status == "detached"
+    assert reconciled.phase == "ralph_handoff"
+    assert reconciled.ralph_job_id == "job_ralph_running"
 
 
 @pytest.fixture
@@ -213,19 +317,688 @@ class TestBackgroundJobPath:
         auto_session_id = result.value.meta["auto_session_id"]
         assert isinstance(auto_session_id, str)
         assert auto_session_id.startswith("auto_")
-        assert result.value.content[0].text == (
-            "Started background auto session. job_id=job_auto_001\n\n"
-            f"Auto session ID: {auto_session_id}\n\n"
-            "Poll with ouroboros_job_status / ouroboros_job_wait."
+        _assert_detached_start_text_has_guidance_without_handles(
+            result.value,
+            job_id="job_auto_001",
+            auto_session_id=auto_session_id,
         )
         assert result.value.meta["job_id"] == "job_auto_001"
         assert result.value.meta["session_id"] == auto_session_id
         assert result.value.meta["dispatch_mode"] == "job"
+        assert result.value.meta["status_tool"] == "ouroboros_job_status"
+        assert result.value.meta["wait_tool"] == "ouroboros_job_wait"
+        assert result.value.meta["result_tool"] == "ouroboros_job_result"
         assert captured["links"].session_id == auto_session_id
         assert store.path_for(auto_session_id).exists()
         # The inner AutoHandler must NOT have run synchronously — the runner is
         # enqueued on the JobManager only.
         fake_inner_auto.handle.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_mcp_start_auto_detached_response_text_is_deterministic_for_identical_input(
+        self, event_store, fake_inner_auto, tmp_path
+    ) -> None:
+        async def _invoke(store_path, job_id: str) -> MCPToolResult:
+            job_manager = MagicMock()
+            snapshot = MagicMock()
+            snapshot.job_id = job_id
+
+            async def _start_job(*, runner, **_):
+                if inspect.iscoroutine(runner):
+                    runner.close()
+                return snapshot
+
+            job_manager.start_job = AsyncMock(side_effect=_start_job)
+            handler = StartAutoHandler(
+                event_store=event_store,
+                job_manager=job_manager,
+                store=AutoStore(store_path),
+            )
+            handler._inner_auto = fake_inner_auto
+
+            result = await handler.handle({"goal": "document detached auto polling"})
+            assert result.is_ok
+            return result.value
+
+        first = await _invoke(tmp_path / "first", "job_auto_001")
+        second = await _invoke(tmp_path / "second", "job_auto_002")
+
+        assert first.text_content == second.text_content
+        assert first.meta["job_id"] != second.meta["job_id"]
+        assert first.meta["auto_session_id"] != second.meta["auto_session_id"]
+        _assert_detached_start_text_has_guidance_without_handles(
+            first,
+            job_id=first.meta["job_id"],
+            auto_session_id=first.meta["auto_session_id"],
+        )
+        _assert_detached_start_text_has_guidance_without_handles(
+            second,
+            job_id=second.meta["job_id"],
+            auto_session_id=second.meta["auto_session_id"],
+        )
+        assert first.meta["status"] == second.meta["status"] == "queued"
+        assert first.meta["dispatch_mode"] == second.meta["dispatch_mode"] == "job"
+        assert first.meta["wait_tool"] == second.meta["wait_tool"] == "ouroboros_job_wait"
+        fake_inner_auto.handle.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_mcp_start_auto_response_job_handle_can_poll_and_fetch_result(
+        self, event_store, tmp_path
+    ) -> None:
+        """Runnable API check for the detached start handle contract."""
+        job_manager = JobManager(event_store)
+        store = AutoStore(tmp_path)
+        inner_started = asyncio.Event()
+        release_inner = asyncio.Event()
+
+        async def _pollable_auto(arguments):
+            inner_started.set()
+            await release_inner.wait()
+            return Result.ok(
+                MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="detached result"),),
+                    is_error=False,
+                    meta={
+                        "auto_session_id": arguments["resume"],
+                        "status": "completed",
+                        "artifact": "detached-auto-result",
+                    },
+                )
+            )
+
+        inner = MagicMock(spec=AutoHandler)
+        inner.handle = AsyncMock(side_effect=_pollable_auto)
+        handler = StartAutoHandler(
+            event_store=event_store,
+            job_manager=job_manager,
+            store=store,
+        )
+        handler._inner_auto = inner
+
+        started = await handler.handle({"goal": "return a stable detached auto handle"})
+
+        try:
+            assert started.is_ok
+            job_id = started.value.meta["job_id"]
+            auto_session_id = started.value.meta["auto_session_id"]
+            assert re.fullmatch(r"job_[0-9a-f]{12}", job_id)
+            assert isinstance(auto_session_id, str)
+            assert auto_session_id.startswith("auto_")
+            assert started.value.meta == {
+                "job_id": job_id,
+                "auto_session_id": auto_session_id,
+                "session_id": auto_session_id,
+                "status": "queued",
+                "dispatch_mode": "job",
+                "status_tool": "ouroboros_job_status",
+                "wait_tool": "ouroboros_job_wait",
+                "result_tool": "ouroboros_job_result",
+            }
+
+            await asyncio.wait_for(inner_started.wait(), timeout=1.0)
+
+            status_handler = JobStatusHandler(event_store=event_store, job_manager=job_manager)
+            status = await status_handler.handle({"job_id": job_id, "view": "summary"})
+
+            assert status.is_ok
+            assert status.value.meta["job_id"] == job_id
+            assert status.value.meta["session_id"] == auto_session_id
+            assert status.value.meta["status"] in {"queued", "running"}
+            assert status.value.meta["is_terminal"] is False
+
+            release_inner.set()
+            wait_handler = JobWaitHandler(event_store=event_store, job_manager=job_manager)
+            terminal = None
+            for _ in range(50):
+                waited = await wait_handler.handle(
+                    {"job_id": job_id, "cursor": 0, "timeout_seconds": 0, "view": "summary"}
+                )
+                assert waited.is_ok
+                if waited.value.meta["is_terminal"]:
+                    terminal = waited.value
+                    break
+                await asyncio.sleep(0.01)
+
+            assert terminal is not None
+            assert terminal.meta["job_id"] == job_id
+            assert terminal.meta["session_id"] == auto_session_id
+            assert terminal.meta["status"] == "completed"
+
+            result_handler = JobResultHandler(event_store=event_store, job_manager=job_manager)
+            fetched = await result_handler.handle({"job_id": job_id})
+
+            assert fetched.is_ok
+            assert fetched.value.text_content == "detached result"
+            assert fetched.value.meta["job_id"] == job_id
+            assert fetched.value.meta["session_id"] == auto_session_id
+            assert fetched.value.meta["auto_session_id"] == auto_session_id
+            assert fetched.value.meta["status"] == "completed"
+            assert fetched.value.meta["is_terminal"] is True
+            assert fetched.value.meta["artifact"] == "detached-auto-result"
+        finally:
+            release_inner.set()
+
+    @pytest.mark.asyncio
+    async def test_mcp_start_auto_status_reports_running_detached_background_work(
+        self, event_store, tmp_path
+    ) -> None:
+        job_manager = JobManager(event_store)
+        store = AutoStore(tmp_path)
+        inner_started = asyncio.Event()
+        release_inner = asyncio.Event()
+
+        async def _blocking_auto(_arguments):
+            inner_started.set()
+            await release_inner.wait()
+            return Result.ok(
+                MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="detached auto done"),),
+                    is_error=False,
+                    meta={"auto_session_id": "auto_running_status"},
+                )
+            )
+
+        inner = MagicMock(spec=AutoHandler)
+        inner.handle = AsyncMock(side_effect=_blocking_auto)
+        handler = StartAutoHandler(
+            event_store=event_store,
+            job_manager=job_manager,
+            store=store,
+        )
+        handler._inner_auto = inner
+
+        started = await handler.handle({"goal": "keep detached auto observable"})
+
+        try:
+            assert started.is_ok
+            job_id = started.value.meta["job_id"]
+            auto_session_id = started.value.meta["auto_session_id"]
+            await asyncio.wait_for(inner_started.wait(), timeout=1.0)
+
+            deadline = asyncio.get_running_loop().time() + 1.0
+            snapshot = await job_manager.get_snapshot(job_id)
+            while snapshot.status is not JobStatus.RUNNING:
+                if asyncio.get_running_loop().time() >= deadline:
+                    raise AssertionError(
+                        f"job {job_id} did not become running; last={snapshot.status}"
+                    )
+                await asyncio.sleep(0.01)
+                snapshot = await job_manager.get_snapshot(job_id)
+
+            status_handler = JobStatusHandler(event_store=event_store, job_manager=job_manager)
+            status = await status_handler.handle({"job_id": job_id, "view": "full"})
+
+            assert status.is_ok
+            assert status.value.is_error is False
+            assert status.value.meta["job_id"] == job_id
+            assert status.value.meta["status"] == "running"
+            assert status.value.meta["status"] not in {"completed", "failed", "cancelled"}
+            assert status.value.meta["is_terminal"] is False
+            assert status.value.meta["result_available"] is False
+            assert status.value.meta["session_id"] == auto_session_id
+            assert status.value.meta["view"] == "full"
+            assert f"## Job: {job_id}" in status.value.text_content
+            assert "**Type**: auto" in status.value.text_content
+            assert "**Status**: running" in status.value.text_content
+            assert "**Terminal**: false" in status.value.text_content
+            assert "**Status**: completed" not in status.value.text_content
+            assert "**Status**: failed" not in status.value.text_content
+            assert "**Status**: cancelled" not in status.value.text_content
+            assert (
+                "**Tracking**: detached auto tracked background work" in status.value.text_content
+            )
+            assert f"**Session ID**: {auto_session_id}" in status.value.text_content
+            assert "Use `ouroboros_job_result` to fetch the full terminal output." not in (
+                status.value.text_content
+            )
+        finally:
+            release_inner.set()
+            if started.is_ok:
+                job_id = started.value.meta["job_id"]
+                deadline = asyncio.get_running_loop().time() + 1.0
+                snapshot = await job_manager.get_snapshot(job_id)
+                while snapshot.status is not JobStatus.COMPLETED:
+                    if asyncio.get_running_loop().time() >= deadline:
+                        break
+                    await asyncio.sleep(0.01)
+                    snapshot = await job_manager.get_snapshot(job_id)
+
+    @pytest.mark.asyncio
+    async def test_mcp_start_auto_wait_reports_stable_running_detached_output(
+        self, event_store, tmp_path
+    ) -> None:
+        """Runnable API check for observable wait output while auto is still running."""
+        job_manager = JobManager(event_store)
+        store = AutoStore(tmp_path)
+        inner_started = asyncio.Event()
+        release_inner = asyncio.Event()
+
+        async def _blocking_auto(_arguments):
+            inner_started.set()
+            await release_inner.wait()
+            return Result.ok(
+                MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="detached auto done"),),
+                    is_error=False,
+                    meta={"auto_session_id": "auto_running_wait"},
+                )
+            )
+
+        inner = MagicMock(spec=AutoHandler)
+        inner.handle = AsyncMock(side_effect=_blocking_auto)
+        handler = StartAutoHandler(
+            event_store=event_store,
+            job_manager=job_manager,
+            store=store,
+        )
+        handler._inner_auto = inner
+
+        started = await handler.handle({"goal": "keep detached auto wait observable"})
+
+        try:
+            assert started.is_ok
+            job_id = started.value.meta["job_id"]
+            auto_session_id = started.value.meta["auto_session_id"]
+            await asyncio.wait_for(inner_started.wait(), timeout=1.0)
+
+            deadline = asyncio.get_running_loop().time() + 1.0
+            snapshot = await job_manager.get_snapshot(job_id)
+            while snapshot.status is not JobStatus.RUNNING:
+                if asyncio.get_running_loop().time() >= deadline:
+                    raise AssertionError(
+                        f"job {job_id} did not become running; last={snapshot.status}"
+                    )
+                await asyncio.sleep(0.01)
+                snapshot = await job_manager.get_snapshot(job_id)
+
+            wait_handler = JobWaitHandler(event_store=event_store, job_manager=job_manager)
+            arguments = {
+                "job_id": job_id,
+                "cursor": snapshot.cursor,
+                "timeout_seconds": 0,
+                "view": "full",
+            }
+
+            first = await wait_handler.handle(arguments)
+            second = await wait_handler.handle(arguments)
+
+            assert first.is_ok
+            assert second.is_ok
+            assert first.value.text_content == second.value.text_content
+            assert first.value.meta == second.value.meta
+            assert first.value.meta["job_id"] == job_id
+            assert first.value.meta["status"] == "running"
+            assert first.value.meta["is_terminal"] is False
+            assert first.value.meta["changed"] is False
+            assert first.value.meta["session_id"] == auto_session_id
+            assert f"## Job: {job_id}" in first.value.text_content
+            assert "**Type**: auto" in first.value.text_content
+            assert "**Status**: running" in first.value.text_content
+            assert "**Terminal**: false" in first.value.text_content
+            assert "**Tracking**: detached auto tracked background work" in first.value.text_content
+            assert f"**Session ID**: {auto_session_id}" in first.value.text_content
+            assert "No new job-level events during this wait window." in first.value.text_content
+            assert "Use `ouroboros_job_result` to fetch the full terminal output." not in (
+                first.value.text_content
+            )
+        finally:
+            release_inner.set()
+            if started.is_ok:
+                deadline = asyncio.get_running_loop().time() + 1.0
+                snapshot = await job_manager.get_snapshot(started.value.meta["job_id"])
+                while snapshot.status is not JobStatus.COMPLETED:
+                    if asyncio.get_running_loop().time() >= deadline:
+                        break
+                    await asyncio.sleep(0.01)
+                    snapshot = await job_manager.get_snapshot(started.value.meta["job_id"])
+
+    @pytest.mark.asyncio
+    async def test_mcp_start_auto_wait_then_result_returns_completed_artifact(
+        self, event_store, tmp_path
+    ) -> None:
+        job_manager = JobManager(event_store)
+        store = AutoStore(tmp_path)
+        inner = MagicMock(spec=AutoHandler)
+        inner.handle = AsyncMock(
+            return_value=Result.ok(
+                MCPToolResult(
+                    content=(
+                        MCPContentItem(type=ContentType.TEXT, text="detached auto finished"),
+                        MCPContentItem(
+                            type=ContentType.RESOURCE,
+                            uri="file:///tmp/detached-auto-result.json",
+                        ),
+                    ),
+                    is_error=False,
+                    meta={
+                        "auto_session_id": "auto_completed_result",
+                        "status": "completed",
+                        "result": {
+                            "artifact": "detached-auto-result.json",
+                            "ok": True,
+                        },
+                    },
+                )
+            )
+        )
+        handler = StartAutoHandler(
+            event_store=event_store,
+            job_manager=job_manager,
+            store=store,
+        )
+        handler._inner_auto = inner
+
+        started = await handler.handle({"goal": "produce a detached auto artifact"})
+
+        assert started.is_ok
+        job_id = started.value.meta["job_id"]
+        auto_session_id = started.value.meta["auto_session_id"]
+        wait_handler = JobWaitHandler(event_store=event_store, job_manager=job_manager)
+        result_handler = JobResultHandler(event_store=event_store, job_manager=job_manager)
+
+        terminal_wait = None
+        cursor = 0
+        # Advance the cursor and use a blocking per-wait timeout under a generous
+        # wall-clock deadline so the background runner reaches terminal even on a
+        # slow/loaded CI runner. A fixed tiny busy-poll budget races the dispatch.
+        deadline = asyncio.get_running_loop().time() + 10.0
+        while asyncio.get_running_loop().time() < deadline:
+            wait_result = await wait_handler.handle(
+                {"job_id": job_id, "cursor": cursor, "timeout_seconds": 2, "view": "summary"}
+            )
+            assert wait_result.is_ok
+            cursor = wait_result.value.meta["cursor"]
+            if wait_result.value.meta["is_terminal"]:
+                terminal_wait = wait_result.value
+                break
+
+        assert terminal_wait is not None
+        assert terminal_wait.meta["status"] == "completed"
+        assert terminal_wait.meta["session_id"] == auto_session_id
+        assert job_id in terminal_wait.text_content
+
+        completed = await result_handler.handle({"job_id": job_id})
+
+        assert completed.is_ok
+        assert completed.value.is_error is False
+        assert completed.value.content == (
+            MCPContentItem(type=ContentType.TEXT, text="detached auto finished"),
+            MCPContentItem(
+                type=ContentType.RESOURCE,
+                uri="file:///tmp/detached-auto-result.json",
+            ),
+        )
+        assert completed.value.meta["job_id"] == job_id
+        assert completed.value.meta["status"] == "completed"
+        assert completed.value.meta["is_terminal"] is True
+        assert completed.value.meta["session_id"] == auto_session_id
+        assert completed.value.meta["auto_session_id"] == "auto_completed_result"
+        assert completed.value.meta["result"] == {
+            "artifact": "detached-auto-result.json",
+            "ok": True,
+        }
+        assert completed.value.meta["result_payload"] == {
+            "content": [
+                {
+                    "type": "text",
+                    "text": "detached auto finished",
+                    "data": None,
+                    "mime_type": None,
+                    "uri": None,
+                },
+                {
+                    "type": "resource",
+                    "text": None,
+                    "data": None,
+                    "mime_type": None,
+                    "uri": "file:///tmp/detached-auto-result.json",
+                },
+            ],
+            "is_error": False,
+            "meta": {
+                "auto_session_id": "auto_completed_result",
+                "status": "completed",
+                "result": {
+                    "artifact": "detached-auto-result.json",
+                    "ok": True,
+                },
+            },
+            "text_content": "detached auto finished",
+        }
+        assert completed.value.text_content == "detached auto finished"
+
+        repeated = await result_handler.handle({"job_id": job_id})
+
+        assert repeated.is_ok
+        assert repeated.value.content == completed.value.content
+        assert repeated.value.meta == completed.value.meta
+        assert repeated.value.text_content == completed.value.text_content
+        inner.handle.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_mcp_detached_auto_failed_result_returns_stable_error_output(
+        self, event_store, tmp_path
+    ) -> None:
+        """Runnable API check for failed detached auto result retrieval."""
+        job_manager = JobManager(event_store)
+        store = AutoStore(tmp_path)
+        inner = MagicMock(spec=AutoHandler)
+        inner.handle = AsyncMock(
+            return_value=Result.ok(
+                MCPToolResult(
+                    content=(
+                        MCPContentItem(
+                            type=ContentType.TEXT,
+                            text="detached auto failed: seed repair did not converge",
+                        ),
+                    ),
+                    is_error=True,
+                    meta={
+                        "auto_session_id": "auto_failed_result",
+                        "status": "failed",
+                        "error": {
+                            "code": "seed_repair_exhausted",
+                            "message": "Seed repair did not converge",
+                        },
+                    },
+                )
+            )
+        )
+        handler = StartAutoHandler(
+            event_store=event_store,
+            job_manager=job_manager,
+            store=store,
+        )
+        handler._inner_auto = inner
+
+        started = await handler.handle({"goal": "surface detached auto failure"})
+
+        assert started.is_ok
+        job_id = started.value.meta["job_id"]
+        auto_session_id = started.value.meta["auto_session_id"]
+        wait_handler = JobWaitHandler(event_store=event_store, job_manager=job_manager)
+        result_handler = JobResultHandler(event_store=event_store, job_manager=job_manager)
+
+        terminal_wait = None
+        cursor = 0
+        # Advance the cursor and use a blocking per-wait timeout under a generous
+        # wall-clock deadline so the background runner reaches terminal even on a
+        # slow/loaded CI runner. A fixed tiny busy-poll budget races the dispatch.
+        deadline = asyncio.get_running_loop().time() + 10.0
+        while asyncio.get_running_loop().time() < deadline:
+            wait_result = await wait_handler.handle(
+                {"job_id": job_id, "cursor": cursor, "timeout_seconds": 2, "view": "summary"}
+            )
+            assert wait_result.is_ok
+            cursor = wait_result.value.meta["cursor"]
+            if wait_result.value.meta["is_terminal"]:
+                terminal_wait = wait_result.value
+                break
+
+        assert terminal_wait is not None
+        assert terminal_wait.is_error is True
+        assert terminal_wait.meta["job_id"] == job_id
+        assert terminal_wait.meta["session_id"] == auto_session_id
+        assert terminal_wait.meta["status"] == "failed"
+        assert terminal_wait.meta["lifecycle_status"] == "failed"
+        assert terminal_wait.meta["status_category"] == "terminal"
+        assert terminal_wait.meta["is_terminal"] is True
+        assert terminal_wait.meta["result_available"] is True
+
+        first = await result_handler.handle({"job_id": job_id})
+        second = await result_handler.handle({"job_id": job_id})
+
+        assert first.is_ok
+        assert second.is_ok
+        assert first.value.is_error is True
+        assert second.value.is_error is True
+        assert _serializable_tool_result(first.value) == _serializable_tool_result(second.value)
+        assert first.value.content == (
+            MCPContentItem(
+                type=ContentType.TEXT,
+                text="detached auto failed: seed repair did not converge",
+            ),
+        )
+        assert first.value.text_content == "detached auto failed: seed repair did not converge"
+        assert first.value.meta["job_id"] == job_id
+        assert first.value.meta["session_id"] == auto_session_id
+        assert first.value.meta["auto_session_id"] == "auto_failed_result"
+        assert first.value.meta["status"] == "failed"
+        assert first.value.meta["lifecycle_status"] == "failed"
+        assert first.value.meta["status_category"] == "terminal"
+        assert first.value.meta["is_terminal"] is True
+        assert first.value.meta["result_available"] is True
+        assert first.value.meta["error"] == {
+            "code": "seed_repair_exhausted",
+            "message": "Seed repair did not converge",
+        }
+        assert first.value.meta["result_payload"] == {
+            "content": [
+                {
+                    "type": "text",
+                    "text": "detached auto failed: seed repair did not converge",
+                    "data": None,
+                    "mime_type": None,
+                    "uri": None,
+                },
+            ],
+            "is_error": True,
+            "meta": {
+                "auto_session_id": "auto_failed_result",
+                "status": "failed",
+                "error": {
+                    "code": "seed_repair_exhausted",
+                    "message": "Seed repair did not converge",
+                },
+            },
+            "text_content": "detached auto failed: seed repair did not converge",
+        }
+        inner.handle.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_mcp_detached_auto_interrupted_result_surfaces_as_error(
+        self, event_store, tmp_path
+    ) -> None:
+        """Interrupted is terminal-and-error; result/status must not report success."""
+        job_manager = JobManager(event_store)
+        store = AutoStore(tmp_path)
+        inner = MagicMock(spec=AutoHandler)
+        inner.handle = AsyncMock(
+            return_value=Result.ok(
+                MCPToolResult(
+                    content=(
+                        MCPContentItem(
+                            type=ContentType.TEXT,
+                            text="detached auto interrupted: budget exhausted mid-run",
+                        ),
+                    ),
+                    is_error=True,
+                    meta={
+                        "auto_session_id": "auto_interrupted_result",
+                        "status": "interrupted",
+                        "error": {
+                            "code": "wall_clock_exhausted",
+                            "message": "Interrupted before terminal verdict",
+                        },
+                    },
+                )
+            )
+        )
+        handler = StartAutoHandler(
+            event_store=event_store,
+            job_manager=job_manager,
+            store=store,
+        )
+        handler._inner_auto = inner
+
+        started = await handler.handle({"goal": "surface detached auto interruption"})
+
+        assert started.is_ok
+        job_id = started.value.meta["job_id"]
+        wait_handler = JobWaitHandler(event_store=event_store, job_manager=job_manager)
+        status_handler = JobStatusHandler(event_store=event_store, job_manager=job_manager)
+        result_handler = JobResultHandler(event_store=event_store, job_manager=job_manager)
+
+        terminal_wait = None
+        cursor = 0
+        deadline = asyncio.get_running_loop().time() + 10.0
+        while asyncio.get_running_loop().time() < deadline:
+            wait_result = await wait_handler.handle(
+                {"job_id": job_id, "cursor": cursor, "timeout_seconds": 2, "view": "summary"}
+            )
+            assert wait_result.is_ok
+            cursor = wait_result.value.meta["cursor"]
+            if wait_result.value.meta["is_terminal"]:
+                terminal_wait = wait_result.value
+                break
+
+        assert terminal_wait is not None
+        # The regression: an interrupted terminal job must not be reported as success.
+        assert terminal_wait.is_error is True
+        assert terminal_wait.meta["status"] == "interrupted"
+        assert terminal_wait.meta["lifecycle_status"] == "interrupted"
+        assert terminal_wait.meta["status_category"] == "terminal"
+
+        status = await status_handler.handle({"job_id": job_id})
+        assert status.is_ok
+        assert status.value.is_error is True
+        assert status.value.meta["status"] == "interrupted"
+
+        result = await result_handler.handle({"job_id": job_id})
+        assert result.is_ok
+        assert result.value.is_error is True
+        assert result.value.meta["status"] == "interrupted"
+        assert result.value.meta["is_terminal"] is True
+        assert result.value.meta["result_payload"]["is_error"] is True
+        inner.handle.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_mcp_detached_auto_result_invalid_handle_returns_stable_failure(
+        self, event_store
+    ) -> None:
+        job_id = "job_missing_detached_auto"
+        handler = JobResultHandler(event_store=event_store)
+
+        first = await handler.handle({"job_id": job_id})
+        second = await handler.handle({"job_id": job_id})
+
+        assert first.is_err
+        assert second.is_err
+        assert first.error.tool_name == "ouroboros_job_result"
+        assert first.error.error_code == "job_handle_not_found"
+        assert first.error.message == f"Job handle not found: {job_id}. Result unavailable."
+        assert first.error.details == {
+            "job_id": job_id,
+            "lifecycle_status": "invalid",
+            "is_terminal": True,
+            "result_available": False,
+            "reason": "not_found",
+            "source_error": f"Job not found: {job_id}",
+        }
+        assert second.error.tool_name == first.error.tool_name
+        assert second.error.error_code == first.error.error_code
+        assert second.error.message == first.error.message
+        assert second.error.details == first.error.details
 
     @pytest.mark.asyncio
     async def test_new_structured_goal_preallocates_seed_ready_ledger(
@@ -254,6 +1027,67 @@ class TestBackgroundJobPath:
         assert "failure_modes" in state.user_preferences
         assert SeedDraftLedger.from_dict(state.ledger).open_gaps() == []
         fake_inner_auto.handle.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_new_coding_goal_preallocates_coding_policy_defaults(
+        self, event_store, tmp_path, fake_inner_auto
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+        job_manager = MagicMock()
+        snapshot = MagicMock()
+        snapshot.job_id = "job_auto_coding_defaults"
+
+        async def _start_job(*, runner, **_):
+            if inspect.iscoroutine(runner):
+                runner.close()
+            return snapshot
+
+        job_manager.start_job = AsyncMock(side_effect=_start_job)
+        store = AutoStore(tmp_path / "store")
+        h = StartAutoHandler(event_store=event_store, job_manager=job_manager, store=store)
+        h._inner_auto = fake_inner_auto
+
+        result = await h.handle({"goal": "build a CLI", "cwd": str(tmp_path)})
+
+        assert result.is_ok
+        state = store.load(result.value.meta["auto_session_id"])
+        assert state.active_domain_profile_name == "coding"
+        assert state.commit_policy is AutoCommitPolicy.AC_CHECKPOINT
+        assert state.worktree_policy is AutoWorktreePolicy.AUTO
+
+    @pytest.mark.asyncio
+    async def test_new_auto_policy_args_override_profile_defaults(
+        self, event_store, tmp_path, fake_inner_auto
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+        job_manager = MagicMock()
+        snapshot = MagicMock()
+        snapshot.job_id = "job_auto_policy_override"
+
+        async def _start_job(*, runner, **_):
+            if inspect.iscoroutine(runner):
+                runner.close()
+            return snapshot
+
+        job_manager.start_job = AsyncMock(side_effect=_start_job)
+        store = AutoStore(tmp_path / "store")
+        h = StartAutoHandler(event_store=event_store, job_manager=job_manager, store=store)
+        h._inner_auto = fake_inner_auto
+
+        result = await h.handle(
+            {
+                "goal": "build a CLI",
+                "cwd": str(tmp_path),
+                "commit_policy": "none",
+                "worktree_policy": "current",
+            }
+        )
+
+        assert result.is_ok
+        state = store.load(result.value.meta["auto_session_id"])
+        assert state.active_domain_profile_name == "coding"
+        assert state.commit_policy is AutoCommitPolicy.NONE
+        assert state.worktree_policy is AutoWorktreePolicy.CURRENT
 
     @pytest.mark.asyncio
     async def test_fresh_structured_goal_runner_resumes_without_preference_override(
@@ -334,6 +1168,49 @@ class TestBackgroundJobPath:
         body = json.loads(result.value.content[0].text)
         assert body["auto_session_id"] == meta["auto_session_id"]
         job_manager.start_job.assert_not_called()
+        fake_inner_auto.handle.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_plugin_detached_auto_response_is_deterministic_after_scrubbing_handles(
+        self, event_store, tmp_path, fake_inner_auto
+    ) -> None:
+        async def _invoke(store_path):
+            job_manager = MagicMock()
+            job_manager.start_job = AsyncMock()
+            handler = StartAutoHandler(
+                event_store=event_store,
+                job_manager=job_manager,
+                store=AutoStore(store_path),
+                agent_runtime_backend="opencode",
+                opencode_mode="plugin",
+            )
+            handler._inner_auto = fake_inner_auto
+
+            result = await handler.handle(
+                {
+                    "goal": "document detached auto polling",
+                    "skip_run": True,
+                    "user_preferences": {
+                        "constraints": "Keep the UX contract stable.",
+                        "non_goals": ["No nested auto execution."],
+                    },
+                }
+            )
+
+            assert result.is_ok
+            body = json.loads(result.value.text_content)
+            assert result.value.text_content == json.dumps(
+                body,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            job_manager.start_job.assert_not_called()
+            return _normalize_detached_auto_response(_serializable_tool_result(result.value))
+
+        first = await _invoke(tmp_path / "first")
+        second = await _invoke(tmp_path / "second")
+
+        assert first == second
         fake_inner_auto.handle.assert_not_called()
 
     @pytest.mark.asyncio

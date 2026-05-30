@@ -3,9 +3,9 @@ from typing import Callable, Any, Optional, List, Union, Sequence
 
 from fakeredis import _msgs as msgs
 from fakeredis._commands import command, Key, Int, CommandItem
-from fakeredis._helpers import OK, SimpleError, casematch, Database, SimpleString
+from fakeredis._helpers import OK, SimpleError, casematch, SimpleString
 from fakeredis.model import ExpiringMembersSet
-from fakeredis._typing import VersionType
+from fakeredis.commands_mixins._mixin_base import CommandsMixinBase
 
 
 def _calc_setop(op: Callable[..., Any], stop_if_missing: bool, key: CommandItem, *keys: CommandItem) -> Any:
@@ -42,13 +42,8 @@ def _setop(
         return len(dst.value)
 
 
-class SetCommandsMixin:
+class SetCommandsMixin(CommandsMixinBase):
     _scan: Callable[[Sequence[bytes], int, bytes], List[Union[bytes, List[bytes]]]]
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super(SetCommandsMixin, self).__init__(*args, **kwargs)
-        self.version: VersionType
-        self._db: Database
 
     @command((Key(ExpiringMembersSet), bytes), (bytes,))
     def sadd(self, key: CommandItem, *members: bytes) -> int:
@@ -86,7 +81,7 @@ class SetCommandsMixin:
             args = args[:-2]
         if numkeys != len(args):
             raise SimpleError(msgs.SYNTAX_ERROR_MSG)
-        keys = [CommandItem(args[i], self._db, item=self._db.get(args[i], default=None)) for i in range(numkeys)]
+        keys = [CommandItem(args[i], self._db, item=self._db.get(args[i])) for i in range(numkeys)]
 
         res = _setop(lambda a, b: a & b, False, None, *keys)
         return len(res) if limit == 0 else min(limit, len(res))

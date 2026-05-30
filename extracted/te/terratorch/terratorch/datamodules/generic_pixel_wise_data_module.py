@@ -13,9 +13,16 @@ from typing import Any, Dict, List, Optional
 import albumentations as A
 import kornia.augmentation as K
 import numpy as np
-import tacoreader
 import torch
 from albumentations.core.composition import BaseCompose, Compose
+
+try:
+    import tacoreader
+
+    HAS_TACOREADER = True
+except ImportError:
+    HAS_TACOREADER = False
+    tacoreader = None  # type: ignore
 from kornia.augmentation import AugmentationSequential
 from torch import Tensor
 from torch.utils.data import DataLoader
@@ -221,7 +228,12 @@ class GenericNonGeoSegmentationDataModule(NonGeoDataModule):
                 "Use tortilla_file OR data roots (not both)."
             )
 
-        self.tortilla_df = tacoreader.load(str(tortilla_file)) if tortilla_file is not None else None
+        if tortilla_file is not None and not HAS_TACOREADER:
+            raise ImportError(
+                "tacoreader is required to use tortilla files. Install it with: pip install terratorch[tortilla]"
+            )
+
+        self.tortilla_df = tacoreader.load(str(tortilla_file)) if tortilla_file is not None else None  # type: ignore
 
     def _get_tortilla_indices(self, stage: str) -> list[Hashable] | None:
         if self.tortilla_df is None:

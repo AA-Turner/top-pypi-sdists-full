@@ -15,21 +15,18 @@ from fakeredis._commands import (
     SortFloat,
     delete_keys,
 )
-from fakeredis._helpers import compile_pattern, SimpleError, OK, casematch, Database, SimpleString
-from fakeredis._typing import VersionType
+from fakeredis._helpers import compile_pattern, SimpleError, OK, casematch, SimpleString
+from fakeredis.commands_mixins._mixin_base import CommandsMixinBase
 from fakeredis.model import ZSet, Hash, ExpiringMembersSet
 
 
-class GenericCommandsMixin:
+class GenericCommandsMixin(CommandsMixinBase):
     _ttl: Callable[[CommandItem, float], int]
     _scan: Callable[[Sequence[bytes], int, bytes], List[Union[bytes, List[bytes]]]]
     _key_value_type: Callable[[CommandItem], SimpleString]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super(GenericCommandsMixin, self).__init__(*args, **kwargs)
-        self.version: VersionType
-        self._server: Any
-        self._db: Database
         self._db_num: int
 
     def _lookup_key(self, key: bytes, pattern: bytes) -> Optional[bytes]:
@@ -106,7 +103,7 @@ class GenericCommandsMixin:
         return checksum + value
 
     @command(name="EXISTS", fixed=(Key(),), repeat=(Key(),))
-    def exists(self, *keys) -> int:
+    def exists(self, *keys: CommandItem) -> int:
         ret = 0
         for key in keys:
             if key:
@@ -178,7 +175,7 @@ class GenericCommandsMixin:
 
     @command(name="RANDOMKEY", fixed=())
     def randomkey(self) -> Optional[bytes]:
-        keys = list(self._db.keys())
+        keys: List[bytes] = list(self._db.keys())
         if not keys:
             return None
         return random.choice(keys)
@@ -204,7 +201,7 @@ class GenericCommandsMixin:
         return 1
 
     @command(name="RESTORE", fixed=(Key(), Int, bytes), repeat=(bytes,))
-    def restore(self, key: CommandItem, ttl: int, value: bytes, *args: bytes) -> str:
+    def restore(self, key: CommandItem, ttl: int, value: bytes, *args: bytes) -> SimpleString:
         (replace,), _ = extract_args(args, ("replace",))
         if key and not replace:
             raise SimpleError(msgs.RESTORE_KEY_EXISTS)
@@ -222,11 +219,11 @@ class GenericCommandsMixin:
         return OK
 
     @command(name="SCAN", fixed=(Int,), repeat=(bytes, bytes))
-    def scan(self, cursor, *args) -> List[Union[bytes, List[bytes]]]:
+    def scan(self, cursor: int, *args: bytes) -> List[Union[bytes, List[bytes]]]:
         return self._scan(list(self._db), cursor, *args)
 
     @command(name="SORT", fixed=(Key(),), repeat=(bytes,))
-    def sort(self, key: CommandItem, *args: bytes) -> List[bytes]:
+    def sort(self, key: CommandItem, *args: bytes) -> Union[int, list[Any]]:
         if key.value is not None and not isinstance(key.value, (ExpiringMembersSet, list, ZSet)):
             raise SimpleError(msgs.WRONGTYPE_MSG)
         (
@@ -277,11 +274,11 @@ class GenericCommandsMixin:
 
         if not dontsort:
 
-            def sort_key(val: bytes) -> bytes:
+            def sort_key(val: bytes) -> Union[bytes, BeforeAny]:
                 byval = self._lookup_key(val, sortby)
                 # TODO: use locale.strxfrm when not storing? But then need to decode too.
                 if byval is None:
-                    byval = BeforeAny()
+                    return BeforeAny()
                 return byval
 
             def sort_key_score(val: bytes) -> Tuple[float, bytes]:
@@ -364,7 +361,7 @@ class GenericCommandsMixin:
                 byval = self._lookup_key(val, sortby)
                 # TODO: use locale.strxfrm when not storing? But then need to decode too.
                 if byval is None:
-                    byval = BeforeAny()
+                    return BeforeAny()
                 return byval
 
             def sort_key_score(val: bytes) -> Tuple[float, bytes]:
@@ -381,7 +378,7 @@ class GenericCommandsMixin:
         for row in items[start:end]:
             for g in get:
                 v = self._lookup_key(row, g)
-                out.append(v)
+                out.append(v)  # type:ignore
         return out
 
     @command(name="TTL", fixed=(Key(),))

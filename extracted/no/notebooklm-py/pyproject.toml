@@ -1,6 +1,6 @@
 [project]
 name = "notebooklm-py"
-version = "0.5.0"
+version = "0.6.0"
 description = "Unofficial Python library for automating Google NotebookLM"
 dynamic = ["readme"]
 requires-python = ">=3.10"
@@ -54,7 +54,7 @@ dev = [
     "python-dotenv>=1.0.0,<2",
     "mypy>=1.0.0,<3",
     "pre-commit>=4.5.1,<5",
-    "ruff==0.15.13",
+    "ruff==0.15.14",
     "tomli>=2.0.0,<3; python_version < '3.11'",  # for tests/unit/test_install_docs.py on Python 3.10 (tomllib is 3.11+)
     "vcrpy>=6.0.0,<9",
     "packaging>=23.0,<27",  # for tests/unit/test_version_gate.py (PEP 440 version parsing)
@@ -117,6 +117,7 @@ markers = [
     "no_keepalive_disable: opt a VCR test out of the global NOTEBOOKLM_DISABLE_KEEPALIVE_POKE=1 autouse fixture in tests/integration/conftest.py",
     "allow_no_vcr: opt a tests/integration/ test out of the integration-tree enforcement hook; use for mock-only tests that legitimately live under tests/integration/",
     "characterization: behavior-pinning unit tests that lock in current observable contracts and would be too synthetic to cassette-back",
+    "repo_lint: repo-wide audit/compat checks (cassette shapes, public surface, release gates, doc-sync, CI script audits). Slow; skip locally with `-m \"not repo_lint\"`. CI still runs them by default.",
 ]
 
 [tool.coverage.run]
@@ -154,6 +155,32 @@ check_untyped_defs = true
 ignore_missing_imports = true
 files = ["src/notebooklm"]
 exclude = ["tests/"]
+
+# Public library modules and moved implementation modules that back exported
+# public types are checked more strictly before the package advertises PEP 561
+# typing support via ``notebooklm/py.typed``.
+[[tool.mypy.overrides]]
+module = [
+    "notebooklm",
+    "notebooklm._types.*",
+    "notebooklm.artifacts",
+    "notebooklm.auth",
+    "notebooklm.client",
+    "notebooklm.config",
+    "notebooklm.exceptions",
+    "notebooklm.io",
+    "notebooklm.log",
+    "notebooklm.migration",
+    "notebooklm.paths",
+    "notebooklm.research",
+    "notebooklm.types",
+    "notebooklm.urls",
+    "notebooklm.utils",
+]
+disallow_untyped_defs = true
+disallow_any_generics = true
+warn_return_any = true
+strict_optional = true
 
 # Key check: catch attribute access on wrong types (would have caught our bugs)
 [[tool.mypy.overrides]]

@@ -1296,7 +1296,11 @@ static ggml_backend_t whisper_backend_init_gpu(const whisper_context_params & pa
     if (params.use_gpu) {
         for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
             ggml_backend_dev_t dev_cur = ggml_backend_dev_get(i);
-            if (ggml_backend_dev_type(dev_cur) == GGML_BACKEND_DEVICE_TYPE_GPU || ggml_backend_dev_type(dev_cur) == GGML_BACKEND_DEVICE_TYPE_IGPU) {
+            enum ggml_backend_dev_type dev_type = ggml_backend_dev_type(dev_cur);
+            const char * dev_name = ggml_backend_dev_name(dev_cur);
+            WHISPER_LOG_INFO("%s: device %zu: %s (type: %d)\n", __func__, i, dev_name, dev_type);
+            if (dev_type == GGML_BACKEND_DEVICE_TYPE_GPU || dev_type == GGML_BACKEND_DEVICE_TYPE_IGPU) {
+                WHISPER_LOG_INFO("%s: found GPU device %zu: %s (type: %d, cnt: %d)\n", __func__, i, dev_name, dev_type, cnt);
                 if (cnt == params.gpu_device) {
                     dev = dev_cur;
                 }
@@ -2501,7 +2505,7 @@ static struct ggml_cgraph * whisper_build_graph_decoder(
 
     const float KQscale = pow(float(n_state_head), -0.25);
 
-    struct ggml_tensor * KQ_mask = ggml_new_tensor_3d(ctx0, GGML_TYPE_F32, n_kv, GGML_PAD(n_tokens, GGML_KQ_MASK_PAD), 1);
+    struct ggml_tensor * KQ_mask = ggml_new_tensor_3d(ctx0, GGML_TYPE_F32, n_kv, n_tokens, 1);
     ggml_set_name(KQ_mask, "KQ_mask");
     ggml_set_input(KQ_mask);
 
@@ -2925,7 +2929,7 @@ static bool whisper_decode_internal(
                     }
                 }
 
-                for (int i = n_tokens; i < GGML_PAD(n_tokens, GGML_KQ_MASK_PAD); ++i) {
+                for (int i = n_tokens; i < n_tokens; ++i) {
                     for (int j = 0; j < n_kv; ++j) {
                         data[h*(n_kv*n_tokens) + i*n_kv + j] = -INFINITY;
                     }
@@ -6022,6 +6026,19 @@ static inline bool should_split_on_word(const char * txt, bool split_on_word) {
     return txt[0] == ' ';
 }
 
+// Count UTF-8 characters (not bytes) in a string
+static int utf8_len(const char * str) {
+    int count = 0;
+    while (*str) {
+        // Skip continuation bytes (10xxxxxx)
+        if ((*str & 0xC0) != 0x80) {
+            count++;
+        }
+        str++;
+    }
+    return count;
+}
+
 static void whisper_exp_compute_token_level_timestamps_dtw(
             struct whisper_context * ctx,
               struct whisper_state * state,
@@ -6050,7 +6067,7 @@ static int whisper_wrap_segment(struct whisper_context & ctx, struct whisper_sta
         }
 
         const auto txt = whisper_token_to_str(&ctx, token.id);
-        const int cur = strlen(txt);
+        const int cur = utf8_len(txt);  // Use UTF-8 character count instead of byte count
 
         if (acc + cur > max_len && i > 0 && should_split_on_word(txt, split_on_word)) {
             state.result_all.back().text = std::move(text);
@@ -6684,12 +6701,13 @@ static bool whisper_vad(
             int segment_start_samples = cs_to_samples(vad_segments->data[i].start);
             int segment_end_samples   = cs_to_samples(vad_segments->data[i].end);
 
-            if (i < (int)vad_segments->data.size() - 1) {
-                segment_end_samples += overlap_samples;
-            }
-
             segment_start_samples = std::min(segment_start_samples, n_samples - 1);
-            segment_end_samples = std::min(segment_end_samples, n_samples);
+            segment_end_samples = std::min(segment_end_samples, n_samples - 1);
+            int original_segment_length = segment_end_samples - segment_start_samples;
+
+            if (i < (int)vad_segments->data.size() - 1) {
+                segment_end_samples = std::min(segment_end_samples + overlap_samples, n_samples - 1);
+            }
             int segment_length = segment_end_samples - segment_start_samples;
             if (segment_length > 0) {
                 whisper_state::vad_segment_info segment;
@@ -6698,7 +6716,7 @@ static bool whisper_vad(
                 segment.orig_end   = vad_segments->data[i].end;
 
                 segment.vad_start = samples_to_cs(offset);
-                segment.vad_end   = samples_to_cs(offset + segment_length);
+                segment.vad_end   = samples_to_cs(offset + original_segment_length);
 
                 // Add segment boundaries to mapping table
                 vad_time_mapping start_mapping = {segment.vad_start, segment.orig_start};
@@ -6706,29 +6724,6 @@ static bool whisper_vad(
 
                 state->vad_mapping_table.push_back(start_mapping);
                 state->vad_mapping_table.push_back(end_mapping);
-
-                // Add intermediate points for longer segments to improve interpolation accuracy
-                const int64_t min_segment_length = 100; // 1 second
-                const int64_t point_interval = 20;     // Add a point every 200ms
-
-                if (segment.vad_end - segment.vad_start > min_segment_length) {
-                    int64_t segment_duration = segment.vad_end - segment.vad_start;
-                    int num_points = (int)(segment_duration / point_interval) - 1;
-
-                    for (int j = 1; j <= num_points; j++) {
-                        int64_t vad_time = segment.vad_start + j * point_interval;
-
-                        if (vad_time >= segment.vad_end) continue;
-
-                        int64_t vad_elapsed = vad_time - segment.vad_start;
-                        int64_t vad_total = segment.vad_end - segment.vad_start;
-                        int64_t orig_total = segment.orig_end - segment.orig_start;
-                        int64_t orig_time = segment.orig_start + (vad_elapsed * orig_total) / vad_total;
-
-                        vad_time_mapping intermediate_mapping = {vad_time, orig_time};
-                        state->vad_mapping_table.push_back(intermediate_mapping);
-                    }
-                }
 
                 WHISPER_LOG_INFO("%s: vad_segment_info: orig_start: %.2f, orig_end: %.2f, vad_start: %.2f, vad_end: %.2f\n",
                     __func__, segment.orig_start/100.0, segment.orig_end/100.0, segment.vad_start/100.0, segment.vad_end/100.0);

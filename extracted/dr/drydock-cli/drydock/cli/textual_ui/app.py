@@ -750,12 +750,12 @@ class DrydockApp(App):  # noqa: PLR0904
 
         # Wrap as instruction, not raw content
         skill_content = (
-            f"[SKILL: /{skill_name}] Follow these instructions:\n\n"
+            f"[SKILL: {skill_name}] Follow these instructions:\n\n"
             f"{skill_content}"
         )
 
         if arguments:
-            skill_content = f"{arguments}\n\n{skill_content}"
+            skill_content = f"/{skill_name} {arguments}\n\n{skill_content}"
 
         await self._handle_user_message(skill_content)
         return True

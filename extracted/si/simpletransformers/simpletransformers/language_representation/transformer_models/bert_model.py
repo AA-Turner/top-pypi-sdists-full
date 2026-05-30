@@ -11,7 +11,7 @@ class BertForTextRepresentation(BertPreTrainedModel):
         super(BertForTextRepresentation, self).__init__(config)
         self.bert = BertModel(config)
         self.weight = weight
-        self.init_weights()
+        self.post_init()
 
     def forward(
         self,

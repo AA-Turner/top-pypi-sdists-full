@@ -24,7 +24,8 @@ class Line(Element2Term):
     '''
     _element_defaults = {
         'arrowwidth': 0.15,
-        'arrowlength': 0.25}
+        'arrowlength': 0.25
+    }
     def __init__(self, *, arrow: Optional[str] = None, **kwargs):
         super().__init__(**kwargs)
         arrowwidth: float = self.params['arrowwidth']
@@ -97,7 +98,8 @@ class Dot(Element):
     '''
     _element_defaults = {
         'radius': 0.075,
-        'open': False}
+        'open': False
+    }
     def __init__(self, *,
                  radius: Optional[float] = None,
                  open: Optional[bool] = None,
@@ -116,7 +118,7 @@ class Dot(Element):
 
 class Arrowhead(Element):
     ''' Arrowhead 
-    
+
         Args:
             headwidth: width of arrow head [default: .15]
             headlength: length of arrow head [default: .25]
@@ -129,7 +131,7 @@ class Arrowhead(Element):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         headwidth = self.params['headwidth']
-        headlength = self.params['headlength'] 
+        headlength = self.params['headlength']
         self.segments.append(Segment([
             (-headlength, 0), (0, 0)], arrowwidth=headwidth, arrowlength=headlength, arrow='->'))
         self.anchors['start'] = (0, 0)
@@ -245,7 +247,7 @@ class Wire(Element):
             self.segments.append(Segment([(0, 0), (0, dy), (dx, dy)], arrow=arrow))
             self.anchors['mid'] = (dx/2, dy)
             self.elmparams['droptheta'] = 0 if dx > 0 else 180
-        elif shape in ['z', 'Z']:
+        elif shape in ['z', 'Z', '-/-']:
             if dx > 0:
                 k = abs(k)
             else:
@@ -253,7 +255,7 @@ class Wire(Element):
             self.segments.append(Segment([(0, 0), (k, 0), (dx-k, dy), (dx, dy)], arrow=arrow))
             self.anchors['mid'] = (dx/2, dy/2)
             self.elmparams['droptheta'] = 0 if dx > 0 else 180
-        elif shape == 'N':
+        elif shape in ['N', '|/|']:
             if dy > 0:
                 k = abs(k)
             else:
@@ -261,11 +263,11 @@ class Wire(Element):
             self.segments.append(Segment([(0, 0), (0, k), (dx, dy-k), (dx, dy)], arrow=arrow))
             self.anchors['mid'] = (dx/2, dy/2)
             self.params['droptheta'] = 90 if dy > 0 else -90
-        elif shape == 'n':   # N-shape
+        elif shape in ['n', '|-|']:   # N-shape
             self.segments.append(Segment([(0, 0), (0, k), (dx, k), (dx, dy)], arrow=arrow))
             self.anchors['mid'] = (dx/2, k)
             self.params['droptheta'] = 90 if dy > k else -90
-        elif shape == 'c':   # C-shape
+        elif shape in ['c', '-|-']:   # C-shape
             self.segments.append(Segment([(0, 0), (k, 0), (k, dy), (dx, dy)], arrow=arrow))
             self.anchors['mid'] = (k, dy/2)
             self.params['droptheta'] = 0 if dx > k else 180
@@ -329,7 +331,8 @@ class Arc2(Element):
 
     def _place(self, dwgxy: XY, dwgtheta: float, **dwgparams) -> tuple[Point, float]:
         ''' Calculate absolute placement of Element '''
-        self._dwgparams = dwgparams
+        self._dwgparams.clear()
+        self._dwgparams.update(dwgparams)
         if not self._positioned:
             self._position()
 
@@ -441,7 +444,8 @@ class Arc3(Element):
 
     def _place(self, dwgxy: XY, dwgtheta: float, **dwgparams) -> tuple[Point, float]:
         ''' Calculate absolute placement of Element '''
-        self._dwgparams = dwgparams
+        self._dwgparams.clear()
+        self._dwgparams.update(dwgparams)
         if not self._positioned:
             self._position()
 
@@ -653,7 +657,8 @@ class ArcLoop(Element):
 
     def _place(self, dwgxy: XY, dwgtheta: float, **dwgparams) -> tuple[Point, float]:
         ''' Calculate placement of Element '''
-        self._dwgparams = dwgparams
+        self._dwgparams.clear()
+        self._dwgparams.update(dwgparams)
         if not self._positioned:
             self._position()
 
@@ -837,7 +842,7 @@ class CurrentLabel(Element):
                 pos = Point(((bbox.xmin, (bbox.ymax + bbox.ymin)/2)))
                 self.elmparams['lblloc'] = 'top'
                 theta += 90
-            
+
             pos = xy.transform.transform(pos)
             self._side = side
             super().at(pos)
@@ -1046,12 +1051,13 @@ class ZLabel(Element):
         return self
 
     def _place(self, dwgxy, dwgtheta, **dwgparams):
-        self._dwgparams = dwgparams
+        self._dwgparams.clear()
+        self._dwgparams.update(dwgparams)
         if not self._positioned:
             self._position()
 
         a = Point((-self.params['hofst'], self.params['ofst']))
-        b = Point((-self.params['hofst']-self.params['lengthtip'], 
+        b = Point((-self.params['hofst']-self.params['lengthtip'],
                    self.params['ofst']))
         c = Point((-self.params['hofst']-self.params['lengthtip'],
                    self.params['ofst']-self.params['length']))

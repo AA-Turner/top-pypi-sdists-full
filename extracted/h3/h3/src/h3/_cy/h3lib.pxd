@@ -47,21 +47,6 @@ cdef extern from 'h3api.h':
         int i
         int j
 
-    ctypedef struct LinkedLatLng:
-        LatLng data 'vertex'
-        LinkedLatLng *next
-
-    # renaming these for clarity
-    ctypedef struct LinkedGeoLoop:
-        LinkedLatLng *data 'first'
-        LinkedLatLng *_data_last 'last'  # not needed in Cython bindings
-        LinkedGeoLoop *next
-
-    ctypedef struct LinkedGeoPolygon:
-        LinkedGeoLoop *data 'first'
-        LinkedGeoLoop *_data_last 'last'  # not needed in Cython bindings
-        LinkedGeoPolygon *next
-
     ctypedef struct GeoLoop:
         int numVerts
         LatLng *verts
@@ -171,18 +156,15 @@ cdef extern from 'h3api.h':
     double greatCircleDistanceKm(const LatLng *a, const LatLng *b) nogil
     double greatCircleDistanceM(const LatLng *a, const LatLng *b) nogil
 
-    H3Error cellsToLinkedMultiPolygon(const H3int *h3Set, const int numCells, LinkedGeoPolygon *out)
-    void destroyLinkedMultiPolygon(LinkedGeoPolygon *polygon)
-
     H3Error maxPolygonToCellsSize(const GeoPolygon *geoPolygon, int res, uint32_t flags, uint64_t *count)
     H3Error polygonToCells(const GeoPolygon *geoPolygon, int res, uint32_t flags, H3int *out)
 
     H3Error maxPolygonToCellsSizeExperimental(const GeoPolygon *geoPolygon, int res, uint32_t flags, uint64_t *count)
     H3Error polygonToCellsExperimental(const GeoPolygon *geoPolygon, int res, uint32_t flags, uint64_t sz, H3int *out)
 
-    # ctypedef struct GeoMultiPolygon:
-    #     int numPolygons
-    #     GeoPolygon *polygons
+    ctypedef struct GeoMultiPolygon:
+        int numPolygons
+        GeoPolygon *polygons
 
     # int hexRange(H3int origin, int k, H3int *out)
 
@@ -199,3 +181,11 @@ cdef extern from 'h3api.h':
     # void h3ToString(H3int h, char *str, size_t sz)
 
     # void getH3intesFromUnidirectionalEdge(H3int edge, H3int *originDestination)
+
+
+# cellsToMultiPolygon and destroyGeoMultiPolygon are temporarily excluded
+# from the public API, so we use an internal header until they're moved
+# back into h3api.h
+cdef extern from 'cellsToMultiPoly.h':
+    H3Error cellsToMultiPolygon(const H3int *cells, const int64_t numCells, GeoMultiPolygon *out)
+    void destroyGeoMultiPolygon(GeoMultiPolygon *mpoly)

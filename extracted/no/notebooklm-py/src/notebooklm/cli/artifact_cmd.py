@@ -19,6 +19,7 @@ from ..types import ExportType
 from .auth_runtime import with_client
 from .error_handler import _output_error, exit_with_code
 from .options import json_option, list_options, notebook_option, wait_polling_options
+from .polling_ui import status_with_elapsed
 from .rendering import (
     cli_name_to_artifact_type,
     cli_print,
@@ -34,7 +35,6 @@ from .resolve import (
 )
 from .services.confirming_mutation import MutationPlan, run_confirmed_mutation
 from .services.listing import ListSpec, prepare_list
-from .services.polling import status_with_elapsed
 
 
 @click.group()
@@ -278,6 +278,24 @@ def artifact_delete(ctx, artifact_id, notebook_id, yes, json_output, client_auth
                 resolved_id = await resolve_artifact_id(
                     client, nb_id_resolved, artifact_id, json_output=json_output
                 )
+
+                # In JSON mode, refuse to prompt: ``click.confirm`` writes to
+                # stdout, which would corrupt the parseable JSON contract callers
+                # rely on. Require --yes and emit a structured error otherwise.
+                if json_output and not yes:
+                    _output_error(
+                        "Pass --yes to confirm deletion in --json mode",
+                        code="VALIDATION_ERROR",
+                        json_output=json_output,
+                        exit_code=1,
+                        extra={
+                            "id": resolved_id,
+                            "notebook_id": nb_id_resolved,
+                            "deleted": False,
+                        },
+                    )
+                    raise AssertionError("unreachable")  # pragma: no cover
+
                 return {
                     "notebook_id": nb_id_resolved,
                     "artifact_id": resolved_id,
@@ -331,6 +349,7 @@ def artifact_delete(ctx, artifact_id, notebook_id, yes, json_output, client_auth
                 return
 
             if json_output:
+                json_output_response(result.payload)
                 return
 
             resolved_id = result.resolved["artifact_id"]

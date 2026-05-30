@@ -157,7 +157,7 @@ class RepresentationModel:
 
     def _tokenize(self, text_list):
         # Tokenize the text with the provided tokenizer
-        encoded = self.tokenizer.batch_encode_plus(
+        encoded = self.tokenizer(
             text_list,
             add_special_tokens=True,
             max_length=self.args.max_seq_length,

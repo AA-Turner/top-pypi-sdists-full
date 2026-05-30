@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kugelaudio
-Version: 1.3.2
+Version: 1.4.2
 Summary: Official Python SDK for KugelAudio TTS API
 Project-URL: Homepage, https://kugelaudio.com
 Project-URL: Documentation, https://docs.kugelaudio.com
@@ -30,7 +30,7 @@ Requires-Dist: aiohttp>=3.8.0; extra == 'livekit'
 Requires-Dist: livekit-agents>=1.0.0; extra == 'livekit'
 Provides-Extra: pipecat
 Requires-Dist: aiohttp>=3.8.0; extra == 'pipecat'
-Requires-Dist: pipecat-ai>=0.0.60; (python_version >= '3.10') and extra == 'pipecat'
+Requires-Dist: pipecat-ai>=1.3.0; (python_version >= '3.11') and extra == 'pipecat'
 Provides-Extra: tools
 Requires-Dist: flask>=3.0.0; extra == 'tools'
 Requires-Dist: numpy>=1.26.0; extra == 'tools'

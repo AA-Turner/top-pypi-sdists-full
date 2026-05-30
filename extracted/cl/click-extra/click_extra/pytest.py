@@ -265,6 +265,8 @@ default_options_uncolored_help = (
     r"  --no-config             Ignore all configuration files and only use command\n"
     r"                          line parameters and environment variables.\n"
     r"  --validate-config FILE  Validate the configuration file and exit.\n"
+    r"  --accessible            Accessibility mode: disable colors and render tables\n"
+    r"                          in a plain, screen-reader-friendly format.\n"
     r"  --color, --ansi / --no-color, --no-ansi\n"
     r"                          Strip out all colors and all ANSI codes from output.\n"
     r"                          \[default: color\]\n"
@@ -279,6 +281,7 @@ default_options_uncolored_help = (
     r"  -v, --verbose           Increase the default WARNING verbosity by one level\n"
     r"                          for each additional repetition of the option.\n"
     r"                          \[default: 0\]\n"
+    r"  --man                   Show the command's man page \(roff\) and exit.\n"
     r"  --version               Show the version and exit.\n"
     r"  -h, --help              Show this message and exit.\n"
 )
@@ -297,6 +300,8 @@ default_options_colored_help = (
     r"  \x1b\[36m\x1b\[1m--no-config\x1b\[0m             Ignore all configuration files and only use command\n"
     r"                          line parameters and environment variables.\n"
     r"  \x1b\[36m\x1b\[1m--validate-config\x1b\[0m \x1b\[36m\x1b\[2m\x1b\[3mFILE\x1b\[0m  Validate the configuration file and exit.\n"
+    r"  \x1b\[36m\x1b\[1m--accessible\x1b\[0m            Accessibility mode: disable colors and render tables\n"
+    r"                          in a \x1b\[35m\x1b\[1mplain\x1b\[0m, screen-reader-friendly format.\n"
     r"  \x1b\[36m\x1b\[1m--color\x1b\[0m, \x1b\[36m\x1b\[1m--ansi\x1b\[0m / \x1b\[36m\x1b\[1m--no-color\x1b\[0m, \x1b\[36m\x1b\[1m--no-ansi\x1b\[0m\n"
     r"                          Strip out all colors and all ANSI codes from output.\n"
     r"                          \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mcolor\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
@@ -311,6 +316,7 @@ default_options_colored_help = (
     r"  \x1b\[36m\x1b\[1m-v\x1b\[0m, \x1b\[36m\x1b\[1m--verbose\x1b\[0m           Increase the default \x1b\[35m\x1b\[1mWARNING\x1b\[0m verbosity by one level\n"
     r"                          for each additional repetition of the option.\n"
     r"                          \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3m0\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
+    r"  \x1b\[36m\x1b\[1m--man\x1b\[0m                   Show the command's man page \(roff\) and exit.\n"
     r"  \x1b\[36m\x1b\[1m--version\x1b\[0m               Show the version and exit.\n"
     r"  \x1b\[36m\x1b\[1m-h\x1b\[0m, \x1b\[36m\x1b\[1m--help\x1b\[0m              Show this message and exit.\n"
 )

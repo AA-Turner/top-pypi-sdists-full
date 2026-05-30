@@ -1,15 +1,15 @@
 """
 DEPIERRO.py
 
-DEPIERRO algorithm (De Pierro's quadratic regularization for EM reconstruction).
+DEPIERRO algorithm (De Pierro's optimization transfer for EM reconstruction).
 Uses unified SMatrix interface and ReconTools functions.
 Single unified function that works with any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
+
+Supports potential functions: QUADRATIC, HUBER, RELATIVE_DIFFERENCE
 """
 
-from AOT_biomaps.AOT_Recon.ReconTools import (
-    projection, backprojection, quadratic_potential, build_adjacency_indices,
-    clamp_positive, calculate_memory_requirement, check_gpu_memory, zeros
-)
+from AOT_biomaps.AOT_Recon.ReconTools import forward_projection, backward_projection, build_adjacency_indices, quadratic_potential, huber_potential, relative_difference_potential, clamp_positive, build_preconditioner, apply_diagonal_preconditioner
+from AOT_biomaps.AOT_Recon.ReconEnums import PotentialType, PreconditionerType
 from AOT_biomaps.Config import config
 
 import numpy as np
@@ -29,6 +29,9 @@ def DEPIERRO(
     numIterations=100,
     beta=1.0,
     sigma=1.0,
+    delta=0.01,
+    potential_type=PotentialType.QUADRATIC,
+    preconditioner_type=PreconditionerType.NONE,
     isSavingEachIteration=True,
     isCostFunction=False,
     withTumor=True,
@@ -36,17 +39,29 @@ def DEPIERRO(
     show_logs=True,
 ):
     """
-    DEPIERRO reconstruction algorithm (De Pierro's quadratic regularization for EM).
+    DEPIERRO reconstruction algorithm (De Pierro's optimization transfer for EM).
     
     Uses ReconTools functions for all matrix operations, so it works with
     any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
+    
+    Supports potential functions:
+    - QUADRATIC: p(u,v) = 0.5 * beta * (u-v)^2
+    - HUBER: p(u,v,delta) = huber piecewise function
+    - RELATIVE_DIFFERENCE: p(u,v,beta) = beta * (u-v)^2 / (u+v+beta*|u-v|)
+    
+    Supports preconditioning:
+    - NONE: No preconditioning
+    - DIAGONAL: Diagonal preconditioning using A^T * 1
     
     Args:
         SMatrix: SMatrix instance (already allocated)
         y: Measurement data
         numIterations: Number of iterations
-        beta: Regularization parameter (weight for quadratic potential)
+        beta: Regularization parameter (weight for potential)
         sigma: Additional parameter for DEPIERRO
+        delta: Parameter for HUBER potential (threshold)
+        potential_type: Type of potential function to use
+        preconditioner_type: Type of preconditioner to use (default: NONE)
         isSavingEachIteration: If True, saves intermediate results
         isCostFunction: If True, computes and saves cost function history
         withTumor: Boolean for description only
@@ -84,6 +99,23 @@ def DEPIERRO(
     # Build adjacency for regularization
     adj_indices = build_adjacency_indices(SMatrix)
     
+    # Select potential function
+    def get_potential(U):
+        """Get potential function based on potential_type."""
+        if potential_type == PotentialType.QUADRATIC:
+            return quadratic_potential(SMatrix, U, beta)
+        elif potential_type == PotentialType.HUBER:
+            return huber_potential(SMatrix, U, beta, delta)
+        elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
+            return relative_difference_potential(SMatrix, U, beta, 1.0)
+        else:
+            raise ValueError(f"DEPIERRO does not support potential type: {potential_type}. Use QUADRATIC, HUBER, or RELATIVE_DIFFERENCE.")
+    
+    # Compute preconditioner if requested
+    preconditioner, preconditioner_inv = None, None
+    if preconditioner_type != PreconditionerType.NONE:
+        preconditioner, preconditioner_inv = build_preconditioner(SMatrix, preconditioner_type)
+    
     # Setup save indices
     if numIterations <= max_saves:
         save_indices = list(range(numIterations))
@@ -102,26 +134,30 @@ def DEPIERRO(
     
     for it in iterator:
         # Forward projection
-        q_flat = projection(SMatrix, theta_flat)
+        q_flat = forward_projection(SMatrix, theta_flat)
         
         # Compute update factor
         ratio = y_flat / (q_flat + 1e-10)
         
         # Backprojection
-        c_flat = backprojection(SMatrix, ratio)
+        c_flat = backward_projection(SMatrix, ratio)
         
-        # Compute quadratic potential gradient and Hessian
-        grad_U, hess_U, U_value = quadratic_potential(SMatrix, theta_flat, beta)
+        # Compute potential gradient and Hessian
+        grad_U, hess_U, U_value = get_potential(theta_flat)
         
         # DEPIERRO update
         theta_flat = theta_flat * c_flat / (1 + sigma * hess_U)
+        
+        # Apply diagonal preconditioning if enabled
+        if preconditioner_inv is not None:
+            theta_flat = apply_diagonal_preconditioner(theta_flat, preconditioner_inv, SMatrix)
         
         # Clamp to non-negative
         theta_flat = clamp_positive(SMatrix, theta_flat)
         
         # Compute cost function if requested
         if isCostFunction:
-            q_flat = projection(SMatrix, theta_flat)
+            q_flat = forward_projection(SMatrix, theta_flat)
             # Poisson log-likelihood + quadratic regularization
             likelihood = array_module.sum(y_flat * array_module.log(q_flat + 1e-10) - q_flat)
             cost = float(-likelihood + 0.5 * beta * array_module.sum(theta_flat**2))

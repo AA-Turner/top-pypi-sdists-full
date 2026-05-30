@@ -16,17 +16,14 @@ from .esi_client_stub import EsiClientStub
 
 class TestUpdateTasks(TestCase):
     def test_should_update_alliance(self) -> None:
-        with patch(
-            "allianceauth.eveonline.tasks.EveAllianceInfo.objects.update_alliance"
-        ) as mock_update_alliance, patch(
-            "allianceauth.eveonline.tasks.EveAllianceInfo.objects.get"
-        ) as mock_get_alliance:
+        with patch("allianceauth.eveonline.tasks.EveAllianceInfo.objects.get") as mock_get_alliance:
             mock_alliance = mock_get_alliance.return_value
 
             update_alliance(3001)
 
-            mock_update_alliance.assert_called_once_with(3001)
-            mock_get_alliance.assert_called_once_with(3001)
+            self.assertEqual(mock_get_alliance.call_count, 2)
+            mock_get_alliance.assert_any_call(alliance_id=3001)
+            mock_alliance.update_alliance.assert_called_once_with()
             mock_alliance.populate_alliance.assert_called_once_with()
 
     def test_should_update_character(self) -> None:
@@ -67,6 +64,8 @@ class TestUpdateTasks(TestCase):
             update_corp(my_corporation.corporation_id)
             # then
             my_corporation.refresh_from_db()
+            self.assertIsNotNone(my_corporation.alliance)
+            assert my_corporation.alliance is not None
             self.assertEqual(my_corporation.alliance.alliance_id, 3001)
 
     def test_should_update_all_factions(self) -> None:
@@ -109,13 +108,13 @@ class TestRunModelUpdate(TransactionTestCase):
                 member_count=10,
                 alliance=None,
             )
-            alliance_3001 = EveAllianceInfo.objects.create(
+            EveAllianceInfo.objects.create(
                 alliance_id=3001,
                 alliance_name="Wayne Enterprises",
                 alliance_ticker="WYE",
                 executor_corp_id=2003
             )
-            corporation_2003 = EveCorporationInfo.objects.create(
+            EveCorporationInfo.objects.create(
                 corporation_id=2003,
                 corporation_name="Wayne Energy",
                 corporation_ticker="WEG",

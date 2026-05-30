@@ -174,7 +174,7 @@ class TestCodexCliRuntime:
 
     @staticmethod
     def _write_wrapper(path: Path) -> Path:
-        path.write_bytes(b"\xcf\xfa\xed\xfe")
+        path.write_bytes(b"\xcf\xfa\xed\xfe" + b"\0" * 32 + b"zeude codex-wrapper")
         path.chmod(0o755)
         return path
 
@@ -265,6 +265,33 @@ class TestCodexCliRuntime:
         assert "--profile" in command
         assert command[command.index("--profile") + 1] == "ouroboros-standard"
         assert "--model" not in command
+
+    def test_build_command_matches_codex_0134_unified_profile_v2_contract(self) -> None:
+        """Codex 0.134 uses --profile to load ~/.codex/<name>.config.toml files."""
+        runtime = CodexCliRuntime(cli_path="codex", cwd="/tmp/project")
+        runtime_handle = RuntimeHandle(
+            backend="codex_cli",
+            kind="implementation_session",
+            metadata={"session_role": "implementation"},
+        )
+        config = OuroborosConfig(
+            llm_profiles={
+                "frontier": {
+                    "providers": {"codex": {"profile": "ouroboros-frontier"}},
+                },
+            },
+            llm_role_profiles={"agent_runtime_implementation": "frontier"},
+        )
+
+        with patch("ouroboros.providers.profiles.load_config", return_value=config):
+            command = runtime._build_command(
+                output_last_message_path="/tmp/out.txt",
+                runtime_handle=runtime_handle,
+            )
+
+        assert "--profile" in command
+        assert "--profile-v2" not in command
+        assert command[command.index("--profile") + 1] == "ouroboros-frontier"
 
     def test_build_command_uses_default_runtime_profile_for_resumed_roleless_handle(self) -> None:
         """Resumed role-less agent_runtime handles keep using the documented fallback role."""
@@ -539,7 +566,7 @@ class TestCodexCliRuntime:
         mock_warning.assert_called_once_with(
             "codex_cli_runtime.cli_wrapper_detected",
             wrapper_path=str(wrapper),
-            hint="Searching PATH for the real Node.js codex CLI.",
+            hint="Searching PATH for the real Codex CLI.",
         )
         mock_info.assert_any_call(
             "codex_cli_runtime.cli_resolved_via_fallback",
@@ -1753,7 +1780,7 @@ class TestCodexCliRuntime:
             [
                 "name: auto",
                 'description: "Automatically converge from goal to A-grade Seed and execute it"',
-                "mcp_tool: ouroboros_auto",
+                "mcp_tool: ouroboros_start_auto",
                 "mcp_args:",
                 '  goal: "$goal"',
                 '  cwd: "$CWD"',
@@ -1781,17 +1808,18 @@ class TestCodexCliRuntime:
         assert len(messages) == 1
         assert messages[0].is_error is True
         assert messages[0].content.startswith("Cannot run ooo auto")
-        assert "`ouroboros_auto` is unavailable" in messages[0].content
+        assert "`ouroboros_start_auto` is unavailable" in messages[0].content
         assert "ouroboros mcp doctor" in messages[0].content
         assert mock_warning.call_args.kwargs["fallback"] == "terminal_error"
         assert messages[0].data == {
             "subtype": "error",
             "error_type": "SkillDispatchUnavailable",
             "skill_name": "auto",
-            "tool_name": "ouroboros_auto",
+            "tool_name": "ouroboros_start_auto",
             "command_prefix": "ooo auto",
             "dispatch_error_type": "LookupError",
             "dispatch_error": "No local handler registered",
+            "dispatch_error_category": "local_handler_missing",
         }
 
     @pytest.mark.asyncio
@@ -1806,7 +1834,7 @@ class TestCodexCliRuntime:
             [
                 "name: auto",
                 'description: "Automatically converge from goal to A-grade Seed and execute it"',
-                "mcp_tool: ouroboros_auto",
+                "mcp_tool: ouroboros_start_auto",
                 "mcp_args:",
                 '  goal: "$goal"',
                 '  cwd: "$CWD"',
@@ -1814,7 +1842,7 @@ class TestCodexCliRuntime:
         )
         dispatcher = AsyncMock(
             return_value=(
-                AgentMessage(type="assistant", content="Calling tool: ouroboros_auto"),
+                AgentMessage(type="assistant", content="Calling tool: ouroboros_start_auto"),
                 AgentMessage(
                     type="result",
                     content="Auto MCP server unavailable",
@@ -1848,7 +1876,7 @@ class TestCodexCliRuntime:
         assert mock_warning.call_args.kwargs["error_type"] == "MCPConnectionError"
         mock_exec.assert_not_called()
         assert [message.content for message in messages] == [
-            "Calling tool: ouroboros_auto",
+            "Calling tool: ouroboros_start_auto",
             "Auto MCP server unavailable",
         ]
         assert messages[-1].data["error_type"] == "MCPConnectionError"
@@ -1866,7 +1894,7 @@ class TestCodexCliRuntime:
             [
                 "name: auto",
                 'description: "Automatically converge from goal to A-grade Seed and execute it"',
-                "mcp_tool: ouroboros_auto",
+                "mcp_tool: ouroboros_start_auto",
                 "mcp_args:",
                 '  goal: "$goal"',
                 '  cwd: "$CWD"',
@@ -1874,10 +1902,10 @@ class TestCodexCliRuntime:
         )
         dispatcher = AsyncMock(
             return_value=(
-                AgentMessage(type="assistant", content="Calling tool: ouroboros_auto"),
+                AgentMessage(type="assistant", content="Calling tool: ouroboros_start_auto"),
                 AgentMessage(
                     type="result",
-                    content="Tool ouroboros_auto not found",
+                    content="Tool ouroboros_start_auto not found",
                     data={
                         "subtype": "error",
                         "recoverable": True,
@@ -1907,7 +1935,66 @@ class TestCodexCliRuntime:
         assert len(messages) == 1
         assert messages[0].data["error_type"] == "SkillDispatchUnavailable"
         assert messages[0].data["dispatch_error_type"] == "MCPResourceNotFoundError"
-        assert messages[0].data["dispatch_error"] == "Tool ouroboros_auto not found"
+        assert messages[0].data["dispatch_error"] == "Tool ouroboros_start_auto not found"
+        assert messages[0].data["dispatch_error_category"] == "mcp_registration_missing"
+
+    @pytest.mark.asyncio
+    async def test_execute_task_auto_transport_closed_reports_transport_not_setup(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Codex App MCP transport closures should not be misreported as setup drift."""
+        self._write_skill(
+            tmp_path,
+            "auto",
+            [
+                "name: auto",
+                'description: "Automatically converge from goal to A-grade Seed and execute it"',
+                "mcp_tool: ouroboros_start_auto",
+                "mcp_args:",
+                '  goal: "$goal"',
+                '  cwd: "$CWD"',
+            ],
+        )
+        dispatcher = AsyncMock(
+            return_value=(
+                AgentMessage(type="assistant", content="Calling tool: ouroboros_start_auto"),
+                AgentMessage(
+                    type="result",
+                    content="MCPClientError: Transport closed",
+                    data={
+                        "subtype": "error",
+                        "error_type": "MCPClientError",
+                    },
+                ),
+            )
+        )
+        runtime = CodexCliRuntime(
+            cli_path="codex",
+            cwd="/tmp/project",
+            skills_dir=tmp_path,
+            skill_dispatcher=dispatcher,
+        )
+
+        with (
+            patch("ouroboros.orchestrator.codex_cli_runtime.log.warning") as mock_warning,
+            patch(
+                "ouroboros.orchestrator.codex_cli_runtime.asyncio.create_subprocess_exec",
+            ) as mock_exec,
+        ):
+            messages = [message async for message in runtime.execute_task("ooo auto Build a CLI")]
+
+        dispatcher.assert_awaited_once()
+        assert mock_warning.call_args.kwargs["fallback"] == "terminal_error"
+        mock_exec.assert_not_called()
+        assert len(messages) == 1
+        assert messages[0].data["error_type"] == "SkillDispatchUnavailable"
+        assert messages[0].data["dispatch_error_type"] == "MCPClientError"
+        assert messages[0].data["dispatch_error"] == "MCPClientError: Transport closed"
+        assert messages[0].data["dispatch_error_category"] == "mcp_transport_closed"
+        assert "MCP transport closed" in messages[0].content
+        assert "not proof that the tool is unregistered" in messages[0].content
+        assert "setup to register" not in messages[0].content
 
     @pytest.mark.asyncio
     async def test_execute_task_auto_recoverable_pipeline_error_preserves_real_cause(
@@ -1921,7 +2008,7 @@ class TestCodexCliRuntime:
             [
                 "name: auto",
                 'description: "Automatically converge from goal to A-grade Seed and execute it"',
-                "mcp_tool: ouroboros_auto",
+                "mcp_tool: ouroboros_start_auto",
                 "mcp_args:",
                 '  goal: "$goal"',
                 '  cwd: "$CWD"',
@@ -1929,7 +2016,7 @@ class TestCodexCliRuntime:
         )
         dispatcher = AsyncMock(
             return_value=(
-                AgentMessage(type="assistant", content="Calling tool: ouroboros_auto"),
+                AgentMessage(type="assistant", content="Calling tool: ouroboros_start_auto"),
                 AgentMessage(
                     type="result",
                     content="Auto pipeline failed: model provider crashed",
@@ -1963,7 +2050,7 @@ class TestCodexCliRuntime:
         assert mock_warning.call_args.kwargs["error_type"] == "MCPToolError"
         mock_exec.assert_not_called()
         assert [message.content for message in messages] == [
-            "Calling tool: ouroboros_auto",
+            "Calling tool: ouroboros_start_auto",
             "Auto pipeline failed: model provider crashed",
         ]
         assert messages[-1].data["error_type"] == "MCPToolError"
@@ -1981,7 +2068,7 @@ class TestCodexCliRuntime:
             [
                 "name: auto",
                 'description: "Automatically converge from goal to A-grade Seed and execute it"',
-                "mcp_tool: ouroboros_auto",
+                "mcp_tool: ouroboros_start_auto",
                 "mcp_args:",
                 '  goal: "$goal"',
                 '  cwd: "$CWD"',
@@ -2031,7 +2118,7 @@ class TestCodexCliRuntime:
             [
                 "name: auto",
                 'description: "Automatically converge from goal to A-grade Seed and execute it"',
-                "mcp_tool: ouroboros_auto",
+                "mcp_tool: ouroboros_start_auto",
                 "mcp_args:",
                 '  goal: "$goal"',
                 '  cwd: "$CWD"',

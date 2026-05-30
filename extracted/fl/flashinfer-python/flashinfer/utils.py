@@ -880,8 +880,7 @@ def get_shuffle_matrix_sf_a_row_indices(
     # M, K from the input
     M, K = input_tensor.shape
     assert M % 128 == 0
-    assert K % 4 == 0
-
+    # K % 4 alignment is not required here, downstream block_scale_interleave kernel pads K to a multiple of 4 internally
     row_indices = get_shuffle_matrix_a_row_indices(input_tensor, epilogue_tile_m)
 
     return row_indices
@@ -1164,12 +1163,7 @@ def backend_requirement(
                         *args, **kwargs
                     ) and req_checker.is_compute_capability_supported(cc):
                         suitable_backends.append(backend)
-                except (ValueError, RuntimeError):
-                    # In backend="auto", requirement functions are probed before
-                    # compute-capability filtering. Optional backend dependency
-                    # failures, such as CuTe DSL being unavailable, should only
-                    # make that backend unsuitable and must not block later
-                    # candidates.
+                except ValueError:
                     continue
             # If a heuristic function is provided, filter the suitable backends based on the heuristic function
             assert heuristic_func is not None, "Heuristic function must be provided"

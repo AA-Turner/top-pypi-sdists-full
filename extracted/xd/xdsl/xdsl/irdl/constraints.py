@@ -259,10 +259,14 @@ class VarConstraint(AttrConstraint[AttributeCovT]):
 
     def infer(self, context: ConstraintContext) -> AttributeCovT:
         v = context.get_variable(self.name)
+        if v is None:
+            return self.constraint.infer(context)
         return cast(AttributeCovT, v)
 
     def can_infer(self, var_constraint_names: AbstractSet[str]) -> bool:
-        return self.name in var_constraint_names
+        return self.name in var_constraint_names or self.constraint.can_infer(
+            var_constraint_names
+        )
 
     def get_bases(self) -> set[type[Attribute]] | None:
         return self.constraint.get_bases()
@@ -354,9 +358,14 @@ class BaseAttr(AttrConstraint[AttributeCovT], Generic[AttributeCovT]):
         constraint_context: ConstraintContext,
     ) -> None:
         if not isinstance(attr, self.attr):
-            raise VerifyException(
-                f"{attr} should be of base attribute {self.attr.name}"
-            )
+            if hasattr(self.attr, "name"):
+                raise VerifyException(
+                    f"{attr} should be of base attribute {self.attr.name}"
+                )
+            else:
+                raise VerifyException(
+                    f"{attr} should be of attribute subclassing `{self.attr.__name__}`"
+                )
 
     def can_infer(self, var_constraint_names: AbstractSet[str]) -> bool:
         return (
@@ -420,6 +429,9 @@ class AnyOf(AttrConstraint[AttributeCovT], Generic[AttributeCovT]):
         from xdsl.irdl import irdl_to_attr_constraint
 
         constrs = tuple(irdl_to_attr_constraint(c) for c in attr_constrs)
+
+        if len(constrs) == 1:
+            return constrs[0]
 
         return AnyOf(constrs)
 
@@ -707,10 +719,10 @@ class ParamAttrConstraint(
 
     def mapping_type_vars(
         self, type_var_mapping: Mapping[TypeVar, AttrConstraint | IntConstraint]
-    ) -> ParamAttrConstraint[ParametrizedAttributeCovT]:
-        return ParamAttrConstraint(
+    ) -> AttrConstraint[ParametrizedAttributeCovT]:
+        return ParamAttrConstraint.get(
             self.base_attr,
-            tuple(c.mapping_type_vars(type_var_mapping) for c in self.param_constrs),
+            *(c.mapping_type_vars(type_var_mapping) for c in self.param_constrs),
         )
 
     def __or__(self, value: AttrConstraint[_AttributeCovT], /):
@@ -985,14 +997,17 @@ class IntVarConstraint(IntConstraint):
         return self.constraint.variables() | {self.name}
 
     def can_infer(self, var_constraint_names: AbstractSet[str]) -> bool:
-        return self.name in var_constraint_names
+        return self.name in var_constraint_names or self.constraint.can_infer(
+            var_constraint_names
+        )
 
     def infer(
         self,
         context: ConstraintContext,
     ) -> int:
         v = context.get_int_variable(self.name)
-        assert isinstance(v, int)
+        if v is None:
+            return self.constraint.infer(context)
         return v
 
     def mapping_type_vars(
@@ -1231,12 +1246,16 @@ class RangeVarConstraint(RangeConstraint[AttributeCovT]):
     def can_infer(
         self, var_constraint_names: AbstractSet[str], *, length_known: bool
     ) -> bool:
-        return self.name in var_constraint_names
+        return self.name in var_constraint_names or self.constraint.can_infer(
+            var_constraint_names, length_known=length_known
+        )
 
     def infer(
         self, context: ConstraintContext, *, length: int | None
     ) -> Sequence[AttributeCovT]:
         v = context.get_range_variable(self.name)
+        if v is None:
+            return self.constraint.infer(context, length=length)
         return cast(Sequence[AttributeCovT], v)
 
     def mapping_type_vars(

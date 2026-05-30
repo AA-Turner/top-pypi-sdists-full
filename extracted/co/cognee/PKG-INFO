@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognee
-Version: 1.1.0
+Version: 1.1.1
 Summary: Cognee - is a library for enriching LLM context with a semantic layer for better understanding and reasoning.
 Project-URL: Homepage, https://www.cognee.ai
 Project-URL: Repository, https://github.com/topoteretes/cognee
@@ -50,6 +50,7 @@ Requires-Dist: python-magic-bin<0.5; platform_system == 'Windows'
 Requires-Dist: python-multipart<1.0.0,>=0.0.22
 Requires-Dist: rdflib<7.2.0,>=7.1.4
 Requires-Dist: sqlalchemy<3.0.0,>=2.0.39
+Requires-Dist: starlette>=0.48
 Requires-Dist: structlog<26,>=25.2.0
 Requires-Dist: tenacity>=9.0.0
 Requires-Dist: tiktoken<1.0.0,>=0.8.0

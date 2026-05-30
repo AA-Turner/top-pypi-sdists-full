@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.21.0
+Version: 0.22.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -31,6 +31,7 @@ Requires-Dist: blake3
 Requires-Dist: py-cpuinfo
 Requires-Dist: transformers!=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*,!=5.4.*,!=5.5.0,>=4.56.0
 Requires-Dist: tokenizers>=0.21.1
+Requires-Dist: safetensors>=0.6.2
 Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6
 Requires-Dist: fastapi[standard]>=0.115.0
 Requires-Dist: aiohttp>=3.13.3
@@ -41,7 +42,7 @@ Requires-Dist: pillow
 Requires-Dist: prometheus-fastapi-instrumentator>=7.0.0
 Requires-Dist: tiktoken>=0.6.0
 Requires-Dist: lm-format-enforcer==0.11.3
-Requires-Dist: llguidance<1.4.0,>=1.3.0; platform_machine == "x86_64" or platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ppc64le"
+Requires-Dist: llguidance<1.8.0,>=1.7.0; platform_machine == "x86_64" or platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ppc64le"
 Requires-Dist: outlines_core==0.2.14
 Requires-Dist: diskcache==5.6.3
 Requires-Dist: lark==1.2.2
@@ -80,15 +81,16 @@ Requires-Dist: numba==0.65.0
 Requires-Dist: torch==2.11.0
 Requires-Dist: torchaudio==2.11.0
 Requires-Dist: torchvision==0.26.0
-Requires-Dist: flashinfer-python==0.6.8.post1
-Requires-Dist: flashinfer-cubin==0.6.8.post1
+Requires-Dist: flashinfer-python==0.6.11.post2
+Requires-Dist: flashinfer-cubin==0.6.11.post2
 Requires-Dist: apache-tvm-ffi==0.1.9
 Requires-Dist: tilelang==0.1.9
 Requires-Dist: nvidia-cudnn-frontend<1.19.0,>=1.13.0
 Requires-Dist: fastsafetensors>=0.2.2
-Requires-Dist: nvidia-cutlass-dsl==4.4.2
+Requires-Dist: nvidia-cutlass-dsl[cu13]==4.5.2
 Requires-Dist: quack-kernels>=0.3.3
 Requires-Dist: tokenspeed-mla==0.1.2
+Requires-Dist: humming-kernels[cu13]==0.1.2
 Provides-Extra: zen
 Requires-Dist: zentorch-weekly==5.2.1.dev20260408; extra == "zen"
 Provides-Extra: bench

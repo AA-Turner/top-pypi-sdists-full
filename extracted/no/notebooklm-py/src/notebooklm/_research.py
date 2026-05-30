@@ -10,11 +10,13 @@ import asyncio
 import logging
 import time
 import warnings
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit, urlunsplit
 
 from . import research as _research_pub
 from ._notebook_metadata import NotebookSourceLister, create_default_source_lister
+from ._research_task_parser import ResearchSource, ResearchTask, parse_research_task_models
 from ._session_contracts import RpcCaller
 from .exceptions import (
     NetworkError,
@@ -23,7 +25,7 @@ from .exceptions import (
     RPCTimeoutError,
     ValidationError,
 )
-from .rpc import RPCMethod, safe_index
+from .rpc import RPCMethod
 from .types import CitedSourceSelection
 
 if TYPE_CHECKING:
@@ -33,12 +35,7 @@ __all__ = ["CitedSourceSelection", "ResearchAPI"]
 
 logger = logging.getLogger(__name__)
 
-
-_RESEARCH_RESULT_TYPE_ALIASES = {
-    "web": 1,
-    "drive": 2,
-    "report": 5,
-}
+ResearchSourceInput = ResearchSource | Mapping[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -58,12 +55,12 @@ _RESEARCH_RESULT_TYPE_ALIASES = {
 # ---------------------------------------------------------------------------
 
 
-def _normalize_import_url(url: str) -> str:
+def _normalize_import_verification_url(url: str) -> str:
     """Lowercase scheme + host and strip a trailing slash for comparison.
 
-    Distinct from ``notebooklm.research.normalize_url`` (used for matching
-    URLs cited inside report markdown): this variant drops the URL fragment
-    because the server stores fragments stripped, and skips the
+    Distinct from ``notebooklm.research.normalize_citation_url`` (used for
+    matching URLs cited inside report markdown): this variant drops the URL
+    fragment because the server stores fragments stripped, and skips the
     trailing-punctuation strip because these URLs come from a structured
     ``sources.list`` payload rather than free-form markdown.
     """
@@ -79,19 +76,43 @@ def _normalize_import_url(url: str) -> str:
     )
 
 
-def _source_url_norm(source: dict[str, Any]) -> str | None:
-    url = source.get("url")
-    if not isinstance(url, str) or not url:
+def _source_import_verification_url(source: ResearchSource) -> str | None:
+    url = source.url
+    if not url:
         return None
-    return _normalize_import_url(url)
+    return _normalize_import_verification_url(url)
 
 
-def _requested_urls_norm(sources: list[dict[str, Any]]) -> set[str]:
-    return {url for source in sources if (url := _source_url_norm(source))}
+def _requested_import_verification_urls(sources: Sequence[ResearchSource]) -> set[str]:
+    return {url for source in sources if (url := _source_import_verification_url(source))}
 
 
-def _no_url_entry_count(sources: list[dict[str, Any]]) -> int:
-    return sum(1 for source in sources if _source_url_norm(source) is None)
+def _no_import_verification_url_entry_count(sources: Sequence[ResearchSource]) -> int:
+    return sum(1 for source in sources if _source_import_verification_url(source) is None)
+
+
+def _coerce_research_source(source: ResearchSourceInput) -> ResearchSource:
+    if isinstance(source, ResearchSource):
+        return source
+    return ResearchSource.from_public_dict(source)
+
+
+def _coerce_research_sources(sources: Sequence[ResearchSourceInput]) -> list[ResearchSource]:
+    return [_coerce_research_source(source) for source in sources]
+
+
+def _is_importable_report_source(
+    source_input: ResearchSourceInput,
+    source: ResearchSource,
+) -> bool:
+    """Preserve the public-dict report predicate from the legacy importer."""
+    if not source.is_report or not source.report_markdown:
+        return False
+    if isinstance(source_input, ResearchSource):
+        return isinstance(source.title, str)
+    return isinstance(source_input.get("title"), str) and isinstance(
+        source_input.get("report_markdown"), str
+    )
 
 
 def _imported_source_entry(source: Source) -> dict[str, str]:
@@ -109,162 +130,6 @@ def _merge_imported_sources(
         *verified_imported,
         *(entry for entry in imported if entry.get("id") not in verified_imported_ids),
     ]
-
-
-# ---------------------------------------------------------------------------
-# Poll-payload extractors
-#
-# These private helpers name the positional slots of a ``POLL_RESEARCH`` task
-# entry so the ``ResearchAPI.poll`` body stays readable when Google shifts
-# fields around. Deep numeric indexing is delegated to ``safe_index`` so a
-# single drift point (env-flag-controlled) governs whether we soft-warn or
-# hard-fail. Each helper returns a sentinel (``None``, ``""``, or empty
-# tuple) on shape drift rather than raising, so callers can keep parsing
-# the rest of the payload.
-#
-# Observed shape of a single ``task_data`` entry::
-#
-#     task_data = [
-#         task_id,                            # 0: str
-#         task_info = [                       # 1: list
-#             _,                              #   0: unused
-#             query_info = [query_text, ...], #   1: list of [str, ...]
-#             _,                              #   2: unused
-#             sources_and_summary = [         #   3: list
-#                 sources_data,               #     0: list of source rows
-#                 summary,                    #     1: str (optional)
-#             ],
-#             status_code,                    #   4: int (1=in_progress, 2/6=completed)
-#             ...
-#         ],
-#         ...
-#     ]
-# ---------------------------------------------------------------------------
-
-_POLL_SOURCE = "_research.poll"
-_POLL_METHOD_ID = RPCMethod.POLL_RESEARCH.value
-
-
-def _extract_task_id(task_data: Any) -> str | None:
-    """Return ``task_data[0]`` as a string when present, else ``None``.
-
-    ``task_data`` is expected to be a list whose first element is the
-    task/report identifier. Returns ``None`` and logs via ``safe_index`` if
-    the entry is shorter than 1 element or the value is not a string.
-    """
-    value = safe_index(task_data, 0, method_id=_POLL_METHOD_ID, source=_POLL_SOURCE)
-    if isinstance(value, str):
-        return value
-    if value is not None:
-        logger.warning(
-            "task_data[0] is not a string (method_id=%r, source=%r): %r",
-            _POLL_METHOD_ID,
-            _POLL_SOURCE,
-            type(value).__name__,
-        )
-    return None
-
-
-def _extract_task_info(task_data: Any) -> list[Any] | None:
-    """Return ``task_data[1]`` as a list when present, else ``None``.
-
-    The ``task_info`` slot carries the per-task metadata: query, sources,
-    summary, and status. Returns ``None`` if the entry is too short or the
-    value is not a list.
-    """
-    value = safe_index(task_data, 1, method_id=_POLL_METHOD_ID, source=_POLL_SOURCE)
-    if isinstance(value, list):
-        return value
-    if value is not None:
-        logger.warning(
-            "task_data[1] is not a list (method_id=%r, source=%r): %r",
-            _POLL_METHOD_ID,
-            _POLL_SOURCE,
-            type(value).__name__,
-        )
-    return None
-
-
-def _extract_query_text(task_info: Any) -> str | None:
-    """Return ``task_info[1][0]`` as the original query text, else ``None``.
-
-    Returns ``None`` on missing slots or non-string contents.
-    """
-    value = safe_index(task_info, 1, 0, method_id=_POLL_METHOD_ID, source=_POLL_SOURCE)
-    if isinstance(value, str):
-        return value
-    if value is not None:
-        logger.warning(
-            "task_info[1][0] is not a string (method_id=%r, source=%r): %r",
-            _POLL_METHOD_ID,
-            _POLL_SOURCE,
-            type(value).__name__,
-        )
-    return None
-
-
-def _extract_status_code(task_info: Any) -> int | None:
-    """Return ``task_info[4]`` as an int status code, else ``None``.
-
-    Research status codes observed: ``1`` (in progress), ``2`` (completed),
-    ``6`` (completed deep-research). Returns ``None`` on shape drift or a
-    non-int value (booleans are rejected too).
-    """
-    value = safe_index(task_info, 4, method_id=_POLL_METHOD_ID, source=_POLL_SOURCE)
-    if isinstance(value, bool):
-        # bool is a subclass of int; reject explicitly so callers don't get
-        # surprising truthy comparisons against status codes 1/2/6.
-        logger.warning(
-            "task_info[4] is bool, not int (method_id=%r, source=%r)",
-            _POLL_METHOD_ID,
-            _POLL_SOURCE,
-        )
-        return None
-    if isinstance(value, int):
-        return value
-    if value is not None:
-        logger.warning(
-            "task_info[4] is not an int (method_id=%r, source=%r): %r",
-            _POLL_METHOD_ID,
-            _POLL_SOURCE,
-            type(value).__name__,
-        )
-    return None
-
-
-def _extract_sources_and_summary(task_info: Any) -> tuple[list[Any], str | None]:
-    """Return ``(sources_data, summary)`` from ``task_info[3]``.
-
-    ``sources_data`` is the list of raw source rows (each later parsed by
-    ``ResearchAPI.poll``). ``summary`` is the optional summary string.
-    Returns ``([], None)`` if the slot is missing, not a list, or empty.
-    Returns ``(sources_data, None)`` if no summary string is present.
-    """
-    bundle = safe_index(task_info, 3, method_id=_POLL_METHOD_ID, source=_POLL_SOURCE)
-    if not isinstance(bundle, list) or not bundle:
-        if bundle is not None and not isinstance(bundle, list):
-            logger.warning(
-                "task_info[3] is not a list (method_id=%r, source=%r): %r",
-                _POLL_METHOD_ID,
-                _POLL_SOURCE,
-                type(bundle).__name__,
-            )
-        return [], None
-
-    sources_data = bundle[0] if isinstance(bundle[0], list) else []
-    if bundle[0] is not None and not isinstance(bundle[0], list):
-        logger.warning(
-            "task_info[3][0] is not a list (method_id=%r, source=%r): %r",
-            _POLL_METHOD_ID,
-            _POLL_SOURCE,
-            type(bundle[0]).__name__,
-        )
-
-    summary: str | None = None
-    if len(bundle) >= 2 and isinstance(bundle[1], str):
-        summary = bundle[1]
-
-    return sources_data, summary
 
 
 class ResearchAPI:
@@ -306,7 +171,7 @@ class ResearchAPI:
                 dependency.
         """
         self._rpc = rpc
-        self._source_lister = source_lister or create_default_source_lister(self._rpc_call)
+        self._source_lister = source_lister or create_default_source_lister(self._rpc)
 
     async def _rpc_call(
         self,
@@ -321,9 +186,9 @@ class ResearchAPI:
     ) -> Any:
         """Delegate through the current RPC caller for late-bound overrides.
 
-        Mirrors :meth:`NotebooksAPI._rpc_call` so the default source-lister
-        built in ``__init__`` picks up post-construction ``rpc`` swaps
-        (advanced tests / instrumentation).
+        Mirrors :meth:`NotebooksAPI._rpc_call` so direct ResearchAPI RPC paths
+        pick up post-construction changes to the underlying caller's
+        ``rpc_call`` method (advanced tests / instrumentation).
         """
         return await self._rpc.rpc_call(
             method,
@@ -336,15 +201,6 @@ class ResearchAPI:
         )
 
     @staticmethod
-    def _parse_result_type(value: Any) -> int | str:
-        """Normalize known research source type tags while keeping unknown tags intact."""
-        if isinstance(value, int):
-            return value
-        if isinstance(value, str):
-            return _RESEARCH_RESULT_TYPE_ALIASES.get(value.lower(), value)
-        return 1
-
-    @staticmethod
     def _build_report_import_entry(title: str, markdown: str) -> list[Any]:
         """Build the special deep-research report entry used by IMPORT_RESEARCH."""
         return [None, [title, markdown], None, 3, None, None, None, None, None, None, 3]
@@ -353,20 +209,6 @@ class ResearchAPI:
     def _build_web_import_entry(url: str, title: str) -> list[Any]:
         """Build a standard web-source import entry used by IMPORT_RESEARCH."""
         return [None, None, [url, title], None, None, None, None, None, None, None, 2]
-
-    @staticmethod
-    def _extract_legacy_report_chunks(src: list[Any]) -> str:
-        """Join legacy deep-research report chunks stored in ``src[6]``.
-
-        Legacy deep-research payloads store report markdown as a list of one or
-        more string chunks at index 6. Non-string values are ignored. Returns an
-        empty string when the field is missing, malformed, or contains no
-        string chunks.
-        """
-        if len(src) <= 6 or not isinstance(src[6], list):
-            return ""
-        chunks = [chunk for chunk in src[6] if isinstance(chunk, str) and chunk]
-        return "\n\n".join(chunks)
 
     @staticmethod
     def _normalize_url(url: str) -> str:
@@ -398,6 +240,57 @@ class ResearchAPI:
         :func:`notebooklm.research.select_cited_sources`.
         """
         return _research_pub.select_cited_sources(sources, report)
+
+    async def _poll_task_models(self, notebook_id: str) -> list[ResearchTask]:
+        params = [None, None, notebook_id]
+        result = await self._rpc.rpc_call(
+            RPCMethod.POLL_RESEARCH,
+            params,
+            source_path=f"/notebook/{notebook_id}",
+        )
+        return parse_research_task_models(result)
+
+    @staticmethod
+    def _select_polled_tasks(
+        parsed_tasks: list[ResearchTask],
+        *,
+        notebook_id: str,
+        task_id: str | None,
+        warn_on_ambiguous: bool,
+    ) -> list[ResearchTask]:
+        # Task-id discriminator: when supplied, filter parsed_tasks down to
+        # the matched task so callers iterating ``tasks`` don't see siblings.
+        # When omitted but multiple tasks are in flight, surface the latent
+        # cross-wire hazard via a DeprecationWarning while preserving legacy
+        # latest-task selection.
+        if task_id is not None:
+            return [task for task in parsed_tasks if task.task_id == task_id]
+        if warn_on_ambiguous and len(parsed_tasks) > 1:
+            warnings.warn(
+                (
+                    f"ResearchAPI.poll(notebook_id={notebook_id!r}) returned "
+                    f"{len(parsed_tasks)} in-flight tasks but no task_id "
+                    f"discriminator was supplied. The latest task is "
+                    f"returned for back-compat, but this is ambiguous and "
+                    f"may surface results for the wrong task. Pass "
+                    f"task_id=<id> (from research.start) to select "
+                    f"explicitly. The None default will be removed in a "
+                    f"future major release."
+                ),
+                DeprecationWarning,
+                stacklevel=3,
+            )
+        return parsed_tasks
+
+    @staticmethod
+    def _public_poll_result(
+        selected_task: ResearchTask,
+        parsed_tasks: list[ResearchTask],
+    ) -> dict[str, Any]:
+        return {
+            **selected_task.to_public_dict(),
+            "tasks": [task.to_public_dict() for task in parsed_tasks],
+        }
 
     async def start(
         self,
@@ -514,149 +407,15 @@ class ResearchAPI:
             shape as the empty-poll case.
         """
         logger.debug("Polling research status for notebook %s", notebook_id)
-        params = [None, None, notebook_id]
-        result = await self._rpc.rpc_call(
-            RPCMethod.POLL_RESEARCH,
-            params,
-            source_path=f"/notebook/{notebook_id}",
+        parsed_tasks = self._select_polled_tasks(
+            await self._poll_task_models(notebook_id),
+            notebook_id=notebook_id,
+            task_id=task_id,
+            warn_on_ambiguous=True,
         )
 
-        if not result or not isinstance(result, list) or len(result) == 0:
-            return {"status": "no_research", "tasks": []}
-
-        # Unwrap if needed
-        if isinstance(result[0], list) and len(result[0]) > 0 and isinstance(result[0][0], list):
-            result = result[0]
-
-        parsed_tasks = []
-        for task_data in result:
-            if not isinstance(task_data, list):
-                continue
-
-            # Distinct from the ``task_id`` parameter (the caller's
-            # discriminator); name them differently to avoid the obvious
-            # shadowing trap.
-            parsed_task_id = _extract_task_id(task_data)
-            task_info = _extract_task_info(task_data)
-            if parsed_task_id is None or task_info is None:
-                continue
-
-            query_text = _extract_query_text(task_info) or ""
-            sources_data, summary_opt = _extract_sources_and_summary(task_info)
-            summary = summary_opt or ""
-            status_code = _extract_status_code(task_info)
-
-            parsed_sources = []
-            report = ""
-            for src in sources_data:
-                if not isinstance(src, list) or len(src) < 2:
-                    continue
-
-                title = ""
-                url = ""
-                source_report = ""
-                parsed_source = None
-
-                # Fast research: [url, title, desc, type, ...]
-                # Deep research (legacy): [None, title, None, type, ..., [report_markdown]]
-                # Deep research (current): [None, [title, report_markdown], None, type, ...]
-                # src[3] is the authoritative result_type when present.
-                # Legacy payloads use string tags such as "web"/"drive".
-                result_type = self._parse_result_type(src[3]) if len(src) > 3 else 1
-                if src[0] is None and len(src) > 1:
-                    if (
-                        isinstance(src[1], list)
-                        and len(src[1]) >= 2
-                        and isinstance(src[1][0], str)
-                        and isinstance(src[1][1], str)
-                    ):
-                        title = src[1][0]
-                        source_report = src[1][1]
-                        url = ""
-                        if result_type == 1:
-                            result_type = 5  # deep research report entry (fallback)
-                    elif isinstance(src[1], str):
-                        title = src[1]
-                        url = ""
-                        if result_type == 1:
-                            result_type = 5  # deep research report entry (fallback)
-                elif isinstance(src[0], str) or len(src) >= 3:
-                    url = src[0] if isinstance(src[0], str) else ""
-                    title = src[1] if len(src) > 1 and isinstance(src[1], str) else ""
-
-                if title or url:
-                    parsed_source = {
-                        "url": url,
-                        "title": title,
-                        "result_type": result_type,
-                        "research_task_id": parsed_task_id,
-                    }
-                    if source_report:
-                        parsed_source["report_markdown"] = source_report
-                    parsed_sources.append(parsed_source)
-
-                # Current payloads inline report markdown in src[1][1].
-                # Legacy payloads keep it in src[6] as one or more chunks.
-                if not report and source_report:
-                    report = source_report
-                elif not report:
-                    report = self._extract_legacy_report_chunks(src)
-                    if report and parsed_source is not None:
-                        parsed_source["report_markdown"] = report
-
-            # NOTE: Research status codes differ from artifact status codes.
-            # Research: 1=in_progress, 2=completed, 6=completed (deep research).
-            # Unknown non-null codes are treated as terminal failures so wait
-            # loops don't spin until timeout after the backend rejects a task.
-            # Artifacts: 1=in_progress, 2=pending, 3=completed
-            if status_code in (2, 6):
-                status = "completed"
-            elif status_code == 1 or status_code is None:
-                status = "in_progress"
-            else:
-                status = "failed"
-
-            parsed_tasks.append(
-                {
-                    "task_id": parsed_task_id,
-                    "status": status,
-                    "query": query_text,
-                    "sources": parsed_sources,
-                    "summary": summary,
-                    "report": report,
-                }
-            )
-
-        # Task-id discriminator: when supplied, filter parsed_tasks
-        # down to the matched task so callers iterating ``tasks`` don't see
-        # un-asked-for siblings. When omitted but multiple tasks are in
-        # flight, surface the latent cross-wire hazard via a
-        # DeprecationWarning — old behavior (return latest) is preserved to
-        # avoid breaking legacy single-task callers.
-        if task_id is not None:
-            parsed_tasks = [t for t in parsed_tasks if t.get("task_id") == task_id]
-        elif len(parsed_tasks) > 1:
-            warnings.warn(
-                (
-                    f"ResearchAPI.poll(notebook_id={notebook_id!r}) returned "
-                    f"{len(parsed_tasks)} in-flight tasks but no task_id "
-                    f"discriminator was supplied. The latest task is "
-                    f"returned for back-compat, but this is ambiguous and "
-                    f"may surface results for the wrong task. Pass "
-                    f"task_id=<id> (from research.start) to select "
-                    f"explicitly. The None default will be removed in a "
-                    f"future major release."
-                ),
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
         if parsed_tasks:
-            selected_task = parsed_tasks[0]
-            return {
-                **selected_task,
-                "tasks": parsed_tasks,
-            }
+            return self._public_poll_result(parsed_tasks[0], parsed_tasks)
 
         return {"status": "no_research", "tasks": []}
 
@@ -704,17 +463,21 @@ class ResearchAPI:
         pinned_task_id = task_id
 
         while True:
-            status = await self.poll(notebook_id, task_id=pinned_task_id)
-            if pinned_task_id is None:
-                discovered_task_id = status.get("task_id")
-                if isinstance(discovered_task_id, str) and discovered_task_id:
-                    pinned_task_id = discovered_task_id
+            parsed_tasks = self._select_polled_tasks(
+                await self._poll_task_models(notebook_id),
+                notebook_id=notebook_id,
+                task_id=pinned_task_id,
+                warn_on_ambiguous=pinned_task_id is None,
+            )
+            selected_task = parsed_tasks[0] if parsed_tasks else None
+            if pinned_task_id is None and selected_task is not None:
+                pinned_task_id = selected_task.task_id
 
-            status_val = status.get("status", "unknown")
-            if status_val in ("completed", "failed"):
-                return status
+            status_val = selected_task.status if selected_task is not None else "no_research"
+            if selected_task is not None and status_val in ("completed", "failed"):
+                return self._public_poll_result(selected_task, parsed_tasks)
             if status_val == "no_research" and pinned_task_id is None:
-                return status
+                return {"status": "no_research", "tasks": []}
 
             elapsed = loop.time() - start
             if elapsed >= timeout:
@@ -732,7 +495,7 @@ class ResearchAPI:
         self,
         notebook_id: str,
         task_id: str,
-        sources: list[dict[str, Any]],
+        sources: Sequence[ResearchSourceInput],
     ) -> list[dict[str, str]]:
         """Import selected research sources into the notebook.
 
@@ -753,9 +516,15 @@ class ResearchAPI:
             To reliably verify imports, check the notebook's source list using
             `client.sources.list(notebook_id)` after calling this method.
         """
-        logger.debug("Importing %d research sources into notebook %s", len(sources), notebook_id)
         if not sources:
             return []
+        source_inputs: list[ResearchSourceInput] = list(sources)
+        source_models = _coerce_research_sources(source_inputs)
+        logger.debug(
+            "Importing %d research sources into notebook %s",
+            len(source_models),
+            notebook_id,
+        )
 
         # Per-source ``research_task_id`` must match the caller's
         # ``task_id`` when both are present. A mismatch is the wire-crossing
@@ -763,19 +532,16 @@ class ResearchAPI:
         # provenance. We do this scan BEFORE the multi-task batch check so
         # callers get the precise diagnostic (which mismatched source +
         # which task) instead of the generic "multiple tasks" message.
-        for source in sources:
-            source_task_id = source.get("research_task_id")
-            if isinstance(source_task_id, str) and source_task_id and source_task_id != task_id:
+        for source in source_models:
+            source_task_id = source.research_task_id
+            if source_task_id and source_task_id != task_id:
                 raise ResearchTaskMismatchError(
                     task_id=task_id,
                     source_research_task_id=source_task_id,
                 )
 
         research_task_ids = {
-            research_task_id
-            for source in sources
-            if isinstance((research_task_id := source.get("research_task_id")), str)
-            and research_task_id
+            source.research_task_id for source in source_models if source.research_task_id
         }
         if len(research_task_ids) > 1:
             raise ValidationError(
@@ -783,17 +549,20 @@ class ResearchAPI:
             )
         effective_task_id = next(iter(research_task_ids), task_id)
 
-        report_sources = [
+        report_source_indexes = {
+            index
+            for index, (source_input, source) in enumerate(
+                zip(source_inputs, source_models, strict=True)
+            )
+            if _is_importable_report_source(source_input, source)
+        }
+        report_sources = [source_models[index] for index in sorted(report_source_indexes)]
+        valid_sources = [
             source
-            for source in sources
-            if source.get("result_type") == 5
-            and isinstance(source.get("title"), str)
-            and isinstance(source.get("report_markdown"), str)
-            and source.get("report_markdown")
+            for index, source in enumerate(source_models)
+            if source.url and index not in report_source_indexes
         ]
-        report_source_ids = {id(source) for source in report_sources}
-        valid_sources = [s for s in sources if s.get("url") and id(s) not in report_source_ids]
-        skipped_count = len(sources) - len(valid_sources) - len(report_sources)
+        skipped_count = len(source_models) - len(valid_sources) - len(report_sources)
         if skipped_count > 0:
             logger.warning(
                 "Skipping %d source(s) that cannot be imported (missing URLs or report entries)",
@@ -806,12 +575,12 @@ class ResearchAPI:
         for report_source in report_sources:
             source_array.append(
                 self._build_report_import_entry(
-                    report_source["title"], report_source["report_markdown"]
+                    report_source.title,
+                    report_source.report_markdown,
                 )
             )
         source_array.extend(
-            self._build_web_import_entry(src["url"], src.get("title", "Untitled"))
-            for src in valid_sources
+            self._build_web_import_entry(src.url, src.title) for src in valid_sources
         )
 
         params = [None, [1], effective_task_id, notebook_id, source_array]
@@ -846,7 +615,7 @@ class ResearchAPI:
         self,
         notebook_id: str,
         task_id: str,
-        sources: list[dict[str, Any]],
+        sources: Sequence[ResearchSourceInput],
         *,
         max_elapsed: float = 1800,
         initial_delay: float = 5,
@@ -888,6 +657,8 @@ class ResearchAPI:
         """
         if not sources:
             return []
+        source_inputs: list[ResearchSourceInput] = list(sources)
+        source_models = _coerce_research_sources(sources)
 
         started_at = time.monotonic()
         delay = initial_delay
@@ -895,11 +666,11 @@ class ResearchAPI:
         verified_imported: list[dict[str, str]] = []
         verified_imported_ids: set[str] = set()
 
-        requested_urls_norm = _requested_urls_norm(sources)
+        requested_urls_norm = _requested_import_verification_urls(source_models)
         # Track how many non-URL entries (research reports, pasted text) the
         # request includes so concurrent no-URL additions cannot inflate the
         # synthesized return after a timeout.
-        requested_no_url_count = _no_url_entry_count(sources)
+        requested_no_url_count = _no_import_verification_url_entry_count(source_models)
 
         # Anchor verified-success on URLs of *new* sources (not on a
         # baseline→current URL delta) so concurrent additions from another
@@ -919,7 +690,7 @@ class ResearchAPI:
 
         while True:
             try:
-                imported = await self.import_sources(notebook_id, task_id, sources)
+                imported = await self.import_sources(notebook_id, task_id, source_inputs)
                 return _merge_imported_sources(imported, verified_imported, verified_imported_ids)
             except RPCTimeoutError:
                 elapsed = time.monotonic() - started_at
@@ -934,11 +705,16 @@ class ResearchAPI:
                             else []
                         )
                         new_urls_norm = {
-                            _normalize_import_url(src.url) for src in new_sources if src.url
+                            _normalize_import_verification_url(src.url)
+                            for src in new_sources
+                            if src.url
                         }
                         current_urls_norm = {
-                            _normalize_import_url(src.url) for src in current if src.url
+                            _normalize_import_verification_url(src.url)
+                            for src in current
+                            if src.url
                         }
+                        committed_urls_norm = requested_urls_norm & new_urls_norm
                         if baseline_ids is not None and requested_urls_norm.issubset(new_urls_norm):
                             logger.warning(
                                 "IMPORT_RESEARCH timed out for notebook %s but "
@@ -953,7 +729,8 @@ class ResearchAPI:
                             for src in new_sources:
                                 if (
                                     src.url
-                                    and _normalize_import_url(src.url) in requested_urls_norm
+                                    and _normalize_import_verification_url(src.url)
+                                    in requested_urls_norm
                                 ):
                                     timeout_verified.append(_imported_source_entry(src))
                                 elif not src.url and remaining_no_url > 0:
@@ -962,46 +739,59 @@ class ResearchAPI:
                             return _merge_imported_sources(
                                 timeout_verified, verified_imported, verified_imported_ids
                             )
-                        source_norms = [(source, _source_url_norm(source)) for source in sources]
-                        removed_urls_norm = {
-                            url
-                            for _, url in source_norms
-                            if url is not None and url in current_urls_norm
-                        }
+                        source_norms = [
+                            (
+                                source_input,
+                                source,
+                                _source_import_verification_url(source),
+                            )
+                            for source_input, source in zip(
+                                source_inputs, source_models, strict=True
+                            )
+                        ]
                         # Filter for retry: drop already-present URLs.
                         # Additionally, when *any* URL was verified
                         # committed, drop no-URL entries (deep-research
                         # reports): reports are appended FIRST in the
                         # IMPORT_RESEARCH payload (see
                         # ``_build_report_import_entry`` usage in
-                        # ``import_sources``), so a committed URL implies
-                        # the report committed too. Without this guard,
+                        # ``import_sources``), so a URL newly observed after
+                        # this attempt implies the report committed too.
+                        # Pre-existing URLs only de-dupe URL entries; they do
+                        # not prove this request committed no-URL reports.
+                        # Without this guard,
                         # each retry duplicates the report server-side.
                         # When no URL committed, keep no-URL entries —
                         # the report's fate is unknown and the
                         # report-only attempt cap further down bounds
                         # the worst case.
-                        drop_no_url_entries = bool(removed_urls_norm)
-                        filtered_sources = [
-                            source
-                            for source, url in source_norms
+                        drop_no_url_entries = bool(committed_urls_norm)
+                        filtered_source_pairs = [
+                            (source_input, source)
+                            for source_input, source, url in source_norms
                             if url not in current_urls_norm
                             and not (drop_no_url_entries and url is None)
                         ]
-                        if len(filtered_sources) != len(sources):
-                            removed_count = len(sources) - len(filtered_sources)
+                        if len(filtered_source_pairs) != len(source_models):
+                            removed_count = len(source_models) - len(filtered_source_pairs)
                             for src in new_sources:
                                 if (
                                     src.url
-                                    and _normalize_import_url(src.url) in removed_urls_norm
+                                    and _normalize_import_verification_url(src.url)
+                                    in committed_urls_norm
                                     and src.id not in verified_imported_ids
                                 ):
                                     verified_imported.append(_imported_source_entry(src))
                                     verified_imported_ids.add(src.id)
-                            sources = filtered_sources
-                            requested_urls_norm = _requested_urls_norm(sources)
-                            requested_no_url_count = _no_url_entry_count(sources)
-                            if not sources:
+                            source_inputs = [
+                                source_input for source_input, _ in filtered_source_pairs
+                            ]
+                            source_models = [source for _, source in filtered_source_pairs]
+                            requested_urls_norm = _requested_import_verification_urls(source_models)
+                            requested_no_url_count = _no_import_verification_url_entry_count(
+                                source_models
+                            )
+                            if not source_models:
                                 logger.warning(
                                     "IMPORT_RESEARCH timed out for notebook %s "
                                     "but sources.list shows all requested URLs "
@@ -1018,7 +808,7 @@ class ResearchAPI:
                                 "retrying with %d remaining source(s)",
                                 notebook_id,
                                 removed_count,
-                                len(sources),
+                                len(source_models),
                             )
                     except (NetworkError, RPCError) as probe_exc:
                         # CancelledError is a BaseException, not Exception, and

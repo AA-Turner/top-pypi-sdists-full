@@ -1,63 +1,51 @@
 """RetryMiddleware — 429/5xx retry loop for the Tier-12 chain.
 
 Per ADR-009 §"Chain ordering", ``RetryMiddleware`` sits just *inside*
-``MetricsMiddleware`` and just *outside* ``AuthRefreshMiddleware`` (which
-extracts in PR 12.8). The final Tier-12 chain is
-``[Drain, Metrics, Retry, AuthRefresh, ErrorInjection, Tracing]``. PR 12.7
-ships the interim 5-middleware chain
-``[Drain, Metrics, Retry, ErrorInjection, Tracing]``; PR 12.8 inserts
-``AuthRefresh`` BETWEEN ``Retry`` and ``ErrorInjection``.
+``SemaphoreMiddleware`` and just *outside* ``AuthRefreshMiddleware``. The
+final Tier-12 chain is
+``[Drain, Metrics, Semaphore, Retry, AuthRefresh, ErrorInjection, Tracing]``.
+PR 12.7 shipped the interim 5-middleware chain
+``[Drain, Metrics, Retry, ErrorInjection, Tracing]``; PR 12.8 inserted
+``AuthRefresh`` BETWEEN ``Retry`` and ``ErrorInjection``, and PR 12.9 inserted
+``Semaphore`` BETWEEN ``Metrics`` and ``Retry``.
 
-This PR lifts the **retry-on-429** and **retry-on-5xx/network** loops out
-of ``AuthedTransport.perform_authed_post`` (the chain leaf). After PR
-12.7 the leaf is a single POST attempt that raises
+This middleware owns the **retry-on-429** and **retry-on-5xx/network** loops.
+The chain leaf is a single ``Kernel.post`` attempt that raises
 :class:`TransportRateLimited` on HTTP 429 or
 :class:`TransportServerError` on HTTP 5xx / network failures —
 **immediately**, without internal retry. The middleware catches those
 exceptions and decides whether to retry by re-invoking the chain.
-Auth-refresh-and-retry stays in the leaf as a localized loop until PR
-12.8 lifts it.
+Auth-refresh-and-retry lives in :class:`AuthRefreshMiddleware`.
 
 Behavior preservation (vs. pre-PR-12.7):
 
 - **Same retry counts** — ``rate_limit_max_retries`` /
   ``server_error_max_retries`` are propagated from ``Session`` so the
-  budget matches the legacy ``AuthedTransport`` loop.
+  budget matches the historical transport loop.
 - **Same backoff timing** — :func:`_backoff.compute_backoff_delay` is
   invoked with the same ``base=1.0`` / ``cap=30.0`` / ``jitter_ratio=0.2``
   parameters; ``Retry-After`` is honored before falling back to
-  exponential backoff.
-- **Same log lines** — "rate-limited (HTTP 429); sleeping (…); retrying
-  (n/N)" and "server/network error (…); backing off …; retrying (n/N)"
-  match the pre-PR-12.7 message shape so log-grep alerts keep matching.
+  exponential backoff. Sleeps are clamped by the existing client timeout so
+  a retry cannot wait past the logical call's aggregate budget.
+- **Same base log shape** — "rate-limited (HTTP 429); sleeping (…);
+  retrying (n/N)" and "server/network error (…); backing off …; retrying
+  (n/N)" still prefix-match the pre-PR-12.7 shape. Deadline exhaustion emits
+  an additional timeout warning when no retry budget remains.
 - **Same metrics** — ``rpc_rate_limit_retries`` and
   ``rpc_server_error_retries`` are incremented per retry attempt, same as
   the legacy code.
 - **Same disable_internal_retries gate** — read from
-  ``request.context["disable_internal_retries"]`` (post-resolution bool
-  produced by ``_idempotency.resolve_effective_disable_internal_retries``
-  before chain entry; see ADR-009 §"Per-request behavior").
+  ``RPC_CONTEXT_DISABLE_INTERNAL_RETRIES`` (post-resolution bool produced
+  by ``_idempotency.resolve_effective_disable_internal_retries`` before
+  chain entry; see ADR-009 §"Per-request behavior").
 - **Same exception types on exhaustion** —
   :class:`TransportRateLimited` /
   :class:`TransportServerError` re-raised verbatim so
   ``_chat_transport.chat_aware_authed_post`` (which catches both) sees
   the same shape it always did.
 
-Subtle behavioral note (interim until PR 12.8 lands): pre-PR-12.7 the
-auth-refresh-and-retry counter (``refreshed_this_call``) sat inside the
-same ``while True`` as the 429/5xx counters, so a single call could
-auth-refresh at most once across ALL its retries. Post-PR-12.7, each
-``RetryMiddleware`` retry is a fresh chain invocation which means a fresh
-leaf invocation with its OWN ``refreshed_this_call``. In theory the same
-call could now auth-refresh once per retry. In practice auth refreshes
-are idempotent (they get fresh tokens), and ``RetryMiddleware``'s own
-budget bounds the total work — no infinite loop is possible. PR 12.8
-collapses this back into a single coordinated refresh path by lifting
-auth-refresh into a chain middleware outside this one.
-
 See ``docs/adr/0009-middleware-chain.md`` for the chain contract,
-``src/notebooklm/_authed_transport.py`` for the (slimmed) leaf and the
-exception types this middleware catches, and
+``src/notebooklm/_transport_errors.py`` for the terminal error mapper, and
 ``.sisyphus/plans/tier-12-13-greenfield-migration.md`` row 12.7 for the
 PR sequence.
 """
@@ -65,22 +53,23 @@ PR sequence.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
-from ._authed_transport import TransportRateLimited, TransportServerError, parse_retry_after
 from ._backoff import compute_backoff_delay
+from ._deadline import Monotonic, RuntimeDeadline
 from ._middleware import NextCall, RpcRequest, RpcResponse
+from ._middleware_context import RPC_CONTEXT_DISABLE_INTERNAL_RETRIES, RPC_CONTEXT_LOG_LABEL
 from ._session_config import CORE_LOGGER_NAME
 from ._session_helpers import resolve_sleep
+from ._transport_errors import TransportRateLimited, TransportServerError, parse_retry_after
 
 if TYPE_CHECKING:
     from ._client_metrics import ClientMetrics
 
 
-# Backoff parameters lifted verbatim from the pre-PR-12.7 retry loop in
-# ``AuthedTransport.perform_authed_post`` so end-to-end retry timing is
-# preserved bit-for-bit.
+# Backoff parameters preserve the historical transport retry timing.
 _BACKOFF_BASE_SECONDS = 1.0
 _BACKOFF_CAP_SECONDS = 30.0
 _BACKOFF_JITTER_RATIO = 0.2
@@ -99,9 +88,11 @@ class RetryMiddleware:
     Constructor inputs (all wired by ``Session.__init__``):
 
     - ``rate_limit_max_retries`` / ``server_error_max_retries``: the same
-      budgets ``Session`` previously passed to ``AuthedTransport`` via
-      the host attributes ``_rate_limit_max_retries`` /
+      budgets exposed by ``Session`` via ``_rate_limit_max_retries`` /
       ``_server_error_max_retries``.
+    - ``retry_timeout``: aggregate retry deadline in seconds. Production wires
+      this to the existing client HTTP timeout so retry sleeps cannot exceed
+      the logical call's timeout budget.
     - ``sleep``: the awaitable sleep function. Defaults to
       :func:`asyncio.sleep`; tests inject a stub to make backoff
       deterministic and to assert on sleep durations.
@@ -120,25 +111,30 @@ class RetryMiddleware:
         *,
         rate_limit_max_retries: int | Callable[[], int],
         server_error_max_retries: int | Callable[[], int],
+        retry_timeout: float | Callable[[], float | None] | None = None,
         sleep: Callable[[float], Awaitable[object]] | None = None,
+        monotonic: Monotonic | None = None,
         logger: logging.Logger | None = None,
         metrics: ClientMetrics | None = None,
     ) -> None:
         # Budgets accept either a static int OR a zero-arg callable. The
-        # callable form preserves the pre-PR-12.7 contract where
-        # ``AuthedTransport`` read ``host._rate_limit_max_retries`` /
-        # ``host._server_error_max_retries`` LIVE inside the retry loop, so
-        # tests (and any production tweaks) that mutate those attrs on the
-        # core after ``open()`` still take effect. ``Session.__init__``
-        # wires the callable form via a ``lambda: self._rate_limit_max_retries``
-        # closure; tests that build a middleware in isolation typically pass
-        # the int form.
+        # callable form preserves the historical contract where the retry
+        # loop read ``chain_host._rate_limit_max_retries`` /
+        # ``chain_host._server_error_max_retries`` LIVE, so tests (and any
+        # production tweaks) that mutate those attrs on the chain host
+        # after ``open()`` still take effect. ``wire_middleware_chain``
+        # passes the callable form via a
+        # ``lambda: chain_host._rate_limit_max_retries`` closure; tests
+        # that build a middleware in isolation typically pass the int
+        # form.
         self._rate_limit_max = rate_limit_max_retries
         self._server_error_max = server_error_max_retries
         # Late-binding rationale lives on ``_session_helpers.resolve_sleep``;
         # see that helper for why we resolve at call time instead of capturing
         # the callable at construction.
+        self._retry_timeout = retry_timeout
         self._sleep = sleep
+        self._monotonic = monotonic
         self._logger = logger or logging.getLogger(CORE_LOGGER_NAME)
         self._metrics = metrics
 
@@ -149,6 +145,15 @@ class RetryMiddleware:
     def _resolve_server_error_max(self) -> int:
         v = self._server_error_max
         return v() if callable(v) else v
+
+    def _start_retry_deadline(self) -> RuntimeDeadline | None:
+        v = self._retry_timeout
+        if v is None:
+            return None
+        timeout = v() if callable(v) else v
+        if timeout is None or not math.isfinite(float(timeout)):
+            return None
+        return RuntimeDeadline.start(float(timeout), monotonic=self._monotonic)
 
     async def __call__(
         self,
@@ -165,12 +170,15 @@ class RetryMiddleware:
         — the production path always populates it from
         :func:`_idempotency.resolve_effective_disable_internal_retries`.
         """
-        log_label = request.context.get("log_label", "<unknown-chain-call>")
+        log_label = request.context.get(RPC_CONTEXT_LOG_LABEL, "<unknown-chain-call>")
         # Post-resolution bool — see ADR-009 §"Per-request behavior".
-        disable_internal_retries = bool(request.context.get("disable_internal_retries", False))
+        disable_internal_retries = bool(
+            request.context.get(RPC_CONTEXT_DISABLE_INTERNAL_RETRIES, False)
+        )
 
         rate_limit_retries = 0
         server_error_retries = 0
+        retry_deadline = self._start_retry_deadline()
 
         while True:
             try:
@@ -184,6 +192,7 @@ class RetryMiddleware:
                     attempt=rate_limit_retries,
                     log_label=log_label,
                     rate_limit_max=rate_limit_max,
+                    retry_deadline=retry_deadline,
                 )
                 rate_limit_retries += 1
                 if self._metrics is not None:
@@ -198,6 +207,7 @@ class RetryMiddleware:
                     attempt=server_error_retries,
                     log_label=log_label,
                     server_error_max=server_error_max,
+                    retry_deadline=retry_deadline,
                 )
                 server_error_retries += 1
                 if self._metrics is not None:
@@ -211,6 +221,7 @@ class RetryMiddleware:
         attempt: int,
         log_label: str,
         rate_limit_max: int,
+        retry_deadline: RuntimeDeadline | None,
     ) -> None:
         """Honor ``Retry-After`` if present; otherwise exponential backoff.
 
@@ -237,6 +248,13 @@ class RetryMiddleware:
             sleep_seconds = max(_BACKOFF_MIN_SECONDS, backoff)
             sleep_source = f"exp-backoff={sleep_seconds:.1f}s"
 
+        actual_sleep = self._resolve_retry_sleep(
+            retry_deadline=retry_deadline,
+            requested_sleep=sleep_seconds,
+            log_label=log_label,
+            exc=exc,
+        )
+
         self._logger.warning(
             "%s rate-limited (HTTP 429); sleeping (%s) then retrying (%d/%d)",
             log_label,
@@ -244,7 +262,12 @@ class RetryMiddleware:
             attempt + 1,
             rate_limit_max,
         )
-        await resolve_sleep(self._sleep)(sleep_seconds)
+        await resolve_sleep(self._sleep)(actual_sleep)
+        self._raise_if_retry_deadline_expired(
+            retry_deadline=retry_deadline,
+            log_label=log_label,
+            exc=exc,
+        )
 
     async def _wait_for_server_error(
         self,
@@ -253,6 +276,7 @@ class RetryMiddleware:
         attempt: int,
         log_label: str,
         server_error_max: int,
+        retry_deadline: RuntimeDeadline | None,
     ) -> None:
         """Exponential backoff with the same parameters as the legacy loop."""
         backoff = max(
@@ -263,6 +287,12 @@ class RetryMiddleware:
                 cap=_BACKOFF_CAP_SECONDS,
                 jitter_ratio=_BACKOFF_JITTER_RATIO,
             ),
+        )
+        actual_backoff = self._resolve_retry_sleep(
+            retry_deadline=retry_deadline,
+            requested_sleep=backoff,
+            log_label=log_label,
+            exc=exc,
         )
         # ``status_code`` is set on 5xx; the network-error branch sets
         # ``response`` / ``status_code`` to ``None``, so fall back to the
@@ -276,11 +306,43 @@ class RetryMiddleware:
             "%s server/network error (%s); backing off %.1fs then retrying (%d/%d)",
             log_label,
             status_label,
-            backoff,
+            actual_backoff,
             attempt + 1,
             server_error_max,
         )
-        await resolve_sleep(self._sleep)(backoff)
+        await resolve_sleep(self._sleep)(actual_backoff)
+        self._raise_if_retry_deadline_expired(
+            retry_deadline=retry_deadline,
+            log_label=log_label,
+            exc=exc,
+        )
+
+    def _resolve_retry_sleep(
+        self,
+        *,
+        retry_deadline: RuntimeDeadline | None,
+        requested_sleep: float,
+        log_label: str,
+        exc: TransportRateLimited | TransportServerError,
+    ) -> float:
+        if retry_deadline is None:
+            return requested_sleep
+        remaining = retry_deadline.remaining()
+        if remaining <= 0.0 or requested_sleep >= remaining:
+            self._logger.warning("%s", retry_deadline.timeout_message(f"{log_label} retry"))
+            raise exc
+        return retry_deadline.clamp_sleep(requested_sleep)
+
+    def _raise_if_retry_deadline_expired(
+        self,
+        *,
+        retry_deadline: RuntimeDeadline | None,
+        log_label: str,
+        exc: TransportRateLimited | TransportServerError,
+    ) -> None:
+        if retry_deadline is not None and retry_deadline.expired():
+            self._logger.warning("%s", retry_deadline.timeout_message(f"{log_label} retry"))
+            raise exc
 
 
 __all__ = ["RetryMiddleware"]

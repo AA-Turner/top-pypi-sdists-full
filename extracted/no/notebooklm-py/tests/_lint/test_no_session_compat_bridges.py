@@ -1,8 +1,8 @@
 """Meta-lint: external code may not access retired ``Session`` private attrs.
 
 The names enumerated in :data:`FORBIDDEN_PROPERTIES` were once private
-properties on :class:`notebooklm._session.Session` that delegated to
-per-seam collaborators. The session-shrink arc retired those properties
+properties on the concrete session type that delegated to per-seam
+collaborators. The session-shrink arc retired those properties
 and migrated tests to the owning collaborators or ``make_fake_core(...)``.
 This lint is now a strict regression guard; :data:`ALLOWLIST` must stay
 empty.
@@ -50,9 +50,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # properties are gone so tests cannot quietly reintroduce those reach-ins.
 FORBIDDEN_PROPERTIES: frozenset[str] = frozenset(
     {
-        # ClientLifecycle bridges retired in session-shrink PR 6 — readers now
-        # go straight to ``session._kernel`` / ``session._lifecycle`` or use
-        # the public ``session.bound_loop`` property. Lifecycle bridge names
+        # ClientLifecycle bridges retired in session-shrink PR 6 — readers
+        # now go straight to ``session._kernel`` / ``session._lifecycle``
+        # and call ``session._lifecycle.get_bound_loop()`` for the open-time
+        # loop (the ``session.bound_loop`` property forward was deleted in
+        # Wave 11c of session-decoupling). Lifecycle bridge names
         # (``_http_client``, ``_bound_loop``, ``_timeout``, ``_connect_timeout``,
         # ``_limits``, ``_keepalive_interval``, ``_keepalive_task``) are
         # intentionally NOT listed below: ``Session`` no longer defines them,
@@ -107,8 +109,10 @@ CARVE_OUT_MODULES: frozenset[str] = frozenset(
         "src/notebooklm/_cookie_persistence.py",
         "src/notebooklm/_polling_registry.py",
         "src/notebooklm/_reqid_counter.py",
-        "src/notebooklm/_authed_transport.py",
         "src/notebooklm/_rpc_executor.py",
+        "src/notebooklm/_request_types.py",
+        "src/notebooklm/_streaming_post.py",
+        "src/notebooklm/_transport_errors.py",
         "src/notebooklm/_middleware_auth_refresh.py",
         "src/notebooklm/_middleware_chain.py",
         "src/notebooklm/_middleware_drain.py",

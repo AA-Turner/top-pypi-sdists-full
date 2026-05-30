@@ -13,7 +13,6 @@ import logging
 from multiprocessing import Pool
 import os
 import platform
-import re
 import sys
 import time
 
@@ -70,13 +69,13 @@ def run_test_on_file(filename, verbose=False, opt=None):
         stdouts = []
         for exe_path in [DWARFDUMP_PATH, 'scripts/dwarfdump.py']:
             args = [option, '--verbose', filename]
-            if verbose: testlog.info("....executing: '%s %s'" % (
-                exe_path, ' '.join(args)))
+            cmd = " ".join((exe_path, *args))
+            if verbose: testlog.info(f"....executing: '{cmd}'")
             t1 = time.time()
             rc, stdout = run_exe(exe_path, args)
             if verbose: testlog.info("....elapsed: %s" % (time.time() - t1,))
             if rc != 0:
-                testlog.error("@@ aborting - '%s %s' returned '%s'" % (exe_path, option, rc))
+                testlog.error(f"@@ aborting - '{cmd}' returned {rc}")
                 return False
             stdouts.append(stdout)
         if verbose: testlog.info('....comparing output...')
@@ -109,7 +108,7 @@ def compare_output(s1, s2):
     s1 = s1.replace('(0x0000000000000000 ".text")', '(0x0000000000000000)')
 
     def prepare_lines(s):
-        return [line for line in s.lower().splitlines() if line.strip() != '']
+        return [line for line in s.lower().splitlines() if line.strip()]
 
     lines1 = prepare_lines(s1)
     lines2 = prepare_lines(s2)
@@ -158,7 +157,7 @@ def main():
     args = argparser.parse_args()
 
     if args.parallel:
-        if args.verbose or args.keep_going == False:
+        if args.verbose or not args.keep_going:
             print('WARNING: parallel mode disables verbosity and always keeps going')
 
     if args.verbose:
@@ -169,7 +168,7 @@ def main():
 
     # If file names are given as command-line arguments, only these files
     # are taken as inputs. Otherwise, autodiscovery is performed.
-    if len(args.files) > 0:
+    if args.files:
         filenames = args.files
     else:
         filenames = sorted(discover_testfiles('test/testfiles_for_dwarfdump'))

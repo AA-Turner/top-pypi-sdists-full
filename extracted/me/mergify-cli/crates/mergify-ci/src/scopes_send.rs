@@ -146,8 +146,7 @@ struct SendScopesRequest<'a> {
 mod tests {
     use std::fs;
 
-    use mergify_core::OutputMode;
-    use mergify_core::StdioOutput;
+    use mergify_test_support::Captured;
     use wiremock::Mock;
     use wiremock::MockServer;
     use wiremock::ResponseTemplate;
@@ -157,82 +156,8 @@ mod tests {
     use wiremock::matchers::path;
 
     use super::*;
-
-    type SharedBytes = std::sync::Arc<std::sync::Mutex<Vec<u8>>>;
-
-    struct Captured {
-        output: StdioOutput,
-        #[allow(dead_code)] // stdout is captured for tests that want to assert on it
-        stdout: SharedBytes,
-        stderr: SharedBytes,
-    }
-
-    fn make_output() -> Captured {
-        let stdout: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let stderr: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let output = StdioOutput::with_sinks(
-            OutputMode::Human,
-            SharedWriter(std::sync::Arc::clone(&stdout)),
-            SharedWriter(std::sync::Arc::clone(&stderr)),
-        );
-        Captured {
-            output,
-            stdout,
-            stderr,
-        }
-    }
-
-    /// Clear every CI-provider env var the resolver inspects, then
-    /// apply the test-specific overrides on top. Without this, a test
-    /// running on a real CI host (Buildkite, Actions, …) inherits
-    /// provider env vars and the new provider-aware resolver picks
-    /// the wrong branch.
-    fn with_ci_env<F: FnOnce() -> R, R>(extra: &[(&str, Option<&str>)], f: F) -> R {
-        let mut vars: Vec<(String, Option<String>)> = [
-            "JENKINS_URL",
-            "GITHUB_ACTIONS",
-            "GITHUB_REPOSITORY",
-            "GITHUB_EVENT_PATH",
-            "CIRCLECI",
-            "CIRCLE_REPOSITORY_URL",
-            "BUILDKITE",
-            "BUILDKITE_REPO",
-            "BUILDKITE_PULL_REQUEST",
-            "GIT_URL",
-        ]
-        .into_iter()
-        .map(|k| (k.to_string(), None))
-        .collect();
-        for (k, v) in extra {
-            vars.push((k.to_string(), v.map(ToString::to_string)));
-        }
-        temp_env::with_vars(vars, f)
-    }
-
-    async fn with_ci_env_async<F: std::future::Future<Output = R>, R>(
-        extra: &[(&str, Option<&str>)],
-        f: F,
-    ) -> R {
-        let mut vars: Vec<(String, Option<String>)> = [
-            "JENKINS_URL",
-            "GITHUB_ACTIONS",
-            "GITHUB_REPOSITORY",
-            "GITHUB_EVENT_PATH",
-            "CIRCLECI",
-            "CIRCLE_REPOSITORY_URL",
-            "BUILDKITE",
-            "BUILDKITE_REPO",
-            "BUILDKITE_PULL_REQUEST",
-            "GIT_URL",
-        ]
-        .into_iter()
-        .map(|k| (k.to_string(), None))
-        .collect();
-        for (k, v) in extra {
-            vars.push((k.to_string(), v.map(ToString::to_string)));
-        }
-        temp_env::async_with_vars(vars, f).await
-    }
+    use crate::testing::with_ci_env;
+    use crate::testing::with_ci_env_async;
 
     #[test]
     fn resolve_repository_prefers_flag_over_env() {
@@ -286,7 +211,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_skips_when_no_pull_request_detected() {
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         with_ci_env_async(&[("GITHUB_REPOSITORY", Some("owner/repo"))], async {
             run(
                 ScopesSendOptions {
@@ -305,7 +230,7 @@ mod tests {
             .unwrap();
         })
         .await;
-        let stderr_str = String::from_utf8(cap.stderr.lock().unwrap().clone()).unwrap();
+        let stderr_str = cap.stderr();
         assert!(
             stderr_str.contains("skipping"),
             "expected skip message, got {stderr_str:?}"
@@ -323,7 +248,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         let api_url = server.uri();
         let direct = vec!["a".to_string()];
 
@@ -374,7 +299,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         let api_url = server.uri();
         let direct = vec!["direct".to_string()];
 
@@ -409,7 +334,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         let api_url = server.uri();
 
         run(
@@ -442,7 +367,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         let api_url = server.uri();
 
         run(
@@ -461,7 +386,7 @@ mod tests {
         .await
         .unwrap();
 
-        let err = String::from_utf8(cap.stderr.lock().unwrap().clone()).unwrap();
+        let err = cap.stderr();
         assert!(err.contains("--file is deprecated"), "got: {err:?}");
     }
 
@@ -486,7 +411,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         let api_url = server.uri();
 
         run(
@@ -505,18 +430,7 @@ mod tests {
         .await
         .unwrap();
 
-        let err = String::from_utf8(cap.stderr.lock().unwrap().clone()).unwrap();
+        let err = cap.stderr();
         assert!(err.contains("--file is deprecated"), "got: {err:?}");
-    }
-
-    struct SharedWriter(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
-    impl std::io::Write for SharedWriter {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
     }
 }

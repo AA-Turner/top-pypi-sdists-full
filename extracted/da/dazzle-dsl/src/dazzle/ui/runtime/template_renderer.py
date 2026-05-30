@@ -51,11 +51,22 @@ def _render_body_inner(context: PageContext) -> str:
         method = "put" if form.mode == "edit" else "post"
         action = escape(form.action_url, quote=True)
         entity = escape(form.entity_name, quote=True)
+        # Submit button. The default (non-Fragment) render path historically
+        # omitted this, so every create/edit form was unsubmittable unless the
+        # surface declared `render: fragment` (#1291). Mirror the Fragment
+        # path's canonical markup (`_render_forms._emit_submit`) and label
+        # convention (`fragment_adapter`: "Save" on edit, "Create" otherwise).
+        submit_label = "Save" if form.mode == "edit" else "Create"
+        submit_html = (
+            '<button type="submit" class="dz-submit dz-submit--variant-primary">'
+            f"{escape(submit_label)}</button>"
+        )
         return (
             f'<form class="dz-form-stack" hx-{method}="{action}" '
             f'hx-target="body" hx-swap="innerHTML" hx-ext="json-enc" '
             f'data-dazzle-form="{entity}" data-dazzle-form-mode="{escape(form.mode, quote=True)}">'
             f"{fields_html}"
+            f"{submit_html}"
             f"</form>"
         )
     if context.pdf_viewer is not None:
@@ -90,9 +101,16 @@ def render_page(
         return rendered_content
 
     from dazzle.render.dispatch import dispatch_render_page
+    from dazzle.ui.runtime.theme import get_sidebar_state
 
+    # #1294 — thread the persisted sidebar open/closed state (dz_sidebar
+    # cookie, read by ThemeVariantMiddleware) into the chrome so SSR emits
+    # the correct `data-dz-sidebar` on first paint (no flash on this, the
+    # dominant app-surface render path). The JS controller is the universal
+    # fallback for any path that defaults to "open".
     return dispatch_render_page(
         context,
         rendered_content,
         chrome=(context.layout != "single_column"),
+        sidebar_state=get_sidebar_state(),
     )

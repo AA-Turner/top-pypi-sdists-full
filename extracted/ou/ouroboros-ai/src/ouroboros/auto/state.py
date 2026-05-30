@@ -62,6 +62,23 @@ class AutoPolicy(StrEnum):
     BALANCED = "balanced"
 
 
+class AutoCommitPolicy(StrEnum):
+    """When auto-mode should create git checkpoint commits."""
+
+    AC_CHECKPOINT = "ac_checkpoint"
+    FINAL_ONLY = "final_only"
+    NONE = "none"
+
+
+class AutoWorktreePolicy(StrEnum):
+    """How auto-mode should isolate mutating coding work."""
+
+    AUTO = "auto"
+    ALWAYS = "always"
+    CURRENT = "current"
+    NONE = "none"
+
+
 class SeedOrigin(StrEnum):
     """Provenance of the persisted Seed for an auto session.
 
@@ -295,6 +312,12 @@ _ALLOWED_TRANSITIONS: dict[AutoPhase, set[AutoPhase]] = {
     },
     AutoPhase.RALPH_HANDOFF: {
         AutoPhase.EVALUATE,
+        # L5-a / #1157: Ralph terminal with ``oscillation_detected`` routes
+        # through UNSTUCK_LATERAL first when a lateral_thinker is wired in
+        # complete-product mode, mirroring the EVALUATE → UNSTUCK_LATERAL
+        # path. Other Ralph stop_reasons (budget-exhaustion terminals) fall
+        # through to BLOCKED directly.
+        AutoPhase.UNSTUCK_LATERAL,
         AutoPhase.COMPLETE,
         AutoPhase.BLOCKED,
         AutoPhase.FAILED,
@@ -369,6 +392,8 @@ class AutoPipelineState:
     max_repair_rounds: int = 5
     interview_session_id: str | None = None
     interview_completed: bool = False
+    # PR-B1 / #821: "ledger_only" when interview closed on ledger consensus while backend refused; None otherwise.
+    interview_closure_mode: str | None = None
     seed_id: str | None = None
     seed_path: str | None = None
     seed_origin: SeedOrigin = SeedOrigin.NONE
@@ -422,6 +447,10 @@ class AutoPipelineState:
     pending_question: str | None = None
     last_tool_name: str | None = None
     last_error: str | None = None
+    last_error_code: str | None = None
+    # Canonical stop-reason code for the most recent blocker, when one of the
+    # documented codes applies. None for blockers without a canonical code
+    # (those keep using the free-form ``last_error`` string).
     last_authoring_backend: str | None = None
     last_progress_message: str = "created"
     phase_started_at: str = field(default_factory=utc_now_iso)
@@ -458,6 +487,28 @@ class AutoPipelineState:
     # fallback. None means no profile was activated, so legacy state files load
     # unchanged.
     active_domain_profile_name: str | None = None
+    # Coding-domain isolation defaults. ``commit_policy`` controls whether
+    # verified acceptance boundaries become git checkpoint commits.
+    # ``worktree_policy`` controls whether mutating execution should happen
+    # in an isolated managed worktree rather than the caller's checkout.
+    # Defaults are conservative for legacy/non-coding sessions: NO git commits
+    # and the caller's current checkout, so a non-coding/research/skip_run flow
+    # (or a legacy resumed session) never mutates the operator's working tree by
+    # default. Coding profile activation raises these to AC checkpoint commits +
+    # automatic worktrees; final-only commits on the current checkout remain an
+    # explicit operator opt-in (``--commit-policy final_only``).
+    commit_policy: AutoCommitPolicy = AutoCommitPolicy.NONE
+    worktree_policy: AutoWorktreePolicy = AutoWorktreePolicy.CURRENT
+    managed_worktree: dict[str, Any] | None = None
+    checkpoint_commits: list[dict[str, Any]] = field(default_factory=list)
+    checkpoint_attempted_ac_ids: list[str] = field(default_factory=list)
+    final_checkpoint_attempted: bool = False
+    # L1-d / #1171: active TaskClass (cli / webhook / game_2d / …) derived
+    # from the standardized ledger after seed generation. Distinct from
+    # ``active_domain_profile_name`` (which is a meta-domain concept —
+    # coding / research / design). ``None`` means inference was ambiguous,
+    # unmatched, or skipped (legacy state files load unchanged).
+    active_task_class: str | None = None
     # QA verdict captured during the EVALUATE phase (RFC #809 Phase 2.1).
     # Persisted so a resumed session reuses the verdict without re-invoking
     # the LLM-driven judge when the underlying artifact has not changed.
@@ -531,6 +582,9 @@ class AutoPipelineState:
     # Typed artifact for the next automated recovery step. Current PRs persist
     # this plan after QA/lateral failure; a follow-up redispatch PR consumes it.
     last_recovery_plan: dict[str, Any] | None = None
+    # L3-2 runtime probe evidence. Persisted so completed-session resume and
+    # result replay keep the acceptance evidence that gated PRODUCT_COMPLETE.
+    runtime_probe_evidence: list[dict[str, Any]] = field(default_factory=list)
 
     def phase_timeout_seconds(self, phase: AutoPhase) -> float:
         """Return the configured timeout for ``phase`` in seconds.
@@ -580,6 +634,8 @@ class AutoPipelineState:
         self.updated_at = now
         self.last_progress_message = message
         self.last_error = error
+        if next_phase is not AutoPhase.BLOCKED:
+            self.last_error_code = None
         # Authoring-backend attribution is scoped to the most recent
         # authoring failure; reset on every transition so a later
         # non-authoring blocker (grade_gate, seed_saver, run_starter)
@@ -600,9 +656,16 @@ class AutoPipelineState:
         """Move a session back to a valid recoverable phase."""
         self.transition(next_phase, message)
 
-    def mark_blocked(self, message: str, *, tool_name: str | None = None) -> None:
+    def mark_blocked(
+        self,
+        message: str,
+        *,
+        tool_name: str | None = None,
+        error_code: str | None = None,
+    ) -> None:
         """Transition to blocked with actionable diagnostics."""
         self.last_tool_name = tool_name
+        self.last_error_code = error_code
         self.transition(AutoPhase.BLOCKED, message, error=message)
 
     def mark_failed(self, message: str, *, tool_name: str | None = None) -> None:
@@ -812,6 +875,8 @@ class AutoPipelineState:
         data["phase"] = self.phase.value
         data["policy"] = self.policy.value
         data["seed_origin"] = self.seed_origin.value
+        data["commit_policy"] = self.commit_policy.value
+        data["worktree_policy"] = self.worktree_policy.value
         # ``deadline_at`` is a *monotonic*-clock value scoped to the writing
         # process; it is meaningless to a future loader. Persist only the
         # epoch companion and recompute ``deadline_at`` from it on load. The
@@ -867,6 +932,15 @@ class AutoPipelineState:
         payload.setdefault("last_lateral_text", None)
         payload.setdefault("lateral_input_hash", None)
         payload.setdefault("active_domain_profile_name", None)
+        payload.setdefault("commit_policy", AutoCommitPolicy.NONE.value)
+        payload.setdefault("worktree_policy", AutoWorktreePolicy.CURRENT.value)
+        payload.setdefault("managed_worktree", None)
+        payload.setdefault("checkpoint_commits", [])
+        payload.setdefault("checkpoint_attempted_ac_ids", [])
+        payload.setdefault("final_checkpoint_attempted", False)
+        payload.setdefault("active_task_class", None)
+        payload.setdefault("last_error_code", None)
+        payload.setdefault("interview_closure_mode", None)
         # RFC #809 Phase 2.2b — closed-loop recovery counters. Default the
         # three new fields so a pre-P2.2b state file loads as a fresh
         # recovery budget (round 0, no fingerprints, no personas tried).
@@ -877,6 +951,7 @@ class AutoPipelineState:
         payload.setdefault("personas_invoked", [])
         payload.setdefault("recovery_guard_tripped", None)
         payload.setdefault("last_recovery_plan", None)
+        payload.setdefault("runtime_probe_evidence", [])
         # Convert the persisted ``deadline_at_epoch`` (epoch seconds) back into
         # a monotonic-clock value usable from this process. If the companion
         # epoch field is present, derive ``deadline_at`` from the offset
@@ -902,6 +977,16 @@ class AutoPipelineState:
             raise ValueError(msg)
         payload["phase"] = AutoPhase(payload["phase"])
         payload["policy"] = AutoPolicy(payload["policy"])
+        try:
+            payload["commit_policy"] = AutoCommitPolicy(payload["commit_policy"])
+        except ValueError as exc:
+            msg = f"commit_policy must be one of {[item.value for item in AutoCommitPolicy]}"
+            raise ValueError(msg) from exc
+        try:
+            payload["worktree_policy"] = AutoWorktreePolicy(payload["worktree_policy"])
+        except ValueError as exc:
+            msg = f"worktree_policy must be one of {[item.value for item in AutoWorktreePolicy]}"
+            raise ValueError(msg) from exc
         try:
             payload["seed_origin"] = SeedOrigin(payload["seed_origin"])
         except ValueError as exc:
@@ -1039,6 +1124,22 @@ class AutoPipelineState:
         if not isinstance(self.user_preferences, dict):
             msg = "user_preferences must be an object"
             raise ValueError(msg)
+        if self.managed_worktree is not None and not isinstance(self.managed_worktree, dict):
+            msg = "managed_worktree must be an object or null"
+            raise ValueError(msg)
+        if not isinstance(self.checkpoint_commits, list) or any(
+            not isinstance(item, dict) for item in self.checkpoint_commits
+        ):
+            msg = "checkpoint_commits must be a list of objects"
+            raise ValueError(msg)
+        if not isinstance(self.checkpoint_attempted_ac_ids, list) or any(
+            not isinstance(item, str) for item in self.checkpoint_attempted_ac_ids
+        ):
+            msg = "checkpoint_attempted_ac_ids must be a list of strings"
+            raise ValueError(msg)
+        if not isinstance(self.final_checkpoint_attempted, bool):
+            msg = "final_checkpoint_attempted must be a boolean"
+            raise ValueError(msg)
         for pref_key, pref_value in self.user_preferences.items():
             if not isinstance(pref_key, str) or not pref_key.strip():
                 msg = "user_preferences keys must be non-empty strings"
@@ -1131,6 +1232,22 @@ class AutoPipelineState:
             except Exception as exc:
                 msg = "last_recovery_plan must be a valid AutoRecoveryPlan object or null"
                 raise ValueError(msg) from exc
+        if not isinstance(self.runtime_probe_evidence, list):
+            msg = "runtime_probe_evidence must be a list"
+            raise ValueError(msg)
+        try:
+            from ouroboros.orchestrator.runtime_evidence import RuntimeEvidence
+
+            for item in self.runtime_probe_evidence:
+                if not isinstance(item, dict):
+                    msg = "runtime_probe_evidence entries must be objects"
+                    raise ValueError(msg)
+                RuntimeEvidence.from_dict(item)
+        except Exception as exc:
+            if isinstance(exc, ValueError):
+                raise
+            msg = "runtime_probe_evidence entries must be valid RuntimeEvidence objects"
+            raise ValueError(msg) from exc
         if self.recovery_guard_tripped is not None and (
             not isinstance(self.recovery_guard_tripped, str)
             or self.recovery_guard_tripped not in _VALID_RECOVERY_GUARD_TAGS
@@ -1183,7 +1300,10 @@ class AutoPipelineState:
             "pending_question",
             "last_tool_name",
             "last_error",
+            "last_error_code",
             "active_domain_profile_name",
+            "active_task_class",
+            "interview_closure_mode",
         )
         for field_name in optional_string_fields:
             value = getattr(self, field_name)

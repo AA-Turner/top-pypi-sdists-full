@@ -115,20 +115,21 @@ class TestDeviceFlow(DeviceFlowBaseTestCase):
             "interval": 5,
         }
 
-    @mock.patch(
-        "oauthlib.oauth2.rfc8628.endpoints.device_authorization.generate_token",
-        lambda: "abc",
-    )
-    def test_device_flow_authorization_user_code_confirm_and_access_token(self):
+    def _run_full_device_flow_journey(
+        self,
+        *,
+        scope: str | None,
+        expected_confirm_scope_descriptions: list[str],
+        expected_token_scope: str,
+    ) -> None:
         """
-        This is a full user journey test.
+        Runs the full device flow user journey from device authorization through token issuance.
 
         The device initiates the flow by calling the /device-authorization endpoint and starts
-        polling the /authorize endpoint getting back error until the user approves in the
-        browser.
+        polling the /token endpoint getting back errors until the user approves in the browser.
 
         In the meantime, the user visits the /device endpoint in their browsers to submit the
-        user code and approve, after which the /authorize returns the tokens to the device.
+        user code and approve, after which the /token returns the tokens to the device.
         """
 
         # -----------------------
@@ -139,14 +140,13 @@ class TestDeviceFlow(DeviceFlowBaseTestCase):
         self.oauth2_settings.OAUTH_DEVICE_USER_CODE_GENERATOR = lambda: "xyz"
         self.oauth2_settings.OAUTH_PRE_TOKEN_VALIDATION = [set_oauthlib_user_to_device_request_user]
 
-        request_data: dict[str, str] = {
-            "client_id": self.application.client_id,
-        }
-        request_as_x_www_form_urlencoded: str = urlencode(request_data)
+        request_data: dict[str, str] = {"client_id": self.application.client_id}
+        if scope is not None:
+            request_data["scope"] = scope
 
         device_authorization_response: http.response.JsonResponse = self.client.post(
             reverse("oauth2_provider:device-authorization"),
-            data=request_as_x_www_form_urlencoded,
+            data=urlencode(request_data),
             content_type="application/x-www-form-urlencoded",
         )
 
@@ -225,6 +225,16 @@ class TestDeviceFlow(DeviceFlowBaseTestCase):
             expected_url=device_confirm_url,
         )
 
+        get_response = self.client.get(device_confirm_url)
+        assert get_response.status_code == 200
+        assert "application" in get_response.context
+        assert get_response.context["application"] == self.application
+        assert "scopes_descriptions" in get_response.context
+        for expected_scope in expected_confirm_scope_descriptions:
+            assert expected_scope in get_response.context["scopes_descriptions"]
+            self.assertContains(get_response, expected_scope)
+        self.assertContains(get_response, self.application.name)
+
         # --------------------------------------------------------------------------------
         # 2: We redirect to the accept/deny form (the user is still in their browser)
         #  and approves
@@ -275,7 +285,7 @@ class TestDeviceFlow(DeviceFlowBaseTestCase):
             "access_token": mock.ANY,
             "expires_in": 36000,
             "token_type": "Bearer",
-            "scope": "read write",
+            "scope": expected_token_scope,
             "refresh_token": mock.ANY,
         }
 
@@ -289,6 +299,75 @@ class TestDeviceFlow(DeviceFlowBaseTestCase):
             token=token_data["refresh_token"]
         )
         assert refresh_token.user == device.user
+
+    def test_device_user_code_view_get_prefills_form_from_query_param(self):
+        """
+        A GET to the device user-code view with ?user_code=... should render a form
+        whose initial value for user_code is pre-populated from the query parameter.
+        """
+        UserModel.objects.create_user(
+            username="test_user_device_flow",
+            email="test_device@example.com",
+            password="password123",
+        )
+        self.client.login(username="test_user_device_flow", password="password123")
+
+        response = self.client.get(reverse("oauth2_provider:device"), data={"user_code": "WDJB-MJHT"})
+
+        assert response.status_code == 200
+        assert "form" in response.context
+        assert response.context["form"].initial.get("user_code") == "WDJB-MJHT"
+        assert b'value="WDJB-MJHT"' in response.content
+
+    def test_device_user_code_view_get_without_query_param_has_empty_initial(self):
+        """
+        A GET to the device user-code view without a user_code query parameter should
+        render a form with an empty initial value for user_code.
+        """
+        UserModel.objects.create_user(
+            username="test_user_device_flow",
+            email="test_device@example.com",
+            password="password123",
+        )
+        self.client.login(username="test_user_device_flow", password="password123")
+
+        response = self.client.get(reverse("oauth2_provider:device"))
+
+        assert response.status_code == 200
+        assert "form" in response.context
+        assert response.context["form"].initial.get("user_code", "") == ""
+        assert b'name="user_code"' in response.content
+        assert b'value="WDJB-MJHT"' not in response.content
+
+    @mock.patch(
+        "oauthlib.oauth2.rfc8628.endpoints.device_authorization.generate_token",
+        lambda: "abc",
+    )
+    def test_device_flow_authorization_user_code_confirm_and_access_token(self):
+        """
+        Full user journey with an explicit scope. The confirm page shows the requested
+        scope and the issued token contains only that scope.
+        """
+        self._run_full_device_flow_journey(
+            scope="read",
+            expected_confirm_scope_descriptions=["Reading scope"],
+            expected_token_scope="read",
+        )
+
+    @mock.patch(
+        "oauthlib.oauth2.rfc8628.endpoints.device_authorization.generate_token",
+        lambda: "abc",
+    )
+    def test_device_flow_authorization_user_code_confirm_and_access_token_default_scopes(self):
+        """
+        Full user journey without an explicit scope. The server falls back to DEFAULT_SCOPES,
+        the confirm page shows all default scopes, and the issued token reflects them.
+        """
+        self._run_full_device_flow_journey(
+            scope=None,
+            expected_confirm_scope_descriptions=["Reading scope", "Writing scope"],
+            expected_token_scope="read write",
+        )
 
     def test_user_denies_access(self):
         """
@@ -767,3 +846,308 @@ class TestDeviceFlow(DeviceFlowBaseTestCase):
 
         assert is_expired
         assert device.status == device.EXPIRED
+
+    @mock.patch(
+        "oauthlib.oauth2.rfc8628.endpoints.device_authorization.generate_token",
+        lambda: "def",
+    )
+    def test_device_flow_uses_requested_scope_not_default(self):
+        """
+        Test that requested scope in device authorization is used in the token,
+        not DEFAULT_SCOPES.
+        """
+        self.oauth2_settings.OAUTH_DEVICE_VERIFICATION_URI = "example.com/device"
+        self.oauth2_settings.OAUTH_DEVICE_USER_CODE_GENERATOR = lambda: "XYZ"
+        self.oauth2_settings.OAUTH_PRE_TOKEN_VALIDATION = [set_oauthlib_user_to_device_request_user]
+
+        device_authorization_response = self.client.post(
+            reverse("oauth2_provider:device-authorization"),
+            data=urlencode({"client_id": self.application.client_id, "scope": "read"}),
+            content_type="application/x-www-form-urlencoded",
+        )
+        assert device_authorization_response.status_code == 200
+
+        self.client.login(username="test_user", password="123456")
+        self.client.post(reverse("oauth2_provider:device"), data={"user_code": "XYZ"})
+        self.client.post(
+            reverse(
+                "oauth2_provider:device-confirm",
+                kwargs={"user_code": "XYZ", "client_id": self.application.client_id},
+            ),
+            data={"action": "accept"},
+        )
+
+        token_response = self.client.post(
+            "/o/token/",
+            data=urlencode(
+                {
+                    "device_code": "def",
+                    "client_id": self.application.client_id,
+                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                }
+            ),
+            content_type="application/x-www-form-urlencoded",
+        )
+
+        assert token_response.status_code == 200
+        assert token_response.json()["scope"] == "read"
+
+    @mock.patch(
+        "oauthlib.oauth2.rfc8628.endpoints.device_authorization.generate_token",
+        lambda: "def",
+    )
+    def test_device_flow_default_scopes_stored_on_grant_when_no_scope_requested(self):
+        """
+        When the device omits `scope`, DEFAULT_SCOPES must be stored on the DeviceGrant
+        at authorization time so the consent screen shows the correct scopes and the
+        issued token matches what the user approved.
+        """
+        self.oauth2_settings.OAUTH_DEVICE_VERIFICATION_URI = "example.com/device"
+        self.oauth2_settings.OAUTH_DEVICE_USER_CODE_GENERATOR = lambda: "XYZ"
+        self.oauth2_settings.OAUTH_PRE_TOKEN_VALIDATION = [set_oauthlib_user_to_device_request_user]
+
+        # Device sends authorization request with no scope
+        device_authorization_response = self.client.post(
+            reverse("oauth2_provider:device-authorization"),
+            data=urlencode({"client_id": self.application.client_id}),
+            content_type="application/x-www-form-urlencoded",
+        )
+        assert device_authorization_response.status_code == 200
+
+        # DEFAULT_SCOPES ("read write") must be persisted on the grant immediately
+        DeviceGrantModel = get_device_grant_model()
+        grant = DeviceGrantModel.objects.get(device_code="def")
+        assert grant.scope == "read write"
+
+    @mock.patch(
+        "oauthlib.oauth2.rfc8628.endpoints.device_authorization.generate_token",
+        lambda: "def",
+    )
+    def test_device_flow_whitespace_only_scope_falls_back_to_default_scopes(self):
+        """
+        When the device sends scope consisting only of whitespace (e.g. scope="   "),
+        it must be treated as if scope was omitted and DEFAULT_SCOPES must be stored
+        on the DeviceGrant, not the raw whitespace string.
+        """
+        self.oauth2_settings.OAUTH_DEVICE_VERIFICATION_URI = "example.com/device"
+        self.oauth2_settings.OAUTH_DEVICE_USER_CODE_GENERATOR = lambda: "XYZ"
+
+        device_authorization_response = self.client.post(
+            reverse("oauth2_provider:device-authorization"),
+            data=urlencode({"client_id": self.application.client_id, "scope": "   "}),
+            content_type="application/x-www-form-urlencoded",
+        )
+        assert device_authorization_response.status_code == 200
+
+        DeviceGrantModel = get_device_grant_model()
+        grant = DeviceGrantModel.objects.get(device_code="def")
+        assert grant.scope == "read write"
+
+    @mock.patch(
+        "oauthlib.oauth2.rfc8628.endpoints.device_authorization.generate_token",
+        lambda: "def",
+    )
+    def test_device_flow_default_scopes_not_re_evaluated_at_token_time(self):
+        """
+        If DEFAULT_SCOPES changes between user consent and device polling, the token
+        must reflect the scopes that were shown on the consent screen (locked in at
+        authorization time), not the new DEFAULT_SCOPES.
+        """
+        self.oauth2_settings.OAUTH_DEVICE_VERIFICATION_URI = "example.com/device"
+        self.oauth2_settings.OAUTH_DEVICE_USER_CODE_GENERATOR = lambda: "XYZ"
+        self.oauth2_settings.OAUTH_PRE_TOKEN_VALIDATION = [set_oauthlib_user_to_device_request_user]
+
+        # Device sends authorization request with no scope; DEFAULT_SCOPES = ["read", "write"]
+        device_authorization_response = self.client.post(
+            reverse("oauth2_provider:device-authorization"),
+            data=urlencode({"client_id": self.application.client_id}),
+            content_type="application/x-www-form-urlencoded",
+        )
+        assert device_authorization_response.status_code == 200
+
+        self.client.login(username="test_user", password="123456")
+        self.client.post(reverse("oauth2_provider:device"), data={"user_code": "XYZ"})
+        self.client.post(
+            reverse(
+                "oauth2_provider:device-confirm",
+                kwargs={"user_code": "XYZ", "client_id": self.application.client_id},
+            ),
+            data={"action": "accept"},
+        )
+
+        # Admin changes DEFAULT_SCOPES after consent but before the device polls.
+        # "admin" must also be in SCOPES or oauth2_settings raises ImproperlyConfigured
+        # when _DEFAULT_SCOPES is re-evaluated after reload().
+        self.oauth2_settings.SCOPES = {
+            "read": "Reading scope",
+            "write": "Writing scope",
+            "admin": "Admin scope",
+        }
+        self.oauth2_settings.DEFAULT_SCOPES = ["read", "write", "admin"]
+        # Clear only the computed scope caches so the new SCOPES/DEFAULT_SCOPES
+        # values take effect without wiping the overrides we just set above.
+        # Calling reload() would delete those overrides and fall back to Django settings.
+        for _attr in ("_SCOPES", "_DEFAULT_SCOPES"):
+            try:
+                delattr(self.oauth2_settings, _attr)
+            except AttributeError:
+                pass
+            self.oauth2_settings._cached_attrs.discard(_attr)
+
+        token_response = self.client.post(
+            "/o/token/",
+            data=urlencode(
+                {
+                    "device_code": "def",
+                    "client_id": self.application.client_id,
+                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                }
+            ),
+            content_type="application/x-www-form-urlencoded",
+        )
+
+        assert token_response.status_code == 200
+        # Token must reflect the scopes from consent time, not the expanded DEFAULT_SCOPES
+        assert token_response.json()["scope"] == "read write"
+
+    def test_device_authorization_returns_invalid_client_when_application_deleted_before_scope_resolution(
+        self,
+    ):
+        """
+        If the Application is deleted between oauthlib validating the client and DOT
+        resolving default scopes, the view must return an invalid_client error rather
+        than silently proceeding with application=None.
+
+        This covers the DoesNotExist branch in DeviceAuthorizationView.post() that is
+        only reached when scope is omitted (so default-scope resolution is attempted).
+        """
+        self.oauth2_settings.OAUTH_DEVICE_VERIFICATION_URI = "example.com/device"
+        self.oauth2_settings.OAUTH_DEVICE_USER_CODE_GENERATOR = lambda: "XYZ"
+
+        Application = get_application_model()
+
+        # Patch get_application_model as imported in the view to simulate a race where
+        # the Application row is deleted between oauthlib validation and scope resolution.
+        # We use a spec'd mock so that DoesNotExist is accessible as an attribute.
+        mock_model = mock.MagicMock(spec=Application)
+        mock_model.DoesNotExist = Application.DoesNotExist
+        mock_model.objects.get.side_effect = Application.DoesNotExist
+
+        with mock.patch("oauth2_provider.views.device.get_application_model", return_value=mock_model):
+            response = self.client.post(
+                reverse("oauth2_provider:device-authorization"),
+                data=urlencode({"client_id": self.application.client_id}),
+                content_type="application/x-www-form-urlencoded",
+            )
+
+        assert response.status_code == 401
+        assert response.json()["error"] == "invalid_client"
+
+
+class TestDeviceFlowWithSwappedDeviceGrantModel(DeviceFlowBaseTestCase):
+    def setUp(self):
+        super().setUp()
+        self._original_device_grant_model = self.oauth2_settings.DEVICE_GRANT_MODEL
+        self.oauth2_settings.DEVICE_GRANT_MODEL = "tests.SampleDeviceGrant"
+
+    def tearDown(self):
+        get_device_grant_model().objects.all().delete()
+        self.oauth2_settings.DEVICE_GRANT_MODEL = self._original_device_grant_model
+        super().tearDown()
+
+    @mock.patch(
+        "oauthlib.oauth2.rfc8628.endpoints.device_authorization.generate_token",
+        lambda: "abc",
+    )
+    def test_full_device_flow_uses_swapped_device_grant_model(self):
+        self.oauth2_settings.OAUTH_DEVICE_VERIFICATION_URI = "example.com/device"
+        self.oauth2_settings.OAUTH_DEVICE_USER_CODE_GENERATOR = lambda: "xyz"
+        self.oauth2_settings.OAUTH_PRE_TOKEN_VALIDATION = [set_oauthlib_user_to_device_request_user]
+
+        device_model = get_device_grant_model()
+        assert device_model._meta.label == "tests.SampleDeviceGrant"
+
+        device_authorization_response: http.response.JsonResponse = self.client.post(
+            reverse("oauth2_provider:device-authorization"),
+            data=urlencode({"client_id": self.application.client_id}),
+            content_type="application/x-www-form-urlencoded",
+        )
+
+        assert device_authorization_response.status_code == 200
+        assert device_model.objects.get(device_code="abc").status == device_model.AUTHORIZATION_PENDING
+        if not oauth2_provider.models.DeviceGrant._meta.swapped:
+            assert not oauth2_provider.models.DeviceGrant.objects.filter(device_code="abc").exists()
+
+        token_payload = {
+            "device_code": "abc",
+            "client_id": self.application.client_id,
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+        }
+        pending_response = self.client.post(
+            "/o/token/",
+            data=urlencode(token_payload),
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertJSONEqual(
+            raw=pending_response.content,
+            expected_data={"error": "authorization_pending"},
+        )
+
+        UserModel.objects.create_user(
+            username="test_user_swapped_device_flow",
+            email="test_swapped_device@example.com",
+            password="password123",
+        )
+        self.client.login(username="test_user_swapped_device_flow", password="password123")
+
+        device_confirm_url = reverse(
+            "oauth2_provider:device-confirm",
+            kwargs={"user_code": "xyz", "client_id": self.application.client_id},
+        )
+        device_grant_status_url = reverse(
+            "oauth2_provider:device-grant-status",
+            kwargs={"user_code": "xyz", "client_id": self.application.client_id},
+        )
+
+        self.assertRedirects(
+            response=self.client.post(reverse("oauth2_provider:device"), data={"user_code": "xyz"}),
+            expected_url=device_confirm_url,
+        )
+        self.assertRedirects(
+            response=self.client.post(device_confirm_url, data={"action": "accept"}),
+            expected_url=device_grant_status_url,
+        )
+        self.assertContains(
+            response=self.client.get(device_grant_status_url),
+            text="Device Authorized",
+            count=1,
+        )
+
+        token_response = self.client.post(
+            "/o/token/",
+            data=urlencode(token_payload),
+            content_type="application/x-www-form-urlencoded",
+        )
+        assert token_response.status_code == 200
+        assert token_response.json() == {
+            "access_token": mock.ANY,
+            "expires_in": 36000,
+            "token_type": "Bearer",
+            "scope": "read write",
+            "refresh_token": mock.ANY,
+        }
+
+    def test_invalid_user_code_returns_form_error_with_swapped_device_model(self):
+        UserModel.objects.create_user(
+            username="test_user_swapped_invalid_code",
+            email="test_swapped_invalid_code@example.com",
+            password="password123",
+        )
+        self.client.login(username="test_user_swapped_invalid_code", password="password123")
+
+        self.assertContains(
+            response=self.client.post(reverse("oauth2_provider:device"), data={"user_code": "invalid_code"}),
+            status_code=200,
+            text="Incorrect user code",
+            count=1,
+        )

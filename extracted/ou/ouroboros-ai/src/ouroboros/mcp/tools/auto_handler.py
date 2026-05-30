@@ -15,6 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 from ouroboros.auto.adapters import (
+    EnvRuntimeProbeRunner,
     HandlerEvaluator,
     HandlerInterviewBackend,
     HandlerLateralThinker,
@@ -29,6 +30,7 @@ from ouroboros.auto.answerer import (
     AutoAnswerContext,
     risky_user_preference_blocker_for,
 )
+from ouroboros.auto.domain_profile import DEFAULT_REGISTRY
 from ouroboros.auto.execution_acceptance import (
     has_auto_wrapper_context,
     is_auto_reporting_acceptance_criterion,
@@ -44,6 +46,7 @@ from ouroboros.auto.ledger import (
     SeedDraftLedger,
 )
 from ouroboros.auto.pipeline import AutoPipeline, AutoPipelineResult
+from ouroboros.auto.policies import apply_domain_policy_defaults
 from ouroboros.auto.repo_context import repo_auto_answer_context
 from ouroboros.auto.resume_render import render_resume_lines
 from ouroboros.auto.seed_repairer import SeedRepairer
@@ -52,11 +55,14 @@ from ouroboros.auto.state import (
     MAX_PIPELINE_TIMEOUT_SECONDS,
     MIN_PIPELINE_TIMEOUT_SECONDS,
     TERMINAL_PHASES,
+    AutoCommitPolicy,
     AutoPhase,
     AutoPipelineState,
     AutoResumeCapability,
     AutoStore,
+    AutoWorktreePolicy,
 )
+from ouroboros.auto.worktree import ensure_auto_worktree, release_auto_worktree
 from ouroboros.config import get_opencode_mode
 from ouroboros.core.file_lock import file_lock
 from ouroboros.core.types import Result
@@ -85,6 +91,8 @@ from ouroboros.orchestrator import resolve_agent_runtime_backend
 from ouroboros.orchestrator.agent_process import run_with_agent_process
 from ouroboros.orchestrator.heartbeat import current_process_identity, is_process_identity_alive
 from ouroboros.persistence.event_store import EventStore
+from ouroboros.runtime.controls import load_runtime_controls
+from ouroboros.runtime.watchdog import Watchdog
 
 _START_AUTO_PENDING_LEASE_SECONDS = 60.0
 
@@ -102,6 +110,7 @@ class AutoHandler:
     opencode_mode: str | None = field(default=None, repr=False)
     mcp_manager: object | None = field(default=None, repr=False)
     mcp_tool_prefix: str = ""
+    event_store: EventStore | None = field(default=None, repr=False)
     ralph_handler_factory: Callable[[str | None, str | None], RalphHandler] | None = field(
         default=None, repr=False
     )
@@ -218,6 +227,24 @@ class AutoHandler:
                     required=False,
                     default=False,
                 ),
+                MCPToolParameter(
+                    "domain",
+                    ToolInputType.STRING,
+                    "Optional domain profile name (for example, coding)",
+                    required=False,
+                ),
+                MCPToolParameter(
+                    "commit_policy",
+                    ToolInputType.STRING,
+                    "Checkpoint commit policy: ac_checkpoint, final_only, or none",
+                    required=False,
+                ),
+                MCPToolParameter(
+                    "worktree_policy",
+                    ToolInputType.STRING,
+                    "Worktree isolation policy: auto, always, current, or none",
+                    required=False,
+                ),
             ),
         )
 
@@ -241,6 +268,10 @@ class AutoHandler:
         elif auto_session_id is not None:
             try:
                 state = store.load(auto_session_id)
+            except ValueError as exc:
+                return Result.err(MCPToolError(str(exc), tool_name="ouroboros_auto"))
+            try:
+                _apply_requested_domain_and_policies(state, arguments, detect_profile=False)
             except ValueError as exc:
                 return Result.err(MCPToolError(str(exc), tool_name="ouroboros_auto"))
             start_lease_token, lease_error = _reserve_start_lease(
@@ -309,6 +340,7 @@ class AutoHandler:
         supplied_user_preferences: dict[str, str | None] = {}
         if isinstance(resume, str) and resume:
             state = store.load(resume)
+            _apply_requested_domain_and_policies(state, arguments, detect_profile=False)
             cwd = state.cwd
             runtime_backend = state.runtime_backend or self.agent_runtime_backend
             if runtime_backend is None and state.opencode_mode is not None:
@@ -364,6 +396,7 @@ class AutoHandler:
             skip_run = requested_skip_run
             goal_text = goal.strip()
             state = AutoPipelineState(goal=goal_text, cwd=cwd)
+            _apply_requested_domain_and_policies(state, arguments)
             state.user_preferences = _merge_goal_user_preferences(
                 goal_text, supplied_user_preferences
             )
@@ -384,6 +417,8 @@ class AutoHandler:
         if opencode_mode is not None:
             state.ralph_opencode_mode = state.ralph_opencode_mode or opencode_mode
         state.skip_run = skip_run
+
+        auto_workspace = ensure_auto_worktree(state)
 
         authoring_opencode_mode = "subprocess" if opencode_mode == "plugin" else opencode_mode
         interview_handler = _authoring_interview_handler(
@@ -408,12 +443,30 @@ class AutoHandler:
         )
 
         context_provider = _build_context_provider(dict(state.user_preferences))
+
+        # Issue #1248 — construct ``lateral_thinker`` ahead of the driver so
+        # the safe-default escalation path (interview phase, runs regardless
+        # of complete-product mode) has the same lateral handle the
+        # EVALUATE → UNSTUCK_LATERAL path uses below. ``LateralThinkHandler``
+        # is plugin-mode-skipped because it dispatches to OpenCode Task
+        # panes — the synchronous auto pipeline cannot consume that
+        # out-of-band response.
+        opencode_plugin_mode = opencode_mode == "plugin"
+        lateral_thinker = None
+        if not opencode_plugin_mode:
+            lateral_handler = LateralThinkHandler(
+                agent_runtime_backend=runtime_backend,
+                opencode_mode=opencode_mode,
+            )
+            lateral_thinker = HandlerLateralThinker(lateral_handler)
+
         driver = AutoInterviewDriver(
-            HandlerInterviewBackend(interview_handler, cwd=cwd),
+            HandlerInterviewBackend(interview_handler, cwd=state.cwd),
             store=store,
             max_rounds=max_interview_rounds,
             timeout_seconds=state.phase_timeout_seconds(AutoPhase.INTERVIEW),
             context_provider=context_provider,
+            lateral_thinker=lateral_thinker,
         )
         # Q00/ouroboros#782 review-11 BLOCKING #1: pass the un-demoted
         # ``state.ralph_opencode_mode`` (already populated above at line 251-252,
@@ -433,7 +486,11 @@ class AutoHandler:
                     opencode_mode=ralph_opencode_mode,
                 )
             )
-        ralph_starter = HandlerRalphStarter(ralph_handler) if ralph_handler is not None else None
+        ralph_starter = (
+            HandlerRalphStarter(ralph_handler, project_dir=state.cwd)
+            if ralph_handler is not None
+            else None
+        )
         # Q00/ouroboros#773 (review-5 finding 1): wire a poller backed by the
         # same ``RalphHandler`` so MCP-side resumes of an interrupted
         # ``RALPH_HANDOFF`` checkpoint actually reconcile the persisted job
@@ -447,17 +504,23 @@ class AutoHandler:
         # is RUN → COMPLETE (async run handoff) so there is no synchronous
         # artifact to grade; instantiating QAHandler would be wasted setup.
         #
-        # Plugin-mode skip: ``QAHandler`` / ``LateralThinkHandler`` dispatch
-        # to OpenCode Task panes when ``opencode_mode == "plugin"``. The
-        # auto pipeline's Phase 2.1/2.2 advisory layer is synchronous and
-        # cannot consume out-of-band subagent output, so we leave both
-        # adapters unwired in plugin mode. The chain then falls back to
-        # the pre-Phase-2.1 behaviour (RUN → RALPH_HANDOFF → COMPLETE) —
-        # the existing Ralph plugin delegation continues to drive
-        # complete-product sessions in OpenCode Task panes as before.
+        # Plugin-mode skip: ``QAHandler`` dispatches to OpenCode Task panes
+        # when ``opencode_mode == "plugin"``. The auto pipeline's Phase
+        # 2.1/2.2 advisory layer is synchronous and cannot consume
+        # out-of-band subagent output, so the evaluator stays unwired in
+        # plugin mode. The chain then falls back to the pre-Phase-2.1
+        # behaviour (RUN → RALPH_HANDOFF → COMPLETE) — the existing Ralph
+        # plugin delegation continues to drive complete-product sessions
+        # in OpenCode Task panes as before.
+        #
+        # Issue #1248 — ``lateral_thinker`` is constructed above (before
+        # the driver) so it is available to both the driver's
+        # safe-default escalation path and the pipeline's
+        # EVALUATE → UNSTUCK_LATERAL path. The EVALUATE side stays gated
+        # by ``evaluator``, which keeps the complete-product invariant
+        # for that callsite without re-instantiating ``lateral_thinker``
+        # here.
         evaluator = None
-        lateral_thinker = None
-        opencode_plugin_mode = opencode_mode == "plugin"
         if complete_product and not opencode_plugin_mode:
             qa_handler = QAHandler(
                 llm_backend=self.llm_backend,
@@ -465,18 +528,20 @@ class AutoHandler:
                 opencode_mode=opencode_mode,
             )
             evaluator = HandlerEvaluator(qa_handler)
-            # RFC #809 Phase 2.2 — wire the persona-driven lateral advisor
-            # alongside the evaluator. Same gating: only when complete-product
-            # is on and we are NOT in plugin mode.
-            lateral_handler = LateralThinkHandler(
-                agent_runtime_backend=runtime_backend,
-                opencode_mode=opencode_mode,
-            )
-            lateral_thinker = HandlerLateralThinker(lateral_handler)
+        watchdog_event_store = self.event_store or EventStore()
+        await watchdog_event_store.initialize()
+        watchdog = Watchdog(
+            controls=load_runtime_controls(None),
+            event_appender=watchdog_event_store,
+        )
         pipeline = AutoPipeline(
             driver,
             HandlerSeedGenerator(generate_seed_handler),
-            run_starter=HandlerRunStarter(start_execute, cwd=cwd),
+            run_starter=HandlerRunStarter(
+                start_execute,
+                cwd=state.cwd,
+                use_worktree=auto_workspace is None,
+            ),
             store=store,
             repairer=SeedRepairer(max_repair_rounds=max_repair_rounds),
             seed_saver=save_seed,
@@ -493,8 +558,15 @@ class AutoHandler:
             complete_product=complete_product,
             evaluator=evaluator,
             lateral_thinker=lateral_thinker,
+            watchdog=watchdog,
+            probe_runner=EnvRuntimeProbeRunner() if complete_product else None,
         )
-        return await pipeline.run(state)
+        try:
+            return await pipeline.run(state)
+        finally:
+            release_auto_worktree(auto_workspace)
+            if self.event_store is None:
+                await watchdog_event_store.close()
 
 
 @dataclass
@@ -548,6 +620,7 @@ class StartAutoHandler:
             opencode_mode=self.opencode_mode,
             mcp_manager=self.mcp_manager,
             mcp_tool_prefix=self.mcp_tool_prefix,
+            event_store=self._event_store,
             ralph_handler_factory=self.ralph_handler_factory,
         )
 
@@ -747,9 +820,11 @@ class StartAutoHandler:
             )
 
         text = (
-            f"Started background auto session. job_id={snapshot.job_id}\n\n"
-            f"Auto session ID: {auto_session_id}\n\n"
-            "Poll with ouroboros_job_status / ouroboros_job_wait."
+            "Started background auto session.\n\n"
+            "Status: queued\n\n"
+            "Track with ouroboros_job_wait / ouroboros_job_status until terminal, "
+            "then fetch ouroboros_job_result. Use response metadata for job_id "
+            "and auto_session_id."
         )
         return Result.ok(
             MCPToolResult(
@@ -761,6 +836,9 @@ class StartAutoHandler:
                     "session_id": auto_session_id,
                     "status": "queued",
                     "dispatch_mode": "job",
+                    "status_tool": "ouroboros_job_status",
+                    "wait_tool": "ouroboros_job_wait",
+                    "result_tool": "ouroboros_job_result",
                 },
             )
         )
@@ -775,6 +853,7 @@ class StartAutoHandler:
         """Persist a new auto session before the background job starts."""
         cwd = str(_resolve_cwd(arguments.get("cwd")))
         state = AutoPipelineState(goal=goal, cwd=cwd)
+        _apply_requested_domain_and_policies(state, arguments)
         state.max_interview_rounds = _positive_int_arg(arguments, "max_interview_rounds", 12)
         state.max_repair_rounds = _positive_int_arg(arguments, "max_repair_rounds", 5)
         state.skip_run = bool(arguments.get("skip_run", False))
@@ -912,6 +991,34 @@ class StartAutoHandler:
             ),
             False,
         )
+
+
+def _apply_requested_domain_and_policies(
+    state: AutoPipelineState,
+    arguments: dict[str, Any],
+    *,
+    detect_profile: bool = True,
+) -> None:
+    """Apply fresh/resume domain and execution-policy arguments to state."""
+    domain = _optional_text_arg(arguments, "domain")
+    if domain is not None:
+        profile = DEFAULT_REGISTRY.get(domain)
+        if profile is None:
+            raise ValueError(f"Unknown domain profile: {domain!r}")
+        state.active_domain_profile_name = profile.name
+        apply_domain_policy_defaults(state)
+    elif detect_profile and state.active_domain_profile_name is None:
+        profile = DEFAULT_REGISTRY.detect_best(Path(state.cwd))
+        state.active_domain_profile_name = profile.name if profile else None
+        apply_domain_policy_defaults(state)
+
+    commit_policy = _optional_text_arg(arguments, "commit_policy")
+    if commit_policy is not None:
+        state.commit_policy = AutoCommitPolicy(commit_policy)
+
+    worktree_policy = _optional_text_arg(arguments, "worktree_policy")
+    if worktree_policy is not None:
+        state.worktree_policy = AutoWorktreePolicy(worktree_policy)
 
 
 def _build_auto_subagent(
@@ -1135,6 +1242,8 @@ def _lease_owner_is_alive(lease: dict[str, Any]) -> bool:
     start_time = lease.get("owner_start_time")
     if start_time is not None and not isinstance(start_time, int | float):
         start_time = None
+    if isinstance(start_time, int | float) and start_time <= 0:
+        return False
     return is_process_identity_alive(pid, float(start_time) if start_time is not None else None)
 
 
@@ -1190,6 +1299,7 @@ def _result_meta(result: AutoPipelineResult) -> dict[str, Any]:
         "blocker": result.blocker,
         "seed_path": result.seed_path,
         "seed_origin": result.seed_origin,
+        "active_task_class": result.active_task_class,
         "grade": result.grade,
         "last_grade": result.last_grade,
         "interview_session_id": result.interview_session_id,
@@ -1200,6 +1310,24 @@ def _result_meta(result: AutoPipelineResult) -> dict[str, Any]:
     if handoff_only:
         meta["presentation_status"] = _presentation_status(result)
         meta["product_status"] = "not_verified_complete"
+    if result.status == "detached":
+        meta["presentation_status"] = "detached"
+        meta["product_status"] = "not_verified_complete"
+    if result.stop_reason_code is not None:
+        meta["stop_reason_code"] = result.stop_reason_code
+    # #1257 PR-D follow-up (ouroboros-agent[bot] req_1779969483_175 medium): the
+    # AutoPipelineResult partial-product contract added by PR-C must be
+    # surfaced through the MCP boundary so external clients can render the
+    # next-step hints without re-parsing the persisted Seed artifact. Without
+    # these fields a partial product looked identical to a regular ``complete``
+    # status on the MCP wire — masking the deadline-recovery semantic.
+    if result.partial_product:
+        meta["partial_product"] = True
+        if result.partial_product_reason is not None:
+            meta["partial_product_reason"] = result.partial_product_reason
+        meta["partial_unresolved_slots"] = list(result.partial_unresolved_slots)
+    if result.interview_closure_mode is not None:
+        meta["interview_closure_mode"] = result.interview_closure_mode
     if result.execution_job_status:
         meta["execution_job_status"] = result.execution_job_status
     if result.execution_job_error:
@@ -1240,6 +1368,14 @@ def _result_meta(result: AutoPipelineResult) -> dict[str, Any]:
         meta["ralph_lineage_id"] = result.ralph_lineage_id
     if result.ralph_dispatch_mode:
         meta["ralph_dispatch_mode"] = result.ralph_dispatch_mode
+    if result.checkpoint_commits:
+        meta["checkpoint_commits"] = [dict(item) for item in result.checkpoint_commits]
+    if (
+        result.status == "complete"
+        and result.ralph_dispatch_mode == "plugin"
+        and result.execution_job_status != "completed"
+    ):
+        meta["product_status"] = "not_verified_complete"
     # RFC #809 Phase 2.1 — surface the EVALUATE verdict when present. None
     # signals "EVALUATE did not run" so clients can distinguish "not graded"
     # from "graded and failed".
@@ -1267,14 +1403,36 @@ def _result_meta(result: AutoPipelineResult) -> dict[str, Any]:
     meta["ledger_provenance"] = {
         source: list(sections) for source, sections in result.ledger_provenance.items()
     }
+    meta["defaulted_sections"] = list(result.defaulted_sections)
     meta["evidence_backed_sections"] = list(result.evidence_backed_sections)
     meta["assumption_only_sections"] = list(result.assumption_only_sections)
+    meta["assumption_sources"] = [
+        {"text": record.text, "source": record.source, "confidence": record.confidence}
+        for record in result.assumption_sources
+    ]
+    meta["runtime_probe_evidence"] = [
+        {
+            "probe_kind": evidence.probe_kind,
+            "passed": evidence.passed,
+            "summary": evidence.summary,
+            "duration_seconds": evidence.duration_seconds,
+            "payload": dict(evidence.payload),
+        }
+        for evidence in result.runtime_probe_evidence
+    ]
     return meta
 
 
 async def _reconcile_execution_job_snapshot(result: AutoPipelineResult) -> AutoPipelineResult:
     """Project the linked execution job lifecycle onto the auto resume result."""
     if not result.job_id:
+        return result
+    if (
+        result.status == "detached"
+        or result.phase == AutoPhase.RALPH_HANDOFF.value
+        or result.ralph_job_id
+        or result.ralph_lineage_id
+    ):
         return result
     try:
         snapshot = await JobManager().get_snapshot(result.job_id)
@@ -1302,10 +1460,12 @@ async def _reconcile_execution_job_snapshot(result: AutoPipelineResult) -> AutoP
         resume_capability = AutoResumeCapability.NONE
     elif snapshot.status is JobStatus.COMPLETED:
         status = "complete"
+        blocker = None
         resume_capability = AutoResumeCapability.NONE
     return replace(
         result,
         status=status,
+        phase="complete" if status == "complete" else result.phase,
         blocker=blocker,
         resume_capability=resume_capability,
         execution_job_status=snapshot.status.value,
@@ -1873,10 +2033,15 @@ def _format_result(result: AutoPipelineResult) -> str:
     ]
     if handoff_only:
         lines.append("Product status: not verified complete; execution is still external/pending")
+    elif result.status == "detached":
+        lines.append("Product status: not verified complete; background work is still running")
     if result.grade:
         lines.append(f"Seed grade: {result.grade}")
     if result.interview_session_id:
         lines.append(f"Interview session: {result.interview_session_id}")
+    if result.pending_question:
+        lines.append("Pending question:")
+        lines.extend(f"  {line}" for line in result.pending_question.strip().splitlines())
     if result.seed_path:
         lines.append(f"Seed: {result.seed_path}")
     lines.append(f"Seed origin: {result.seed_origin}")
@@ -1919,6 +2084,10 @@ def _format_result(result: AutoPipelineResult) -> str:
             lines.append(f"  job_id: {result.ralph_job_id}")
         if result.ralph_lineage_id:
             lines.append(f"  lineage_id: {result.ralph_lineage_id}")
+    if result.checkpoint_commits:
+        lines.append("Checkpoint commits:")
+        for entry in result.checkpoint_commits:
+            lines.append(f"- {entry.get('ac_id')}: {entry.get('commit')}")
     # RFC #809 Phase 2.1 — render the EVALUATE verdict when present so resume
     # surfaces tell the user whether the session converged on AC verification
     # or stalled with QA findings the operator must act on.
@@ -1944,6 +2113,16 @@ def _format_result(result: AutoPipelineResult) -> str:
         lines.extend(f"- {item}" for item in result.non_goals)
     if result.blocker:
         lines.append(f"Blocker: {result.blocker}")
+    # #1257 PR-D follow-up: render the partial-product surface so CLI users
+    # see the deadline-recovery semantic and the next-step slots inline rather
+    # than having to open the persisted Seed artifact. Mirrors the MCP meta
+    # additions in :func:`_result_meta`.
+    if result.partial_product:
+        reason = result.partial_product_reason or "deadline_recovery"
+        lines.append(f"Partial product: yes (reason: {reason})")
+        if result.partial_unresolved_slots:
+            lines.append("  unresolved next-step slots:")
+            lines.extend(f"  - {slot}" for slot in result.partial_unresolved_slots)
     capability = result.resume_capability
     lines.extend(
         render_resume_lines(

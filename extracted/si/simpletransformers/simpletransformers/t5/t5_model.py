@@ -1099,8 +1099,8 @@ class T5Model:
             desc="Generating outputs",
             disable=self.args.silent,
         ):
-            input_batch = self.tokenizer.prepare_seq2seq_batch(
-                src_texts=batch,
+            input_batch = self.tokenizer(
+                batch,
                 max_length=self.args.max_seq_length,
                 padding="max_length",
                 return_tensors="pt",

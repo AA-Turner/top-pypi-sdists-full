@@ -48,6 +48,7 @@ internal call sites and downstream code can converge on a single spelling.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import click
@@ -58,6 +59,16 @@ from .colorize import HelpExtraFormatter
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from typing import Final
+
+
+POSIXLY_CORRECT_ENVVAR: Final[str] = "POSIXLY_CORRECT"
+"""Environment variable that requests strict POSIX argument parsing.
+
+When this variable is present in the environment (regardless of its value,
+matching GNU ``getopt`` semantics), :class:`ExtraContext` forces
+``allow_interspersed_args`` to ``False`` so option parsing stops at the first
+positional argument.
+"""
 
 
 class ExtraContext(cloup.Context):
@@ -71,6 +82,11 @@ class ExtraContext(cloup.Context):
     Parent-to-child color inheritance is handled by Click itself at ``Context.__init__``
     time, so no property override is needed.
 
+    When the ``POSIXLY_CORRECT`` environment variable is set, this context forces
+    ``allow_interspersed_args`` to ``False`` so option parsing stops at the first
+    positional argument, as GNU getopt-based tools do. See
+    :data:`POSIXLY_CORRECT_ENVVAR`.
+
     .. todo::
         Propose addition of ``meta`` keyword upstream to Click.
     """
@@ -82,7 +98,8 @@ class ExtraContext(cloup.Context):
         """Like parent's context but with an extra ``meta`` keyword-argument.
 
         Also force ``color`` default to ``True`` if not provided by user and this
-        context has no parent.
+        context has no parent, and force ``allow_interspersed_args`` to ``False``
+        when ``POSIXLY_CORRECT`` is set in the environment.
         """
         super().__init__(*args, **kwargs)
 
@@ -92,6 +109,13 @@ class ExtraContext(cloup.Context):
         # will set the final value later, respecting ``--no-color`` and env vars.
         if not self.parent and self.color is None:
             self.color = True
+
+        # Honor the POSIX conformance switch: when POSIXLY_CORRECT is present in the
+        # environment, stop parsing options at the first positional argument, the way
+        # GNU getopt-based tools do. Presence alone is enough, regardless of value.
+        # This can only tighten parsing (True -> False), never loosen it.
+        if POSIXLY_CORRECT_ENVVAR in os.environ:
+            self.allow_interspersed_args = False
 
         # Update the context's meta property with the one provided by user.
         if meta:
@@ -217,7 +241,7 @@ as :data:`VERBOSITY` for the ``-v`` family of flags.
 START_TIME: Final[str] = "click_extra.start_time"
 """``time.perf_counter()`` snapshot taken when ``--time`` is enabled.
 
-Written by :class:`click_extra.timer.TimerOption.init_timer`.
+Written by :class:`click_extra.execution.TimerOption.init_timer`.
 """
 
 
@@ -226,7 +250,7 @@ Written by :class:`click_extra.timer.TimerOption.init_timer`.
 JOBS: Final[str] = "click_extra.jobs"
 """Effective parallel job count after clamping (always >= 1).
 
-Written by :class:`click_extra.jobs.JobsOption.validate_jobs`. Click Extra
+Written by :class:`click_extra.execution.JobsOption.validate_jobs`. Click Extra
 itself does not act on this value: it is a contract for downstream commands
 that drive their own concurrency.
 """
@@ -281,6 +305,18 @@ Written by :class:`click_extra.telemetry.TelemetryOption.set_telemetry` after
 reconciling ``--telemetry`` / ``--no-telemetry`` with the standard
 ``DO_NOT_TRACK`` environment variable. Downstream code reads this to decide
 whether to emit usage data.
+"""
+
+
+# --- Exit code ----------------------------------------------------------------
+
+ZERO_EXIT: Final[str] = "click_extra.zero_exit"
+"""``True`` when the user asked the CLI to always return a zero exit code.
+
+Written by :class:`click_extra.execution.ZeroExitOption.set_zero_exit`. Click
+Extra itself does not act on this value: it is a contract for downstream
+commands that suppress their non-zero "problems found" exit code and return
+``0`` as long as the run itself succeeded.
 """
 
 

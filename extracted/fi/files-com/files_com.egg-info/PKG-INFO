@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: files_com
-Version: 1.6.367
+Version: 1.6.370
 Summary: Python bindings for the Files.com API
 License: MIT
 Requires-Python: >=3.5
@@ -603,6 +603,7 @@ files_sdk.error.FolderAdminPermissionRequiredError -> files_sdk.error.NotAuthori
 |`FolderAdminPermissionRequiredError`|  `NotAuthorizedError` |
 |`FullPermissionRequiredError`|  `NotAuthorizedError` |
 |`HistoryPermissionRequiredError`|  `NotAuthorizedError` |
+|`InAppAiAssistantUnavailableError`|  `NotAuthorizedError` |
 |`InsufficientPermissionForParamsError`|  `NotAuthorizedError` |
 |`InsufficientPermissionForSiteError`|  `NotAuthorizedError` |
 |`MoverAccessDeniedError`|  `NotAuthorizedError` |

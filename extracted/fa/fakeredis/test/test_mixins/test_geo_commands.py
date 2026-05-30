@@ -2,59 +2,45 @@ from typing import Dict, Any
 
 import pytest
 import redis
+import valkey
 
+from fakeredis._typing import ClientType
 from test import testtools
 from test.testtools import resp_conversion
 
 
-def test_geoadd_ch(r: redis.Redis):
+def test_geoadd_ch(r: ClientType):
     values = (2.1909389952632, 41.433791470673, "place1")
     assert r.geoadd("a", values) == 1
-    values = (
-        2.1909389952632,
-        31.433791470673,
-        "place1",
-        2.1873744593677,
-        41.406342043777,
-        "place2",
-    )
+    values = (2.1909389952632, 31.433791470673, "place1", 2.1873744593677, 41.406342043777, "place2")
     assert r.geoadd("a", values, ch=True) == 2
     assert r.zrange("a", 0, -1) == [b"place1", b"place2"]
 
 
-def test_geoadd(r: redis.Redis):
-    values = (
-        2.1909389952632,
-        41.433791470673,
-        "place1",
-        2.1873744593677,
-        41.406342043777,
-        "place2",
-    )
+def test_geoadd(r: ClientType):
+    values = (2.1909389952632, 41.433791470673, "place1", 2.1873744593677, 41.406342043777, "place2")
     assert r.geoadd("barcelona", values) == 2
     assert r.zcard("barcelona") == 2
 
     values = (2.1909389952632, 41.433791470673, "place1")
     assert r.geoadd("a", values) == 1
 
-    with pytest.raises(redis.DataError):
+    with pytest.raises(Exception) as ctx:
         r.geoadd("barcelona", (1, 2))
-    with pytest.raises(redis.DataError):
+    assert isinstance(ctx.value, (redis.DataError, valkey.DataError))
+    with pytest.raises(Exception) as ctx:
         r.geoadd("t", values, ch=True, nx=True, xx=True)
-    with pytest.raises(redis.ResponseError):
+    assert isinstance(ctx.value, (redis.DataError, valkey.DataError))
+    with pytest.raises(Exception) as ctx:
         testtools.raw_command(r, "geoadd", "barcelona", "1", "2")
-    with pytest.raises(redis.ResponseError):
-        testtools.raw_command(
-            r,
-            "geoadd",
-            "barcelona",
-            "nx",
-            "xx",
-            *values,
-        )
+    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    with pytest.raises(Exception) as ctx:
+        testtools.raw_command(r, "geoadd", "barcelona", "nx", "xx", *values)
+
+    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
 
 
-def test_geoadd_xx(r: redis.Redis):
+def test_geoadd_xx(r: ClientType):
     values = (
         2.1909389952632,
         41.433791470673,
@@ -79,30 +65,16 @@ def test_geoadd_xx(r: redis.Redis):
     assert r.zrange("a", 0, -1) == [b"place3", b"place2", b"place1"]
 
 
-def test_geohash(r: redis.Redis):
-    values = (
-        2.1909389952632,
-        41.433791470673,
-        "place1",
-        2.1873744593677,
-        41.406342043777,
-        "place2",
-    )
+def test_geohash(r: ClientType):
+    values = (2.1909389952632, 41.433791470673, "place1", 2.1873744593677, 41.406342043777, "place2")
     r.geoadd("barcelona", values)
     assert r.geohash("barcelona", "place1", "place2", "place3") == resp_conversion(
         r, [b"sp3e9yg3kd0", b"sp3e9cbc3t0", None], ["sp3e9yg3kd0", "sp3e9cbc3t0", None]
     )
 
 
-def test_geopos(r: redis.Redis):
-    values = (
-        2.1909389952632,
-        41.433791470673,
-        "place1",
-        2.1873744593677,
-        41.406342043777,
-        "place2",
-    )
+def test_geopos(r: ClientType):
+    values = (2.1909389952632, 41.433791470673, "place1", 2.1873744593677, 41.406342043777, "place2")
     r.geoadd("barcelona", values)
     # small errors may be introduced.
     assert r.geopos("barcelona", "place1", "place4", "place2") == [
@@ -112,37 +84,25 @@ def test_geopos(r: redis.Redis):
     ]
 
 
-def test_geodist(r: redis.Redis):
-    values = (
-        2.1909389952632,
-        41.433791470673,
-        "place1",
-        2.1873744593677,
-        41.406342043777,
-        "place2",
-    )
+def test_geodist(r: ClientType):
+    values = (2.1909389952632, 41.433791470673, "place1", 2.1873744593677, 41.406342043777, "place2")
     assert r.geoadd("barcelona", values) == 2
     assert r.geodist("barcelona", "place1", "place2") == pytest.approx(3067.4157, 0.0001)
 
 
-def test_geodist_units(r: redis.Redis):
-    values = (
-        2.1909389952632,
-        41.433791470673,
-        "place1",
-        2.1873744593677,
-        41.406342043777,
-        "place2",
-    )
+def test_geodist_units(r: ClientType):
+    values = (2.1909389952632, 41.433791470673, "place1", 2.1873744593677, 41.406342043777, "place2")
     r.geoadd("barcelona", values)
     assert r.geodist("barcelona", "place1", "place2", "km") == pytest.approx(3.0674, 0.0001)
     assert r.geodist("barcelona", "place1", "place2", "mi") == pytest.approx(1.906, 0.0001)
     assert r.geodist("barcelona", "place1", "place2", "ft") == pytest.approx(10063.6998, 0.0001)
-    with pytest.raises(redis.RedisError):
+    with pytest.raises(Exception) as ctx:
         assert r.geodist("x", "y", "z", "inches")
 
+    assert isinstance(ctx.value, (redis.RedisError, valkey.ValkeyError))
 
-def test_geodist_missing_one_member(r: redis.Redis):
+
+def test_geodist_missing_one_member(r: ClientType):
     values = (2.1909389952632, 41.433791470673, "place1")
     r.geoadd("barcelona", values)
     assert r.geodist("barcelona", "place1", "missing_member", "km") is None
@@ -159,15 +119,8 @@ def test_geodist_missing_one_member(r: redis.Redis):
         (2.191, 41.433, 3000, {"count": 1}, [b"place1"]),
     ],
 )
-def test_georadius(r: redis.Redis, long: float, lat: float, radius: float, extra: Dict[str, Any], expected):
-    values = (
-        2.1909389952632,
-        41.433791470673,
-        "place1",
-        2.1873744593677,
-        41.406342043777,
-        "place2",
-    )
+def test_georadius(r: ClientType, long: float, lat: float, radius: float, extra: Dict[str, Any], expected):
+    values = (2.1909389952632, 41.433791470673, "place1", 2.1873744593677, 41.406342043777, "place2")
     r.geoadd("barcelona", values)
     assert r.georadius("barcelona", long, lat, radius, **extra) == expected
 
@@ -182,15 +135,8 @@ def test_georadius(r: redis.Redis, long: float, lat: float, radius: float, extra
         ("place1", 3000, {"count": 1}, [b"place1"]),
     ],
 )
-def test_georadiusbymember(r: redis.Redis, member: str, radius: float, extra: Dict[str, Any], expected):
-    values = (
-        2.1909389952632,
-        41.433791470673,
-        "place1",
-        2.1873744593677,
-        41.406342043777,
-        b"place2",
-    )
+def test_georadiusbymember(r: ClientType, member: str, radius: float, extra: Dict[str, Any], expected):
+    values = (2.1909389952632, 41.433791470673, "place1", 2.1873744593677, 41.406342043777, b"place2")
     r.geoadd("barcelona", values)
     assert r.georadiusbymember("barcelona", member, radius, **extra) == expected
     assert r.georadiusbymember("barcelona", member, radius, **extra, store_dist="extract") == len(expected)
@@ -198,7 +144,7 @@ def test_georadiusbymember(r: redis.Redis, member: str, radius: float, extra: Di
 
 
 @pytest.mark.unsupported_server_types("dragonfly")
-def test_georadius_with(r: redis.Redis):
+def test_georadius_with(r: ClientType):
     values = (
         2.1909389952632,
         41.433791470673,
@@ -228,30 +174,12 @@ def test_georadius_with(r: redis.Redis):
     assert res == [[b"place1", pytest.approx((2.1909, 41.4337), 0.0001)]]
 
     # test no values.
-    assert (
-        r.georadius(
-            "barcelona",
-            2,
-            1,
-            1,
-            unit="km",
-            withdist=True,
-            withcoord=True,
-        )
-        == []
-    )
+    assert r.georadius("barcelona", 2, 1, 1, unit="km", withdist=True, withcoord=True) == []
 
 
 @pytest.mark.unsupported_server_types("dragonfly")
-def test_georadius_count(r: redis.Redis):
-    values = (
-        2.1909389952632,
-        41.433791470673,
-        "place1",
-        2.1873744593677,
-        41.406342043777,
-        "place2",
-    )
+def test_georadius_count(r: ClientType):
+    values = (2.1909389952632, 41.433791470673, "place1", 2.1873744593677, 41.406342043777, "place2")
 
     r.geoadd("barcelona", values)
 
@@ -261,14 +189,7 @@ def test_georadius_count(r: redis.Redis):
     res = r.georadius("barcelona", 2.191, 41.433, 3000, count=1, any=True)
     assert (res == [b"place2"]) or res == [b"place1"]
 
-    values = (
-        13.361389,
-        38.115556,
-        "Palermo",
-        15.087269,
-        37.502669,
-        "Catania",
-    )
+    values = (13.361389, 38.115556, "Palermo", 15.087269, 37.502669, "Catania")
 
     r.geoadd("Sicily", values)
     assert (
@@ -281,39 +202,31 @@ def test_georadius_count(r: redis.Redis):
     assert r.zcard("neardist") == 0
 
 
-def test_georadius_errors(r: redis.Redis):
-    values = (
-        13.361389,
-        38.115556,
-        "Palermo",
-        15.087269,
-        37.502669,
-        "Catania",
-    )
+def test_georadius_errors(r: ClientType):
+    values = (13.361389, 38.115556, "Palermo", 15.087269, 37.502669, "Catania")
 
     r.geoadd("Sicily", values)
 
-    with pytest.raises(redis.DataError):  # Unsupported unit
+    with pytest.raises(Exception) as ctx:
         r.georadius("barcelona", 2.191, 41.433, 3000, unit="dsf")
-    with pytest.raises(redis.ResponseError):  # Unsupported unit
+    assert isinstance(ctx.value, (redis.DataError, valkey.DataError))
+    with pytest.raises(Exception) as ctx:
         testtools.raw_command(
             r, "GEORADIUS", "Sicily", "15", "37", "200", "ddds", "STOREDIST", "neardist", "STORE", "near"
         )
 
-    bad_values = (
-        13.361389,
-        38.115556,
-        "Palermo",
-        15.087269,
-        "Catania",
-    )
-    with pytest.raises(redis.DataError):
+    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
+    bad_values = (13.361389, 38.115556, "Palermo", 15.087269, "Catania")
+    with pytest.raises(Exception) as ctx:
         r.geoadd("newgroup", bad_values)
-    with pytest.raises(redis.ResponseError):
+    assert isinstance(ctx.value, (redis.DataError, valkey.DataError))
+    with pytest.raises(Exception) as ctx:
         testtools.raw_command(r, "geoadd", "newgroup", *bad_values)
 
+    assert isinstance(ctx.value, (redis.ResponseError, valkey.ResponseError))
 
-def test_geosearch(r: redis.Redis):
+
+def test_geosearch(r: ClientType):
     values = (
         2.1909389952632,
         41.433791470673,
@@ -329,11 +242,7 @@ def test_geosearch(r: redis.Redis):
     assert r.geosearch("barcelona", longitude=2.191, latitude=41.433, radius=1000) == [b"place1"]
     assert r.geosearch("barcelona", longitude=2.187, latitude=41.406, radius=1000) == [b"place2"]
     # assert r.geosearch("barcelona", longitude=2.191, latitude=41.433, height=1000, width=1000) == [b"place1"]
-    assert set(r.geosearch("barcelona", member="place3", radius=100, unit="km")) == {
-        b"place2",
-        b"place1",
-        b"place3",
-    }
+    assert set(r.geosearch("barcelona", member="place3", radius=100, unit="km")) == {b"place2", b"place1", b"place3"}
     # test count
     assert r.geosearch("barcelona", member="place3", radius=100, unit="km", count=2) == [b"place3", b"place2"]
     assert r.geosearch("barcelona", member="place3", radius=100, unit="km", count=1, any=True)[0] in [

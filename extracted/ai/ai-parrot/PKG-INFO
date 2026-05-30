@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.25.0
+Version: 0.25.2
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -53,8 +53,6 @@ Requires-Dist: aiohttp-sse-client==0.2.1
 Requires-Dist: aiohttp-cors>=0.8.1
 Requires-Dist: brotli==1.2.0
 Requires-Dist: urllib3==2.7.0
-Requires-Dist: aioquic==1.3.0
-Requires-Dist: pylsqpack==0.3.23
 Requires-Dist: prance>=25.4.8.0
 Requires-Dist: openapi-schema-validator==0.6.3
 Requires-Dist: openapi-spec-validator>=0.7.1
@@ -94,8 +92,8 @@ Requires-Dist: rustworkx>=0.15; extra == "graphindex"
 Requires-Dist: tree-sitter>=0.23; extra == "graphindex"
 Requires-Dist: tree-sitter-languages>=1.10; extra == "graphindex"
 Requires-Dist: pathspec>=0.12; extra == "graphindex"
-Provides-Extra: scheduler
-Requires-Dist: apscheduler==3.11.2; extra == "scheduler"
+Provides-Extra: server
+Requires-Dist: ai-parrot-server[all]; extra == "server"
 Provides-Extra: reddit
 Requires-Dist: praw>=7.8.1; extra == "reddit"
 Provides-Extra: retrieval
@@ -289,9 +287,10 @@ Requires-Dist: kubernetes_asyncio>=29.0.0; extra == "remote-tools"
 Provides-Extra: visualizations
 Requires-Dist: ai-parrot-visualizations[all]; extra == "visualizations"
 Provides-Extra: all
-Requires-Dist: ai-parrot[agents,audio,bigquery,charts,db,docling,finance,flowtask,images,integrations,llms,mcp,ocr,pdf,reddit,scheduler,visualizations]; extra == "all"
+Requires-Dist: ai-parrot[agents,audio,bigquery,charts,db,docling,finance,flowtask,images,integrations,llms,mcp,ocr,pdf,reddit,visualizations]; extra == "all"
 Requires-Dist: ai-parrot-embeddings[all]; extra == "all"
 Requires-Dist: ai-parrot-integrations[all]; extra == "all"
+Requires-Dist: ai-parrot-server[all]; extra == "all"
 Provides-Extra: all-fast
 Requires-Dist: ai-parrot[agents-lite,integrations,llms]; extra == "all-fast"
 Requires-Dist: ai-parrot-embeddings[faiss,huggingface,pgvector]; extra == "all-fast"

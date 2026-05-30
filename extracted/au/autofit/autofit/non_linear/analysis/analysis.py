@@ -33,20 +33,37 @@ class Analysis(ABC):
 
     LATENT_KEYS = []
 
+    # Strategy used by `compute_latent_samples` when `use_jax=True`.
+    #
+    # - "vmap" (default): wrap `compute_latent_variables` in
+    #   `jax.jit(jax.vmap(...))` so all posterior samples are evaluated in a
+    #   single batched call. Fastest when the function is fully vmap-safe
+    #   (no Python control flow that depends on traced shapes, no calls into
+    #   external libraries that don't support `jax.vmap`).
+    #
+    # - "jit": wrap in plain `jax.jit(...)` and loop in Python over samples.
+    #   The JIT compile cache is reused across samples, so this is much
+    #   faster than per-sample NumPy but slower than vmap. Use this when the
+    #   inner function calls JAX code that documents vmap incompatibility
+    #   (e.g. `jax_zero_contour.ZeroSolver` which uses `lax.cond` /
+    #   `lax.while_loop` early-termination not safe under vmap).
+    #
+    # Subclasses override this attribute when their `compute_latent_variables`
+    # implementation depends on vmap-incompatible primitives. For example,
+    # `autogalaxy.AnalysisDataset` sets `LATENT_BATCH_MODE = "jit"` because
+    # the lensing latents (Einstein radius via zero-contour) route through
+    # `ZeroSolver`.
+    LATENT_BATCH_MODE = "vmap"
+
     def __init__(
         self,
         use_jax: bool = False,
-        use_jax_for_visualization: bool = False,
         **kwargs,
     ):
         import os
         if os.environ.get("PYAUTO_DISABLE_JAX") == "1":
             use_jax = False
-            use_jax_for_visualization = False
 
-        # If the user requested JAX but it isn't installed (e.g. Python <3.11
-        # without the [jax] extra), fall back to numpy with a loud warning
-        # rather than crashing later when the analysis tries to jit-compile.
         if use_jax:
             import importlib.util
             import warnings
@@ -66,55 +83,20 @@ class Analysis(ABC):
                     stacklevel=2,
                 )
                 use_jax = False
-                use_jax_for_visualization = False
-
-        if use_jax_for_visualization and not use_jax:
-            logger.warning(
-                "use_jax_for_visualization=True requires use_jax=True; "
-                "disabling use_jax_for_visualization."
-            )
-            use_jax_for_visualization = False
 
         self._use_jax = use_jax
-        self._use_jax_for_visualization = use_jax_for_visualization
         self.kwargs = kwargs
 
     def fit_for_visualization(self, instance):
         """
         Build the fit used by the visualizer.
 
-        Dispatch over ``self.fit_from`` with an opt-in ``jax.jit`` fast path:
-
-        * ``use_jax_for_visualization=False`` (default) — plain
-          ``self.fit_from(instance)``. Untouched by JAX.
-        * ``use_jax_for_visualization=True`` — lazily construct
-          ``jax.jit(self.fit_from)`` on the first call and cache it on the
-          instance as ``_jitted_fit_from``, then call that for every
-          subsequent visualization. The first call pays the compile cost;
-          subsequent calls reuse the cached compiled function.
-
-        Caching is per-``Analysis`` instance so each analysis gets its own
-        compiled function keyed off that instance's closed-over state
-        (``self.dataset``, ``self.settings``, etc. — these ride as pytree
-        aux data via ``register_instance_pytree(FitImaging, no_flatten=...)``
-        in PyAutoLens).
-
-        For the JIT path to succeed, the ``Fit*`` return type (and every
-        nested autoarray / galaxy / lens type it carries) must be pytree-
-        registered. That wiring lives in each analysis subclass (see
-        ``AnalysisImaging._register_fit_imaging_pytrees`` in PyAutoLens).
-        Variants that have not yet been pytree-audited must leave
-        ``use_jax_for_visualization`` at its default of ``False``.
+        Delegates to ``self.fit_from(instance)``. When ``use_jax=True``,
+        the profile evaluations inside ``fit_from`` dispatch to JAX via
+        the decorator chain. The per-function JIT caches warm up on the
+        first call and are reused on all subsequent quick updates.
         """
-        if not self._use_jax_for_visualization:
-            return self.fit_from(instance=instance)
-
-        if getattr(self, "_jitted_fit_from", None) is None:
-            import jax
-
-            self._jitted_fit_from = jax.jit(self.fit_from)
-
-        return self._jitted_fit_from(instance)
+        return self.fit_from(instance=instance)
 
     def __getattr__(self, item: str):
         """
@@ -188,10 +170,33 @@ class Analysis(ABC):
 
             if self._use_jax:
                 import jax
+                import jax.numpy as jnp
                 start = time.time()
-                logger.info("JAX: Applying vmap and jit to likelihood function for latent variables -- may take a few seconds.")
-                batched_compute_latent = jax.jit(jax.vmap(compute_latent_for_model))
-                logger.info(f"JAX: vmap and jit applied in {time.time() - start} seconds.")
+                if self.LATENT_BATCH_MODE == "vmap":
+                    logger.info("JAX: Applying vmap and jit to likelihood function for latent variables -- may take a few seconds.")
+                    batched_compute_latent = jax.jit(jax.vmap(compute_latent_for_model))
+                elif self.LATENT_BATCH_MODE == "jit":
+                    logger.info("JAX: Applying per-sample jit to latent variables (LATENT_BATCH_MODE='jit') -- may take a few seconds on first sample.")
+                    jitted_compute_latent = jax.jit(compute_latent_for_model)
+
+                    def batched_compute_latent(parameters_batch):
+                        # Per-sample jit returns one (l1, l2, ..., lN) tuple per
+                        # sample. Transpose to a tuple of N batched arrays so the
+                        # downstream `jnp.stack(latent_values_batch, axis=-1)`
+                        # works identically to the vmap path.
+                        sample_results = [
+                            jitted_compute_latent(p) for p in parameters_batch
+                        ]
+                        n_latents = len(sample_results[0])
+                        return tuple(
+                            jnp.stack([s[i] for s in sample_results])
+                            for i in range(n_latents)
+                        )
+                else:
+                    raise ValueError(
+                        f"Unknown LATENT_BATCH_MODE={self.LATENT_BATCH_MODE!r}; expected 'vmap' or 'jit'."
+                    )
+                logger.info(f"JAX: {self.LATENT_BATCH_MODE} dispatch applied in {time.time() - start} seconds.")
             else:
                 n_latents = len(self.LATENT_KEYS)
                 nan_row = np.full(n_latents, np.nan)
@@ -399,15 +404,8 @@ class Analysis(ABC):
 
     @property
     def supports_jax_visualization(self) -> bool:
-        """
-        Whether the visualizer can work directly with JAX arrays.
-
-        Derived from the ``use_jax_for_visualization`` flag passed at
-        construction time. Subclasses may override to force a specific
-        answer (e.g. an Analysis that has been audited to support JAX
-        visualization unconditionally).
-        """
-        return self._use_jax_for_visualization
+        """Whether the visualizer can work directly with JAX arrays."""
+        return self._use_jax
 
     def perform_quick_update(self, paths, instance):
         raise NotImplementedError

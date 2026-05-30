@@ -10,6 +10,7 @@ from ._notebook_metadata import (
     NotebookSourceLister,
     create_default_source_lister,
 )
+from ._row_adapters_sources import SourceRow
 from ._session_contracts import RpcCaller
 from ._settings import build_get_user_settings_params, extract_account_limits
 from ._sharing_manager import ShareManager
@@ -158,14 +159,14 @@ class NotebooksAPI:
             share_manager: Optional explicit legacy share manager for tests or advanced wiring.
         """
         self._rpc = rpc
-        self._sources = sources_api or create_default_source_lister(self._rpc_call)
+        self._sources = sources_api or create_default_source_lister(self._rpc)
         self._metadata_service = metadata_service or NotebookMetadataService(
             # Keep notebook lookup late-bound so tests and advanced callers that
             # replace ``api.get`` after construction still affect get_metadata().
             get_notebook=lambda notebook_id: self.get(notebook_id),
             source_lister=self._sources,
         )
-        self._share_manager = share_manager or ShareManager(self._rpc_call)
+        self._share_manager = share_manager or ShareManager(self._rpc)
 
     async def _rpc_call(
         self,
@@ -206,9 +207,11 @@ class NotebooksAPI:
         Note:
             RPC, auth, and network errors raised by ``get_raw()`` propagate to
             the caller; only local source-shape validation failures are caught
-            below and converted to an empty list.
-            Source IDs are triple-nested in RPC responses: ``source[0][0]``
-            contains the ID.
+            below and converted to an empty list. Per-row id-envelope
+            decoding (including the drive-backed ``[None, True, [id]]``
+            shape) is delegated to
+            :class:`notebooklm._row_adapters_sources.SourceRow`; this method only
+            performs the envelope walk down to ``notebook[0][1]``.
         """
         notebook_data = await self.get_raw(notebook_id)
 
@@ -244,11 +247,21 @@ class NotebooksAPI:
             for source in sources:
                 if not (isinstance(source, list) and source):
                     continue
-                first = source[0]
-                if not (isinstance(first, list) and first):
-                    continue
-                sid = first[0]
-                if isinstance(sid, str):
+                # Per-row id-envelope decoding is delegated to SourceRow:
+                # ``SourceRow.id`` returns ``""`` for malformed envelopes
+                # (matching legacy ``isinstance(first, list) and first``)
+                # and stringifies non-string ids. The legacy code here
+                # additionally required ``isinstance(sid, str)``; that
+                # check was inconsistent with the sibling
+                # ``_source_listing._extract_source_id`` path (which
+                # accepts any non-None id via ``str(src_id)`` at the
+                # ``Source(id=...)`` boundary). Unifying both call sites
+                # through ``SourceRow.id`` aligns behavior — integer-ids
+                # (none observed in Google's wire today) would now be
+                # stringified rather than silently dropped.
+                row = SourceRow.from_entry(source, method_id=RPCMethod.GET_NOTEBOOK.value)
+                sid = row.id
+                if sid:
                     source_ids.append(sid)
         except (IndexError, TypeError) as e:
             # Defense-in-depth: guards above should make this unreachable.

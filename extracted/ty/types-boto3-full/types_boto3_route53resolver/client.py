@@ -33,6 +33,7 @@ from .paginator import (
     ListFirewallRuleGroupAssociationsPaginator,
     ListFirewallRuleGroupsPaginator,
     ListFirewallRulesPaginator,
+    ListFirewallRuleTypesPaginator,
     ListOutpostResolversPaginator,
     ListResolverConfigsPaginator,
     ListResolverDnssecConfigsPaginator,
@@ -53,6 +54,12 @@ from .type_defs import (
     AssociateResolverQueryLogConfigResponseTypeDef,
     AssociateResolverRuleRequestTypeDef,
     AssociateResolverRuleResponseTypeDef,
+    BatchCreateFirewallRuleRequestTypeDef,
+    BatchCreateFirewallRuleResponseTypeDef,
+    BatchDeleteFirewallRuleRequestTypeDef,
+    BatchDeleteFirewallRuleResponseTypeDef,
+    BatchUpdateFirewallRuleRequestTypeDef,
+    BatchUpdateFirewallRuleResponseTypeDef,
     CreateFirewallDomainListRequestTypeDef,
     CreateFirewallDomainListResponseTypeDef,
     CreateFirewallRuleGroupRequestTypeDef,
@@ -133,6 +140,8 @@ from .type_defs import (
     ListFirewallRuleGroupsResponseTypeDef,
     ListFirewallRulesRequestTypeDef,
     ListFirewallRulesResponseTypeDef,
+    ListFirewallRuleTypesRequestTypeDef,
+    ListFirewallRuleTypesResponseTypeDef,
     ListOutpostResolversRequestTypeDef,
     ListOutpostResolversResponseTypeDef,
     ListResolverConfigsRequestTypeDef,
@@ -285,6 +294,36 @@ class Route53ResolverClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/associate_resolver_rule.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53resolver/client/#associate_resolver_rule)
+        """
+
+    def batch_create_firewall_rule(
+        self, **kwargs: Unpack[BatchCreateFirewallRuleRequestTypeDef]
+    ) -> BatchCreateFirewallRuleResponseTypeDef:
+        """
+        Creates multiple DNS Firewall rules in the specified rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/batch_create_firewall_rule.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53resolver/client/#batch_create_firewall_rule)
+        """
+
+    def batch_delete_firewall_rule(
+        self, **kwargs: Unpack[BatchDeleteFirewallRuleRequestTypeDef]
+    ) -> BatchDeleteFirewallRuleResponseTypeDef:
+        """
+        Deletes multiple DNS Firewall rules from the specified rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/batch_delete_firewall_rule.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53resolver/client/#batch_delete_firewall_rule)
+        """
+
+    def batch_update_firewall_rule(
+        self, **kwargs: Unpack[BatchUpdateFirewallRuleRequestTypeDef]
+    ) -> BatchUpdateFirewallRuleResponseTypeDef:
+        """
+        Updates multiple DNS Firewall rules in the specified rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/batch_update_firewall_rule.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53resolver/client/#batch_update_firewall_rule)
         """
 
     def create_firewall_domain_list(
@@ -699,6 +738,16 @@ class Route53ResolverClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53resolver/client/#list_firewall_rule_groups)
         """
 
+    def list_firewall_rule_types(
+        self, **kwargs: Unpack[ListFirewallRuleTypesRequestTypeDef]
+    ) -> ListFirewallRuleTypesResponseTypeDef:
+        """
+        Retrieves the available rule types that can be used in DNS Firewall rules.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/list_firewall_rule_types.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53resolver/client/#list_firewall_rule_types)
+        """
+
     def list_firewall_rules(
         self, **kwargs: Unpack[ListFirewallRulesRequestTypeDef]
     ) -> ListFirewallRulesResponseTypeDef:
@@ -1010,6 +1059,17 @@ class Route53ResolverClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_firewall_rule_groups"]
     ) -> ListFirewallRuleGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53resolver/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_firewall_rule_types"]
+    ) -> ListFirewallRuleTypesPaginator:
         """
         Create a paginator for an operation.
 

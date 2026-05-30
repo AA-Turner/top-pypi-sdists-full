@@ -1,0 +1,99 @@
+"""Main entry point for the formatter."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from toml_fmt_common import ArgumentGroup, FmtNamespace, TOMLFormatter, build_cli, list_argument, run
+
+from ._lib import Settings, format_toml
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
+    from collections.abc import Sequence
+
+
+class PyProjectFmtNamespace(FmtNamespace):
+    """Formatting arguments."""
+
+    pin_envs: list[str]
+
+
+class ToxTOMLFormatter(TOMLFormatter[PyProjectFmtNamespace]):
+    """Format pyproject.toml."""
+
+    def __init__(self) -> None:
+        """Create a formatter."""
+        super().__init__(PyProjectFmtNamespace())
+
+    @property
+    def prog(self) -> str:
+        """:return: program name"""
+        return "tox-toml-fmt"
+
+    @property
+    def filename(self) -> str:
+        """:return: filename operating on"""
+        return "tox.toml"
+
+    def add_format_flags(self, parser: ArgumentGroup) -> None:  # noqa: PLR6301
+        """
+        Additional formatter  config.
+
+        :param parser: parser to operate on.
+        """
+        parser.add_argument(
+            "--pin-env",
+            type=list_argument,
+            default=[],
+            dest="pin_envs",
+            help="environments pinned to the start of env_list (comma separated)",
+        )
+
+    @property
+    def override_cli_from_section(self) -> tuple[str, ...]:
+        """:return: path where config overrides live"""
+        return ("tox-toml-fmt",)
+
+    def format(self, text: str, opt: PyProjectFmtNamespace) -> str:  # noqa: PLR6301
+        """
+        Perform the formatting.
+
+        :param text: content to operate on
+        :param opt: formatter config
+        :return: formatted text
+        """
+        settings = Settings(
+            column_width=opt.column_width,
+            indent=opt.indent,
+            table_format=opt.table_format,
+            sub_table_spacing=opt.sub_table_spacing,
+            separate_root_table=opt.separate_root_table,
+            expand_tables=opt.expand_tables,
+            collapse_tables=opt.collapse_tables,
+            skip_wrap_for_keys=opt.skip_wrap_for_keys,
+            pin_envs=opt.pin_envs,
+        )
+        return format_toml(text, settings)
+
+
+def runner(args: Sequence[str] | None = None) -> int:
+    """
+    Run the formatter.
+
+    :param args: CLI arguments
+    :return: exit code
+    """
+    return run(ToxTOMLFormatter(), args)
+
+
+def _build_our_cli() -> ArgumentParser:
+    return build_cli(ToxTOMLFormatter())[0]  # pragma: no cover
+
+
+__all__ = [
+    "runner",
+]
+
+if __name__ == "__main__":
+    raise SystemExit(runner())

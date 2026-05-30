@@ -4,6 +4,10 @@ LS.py
 Least Squares reconstruction algorithms.
 Uses ReconTools functions for all matrix operations.
 Single unified function that works with any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
+
+Supports preconditioning:
+- NONE: No preconditioning
+- DIAGONAL: Diagonal preconditioning using A^T * 1
 """
 
 import numpy as np
@@ -16,6 +20,8 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
 
+from AOT_biomaps.AOT_Recon.ReconTools import forward_projection, backward_projection, minus_axpy, clamp_positive, build_preconditioner, apply_diagonal_preconditioner
+from AOT_biomaps.AOT_Recon.ReconEnums import PreconditionerType
 
 def LS(
     SMatrix,
@@ -27,6 +33,7 @@ def LS(
     withTumor=True,
     max_saves=5000,
     show_logs=True,
+    preconditioner_type=PreconditionerType.NONE,
 ):
     """
     Least Squares reconstruction using Projected Gradient Descent (PGD).
@@ -44,18 +51,14 @@ def LS(
         withTumor: Boolean for description only
         max_saves: Maximum number of intermediate saves
         show_logs: If True, shows progress bar
+        preconditioner_type: Type of preconditioner to use (default: NONE)
         
     Returns:
         tuple: (reconstructed_image, saved_indices, cost_history)
         - reconstructed_image: Final or list of images (Z, X)
         - saved_indices: List of saved iteration indices (None if not saving)
         - cost_history: List of cost function values (None if not requested)
-    """
-    from AOT_biomaps.AOT_Recon.ReconTools import (
-        projection, backprojection, axpby, minus_axpy, dot_product,
-        clamp_positive, zeros
-    )
-    
+    """   
     tumor_str = "WITH" if withTumor else "WITHOUT"
     
     # Get device from SMatrix
@@ -78,6 +81,11 @@ def LS(
         theta_flat = np.full(ZX, 0.1, dtype=np.float32)
         array_module = np
     
+    # Compute preconditioner if requested
+    preconditioner, preconditioner_inv = None, None
+    if preconditioner_type != PreconditionerType.NONE:
+        preconditioner, preconditioner_inv = build_preconditioner(SMatrix, preconditioner_type)
+    
     # Setup save indices
     if numIterations <= max_saves:
         save_indices = list(range(numIterations))
@@ -96,9 +104,9 @@ def LS(
     
     for it in iterator:
         # Compute gradient: g = A^T * (A * theta - y)
-        q_flat = projection(SMatrix, theta_flat)
+        q_flat = forward_projection(SMatrix, theta_flat)
         r_flat = minus_axpy(SMatrix, y_flat, q_flat, -1.0)  # r = y - A*theta
-        g_flat = backprojection(SMatrix, r_flat)  # g = A^T * r
+        g_flat = backward_projection(SMatrix, r_flat)  # g = A^T * r
         
         # Compute cost function if requested
         if isCostFunction:
@@ -108,6 +116,10 @@ def LS(
         
         # Update: theta = theta - alpha * g
         theta_flat = minus_axpy(SMatrix, theta_flat, g_flat, alpha)
+        
+        # Apply diagonal preconditioning if enabled
+        if preconditioner_inv is not None:
+            theta_flat = apply_diagonal_preconditioner(theta_flat, preconditioner_inv, SMatrix)
         
         # Clamp to non-negative
         theta_flat = clamp_positive(SMatrix, theta_flat)

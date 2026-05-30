@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__all__ = ["DecodeResponse", "RpcExecutor", "RpcOwner"]
+__all__ = ["DecodeResponse", "RpcExecutor"]
 
 import json
 import logging
@@ -13,24 +13,19 @@ from urllib.parse import urlencode
 
 import httpx
 
-if TYPE_CHECKING:
-    from ._kernel import Kernel
-
-from ._authed_transport import (
-    AuthSnapshot,
-    BuildRequest,
+from ._env import get_default_language
+from ._idempotency import (
+    IDEMPOTENCY_REGISTRY,
+    resolve_effective_disable_internal_retries,
+)
+from ._logging import get_request_id, reset_request_id, set_request_id
+from ._request_types import AuthSnapshot
+from ._transport_errors import (
     TransportAuthExpired,
     TransportRateLimited,
     TransportServerError,
     parse_retry_after,
 )
-from ._env import get_default_language
-from ._idempotency import (
-    IDEMPOTENCY_REGISTRY,
-    maybe_inject_client_token,
-    resolve_effective_disable_internal_retries,
-)
-from ._logging import get_request_id, reset_request_id, set_request_id
 from .auth import format_authuser_value
 from .rpc import (
     ClientError,
@@ -45,7 +40,13 @@ from .rpc import (
     get_batchexecute_url,
     resolve_rpc_id,
 )
-from .types import RpcTelemetryEvent
+
+if TYPE_CHECKING:
+    from ._client_metrics import ClientMetrics
+    from ._kernel import Kernel
+    from ._session_auth import AuthRefreshCoordinator
+    from ._session_contracts import RpcCaller
+    from ._session_transport import SessionTransport
 
 logger = logging.getLogger(__name__)
 
@@ -54,24 +55,40 @@ class DecodeResponse(Protocol):
     def __call__(self, raw: str, rpc_id: str, *, allow_null: bool = False) -> Any: ...
 
 
-class RpcOwner(Protocol):
-    # Concrete-class reference (NOT a bridge attribute). Used by
-    # :meth:`RpcExecutor.execute_with_telemetry` for the pre-open guard
-    # via :meth:`Kernel.get_http_client`, which raises the historical
-    # ``RuntimeError("Client not initialized. Use 'async with' context.")``
-    # when the client hasn't been opened yet.
-    _kernel: Kernel
+class RpcExecutor:
+    """Owns raw batchexecute RPC encode, transport dispatch, decode, and retry.
 
-    async def _perform_authed_post(
+    ADR-014 Rule 5 (Wave 4 of the session-decoupling plan): constructor takes
+    its four runtime collaborators (Kernel, SessionTransport,
+    AuthRefreshCoordinator, ClientMetrics) directly via keyword-only arguments
+    instead of reaching them through a Session-shaped owner. The old
+    ``RpcOwner`` Protocol was deleted in the same PR.
+    """
+
+    def __init__(
         self,
         *,
-        build_request: BuildRequest,
-        log_label: str,
-        disable_internal_retries: bool = False,
-        rpc_method: str | None = None,
-    ) -> httpx.Response: ...
-
-    async def _await_refresh(self) -> None: ...
+        kernel: Kernel,
+        transport: SessionTransport,
+        auth_refresh: AuthRefreshCoordinator,
+        metrics: ClientMetrics,
+        decode_response: DecodeResponse,
+        is_auth_error: Callable[[Exception], bool],
+        sleep: Callable[[float], Awaitable[Any]],
+        timeout_provider: Callable[[], float],
+        refresh_callback_enabled_provider: Callable[[], bool],
+        refresh_retry_delay_provider: Callable[[], float],
+    ):
+        self._kernel = kernel
+        self._transport = transport
+        self._auth_refresh = auth_refresh
+        self._metrics = metrics
+        self._decode_response = decode_response
+        self._is_auth_error = is_auth_error
+        self._sleep = sleep
+        self._timeout_provider = timeout_provider
+        self._refresh_callback_enabled_provider = refresh_callback_enabled_provider
+        self._refresh_retry_delay_provider = refresh_retry_delay_provider
 
     async def rpc_call(
         self,
@@ -83,79 +100,21 @@ class RpcOwner(Protocol):
         *,
         disable_internal_retries: bool = False,
         operation_variant: str | None = None,
-    ) -> Any: ...
-
-    async def _rpc_call_impl(
-        self,
-        method: RPCMethod,
-        params: list[Any],
-        source_path: str,
-        allow_null: bool,
-        _is_retry: bool,
-        *,
-        disable_internal_retries: bool = False,
-        operation_variant: str | None = None,
-    ) -> Any: ...
-
-    def _increment_metrics(self, **increments: int | float) -> None: ...
-
-    async def _emit_rpc_event(self, event: RpcTelemetryEvent) -> None: ...
-
-
-class RpcExecutor:
-    """Owns raw batchexecute RPC encode, transport dispatch, decode, and retry."""
-
-    def __init__(
-        self,
-        owner: RpcOwner,
-        *,
-        decode_response_late_bound: DecodeResponse,
-        is_auth_error: Callable[[Exception], bool],
-        sleep: Callable[[float], Awaitable[Any]],
-        timeout_provider: Callable[[], float],
-        refresh_callback_enabled_provider: Callable[[], bool],
-        refresh_retry_delay_provider: Callable[[], float],
-    ):
-        self._owner = owner
-        self._decode_response = decode_response_late_bound
-        self._is_auth_error = is_auth_error
-        self._sleep = sleep
-        self._timeout_provider = timeout_provider
-        self._refresh_callback_enabled_provider = refresh_callback_enabled_provider
-        self._refresh_retry_delay_provider = refresh_retry_delay_provider
-
-    async def execute_with_telemetry(
-        self,
-        method: RPCMethod,
-        params: list[Any],
-        source_path: str,
-        allow_null: bool,
-        _is_retry: bool,
-        *,
-        disable_internal_retries: bool = False,
-        operation_variant: str | None = None,
     ) -> Any:
-        """Run an RPC wrapped with telemetry, reqid, and drain bookkeeping.
+        """Run an RPC wrapped with telemetry and request-id bookkeeping.
 
-        This is the outer entry point that ``Session.rpc_call`` routes
-        through. The body owns the operation-token + metrics + request-id
-        wiring that surrounds the raw RPC dispatch. Pure relocation from
-        ``Session.rpc_call``: no behavior changes.
-
-        Dispatches through ``self._owner._rpc_call_impl(...)`` (rather than
-        the executor's own :meth:`execute` directly) so the long-standing
-        ``core._rpc_call_impl = fake`` swap point keeps working for tests
-        and any private callers that override the impl by attribute.
+        This is the logical-RPC entry point that ``NotebookLMClient.rpc_call``
+        and every feature API route through. The body owns the metrics +
+        request-id wiring that surrounds the raw RPC dispatch.
 
         The ``_is_retry`` flag suppresses telemetry/reqid wrapping so the
         decode-time refresh-and-retry leg inherits the parent's
         request id and reports under one ``[req=<id>]`` line in logs.
 
         The ``operation_variant`` kwarg (default ``None``) routes through
-        the :class:`IdempotencyRegistry` lookup in :meth:`execute` so the
-        executor can pick a method-variant-specific policy. Currently
-        every method default-resolves to ``UNCLASSIFIED`` (silent + no
-        behavior change); Wave 2 will populate variant entries.
+        the :class:`IdempotencyRegistry` lookup in :meth:`_execute_once` so the
+        executor can pick a method-variant-specific policy for wire shapes
+        such as ``ADD_SOURCE`` and ``CREATE_NOTE``.
         """
         # Pre-open guard — preserves the historical ``RuntimeError`` surface by
         # routing through ``Kernel.get_http_client()`` (which raises the same
@@ -163,7 +122,7 @@ class RpcExecutor:
         # kernel accessor instead of the now-narrowed :class:`RpcOwner`
         # Protocol attribute keeps the early-fail behavior intact while
         # removing ``_http_client`` from the Protocol surface.
-        self._owner._kernel.get_http_client()
+        self._kernel.get_http_client()
 
         # Only the outer call mints a request id; the decode-time retry path
         # (``_is_retry=True``) inherits the parent's id so a single
@@ -172,7 +131,7 @@ class RpcExecutor:
         # inside ``_perform_authed_post`` without recursion, so they don't
         # need this guard.
         if _is_retry:
-            return await self._owner._rpc_call_impl(
+            return await self._execute_once(
                 method,
                 params,
                 source_path,
@@ -182,7 +141,7 @@ class RpcExecutor:
                 operation_variant=operation_variant,
             )
 
-        self._owner._increment_metrics(rpc_calls_started=1)
+        self._metrics.increment(rpc_calls_started=1)
         # ``rpc_calls_started`` and reqid stay HERE (outside the chain)
         # because they bracket the entire logical RPC including decode —
         # the chain wraps only the transport leg. Per-attempt latency,
@@ -191,7 +150,7 @@ class RpcExecutor:
         # admission lives in ``DrainMiddleware``.
         _reqid_token = None if get_request_id() is not None else set_request_id()
         try:
-            return await self._owner._rpc_call_impl(
+            return await self._execute_once(
                 method,
                 params,
                 source_path,
@@ -204,7 +163,7 @@ class RpcExecutor:
             if _reqid_token is not None:
                 reset_request_id(_reqid_token)
 
-    async def execute(
+    async def _execute_once(
         self,
         method: RPCMethod,
         params: list[Any],
@@ -221,10 +180,9 @@ class RpcExecutor:
         # Consult the idempotency registry. The registry is the single
         # source of truth for "how should this RPC behave under retry?";
         # the caller's explicit ``disable_internal_retries=True`` always
-        # wins (caller intent > policy). For UNCLASSIFIED entries (the
-        # B1-foundation default for every method), the effective value
-        # equals the caller's value and no log is emitted — today's
-        # retries fire identically.
+        # wins (caller intent > policy). Read-only and idempotent set-state
+        # entries keep the caller's value unchanged, so existing retry
+        # defaults remain intact for retry-safe RPCs.
         #
         # The registry call also raises ``IdempotencyVariantError`` if
         # the caller passed an unknown ``operation_variant`` to a method
@@ -233,17 +191,6 @@ class RpcExecutor:
             IDEMPOTENCY_REGISTRY,
             method,
             caller_disable_internal_retries=disable_internal_retries,
-            operation_variant=operation_variant,
-        )
-
-        # For CLIENT_TOKEN_DEDUPE policies, inject a fresh ``uuid4().hex``
-        # into the registry-named param field UNLESS the caller already
-        # populated it. No-op for every other policy, so this is a
-        # zero-cost call for the UNCLASSIFIED-everywhere B1 default.
-        maybe_inject_client_token(
-            IDEMPOTENCY_REGISTRY,
-            method,
-            params,
             operation_variant=operation_variant,
         )
 
@@ -258,7 +205,7 @@ class RpcExecutor:
             return url, body, {}
 
         try:
-            response = await self._owner._perform_authed_post(
+            response = await self._transport.perform_authed_post(
                 build_request=_build,
                 log_label=f"RPC {method.name}",
                 disable_internal_retries=effective_disable_internal_retries,
@@ -318,8 +265,18 @@ class RpcExecutor:
             return result
         except RPCError as exc:
             elapsed = time.perf_counter() - start
+            # A decoded auth-shaped ``RPCError`` triggers a refresh-and-retry
+            # ONLY when the effective idempotency classification permits a
+            # replay. ``effective_disable_internal_retries`` folds the
+            # registry policy with the caller's intent: for non-idempotent /
+            # probe-then-create methods it is forced True, in which case the
+            # server may have already committed the write before the
+            # auth-shaped error surfaced. Re-POSTing would duplicate the side
+            # effect (issue #1157), so we surface the original error and let
+            # the caller's probe-then-create wrapper disambiguate instead.
             if (
                 not _is_retry
+                and not effective_disable_internal_retries
                 and self._refresh_callback_enabled_provider()
                 and self._is_auth_error(exc)
             ):
@@ -469,7 +426,7 @@ class RpcExecutor:
         logger.info("RPC %s auth error detected, attempting token refresh", method.name)
 
         try:
-            await self._owner._await_refresh()
+            await self._auth_refresh.await_refresh()
         except Exception as refresh_error:
             logger.warning("Token refresh failed: %s", refresh_error)
             raise original_error from refresh_error
@@ -479,7 +436,7 @@ class RpcExecutor:
             await self._sleep(refresh_retry_delay)
 
         logger.info("Token refresh successful, retrying RPC %s", method.name)
-        return await self._owner.rpc_call(
+        return await self.rpc_call(
             method,
             params,
             source_path,
@@ -488,3 +445,9 @@ class RpcExecutor:
             disable_internal_retries=disable_internal_retries,
             operation_variant=operation_variant,
         )
+
+
+if TYPE_CHECKING:
+
+    def _assert_rpc_executor_satisfies_rpc_caller(executor: RpcExecutor) -> None:
+        _: RpcCaller = executor

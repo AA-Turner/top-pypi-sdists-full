@@ -19,6 +19,9 @@ class SafeTransaction:
 class TransactionType(Enum):
     SAFE = "SAFE"
     SAFE_CREATE = "SAFE-CREATE"
+    PROXY = "PROXY"
+    WALLET = "WALLET"
+    WALLET_CREATE = "WALLET-CREATE"
 
 
 @dataclass
@@ -35,6 +38,12 @@ class SignatureParams:
     payment_token: str = None
     payment: str = None
     payment_receiver: str = None
+
+    # PROXY signature params
+    relayer_fee: str = None
+    gas_limit: str = None
+    relay_hub: str = None
+    relay: str = None
 
     def to_dict(self):
         d = {}
@@ -56,6 +65,14 @@ class SignatureParams:
             d["payment"] = self.payment
         if self.payment_receiver is not None:
             d["paymentReceiver"] = self.payment_receiver
+        if self.relayer_fee is not None:
+            d["relayerFee"] = self.relayer_fee
+        if self.gas_limit is not None:
+            d["gasLimit"] = self.gas_limit
+        if self.relay_hub is not None:
+            d["relayHub"] = self.relay_hub
+        if self.relay is not None:
+            d["relay"] = self.relay
         return d
 
 
@@ -109,6 +126,72 @@ class SafeCreateTransactionArgs:
     payment_receiver: str
 
 
+@dataclass
+class DepositWalletCall:
+    target: str
+    value: str
+    data: str
+
+    def to_dict(self):
+        return {
+            "target": self.target,
+            "value": self.value,
+            "data": self.data,
+        }
+
+
+@dataclass
+class DepositWalletTransactionArgs:
+    from_address: str
+    chain_id: int
+    wallet_address: str
+    nonce: str
+    deadline: str
+    calls: list[DepositWalletCall]
+
+
+@dataclass
+class DepositWalletBatchRequest:
+    type: str
+    from_address: str
+    to: str
+    nonce: str
+    signature: str
+    deposit_wallet: str
+    deadline: str
+    calls: list[DepositWalletCall]
+
+    def to_dict(self) -> Dict[str, str]:
+        return {
+            "type": self.type,
+            "from": self.from_address,
+            "to": self.to,
+            "nonce": self.nonce,
+            "signature": self.signature,
+            "depositWalletParams": {
+                "depositWallet": self.deposit_wallet,
+                "deadline": self.deadline,
+                "calls": [
+                    c.to_dict() if hasattr(c, "to_dict") else c for c in self.calls
+                ],
+            },
+        }
+
+
+@dataclass
+class DepositWalletCreateRequest:
+    type: str
+    from_address: str
+    to: str
+
+    def to_dict(self) -> Dict[str, str]:
+        return {
+            "type": self.type,
+            "from": self.from_address,
+            "to": self.to,
+        }
+
+
 class RelayerTransactionState(Enum):
     STATE_NEW = "STATE_NEW"
     STATE_EXECUTED = "STATE_EXECUTED"
@@ -123,3 +206,39 @@ class SplitSig:
     r: str
     s: str
     v: str
+
+
+class CallType(Enum):
+    Invalid = "0"
+    Call = "1"
+    DelegateCall = "2"
+
+
+class RelayerTxType(Enum):
+    SAFE = "SAFE"
+    PROXY = "PROXY"
+
+
+@dataclass
+class Transaction:
+    to: str
+    data: str
+    value: str
+
+
+@dataclass
+class ProxyTransaction:
+    to: str
+    type_code: CallType
+    data: str
+    value: str
+
+
+@dataclass
+class ProxyTransactionArgs:
+    from_address: str
+    nonce: str
+    gas_price: str
+    data: str
+    relay: str
+    gas_limit: str = None

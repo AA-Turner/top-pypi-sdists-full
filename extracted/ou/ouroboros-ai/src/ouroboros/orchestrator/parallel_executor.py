@@ -906,12 +906,27 @@ def _looks_like_test_command(command: str) -> bool:
 
 
 def _test_command_invocation(command: str) -> str | None:
-    """Return the backed inner test invocation for a direct or wrapped command."""
+    """Return the backed inner test invocation for a direct or wrapped command.
+
+    Output plumbing (``2>&1``, ``| tail -20``) is peeled first so a clean
+    invocation can be extracted from a ``<cmd> 2>&1 | tail -20`` runtime
+    command. ``_strip_command_output_plumbing`` is deliberately narrow — only
+    presentation-only tails are peeled — so an evidence-altering filter such
+    as ``| grep passed`` survives the strip and is rejected downstream by
+    ``_test_invocation_from_prefix`` rather than being silently dropped.
+    """
     normalized = command.strip().lower()
     if not normalized:
         return None
 
-    direct = _test_invocation_from_prefix(normalized)
+    direct_candidate = _strip_command_output_plumbing(normalized)
+    if (
+        _has_trailing_output_filter_pipeline(normalized)
+        and not _output_filter_pipeline_is_pipefail_protected(normalized)
+        and _test_invocation_from_prefix(direct_candidate) is not None
+    ):
+        direct_candidate = normalized
+    direct = _test_invocation_from_prefix(direct_candidate)
     if direct is not None:
         return direct
 
@@ -943,8 +958,15 @@ def _shell_command_body(command: str) -> str | None:
 
 def _test_invocation_from_shell_body(body: str) -> str | None:
     """Return a test invocation after conservative shell setup preambles."""
-    for segment in _segments_after_safe_shell_preamble(body):
-        invocation = _test_invocation_from_prefix(segment)
+    for segment, pipefail_enabled in _segments_after_safe_shell_preamble_with_pipefail(body):
+        candidate = _strip_command_output_plumbing(segment)
+        if (
+            _has_trailing_output_filter_pipeline(segment)
+            and not pipefail_enabled
+            and _test_invocation_from_prefix(candidate) is not None
+        ):
+            candidate = segment
+        invocation = _test_invocation_from_prefix(candidate)
         if invocation is not None:
             return invocation
         return None
@@ -965,19 +987,38 @@ def _single_command_after_safe_shell_preamble(command: str) -> str | None:
     segments = tuple(_segments_after_safe_shell_preamble(body))
     if len(segments) != 1:
         return None
-    return _normalized_evidence_text(segments[0])
+    segment = segments[0]
+    stripped = _strip_command_output_plumbing(segment)
+    if (
+        _has_trailing_output_filter_pipeline(segment)
+        and not _output_filter_pipeline_is_pipefail_protected(body)
+        and _looks_like_test_command(stripped)
+    ):
+        return None
+    return _normalized_evidence_text(stripped)
 
 
 def _segments_after_safe_shell_preamble(body: str) -> tuple[str, ...]:
     """Return non-preamble shell segments after setup-only commands."""
-    remaining: list[str] = []
+    return tuple(
+        segment
+        for segment, _pipefail_enabled in _segments_after_safe_shell_preamble_with_pipefail(body)
+    )
+
+
+def _segments_after_safe_shell_preamble_with_pipefail(body: str) -> tuple[tuple[str, bool], ...]:
+    """Return non-preamble segments with pipefail state active before each one."""
+    remaining: list[tuple[str, bool]] = []
+    pipefail_enabled = False
     for segment in re.split(r"\s*&&\s*", body.strip()):
         normalized_segment = segment.strip()
         if not normalized_segment:
             continue
         if not remaining and _is_safe_test_command_preamble(normalized_segment):
+            if _is_pipefail_preamble(normalized_segment):
+                pipefail_enabled = True
             continue
-        remaining.append(normalized_segment)
+        remaining.append((normalized_segment, pipefail_enabled))
     return tuple(remaining)
 
 
@@ -990,6 +1031,8 @@ def _is_safe_test_command_preamble(segment: str) -> bool:
     if not parts:
         return True
     if parts[0] == "cd" and len(parts) == 2:
+        return True
+    if _is_pipefail_parts(parts):
         return True
     if parts[0] == "export" and len(parts) > 1:
         return all(_is_env_assignment(part) for part in parts[1:])
@@ -1011,14 +1054,73 @@ def _strip_env_prefix(parts: list[str]) -> list[str]:
     return parts[index:]
 
 
+def _has_gradle_or_maven_test_skip(parts: list[str]) -> bool:
+    """Return True when a Gradle/Maven command explicitly disables tests."""
+
+    def maven_skip_property_disables_tests(value: str) -> bool:
+        normalized_value = value.lower()
+        if normalized_value in {"skiptests", "maven.test.skip"}:
+            return True
+        if normalized_value.startswith("skiptests=") or normalized_value.startswith(
+            "maven.test.skip="
+        ):
+            _, _, property_value = normalized_value.partition("=")
+            return property_value not in {"false", "0", "no", "off"}
+        return False
+
+    for index, part in enumerate(parts):
+        normalized = part.lower()
+        if normalized == "-d" and index + 1 < len(parts):
+            if maven_skip_property_disables_tests(parts[index + 1]):
+                return True
+        if normalized == "--define" and index + 1 < len(parts):
+            if maven_skip_property_disables_tests(parts[index + 1]):
+                return True
+        if normalized.startswith("--define="):
+            _, _, define_value = normalized.partition("=")
+            if maven_skip_property_disables_tests(define_value):
+                return True
+        if normalized.startswith("-d") and maven_skip_property_disables_tests(normalized[2:]):
+            return True
+        if normalized == "--exclude-task" and index + 1 < len(parts):
+            excluded_task = parts[index + 1].lower().lstrip(":")
+            if excluded_task == "test" or excluded_task.endswith(":test"):
+                return True
+        if normalized.startswith("--exclude-task="):
+            _, _, excluded_task = normalized.partition("=")
+            excluded_task = excluded_task.lstrip(":")
+            if excluded_task == "test" or excluded_task.endswith(":test"):
+                return True
+        if normalized == "-x" and index + 1 < len(parts):
+            excluded_task = parts[index + 1].lower().lstrip(":")
+            if excluded_task == "test" or excluded_task.endswith(":test"):
+                return True
+        if normalized.startswith("-x") and len(normalized) > 2:
+            excluded_task = normalized[2:].lstrip(":")
+            if excluded_task == "test" or excluded_task.endswith(":test"):
+                return True
+    return False
+
+
 def _test_invocation_from_prefix(command: str) -> str | None:
-    """Return a normalized test invocation only when it starts the command text."""
+    """Return a normalized test invocation only when it starts the command text.
+
+    Refuses to extract from commands that still contain a residual shell pipe
+    after presentation plumbing has been peeled (``pytest x | grep passed``).
+    A residual pipe means the runtime command is followed by an
+    evidence-transforming filter (``grep`` / ``wc`` / ``tee``); treating the
+    bare prefix as the clean test invocation there would let a filtered run
+    silently back a clean ``tests_passed`` / ``commands_run`` claim via the
+    ``startswith`` widening in ``_runtime_message_supports_command_claim``.
+    """
     try:
         parts = shlex.split(command)
     except ValueError:
         parts = command.replace('"', "").replace("'", "").split()
     parts = _strip_env_prefix(parts)
     if not parts:
+        return None
+    if "|" in parts:
         return None
 
     if parts[0] in {"pytest", "py.test", "tox", "nox"}:
@@ -1035,6 +1137,13 @@ def _test_invocation_from_prefix(command: str) -> str | None:
             "pytest",
             "unittest",
         }
+    ):
+        return _normalized_evidence_text(" ".join(parts))
+    executable = Path(parts[0]).name
+    if (
+        executable in {"gradle", "gradlew", "mvn", "mvnw"}
+        and not _has_gradle_or_maven_test_skip(parts[1:])
+        and any(part in {"test", "check", "verify"} or part.endswith(":test") for part in parts[1:])
     ):
         return _normalized_evidence_text(" ".join(parts))
     return None
@@ -1056,6 +1165,136 @@ def _looks_like_unittest_command(command: str) -> bool:
     return _unittest_command_invocation(command) is not None
 
 
+# Output-only shell filters: a trailing pipe into one of these is presentation
+# or paging, not the work an evidence claim is about.
+#
+# Deliberately narrow: only filters that pass the output stream through (or
+# truncate it positionally) are allowed. ``grep``/``egrep``/``fgrep`` are
+# excluded because they can hide failure lines and make a filtered run back a
+# clean ``commands_run`` / ``tests_passed`` claim (e.g. ``pytest ... | grep
+# passed``). ``tee`` and ``wc`` are excluded for the same reason: ``tee`` can
+# redirect the stream and ``wc`` collapses it to a count, both of which alter
+# what the runtime would have observed and so weaken anti-fabrication.
+_OUTPUT_FILTER_COMMANDS = frozenset({"tail", "head", "cat", "less", "more"})
+
+# Trailing shell output redirection (``2>&1``, ``> log``, ``2> err``, ``&> out``).
+_TRAILING_REDIRECT_RE = re.compile(
+    r"\s*(?:[0-9]*>{1,2}\s*(?:&[0-9]+|[^\s|]+)|&>{1,2}\s*[^\s|]+)\s*$"
+)
+
+
+def _normalized_shell_words_text(command: str) -> str | None:
+    """Return a quote-insensitive normalized argv spelling for one shell command.
+
+    This keeps command evidence matching exact at the argv level while allowing
+    common shell spelling differences such as ``--tests "ClassName"`` versus
+    ``--tests ClassName``. Commands that cannot be parsed, still contain a
+    pipeline, or contain shell control operators are left to the stricter raw
+    aliases.
+    """
+    text = command.strip()
+    if not text:
+        return None
+    try:
+        parts = shlex.split(text)
+    except ValueError:
+        return None
+    if not parts or any(part in {"|", "&&", ";", "||"} for part in parts):
+        return None
+    return _normalized_evidence_text(" ".join(parts))
+
+
+def _strip_command_output_plumbing(command: str) -> str:
+    """Return a command with trailing output redirection and pager pipes removed.
+
+    Agents routinely run ``<cmd> 2>&1 | tail -20`` while their ``commands_run``
+    evidence cites the clean ``<cmd>``. The trailing redirection and the
+    output-only pager pipe are presentation plumbing, not the work being
+    claimed, so they must not block a match. Deliberately conservative:
+
+    - Only trailing output redirections (``2>&1``, ``> log``, ``2> err``,
+      ``&> out``) and pipes into a pager-style filter listed in
+      ``_OUTPUT_FILTER_COMMANDS`` (``tail``/``head``/``cat``/``less``/``more``)
+      are dropped. These pass the underlying stream through (or truncate it
+      positionally), so the runtime evidence is unchanged in kind.
+    - Filters that *transform* the stream — ``grep`` family, ``wc``, ``tee`` —
+      are intentionally not stripped, because they can hide failure lines,
+      collapse the stream to a count, or divert it to a file, which would let
+      a filtered run back a clean ``commands_run`` / ``tests_passed`` claim.
+    - Meaningful pipelines such as ``a | python process.py`` are kept, so a
+      partial ``a`` claim is still not proven by an ``a | python process.py``
+      runtime command.
+    """
+    text = command.strip()
+    if not text:
+        return text
+    # Peel output-only filter pipes from the tail (``... | tail -n 20``).
+    while "|" in text:
+        head, _, tail_segment = text.rpartition("|")
+        tail_tokens = tail_segment.split()
+        if tail_tokens and tail_tokens[0].lower() in _OUTPUT_FILTER_COMMANDS:
+            text = head.strip()
+            continue
+        break
+    # Peel trailing output redirections, possibly several (``2>&1 > log``).
+    prev: str | None = None
+    while prev != text:
+        prev = text
+        text = _TRAILING_REDIRECT_RE.sub("", text).strip()
+    return text
+
+
+def _has_trailing_output_filter_pipeline(command: str) -> bool:
+    """Return True when ``command`` ends in a pager-style output pipe."""
+    text = command.strip()
+    while "|" in text:
+        head, _, tail_segment = text.rpartition("|")
+        tail_tokens = tail_segment.split()
+        if tail_tokens and tail_tokens[0].lower() in _OUTPUT_FILTER_COMMANDS:
+            return True
+        text = head.strip()
+    return False
+
+
+def _output_filter_pipeline_is_pipefail_protected(command: str) -> bool:
+    """Return True when pipefail is enabled before the first stripped pipeline."""
+    pipefail_enabled = False
+    for segment in re.split(r"\s*(?:&&|;)\s*", command.strip()):
+        normalized_segment = segment.strip()
+        if not normalized_segment:
+            continue
+        if _is_pipefail_preamble(normalized_segment):
+            pipefail_enabled = True
+            continue
+        if _has_trailing_output_filter_pipeline(normalized_segment):
+            return pipefail_enabled
+    return False
+
+
+def _uses_pipefail(command: str) -> bool:
+    """Return True when shell text explicitly preserves upstream pipe status."""
+    for segment in re.split(r"\s*(?:&&|;)\s*", command.strip()):
+        try:
+            parts = shlex.split(segment)
+        except ValueError:
+            continue
+        if _is_pipefail_parts(parts):
+            return True
+    return False
+
+
+def _is_pipefail_preamble(segment: str) -> bool:
+    try:
+        parts = shlex.split(segment)
+    except ValueError:
+        return False
+    return _is_pipefail_parts(parts)
+
+
+def _is_pipefail_parts(parts: list[str]) -> bool:
+    return parts == ["set", "-o", "pipefail"]
+
+
 def _normalized_command_claim_aliases(command: str) -> tuple[str, ...]:
     """Return normalized command forms that a concise evidence claim may use.
 
@@ -1068,13 +1307,37 @@ def _normalized_command_claim_aliases(command: str) -> tuple[str, ...]:
     """
     normalized = _normalized_evidence_text(command)
     aliases = [normalized] if normalized else []
+
+    def append_alias(candidate: str | None) -> None:
+        if candidate and candidate not in aliases:
+            aliases.append(candidate)
+
+    append_alias(_normalized_shell_words_text(command))
     shell_body = _shell_command_body(command)
     normalized_shell_body = _normalized_evidence_text(shell_body) if shell_body else None
-    if normalized_shell_body and normalized_shell_body not in aliases:
-        aliases.append(normalized_shell_body)
+    append_alias(normalized_shell_body)
+    append_alias(_normalized_shell_words_text(shell_body) if shell_body else None)
     test_invocation = _test_command_invocation(command)
-    if test_invocation and test_invocation not in aliases:
-        aliases.append(test_invocation)
+    append_alias(test_invocation)
+    # A recorded command may append output plumbing (``... 2>&1 | tail -20``)
+    # that a concise ``commands_run`` claim omits. Add plumbing-stripped variants
+    # so the two still match. Alias matching stays exact (set intersection), so
+    # this does not widen proof to arbitrary substrings. Also add argv-normalized
+    # plumbing-stripped forms so quoted arguments in the runtime command match
+    # unquoted evidence claims for the same argv vector.
+    for base in tuple(aliases):
+        stripped_raw = _strip_command_output_plumbing(base)
+        stripped = _normalized_evidence_text(stripped_raw)
+        if (
+            stripped
+            and stripped != base
+            and _has_trailing_output_filter_pipeline(base)
+            and _looks_like_test_command(stripped)
+            and not _output_filter_pipeline_is_pipefail_protected(base)
+        ):
+            continue
+        append_alias(stripped)
+        append_alias(_normalized_shell_words_text(stripped_raw))
     return tuple(aliases)
 
 
@@ -1089,7 +1352,9 @@ def _text_contains_test_success(text: str) -> bool:
     """Return True when text contains a conservative test-success signal."""
     text = text.lower()
     zero_failure_pattern = (
-        r"\b(0\s+(failed|failures?|errors?)|no\s+(tests?\s+)?(failed|failures?|errors?))\b"
+        r"\b(0\s+(failed|failures?|errors?)|"
+        r"(failed|failures?|errors?)\s*[:=]\s*0|"
+        r"no\s+(tests?\s+)?(failed|failures?|errors?))\b"
     )
     failure_scan_text = re.sub(zero_failure_pattern, "", text)
     if re.search(
@@ -1101,8 +1366,18 @@ def _text_contains_test_success(text: str) -> bool:
         return False
     if re.search(r"\b0\s+passed\b", text) and not re.search(r"\b[1-9]\d*\s+passed\b", text):
         return False
+    if re.search(r"\btask\s+[:\w.-]*test\b[^\n]*(no-source|skipped)\b", text):
+        return False
+    if re.search(r"\b0\s+tests?\s+(completed|run|executed)\b", text):
+        return False
+    if re.search(r"\bno\s+tests?\s+(found|run|executed)\b", text):
+        return False
     return bool(
-        re.search(r"\b([1-9]\d*\s+passed|passed|pass|success|succeeded)\b|exit\s*code\s*0", text)
+        re.search(
+            r"\b([1-9]\d*\s+passed|passed|pass|success|successful|succeeded)\b|"
+            r"\bbuild\s+successful\b|exit\s*code\s*0",
+            text,
+        )
         or re.search(r"\bran\s+[1-9]\d*\s+tests?\b[\s\S]*\bok\b", text)
     )
 
@@ -1270,9 +1545,27 @@ def _runtime_messages_support_test_claim(
     for index, message in enumerate(messages):
         if message.tool_name != "Bash":
             continue
+        # Candidate test commands are drawn from two transcript-grounded
+        # sources: (1) ``commands_run`` evidence entries already proven against
+        # the transcript, and (2) the Bash message's own recorded command. The
+        # latter is backed by definition — it is the literal invocation in the
+        # transcript — so a real ``pytest <file>`` run can support a node-id
+        # ``tests_passed`` claim even when the agent did not also echo that
+        # exact command into its ``commands_run`` evidence.
+        #
+        # These are NOT three independent checks. For a per-message candidate
+        # the ``_runtime_message_supports_command_claim`` gate below is
+        # tautological — the candidate is that message's own command, so it
+        # trivially supports itself. The anti-fabrication guarantee is carried
+        # entirely by the downstream gates: ``_message_contains_test_success``
+        # (reads only structured runtime output, never agent narration) and
+        # ``_test_command_targets_claim`` (anchors the claim's node-id/file to
+        # the recorded command + proof text). The ``_looks_like_test_command``
+        # filter still excludes non-test commands from this candidate source.
+        candidate_commands = (*backed_commands, *_runtime_message_command_values(message))
         matching_commands = tuple(
             candidate
-            for candidate in backed_commands
+            for candidate in candidate_commands
             if _looks_like_test_command(candidate)
             and _runtime_message_supports_command_claim(candidate, message)
         )
@@ -1373,7 +1666,7 @@ _AC_RUNTIME_SCOPE_METADATA_KEYS = frozenset(
 _AC_RUNTIME_RESUME_METADATA_KEYS = frozenset({"runtime_event_type", "server_session_id"})
 
 # Stall detection constants
-STALL_TIMEOUT_SECONDS: float = 300.0  # 5 minutes of silence → stall
+STALL_TIMEOUT_SECONDS: float = 900.0  # 15 minutes of silence → stall for realistic test suites
 HEARTBEAT_INTERVAL_SECONDS: float = 30.0  # Heartbeat emission interval
 MAX_STALL_RETRIES: int = 2  # Max retries after stall (3 total attempts)
 _STALL_SENTINEL = "__STALL_DETECTED__"  # Sentinel error for stall results
@@ -3325,12 +3618,24 @@ class ParallelACExecutor:
             )
             # Invalid indices will be skipped in the execution loop below
 
+        dependency_edges = [
+            {"ac_index": idx, "depends_on": deps}
+            for idx in range(total_acs)
+            if (deps := tuple(execution_plan.get_dependencies(idx)))
+        ]
         log.info(
             "parallel_executor.execution.started",
             session_id=session_id,
             total_acs=total_acs,
             total_levels=total_levels,
             levels=execution_plan.execution_levels,
+        )
+        log.info(
+            "parallel_executor.dependency_graph",
+            session_id=session_id,
+            execution_id=execution_id,
+            total_acs=total_acs,
+            dependency_edges=dependency_edges,
         )
 
         # Emit initial progress for TUI
@@ -5205,6 +5510,28 @@ Files present:
             result_final_message = final_message
             if fat_harness_error is not None:
                 success = False
+                log.warning(
+                    "parallel_executor.ac.verifier_rejected",
+                    session_id=session_id,
+                    execution_id=execution_id,
+                    ac_index=ac_index,
+                    depth=depth,
+                    reason=fat_harness_error,
+                    typed_evidence_present=typed_evidence is not None,
+                    typed_evidence_valid=(
+                        typed_validation.ok if typed_validation is not None else False
+                    ),
+                    verifier_ran=verifier_verdict is not None,
+                    verifier_passed=(
+                        verifier_verdict.passed if verifier_verdict is not None else False
+                    ),
+                    verifier_reasons=(
+                        list(verifier_verdict.reasons) if verifier_verdict is not None else []
+                    ),
+                    verifier_failure_class=(
+                        verifier_verdict.failure_class if verifier_verdict is not None else None
+                    ),
+                )
                 result_final_message = (
                     f"{fat_harness_error}\n\nRuntime final message:\n{final_message}"
                     if final_message

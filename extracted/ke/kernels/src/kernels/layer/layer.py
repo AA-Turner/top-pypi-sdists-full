@@ -38,10 +38,11 @@ class LayerRepository:
             The Hub repository containing the layer.
         layer_name (`str`):
             The name of the layer within the kernel repository.
-        revision (`str`, *optional*, defaults to `"main"`):
+        revision (`str`, *optional*):
             The specific revision (branch, tag, or commit) to download. Cannot be used together with `version`.
         version (`int`, *optional*):
             The kernel version to download. Cannot be used together with `revision`.
+            Either `version` or `revision` must be specified.
         trust_remote_code (`bool | list[str]`, *optional*, defaults to `False`):
             Whether to allow loading kernels from untrusted organisations. A list
             of signing identities can be provided for future verification support;
@@ -51,7 +52,7 @@ class LayerRepository:
         ```python
         from kernels import LayerRepository
 
-        # Reference a specific layer by revision
+        # Reference a specific layer by version
         layer_repo = LayerRepository(
             repo_id="kernels-community/activation",
             layer_name="SiluAndMul",
@@ -71,6 +72,8 @@ class LayerRepository:
     ):
         if revision is not None and version is not None:
             raise ValueError("Either a revision or a version must be specified, not both.")
+        if revision is None and version is None:
+            raise ValueError("Either a revision or a version must be specified.")
 
         self._repo_id = repo_id
         self.layer_name = layer_name
@@ -91,7 +94,9 @@ class LayerRepository:
 
     def load(self) -> Type["nn.Module"]:
         kernel = get_kernel(
-            self._repo_id, revision=self._resolve_revision(), trust_remote_code=self._trust_remote_code
+            self._repo_id,
+            revision=self._resolve_revision(),
+            trust_remote_code=self._trust_remote_code,
         )
         return _get_kernel_layer(self, kernel)
 
@@ -106,7 +111,15 @@ class LayerRepository:
         )
 
     def __hash__(self):
-        return hash((self.layer_name, self._repo_id, self._revision, self._version, self._trust_remote_code))
+        return hash(
+            (
+                self.layer_name,
+                self._repo_id,
+                self._revision,
+                self._version,
+                self._trust_remote_code,
+            )
+        )
 
     def __str__(self) -> str:
         return f"`{self._repo_id}` (revision: {self._resolve_revision()}), layer `{self.layer_name}`"
@@ -160,7 +173,7 @@ class LocalLayerRepository:
         return hash((self.layer_name, self._repo_path))
 
     def __str__(self) -> str:
-        return f"`{self._repo_path}` (layer `{self.layer_name}`"
+        return f"`{self._repo_path}` (layer `{self.layer_name}`)"
 
 
 class LockedLayerRepository:
@@ -204,7 +217,11 @@ class LockedLayerRepository:
         return locked_sha
 
     def load(self) -> Type["nn.Module"]:
-        kernel = get_kernel(repo_id=self._repo_id, revision=self._revision, trust_remote_code=self._trust_remote_code)
+        kernel = get_kernel(
+            repo_id=self._repo_id,
+            revision=self._revision,
+            trust_remote_code=self._trust_remote_code,
+        )
         return _get_kernel_layer(self, kernel)
 
     def __eq__(self, other):

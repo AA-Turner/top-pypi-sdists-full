@@ -9,7 +9,6 @@
 # Vijay Ramasami (rvijayc@gmail.com)
 # This code is in the public domain
 #-------------------------------------------------------------------------------
-from __future__ import print_function
 import sys
 
 # If pyelftools is not installed, the example can also run from the root or
@@ -111,6 +110,5 @@ if __name__ == '__main__':
         sys.exit(0)
 
     if len(sys.argv) < 2:
-        print('Expected usage: {0} <executable>'.format(sys.argv[0]))
-        sys.exit(1)
+        sys.exit(f'Expected usage: {sys.argv[0]} <executable>')
     process_file(sys.argv[1])

@@ -14,6 +14,7 @@ from polyaxon._sdk.api import (
     ProjectsV1Api,
     QueuesV1Api,
     RunsV1Api,
+    SandboxV1Api,
     SearchesV1Api,
     ServiceAccountsV1Api,
     TagsV1Api,
@@ -23,6 +24,8 @@ from polyaxon._sdk.api import (
 )
 from polyaxon._sdk.async_client.api_client import AsyncApiClient
 from polyaxon._sdk.sync_client.api_client import ApiClient
+from polyaxon.exceptions import PolyaxonClientException
+
 
 if TYPE_CHECKING:
     from polyaxon._schemas.client import ClientConfig
@@ -72,6 +75,7 @@ class PolyaxonClient:
         config: Optional["ClientConfig"] = None,
         token: Optional[str] = None,
         is_async: bool = False,
+        is_internal: bool = False,
     ):
         self._config = config or settings.CLIENT_CONFIG
         token = token or self._config.token
@@ -83,16 +87,20 @@ class PolyaxonClient:
             self._config.token = token
 
         self.is_async = is_async
+        self.is_internal = is_internal
         self.api_client = self._get_client()
+        self._reset_api_wrappers()
+
+    def _reset_api_wrappers(self):
         self._projects_v1 = None
         self._runs_v1 = None
+        self._sandbox_v1 = None
         self._project_dashboards_v1 = None
         self._project_searches_v1 = None
         self._auth_v1 = None
         self._users_v1 = None
         self._versions_v1 = None
         self._agents_v1 = None
-        self._internal_agents_v1 = None
         self._queues_v1 = None
         self._service_accounts_v1 = None
         self._presets_v1 = None
@@ -104,41 +112,59 @@ class PolyaxonClient:
         self._organizations_v1 = None
 
     def _get_client(self):
+        if self.is_internal:
+            headers = self.config.get_internal_header()
+            if self.is_async:
+                return AsyncApiClient(self.config.async_internal_sdk_config, **headers)
+            return ApiClient(self.config.internal_sdk_config, **headers)
+
         if self.is_async:
             return AsyncApiClient(
                 self.config.async_sdk_config, **self.config.client_header
             )
         return ApiClient(self.config.sdk_config, **self.config.client_header)
 
-    def _get_internal_client(self):
-        if self.is_async:
-            return AsyncApiClient(
-                self.config.internal_sdk_config, **self.config.get_internal_header()
-            )
-        return ApiClient(
-            self.config.internal_sdk_config, **self.config.get_internal_header()
-        )
-
     def reset(self):
-        self._projects_v1 = None
-        self._runs_v1 = None
-        self._project_dashboards_v1 = None
-        self._project_searches_v1 = None
-        self._auth_v1 = None
-        self._users_v1 = None
-        self._versions_v1 = None
-        self._agents_v1 = None
-        self._internal_agents_v1 = None
-        self._queues_v1 = None
-        self._service_accounts_v1 = None
-        self._presets_v1 = None
-        self._tags_v1 = None
-        self._teams_v1 = None
-        self._connections_v1 = None
-        self._dashboards_v1 = None
-        self._searches_v1 = None
-        self._organizations_v1 = None
+        if self.is_async:
+            raise PolyaxonClientException("Use `await areset()` for async clients.")
+        previous_client = self.api_client
         self.api_client = self._get_client()
+        self._reset_api_wrappers()
+        previous_client.close()
+
+    async def areset(self):
+        if not self.is_async:
+            raise PolyaxonClientException("Use `reset()` for sync clients.")
+        previous_client = self.api_client
+        self.api_client = self._get_client()
+        self._reset_api_wrappers()
+        await previous_client.close()
+
+    def close(self):
+        if self.is_async:
+            raise PolyaxonClientException("Use `await aclose()` for async clients.")
+        self.api_client.close()
+
+    async def aclose(self):
+        if not self.is_async:
+            raise PolyaxonClientException("Use `close()` for sync clients.")
+        await self.api_client.close()
+
+    def __enter__(self):
+        if self.is_async:
+            raise PolyaxonClientException("Use `async with` for async clients.")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    async def __aenter__(self):
+        if not self.is_async:
+            raise PolyaxonClientException("Use `with` for sync clients.")
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.aclose()
 
     @property
     def config(self):
@@ -155,6 +181,12 @@ class PolyaxonClient:
         if not self._runs_v1:
             self._runs_v1 = RunsV1Api(self.api_client)
         return self._runs_v1
+
+    @property
+    def sandbox_v1(self):
+        if not self._sandbox_v1:
+            self._sandbox_v1 = SandboxV1Api(self.api_client)
+        return self._sandbox_v1
 
     @property
     def auth_v1(self):
@@ -179,12 +211,6 @@ class PolyaxonClient:
         if not self._agents_v1:
             self._agents_v1 = AgentsV1Api(self.api_client)
         return self._agents_v1
-
-    @property
-    def internal_agents_v1(self):
-        if not self._internal_agents_v1:
-            self._internal_agents_v1 = AgentsV1Api(self._get_internal_client())
-        return self._internal_agents_v1
 
     @property
     def queues_v1(self):

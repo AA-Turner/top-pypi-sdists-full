@@ -103,8 +103,8 @@ class TestParseChunkedResponse:
 
     def test_ignores_malformed_chunks(self):
         """Test malformed chunks are ignored when below 10% threshold."""
-        # Add 10 valid chunk records and 1 malformed record, keeping the record-based
-        # error rate below the 10% threshold.
+        # Add 10 valid payload records and 1 malformed payload record, keeping
+        # the payload error rate below the 10% threshold.
         valid_chunks = [json.dumps([f"valid{i}"]) for i in range(10)]
         valid_parts = "\n".join([f"{len(c)}\n{c}" for c in valid_chunks])
         response = f"{valid_parts}\n99\nnot-json\n"
@@ -149,6 +149,11 @@ class TestParseChunkedResponse:
         assert chunks == [[f"valid{i}"] for i in range(10)]
         assert "without payload" in caplog.text
 
+    def test_trailing_byte_count_above_framing_threshold_raises(self):
+        """A framing-only response fails strict decoding."""
+        with pytest.raises(RPCError, match="1 of 1 framing records"):
+            parse_chunked_response("42\n")
+
     def test_skips_payload_split_across_lines_below_threshold(self):
         """A payload split across lines is treated as truncated malformed input."""
         valid_parts = "\n".join(self._chunk_record([f"valid{i}"]) for i in range(20))
@@ -169,21 +174,32 @@ class TestParseChunkedResponse:
 
         assert chunks == [[f"valid{i}"] for i in range(20)]
 
-    def test_error_rate_exactly_ten_percent_is_tolerated(self):
-        """The malformed-record threshold is exclusive: exactly 10% does not raise."""
-        valid_lines = "\n".join(json.dumps([f"valid{i}"]) for i in range(9))
-        response = f"{valid_lines}\nnot-json\n"
+    def test_payload_error_rate_exactly_ten_percent_is_tolerated(self):
+        """The payload threshold is exclusive: exactly 10% does not raise."""
+        valid_parts = "\n".join(self._chunk_record([f"valid{i}"]) for i in range(9))
+        response = f"{valid_parts}\n99\nnot-json\n"
 
         chunks = parse_chunked_response(response)
 
         assert chunks == [[f"valid{i}"] for i in range(9)]
 
-    def test_error_rate_just_above_ten_percent_raises(self):
-        """The parser raises once malformed records exceed 10%."""
-        valid_lines = "\n".join(json.dumps([f"valid{i}"]) for i in range(8))
-        response = f"{valid_lines}\nnot-json\n"
+    def test_byte_count_frames_do_not_dilute_malformed_payload_rate(self):
+        """The parser raises when payload errors exceed 10%, excluding byte-count frames."""
+        valid_parts = "\n".join(self._chunk_record([f"valid{i}"]) for i in range(8))
+        response = f"{valid_parts}\n99\nnot-json\n"
 
-        with pytest.raises(RPCError, match="Response parsing failed"):
+        with pytest.raises(RPCError) as exc_info:
+            parse_chunked_response(response)
+
+        assert "1 of 9 payload records malformed" in str(exc_info.value)
+        assert "18 response records" not in str(exc_info.value)
+
+    def test_mixed_payload_and_framing_errors_preserve_strict_threshold(self):
+        """Separate payload/framing rates must not loosen mixed malformed streams."""
+        valid_parts = "\n".join(self._chunk_record([f"valid{i}"]) for i in range(10))
+        response = f"{valid_parts}\n99\nnot-json\n42\n"
+
+        with pytest.raises(RPCError, match="2 of 12 response records"):
             parse_chunked_response(response)
 
 
@@ -704,6 +720,20 @@ class TestNullResultStatusCodeEnrichment:
             result = decode_response(self._build_raw([code]), self.RPC_ID, allow_null=True)
             assert result is None, f"allow_null=True leaked for code {code}"
 
+    def test_enriched_messages_surface_found_ids(self):
+        """found_ids must appear in the message text, not just the attribute.
+
+        The base RPCError.__str__ does not append found_ids, so embedding it in
+        the message keeps the strongest drift/debug signal visible in plain logs
+        and tracebacks across all three null-result enrichment branches.
+        """
+        for error_info in ([5], [13], [99]):
+            with pytest.raises(RPCError) as exc_info:
+                decode_response(self._build_raw(error_info), self.RPC_ID)
+            message = str(exc_info.value)
+            assert "Found IDs:" in message
+            assert self.RPC_ID in message
+
     def test_boolean_error_info_is_not_treated_as_status_code(self):
         """[true] must not be accepted as code 1 — bool is a subclass of int.
 
@@ -822,6 +852,62 @@ class TestUnknownRPCMethodErrorRouting:
         # raw_response preview cap (80 chars + "..." = 83) preserved by the
         # base RPCError contract (NOTEBOOKLM_DEBUG=1 opts into full body).
         assert len(err.raw_response) <= 83
+
+
+class TestAllowNullDoesNotMaskDrift:
+    """Issue #1158: ``allow_null=True`` must not swallow method-ID drift or
+    anti-bot/redirect walls as a benign ``None``.
+
+    ``allow_null`` only sanctions a ``wrb.fr`` frame that genuinely carried a
+    null payload (the requested ``rpc_id`` *is* present). An *absent* RPC ID
+    (drift) or a body with no RPC frames at all (anti-bot wall) is categorically
+    different and must still raise, even for opt-in callers.
+    """
+
+    def test_allow_null_still_raises_on_method_id_drift(self):
+        """Requested ID missing but another ID present → UnknownRPCMethodError,
+        even with allow_null=True."""
+        requested = "OldMethodId"
+        actual = "NewMethodId"
+        inner = json.dumps([])
+        chunk = json.dumps(["wrb.fr", actual, inner, None, None])
+        raw = f")]}}'\n{len(chunk)}\n{chunk}\n"
+
+        with pytest.raises(UnknownRPCMethodError) as exc_info:
+            decode_response(raw, requested, allow_null=True)
+        err = exc_info.value
+        assert err.method_id == requested
+        assert err.found_ids == [actual]
+        assert "may have changed" in str(err)
+
+    def test_allow_null_still_raises_when_no_rpc_data(self):
+        """Empty/anti-bot body with no RPC frames → RPCError, even with
+        allow_null=True."""
+        raw = ")]}'\n"
+        with pytest.raises(RPCError) as exc_info:
+            decode_response(raw, "AnyId", allow_null=True)
+        assert "response contained no RPC data" in str(exc_info.value)
+        assert not isinstance(exc_info.value, UnknownRPCMethodError)
+
+    def test_allow_null_still_raises_on_non_rpc_json_body(self):
+        """A parseable but non-RPC JSON body (e.g. a redirect/error page) yields
+        no found_ids → RPCError, even with allow_null=True."""
+        chunk = json.dumps({"redirect": "https://accounts.google.com/"})
+        raw = f")]}}'\n{len(chunk)}\n{chunk}\n"
+        with pytest.raises(RPCError) as exc_info:
+            decode_response(raw, RPCMethod.CREATE_ARTIFACT.value, allow_null=True)
+        assert "response contained no RPC data" in str(exc_info.value)
+        assert not isinstance(exc_info.value, UnknownRPCMethodError)
+
+    def test_allow_null_returns_none_for_present_but_null_frame(self):
+        """Regression guard: when the requested ID IS present with a null
+        payload, allow_null=True still returns None (the legitimate use case)."""
+        rpc_id = RPCMethod.CREATE_ARTIFACT.value
+        chunk = json.dumps(["wrb.fr", rpc_id, None, None, None])
+        raw = f")]}}'\n{len(chunk)}\n{chunk}\n"
+
+        result = decode_response(raw, rpc_id, allow_null=True)
+        assert result is None
 
 
 class TestMalformedChunkResilience:

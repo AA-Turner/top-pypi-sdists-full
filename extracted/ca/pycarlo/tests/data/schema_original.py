@@ -64,6 +64,28 @@ class AccessKeyIndexEnum(sgqlc.types.Enum):
     __choices__ = ("account", "user")
 
 
+class AccountHealthMetricId(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `STATUS_UPDATE_RATE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("STATUS_UPDATE_RATE",)
+
+
+class AccountHealthPillar(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `ADOPTION`None
+    * `COVERAGE`None
+    * `OPERATIONS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ADOPTION", "COVERAGE", "OPERATIONS")
+
+
 class AccountNotificationDigestSettingsModelDigestType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -1738,6 +1760,7 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
     Enumeration Choices:
 
     * `DURATION`None
+    * `HAS_ERRORS`None
     * `STATUS`None
     * `TOTAL_TOKENS`None
     * `TURNS`None
@@ -1745,7 +1768,7 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("DURATION", "STATUS", "TOTAL_TOKENS", "TURNS", "WORKFLOW")
+    __choices__ = ("DURATION", "HAS_ERRORS", "STATUS", "TOTAL_TOKENS", "TURNS", "WORKFLOW")
 
 
 class ConversationSortField(sgqlc.types.Enum):
@@ -3972,6 +3995,24 @@ class GenericScalar(sgqlc.types.Scalar):
     __schema__ = schema
 
 
+class HasErrorsValue(sgqlc.types.Enum):
+    """Bucket values for the "Error spans" filter — counts erroring spans
+    independently of root status (excluding LangGraph control-flow
+    sentinels like GraphInterrupt).  Orthogonal to TraceRootStatus /
+    ConversationStatus: a trace with TraceRootStatus.OK can still have
+    HasErrorsValue.HAS_ERRORS — that's the canonical "root succeeded
+    but a child span errored or was retried" case.
+
+    Enumeration Choices:
+
+    * `HAS_ERRORS`None
+    * `OK`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HAS_ERRORS", "OK")
+
+
 ID = sgqlc.types.ID
 
 
@@ -5053,6 +5094,16 @@ class NodeType(sgqlc.types.Enum):
     __choices__ = ("MODEL", "SEED", "SNAPSHOT", "SOURCE", "TEST")
 
 
+class OAuthClientIdentityType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AGENT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AGENT",)
+
+
 class OAuthGrantTypeEnum(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -5264,6 +5315,8 @@ class Permission(sgqlc.types.Enum):
     * `SettingsNetworkEdit`None
     * `SettingsNotificationsAccess`None
     * `SettingsNotificationsEdit`None
+    * `SettingsOauthClientsAccess`None
+    * `SettingsOauthClientsEdit`None
     * `SettingsPiiFiltersEdit`None
     * `SettingsPiiFiltersList`None
     * `SettingsPiiFiltersViewMetrics`None
@@ -5372,6 +5425,8 @@ class Permission(sgqlc.types.Enum):
         "SettingsNetworkEdit",
         "SettingsNotificationsAccess",
         "SettingsNotificationsEdit",
+        "SettingsOauthClientsAccess",
+        "SettingsOauthClientsEdit",
         "SettingsPiiFiltersEdit",
         "SettingsPiiFiltersList",
         "SettingsPiiFiltersViewMetrics",
@@ -6077,6 +6132,10 @@ class ResourcePolicyPath(sgqlc.types.Enum):
     * `SettingsNotificationsPropose`None
     * `SettingsNotificationsRead`None
     * `SettingsNotificationsWrite`None
+    * `SettingsOauthClientsAll`None
+    * `SettingsOauthClientsPropose`None
+    * `SettingsOauthClientsRead`None
+    * `SettingsOauthClientsWrite`None
     * `SettingsPiiFiltersAll`None
     * `SettingsPiiFiltersPropose`None
     * `SettingsPiiFiltersRead`None
@@ -6249,6 +6308,10 @@ class ResourcePolicyPath(sgqlc.types.Enum):
         "SettingsNotificationsPropose",
         "SettingsNotificationsRead",
         "SettingsNotificationsWrite",
+        "SettingsOauthClientsAll",
+        "SettingsOauthClientsPropose",
+        "SettingsOauthClientsRead",
+        "SettingsOauthClientsWrite",
         "SettingsPiiFiltersAll",
         "SettingsPiiFiltersPropose",
         "SettingsPiiFiltersRead",
@@ -7261,6 +7324,7 @@ class TraceFilterFieldName(sgqlc.types.Enum):
     * `DURATION`None
     * `MODEL`None
     * `PROMPT_TOKENS`None
+    * `ROOT_STATUS`None
     * `STATUS`None
     * `TASK`None
     * `TOTAL_TOKENS`None
@@ -7273,6 +7337,7 @@ class TraceFilterFieldName(sgqlc.types.Enum):
         "DURATION",
         "MODEL",
         "PROMPT_TOKENS",
+        "ROOT_STATUS",
         "STATUS",
         "TASK",
         "TOTAL_TOKENS",
@@ -7296,6 +7361,24 @@ class TraceMetricGroup(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ERRORS", "OVERVIEW", "TOKENS", "TRACE_COUNT", "TRACE_LATENCY")
+
+
+class TraceRootStatus(sgqlc.types.Enum):
+    """Status of a trace based on the root span's outcome (excluding
+    LangGraph control-flow sentinels like GraphInterrupt).  Trace-
+    scope counterpart of ConversationStatus. Orthogonal to
+    HasErrorsValue: a trace with TraceRootStatus.OK can still have
+    HasErrorsValue.HAS_ERRORS — root succeeded but a child span
+    errored or was retried (the AO-501 case).
+
+    Enumeration Choices:
+
+    * `ERROR`None
+    * `OK`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ERROR", "OK")
 
 
 class TraceSegmentField(sgqlc.types.Enum):
@@ -9287,6 +9370,7 @@ class ConversationFiltersInput(sgqlc.types.Input):
         "conversation_id_search",
         "workflows",
         "statuses",
+        "has_errors",
         "min_turns",
         "max_turns",
         "min_total_tokens",
@@ -9306,6 +9390,17 @@ class ConversationFiltersInput(sgqlc.types.Input):
         sgqlc.types.list_of(sgqlc.types.non_null(ConversationStatus)), graphql_name="statuses"
     )
     """Filter by status (ERROR, OK). Empty or omitted returns all."""
+
+    has_errors = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(HasErrorsValue)), graphql_name="hasErrors"
+    )
+    """Filter by presence of erroring spans across the conversation's
+    traces (excluding LangGraph GraphInterrupt sentinels). Values:
+    'OK' or 'HAS_ERRORS' (OR logic). Empty or omitted returns all.
+    Composes with `statuses` — e.g. statuses=[OK] AND
+    hasErrors=[HAS_ERRORS] surfaces conversations that completed
+    cleanly but had retried/recovered errors along the way.
+    """
 
     min_turns = sgqlc.types.Field(Int, graphql_name="minTurns")
     """Minimum number of turns (inclusive)"""
@@ -14138,6 +14233,7 @@ class TraceFiltersInput(sgqlc.types.Input):
         "max_total_tokens",
         "conversation_id",
         "statuses",
+        "root_statuses",
         "search_query",
     )
     models = sgqlc.types.Field(
@@ -14185,7 +14281,25 @@ class TraceFiltersInput(sgqlc.types.Input):
     statuses = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="statuses"
     )
-    """Filter by status: 'OK' or 'HAS_ERRORS' (OR logic)"""
+    """Filter by presence of any erroring span (any-span semantic — *not*
+    root-span). Values: 'OK' or 'HAS_ERRORS' (OR logic).
+    GraphInterrupt sentinels are excluded. Empty or omitted returns
+    all. See also rootStatuses for root-span-level filtering. Note:
+    this field's name mirrors ConversationFiltersInput.statuses but
+    carries different semantics (any-span here, root-span there); the
+    inversion is preserved for backwards compatibility (see AO-560 for
+    the planned rename to hasErrors).
+    """
+
+    root_statuses = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(TraceRootStatus)), graphql_name="rootStatuses"
+    )
+    """Filter by root-span status: 'OK' or 'ERROR' (OR logic).
+    GraphInterrupt sentinels are excluded. Empty or omitted returns
+    all. Composes with `statuses` — e.g. rootStatuses=[OK] AND
+    statuses=[HAS_ERRORS] surfaces traces that completed cleanly but
+    had retried/recovered span errors along the way.
+    """
 
     search_query = sgqlc.types.Field(String, graphql_name="searchQuery")
     """Filter by custom span-attribute metadata. Syntax: `key:value` for
@@ -16588,6 +16702,45 @@ class AccountEntitlementsInfo(sgqlc.types.Type):
     __field_names__ = ("entitlements",)
     entitlements = sgqlc.types.Field(
         sgqlc.types.list_of(EntitlementTypes), graphql_name="entitlements"
+    )
+
+
+class AccountHealthMetric(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("metric_id", "pillar", "value", "supporting_values", "data_as_of")
+    metric_id = sgqlc.types.Field(
+        sgqlc.types.non_null(AccountHealthMetricId), graphql_name="metricId"
+    )
+
+    pillar = sgqlc.types.Field(sgqlc.types.non_null(AccountHealthPillar), graphql_name="pillar")
+
+    value = sgqlc.types.Field(GenericScalar, graphql_name="value")
+    """The metric's headline value. Shape depends on metricId — a number
+    for rate or average metrics, an array of observations for time-
+    series metrics. Null when the account has no data in the snapshot
+    window.
+    """
+
+    supporting_values = sgqlc.types.Field(
+        sgqlc.types.non_null(GenericScalar), graphql_name="supportingValues"
+    )
+    """Per-metric secondary values that contextualize the headline value
+    (e.g., the counts that produced a rate). JSON object whose keys
+    depend on metricId.
+    """
+
+    data_as_of = sgqlc.types.Field(DateTime, graphql_name="dataAsOf")
+    """Timestamp indicating how fresh the underlying data is for this
+    metric.
+    """
+
+
+class AccountHealthSnapshot(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("metrics",)
+    metrics = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AccountHealthMetric))),
+        graphql_name="metrics",
     )
 
 
@@ -19533,6 +19686,102 @@ class AssetMemoryResultType(sgqlc.types.Type):
     last_updated = sgqlc.types.Field(String, graphql_name="lastUpdated")
 
 
+class AssetMetricAuditLogConnection(sgqlc.types.relay.Connection):
+    """Cursor-paginated connection over ``AssetMetricAuditLogEntry`` —
+    keeps the asset-metric audit log API surface aligned with
+    ``getMonitorAuditLogs``.  The underlying data mixes real
+    ``LogEntry`` rows with in-memory synthesized attach/detach
+    entries, so the resolver returns the fully-built list and
+    graphene-relay slices it by ``first`` / ``after`` / ``last`` /
+    ``before``.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("AssetMetricAuditLogEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+
+class AssetMetricAuditLogEdge(sgqlc.types.Type):
+    """A Relay edge containing a `AssetMetricAuditLog` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("AssetMetricAuditLogEntry", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
+class AssetMetricAuditLogEntry(sgqlc.types.Type):
+    """Audit log entry for ``getAssetMetricAuditLogs``.  Each entry is
+    fully resolved at the service layer: rule CRUD entries are
+    rebranded as ``"asset-level override"`` and synthesise a
+    sensitivity change whose before/after reflect the asset's resolved
+    effective sensitivity; table-monitor-coverage events (sensitivity,
+    is_deleted, is_paused changes, plus monitor_tables attach/detach
+    moments) are surfaced only when the asset's resolved sensitivity
+    actually shifted, each rendered with that same synthesised
+    sensitivity ``FieldChange`` instead of the raw underlying field
+    change.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "timestamp",
+        "action",
+        "object_type_name",
+        "object_uuid",
+        "changes",
+        "actor_display_name",
+        "actor_first_name",
+        "actor_last_name",
+    )
+    timestamp = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="timestamp")
+    """When the change occurred"""
+
+    action = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="action")
+    """create/update/delete"""
+
+    object_type_name = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="objectTypeName"
+    )
+    """Friendly description of the entry's source: ``asset-level
+    override`` for rule entries, ``table monitor coverage`` for TM-
+    driven entries.
+    """
+
+    object_uuid = sgqlc.types.Field(UUID, graphql_name="objectUuid")
+    """Object UUID (if available)"""
+
+    changes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("FieldChange"))),
+        graphql_name="changes",
+    )
+    """Resolved changes — exactly one synthesized ``sensitivity``
+    FieldChange when the underlying event touched the asset's
+    effective sensitivity.
+    """
+
+    actor_display_name = sgqlc.types.Field(String, graphql_name="actorDisplayName")
+    """Resolved display name of the user who made the change. Null for
+    monitor_tables attach/detach moments since that model does not
+    record an actor.
+    """
+
+    actor_first_name = sgqlc.types.Field(String, graphql_name="actorFirstName")
+    """First name of the user who made the change"""
+
+    actor_last_name = sgqlc.types.Field(String, graphql_name="actorLastName")
+    """Last name of the user who made the change"""
+
+
 class AssetOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("mcon", "asset_id", "asset_type")
@@ -21670,6 +21919,7 @@ class CategorizedSearchResult(sgqlc.types.Type):
         "supports_data_explorer",
         "dbt_project_name",
         "job_name",
+        "object_path",
         "category",
         "is_dynamic_schedule_supported",
     )
@@ -21766,6 +22016,9 @@ class CategorizedSearchResult(sgqlc.types.Type):
 
     job_name = sgqlc.types.Field(String, graphql_name="jobName")
     """Name of the parent job for task assets"""
+
+    object_path = sgqlc.types.Field(String, graphql_name="objectPath")
+    """Path of the asset within its source system, when available"""
 
     category = sgqlc.types.Field(SearchCategoryEnum, graphql_name="category")
     """Name of the category for the table like: RESOLVED TABLES, ALL
@@ -22690,6 +22943,7 @@ class Conversation(sgqlc.types.Type):
         "end_time",
         "duration_seconds",
         "status",
+        "errors_count",
     )
     conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
     """Conversation identifier"""
@@ -22713,6 +22967,11 @@ class Conversation(sgqlc.types.Type):
 
     status = sgqlc.types.Field(sgqlc.types.non_null(ConversationStatus), graphql_name="status")
     """ERROR if any trace had a root span error, otherwise OK"""
+
+    errors_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorsCount")
+    """Number of spans across all traces in this conversation that
+    errored (excluding LangGraph GraphInterrupt sentinels).
+    """
 
 
 class ConversationEvalDimension(sgqlc.types.Type):
@@ -23294,6 +23553,18 @@ class CreateAccountSecret(sgqlc.types.Type):
     """The secret that was created"""
 
 
+class CreateAgentOAuthClient(sgqlc.types.Type):
+    """Create an OAuth 2.0 client for agent machine-to-machine
+    authentication.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("response",)
+    response = sgqlc.types.Field(
+        sgqlc.types.non_null("CreateOAuthClientResponse"), graphql_name="response"
+    )
+
+
 class CreateAgenticDomain(sgqlc.types.Type):
     """Create an agentic domain.  Pass ``sourceDomainUuid`` to reuse the
     asset scope and user membership of an existing metadata domain.
@@ -23493,6 +23764,28 @@ class CreateMcpIntegrationKey(sgqlc.types.Type):
     __field_names__ = ("key",)
     key = sgqlc.types.Field("IntegrationKey", graphql_name="key")
     """Integration key id and secret (only available once)."""
+
+
+class CreateOAuthClientResponse(sgqlc.types.Type):
+    """Response from creating an OAuth client.  The client_secret is only
+    available at creation time.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("client_id", "client_secret", "scopes")
+    client_id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="clientId")
+    """The unique identifier for the new OAuth client."""
+
+    client_secret = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clientSecret")
+    """The client secret. Store this securely — it cannot be retrieved
+    again.
+    """
+
+    scopes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="scopes",
+    )
+    """The OAuth scopes granted to this client."""
 
 
 class CreateOpenTelemetryDataStore(sgqlc.types.Type):
@@ -27704,6 +27997,17 @@ class DeleteNotificationSetting(sgqlc.types.Type):
     deleted = sgqlc.types.Field(Int, graphql_name="deleted")
 
 
+class DeleteOAuthClient(sgqlc.types.Type):
+    """Delete an OAuth 2.0 client. Revokes the client's credentials
+    immediately.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
+    """Whether the client was found and deleted."""
+
+
 class DeleteObjectProperty(sgqlc.types.Type):
     """Delete properties (tags) for objects (e.g. tables, fields, etc.)"""
 
@@ -28522,6 +28826,33 @@ class ETLTasksType(sgqlc.types.Type):
 
     has_next_page = sgqlc.types.Field(Boolean, graphql_name="hasNextPage")
     """Boolean indicating if there's a next page based on limit/offset"""
+
+
+class EffectiveTableMonitorOutput(sgqlc.types.Type):
+    """Reference to the table monitor whose sensitivity an asset-level
+    monitor inherits.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "description", "sensitivity_level", "is_overridden")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """UUID of the covering table monitor"""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """User-facing description of the covering table monitor"""
+
+    sensitivity_level = sgqlc.types.Field(
+        sgqlc.types.non_null(SensitivityLevels), graphql_name="sensitivityLevel"
+    )
+    """Sensitivity configured on the covering table monitor."""
+
+    is_overridden = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isOverridden")
+    """True when an asset-level pin supplies this asset's effective
+    sensitivity instead of the covering table monitor's. The pin may
+    happen to match the table monitor's value, but the asset's
+    sensitivity is anchored to the pin and won't follow subsequent
+    table-monitor changes.
+    """
 
 
 class EmptyDataCollector(sgqlc.types.Type):
@@ -31582,6 +31913,7 @@ class FreshnessTableMonitorConfigOutput(sgqlc.types.Type):
         "supports_explicit_alert_condition",
         "tags",
         "data_quality_dimension",
+        "effective_table_monitor",
         "alert_condition",
         "detector_threshold",
     )
@@ -31614,6 +31946,15 @@ class FreshnessTableMonitorConfigOutput(sgqlc.types.Type):
 
     data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
     """Data quality dimension for the alert condition"""
+
+    effective_table_monitor = sgqlc.types.Field(
+        EffectiveTableMonitorOutput, graphql_name="effectiveTableMonitor"
+    )
+    """Active table monitor whose sensitivity this asset-level monitor
+    inherits, or null if no table monitor covers this asset. Populated
+    regardless of whether an asset-level sensitivity override is in
+    effect — `isOverridden` signals which case applies.
+    """
 
     alert_condition = sgqlc.types.Field(
         sgqlc.types.non_null("FreshnessAlertConditionOutput"), graphql_name="alertCondition"
@@ -36502,6 +36843,8 @@ class Mutation(sgqlc.types.Type):
         "link_opsgenie_incident",
         "unlink_opsgenie_incident",
         "relink_opsgenie_incident",
+        "create_agent_oauth_client",
+        "delete_oauth_client",
         "create_pagerduty_service_integration",
         "update_pagerduty_service_integration",
         "update_pagerduty_service_integration_webhook_secret",
@@ -43247,6 +43590,57 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `alert_id` (`UUID!`): The Monte Carlo Alert ID
+    """
+
+    create_agent_oauth_client = sgqlc.types.Field(
+        CreateAgentOAuthClient,
+        graphql_name="createAgentOauthClient",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(ID), graphql_name="agentId", default=None),
+                ),
+                (
+                    "description",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="description", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Create an OAuth 2.0 client for agent
+    machine-to-machine authentication.
+
+    Arguments:
+
+    * `agent_id` (`ID!`): The UUID of the agent to create the OAuth
+      client for.
+    * `description` (`String!`): A human-readable description for this
+      OAuth client.
+    """
+
+    delete_oauth_client = sgqlc.types.Field(
+        DeleteOAuthClient,
+        graphql_name="deleteOauthClient",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "client_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ID), graphql_name="clientId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Delete an OAuth 2.0 client and revoke its
+    credentials.
+
+    Arguments:
+
+    * `client_id` (`ID!`): The ID of the OAuth client to delete.
     """
 
     create_pagerduty_service_integration = sgqlc.types.Field(
@@ -59269,6 +59663,52 @@ class NumericCorrelationRcaResult(sgqlc.types.Type):
     )
 
 
+class OAuthClientOutput(sgqlc.types.Type):
+    """An OAuth 2.0 client configured for machine-to-machine
+    authentication.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "client_id",
+        "description",
+        "scopes",
+        "identity_type",
+        "identity_id",
+        "resource_ids",
+        "created_time",
+        "created_by",
+    )
+    client_id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="clientId")
+    """The unique identifier for this OAuth client."""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """A human-readable description of this OAuth client."""
+
+    scopes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="scopes",
+    )
+    """The OAuth scopes granted to this client."""
+
+    identity_type = sgqlc.types.Field(OAuthClientIdentityType, graphql_name="identityType")
+    """The type of identity this client is associated with, if any."""
+
+    identity_id = sgqlc.types.Field(ID, graphql_name="identityId")
+    """The identifier of the associated identity (e.g. agent UUID)."""
+
+    resource_ids = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(ID)), graphql_name="resourceIds"
+    )
+    """Resource identifiers associated with this client."""
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When this OAuth client was created."""
+
+    created_by = sgqlc.types.Field(ID, graphql_name="createdBy")
+    """The user who created this OAuth client."""
+
+
 class ObjectDocument(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -60710,6 +61150,7 @@ class Query(sgqlc.types.Type):
         "get_tables_for_coverage_dashboard",
         "get_monitor_counts_by_creator",
         "get_monitor_counts_by_type",
+        "get_account_health_snapshot",
         "get_logs_integrations",
         "generate_webhook_url",
         "get_user_id",
@@ -60835,6 +61276,7 @@ class Query(sgqlc.types.Type):
         "get_size_collection_query",
         "get_my_mcp_integration_keys",
         "get_opsgenie_integrations",
+        "get_oauth_clients",
         "get_pagerduty_service_integrations",
         "get_volume_change_table_monitor",
         "get_ucs_table_monitor",
@@ -61215,6 +61657,7 @@ class Query(sgqlc.types.Type):
         "evaluate_field_pattern_matches",
         "get_account_audit_logs",
         "get_monitor_audit_logs",
+        "get_asset_metric_audit_logs",
         "get_size_collection_audit_logs",
         "get_monitored_rules_audit_logs",
         "get_assigned_assets",
@@ -62781,6 +63224,33 @@ class Query(sgqlc.types.Type):
       tags.
     * `offset` (`Int`)None (default: `0`)
     * `limit` (`Int`)None (default: `15`)
+    """
+
+    get_account_health_snapshot = sgqlc.types.Field(
+        AccountHealthSnapshot,
+        graphql_name="getAccountHealthSnapshot",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "metrics",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(AccountHealthMetricId))
+                        ),
+                        graphql_name="metrics",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Account Health Snapshot — per-account diagnostic
+    metrics across Operations, Coverage, and Adoption pillars.
+
+    Arguments:
+
+    * `metrics` (`[AccountHealthMetricId!]!`): Metrics to fetch. Must
+      contain at least one metric.
     """
 
     get_logs_integrations = sgqlc.types.Field(
@@ -66211,6 +66681,31 @@ class Query(sgqlc.types.Type):
 
     * `integration_id` (`UUID`): Filter by integration ID
     * `webhook_id` (`UUID`): Filter by webhook ID
+    """
+
+    get_oauth_clients = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(OAuthClientOutput))),
+        graphql_name="getOauthClients",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "identity_type",
+                    sgqlc.types.Arg(
+                        OAuthClientIdentityType, graphql_name="identityType", default=None
+                    ),
+                ),
+                ("identity_id", sgqlc.types.Arg(ID, graphql_name="identityId", default=None)),
+            )
+        ),
+    )
+    """(general availability) List OAuth 2.0 clients for the current
+    account.
+
+    Arguments:
+
+    * `identity_type` (`OAuthClientIdentityType`): Filter by identity
+      type.
+    * `identity_id` (`ID`): Filter by identity ID.
     """
 
     get_pagerduty_service_integrations = sgqlc.types.Field(
@@ -80888,6 +81383,10 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("scope", sgqlc.types.Arg(String, graphql_name="scope", default=None)),
+                (
+                    "self_hosted_credentials_type",
+                    sgqlc.types.Arg(String, graphql_name="selfHostedCredentialsType", default=None),
+                ),
             )
         ),
     )
@@ -80898,6 +81397,13 @@ class Query(sgqlc.types.Type):
     * `connection_type` (`String!`): The type of connection to query
       supported validations for.
     * `scope` (`String`): The scope of validations to return
+    * `self_hosted_credentials_type` (`String`): Customer-managed
+      credentials provider the connection will use (e.g.
+      'aws_secrets_manager', 'gcp_secret_manager'). Pass this when the
+      connection uses self-hosted credentials so that validations
+      gated on that fact (e.g. validate_self_hosted_credentials) are
+      included in the response. Omit for connections using Monte
+      Carlo-managed credentials.
     """
 
     get_supported_table_validations = sgqlc.types.Field(
@@ -81515,6 +82021,58 @@ class Query(sgqlc.types.Type):
     * `timestamp__lt` (`DateTime`): Filter logs with timestamp less
       than this value
     * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    get_asset_metric_audit_logs = sgqlc.types.Field(
+        AssetMetricAuditLogConnection,
+        graphql_name="getAssetMetricAuditLogs",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "metric",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(OotbTableMonitorTypeEnum),
+                        graphql_name="metric",
+                        default=None,
+                    ),
+                ),
+                (
+                    "timestamp__lt",
+                    sgqlc.types.Arg(DateTime, graphql_name="timestamp_Lt", default=None),
+                ),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Audit log for a specific (asset, metric) pair.
+    Returns one stream covering the asset-level override rule (when
+    present) and the table-monitor coverage events that actually moved
+    the asset's effective sensitivity. Sorted newest-first. Paginate
+    with ``first`` / ``after`` / ``last`` / ``before``.
+
+    Arguments:
+
+    * `mcon` (`String!`): MC unique identifier of the asset
+    * `metric` (`OotbTableMonitorTypeEnum!`): Which OOTB monitor
+      metric's audit log to fetch. Must be a sensitivity-bearing
+      metric (``FRESHNESS``, ``VOLUME_SIZE_DIFF``, or
+      ``VOLUME_UNCHANGED_SIZE``); ``SCHEMA`` is rejected because
+      schema changes have no sensitivity concept.
+    * `timestamp__lt` (`DateTime`): Only return entries strictly
+      before this timestamp.
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -84557,6 +85115,7 @@ class SearchResult(sgqlc.types.Type):
         "supports_data_explorer",
         "dbt_project_name",
         "job_name",
+        "object_path",
     )
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """Monte Carlo full identifier for an entity"""
@@ -84649,6 +85208,9 @@ class SearchResult(sgqlc.types.Type):
 
     job_name = sgqlc.types.Field(String, graphql_name="jobName")
     """Name of the parent job for task assets"""
+
+    object_path = sgqlc.types.Field(String, graphql_name="objectPath")
+    """Path of the asset within its source system, when available"""
 
 
 class SearchResultProperty(sgqlc.types.Type):
@@ -90182,6 +90744,7 @@ class UCSTableMonitorConfigOutput(sgqlc.types.Type):
         "supports_explicit_alert_condition",
         "tags",
         "data_quality_dimension",
+        "effective_table_monitor",
         "alert_condition",
         "detector_threshold",
     )
@@ -90214,6 +90777,15 @@ class UCSTableMonitorConfigOutput(sgqlc.types.Type):
 
     data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
     """Data quality dimension for the alert condition"""
+
+    effective_table_monitor = sgqlc.types.Field(
+        EffectiveTableMonitorOutput, graphql_name="effectiveTableMonitor"
+    )
+    """Active table monitor whose sensitivity this asset-level monitor
+    inherits, or null if no table monitor covers this asset. Populated
+    regardless of whether an asset-level sensitivity override is in
+    effect — `isOverridden` signals which case applies.
+    """
 
     alert_condition = sgqlc.types.Field(
         sgqlc.types.non_null("UCSAlertConditionOutput"), graphql_name="alertCondition"
@@ -92018,6 +92590,7 @@ class VolumeChangeTableMonitorConfigOutput(sgqlc.types.Type):
         "supports_explicit_alert_condition",
         "tags",
         "data_quality_dimension",
+        "effective_table_monitor",
         "alert_condition",
         "detector_threshold",
         "most_recent_total_size",
@@ -92051,6 +92624,15 @@ class VolumeChangeTableMonitorConfigOutput(sgqlc.types.Type):
 
     data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
     """Data quality dimension for the alert condition"""
+
+    effective_table_monitor = sgqlc.types.Field(
+        EffectiveTableMonitorOutput, graphql_name="effectiveTableMonitor"
+    )
+    """Active table monitor whose sensitivity this asset-level monitor
+    inherits, or null if no table monitor covers this asset. Populated
+    regardless of whether an asset-level sensitivity override is in
+    effect — `isOverridden` signals which case applies.
+    """
 
     alert_condition = sgqlc.types.Field(
         sgqlc.types.non_null("VolumeChangeAlertConditionOutput"), graphql_name="alertCondition"

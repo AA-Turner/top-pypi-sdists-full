@@ -20,6 +20,7 @@ from roboflow.config import API_URL, APP_URL, DEMO_KEYS
 
 if TYPE_CHECKING:
     from roboflow.core.device import Device
+    from roboflow.core.model_eval import ModelEval
 
 
 class Workspace:
@@ -130,6 +131,32 @@ class Workspace:
             raise RuntimeError(r.json()["error"])
 
         return Project(self.__api_key, r.json(), self.model_format)
+
+    def fork_project(
+        self,
+        *,
+        url: Optional[str] = None,
+        source_project_slug: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Fork a public Universe project into this workspace.
+
+        Args:
+            url: Universe project URL.
+            source_project_slug: Source project slug when not using ``url``.
+
+        Returns:
+            The API response, typically ``{"taskId": "...", "url": "..."}``.
+        """
+        return rfapi.fork_project(
+            self.__api_key,
+            self.url,
+            url=url,
+            source_project_slug=source_project_slug,
+        )
+
+    def get_async_task(self, task_id: str) -> Dict[str, Any]:
+        """Return the current status of an async task owned by this workspace."""
+        return rfapi.get_async_task(self.__api_key, self.url, task_id)
 
     def devices(self) -> List["Device"]:
         """List v2 devices registered in this workspace.
@@ -400,7 +427,8 @@ class Workspace:
             is_prediction (bool, optional): whether the annotations provided in the dataset are predictions and not ground truth. Defaults to False.
             use_zip_upload (bool, optional): opt-in to the zip flow for a directory input (the SDK zips it client-side). Ignored when dataset_path is already a `.zip`.
             tags (list[str], optional): zip flow only — tags to apply to the uploaded batch.
-            split (str, optional): zip flow only — dataset split for the uploaded batch.
+            split (str, optional): dataset split for the uploaded batch. In per-image directory
+                uploads, this overrides inferred splits for every image.
             wait (bool, optional): zip flow only — poll for processing completion. Defaults to True.
             poll_interval (float, optional): zip flow only — seconds between status polls.
             poll_timeout (float, optional): zip flow only — total seconds to wait before timing out.
@@ -462,6 +490,9 @@ class Workspace:
         is_classification = project.type == "classification"
         parsed_dataset = folderparser.parsefolder(dataset_path, is_classification=is_classification)
         images = parsed_dataset["images"]
+        if split is not None:
+            for image in images:
+                image["split"] = split
 
         location = parsed_dataset["location"]
 
@@ -1054,6 +1085,18 @@ class Workspace:
 
         return rfapi.create_folder(self.__api_key, self.url, name, parent_id=parent_id, project_ids=project_ids)
 
+    def add_projects_to_folder(self, group_id, project_ids):
+        """Add projects to an existing folder."""
+        from roboflow.adapters import rfapi
+
+        return rfapi.add_projects_to_folder(self.__api_key, self.url, group_id, project_ids)
+
+    def remove_projects_from_folder(self, group_id, project_ids):
+        """Remove projects from a folder."""
+        from roboflow.adapters import rfapi
+
+        return rfapi.remove_projects_from_folder(self.__api_key, self.url, group_id, project_ids)
+
     # -----------------------------------------------------------------
     # Phase 2: Workflow management
     # -----------------------------------------------------------------
@@ -1405,6 +1448,73 @@ class Workspace:
             name=name,
             metadata=metadata,
         )
+
+    # -----------------------------------------------------------------
+    # Model evaluations
+    # -----------------------------------------------------------------
+
+    def evals(
+        self,
+        *,
+        project: Optional[str] = None,
+        version: Optional[str] = None,
+        model: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List["ModelEval"]:
+        """List model evaluations in this workspace.
+
+        Args:
+            project: Filter by project slug or id.
+            version: Filter by version id (or numeric version).
+            model: Filter by model id.
+            status: Filter by status — one of ``"running"``, ``"done"``, ``"failed"``.
+            limit: Max evals to return (server caps at 200; default 50).
+
+        Returns:
+            A list of :class:`ModelEval` instances pre-populated with the
+            metadata from the list response (``status``, ``createdAt``, etc.).
+            Call :meth:`ModelEval.refresh` to re-fetch the header, or any
+            panel method to load detailed data.
+
+        Example:
+            >>> ws = rf.workspace("lee-sandbox")
+            >>> done = ws.evals(status="done", limit=5)
+            >>> for ev in done:
+            ...     print(ev.id, ev.summary)
+        """
+        from roboflow.core.model_eval import ModelEval
+
+        result = rfapi.list_model_evals(
+            self.__api_key,
+            self.url,
+            project=project,
+            version=version,
+            model=model,
+            status=status,
+            limit=limit,
+        )
+        # Server returns `evalId` (per DNA); fall back to legacy `id` for forward-compat.
+        return [
+            ModelEval(self.__api_key, self.url, e.get("evalId") or e["id"], info=e) for e in result.get("evals", [])
+        ]
+
+    def eval(self, eval_id: str) -> "ModelEval":
+        """Fetch a single model eval by id.
+
+        Raises:
+            roboflow.adapters.rfapi.ModelEvalNotFoundError: If the id doesn't
+                exist in this workspace (HTTP 404).
+
+        Example:
+            >>> ws = rf.workspace("lee-sandbox")
+            >>> ev = ws.eval("huUF720inUcymARwqAGK")
+            >>> ev.summary["mAP"]
+        """
+        from roboflow.core.model_eval import ModelEval
+
+        info = rfapi.get_model_eval(self.__api_key, self.url, eval_id)
+        return ModelEval(self.__api_key, self.url, info.get("id", eval_id), info=info)
 
     def trash(self) -> dict:
         """

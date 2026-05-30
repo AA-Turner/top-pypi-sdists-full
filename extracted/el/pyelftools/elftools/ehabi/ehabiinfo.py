@@ -6,6 +6,10 @@
 # LeadroyaL (leadroyal@qq.com)
 # This code is in the public domain
 # -------------------------------------------------------------------------------
+from __future__ import annotations
+
+from functools import cached_property
+from typing import TYPE_CHECKING
 
 from ..common.utils import struct_parse
 
@@ -13,8 +17,12 @@ from .decoder import EHABIBytecodeDecoder
 from .constants import EHABI_INDEX_ENTRY_SIZE
 from .structs import EHABIStructs
 
+if TYPE_CHECKING:
+    from ..elf.sections import Section
+    from .decoder import MnemonicItem
 
-class EHABIInfo(object):
+
+class EHABIInfo:
     """ ARM exception handler abi information class.
 
         Parameters:
@@ -26,29 +34,30 @@ class EHABIInfo(object):
                 bool, endianness of elf file.
     """
 
-    def __init__(self, arm_idx_section, little_endian):
+    def __init__(self, arm_idx_section: Section, little_endian: bool) -> None:
         self._arm_idx_section = arm_idx_section
         self._struct = EHABIStructs(little_endian)
-        self._num_entry = None
 
-    def section_name(self):
+    def section_name(self) -> str:
         return self._arm_idx_section.name
 
-    def section_offset(self):
+    def section_offset(self) -> int:
         return self._arm_idx_section['sh_offset']
 
-    def num_entry(self):
+    def num_entry(self) -> int:
         """ Number of exception handler entry in the section.
         """
-        if self._num_entry is None:
-            self._num_entry = self._arm_idx_section['sh_size'] // EHABI_INDEX_ENTRY_SIZE
         return self._num_entry
 
-    def get_entry(self, n):
+    @cached_property
+    def _num_entry(self) -> int:
+        return self._arm_idx_section['sh_size'] // EHABI_INDEX_ENTRY_SIZE
+
+    def get_entry(self, n: int) -> EHABIEntry:
         """ Get the exception handler entry at index #n. (EHABIEntry object or a subclass)
         """
         if n >= self.num_entry():
-            raise IndexError('Invalid entry %d/%d' % (n, self._num_entry))
+            raise IndexError('Invalid entry %d/%d' % (n, self.num_entry()))
         eh_index_entry_offset = self.section_offset() + n * EHABI_INDEX_ENTRY_SIZE
         eh_index_data = struct_parse(self._struct.EH_index_struct, self._arm_idx_section.stream, eh_index_entry_offset)
         word0, word1 = eh_index_data['word0'], eh_index_data['word1']
@@ -101,7 +110,7 @@ class EHABIInfo(object):
             return EHABIEntry(function_offset, 0, opcode)
 
 
-class EHABIEntry(object):
+class EHABIEntry:
     """ Exception handler abi entry.
 
         Accessible attributes:
@@ -133,13 +142,15 @@ class EHABIEntry(object):
 
     """
 
-    def __init__(self,
-                 function_offset,
-                 personality,
-                 bytecode_array,
-                 eh_table_offset=None,
-                 unwindable=True,
-                 corrupt=False):
+    def __init__(
+        self,
+        function_offset: int | None,
+        personality: int | None,
+        bytecode_array: list[int] | None,
+        eh_table_offset: int | None = None,
+        unwindable: bool = True,
+        corrupt: bool = False,
+    ) -> None:
         self.function_offset = function_offset
         self.personality = personality
         self.bytecode_array = bytecode_array
@@ -147,30 +158,35 @@ class EHABIEntry(object):
         self.unwindable = unwindable
         self.corrupt = corrupt
 
-    def mnmemonic_array(self):
+    def mnmemonic_array(self) -> list[MnemonicItem] | None:
         if self.bytecode_array:
             return EHABIBytecodeDecoder(self.bytecode_array).mnemonic_array
         else:
             return None
 
-    def __repr__(self):
-        return "<EHABIEntry function_offset=0x%x, personality=%d, %sbytecode=%s>" % (
-            self.function_offset,
-            self.personality,
-            "eh_table_offset=0x%x, " % self.eh_table_offset if self.eh_table_offset else "",
-            self.bytecode_array)
+    def __repr__(self) -> str:
+        fo = self.function_offset
+        to = self.eh_table_offset
+        return (
+            "<EHABIEntry"
+            f" function_offset={'' if fo is None else '{fo:#x}'}"
+            f", personaality={self.personality}"
+            f"{', eh_table_offset={to:#x}' if to else ''}"
+            f", bytecode={self.bytecode_array}"
+            ">"
+        )
 
 
 class CorruptEHABIEntry(EHABIEntry):
     """ This entry is corrupt. Attribute #corrupt will be True.
     """
 
-    def __init__(self, reason):
-        super(CorruptEHABIEntry, self).__init__(function_offset=None, personality=None, bytecode_array=None,
+    def __init__(self, reason: str) -> None:
+        super().__init__(function_offset=None, personality=None, bytecode_array=None,
                                                 corrupt=True)
         self.reason = reason
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<CorruptEHABIEntry reason=%s>" % self.reason
 
 
@@ -178,11 +194,14 @@ class CannotUnwindEHABIEntry(EHABIEntry):
     """ This function cannot be unwind. Attribute #unwindable will be False.
     """
 
-    def __init__(self, function_offset):
-        super(CannotUnwindEHABIEntry, self).__init__(function_offset, personality=None, bytecode_array=None,
+    if TYPE_CHECKING:
+        function_offset: int  # instead of `int|None` to save `is None` checks everywhere
+
+    def __init__(self, function_offset: int) -> None:
+        super().__init__(function_offset, personality=None, bytecode_array=None,
                                                      unwindable=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<CannotUnwindEHABIEntry function_offset=0x%x>" % self.function_offset
 
 
@@ -190,14 +209,18 @@ class GenericEHABIEntry(EHABIEntry):
     """ This entry is generic model rather than ARM compact model.Attribute #bytecode_array will be None.
     """
 
-    def __init__(self, function_offset, personality):
-        super(GenericEHABIEntry, self).__init__(function_offset, personality, bytecode_array=None)
+    if TYPE_CHECKING:
+        function_offset: int  # instead of `int|None` to save `is None` checks everywhere
+        personality: int
 
-    def __repr__(self):
+    def __init__(self, function_offset: int, personality: int) -> None:
+        super().__init__(function_offset, personality, bytecode_array=None)
+
+    def __repr__(self) -> str:
         return "<GenericEHABIEntry function_offset=0x%x, personality=0x%x>" % (self.function_offset, self.personality)
 
 
-def arm_expand_prel31(address, place):
+def arm_expand_prel31(address: int, place: int) -> int:
     """
        address: uint32
        place: uint32

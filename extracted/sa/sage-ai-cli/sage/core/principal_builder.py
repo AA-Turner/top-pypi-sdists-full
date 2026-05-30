@@ -101,6 +101,8 @@ class PrincipalBuildReport:
     polish: dict = field(default_factory=dict)
     verify_reports: list[dict] = field(default_factory=list)
     install_ok: bool | None = None
+    build_ok: bool | None = None
+    runs_ok: bool | None = None
     tests_ok: bool | None = None
     stuck_features: list[str] = field(default_factory=list)
 
@@ -226,11 +228,10 @@ def _heal_until_green(
     log: ProgressFn,
     max_rounds: int = 3,
     stuck_threshold: int = 2,
-) -> tuple[bool, bool, list[VerifyReport]]:
-    """Loop deterministic-then-LLM repairs until install + tests both pass.
+) -> tuple[bool, bool, bool, bool, list[VerifyReport]]:
+    """Loop deterministic-then-LLM repairs until install, build, run, + tests all pass.
 
-    Called only when the post-polish state is `install_ok=False` or
-    `tests_ok=False`. Each round:
+    Called only when the post-polish state has any failures. Each round:
       1. Drop deprecated deps from requirements/pyproject (handles the
          class of bug where the LLM keeps re-emitting paypalcheckoutsdk).
       2. Re-run code doctors (truncated __init__, indent fixes, missing
@@ -239,12 +240,12 @@ def _heal_until_green(
          logs as context.
       4. Run a verify pass; if green, return.
 
-    Returns (install_ok, tests_ok, latest_verify_reports).
+    Returns (install_ok, build_ok, runs_ok, tests_ok, latest_verify_reports).
     """
     log(f"[heal] entering heal loop (cap={max_rounds} rounds)")
 
     last_reports: list[VerifyReport] = []
-    install_ok = tests_ok = False
+    install_ok = build_ok = runs_ok = tests_ok = False
 
     for round_idx in range(1, max_rounds + 1):
         log(f"[heal] round {round_idx}/{max_rounds}")
@@ -284,19 +285,21 @@ def _heal_until_green(
         )
 
         install_ok = all(r.install_ok in (True, None) for r in last_reports)
+        build_ok = all(r.build_ok in (True, None) for r in last_reports)
+        runs_ok = all(r.runs_ok in (True, None) for r in last_reports)
         # We're stricter than the caller here: a build with no test step
         # detected is NOT considered green. We always scaffold tests, so a
         # missing test step means the verify discovery missed something.
         tests_ok = bool(last_reports) and all(
             r.tests_ok is True for r in last_reports
         )
-        if install_ok and tests_ok:
+        if install_ok and build_ok and runs_ok and tests_ok:
             log(f"[heal] round {round_idx}: GREEN")
-            return install_ok, tests_ok, last_reports
+            return install_ok, build_ok, runs_ok, tests_ok, last_reports
 
-        log(f"[heal] round {round_idx}: install_ok={install_ok} tests_ok={tests_ok}")
+        log(f"[heal] round {round_idx}: install_ok={install_ok} build_ok={build_ok} runs_ok={runs_ok} tests_ok={tests_ok}")
 
-    return install_ok, tests_ok, last_reports
+    return install_ok, build_ok, runs_ok, tests_ok, last_reports
 
 
 # ──────────────────────── public entry ─────────────────────────────────
@@ -721,8 +724,7 @@ def _build_project_principal_inner(
 
                 with _log_lock:
                     _completed[0] += 1
-                    if _completed[0] % 10 == 0 or _completed[0] == _total:
-                        log(f"      [{_completed[0]}/{_total}] {slot.path}")
+                    log(f"      [{_completed[0]}/{_total}] {slot.path}")
             except Exception as exc:  # noqa: BLE001
                 # Individual file failures shouldn't kill the whole build.
                 # Log and continue — heal loop will retry later.
@@ -807,6 +809,8 @@ def _build_project_principal_inner(
     )
 
     install_ok = all(r.install_ok in (True, None) for r in verify_reports)
+    build_ok = all(r.build_ok in (True, None) for r in verify_reports)
+    runs_ok = all(r.runs_ok in (True, None) for r in verify_reports)
     tests_ok = all(r.tests_ok in (True, None) for r in verify_reports)
 
     # ── 9. Final polish — types/* deps + ruff/eslint --fix + final verify ──
@@ -818,14 +822,18 @@ def _build_project_principal_inner(
     polish = run_final_polish(out_dir, log=log)
     if polish.final_install_ok is not None:
         install_ok = polish.final_install_ok
+    if polish.final_build_ok is not None:
+        build_ok = polish.final_build_ok
+    if polish.final_runs_ok is not None:
+        runs_ok = polish.final_runs_ok
     if polish.final_tests_ok is not None:
         tests_ok = polish.final_tests_ok
 
     # ── 10. Heal-until-green ── sage MUST NOT report success when the
     # generated code can't install or its tests don't pass. This loop is
     # the user's "do not allow sage to complete early" guarantee.
-    if enable_heal and (install_ok is False or tests_ok is False):
-        install_ok, tests_ok, heal_reports = _heal_until_green(
+    if enable_heal and (install_ok is False or build_ok is False or runs_ok is False or tests_ok is False):
+        install_ok, build_ok, runs_ok, tests_ok, heal_reports = _heal_until_green(
             out_dir,
             generate=generate,
             log=log,
@@ -835,7 +843,7 @@ def _build_project_principal_inner(
         if heal_reports:
             verify_reports = heal_reports  # use latest in the persisted report
 
-    log(f"complete. install_ok={install_ok} tests_ok={tests_ok}")
+    log(f"complete. install_ok={install_ok} build_ok={build_ok} runs_ok={runs_ok} tests_ok={tests_ok}")
 
     report = PrincipalBuildReport(
         title=plan.title,
@@ -864,11 +872,15 @@ def _build_project_principal_inner(
                     for s in r.steps
                 ],
                 "install_ok": r.install_ok,
+                "build_ok": r.build_ok,
+                "runs_ok": r.runs_ok,
                 "tests_ok": r.tests_ok,
             }
             for r in verify_reports
         ],
         install_ok=install_ok,
+        build_ok=build_ok,
+        runs_ok=runs_ok,
         tests_ok=tests_ok,
     )
 
@@ -880,9 +892,9 @@ def _build_project_principal_inner(
     # Surface a hard failure if the heal loop couldn't make the build
     # green. Caller (CLI) is expected to catch BuildIncomplete and present
     # a clear message — sage MUST NOT silently return a broken project.
-    if enable_heal and (install_ok is False or tests_ok is False):
+    if enable_heal and (install_ok is False or build_ok is False or runs_ok is False or tests_ok is False):
         raise BuildIncomplete(
-            f"build did not converge: install_ok={install_ok} tests_ok={tests_ok}",
+            f"build did not converge: install_ok={install_ok} build_ok={build_ok} runs_ok={runs_ok} tests_ok={tests_ok}",
             report,
         )
 

@@ -17,6 +17,7 @@ from ouroboros.bigbang.question_classifier import (
 from ouroboros.core.types import Result
 from ouroboros.mcp.tools.pm_handler import (
     _DATA_DIR,
+    PM_UNCERTAINTY_GUIDANCE,
     PMInterviewHandler,
     _check_completion,
     _compute_deferred_diff,
@@ -629,6 +630,26 @@ class TestGetEngine:
             call_kwargs = mock_engine_cls.create.call_args
             assert call_kwargs.kwargs["state_dir"] == tmp_path
 
+    @pytest.mark.asyncio
+    async def test_start_response_places_uncertainty_guidance_before_question(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """MCP start response must show PM uncertainty guidance before question text."""
+        engine = _make_engine_stub()
+        state = _make_state(interview_id="pm_guidance")
+        engine.ask_opening_and_start = AsyncMock(return_value=Result.ok(state))
+        engine.ask_next_question = AsyncMock(return_value=Result.ok("What should we build first?"))
+        engine.save_state = AsyncMock(return_value=Result.ok(tmp_path / "pm_guidance.json"))
+        handler = PMInterviewHandler(pm_engine=engine, data_dir=tmp_path)
+
+        result = await handler.handle({"initial_context": "Build a launch checklist"})
+
+        assert result.is_ok
+        text = result.value.text_content
+        assert PM_UNCERTAINTY_GUIDANCE in text
+        assert text.index(PM_UNCERTAINTY_GUIDANCE) < text.index("What should we build first?")
+
 
 # ── Action auto-detection tests (AC 13) ───────────────────────
 
@@ -772,3 +793,40 @@ class TestDetectAction:
             }
         )
         assert result == "start"
+
+
+class TestSelectReposSessionContinuity:
+    """Regression coverage for the in-process 2-step PM start flow."""
+
+    async def test_select_repos_continues_existing_session_id(self, tmp_path: Path) -> None:
+        """Step 2 must start the interview under the session created in step 1."""
+        session_id = "interview_existing_session"
+        _save_pm_meta(
+            session_id,
+            engine=None,
+            cwd="/tmp/project",
+            data_dir=tmp_path,
+            extra={"initial_context": "Build a planning app"},
+        )
+
+        engine = _make_engine_stub()
+        engine.ask_opening_and_start = AsyncMock(return_value=Result.ok(_make_state(session_id)))
+        engine.ask_next_question = AsyncMock(return_value=Result.ok("What should it do first?"))
+        engine.save_state = AsyncMock(return_value=Result.ok(None))
+
+        handler = PMInterviewHandler(pm_engine=engine, data_dir=tmp_path)
+        result = await handler._handle_select_repos(
+            engine,
+            selected_repos=[],
+            session_id=session_id,
+            initial_context=None,
+            cwd="/tmp/project",
+        )
+
+        assert result.is_ok
+        engine.ask_opening_and_start.assert_awaited_once_with(
+            user_response="Build a planning app",
+            interview_id=session_id,
+            brownfield_repos=None,
+        )
+        assert result.value.meta["session_id"] == session_id

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ethpm-types
-Version: 0.6.30
+Version: 0.6.31
 Summary: ethpm_types: Implementation of EIP-2678
 Author-email: "ApeWorX Ltd." <admin@apeworx.io>
 License: Apache-2.0

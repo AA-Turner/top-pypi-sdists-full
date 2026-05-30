@@ -79,6 +79,7 @@ __all__ = (
     "SuppressionConfidenceVerdictThresholdType",
     "SuppressionListImportActionType",
     "SuppressionListReasonType",
+    "SuppressionListScopeType",
     "TlsPolicyType",
     "VerificationErrorType",
     "VerificationStatusType",
@@ -210,6 +211,7 @@ SubscriptionStatusType = Literal["OPT_IN", "OPT_OUT"]
 SuppressionConfidenceVerdictThresholdType = Literal["HIGH", "MANAGED", "MEDIUM"]
 SuppressionListImportActionType = Literal["DELETE", "PUT"]
 SuppressionListReasonType = Literal["BOUNCE", "COMPLAINT"]
+SuppressionListScopeType = Literal["ACCOUNT", "TENANT"]
 TlsPolicyType = Literal["OPTIONAL", "REQUIRE"]
 VerificationErrorType = Literal[
     "DNS_SERVER_ERROR",
@@ -550,6 +552,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",

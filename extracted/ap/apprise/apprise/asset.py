@@ -147,6 +147,23 @@ class AppriseAsset:
     # to a new line.
     interpret_escapes = False
 
+    # Default number of retries after a first notification failure.
+    # Individual plugins may override this via their ?retry= URL parameter
+    # or the 'retry:' YAML key.  Clamped to [0, APPRISE_MAX_SERVICE_RETRY].
+    default_service_retry = 0
+
+    # Default wait (in seconds) between retry attempts.  Individual plugins
+    # may override this via their ?wait= URL parameter or the 'wait:' YAML
+    # key.  Clamped to [0.0, APPRISE_MAX_SERVICE_WAIT].
+    default_service_wait = 0.5
+
+    # When True, as soon as any independent OR tag chain exhausts all its
+    # priority groups without success, notify() / async_notify() return False
+    # immediately without running further escalation rounds for the surviving
+    # chains.  When False (the default), all chains are allowed to complete
+    # regardless of whether another chain has already failed.
+    abort_on_chain_failure = False
+
     # Defines the encoding of the content passed into Apprise
     encoding = "utf-8"
 
@@ -172,6 +189,13 @@ class AppriseAsset:
     # choose to disable this for a slight performance bump. It is recommended
     # that you leave this option as is otherwise.
     secure_logging = True
+
+    # By default, HTTP redirects (3xx responses) are followed, matching the
+    # behaviour of the underlying requests library. Set this to False to
+    # disable redirect following globally across all plugins without having
+    # to add redirect=no to every individual URL. Individual URLs can still
+    # override this via the redirect= parameter.
+    http_redirects = True
 
     # Optionally specify one or more path to attempt to scan for Python modules
     # By default, no paths are scanned.

@@ -23,6 +23,7 @@
 #include "flashinfer/trtllm/fused_moe/DevKernel.h"
 #include "flashinfer/trtllm/fused_moe/RoutingKernel.h"
 #include "flashinfer/trtllm/fused_moe/runner.h"
+#include "tensorrt_llm/common/envUtils.h"
 #include "tensorrt_llm/kernels/quantization.h"
 
 namespace tensorrt_llm {
@@ -55,10 +56,10 @@ void Runner::run(void* routingLogits, void* routingBias, int32_t numTokens, int3
                  int32_t localNumExperts, float routedScalingFactor, int32_t* routingExpertIndexes,
                  int32_t* expertCountHistogram, int32_t* permutedIdxSize,
                  int32_t* expandedIdxToPermutedIdx, int32_t* permutedIdxToExpandedIdx,
-                 int32_t* permutedIdxToTokenIdx, void* expertWeights, int32_t* numTokensPerExpert,
-                 int32_t* ctaIdxXyToBatchIdx, int32_t* ctaIdxXyToMnLimit,
-                 int32_t* numNonExitingCtas, btg::Dtype dtypeElt, btg::Dtype dtypeBias,
-                 bool useRoutingScalesOnInput, bool useDeepSeekFp8,
+                 int32_t* permutedIdxToTokenIdx, int32_t* expertIds, void* expertWeights,
+                 int32_t* numTokensPerExpert, int32_t* ctaIdxXyToBatchIdx,
+                 int32_t* ctaIdxXyToMnLimit, int32_t* numNonExitingCtas, btg::Dtype dtypeElt,
+                 btg::Dtype dtypeBias, bool useRoutingScalesOnInput, bool useDeepSeekFp8,
                  RoutingMethodType routingMethodType, cudaStream_t stream, btg::Dtype dtypeLogits,
                  bool normTopkProb, int16_t* routing_replay_out) {
   if (routingMethodType == RoutingMethodType::DeepSeekV3 && nGroup <= 1) {
@@ -76,7 +77,8 @@ void Runner::run(void* routingLogits, void* routingBias, int32_t numTokens, int3
     routingData.mDtypeBias = dtypeBias;
     routingData.mRouteScale = routedScalingFactor;
 
-    routingData.mPtrScores = routingLogits;
+    routingData.mPtrScores = expertIds == nullptr ? routingLogits : nullptr;
+    routingData.mPtrTopKIds = expertIds;
     routingData.mPtrTopKPacked = routingExpertIndexes;
     routingData.mPtrExpertCounts = expertCountHistogram;
     routingData.mPtrPermutedIdxSize = permutedIdxSize;
@@ -116,7 +118,8 @@ void Runner::run(void* routingLogits, void* routingBias, int32_t numTokens, int3
     routingData.mRouteScale = 1.0f;
     routingData.mSumEpsilon = 1e-20f;
 
-    routingData.mPtrScores = routingLogits;
+    routingData.mPtrScores = expertIds == nullptr ? routingLogits : nullptr;
+    routingData.mPtrTopKIds = expertIds;
     routingData.mPtrTopKPacked = routingExpertIndexes;
     routingData.mPtrExpertCounts = expertCountHistogram;
     routingData.mPtrPermutedIdxSize = permutedIdxSize;
@@ -165,7 +168,9 @@ void Runner::run(void* routingLogits, void* routingBias, int32_t numTokens, int3
 
     // input:
     routingData.mPtrRoutingBias = routingBias;
-    routingData.mPtrScores = routingLogits;  // type-erased; InputT selected by forceFloatInput
+    // Pre-computed routing support: when expertIds is provided, use it directly
+    routingData.mPtrScores = expertIds == nullptr ? routingLogits : nullptr;
+    routingData.mPtrTopKIds = expertIds;
     routingData.mNumTokens = numTokens;
     routingData.mNumExperts = numExperts;
     routingData.mNumExpertGroups = nGroup;
@@ -205,7 +210,9 @@ void Runner::run(void* routingLogits, void* routingBias, int32_t numTokens, int3
     routingData.mPtrNumNonExitingCtas = numNonExitingCtas;
 
     // input:
-    routingData.mPtrScores = routingLogits;
+    // Pre-computed routing support: when expertIds is provided, use it directly
+    routingData.mPtrScores = expertIds == nullptr ? routingLogits : nullptr;
+    routingData.mPtrTopKIds = expertIds;
     routingData.mNumTokens = numTokens;
     routingData.mNumExperts = numExperts;
     routingData.mTopK = topK;
@@ -265,7 +272,9 @@ void Runner::run(void* routingLogits, void* routingBias, int32_t numTokens, int3
       routingData.mPostprocessType = RoutingPostprocessType::None;
     }
 
-    routingData.mPtrScores = routingLogits;
+    // Pre-computed routing support: when expertIds is provided, use it directly
+    routingData.mPtrScores = expertIds == nullptr ? routingLogits : nullptr;
+    routingData.mPtrTopKIds = expertIds;
 
     //
     // Outputs
@@ -765,8 +774,11 @@ void Runner::run(MoERunnerArgs const& args, MoEWorkspace const& workspace, int d
     auto sfLayout = mGemm2.mTileTokensDim >= 128 ? QuantizationSFLayout::SWIZZLED_128x4
                                                  : QuantizationSFLayout::SWIZZLED_8x4;
 
-    // TODO(siyuan): should this value be exposed?
-    float globalScaleInv = 1.f / 448.f / 6.f;
+    float globalScaleInv = 1.f / (448.f * 6.f);
+    if (tensorrt_llm::common::getEnvNVFP4Use4Over6() &&
+        tensorrt_llm::common::getEnvNVFP44Over6E4M3Use256()) {
+      globalScaleInv = 1.f / (256.f * 6.f);
+    }
     invokeNvfp4QuantAndPerTokenScale<__nv_bfloat16>(
         args.num_tokens * args.top_k, args.intermediate_size,
         reinterpret_cast<__nv_bfloat16 const*>(workspace.gemm1_output), globalScaleInv,

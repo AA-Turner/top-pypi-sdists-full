@@ -12,29 +12,38 @@ Specifically pinned here:
   in-flight refresh task;
 * lazy lock allocation — ``_refresh_lock`` and ``_auth_snapshot_lock`` are
   ``None`` at construction and materialize on first use;
-* ``update_auth_tokens`` writes ONLY ``host.auth.csrf_token`` and
-  ``host.auth.session_id`` (does NOT touch the http client);
-* ``update_auth_headers`` syncs ``host.auth.cookie_jar`` from
-  ``host.get_http_client().cookies`` (the SEPARATE cookie-jar sync surface);
+* ``update_auth_tokens`` writes ONLY ``auth.csrf_token`` and
+  ``auth.session_id`` (does NOT touch the http client);
+* ``update_auth_headers`` syncs ``auth.cookie_jar`` from
+  ``kernel.get_http_client().cookies`` (the SEPARATE cookie-jar sync
+  surface; Wave 11b of session-decoupling routes the live HTTP client
+  through the :class:`Kernel` collaborator rather than a
+  ``Session.get_http_client`` forward);
 * ``await_refresh`` cancellation propagation — a cancelled waiter unwinds
   locally without killing the shared refresh task, and the task slot is
   preserved across cancellation.
 
-Tests are intentionally helper-shaped (instantiate ``AuthRefreshCoordinator``
-directly with a Protocol-conformant stub host) so they cover the coordinator
-without taking on a ``Session`` dependency.
+The coordinator no longer accepts a Session-shaped ``_AuthRefreshHost``
+host — :meth:`snapshot` and :meth:`update_auth_tokens` take an explicit
+``auth: AuthTokens`` kwarg, :meth:`update_auth_headers` takes ``auth`` +
+``kernel: Kernel`` kwargs, and lock-wait latency is recorded through the
+coordinator's own ``self._metrics`` (supplied at construction). The
+tests below pass each collaborator explicitly; there is no host shape
+to fake.
 """
 
 from __future__ import annotations
 
 import asyncio
 import inspect
-from typing import Any
+from collections.abc import AsyncIterator
+from typing import cast
 
 import httpx
 import pytest
 
 from notebooklm._client_metrics import ClientMetrics
+from notebooklm._kernel import Kernel
 from notebooklm._session_auth import AuthRefreshCoordinator
 from notebooklm.auth import AuthTokens
 
@@ -43,26 +52,16 @@ from notebooklm.auth import AuthTokens
 EVENT_TIMEOUT_S = 5.0
 
 
-class _StubHost:
-    """Minimal :class:`_AuthRefreshHost`-conformant host for unit tests.
+class _KernelStub:
+    """Minimal kernel-shaped stub exposing only :meth:`get_http_client`.
 
-    Mirrors the live ``Session`` shape:
-    * ``auth`` is a real :class:`AuthTokens` — :meth:`update_auth_tokens`
-      writes ``csrf_token`` / ``session_id`` directly on it.
-    * ``_metrics_obj`` is a real :class:`ClientMetrics` — the coordinator's
-      :meth:`record_lock_wait` calls land on it.
-    * :meth:`get_http_client` returns an ``httpx.AsyncClient`` whose cookie
-      jar :meth:`update_auth_headers` reads. The client's lifecycle is
-      owned by the test fixture (`http_host`), not by the stub.
+    The coordinator's :meth:`update_auth_headers` reads
+    ``kernel.get_http_client().cookies`` and nothing else; an
+    ``httpx.AsyncClient``-backed shim satisfies that surface without
+    pulling in the full :class:`Kernel`.
     """
 
     def __init__(self, http_client: httpx.AsyncClient | None = None) -> None:
-        self.auth = AuthTokens(
-            csrf_token="CSRF_OLD",
-            session_id="SID_OLD",
-            cookies={"SID": "old_cookie"},
-        )
-        self._metrics_obj = ClientMetrics(on_rpc_event=None)
         self.http_client = http_client
 
     def get_http_client(self) -> httpx.AsyncClient:
@@ -70,21 +69,28 @@ class _StubHost:
         return self.http_client
 
 
-@pytest.fixture
-def stub_host() -> _StubHost:
-    """A coordinator host with no http client wired."""
-    return _StubHost()
+def _fresh_auth() -> AuthTokens:
+    return AuthTokens(
+        csrf_token="CSRF_OLD",
+        session_id="SID_OLD",
+        cookies={"SID": "old_cookie"},
+    )
 
 
 @pytest.fixture
-async def http_host() -> Any:
-    """A coordinator host with a real ``httpx.AsyncClient`` wired."""
+def auth() -> AuthTokens:
+    """A fresh :class:`AuthTokens` per test (the coordinator mutates it)."""
+    return _fresh_auth()
+
+
+@pytest.fixture
+async def auth_with_kernel() -> AsyncIterator[tuple[AuthTokens, _KernelStub]]:
+    """``(auth, kernel)`` with a real ``httpx.AsyncClient`` wired."""
     async with httpx.AsyncClient() as client:
         # Pre-populate a cookie so ``update_auth_headers`` has something to
         # observe propagating from the live jar to ``auth.cookie_jar``.
         client.cookies.set("SID", "live_jar_cookie")
-        host = _StubHost(http_client=client)
-        yield host
+        yield _fresh_auth(), _KernelStub(http_client=client)
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +157,7 @@ async def test_snapshot_and_refresh_locks_are_distinct() -> None:
 
 @pytest.mark.asyncio
 async def test_update_auth_tokens_writes_csrf_and_session_id_only(
-    http_host: _StubHost,
+    auth_with_kernel: tuple[AuthTokens, _KernelStub],
 ) -> None:
     """``update_auth_tokens`` mutates ONLY ``auth.csrf_token`` + ``auth.session_id``.
 
@@ -160,23 +166,24 @@ async def test_update_auth_tokens_writes_csrf_and_session_id_only(
     prevents a "helpful" maintainer from conflating the two and reopening
     the torn-state window the snapshot lock exists to close.
     """
+    auth, kernel = auth_with_kernel
     coord = AuthRefreshCoordinator()
-    pre_client_cookies = dict(http_host.get_http_client().cookies)
-    pre_auth_cookies = dict(http_host.auth.cookies)
+    pre_client_cookies = dict(kernel.get_http_client().cookies)
+    pre_auth_cookies = dict(auth.cookies)
 
-    await coord.update_auth_tokens(http_host, csrf="CSRF_NEW", session_id="SID_NEW")
+    await coord.update_auth_tokens(auth=auth, csrf="CSRF_NEW", session_id="SID_NEW")
 
-    assert http_host.auth.csrf_token == "CSRF_NEW"
-    assert http_host.auth.session_id == "SID_NEW"
+    assert auth.csrf_token == "CSRF_NEW"
+    assert auth.session_id == "SID_NEW"
     # http_client untouched
-    assert dict(http_host.get_http_client().cookies) == pre_client_cookies
+    assert dict(kernel.get_http_client().cookies) == pre_client_cookies
     # auth.cookies untouched (cookie sync is update_auth_headers's job)
-    assert dict(http_host.auth.cookies) == pre_auth_cookies
+    assert dict(auth.cookies) == pre_auth_cookies
 
 
 @pytest.mark.asyncio
 async def test_update_auth_tokens_holds_snapshot_lock_on_entry(
-    stub_host: _StubHost,
+    auth: AuthTokens,
 ) -> None:
     """The write happens under the snapshot lock — proved by contention.
 
@@ -200,7 +207,7 @@ async def test_update_auth_tokens_holds_snapshot_lock_on_entry(
     holder = asyncio.create_task(hold_lock())
     await asyncio.wait_for(enter_held.wait(), EVENT_TIMEOUT_S)
 
-    write_task = asyncio.create_task(coord.update_auth_tokens(stub_host, csrf="X", session_id="Y"))
+    write_task = asyncio.create_task(coord.update_auth_tokens(auth=auth, csrf="X", session_id="Y"))
     # Yield a few times so the writer reaches lock.acquire() and blocks.
     for _ in range(5):
         await asyncio.sleep(0)
@@ -214,8 +221,156 @@ async def test_update_auth_tokens_holds_snapshot_lock_on_entry(
     await asyncio.wait_for(holder, EVENT_TIMEOUT_S)
     await asyncio.wait_for(write_task, EVENT_TIMEOUT_S)
 
-    assert stub_host.auth.csrf_token == "X"
-    assert stub_host.auth.session_id == "Y"
+    assert auth.csrf_token == "X"
+    assert auth.session_id == "Y"
+
+
+# ---------------------------------------------------------------------------
+# Lock-wait metrics — record_lock_wait routes through self._metrics
+# ---------------------------------------------------------------------------
+
+
+class _RecordingMetrics:
+    """Captures every :meth:`record_lock_wait` call (test seam only).
+
+    Production code uses :class:`notebooklm._client_metrics.ClientMetrics`;
+    this spy mirrors only the one method ``AuthRefreshCoordinator`` calls
+    so the test asserts the metric path independent of the broader
+    ``ClientMetrics`` API surface.
+    """
+
+    def __init__(self) -> None:
+        self.lock_waits: list[float] = []
+
+    def record_lock_wait(self, duration: float) -> None:
+        self.lock_waits.append(duration)
+
+
+@pytest.mark.asyncio
+async def test_snapshot_records_lock_wait_through_constructor_metrics(
+    auth: AuthTokens,
+) -> None:
+    """``snapshot`` routes ``record_lock_wait`` through the coordinator's
+    own ``self._metrics`` (supplied at construction), NOT through a
+    host-shaped collaborator.
+
+    Pin matters because the explicit-collaborator migration removed the
+    ``host._metrics_obj`` route; without this assertion a future revert
+    that forgets to call ``self._metrics.record_lock_wait`` would still
+    pass the existing behavior tests (which check only auth scalars).
+    """
+    metrics = _RecordingMetrics()
+    coord = AuthRefreshCoordinator(metrics=cast(ClientMetrics, metrics))
+
+    snapshot = await coord.snapshot(auth=auth)
+
+    assert snapshot.csrf_token == auth.csrf_token
+    assert snapshot.session_id == auth.session_id
+    assert len(metrics.lock_waits) == 1
+    assert metrics.lock_waits[0] >= 0.0
+
+
+@pytest.mark.asyncio
+async def test_update_auth_tokens_records_lock_wait_through_constructor_metrics(
+    auth: AuthTokens,
+) -> None:
+    """Companion pin for :meth:`update_auth_tokens` — same routing."""
+    metrics = _RecordingMetrics()
+    coord = AuthRefreshCoordinator(metrics=cast(ClientMetrics, metrics))
+
+    await coord.update_auth_tokens(auth=auth, csrf="C", session_id="S")
+
+    assert auth.csrf_token == "C"
+    assert auth.session_id == "S"
+    assert len(metrics.lock_waits) == 1
+    assert metrics.lock_waits[0] >= 0.0
+
+
+class _ExplodingMetrics:
+    """Lock-wait recorder that raises on every call — simulates a bug or
+    misconfigured test spy inside the metrics path.
+    """
+
+    def record_lock_wait(self, duration: float) -> None:
+        raise RuntimeError("metrics blew up")
+
+
+@pytest.mark.asyncio
+async def test_update_auth_tokens_releases_lock_when_metric_raises(
+    auth: AuthTokens,
+) -> None:
+    """A metric-side exception must NOT leave the snapshot lock held.
+
+    Pins the deadlock-safety property that the metric write lives inside
+    the ``try`` block guarded by the ``finally: lock.release()``. Without
+    this guard, a buggy metrics implementation (or a test spy that
+    raises) would silently hang every subsequent ``snapshot`` /
+    ``update_auth_tokens`` caller on the leaked lock.
+    """
+    metrics = _ExplodingMetrics()
+    coord = AuthRefreshCoordinator(metrics=cast(ClientMetrics, metrics))
+
+    with pytest.raises(RuntimeError, match="metrics blew up"):
+        await coord.update_auth_tokens(auth=auth, csrf="X", session_id="Y")
+
+    # The lock must be released even though the metric write raised.
+    # A second call must acquire the lock without blocking. Wrap in
+    # ``wait_for`` so a leaked lock surfaces as a fast failure rather
+    # than hanging the suite.
+    metrics2 = _RecordingMetrics()
+    coord._metrics = cast(ClientMetrics, metrics2)
+    await asyncio.wait_for(
+        coord.update_auth_tokens(auth=auth, csrf="Z", session_id="W"),
+        timeout=EVENT_TIMEOUT_S,
+    )
+    assert auth.csrf_token == "Z"
+    assert auth.session_id == "W"
+
+
+@pytest.mark.asyncio
+async def test_await_refresh_releases_lock_when_metric_raises() -> None:
+    """A metric-side exception must NOT leave the refresh lock held.
+
+    Companion to ``test_update_auth_tokens_releases_lock_when_metric_raises``
+    but for the single-flight refresh lock. Pins that ``record_lock_wait``
+    lives inside the ``try`` block guarded by ``finally: lock.release()``;
+    without that guard a buggy metrics implementation (or a test spy that
+    raises) would silently hang every subsequent ``await_refresh`` caller on
+    the leaked lock.
+    """
+    call_count = 0
+
+    async def cb() -> AuthTokens:
+        nonlocal call_count
+        call_count += 1
+        return AuthTokens(
+            csrf_token=f"R{call_count}",
+            session_id="S",
+            cookies={"SID": f"sid{call_count}"},
+        )
+
+    metrics = _ExplodingMetrics()
+    coord = AuthRefreshCoordinator(
+        refresh_callback=cb,
+        metrics=cast(ClientMetrics, metrics),
+    )
+
+    with pytest.raises(RuntimeError, match="metrics blew up"):
+        await coord.await_refresh()
+
+    # The refresh task is never created when the metric raises before
+    # task-creation runs, so a leaked lock would not be masked by a joined
+    # task — the second ``await_refresh`` must acquire the lock itself.
+    assert coord._refresh_task is None
+
+    # The lock must be released even though the metric write raised. Wrap in
+    # ``wait_for`` so a leaked lock surfaces as a fast failure rather than
+    # hanging the suite.
+    metrics2 = _RecordingMetrics()
+    coord._metrics = cast(ClientMetrics, metrics2)
+    await asyncio.wait_for(coord.await_refresh(), timeout=EVENT_TIMEOUT_S)
+    assert call_count == 1
+    assert len(metrics2.lock_waits) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -225,24 +380,29 @@ async def test_update_auth_tokens_holds_snapshot_lock_on_entry(
 
 @pytest.mark.asyncio
 async def test_update_auth_headers_syncs_cookie_jar_from_get_http_client(
-    http_host: _StubHost,
+    auth_with_kernel: tuple[AuthTokens, _KernelStub],
 ) -> None:
-    """``update_auth_headers`` copies ``get_http_client().cookies`` onto auth.
+    """``update_auth_headers`` copies ``kernel.get_http_client().cookies`` onto auth.
 
     Pins:
-    * the read is via the ``get_http_client()`` METHOD (not a ``_http_client``
-      attribute), matching :class:`_AuthRefreshHost` and ``_auth/session.py``;
-    * the destination is ``host.auth.cookie_jar`` (the cookie jar reference,
+    * the read is via the ``kernel.get_http_client()`` METHOD on the
+      explicit ``kernel`` collaborator (not a host-shaped attribute);
+    * the destination is ``auth.cookie_jar`` (the cookie jar reference,
       not a dict copy).
     """
+    auth, kernel = auth_with_kernel
     coord = AuthRefreshCoordinator()
     # Sanity: pre-call, auth.cookie_jar is whatever AuthTokens initialised.
-    live_jar = http_host.get_http_client().cookies
+    live_jar = kernel.get_http_client().cookies
 
-    coord.update_auth_headers(http_host)
+    # _KernelStub structurally satisfies the surface that
+    # ``update_auth_headers`` actually reads (``get_http_client()``) but is
+    # not the nominal :class:`Kernel`; ``cast`` is cheaper than introducing
+    # a Protocol just for one test seam.
+    coord.update_auth_headers(auth=auth, kernel=cast(Kernel, kernel))
 
     # The auth.cookie_jar attribute is now identically the live jar.
-    assert http_host.auth.cookie_jar is live_jar
+    assert auth.cookie_jar is live_jar
 
 
 def test_update_auth_headers_is_synchronous() -> None:
@@ -262,7 +422,7 @@ def test_update_auth_headers_is_synchronous() -> None:
 
 
 @pytest.mark.asyncio
-async def test_await_refresh_is_single_flight(stub_host: _StubHost) -> None:
+async def test_await_refresh_is_single_flight() -> None:
     """Concurrent ``await_refresh`` callers share one in-flight refresh task.
 
     Mirrors ``test_refresh_state_machine.py::test_concurrent_callers_share_single_refresh``
@@ -287,7 +447,7 @@ async def test_await_refresh_is_single_flight(stub_host: _StubHost) -> None:
 
     coord = AuthRefreshCoordinator(refresh_callback=cb)
 
-    tasks = [asyncio.create_task(coord.await_refresh(stub_host)) for _ in range(3)]
+    tasks = [asyncio.create_task(coord.await_refresh()) for _ in range(3)]
     await asyncio.wait_for(callback_entered.wait(), EVENT_TIMEOUT_S)
 
     # Yield enough times for waiters 2/3 to reach ``await shield(task)``.
@@ -305,9 +465,7 @@ async def test_await_refresh_is_single_flight(stub_host: _StubHost) -> None:
 
 
 @pytest.mark.asyncio
-async def test_await_refresh_creates_new_task_after_first_done(
-    stub_host: _StubHost,
-) -> None:
+async def test_await_refresh_creates_new_task_after_first_done() -> None:
     """A second refresh wave creates a *new* task once the first is done."""
     call_count = 0
 
@@ -322,11 +480,11 @@ async def test_await_refresh_creates_new_task_after_first_done(
 
     coord = AuthRefreshCoordinator(refresh_callback=cb)
 
-    await coord.await_refresh(stub_host)
+    await coord.await_refresh()
     first_task = coord._refresh_task
     assert first_task is not None and first_task.done()
 
-    await coord.await_refresh(stub_host)
+    await coord.await_refresh()
     second_task = coord._refresh_task
     assert second_task is not None and second_task.done()
 
@@ -335,9 +493,7 @@ async def test_await_refresh_creates_new_task_after_first_done(
 
 
 @pytest.mark.asyncio
-async def test_await_refresh_cancellation_preserves_task_slot(
-    stub_host: _StubHost,
-) -> None:
+async def test_await_refresh_cancellation_preserves_task_slot() -> None:
     """A cancelled waiter does not kill the shared task; slot is preserved.
 
     Mirrors
@@ -365,8 +521,8 @@ async def test_await_refresh_cancellation_preserves_task_slot(
 
     coord = AuthRefreshCoordinator(refresh_callback=cb)
 
-    waiter_a = asyncio.create_task(coord.await_refresh(stub_host))
-    waiter_b = asyncio.create_task(coord.await_refresh(stub_host))
+    waiter_a = asyncio.create_task(coord.await_refresh())
+    waiter_b = asyncio.create_task(coord.await_refresh())
     await asyncio.wait_for(enter.wait(), EVENT_TIMEOUT_S)
 
     # Yield so both waiters reach ``await shield(task)``.
@@ -395,3 +551,127 @@ async def test_await_refresh_cancellation_preserves_task_slot(
     await asyncio.wait_for(waiter_b, EVENT_TIMEOUT_S)
     assert shared_task.done()
     assert call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# AuthRefreshCoordinator.cancel_inflight_refresh — Wave 1 of
+# host-protocol-removal encapsulated the legacy close-time block
+# (previously read/cancel/gather of ``host._auth_coord._refresh_task``
+# inlined inside ``ClientLifecycle.close``) behind a method on the
+# coordinator. The three tests below pin the three behavioral branches
+# (no task, done task, in-flight task) AND the critical slot-preservation
+# invariant (the cancel path MUST NOT clear ``self._refresh_task``).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_auth_coord_cancel_inflight_refresh_noops_without_task() -> None:
+    """``cancel_inflight_refresh`` is a true no-op when ``_refresh_task is None``.
+
+    A freshly-constructed coordinator (or an open client that never
+    triggered an auth refresh) has ``_refresh_task is None``. Close must
+    invoke ``cancel_inflight_refresh`` unconditionally, so the method has
+    to be safe against the ``None`` slot — calling ``.cancel()`` on ``None``
+    would crash the close path.
+    """
+    coord = AuthRefreshCoordinator()
+    assert coord._refresh_task is None
+
+    # Must not raise.
+    await coord.cancel_inflight_refresh()
+
+    # Slot stays None — the method had nothing to cancel.
+    assert coord._refresh_task is None
+
+
+@pytest.mark.asyncio
+async def test_auth_coord_cancel_inflight_refresh_noops_for_done_task() -> None:
+    """A refresh task that already finished must not be re-cancelled.
+
+    The ``done()`` short-circuit matters because the legacy block guarded
+    both ``is None`` and ``done()`` — a successful refresh wave that ran
+    to completion before ``close()`` arrives stashes the resolved task in
+    the slot. Re-cancelling it would be technically harmless (cancelling
+    a done task is a no-op) but the redundant ``gather(return_exceptions=True)``
+    would still cycle the event loop and potentially log noise on a
+    successful task that was about to be GC'd. The pin also guarantees
+    the slot-preservation contract: the done task stays in the slot.
+    """
+    coord = AuthRefreshCoordinator()
+
+    async def _quick_refresh() -> AuthTokens:
+        return _fresh_auth()
+
+    done_task = asyncio.create_task(_quick_refresh())
+    # Let it complete.
+    await done_task
+    assert done_task.done() and not done_task.cancelled()
+    # Snapshot the result so we can prove the task object was not touched
+    # by ``cancel_inflight_refresh``.
+    pre_result = done_task.result()
+
+    coord._refresh_task = done_task
+
+    await coord.cancel_inflight_refresh()
+
+    assert done_task.done()
+    assert not done_task.cancelled(), (
+        "cancel_inflight_refresh must not call .cancel() on an already-done "
+        "task — the done() short-circuit is load-bearing."
+    )
+    assert done_task.result() is pre_result, "done task's result was disturbed"
+    assert coord._refresh_task is done_task, (
+        "Slot-preservation invariant: cancel_inflight_refresh must not "
+        "clear the _refresh_task slot even on the no-op path."
+    )
+
+
+@pytest.mark.asyncio
+async def test_auth_coord_cancel_inflight_refresh_cancels_and_joins_pending_task() -> None:
+    """An in-flight refresh task gets cancelled, joined, and CancelledError absorbed.
+
+    This is the racing-close scenario the method was extracted for: a
+    refresh wave parked on Google's identity surface when ``close()``
+    arrives. The cancel cleans up the runaway task; the
+    ``gather(..., return_exceptions=True)`` absorbs the resulting
+    ``CancelledError`` so the close path itself stays non-raising.
+
+    Slot-preservation invariant (CRITICAL): even after cancelling the
+    in-flight task, ``self._refresh_task`` MUST still reference the same
+    cancelled task object. The next refresh wave is responsible for
+    replacing the slot once the existing task transitions to ``done()``
+    — never this method, never close. This is the same contract pinned by
+    ``test_await_refresh_cancellation_preserves_task_slot`` above, but for
+    the close-driven cancel path rather than waiter-driven cancel.
+    """
+    coord = AuthRefreshCoordinator()
+
+    async def _slow_refresh() -> AuthTokens:
+        await asyncio.sleep(60.0)
+        return _fresh_auth()  # unreachable in this test — cancel fires first.
+
+    slow_task: asyncio.Task[AuthTokens] = asyncio.create_task(_slow_refresh())
+    coord._refresh_task = slow_task
+
+    # Yield so the task actually parks on its sleep.
+    await asyncio.sleep(0)
+    assert not slow_task.done(), "test setup: refresh task should be in-flight"
+
+    # Drive cancel. Must NOT raise — CancelledError is absorbed by
+    # ``gather(return_exceptions=True)``.
+    await coord.cancel_inflight_refresh()
+
+    assert slow_task.done()
+    assert slow_task.cancelled(), (
+        "cancel_inflight_refresh must cancel the in-flight task — without "
+        "the cancel, a slow refresh would survive close() and continue "
+        "holding the now-torn-down http client."
+    )
+    assert coord._refresh_task is slow_task, (
+        "Slot-preservation invariant: cancel_inflight_refresh must NOT "
+        "clear the _refresh_task slot after cancelling the task. Sibling "
+        "waiters joined to the same single-flight refresh read this slot "
+        "to identify the shared task; clearing it here would break the "
+        "concurrency invariant pinned by "
+        "test_await_refresh_cancellation_preserves_task_slot."
+    )

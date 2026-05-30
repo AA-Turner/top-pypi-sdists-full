@@ -5,6 +5,7 @@ from abstra_internals.contracts_generated import (
     AbstraLibApiEditorDeployPostResponse,
 )
 from abstra_internals.controllers.git import GitController
+from abstra_internals.controllers.linter_events import LinterEventController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.interface.cli.deploy_messages import DeployMessages
 from abstra_internals.usage import editor_usage
@@ -39,6 +40,9 @@ def get_editor_bp(main_controller: MainController):
 
                 issues = (
                     main_controller.linter_repository.get_blocking_checks_for_deploy()
+                )
+                LinterEventController.broadcast(
+                    main_controller.linter_repository.checks
                 )
 
                 if len(issues) > 0:

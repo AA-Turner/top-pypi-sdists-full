@@ -20,6 +20,10 @@ from abstra_internals.contracts_generated import (
     CommonFileNode,
     CommonFileNodeType,
 )
+from abstra_internals.controllers.codebase_events import CodebaseEventController
+from abstra_internals.controllers.language_server import (
+    notify_file_changed as _lsp_notify_file_changed,
+)
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
@@ -32,6 +36,14 @@ from abstra_internals.templates import (
     new_script_code,
 )
 from abstra_internals.utils.file import safe_write_file
+
+_PY_SUFFIXES = (".py", ".pyi")
+
+
+def _notify_lsp(path: Path, change_type: int) -> None:
+    # Pyrefly only cares about Python sources; ignore other writes.
+    if path.suffix in _PY_SUFFIXES:
+        _lsp_notify_file_changed(path, change_type)
 
 
 class CodebaseController:
@@ -199,6 +211,8 @@ class CodebaseController:
             path.write_bytes(content)
         else:
             path.touch()
+        _notify_lsp(path, 1)
+        CodebaseEventController.notify_change(path, "created")
         return CommonFileNode(
             path_parts=list(relative_path.parts),
             size=path.stat().st_size,
@@ -216,9 +230,16 @@ class CodebaseController:
             path = Settings.root_path / path
 
         if path.is_dir():
+            py_files = [p for p in path.rglob("*") if p.suffix in _PY_SUFFIXES]
             FileSystemService.rm_tree(path)
+            for p in py_files:
+                _notify_lsp(p, 3)
         else:
+            was_python = path.suffix in _PY_SUFFIXES
             path.unlink()
+            if was_python:
+                _notify_lsp(path, 3)
+        CodebaseEventController.notify_change(path, "deleted")
         return AbstraLibApiEditorCodebaseFilesDeleteResponse(ok=True)
 
     def rename_file(
@@ -249,7 +270,22 @@ class CodebaseController:
         project = self.repos.project.load(include_disabled_stages=True)
         stages = project.get_stages_by_file_path(path)
 
+        # Capture .py files inside a directory rename before the move, so we
+        # can notify pyrefly of every (old → new) path pair.
+        dir_py_files: List[Path] = []
+        if path.is_dir():
+            dir_py_files = [p for p in path.rglob("*") if p.suffix in _PY_SUFFIXES]
+
         path.rename(new_path)
+
+        if dir_py_files:
+            for old_p in dir_py_files:
+                new_p = new_path / old_p.relative_to(path)
+                _lsp_notify_file_changed(old_p, 3)
+                _lsp_notify_file_changed(new_p, 1)
+        else:
+            _notify_lsp(path, 3)
+            _notify_lsp(new_path, 1)
 
         if stages:
             from abstra_internals.settings import Settings
@@ -257,6 +293,9 @@ class CodebaseController:
             relative_new_path = new_path.relative_to(Settings.root_path)
             stages[0].update({"file": str(relative_new_path)})
             self.repos.project.save(project)
+
+        CodebaseEventController.notify_change(path, "deleted")
+        CodebaseEventController.notify_change(new_path, "created")
 
         return AbstraLibApiEditorCodebaseFilesPatchResponse(ok=True)
 
@@ -279,6 +318,8 @@ class CodebaseController:
         if not write_ok:
             return AbstraLibApiEditorCodebaseFilesPutResponse(ok=False)
 
+        _notify_lsp(resolved_path, 2)
+        CodebaseEventController.notify_change(resolved_path, "changed")
         return AbstraLibApiEditorCodebaseFilesPutResponse(ok=True)
 
     def get_file(self, path):
@@ -327,6 +368,7 @@ class CodebaseController:
             path = Settings.root_path / path
 
         path.mkdir(parents=True, exist_ok=True)
+        CodebaseEventController.notify_change(path, "created")
         return AbstraLibApiEditorCodebaseDirPostResponse(ok=True)
 
     def check_file(self, path: str) -> dict:

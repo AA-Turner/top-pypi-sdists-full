@@ -1,5 +1,7 @@
 from http import HTTPStatus
 
+import pytest
+
 
 def test_resource(db, client, access_token_generator, user, oidc_client):
     token, _ = access_token_generator(
@@ -32,3 +34,37 @@ def test_resource_user_inactive(db, client, access_token_generator, user, oidc_c
     )
     resp = client.get("/idp/ninja/resource", HTTP_AUTHORIZATION=f"bearer {token}")
     assert resp.status_code == HTTPStatus.UNAUTHORIZED
+
+
+@pytest.mark.parametrize(
+    "resources,success",
+    [
+        ([], True),
+        (["https://some.other/resource"], False),
+        (["http://testserver/idp/ninja/resource"], True),
+        (["http://testserver/idp/ninja/resource/sub"], False),
+        (["http://testserver/idp/ninja"], True),
+        (["http://testserver/idp/ninja/other-resource"], False),
+        (
+            [
+                "http://testserver/idp/ninja/other-resource",
+                "http://testserver/idp/ninja/resource",
+            ],
+            True,
+        ),
+    ],
+)
+def test_resources_granted(
+    db, client, access_token_generator, user, oidc_client, resources, success
+):
+    token, _ = access_token_generator(
+        client=oidc_client,
+        user=user,
+        scopes=["view-resource"],
+        resources=resources,
+    )
+    resp = client.get("/idp/ninja/resource", HTTP_AUTHORIZATION=f"bearer {token}")
+    if success:
+        assert resp.status_code == HTTPStatus.OK
+    else:
+        assert resp.status_code == HTTPStatus.FORBIDDEN

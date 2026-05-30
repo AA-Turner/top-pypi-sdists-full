@@ -29,6 +29,8 @@ use clap::Subcommand;
 use mergify_ci::git_refs::Format as GitRefsFormat;
 use mergify_ci::git_refs::GitRefsOptions;
 use mergify_ci::scopes_send::ScopesSendOptions;
+use mergify_ci::tests_quarantine::QuarantineOptions;
+use mergify_ci::tests_quarantine::UnquarantineOptions;
 use mergify_ci::tests_show::TestsShowOptions;
 use mergify_config::simulate::PullRequestRef;
 use mergify_config::simulate::SimulateOptions;
@@ -142,10 +144,13 @@ fn inject_global_flags(debug: bool, argv: Vec<String>) -> Vec<String> {
 const NATIVE_COMMANDS: &[(&str, &str)] = &[
     ("config", "validate"),
     ("config", "simulate"),
+    ("ci", "scopes"),
     ("ci", "scopes-send"),
     ("ci", "git-refs"),
     ("ci", "queue-info"),
     ("tests", "show"),
+    ("tests", "quarantine"),
+    ("tests", "unquarantine"),
     ("queue", "pause"),
     ("queue", "unpause"),
     ("queue", "status"),
@@ -161,10 +166,13 @@ const NATIVE_COMMANDS: &[(&str, &str)] = &[
 enum NativeCommand {
     ConfigValidate { config_file: Option<PathBuf> },
     ConfigSimulate(ConfigSimulateOpts),
+    CiScopes(CiScopesOpts),
     CiScopesSend(CiScopesSendOpts),
     CiGitRefs { format: GitRefsFormat },
     CiQueueInfo,
     TestsShow(TestsShowOpts),
+    TestsQuarantine(TestsQuarantineOpts),
+    TestsUnquarantine(TestsUnquarantineOpts),
     QueuePause(QueuePauseOpts),
     QueueUnpause(QueueUnpauseOpts),
     QueueStatus(QueueStatusOpts),
@@ -180,6 +188,13 @@ struct ConfigSimulateOpts {
     pull_request: PullRequestRef,
     token: Option<String>,
     api_url: Option<String>,
+}
+
+struct CiScopesOpts {
+    config: Option<PathBuf>,
+    base: Option<String>,
+    head: Option<String>,
+    write: Option<PathBuf>,
 }
 
 struct CiScopesSendOpts {
@@ -241,6 +256,24 @@ struct TestsShowOpts {
     job_name: Vec<String>,
     job_name_exclude: Vec<String>,
     per_page: Option<u32>,
+    json: bool,
+}
+
+struct TestsQuarantineOpts {
+    repository: String,
+    test_name: String,
+    reason: String,
+    branch: Option<String>,
+    token: Option<String>,
+    api_url: Option<String>,
+    json: bool,
+}
+
+struct TestsUnquarantineOpts {
+    repository: String,
+    name_or_id: String,
+    token: Option<String>,
+    api_url: Option<String>,
     json: bool,
 }
 
@@ -365,11 +398,19 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
             Dispatch::Shim(inject_global_flags(debug, prepend_one("stack", args)))
         }
         Subcommands::Ci(CiArgs {
-            command: CiSubcommand::Scopes(ShimmedArgs { args }),
-        }) => Dispatch::Shim(inject_global_flags(
-            debug,
-            prepend_two("ci", "scopes", args),
-        )),
+            command:
+                CiSubcommand::Scopes(ScopesCliArgs {
+                    config,
+                    base,
+                    head,
+                    write,
+                }),
+        }) => Dispatch::Native(NativeCommand::CiScopes(CiScopesOpts {
+            config,
+            base,
+            head,
+            write,
+        })),
         Subcommands::Ci(CiArgs {
             command: CiSubcommand::JunitProcess(ShimmedArgs { args }),
         }) => Dispatch::Shim(inject_global_flags(
@@ -452,6 +493,42 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
             job_name,
             job_name_exclude,
             per_page,
+            json,
+        })),
+        Subcommands::Tests(TestsArgs {
+            command:
+                TestsSubcommand::Quarantine(TestsQuarantineCliArgs {
+                    test_name,
+                    repository,
+                    reason,
+                    branch,
+                    token,
+                    api_url,
+                    json,
+                }),
+        }) => Dispatch::Native(NativeCommand::TestsQuarantine(TestsQuarantineOpts {
+            repository,
+            test_name,
+            reason,
+            branch,
+            token,
+            api_url,
+            json,
+        })),
+        Subcommands::Tests(TestsArgs {
+            command:
+                TestsSubcommand::Unquarantine(TestsUnquarantineCliArgs {
+                    name_or_id,
+                    repository,
+                    token,
+                    api_url,
+                    json,
+                }),
+        }) => Dispatch::Native(NativeCommand::TestsUnquarantine(TestsUnquarantineOpts {
+            repository,
+            name_or_id,
+            token,
+            api_url,
             json,
         })),
         Subcommands::Queue(QueueArgs {
@@ -617,11 +694,13 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
         }
     };
 
-    // `tests show` is the only native command whose `--json` flag is
-    // honored through the shared `StdioOutput` machinery; everything
-    // else writes Human and manages its own JSON via run-time flags.
+    // The `tests` commands honor their `--json` flag through the
+    // shared `StdioOutput` machinery; everything else writes Human and
+    // manages its own JSON via run-time flags.
     let mode = match &cmd {
         NativeCommand::TestsShow(opts) if opts.json => OutputMode::Json,
+        NativeCommand::TestsQuarantine(opts) if opts.json => OutputMode::Json,
+        NativeCommand::TestsUnquarantine(opts) if opts.json => OutputMode::Json,
         _ => OutputMode::Human,
     };
     let mut output = StdioOutput::new(mode);
@@ -666,6 +745,16 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
             NativeCommand::CiQueueInfo => {
                 mergify_ci::queue_info::run(&mut output).map(|()| mergify_core::ExitCode::Success)
             }
+            NativeCommand::CiScopes(opts) => mergify_ci::scopes_detect::run(
+                mergify_ci::scopes_detect::ScopesOptions {
+                    config: opts.config.as_deref(),
+                    base: opts.base.as_deref(),
+                    head: opts.head.as_deref(),
+                    write: opts.write.as_deref(),
+                },
+                &mut output,
+            )
+            .map(|()| mergify_core::ExitCode::Success),
             NativeCommand::TestsShow(opts) => {
                 mergify_ci::tests_show::run(
                     TestsShowOptions {
@@ -678,6 +767,32 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                         job_name: &opts.job_name,
                         job_name_exclude: &opts.job_name_exclude,
                         per_page: opts.per_page,
+                    },
+                    &mut output,
+                )
+                .await
+            }
+            NativeCommand::TestsQuarantine(opts) => {
+                mergify_ci::tests_quarantine::quarantine(
+                    QuarantineOptions {
+                        repository: &opts.repository,
+                        test_name: &opts.test_name,
+                        reason: &opts.reason,
+                        branch: opts.branch.as_deref(),
+                        token: opts.token.as_deref(),
+                        api_url: opts.api_url.as_deref(),
+                    },
+                    &mut output,
+                )
+                .await
+            }
+            NativeCommand::TestsUnquarantine(opts) => {
+                mergify_ci::tests_quarantine::unquarantine(
+                    UnquarantineOptions {
+                        repository: &opts.repository,
+                        name_or_id: &opts.name_or_id,
+                        token: opts.token.as_deref(),
+                        api_url: opts.api_url.as_deref(),
                     },
                     &mut output,
                 )
@@ -905,7 +1020,7 @@ enum CiSubcommand {
     #[command(name = "queue-info")]
     QueueInfo,
     /// Give the list of scopes impacted by changed files.
-    Scopes(ShimmedArgs),
+    Scopes(ScopesCliArgs),
     /// Upload `JUnit` XML reports and ignore failed tests with
     /// Mergify's CI Insights Quarantine.
     #[command(name = "junit-process")]
@@ -926,6 +1041,29 @@ struct GitRefsCliArgs {
         value_parser = mergify_ci::git_refs::Format::parse,
     )]
     format: GitRefsFormat,
+}
+
+#[derive(clap::Args)]
+struct ScopesCliArgs {
+    /// Path to YAML config file. Falls back to
+    /// ``MERGIFY_CONFIG_PATH`` env var, then auto-detects
+    /// `.mergify.yml`, `.mergify/config.yml`, or
+    /// `.github/mergify.yml`.
+    #[arg(long, env = "MERGIFY_CONFIG_PATH")]
+    config: Option<PathBuf>,
+
+    /// Base git reference to use to look for changed files.
+    #[arg(long)]
+    base: Option<String>,
+
+    /// Head git reference to use to look for changed files.
+    #[arg(long)]
+    head: Option<String>,
+
+    /// Write the detected scopes to a file (JSON, consumed by
+    /// `ci scopes-send --scopes-json`).
+    #[arg(long = "write", short = 'w')]
+    write: Option<PathBuf>,
 }
 
 #[derive(clap::Args)]
@@ -979,6 +1117,10 @@ struct TestsArgs {
 enum TestsSubcommand {
     /// Look up tests by name and print their health and metrics.
     Show(TestsShowCliArgs),
+    /// Add a test to the CI Insights quarantine.
+    Quarantine(TestsQuarantineCliArgs),
+    /// Remove a test from the CI Insights quarantine.
+    Unquarantine(TestsUnquarantineCliArgs),
 }
 
 #[derive(clap::Args)]
@@ -1027,6 +1169,76 @@ struct TestsShowCliArgs {
     /// per page (1–100, server default is 10).
     #[arg(long = "per-page", value_parser = clap::value_parser!(u32).range(1..=100))]
     per_page: Option<u32>,
+
+    /// Emit a single JSON document to stdout instead of human prose.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
+struct TestsQuarantineCliArgs {
+    /// Fully qualified name of the test to quarantine.
+    #[arg(value_name = "NAME")]
+    test_name: String,
+
+    /// Repository full name (owner/repo).
+    #[arg(
+        long,
+        short = 'r',
+        required = true,
+        value_parser = mergify_ci::detector::parse_owner_repo,
+    )]
+    repository: String,
+
+    /// Reason recorded for quarantining the test.
+    #[arg(long)]
+    reason: String,
+
+    /// Branch name or pattern to scope the quarantine to. Omit to
+    /// quarantine on all branches.
+    #[arg(long, short = 'b')]
+    branch: Option<String>,
+
+    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
+    /// then ``GITHUB_TOKEN`` env vars.
+    #[arg(long, short = 't')]
+    token: Option<String>,
+
+    /// Mergify API URL. Falls back to ``MERGIFY_API_URL`` env var,
+    /// then to the default.
+    #[arg(long = "api-url", short = 'u')]
+    api_url: Option<String>,
+
+    /// Emit a single JSON document to stdout instead of human prose.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
+struct TestsUnquarantineCliArgs {
+    /// Test to remove from quarantine: either its fully qualified name
+    /// or the quarantine id (as printed by `tests quarantine`).
+    #[arg(value_name = "NAME_OR_ID")]
+    name_or_id: String,
+
+    /// Repository full name (owner/repo).
+    #[arg(
+        long,
+        short = 'r',
+        required = true,
+        value_parser = mergify_ci::detector::parse_owner_repo,
+    )]
+    repository: String,
+
+    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
+    /// then ``GITHUB_TOKEN`` env vars.
+    #[arg(long, short = 't')]
+    token: Option<String>,
+
+    /// Mergify API URL. Falls back to ``MERGIFY_API_URL`` env var,
+    /// then to the default.
+    #[arg(long = "api-url", short = 'u')]
+    api_url: Option<String>,
 
     /// Emit a single JSON document to stdout instead of human prose.
     #[arg(long)]
@@ -1288,12 +1500,12 @@ mod tests {
 
     #[test]
     fn shimmed_dispatch_reinjects_debug_for_ci_subcommand() {
-        // The two-token shim paths (`ci scopes`, `ci junit-process`,
+        // The remaining two-token shim paths (`ci junit-process`,
         // `ci junit-upload`) need the same treatment as the
         // single-token `stack` shim — every shim arm must re-inject
-        // `--debug` so the Python side honors it.
+        // `--debug` so the Python side honors it. `ci scopes` is now
+        // native and follows the native dispatch path.
         for (group, sub, tail) in &[
-            ("ci", "scopes", vec!["--base", "main"]),
             ("ci", "junit-process", vec!["--files", "a.xml"]),
             ("ci", "junit-upload", vec!["--files", "a.xml"]),
         ] {

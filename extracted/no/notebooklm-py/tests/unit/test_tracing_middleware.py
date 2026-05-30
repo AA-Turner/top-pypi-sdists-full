@@ -10,7 +10,7 @@ These tests verify:
 
 1. The middleware satisfies the :class:`Middleware` Protocol shape and
    wires through the chain (smoke test via the shared
-   :func:`chain_calls_through_to_authed_post` fixture).
+   :func:`chain_calls_through_to_terminal` fixture).
 2. Two log records are emitted around a successful call: one BEFORE
    ``next_call`` ("starting"), one AFTER ("completed" with
    ``status_code`` and ``duration_ms``).
@@ -26,8 +26,8 @@ These tests verify:
    record (with ``duration_ms`` and ``exception_type``) and re-raises
    the original exception unchanged.
 7. The middleware does NOT raise ``KeyError`` when ``rpc_method`` is
-   absent from ``request.context`` (``Session.rpc_call`` populates it
-   in Tier 13; PR 12.2's wiring does not).
+   absent from ``request.context`` (``RpcExecutor.rpc_call`` populates
+   it in Tier 13; PR 12.2's wiring does not).
 
 The tests use stdlib :func:`caplog` to capture log records — no
 production logger reconfiguration leaks across tests. The chain is
@@ -47,8 +47,8 @@ import pytest
 # pytest puts ``tests/`` on ``sys.path``; ``_fixtures.chain`` is the canonical
 # import path documented in ``tests/_fixtures/__init__.py``.
 from _fixtures.chain import (
-    FakeAuthedPost,
-    chain_calls_through_to_authed_post,
+    FakeChainTerminal,
+    chain_calls_through_to_terminal,
     make_request,
 )
 from notebooklm._middleware import (
@@ -81,16 +81,16 @@ def test_tracing_middleware_satisfies_protocol() -> None:
 
 
 def test_tracing_middleware_calls_through_to_transport() -> None:
-    """Chain of ``[TracingMiddleware()]`` reaches ``FakeAuthedPost`` exactly once.
+    """Chain of ``[TracingMiddleware()]`` reaches the terminal exactly once.
 
-    Uses the shared :func:`chain_calls_through_to_authed_post` fixture from
+    Uses the shared :func:`chain_calls_through_to_terminal` fixture from
     ``tests/_fixtures/chain.py`` — the canonical wire-up smoke test for
     every middleware PR per ADR-009 §"Per-position rationale" and master
     plan line 105.
     """
-    transport = FakeAuthedPost()
-    assert chain_calls_through_to_authed_post(transport, [TracingMiddleware()])
-    assert transport.call_count == 1
+    terminal = FakeChainTerminal()
+    assert chain_calls_through_to_terminal(terminal, [TracingMiddleware()])
+    assert terminal.call_count == 1
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ async def test_rpc_method_absent_does_not_raise(
 ) -> None:
     """``rpc_method`` missing from context is fine — middleware logs ``None``.
 
-    ``Session.rpc_call`` (Tier 13) populates ``context["rpc_method"]``;
+    ``RpcExecutor.rpc_call`` (Tier 13) populates ``context["rpc_method"]``;
     PR 12.2's wiring does not, so the empty-chain path through
     ``Session._perform_authed_post`` only carries ``log_label`` /
     ``build_request`` / ``disable_internal_retries``. The middleware

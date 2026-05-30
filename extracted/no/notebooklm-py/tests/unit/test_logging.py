@@ -155,6 +155,14 @@ def test_formatter_scrubs_fsid_query_param():
     assert "f.sid=***" in out
 
 
+def test_formatter_scrubs_upload_id_query_param():
+    fmt = RedactingFormatter(logging.Formatter("%(message)s"))
+    rec = _record("uploading to https://notebooklm.google.com/upload/_/?upload_id=SECRET_UPLOAD_ID")
+    out = fmt.format(rec)
+    assert "SECRET_UPLOAD_ID" not in out
+    assert "upload_id=***" in out
+
+
 def test_formatter_preserves_non_secret_text():
     fmt = RedactingFormatter(logging.Formatter("%(message)s"))
     rec = _record("RPC LIST_NOTEBOOKS failed for nb_id=abc123 method=LIST in 0.42s")
@@ -194,6 +202,132 @@ def test_formatter_scrubs_set_cookie_response_header():
     out = fmt.format(rec)
     assert "server_minted_value" not in out
     assert "Set-Cookie: ***" in out
+
+
+def test_formatter_scrubs_bare_csrf_and_session_markers():
+    """Bare ``SNlM0e`` / ``FdrFJe`` markers must be redacted in every shape
+    they appear in — JSON (``"SNlM0e":"AF1_QpN-..."``), query/form
+    (``FdrFJe=...``), HTML-escaped (``&quot;...&quot;``), and diagnostic prose
+    (``SNlM0e value is AF1_QpN-...``).
+
+    Pre-fix the redactor only matched the canonical wire shapes (``at=``,
+    ``f.sid=``, cookies); a third-party logger or exception text emitting a
+    bare ``SNlM0e``/``FdrFJe`` value — or the ``csrf=`` alias — leaked a
+    credential-equivalent token (the CSRF token authorizes all RPC mutations).
+    See issue #1165.
+    """
+    fmt = RedactingFormatter(logging.Formatter("%(message)s"))
+    cases = [
+        # marker, full input, secret value that must NOT survive
+        ("SNlM0e", "SNlM0e value is AF1_QpN-PROSE_SECRET reported", "AF1_QpN-PROSE_SECRET"),
+        ("FdrFJe", "session FdrFJe=1234567890123456 in url", "1234567890123456"),
+        ("csrf", "form body csrf=AF1_QpN-CSRF_ALIAS&hl=en", "AF1_QpN-CSRF_ALIAS"),
+        ("SNlM0e", 'wiz data {"SNlM0e":"AF1_QpN-JSON_SECRET"}', "AF1_QpN-JSON_SECRET"),
+        ("SNlM0e", "single {'SNlM0e':'AF1_QpN-SQ_SECRET'}", "AF1_QpN-SQ_SECRET"),
+        (
+            "FdrFJe",
+            "escaped {&quot;FdrFJe&quot;:&quot;9988776655&quot;}",
+            "9988776655",
+        ),
+    ]
+    for marker, text, secret in cases:
+        rec = _record(text)
+        out = fmt.format(rec)
+        assert secret not in out, f"{secret!r} leaked from {text!r}: got {out!r}"
+        # The marker name itself is preserved (only the value is redacted).
+        assert marker in out, f"marker {marker!r} stripped from {text!r}: got {out!r}"
+        assert "***" in out, f"no redaction placeholder in {out!r}"
+
+    # Surrounding punctuation / quotes / brackets must be preserved exactly —
+    # only the value is replaced. (gemini-code-assist: guard against the
+    # unquoted value class swallowing trailing sentence punctuation or the
+    # enclosing parens / JSON quotes.)
+    exact = [
+        ("SNlM0e value is AF1_QpN-PROSE_SECRET.", "SNlM0e value is ***."),
+        ("(FdrFJe=1234567890123456)", "(FdrFJe=***)"),
+        ('{"SNlM0e":"AF1_QpN-JSON_SECRET"}', '{"SNlM0e":"***"}'),
+        ("{'SNlM0e':'AF1_QpN-SQ_SECRET'}", "{'SNlM0e':'***'}"),
+        (
+            "{&quot;FdrFJe&quot;:&quot;9988776655&quot;}",
+            "{&quot;FdrFJe&quot;:&quot;***&quot;}",
+        ),
+    ]
+    for text, expected in exact:
+        rec = _record(text)
+        assert fmt.format(rec) == expected, f"unexpected redaction of {text!r}"
+
+
+def test_csrf_marker_regex_capture_groups():
+    """Directly pin the compiled marker patterns' capture groups so a future
+    edit can't silently shift what gets captured (and therefore reproduced
+    verbatim) vs. redacted. A string-shape assertion alone can't distinguish
+    "captured the right span" from "coincidental prefix preservation."
+    (gemini-code-assist suggestion.)
+    """
+    from notebooklm._logging import (
+        _CSRF_MARKER_HTML_ESCAPED,
+        _CSRF_MARKER_QUOTED,
+        _CSRF_MARKER_UNQUOTED,
+    )
+
+    m = _CSRF_MARKER_QUOTED.search('{"SNlM0e":"AF1_QpN-JSON_SECRET"}')
+    assert m is not None
+    assert m.group(1) == "SNlM0e"
+    assert m.group(2) == '":'  # key-closing quote through the colon
+    assert m.group(3) == '"'  # value quote, back-referenced as the closer
+    assert "AF1_QpN-JSON_SECRET" in m.group(0)
+
+    m = _CSRF_MARKER_UNQUOTED.search("FdrFJe value is AF1_QpN-PROSE_SECRET.")
+    assert m is not None
+    assert m.group(1) == "FdrFJe"
+    assert m.group(2) == " value is "
+    # The trailing period is NOT part of the match (value class excludes it).
+    assert m.group(0).endswith("AF1_QpN-PROSE_SECRET")
+
+    m = _CSRF_MARKER_HTML_ESCAPED.search("{&quot;SNlM0e&quot;:&quot;sekret&quot;}")
+    assert m is not None
+    assert m.group(1) == "SNlM0e"
+    assert m.group(2) == "&quot;:"
+    assert m.group(3) == "&quot;"
+
+
+def test_formatter_scrubs_bare_af1_qpn_csrf_token():
+    """A standalone Google CSRF token (``AF1_QpN-...`` family) is redacted even
+    with no surrounding marker — the prefix is the credential's stable shape.
+
+    The ``AF1_QpN-`` prefix is preserved as a diagnostic shape hint; the secret
+    suffix is dropped. Regression for issue #1165 (defense-in-depth)."""
+    fmt = RedactingFormatter(logging.Formatter("%(message)s"))
+    rec = _record("rejected token AF1_QpN-LOOSE_SECRET_SUFFIX seen on the wire")
+    out = fmt.format(rec)
+    assert "LOOSE_SECRET_SUFFIX" not in out
+    assert "AF1_QpN-***" in out
+
+
+def test_formatter_marker_redaction_preserves_benign_at_suffix_fields():
+    """The CSRF/session markers must not over-redact benign fields.
+
+    ``csrf_protected``/``nb_sid`` contain fast-path token substrings (``csrf``,
+    ``sid``) so the gate opens and the regex sweep genuinely runs — proving the
+    anchored markers don't redact fields that merely *contain* a token
+    substring (and that the cookie / ``csrf=`` patterns don't fire on a
+    ``csrf_protected=`` prefix). Guards against an overbroad #1165 fix.
+    (coderabbitai: the original input had no fast-path token and so was
+    short-circuited before any pattern ran.)"""
+    fmt = RedactingFormatter(logging.Formatter("%(message)s"))
+    rec = _record(
+        "metrics rate=10 coordinate=5 valid=true latency_ms=420 csrf_protected=yes nb_sid=keepme"
+    )
+    out = fmt.format(rec)
+    for keep in (
+        "rate=10",
+        "coordinate=5",
+        "valid=true",
+        "latency_ms=420",
+        "csrf_protected=yes",
+        "nb_sid=keepme",
+    ):
+        assert keep in out, f"benign field {keep!r} over-redacted: {out!r}"
 
 
 def test_formatter_scrubs_psidts_in_non_header_shapes():
@@ -644,6 +778,79 @@ def test_install_redaction_no_root_mutation(saved_external_logger, saved_root_lo
 
 
 # ---------------------------------------------------------------------------
+# Third-party logger-level redaction installed at import / configure_logging
+# (issue #1166: library consumers who enable httpx DEBUG must not leak f.sid)
+# ---------------------------------------------------------------------------
+
+
+def test_configure_logging_installs_thirdparty_filters(saved_logger_state, saved_external_logger):
+    """configure_logging attaches a logger-level RedactingFilter to httpx/urllib3.
+
+    It must NOT add a handler — a consumer who never enables these loggers
+    should see no behavior change beyond the in-place scrubbing filter.
+    """
+    httpx_logger = saved_external_logger("httpx")
+    urllib3_logger = saved_external_logger("urllib3")
+
+    configure_logging()
+
+    for lg in (httpx_logger, urllib3_logger):
+        assert any(isinstance(f, RedactingFilter) for f in lg.filters)
+        # No handler is added to third-party loggers (no surprise stdout output).
+        assert not any(getattr(h, "_notebooklm_redacting", False) for h in lg.handlers)
+
+
+def test_configure_logging_thirdparty_filter_is_idempotent(
+    saved_logger_state, saved_external_logger
+):
+    """Re-running configure_logging does not stack duplicate filters on httpx."""
+    httpx_logger = saved_external_logger("httpx")
+
+    configure_logging()
+    configure_logging()
+
+    redacting = [f for f in httpx_logger.filters if isinstance(f, RedactingFilter)]
+    assert len(redacting) == 1
+
+
+def test_httpx_request_url_redacted_for_library_consumer(
+    saved_logger_state, saved_external_logger, saved_root_logger
+):
+    """A library consumer enabling httpx DEBUG via basicConfig gets scrubbed URLs.
+
+    Reproduces issue #1166: without the logger-level filter, the httpx
+    'HTTP Request: GET ...?f.sid=<session>' line propagates to the root
+    handler unredacted. configure_logging() must prevent that leak even
+    though notebooklm-py adds no handler to the httpx logger.
+    """
+    httpx_logger = saved_external_logger("httpx")
+    # httpx ships its logger at NOTSET, so it inherits the effective level from
+    # root. Mirror that here (the fixture parks it at WARNING for isolation).
+    httpx_logger.setLevel(logging.NOTSET)
+    configure_logging()
+
+    # Simulate logging.basicConfig(level=DEBUG): a handler on root, no handler
+    # on the httpx logger itself. The record propagates from httpx -> root.
+    buf = io.StringIO()
+    root_handler = logging.StreamHandler(buf)
+    root_handler.setFormatter(logging.Formatter("%(name)s %(message)s"))
+    saved_root_logger.addHandler(root_handler)
+    saved_root_logger.setLevel(logging.DEBUG)
+
+    # httpx emits its "HTTP Request: ..." line from logging.getLogger("httpx")
+    # directly (not a child logger), so the logger-level filter on "httpx"
+    # scrubs the record before it propagates to the root handler.
+    logging.getLogger("httpx").info(
+        "HTTP Request: GET https://notebooklm.google.com/_/batchexecute?f.sid=SESSION_LEAK "
+        '"HTTP/1.1 200 OK"'
+    )
+
+    out = buf.getvalue()
+    assert "SESSION_LEAK" not in out
+    assert "f.sid=***" in out
+
+
+# ---------------------------------------------------------------------------
 # Fast-path gate (SECRET_FAST_PATH_TOKENS) — correctness + perf
 # ---------------------------------------------------------------------------
 
@@ -678,6 +885,10 @@ def test_fast_path_tokens_cover_every_redaction_pattern():
     # token (case-insensitively) AND get rewritten by scrub_secrets.
     samples = [
         ("at=", "posted body at=SECRET_X&hl=en"),
+        ("snlm0e", 'wiz data "SNlM0e":"AF1_QpN-SECRET_X"'),
+        ("fdrfje", "session FdrFJe=SECRET_SID_X"),
+        ("csrf", "form csrf=AF1_QpN-SECRET_X"),
+        ("af1_qpn-", "bare token AF1_QpN-SECRET_X in prose"),
         ("f.sid", "url ?f.sid=ABC_DEF"),
         ("_token=", "oauth body refresh_token=RT&access_token=AT&id_token=IT"),
         ("code=", "oauth callback code=AUTH_X"),

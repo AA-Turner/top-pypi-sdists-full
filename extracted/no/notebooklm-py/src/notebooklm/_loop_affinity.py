@@ -5,9 +5,8 @@ against ``asyncio.get_running_loop()`` and raises an actionable
 :class:`RuntimeError` on mismatch. Lives in its own module so the helpers
 that need to call it (``_transport_drain.py`` / ``_reqid_counter.py`` /
 ``_session_auth.py`` / ``_artifact_polling.py`` / ``_chat.py``) can import it
-without dragging in :class:`notebooklm._session.Session` — none of those
-modules currently have a direct ``Session`` reference and adding one
-just to reach a bound-loop attribute would re-couple them.
+without dragging in the deleted concrete session type just to reach a
+bound-loop attribute.
 
 Design constraints:
 
@@ -21,10 +20,9 @@ Design constraints:
   the helpers directly without a :class:`Session`) keep working without
   a special-case branch on every call site.
 
-* The error message is intentionally identical in spirit to the inline
-  guard at ``_authed_transport.py:258-262`` so downstream call sites can
-  surface a uniform diagnostic regardless of which seam the cross-loop
-  call hit first.
+* The error message is intentionally stable so downstream call sites can
+  surface a uniform diagnostic regardless of which seam catches the
+  cross-loop call first.
 
 Test coverage lives in ``tests/unit/concurrency/test_loop_affinity_guard.py``.
 """
@@ -47,10 +45,9 @@ def assert_bound_loop(bound_loop: asyncio.AbstractEventLoop | None) -> None:
 
     Raises:
         RuntimeError: When ``bound_loop`` is non-``None`` and differs from
-            ``asyncio.get_running_loop()``. The message mirrors the inline
-            guard in ``_authed_transport.AuthedTransport.perform_authed_post``
-            so callers see a consistent diagnostic regardless of which
-            entry point caught the mismatch.
+            ``asyncio.get_running_loop()``. The message is shared across
+            call sites so callers see a consistent diagnostic regardless of
+            which entry point caught the mismatch.
     """
     if bound_loop is None:
         return

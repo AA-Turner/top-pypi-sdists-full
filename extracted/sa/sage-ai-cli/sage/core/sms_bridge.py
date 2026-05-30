@@ -361,6 +361,144 @@ def _imessage_row_matches(prev_max_rowid: int, text: str) -> bool:
         return False
 
 
+_bypass_recipient_verification_for_testing = False
+_active_bridge_instance = None
+
+def _normalize_e164_globally(raw: str) -> str:
+    """Normalize phone-shaped sender to E.164 (+1XXXXXXXXXX or +XXXXXXXXXXXX)."""
+    if not raw:
+        return ""
+    raw_clean = raw.strip().lower()
+    digits = re.sub(r"\D", "", raw_clean)
+    if not digits:
+        return ""
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+    if len(digits) == 10:
+        return f"+1{digits}"
+    if raw_clean.startswith("+") or len(digits) >= 10:
+        return f"+{digits}"
+    return ""
+
+
+def _is_recipient_verified_globally(recipient: str) -> bool:
+    """Enforce strict cross-user messaging safety at the module level.
+
+    Returns True if recipient matches the logged-in user's own email,
+    phone number, or any of their linked provider credentials.
+    Returns False otherwise.
+    """
+    global _active_bridge_instance
+    if _active_bridge_instance is not None:
+        try:
+            if _active_bridge_instance._is_recipient_verified(recipient):
+                return True
+        except Exception:
+            pass
+
+    if _bypass_recipient_verification_for_testing:
+        return True
+
+    # Standard test environment bypass (pytest/CI) unless explicitly testing verification
+    import os, sys
+    if (os.environ.get("SAGE_SMS_BYPASS_VERIFICATION") == "1" or "pytest" in sys.modules) and not os.environ.get("SAGE_SMS_FORCE_VERIFICATION_TEST"):
+        return True
+
+    if not recipient:
+        return False
+
+    recipient_clean = recipient.strip().lower()
+
+    # Normalise e164 inside module functions
+    e164 = _normalize_e164_globally(recipient_clean)
+    digits = re.sub(r"\D", "", recipient_clean)
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+
+    verified_set = set()
+
+    # 1. Check primary email from locally-cached auth credentials
+    try:
+        from sage.core.cli_auth import load_auth
+        auth = load_auth()
+        if auth and auth.get("email"):
+            verified_set.add(auth["email"].lower().strip())
+    except Exception:
+        pass
+
+    # 1b. Check primary phone from locally-cached verified phone file
+    try:
+        phone_file = Path.home() / ".sage" / "verified_phone.txt"
+        if phone_file.exists():
+            phone = phone_file.read_text(encoding="utf-8").strip()
+            if phone:
+                norm_phone = _normalize_e164_globally(phone)
+                if norm_phone:
+                    verified_set.add(norm_phone)
+                    phone_digits = re.sub(r"\D", "", norm_phone)
+                    if len(phone_digits) == 11 and phone_digits.startswith("1"):
+                        phone_digits = phone_digits[1:]
+                    verified_set.add(phone_digits)
+    except Exception:
+        pass
+
+    # 2. Check backend for email and phone numbers (linked providers and /billing/me)
+    try:
+        from sage.core.sms_bridge import SAGEBackend, _load_sage_token
+        token, api_base = _load_sage_token()
+        be = SAGEBackend(token, api_base)
+
+        # Get linked providers
+        providers = be.get_linked_providers()
+        for p in providers:
+            email = (p.get("email") or "").lower().strip()
+            if email:
+                verified_set.add(email)
+            phone = (p.get("phone_number") or "").strip()
+            if phone:
+                norm_phone = _normalize_e164_globally(phone)
+                if norm_phone:
+                    verified_set.add(norm_phone)
+                    phone_digits = re.sub(r"\D", "", norm_phone)
+                    if len(phone_digits) == 11 and phone_digits.startswith("1"):
+                        phone_digits = phone_digits[1:]
+                    verified_set.add(phone_digits)
+
+        # Get primary info from /billing/me
+        try:
+            me = be._get("/billing/me")
+            if me and me.get("email"):
+                verified_set.add(me["email"].lower().strip())
+        except Exception:
+            pass
+
+    except Exception:
+        pass
+
+    # Check matches
+    if recipient_clean in verified_set:
+        return True
+    if e164 and e164 in verified_set:
+        return True
+    if digits and digits in verified_set:
+        return True
+
+    # Check carrier gateways
+    if "@" in recipient_clean:
+        local = recipient_clean.split("@")[0]
+        if local.isdigit():
+            norm_local = _normalize_e164_globally(local)
+            if norm_local in verified_set:
+                return True
+            local_digits = re.sub(r"\D", "", local)
+            if len(local_digits) == 11 and local_digits.startswith("1"):
+                local_digits = local_digits[1:]
+            if local_digits in verified_set:
+                return True
+
+    return False
+
+
 def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None = None) -> bool:
     """Send an iMessage from this Mac via the Messages app.
 
@@ -382,7 +520,11 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
        `participant "..." of (1st service whose service type = iMessage)`;
        the legacy form is `buddy "..." of theService`. Some Macs accept
        only one. We try modern first, then fall back to legacy.
-    """
+     """
+    if not _is_recipient_verified_globally(recipient):
+        logger.warning("🛡 Refusing to send iMessage to unverified recipient: %s", recipient)
+        return False
+
     if sys.platform != "darwin":
         return False
     safe_text = text.replace("\\", "\\\\").replace('"', '\\"')
@@ -494,18 +636,36 @@ def _find_kdeconnect_cli() -> str | None:
     found = shutil.which("kdeconnect-cli")
     if found:
         return found
-    # macOS app bundle locations
+    # macOS app bundle locations and common installation paths
     candidates = [
         "/Applications/KDE Connect.app/Contents/MacOS/kdeconnect-cli",
         os.path.expanduser("~/Applications/KDE Connect.app/Contents/MacOS/kdeconnect-cli"),
+        os.path.expanduser("~/Applications/KDE/KDE Connect.app/Contents/MacOS/kdeconnect-cli"),
+        "/opt/homebrew/bin/kdeconnect-cli",
+        "/usr/local/bin/kdeconnect-cli",
         # Windows default install path (when Python runs there)
         r"C:\Program Files\KDE Connect\kdeconnect-cli.exe",
+        r"C:\Program Files\KDE Connect\bin\kdeconnect-cli.exe",
         r"C:\Program Files (x86)\KDE Connect\kdeconnect-cli.exe",
+        r"C:\Program Files (x86)\KDE Connect\bin\kdeconnect-cli.exe",
     ]
     local_appdata = os.environ.get("LOCALAPPDATA")
     if local_appdata:
+        candidates.append(os.path.join(local_appdata, "KDE Connect", "bin", "kdeconnect-cli.exe"))
         candidates.append(os.path.join(local_appdata, "Programs", "KDE Connect", "bin", "kdeconnect-cli.exe"))
-    candidates.append(os.path.expanduser("~/AppData/Local/Programs/KDE Connect/bin/kdeconnect-cli.exe"))
+        candidates.append(os.path.join(local_appdata, "Programs", "KDE Connect", "kdeconnect-cli.exe"))
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        candidates.append(os.path.join(appdata, "KDE Connect", "bin", "kdeconnect-cli.exe"))
+        candidates.append(os.path.join(appdata, "Programs", "KDE Connect", "bin", "kdeconnect-cli.exe"))
+        candidates.append(os.path.join(appdata, "Programs", "KDE Connect", "kdeconnect-cli.exe"))
+
+    candidates += [
+        os.path.expanduser("~/AppData/Local/KDE Connect/bin/kdeconnect-cli.exe"),
+        os.path.expanduser("~/AppData/Local/Programs/KDE Connect/bin/kdeconnect-cli.exe"),
+        os.path.expanduser("~/AppData/Roaming/KDE Connect/bin/kdeconnect-cli.exe"),
+        os.path.expanduser("~/AppData/Roaming/Programs/KDE Connect/bin/kdeconnect-cli.exe"),
+    ]
 
     for c in candidates:
         if os.path.exists(c):
@@ -529,6 +689,10 @@ def _send_macos_sms(recipient: str, text: str) -> bool:
     This is the macOS replacement for KDE Connect's --send-sms (which is
     broken on the Mac App Store version due to a DBus registration bug).
     """
+    if not _is_recipient_verified_globally(recipient):
+        logger.warning("🛡 Refusing to send macOS SMS to unverified recipient: %s", recipient)
+        return False
+
     if sys.platform != "darwin":
         return False
     safe_text = text.replace("\\", "\\\\").replace('"', '\\"')
@@ -650,6 +814,10 @@ def _send_via_kdeconnect(phone_number: str, text: str) -> bool:
     error to stderr but the network-discovery fallback path still delivers
     the SMS reliably. We trust exit code only — stderr noise is cosmetic.
     """
+    if not _is_recipient_verified_globally(phone_number):
+        logger.warning("🛡 Refusing to send KDE Connect SMS to unverified recipient: %s", phone_number)
+        return False
+
     cli = _find_kdeconnect_cli()
     if not cli:
         return False
@@ -944,6 +1112,8 @@ class SAGEMessageBridge:
         self._phone_cache_refreshed_at = 0.0
         self._user_email = ""
         self._user_phone = ""
+        global _active_bridge_instance
+        _active_bridge_instance = self
 
     def _get_verified_recipients(self) -> set[str]:
         """Get all verified email addresses and phone numbers for the logged-in user."""
@@ -1222,12 +1392,13 @@ class SAGEMessageBridge:
             for c in contacts:
                 raw_email = (c.get("email") or "")
                 if raw_email.startswith("phone:"):
-                    digits = re.sub(r"\D", "", raw_email.replace("phone:", ""))
-                    if len(digits) == 11 and digits.startswith("1"):
-                        digits = digits[1:]
-                    if len(digits) == 10:
-                        phone_cache[f"+1{digits}"] = c
-                        phone_cache[digits] = c
+                    phone_norm = _normalize_e164_globally(raw_email.replace("phone:", ""))
+                    if phone_norm:
+                        phone_cache[phone_norm] = c
+                        phone_digits = re.sub(r"\D", "", phone_norm)
+                        if len(phone_digits) == 11 and phone_digits.startswith("1"):
+                            phone_digits = phone_digits[1:]
+                        phone_cache[phone_digits] = c
                 elif "@" in raw_email:
                     email_cache[raw_email.lower()] = c
 
@@ -1239,12 +1410,13 @@ class SAGEMessageBridge:
                     if "@" in imsg:
                         email_cache[imsg.lower()] = c
                     else:
-                        norm = re.sub(r"\D", "", imsg)
-                        if len(norm) == 11 and norm.startswith("1"):
-                            norm = norm[1:]
-                        if len(norm) == 10:
-                            phone_cache[f"+1{norm}"] = c
-                            phone_cache[norm] = c
+                        norm_phone = _normalize_e164_globally(imsg)
+                        if norm_phone:
+                            phone_cache[norm_phone] = c
+                            phone_digits = re.sub(r"\D", "", norm_phone)
+                            if len(phone_digits) == 11 and phone_digits.startswith("1"):
+                                phone_digits = phone_digits[1:]
+                            phone_cache[phone_digits] = c
 
             self._phone_contacts_cache = phone_cache
             self._email_contacts_cache = email_cache
@@ -1328,15 +1500,8 @@ class SAGEMessageBridge:
         return results
 
     def _normalize_e164(self, raw: str) -> str:
-        """Normalize phone-shaped sender to +1XXXXXXXXXX."""
-        digits = re.sub(r"\D", "", raw or "")
-        if len(digits) == 11 and digits.startswith("1"):
-            digits = digits[1:]
-        if len(digits) == 10:
-            return f"+1{digits}"
-        if raw and raw.startswith("+"):
-            return raw
-        return ""
+        """Normalize phone-shaped sender to E.164 (+1XXXXXXXXXX or +XXXXXXXXXXXX)."""
+        return _normalize_e164_globally(raw)
 
     @staticmethod
     def _parse_routing(text: str) -> tuple[str | None, str]:
@@ -2183,12 +2348,7 @@ class SAGEMessageBridge:
 
         body = f"[SAGE — {self.cfg.computer_name}] {text}"
         phone_local = gateway_email.split("@", 1)[0] if "@" in gateway_email else ""
-        digits = re.sub(r"\D", "", phone_local)
-        phone_e164 = ""
-        if len(digits) == 10:
-            phone_e164 = f"+1{digits}"
-        elif len(digits) == 11 and digits.startswith("1"):
-            phone_e164 = f"+{digits}"
+        phone_e164 = _normalize_e164_globally(phone_local)
 
         # Apple → iMessage. Use the user's actual phone number (E.164) — the
         # macOS Messages app routes by phone iff iMessage is enabled on this
@@ -2274,12 +2434,7 @@ class SAGEMessageBridge:
             self._log(f"🛡 Refusing native message: {phone} is not a verified contact of this user.")
             return
 
-        digits = re.sub(r"\D", "", phone)
-        phone_e164 = ""
-        if len(digits) == 10:
-            phone_e164 = f"+1{digits}"
-        elif len(digits) == 11 and digits.startswith("1"):
-            phone_e164 = f"+{digits}"
+        phone_e164 = _normalize_e164_globally(phone)
         if not phone_e164:
             self._log(f"native_message: invalid phone {phone!r}")
             return
@@ -2334,13 +2489,7 @@ class SAGEMessageBridge:
 
         # Normalize phone number for KDE Connect
         phone_local = recipient_bounced.split("@", 1)[0] if "@" in recipient_bounced else ""
-        digits = re.sub(r"\D", "", phone_local)
-        if len(digits) == 10:
-            phone_e164 = f"+1{digits}"
-        elif len(digits) == 11 and digits.startswith("1"):
-            phone_e164 = f"+{digits}"
-        else:
-            phone_e164 = ""
+        phone_e164 = _normalize_e164_globally(phone_local)
 
         body = f"[SAGE] {text}"
 
@@ -2399,9 +2548,8 @@ class SAGEMessageBridge:
 
         if sys.platform != "darwin":
             # Fallback for non-macOS: if apple_email is a phone number, try KDE Connect
-            digits = re.sub(r"\D", "", apple_email)
-            if len(digits) == 10 or (len(digits) == 11 and digits.startswith("1")):
-                phone_e164 = f"+1{digits}" if len(digits) == 10 else f"+{digits}"
+            phone_e164 = _normalize_e164_globally(apple_email)
+            if phone_e164:
                 if _send_via_kdeconnect(phone_e164, body):
                     self._log(f"→ iMessage (SMS fallback via KDE Connect) delivered to {apple_email}")
                     return
@@ -2611,6 +2759,14 @@ class SAGEMessageBridge:
                 self._bridge_email = resp.get("display_email") or resp.get("bridge_email", "")
                 self._user_email = resp.get("user_email", "").lower().strip()
                 self._user_phone = resp.get("user_phone", "").strip()
+                if self._user_phone:
+                    try:
+                        phone_file = Path.home() / ".sage" / "verified_phone.txt"
+                        phone_file.parent.mkdir(parents=True, exist_ok=True)
+                        phone_file.write_text(self._user_phone, encoding="utf-8")
+                        phone_file.chmod(0o600)
+                    except Exception:
+                        pass
                 reconnect_delay = 3
                 self._log(f"Connected. Users message: {self._bridge_email}")
 

@@ -36,6 +36,7 @@ from xml.sax.saxutils import escape as sax_escape
 from .asset import AppriseAsset
 from .locale import gettext_lazy as _
 from .logger import logger
+from .tag import AppriseTag
 from .utils.parse import (
     parse_bool,
     parse_list,
@@ -119,6 +120,12 @@ class URLBase:
     # Secure sites should be verified against a Certificate Authority
     verify_certificate = True
 
+    # By default, HTTP redirects are followed, matching the behaviour of the
+    # underlying requests library. Set to False to prevent redirect-chain
+    # credential forwarding to destinations not explicitly configured by the
+    # operator.
+    redirects = True
+
     # Logging to our global logger
     logger = logger
 
@@ -146,6 +153,16 @@ class URLBase:
             # look up default using the following parent class value at
             # runtime.
             "_lookup_default": "verify_certificate",
+        },
+        "redirect": {
+            "name": _("Follow Redirects"),
+            # Whether to follow HTTP 3xx redirects
+            "type": "bool",
+            # Provide a default
+            "default": redirects,
+            # look up default using the following parent class value at
+            # runtime.
+            "_lookup_default": "redirects",
         },
         "rto": {
             "name": _("Socket Read Timeout"),
@@ -210,6 +227,14 @@ class URLBase:
             kwargs.get("verify", URLBase.verify_certificate)
         )
 
+        # Redirect support; default to enabled to match the behaviour of the
+        # underlying requests library. The asset-level http_redirects flag
+        # acts as the global default so operators can disable redirect
+        # following across all plugins without touching every individual URL.
+        self.redirects = parse_bool(
+            kwargs.get("redirect", self.asset.http_redirects)
+        )
+
         # Schema
         self.schema = kwargs.get("schema", "unknown").lower()
 
@@ -267,10 +292,16 @@ class URLBase:
                 )
 
         if "tag" in kwargs:
-            # We want to associate some tags with our notification service.
-            # the code below gets the 'tag' argument if defined, otherwise
-            # it just falls back to whatever was already defined globally
-            self.tags = set(parse_list(kwargs.get("tag"), self.tags))
+            # Parse all tags as AppriseTag objects so priority metadata is
+            # preserved.  Existing tags on the class (if any) are also
+            # converted so the set stays homogeneous.
+            existing = {
+                t if isinstance(t, AppriseTag) else AppriseTag.parse(str(t))
+                for t in self.tags
+            }
+            self.tags = existing | {
+                AppriseTag.parse(t) for t in parse_list(kwargs.get("tag"))
+            }
 
         # Tracks the time any i/o was made to the remote server.  This value
         # is automatically set and controlled through the throttle() call.
@@ -823,6 +854,12 @@ class URLBase:
         if self.verify_certificate != URLBase.verify_certificate:
             params["verify"] = "yes" if self.verify_certificate else "no"
 
+        # Redirect following -- compare against the asset default, not the
+        # class constant, so that a per-URL override is preserved when the
+        # asset global has been changed (round-trip idempotency).
+        if self.redirects != self.asset.http_redirects:
+            params["redirect"] = "yes" if self.redirects else "no"
+
         return params
 
     @staticmethod
@@ -852,6 +889,19 @@ class URLBase:
             # Support SSL Certificate 'verify' keyword. Default to being
             # enabled
             results["verify"] = True
+
+        if qsd_exists and "redirect" in results["qsd"]:
+            # Pulled from URL String
+            results["redirect"] = parse_bool(
+                results["qsd"].get("redirect", True)
+            )
+
+        elif "redirect" in results:
+            # Pulled from YAML Configuration
+            results["redirect"] = parse_bool(results.get("redirect", True))
+
+        # When redirect= is not specified, leave it absent so that URLBase
+        # __init__ falls back to asset.http_redirects as the global default.
 
         # Password overrides
         if "pass" in results:

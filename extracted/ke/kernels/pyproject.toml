@@ -1,6 +1,6 @@
 [project]
 name = "kernels"
-version = "0.14.1"
+version = "0.15.1"
 description = "Download compute kernels"
 authors = [
   { name = "Daniel de Kok", email = "daniel@huggingface.co" },
@@ -26,9 +26,11 @@ build-backend = "setuptools.build_meta"
 dev = [
   "mktestdocs>=0.2.5",
   "mypy>=1.15.0",
+  "pre-commit",
   "pytest>=8",
   # Whatever version is compatible with pytest.
   "pytest-benchmark",
+  "pytest-cov>=5",
   "torch>=2.5",
   "apache-tvm-ffi>=0.1.9,<0.2.0",
   "types-pyyaml",
@@ -36,7 +38,6 @@ dev = [
 ]
 
 [project.optional-dependencies]
-abi-check = ["kernel-abi-check>=0.6.2,<0.7.0"]
 benchmark = [
   "matplotlib>=3.7.0",
   "numpy>=2.0.2",
@@ -88,3 +89,18 @@ lint.ignore = ["E501"]
 lint.select = ["E", "F", "I", "W"]
 
 [tool.ruff.format]
+
+[tool.coverage.run]
+source = ["kernels"]
+branch = false
+relative_files = true
+omit = [
+  "*/benchmarks/*",
+  "*/benchmark.py",
+  "*/cli/*",
+  "*/_windows.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true

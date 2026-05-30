@@ -28,8 +28,8 @@ both contracts in one place:
 
 The semaphore is supplied as a zero-arg async-context-manager factory rather
 than the raw ``asyncio.Semaphore`` so the middleware can be live-bound to
-``Session._get_rpc_semaphore`` — which lazily constructs the semaphore on
-first use (loop affinity) and returns a ``contextlib.nullcontext`` when
+``ClientComposed.get_rpc_semaphore`` — which lazily constructs the semaphore
+on first use (loop affinity) and returns a ``contextlib.nullcontext`` when
 ``max_concurrent_rpcs is None`` (unbounded opt-out). A direct semaphore
 binding would have to be reset on loop reuse and would have a 2-call
 recursive-acquire deadlock risk; the factory closure avoids both.
@@ -47,13 +47,14 @@ from contextlib import AbstractAsyncContextManager
 from typing import Any
 
 from ._middleware import NextCall, RpcRequest, RpcResponse
+from ._middleware_context import RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS
 
 # ``RpcRequest.context`` key used to communicate the per-call queue-wait
 # duration from this middleware up to ``Session._perform_authed_post``
 # (which forwards it to ``ClientMetrics.record_rpc_queue_wait``). Kept as a
-# named constant so the chain's metadata vocabulary in ADR-009 §"RpcRequest
-# .context keys" can reference it precisely.
-RPC_QUEUE_WAIT_CONTEXT_KEY = "rpc_queue_wait_seconds"
+# compatibility alias for older internal imports; new code should use the
+# centralized ``RPC_CONTEXT_*`` vocabulary from ``_middleware_context``.
+RPC_QUEUE_WAIT_CONTEXT_KEY = RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS
 
 
 class SemaphoreMiddleware:
@@ -68,7 +69,7 @@ class SemaphoreMiddleware:
     - ``semaphore_factory``: zero-arg callable returning an async context
       manager. Called once per chain invocation; the returned context manager
       is entered around ``next_call``. Production wires
-      ``lambda: client_core._get_rpc_semaphore()`` so the live (lazily
+      ``ClientComposed.get_rpc_semaphore`` so the live (lazily
       constructed, loop-bound) semaphore is observed on each call. Tests can
       pass ``lambda: contextlib.nullcontext()`` to disable gating.
 
@@ -92,8 +93,14 @@ class SemaphoreMiddleware:
     ) -> RpcResponse:
         queue_wait_start = time.perf_counter()
         async with self._semaphore_factory():
-            request.context[RPC_QUEUE_WAIT_CONTEXT_KEY] = time.perf_counter() - queue_wait_start
+            request.context[RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS] = (
+                time.perf_counter() - queue_wait_start
+            )
             return await next_call(request)
 
 
-__all__ = ["RPC_QUEUE_WAIT_CONTEXT_KEY", "SemaphoreMiddleware"]
+__all__ = [
+    "RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS",
+    "RPC_QUEUE_WAIT_CONTEXT_KEY",
+    "SemaphoreMiddleware",
+]

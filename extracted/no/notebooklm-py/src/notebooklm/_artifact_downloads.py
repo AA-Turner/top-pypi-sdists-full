@@ -4,31 +4,37 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import json
 import logging
 import os
 import queue
-import sys
 import tempfile
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, unquote, urlparse
 
 import httpx
 
-from .exceptions import ValidationError
-from .rpc import ArtifactTypeCode
+from ._artifact_formatters import _extract_app_data, _format_interactive_content, _parse_data_table
+from .auth import load_httpx_cookies
+from .exceptions import UnknownRPCMethodError, ValidationError
+from .rpc import ArtifactTypeCode, RPCMethod, safe_index
 from .types import (
+    Artifact,
     ArtifactDownloadError,
     ArtifactNotFoundError,
     ArtifactNotReadyError,
     ArtifactParseError,
+    ArtifactType,
 )
 
 if TYPE_CHECKING:
-    from ._artifacts import _ArtifactsServiceMethods
+    from ._artifact_listing import ArtifactListingService
     from ._mind_map import NoteBackedMindMapService
+    from ._row_adapters_artifacts import ArtifactRow
+    from ._session_contracts import RpcCaller
 
 logger = logging.getLogger(__name__)
 
@@ -121,28 +127,26 @@ class DownloadResult:
         return bool(self.succeeded) and bool(self.failed)
 
 
-def _artifact_seams() -> Any:
-    """Return the facade module that legacy tests patch.
-
-    Download code deliberately resolves selected dependencies through
-    ``notebooklm._artifacts`` at call time so existing private monkeypatch
-    targets keep working after the extraction.
-    """
-    try:
-        return sys.modules["notebooklm._artifacts"]
-    except KeyError as e:
-        raise RuntimeError("notebooklm._artifacts must be imported before downloads run") from e
-
-
 def _load_httpx_cookies(storage_path: Any) -> Any:
-    return _artifact_seams().load_httpx_cookies(path=storage_path)
+    return load_httpx_cookies(path=storage_path)
 
 
-def _is_trusted_download_host(netloc: str) -> bool:
+def _is_trusted_download_host(hostname: str | None) -> bool:
+    if hostname is None:
+        return False
+    hostname = unquote(hostname).lower()
+    if "\\" in hostname or "/" in hostname:
+        return False
     return any(
-        netloc == domain.lstrip(".") or netloc.endswith(domain)
+        hostname == domain.lstrip(".") or hostname.endswith(domain)
         for domain in _TRUSTED_DOWNLOAD_DOMAINS
     )
+
+
+def _download_display_host(parsed: ParseResult) -> str:
+    if parsed.hostname is not None:
+        return parsed.hostname
+    return parsed.netloc.rsplit("@", 1)[-1]
 
 
 class ArtifactDownloadService:
@@ -151,22 +155,81 @@ class ArtifactDownloadService:
     def __init__(
         self,
         *,
-        methods: _ArtifactsServiceMethods,
+        rpc: RpcCaller,
+        listing: ArtifactListingService,
         mind_maps: NoteBackedMindMapService,
         storage_path: Path | None = None,
     ) -> None:
-        self._methods = methods
+        self._rpc = rpc
+        self._listing = listing
         self._mind_maps = mind_maps
         self._storage_path = storage_path
+
+    async def _list_raw(self, notebook_id: str) -> list[Any]:
+        """List raw artifacts through the injected listing service."""
+        return await self._listing.list_raw(notebook_id, rpc=self._rpc)
+
+    async def _list_mind_maps(self, notebook_id: str) -> list[Any]:
+        """List mind-map artifacts through the injected mind-map service."""
+        return await self._mind_maps.list_mind_maps(notebook_id)
+
+    async def _list_artifacts(
+        self,
+        notebook_id: str,
+        artifact_type: ArtifactType,
+    ) -> list[Artifact]:
+        """List typed artifacts using the download service's patchable seams."""
+        return await self._listing.list_artifacts(
+            notebook_id,
+            artifact_type,
+            list_raw=self._list_raw,
+            list_mind_maps=self._list_mind_maps,
+        )
+
+    def _select_artifact(
+        self,
+        candidates: list[Any],
+        artifact_id: str | None,
+        type_name: str,
+        no_result_error_key: str,
+        *,
+        type_code: ArtifactTypeCode,
+    ) -> ArtifactRow:
+        """Select one completed artifact candidate as an adapter row."""
+        return self._listing.select_completed_artifact_row(
+            candidates,
+            artifact_id,
+            type_name,
+            no_result_error_key,
+            type_code=type_code,
+        )
+
+    async def _get_artifact_content(self, notebook_id: str, artifact_id: str) -> str | None:
+        """Fetch interactive artifact HTML through the runtime RPC seam."""
+        result = await self._rpc.rpc_call(
+            RPCMethod.GET_INTERACTIVE_HTML,
+            [artifact_id],
+            source_path=f"/notebook/{notebook_id}",
+            allow_null=True,
+        )
+        if result is None:
+            return None
+        return safe_index(
+            result,
+            0,
+            9,
+            0,
+            method_id=RPCMethod.GET_INTERACTIVE_HTML.value,
+            source="_artifact_downloads._get_artifact_content",
+        )
 
     async def download_audio(
         self, notebook_id: str, output_path: str, artifact_id: str | None = None
     ) -> str:
         """Download an Audio Overview to a file."""
-        methods = self._methods
-        artifacts_data = await methods._list_raw(notebook_id)
+        artifacts_data = await self._list_raw(notebook_id)
 
-        audio_art = methods._select_artifact(
+        audio_art = self._select_artifact(
             artifacts_data,
             artifact_id,
             "Audio",
@@ -174,7 +237,15 @@ class ArtifactDownloadService:
             type_code=ArtifactTypeCode.AUDIO,
         )
 
-        url = _artifact_seams()._extract_artifact_url(audio_art, ArtifactTypeCode.AUDIO.value)
+        try:
+            url = audio_art.audio_url
+        except UnknownRPCMethodError as e:
+            raise ArtifactParseError(
+                "audio",
+                artifact_id=artifact_id,
+                details=f"Failed to parse structure: {e}",
+                cause=e,
+            ) from e
         if not url:
             raise ArtifactParseError(
                 "audio",
@@ -182,19 +253,18 @@ class ArtifactDownloadService:
                 details="Could not extract download URL from artifact metadata",
             )
 
-        return await methods._download_url(url, output_path)
+        return await self.download_url(url, output_path)
 
     async def download_video(
         self, notebook_id: str, output_path: str, artifact_id: str | None = None
     ) -> str:
         """Download a Video Overview to a file."""
-        methods = self._methods
-        artifacts_data = await methods._list_raw(notebook_id)
+        artifacts_data = await self._list_raw(notebook_id)
 
         # Note: distinct error keys preserved — specific-ID miss raises
         # "video" (from type_name="Video"); empty-list raises
         # "video_overview" (from type_name_lower).
-        video_art = methods._select_artifact(
+        video_art = self._select_artifact(
             artifacts_data,
             artifact_id,
             "Video",
@@ -202,7 +272,15 @@ class ArtifactDownloadService:
             type_code=ArtifactTypeCode.VIDEO,
         )
 
-        url = _artifact_seams()._extract_artifact_url(video_art, ArtifactTypeCode.VIDEO.value)
+        try:
+            url = video_art.video_url
+        except UnknownRPCMethodError as e:
+            raise ArtifactParseError(
+                "video_artifact",
+                artifact_id=artifact_id,
+                details=f"Failed to parse structure: {e}",
+                cause=e,
+            ) from e
         if not url:
             raise ArtifactParseError(
                 "video_artifact",
@@ -210,16 +288,15 @@ class ArtifactDownloadService:
                 details="Could not extract download URL from artifact metadata",
             )
 
-        return await methods._download_url(url, output_path)
+        return await self.download_url(url, output_path)
 
     async def download_infographic(
         self, notebook_id: str, output_path: str, artifact_id: str | None = None
     ) -> str:
         """Download an Infographic to a file."""
-        methods = self._methods
-        artifacts_data = await methods._list_raw(notebook_id)
+        artifacts_data = await self._list_raw(notebook_id)
 
-        info_art = methods._select_artifact(
+        info_art = self._select_artifact(
             artifacts_data,
             artifact_id,
             "Infographic",
@@ -228,16 +305,21 @@ class ArtifactDownloadService:
         )
 
         try:
-            url = _artifact_seams()._extract_artifact_url(
-                info_art, ArtifactTypeCode.INFOGRAPHIC.value
-            )
+            url = info_art.infographic_url
             if not url:
-                raise ArtifactParseError("infographic", details="Could not find metadata")
-            return await methods._download_url(url, output_path)
+                raise ArtifactParseError(
+                    "infographic",
+                    artifact_id=artifact_id,
+                    details="Could not find metadata",
+                )
+            return await self.download_url(url, output_path)
 
-        except (IndexError, TypeError) as e:
+        except (IndexError, TypeError, UnknownRPCMethodError) as e:
             raise ArtifactParseError(
-                "infographic", details=f"Failed to parse structure: {e}", cause=e
+                "infographic",
+                artifact_id=artifact_id,
+                details=f"Failed to parse structure: {e}",
+                cause=e,
             ) from e
 
     async def download_slide_deck(
@@ -248,13 +330,12 @@ class ArtifactDownloadService:
         output_format: str = "pdf",
     ) -> str:
         """Download a slide deck as PDF or PPTX."""
-        methods = self._methods
         if output_format not in ("pdf", "pptx"):
             raise ValidationError(f"Invalid format '{output_format}'. Must be 'pdf' or 'pptx'.")
 
-        artifacts_data = await methods._list_raw(notebook_id)
+        artifacts_data = await self._list_raw(notebook_id)
 
-        slide_art = methods._select_artifact(
+        slide_art = self._select_artifact(
             artifacts_data,
             artifact_id,
             "Slide deck",
@@ -262,39 +343,30 @@ class ArtifactDownloadService:
             type_code=ArtifactTypeCode.SLIDE_DECK,
         )
 
-        # Extract download URL from metadata at index 16.
-        # Structure: artifact[16] = [config, title, slides_list, pdf_url, pptx_url]
         try:
-            if len(slide_art) <= 16:
-                raise ArtifactParseError("slide_deck_artifact", details="Invalid structure")
-
-            metadata = slide_art[16]
-            if not isinstance(metadata, list):
-                raise ArtifactParseError("slide_deck_metadata", details="Invalid structure")
-
             if output_format == "pptx":
-                if len(metadata) < 5:
+                url = slide_art.slide_deck_pptx_url
+                if not url:
                     raise ArtifactDownloadError(
                         "slide_deck", details="PPTX URL not available in artifact data"
                     )
-                url = metadata[4]
             else:
-                if len(metadata) < 4:
-                    raise ArtifactParseError("slide_deck_metadata", details="Invalid structure")
-                url = metadata[3]
+                url = slide_art.slide_deck_pdf_url
+                if not url:
+                    raise ArtifactDownloadError(
+                        "slide_deck",
+                        details=f"Could not find {output_format.upper()} download URL",
+                    )
 
-            if not isinstance(url, str) or not url.startswith("http"):
-                raise ArtifactDownloadError(
-                    "slide_deck",
-                    details=f"Could not find {output_format.upper()} download URL",
-                )
-
-        except (IndexError, TypeError) as e:
+        except UnknownRPCMethodError as e:
             raise ArtifactParseError(
-                "slide_deck", details=f"Failed to parse structure: {e}", cause=e
+                "slide_deck",
+                artifact_id=artifact_id,
+                details=f"Failed to parse structure: {e}",
+                cause=e,
             ) from e
 
-        return await methods._download_url(url, output_path)
+        return await self.download_url(url, output_path)
 
     async def download_interactive_artifact(
         self,
@@ -305,7 +377,6 @@ class ArtifactDownloadService:
         artifact_type: str,
     ) -> str:
         """Download quiz or flashcard artifact."""
-        methods = self._methods
         valid_formats = ("json", "markdown", "html")
         if output_format not in valid_formats:
             raise ValidationError(
@@ -314,12 +385,9 @@ class ArtifactDownloadService:
 
         is_quiz = artifact_type == "quiz"
         default_title = "Untitled Quiz" if is_quiz else "Untitled Flashcards"
+        list_type = ArtifactType.QUIZ if is_quiz else ArtifactType.FLASHCARDS
 
-        artifacts = (
-            await methods.list_quizzes(notebook_id)
-            if is_quiz
-            else await methods.list_flashcards(notebook_id)
-        )
+        artifacts = await self._list_artifacts(notebook_id, list_type)
         completed = [a for a in artifacts if a.is_completed]
         if not completed:
             raise ArtifactNotReadyError(artifact_type)
@@ -333,22 +401,19 @@ class ArtifactDownloadService:
         else:
             artifact = completed[0]
 
-        html_content = await methods._get_artifact_content(notebook_id, artifact.id)
+        html_content = await self._get_artifact_content(notebook_id, artifact.id)
         if not html_content:
             raise ArtifactDownloadError(artifact_type, details="Failed to fetch content")
 
-        json_module = _artifact_seams().json
         try:
-            app_data = _artifact_seams()._extract_app_data(html_content)
-        except (ValueError, json_module.JSONDecodeError) as e:
+            app_data = _extract_app_data(html_content)
+        except json.JSONDecodeError as e:
             raise ArtifactParseError(
                 artifact_type, details=f"Failed to parse content: {e}", cause=e
             ) from e
 
         title = artifact.title or default_title
-        content = methods._format_interactive_content(
-            app_data, title, output_format, html_content, is_quiz
-        )
+        content = _format_interactive_content(app_data, title, output_format, html_content, is_quiz)
 
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -367,10 +432,9 @@ class ArtifactDownloadService:
         artifact_id: str | None = None,
     ) -> str:
         """Download a report artifact as markdown."""
-        methods = self._methods
-        artifacts_data = await methods._list_raw(notebook_id)
+        artifacts_data = await self._list_raw(notebook_id)
 
-        report_art = methods._select_artifact(
+        report_art = self._select_artifact(
             artifacts_data,
             artifact_id,
             "Report",
@@ -379,15 +443,14 @@ class ArtifactDownloadService:
         )
 
         try:
-            content_wrapper = report_art[7]
-            markdown_content = (
-                content_wrapper[0]
-                if isinstance(content_wrapper, list) and content_wrapper
-                else content_wrapper
-            )
+            markdown_content = report_art.report_markdown
 
             if not isinstance(markdown_content, str):
-                raise ArtifactParseError("report_content", details="Invalid structure")
+                raise ArtifactParseError(
+                    "report_content",
+                    artifact_id=artifact_id,
+                    details="Invalid structure",
+                )
 
             output = Path(output_path)
             output.parent.mkdir(parents=True, exist_ok=True)
@@ -398,9 +461,12 @@ class ArtifactDownloadService:
             await asyncio.to_thread(_write_markdown)
             return str(output)
 
-        except (IndexError, TypeError) as e:
+        except (IndexError, TypeError, UnknownRPCMethodError) as e:
             raise ArtifactParseError(
-                "report", details=f"Failed to parse structure: {e}", cause=e
+                "report",
+                artifact_id=artifact_id,
+                details=f"Failed to parse structure: {e}",
+                cause=e,
             ) from e
 
     async def download_mind_map(
@@ -422,25 +488,24 @@ class ArtifactDownloadService:
         else:
             mind_map = mind_maps[0]
 
-        json_module = _artifact_seams().json
         try:
             json_string = mind_maps_service.extract_content(mind_map)
             if json_string is None:
                 raise ArtifactParseError("mind_map_content", details="Invalid structure")
 
-            json_data = json_module.loads(json_string)
+            json_data = json.loads(json_string)
 
             output = Path(output_path)
             output.parent.mkdir(parents=True, exist_ok=True)
 
             def _write_json() -> None:
                 with output.open("w", encoding="utf-8") as f:
-                    _artifact_seams().json.dump(json_data, f, indent=2, ensure_ascii=False)
+                    json.dump(json_data, f, indent=2, ensure_ascii=False)
 
             await asyncio.to_thread(_write_json)
             return str(output)
 
-        except (IndexError, TypeError, json_module.JSONDecodeError) as e:
+        except (IndexError, TypeError, json.JSONDecodeError) as e:
             raise ArtifactParseError(
                 "mind_map", details=f"Failed to parse structure: {e}", cause=e
             ) from e
@@ -452,10 +517,9 @@ class ArtifactDownloadService:
         artifact_id: str | None = None,
     ) -> str:
         """Download a data table as CSV."""
-        methods = self._methods
-        artifacts_data = await methods._list_raw(notebook_id)
+        artifacts_data = await self._list_raw(notebook_id)
 
-        table_art = methods._select_artifact(
+        table_art = self._select_artifact(
             artifacts_data,
             artifact_id,
             "Data table",
@@ -466,8 +530,8 @@ class ArtifactDownloadService:
         )
 
         try:
-            raw_data = table_art[18]
-            headers, rows = _artifact_seams()._parse_data_table(raw_data)
+            raw_data = table_art.data_table_raw_payload
+            headers, rows = _parse_data_table(raw_data)
 
             output = Path(output_path)
             output.parent.mkdir(parents=True, exist_ok=True)
@@ -482,9 +546,12 @@ class ArtifactDownloadService:
 
             return str(output)
 
-        except (IndexError, TypeError, ValueError) as e:
+        except (IndexError, TypeError, ValueError, UnknownRPCMethodError) as e:
             raise ArtifactParseError(
-                "data_table", details=f"Failed to parse structure: {e}", cause=e
+                "data_table",
+                artifact_id=artifact_id,
+                details=f"Failed to parse structure: {e}",
+                cause=e,
             ) from e
 
     async def download_quiz(
@@ -523,19 +590,20 @@ class ArtifactDownloadService:
             timeout=60.0,
         ) as client:
             for url, output_path in urls_and_paths:
-                parsed_netloc = ""
+                display_host = ""
                 parsed_path = ""
                 try:
                     parsed = urlparse(url)
-                    parsed_netloc = parsed.netloc
+                    display_host = _download_display_host(parsed)
                     parsed_path = parsed.path
                     if parsed.scheme != "https":
                         raise ArtifactDownloadError(
                             "media", details=f"Download URL must use HTTPS: {url[:80]}"
                         )
-                    if not _is_trusted_download_host(parsed.netloc):
+                    if not _is_trusted_download_host(parsed.hostname):
                         raise ArtifactDownloadError(
-                            "media", details=f"Untrusted download domain: {parsed.netloc}"
+                            "media",
+                            details=f"Untrusted download domain: {display_host}",
                         )
 
                     response = await client.get(url)
@@ -544,7 +612,7 @@ class ArtifactDownloadService:
                             "media",
                             details=(
                                 f"Authentication failed (HTTP {response.status_code}) "
-                                f"on {parsed.netloc}{parsed.path}"
+                                f"on {display_host}{parsed.path}"
                             ),
                         )
                     response.raise_for_status()
@@ -561,7 +629,7 @@ class ArtifactDownloadService:
                     result.succeeded.append(output_path)
                     logger.debug(
                         "Downloaded %s%s (%d bytes)",
-                        parsed.netloc,
+                        display_host,
                         parsed.path,
                         len(response.content),
                     )
@@ -581,7 +649,7 @@ class ArtifactDownloadService:
                         reason = e.__class__.__name__
                     logger.warning(
                         "Download failed for %s%s: %s",
-                        parsed_netloc,
+                        display_host,
                         parsed_path,
                         reason,
                     )
@@ -592,11 +660,13 @@ class ArtifactDownloadService:
     async def download_url(self, url: str, output_path: str) -> str:
         """Download a file from URL using streaming with proper cookie handling."""
         parsed = urlparse(url)
+        display_host = _download_display_host(parsed)
         if parsed.scheme != "https":
             raise ArtifactDownloadError("media", details=f"Download URL must use HTTPS: {url[:80]}")
-        if not _is_trusted_download_host(parsed.netloc):
+        if not _is_trusted_download_host(parsed.hostname):
             raise ArtifactDownloadError(
-                "media", details=f"Untrusted download domain: {parsed.netloc}"
+                "media",
+                details=f"Untrusted download domain: {display_host}",
             )
 
         output_file = Path(output_path)
@@ -809,7 +879,7 @@ class ArtifactDownloadService:
                         os.replace(temp_file, output_file)
                         logger.debug(
                             "Downloaded %s%s (%d bytes)",
-                            parsed.netloc,
+                            display_host,
                             parsed.path,
                             total_bytes,
                         )
@@ -819,7 +889,7 @@ class ArtifactDownloadService:
                     raise ArtifactDownloadError(
                         "media",
                         details=(
-                            f"Authentication required for {parsed.netloc}{parsed.path}"
+                            f"Authentication required for {display_host}{parsed.path}"
                             " -- try `notebooklm login`"
                         ),
                         cause=e,
@@ -827,14 +897,14 @@ class ArtifactDownloadService:
                     ) from e
                 raise ArtifactDownloadError(
                     "media",
-                    details=f"HTTP error downloading {parsed.netloc}{parsed.path}",
+                    details=f"HTTP error downloading {display_host}{parsed.path}",
                     cause=e,
                     status_code=e.response.status_code,
                 ) from e
             except httpx.RequestError as e:
                 raise ArtifactDownloadError(
                     "media",
-                    details=f"Network error downloading {parsed.netloc}{parsed.path}",
+                    details=f"Network error downloading {display_host}{parsed.path}",
                     cause=e,
                 ) from e
         except BaseException:

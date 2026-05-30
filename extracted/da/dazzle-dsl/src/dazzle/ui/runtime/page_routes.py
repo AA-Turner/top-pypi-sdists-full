@@ -23,6 +23,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+
 from dazzle.core import ir
 from dazzle.core.access import AccessOperationKind, AccessRuntimeContext
 from dazzle.core.manifest import resolve_api_url
@@ -31,15 +34,6 @@ from dazzle.render.access_messages import _forbidden_detail
 from dazzle.render.display_names import _inject_display_names
 
 logger = logging.getLogger(__name__)
-
-try:
-    from fastapi import APIRouter, HTTPException, Request
-    from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-
-    FASTAPI_AVAILABLE = True
-except ImportError:
-    FASTAPI_AVAILABLE = False
-
 
 # =============================================================================
 # Helpers (module-level, no closure state)
@@ -294,6 +288,44 @@ def _user_can_mutate(
         entity_name=_entity_name or "",
     )
     return bool(_decision.allowed)
+
+
+def _suppress_inaccessible_cta(step: Any, prc: "_PageRequestContext", appspec: Any) -> Any:
+    """Strip a guide step's CTA when it points at a create/edit surface the
+    current persona can't mutate (#1292 runtime backstop).
+
+    Returns the step unchanged when the CTA is fine (read-only target,
+    unknown surface, or the persona can mutate). When suppressed, returns a
+    copy with ``cta_target``/``cta_label`` cleared so the step still renders
+    (and completes) but offers no dead navigation. Defence in depth behind
+    the validate-time guide-CTA access check in ``guide_concordance``.
+    """
+    cta = getattr(step, "cta_target", None)
+    if not cta or not str(cta).startswith("surface."):
+        return step
+    surface_name = cta.removeprefix("surface.").split(".")[0]
+    surface = next((s for s in appspec.surfaces if s.name == surface_name), None)
+    if surface is None:
+        return step
+    mode_raw = getattr(surface, "mode", None)
+    mode_str = str(getattr(mode_raw, "value", mode_raw) or "").lower()
+    if "create" in mode_str:
+        operation = "create"
+    elif "edit" in mode_str or "update" in mode_str:
+        operation = "update"
+    else:
+        return step  # read / list / detail CTA — not gated
+    if _user_can_mutate(prc.deps, surface_name, operation, prc.auth_ctx):
+        return step
+    logger.info(
+        "onboarding.inject:cta-suppressed step=%s cta_target=%s op=%s "
+        "(persona cannot %s the target entity — #1292 backstop)",
+        getattr(step, "name", "?"),
+        surface_name,
+        operation,
+        operation,
+    )
+    return step.model_copy(update={"cta_target": None, "cta_label": None})
 
 
 def _apply_persona_overrides(req_table: Any, user_roles: list[str]) -> None:
@@ -669,6 +701,20 @@ def _inject_onboarding_step(prc: _PageRequestContext) -> None:
     fragment. ``template_renderer._render_typed_body`` prepends it
     to the surface body.
     """
+    # #1293: the page ctx is captured once per route in
+    # ``_make_page_handler``'s closure and shared across every request to
+    # that route. ``active_guide_html`` is the one ctx field that's
+    # conditionally set (only on the happy path below) but never reset — so
+    # an overlay rendered for one persona (e.g. an engineer's "Register
+    # Device" empty-state CTA → ``/device_create``) persisted on the shared
+    # ctx and bled into the *next* persona's render, including a tester who
+    # can't create Devices. That tripped ``rbac:Device:{tester,manager}:create``
+    # under ``--managed`` (which renders multiple personas in one server
+    # lifetime) while single-persona local repros passed. Reset every request
+    # — the same discipline ``_apply_anon_nav`` uses for ``nav_items`` — so
+    # only the matching persona's overlay (re)populates it below.
+    prc.ctx.active_guide_html = ""
+
     appspec = prc.deps.appspec
     surface_name = prc.ctx.view_name or ""
 
@@ -797,6 +843,11 @@ def _inject_onboarding_step(prc: _PageRequestContext) -> None:
             kind,
         )
         return
+    # Runtime backstop (#1292): drop a CTA pointing at a create/edit surface
+    # this persona can't mutate, so onboarding never dangles an affordance
+    # that 403s. Defence in depth behind the validate-time guide-CTA access
+    # check — a validate-passing app never trips this.
+    step = _suppress_inaccessible_cta(step, prc, appspec)
     try:
         prc.ctx.active_guide_html = render_step(step, guide_name=guide.name)
     except UnknownStepKindError:
@@ -1527,6 +1578,17 @@ def _build_dispatch_ctx(
             "transitions": transitions_out,
             "integration_actions": integration_actions_out,
             "external_link_actions": external_links_out,
+            # #1297: hand VIEW-mode custom renderers the original
+            # DetailContext so a per-entity detail viewer can *delegate*
+            # to the generic detail rendering — the modern replacement
+            # for the (removed, ADR-0023) Jinja `components/detail_view.html`
+            # `{% else %}{% include "dz://…" %}` fall-through. A renderer
+            # registered via `render: <name>` on a VIEW surface renders its
+            # bespoke chrome, then optionally appends/wraps the standard
+            # view via `render_detail_view(ctx["detail_context"])`. Lazy by
+            # construction: the generic HTML is only produced if the
+            # renderer asks for it, so the override case costs nothing.
+            "detail_context": detail,
         }
 
     return {}
@@ -2226,9 +2288,6 @@ def create_page_routes(
     Returns:
         FastAPI router with page routes.
     """
-    if not FASTAPI_AVAILABLE:
-        raise RuntimeError("FastAPI is not installed")
-
     if backend_url is None:
         backend_url = resolve_api_url()
 

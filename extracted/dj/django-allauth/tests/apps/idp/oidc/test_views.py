@@ -1,3 +1,4 @@
+import base64
 from http import HTTPStatus
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
@@ -58,20 +59,48 @@ def test_userinfo(
         assert "email" not in data
 
 
+@pytest.mark.parametrize(
+    "resources",
+    [
+        [],
+        ["https://api.example.com/a"],
+        ["https://api.example.com/a", "https://api.example.com/b"],
+    ],
+)
 @pytest.mark.parametrize("access_token_format", ["jwt", "opaque"])
+@pytest.mark.parametrize("basic_auth", (False, True))
 def test_client_credentials(
-    client, oidc_client, oidc_client_secret, access_token_format, settings
+    client,
+    oidc_client,
+    oidc_client_secret,
+    access_token_format,
+    settings,
+    basic_auth,
+    resources,
 ):
     settings.IDP_OIDC_ACCESS_TOKEN_FORMAT = access_token_format
-    resp = client.post(
-        reverse("idp:oidc:token"),
-        data={
-            "client_id": oidc_client.id,
-            "client_secret": oidc_client_secret,
-            "scope": "profile email",
-            "grant_type": "client_credentials",
-        },
-    )
+    data = {
+        "scope": "profile email",
+        "grant_type": "client_credentials",
+    }
+    if resources:
+        data["resource"] = resources
+
+    post_kwargs = {}
+    if not basic_auth:
+        data.update(
+            {
+                "client_id": oidc_client.id,
+                "client_secret": oidc_client_secret,
+            }
+        )
+    else:
+        credentials = base64.b64encode(
+            f"{oidc_client.id}:{oidc_client_secret}".encode()
+        ).decode()
+        post_kwargs = {"HTTP_AUTHORIZATION": f"Basic {credentials}"}
+
+    resp = client.post(reverse("idp:oidc:token"), data=data, **post_kwargs)
     assert resp.status_code == HTTPStatus.OK
     data = resp.json()
     assert data == {
@@ -83,10 +112,11 @@ def test_client_credentials(
     token = Token.objects.lookup(Token.Type.ACCESS_TOKEN, data["access_token"])
     assert token.client == oidc_client
     assert token.get_scopes() == ["profile", "email"]
+    assert set(token.get_resources()) == set(resources)
 
     if access_token_format == "jwt":
         decoded = jwt.decode(data["access_token"], options={"verify_signature": False})
-        assert decoded == {
+        expected_decoded = {
             "client_id": oidc_client.id,
             "exp": ANY,
             "iat": ANY,
@@ -95,6 +125,22 @@ def test_client_credentials(
             "scope": "profile email",
             "token_use": "access",
         }
+        if resources:
+            expected_decoded["aud"] = resources
+        assert decoded == expected_decoded
+
+
+def test_client_secret_basic_invalid(client, oidc_client):
+    credentials = base64.b64encode(f"{oidc_client.id}:wrong-secret".encode()).decode()
+    resp = client.post(
+        reverse("idp:oidc:token"),
+        data={
+            "scope": "profile",
+            "grant_type": "client_credentials",
+        },
+        HTTP_AUTHORIZATION=f"Basic {credentials}",
+    )
+    assert resp.status_code == HTTPStatus.UNAUTHORIZED
 
 
 def test_password_grant_is_blocked(
@@ -120,22 +166,29 @@ def test_password_grant_is_blocked(
     }
 
 
-def test_implicit_grant_flow(auth_client, user, oidc_client, enable_cache):
+@pytest.mark.parametrize(
+    "resources",
+    [
+        [],
+        ["https://api.example.com/a"],
+        ["https://api.example.com/a", "https://api.example.com/b"],
+    ],
+)
+def test_implicit_grant_flow(auth_client, user, oidc_client, enable_cache, resources):
     redirect_uri = oidc_client.get_redirect_uris()[0]
     scopes = ["openid", "profile"]
+    data = {
+        "client_id": oidc_client.id,
+        "response_type": "token",
+        "scope": " ".join(scopes),
+        "nonce": "some-nonce",
+        "state": "some-state",
+        "redirect_uri": redirect_uri,
+    }
+    if resources:
+        data["resource"] = resources
     resp = auth_client.get(
-        reverse("idp:oidc:authorization")
-        + "?"
-        + urlencode(
-            {
-                "client_id": oidc_client.id,
-                "response_type": "token",
-                "scope": " ".join(scopes),
-                "nonce": "some-nonce",
-                "state": "some-state",
-                "redirect_uri": redirect_uri,
-            }
-        )
+        reverse("idp:oidc:authorization") + "?" + urlencode(data, doseq=True)
     )
     assert resp.status_code == HTTPStatus.OK
     assertTemplateUsed(resp, "idp/oidc/authorization_form.html")
@@ -158,6 +211,8 @@ def test_implicit_grant_flow(auth_client, user, oidc_client, enable_cache):
         "token_type": ["Bearer"],
         "state": ["some-state"],
     }
+    token = Token.objects.lookup(Token.Type.ACCESS_TOKEN, data["access_token"][0])
+    assert set(token.get_resources()) == set(resources)
 
 
 def test_userinfo_access_token_as_query(
@@ -197,16 +252,37 @@ def test_configuration_view(
             "id_token_signing_alg_values_supported": ["RS256"],
             "issuer": "http://testserver",
             "jwks_uri": "http://testserver/.well-known/jwks.json",
-            "response_types_supported": ["code", "token"],
+            "response_types_supported": [
+                "code",
+                "code id_token",
+                "code id_token token",
+                "code token",
+                "id_token",
+                "id_token token",
+                "none",
+                "token",
+            ],
             "revocation_endpoint": "http://testserver/identity/o/api/revoke",
             "subject_types_supported": ["public"],
             "token_endpoint": "http://testserver/identity/o/api/token",
-            "token_endpoint_auth_methods_supported": ["client_secret_post"],
+            "token_endpoint_auth_methods_supported": [
+                "none",
+                "client_secret_basic",
+                "client_secret_post",
+            ],
+            "scopes_supported": ["openid", "profile", "email"],
             "userinfo_endpoint": (
                 "https://remote/userinfo"
                 if custom_userinfo_endpoint
                 else "http://testserver/identity/o/api/userinfo"
             ),
+            "code_challenge_methods_supported": ["S256"],
+            "grant_types_supported": [
+                "authorization_code",
+                "client_credentials",
+                "refresh_token",
+                "urn:ietf:params:oauth:grant-type:device_code",
+            ],
         }
 
 

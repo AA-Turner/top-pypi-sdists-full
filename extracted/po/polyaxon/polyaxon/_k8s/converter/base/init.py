@@ -2,7 +2,6 @@ from typing import List, Optional, Tuple, Union
 
 from clipped.utils.enums import get_enum_value
 from clipped.utils.lists import to_list
-
 from polyaxon._auxiliaries import V1PolyaxonInitContainer
 from polyaxon._connections import V1Connection, V1ConnectionKind
 from polyaxon._constants.globals import DEFAULT
@@ -14,6 +13,7 @@ from polyaxon._containers.names import (
     INIT_FILE_CONTAINER_PREFIX,
     INIT_GIT_CONTAINER_PREFIX,
     INIT_TENSORBOARD_CONTAINER_PREFIX,
+    INIT_TOOLS_CONTAINER,
     generate_container_name,
 )
 from polyaxon._contexts import paths as ctx_paths
@@ -509,6 +509,58 @@ class InitConverter(_BaseConverter):
             ],
         )
         return cls._patch_container(container)
+
+    @classmethod
+    def _get_tools_init_container(
+        cls,
+        polyaxon_init: V1PolyaxonInitContainer,
+        use_tmux: bool = False,
+        use_sandbox: bool = False,
+        use_ssh: bool = False,
+    ) -> k8s_schemas.V1Container:
+        if not use_tmux and not use_sandbox and not use_ssh:
+            raise PolyaxonConverterError("Init tools container requires a tool.")
+
+        copy_commands = []
+        if use_tmux:
+            copy_commands += [
+                "cp /usr/bin/tmux /opt/polyaxon/bin/tmux",
+                "printf '%s\\n' 'Polyaxon tmux tools initialized'",
+            ]
+        if use_sandbox:
+            copy_commands += [
+                "cp /usr/bin/plx-exec /opt/polyaxon/bin/plx-exec",
+                "cp /usr/bin/bootstrap-sandbox.sh "
+                "/opt/polyaxon/bin/bootstrap-sandbox.sh",
+                "printf '%s\\n' 'Polyaxon sandbox tools initialized'",
+            ]
+        if use_ssh:
+            copy_commands += [
+                "cp /usr/sbin/sshd /opt/polyaxon/bin/sshd",
+                "cp /usr/bin/sshd-session /opt/polyaxon/bin/sshd-session",
+                "cp /usr/bin/sshd-auth /opt/polyaxon/bin/sshd-auth",
+                "cp /usr/lib/openssh/sftp-server /opt/polyaxon/bin/sftp-server",
+                "cp /usr/bin/ssh-keygen /opt/polyaxon/bin/ssh-keygen",
+                "cp /usr/bin/bootstrap-ssh.sh /opt/polyaxon/bin/bootstrap-ssh.sh",
+                "cp /etc/polyaxon/sshd_config /opt/polyaxon/etc/sshd_config",
+                "printf '%s\\n' 'Polyaxon ssh tools initialized'",
+            ]
+        command = ["sh", "-c", " && ".join(copy_commands)]
+
+        volume_mounts = [cls._get_tools_bin_context_mount(read_only=False)]
+        if use_ssh:
+            volume_mounts.append(cls._get_tools_etc_context_mount(read_only=False))
+
+        return cls._patch_container(
+            container=k8s_schemas.V1Container(
+                name=INIT_TOOLS_CONTAINER,
+                image=polyaxon_init.get_image(),
+                image_pull_policy=polyaxon_init.image_pull_policy,
+                command=command,
+                resources=polyaxon_init.get_resources(),
+                volume_mounts=volume_mounts,
+            )
+        )
 
     @classmethod
     def _get_artifacts_path_init_container(

@@ -1,15 +1,15 @@
 """Snapshot-invariant for the shared POST helper.
 
 httpx merges the cookie jar into the outgoing ``httpx.Request`` synchronously
-in ``build_request()``, before any ``await``. ``_perform_authed_post`` reads
-the auth snapshot (via ``self._snapshot()``) and assembles ``(url, body,
-headers)`` via ``build_request(snapshot)`` synchronously before
-``await client.post(...)``. Therefore, within a single retry iteration the
+when ``Kernel.post`` opens the stream. ``_perform_authed_post`` materializes a
+``RpcRequest`` from an auth snapshot before the middleware chain, and the
+``Kernel.post`` terminal refreshes that envelope if auth changed while the
+request waited in the chain. Therefore, within a single terminal attempt the
 entire ``(csrf, session_id, cookies)`` snapshot is atomic from a concurrent
-coroutine standpoint: no other task can mutate state between read and the
-wire.
+coroutine standpoint: no other task can mutate state between the terminal
+freshness check and the wire.
 
-The POST was extracted out of ``_rpc_call_impl`` into
+The POST lives in the shared authed transport path used by
 ``_perform_authed_post`` so chat can share the same transport pipeline.
 The AST guard below follows the POST; the invariant still belongs at the
 shared site.
@@ -27,14 +27,13 @@ The auth-snapshot lock hardened the invariant by:
   refresh's write to ``self.auth.session_id`` slip into the URL between
   snapshot capture and request build.
 
-This file *locks* the invariant in three ways:
+This file *locks* the invariant in four ways:
 
-1. ``test_perform_authed_post_has_no_await_before_post_per_iteration`` —
-   static AST guard against an ``await`` inside the retry loop's try
-   body of ``_perform_authed_post`` that precedes the iteration's
-   ``client.post(...)`` call. The ``await self._snapshot()`` lives
-   *before* the try block (so the lock acquisition itself isn't a
-   regression).
+1. ``test_kernel_post_terminal_has_no_await_before_post_per_attempt`` —
+   static AST guard against an ``await`` inside the terminal's ``try`` body
+   before ``Kernel.post``. The freshness check lives before the try block
+   and is guarded separately so the lock acquisition itself is not a
+   regression.
 
 2. ``test_build_url_does_not_read_self_auth`` — static AST guard
    against any ``self.auth.<field>`` attribute access in
@@ -47,6 +46,13 @@ This file *locks* the invariant in three ways:
    an in-flight ``rpc_call`` (both orderings) and asserts the captured
    ``httpx.Request`` is never observed with mixed-generation (csrf,
    session_id, cookies) state.
+
+4. ``test_auth_refresh_rebuild_has_no_await_after_snapshot_capture`` —
+   static guard on the auth-refresh retry rebuild: once the post-refresh
+   snapshot has been captured, pairing ``context["auth_snapshot"]`` with
+   the rebuilt envelope must remain synchronous. The terminal still owns
+   the final before-wire freshness check because inner middlewares may
+   await after this rebuild.
 """
 
 from __future__ import annotations
@@ -54,28 +60,21 @@ from __future__ import annotations
 import ast
 import asyncio
 import contextlib
-import importlib.util
 import inspect
 import json
 import textwrap
-from pathlib import Path
 
 import httpx
 import pytest
 
-from notebooklm._authed_transport import AuthedTransport
+from _fixtures.kernel_test_helpers import install_http_client_for_test
+from _helpers.client_factory import build_client_shell_for_tests
+from notebooklm._middleware_auth_refresh import AuthRefreshMiddleware
 from notebooklm._rpc_executor import RpcExecutor
 from notebooklm._session_auth import AuthRefreshCoordinator
+from notebooklm._session_transport import SessionTransport
+from notebooklm.auth import AuthTokens
 from notebooklm.rpc import RPCMethod
-
-_UNIT_CONFTEST_SPEC = importlib.util.spec_from_file_location(
-    "unit_conftest_make_core",
-    Path(__file__).resolve().parent / "conftest.py",
-)
-assert _UNIT_CONFTEST_SPEC is not None and _UNIT_CONFTEST_SPEC.loader is not None
-_unit_conftest = importlib.util.module_from_spec(_UNIT_CONFTEST_SPEC)
-_UNIT_CONFTEST_SPEC.loader.exec_module(_unit_conftest)
-make_core = _unit_conftest.make_core
 
 # Test-side deadline for any single asyncio.Event in the race scaffolding.
 # Generous enough not to flake on slow CI, tight enough that a regression
@@ -83,32 +82,21 @@ make_core = _unit_conftest.make_core
 EVENT_TIMEOUT_S = 5.0
 
 
-def test_perform_authed_post_has_no_await_before_post_per_iteration():
-    """No ``await`` may sit lexically inside the ``try:`` block before the
-    ``client.post(...)`` call in ``_perform_authed_post``.
+def test_kernel_post_terminal_has_no_await_before_post_per_attempt():
+    """No ``await`` may sit inside the terminal ``try`` before ``Kernel.post``.
 
-    The leaf begins with ``snapshot = await self._snapshot()`` + a
-    synchronous ``build_request(snapshot)`` — both immediately *before*
-    the try block. The try body's first statement is the actual POST. If
-    anyone introduces an ``await`` between ``build_request`` and the POST
-    (or any new await inside the try body's prologue), a concurrent
-    ``refresh_auth`` could update the httpx cookie jar between the
-    snapshot read and the wire, producing a mismatched-generation
-    request on the cookie axis (the ``_auth_snapshot_lock`` covers
-    csrf/sid coherence; cookies still rely on this no-await rule).
+    The terminal first refreshes the envelope if auth changed while the
+    request waited behind middlewares, then enters a small ``try`` whose first
+    await is the actual ``Kernel.post`` send. An await in that try prologue
+    would let a concurrent refresh change the cookie jar between request
+    rebuild and wire send.
 
-    Tier-12 PRs 12.7 / 12.8 lifted retry / auth-refresh out of the leaf
-    into ``RetryMiddleware`` and ``AuthRefreshMiddleware``. After PR
-    12.8 the leaf no longer has a ``while`` retry loop — it makes
-    exactly one attempt per chain invocation. Each chain-level retry
-    (driven by ``RetryMiddleware`` / ``AuthRefreshMiddleware``) re-enters
-    the leaf and re-runs ``_snapshot`` → ``build_request`` → POST. PR
-    12.9 moved the semaphore acquire OUT of the leaf entirely (it now
-    lives in ``SemaphoreMiddleware`` at chain position 2), so the leaf
-    is a pure POST-with-try block — the guard walks the ``try`` block
-    at the top of the function body.
+    The terminal body lives on :meth:`SessionTransport.terminal`; the
+    chain leaf (:meth:`MiddlewareChainHost._authed_post_chain_terminal`)
+    forwards to it. The AST guard inspects the collaborator method
+    that carries the actual body.
     """
-    src = textwrap.dedent(inspect.getsource(AuthedTransport.perform_authed_post))
+    src = textwrap.dedent(inspect.getsource(SessionTransport.terminal))
     tree = ast.parse(src)
     func = next(n for n in ast.walk(tree) if isinstance(n, ast.AsyncFunctionDef))
 
@@ -135,7 +123,7 @@ def test_perform_authed_post_has_no_await_before_post_per_iteration():
     found_try = _find_first_try(func)
     assert found_try is not None, (
         "Could not locate the ``try:`` block guarding the POST in "
-        "AuthedTransport.perform_authed_post. Update this guard to match."
+        "SessionTransport.terminal. Update this guard to match."
     )
 
     def is_post_await(node):
@@ -145,7 +133,8 @@ def test_perform_authed_post_has_no_await_before_post_per_iteration():
         - ``await client.post(...)`` (pre-streaming),
         - ``await stream_post_with_size_cap(...)`` (the helper performs the
           streaming POST internally, so it's the same conceptual POST site for
-          the purposes of this concurrency invariant).
+          the purposes of this concurrency invariant),
+        - ``await self._kernel.post(...)`` (current terminal shape).
         """
         if not isinstance(node, ast.Await):
             return False
@@ -191,7 +180,7 @@ def test_perform_authed_post_has_no_await_before_post_per_iteration():
     post_await_position = min(post_await_positions, default=None)
     assert post_await_position is not None, (
         "Could not locate `await ...post(...)` in the try body of "
-        "AuthedTransport.perform_authed_post. If the call site was refactored (e.g. to "
+        "SessionTransport.terminal. If the call site was refactored (e.g. to "
         "``client.request(...)``), update this guard to match — the "
         "invariant is 'no await between snapshot read and the POST per "
         "iteration', not specifically the `.post` attribute."
@@ -203,11 +192,87 @@ def test_perform_authed_post_has_no_await_before_post_per_iteration():
         if isinstance(n, ast.Await) and (n.lineno, n.col_offset) < post_await_position
     ]
     assert not earlier_awaits, (
-        f"AuthedTransport.perform_authed_post gained an await before the per-iteration POST "
+        f"SessionTransport.terminal gained an await before the per-attempt POST "
         f"at {post_await_position}: "
         f"{[(n.lineno, ast.dump(n)) for n in earlier_awaits]}. "
         "This breaks the snapshot-invariant — auth state could be mutated "
         "between the snapshot read and the actual send."
+    )
+
+
+def test_terminal_freshness_check_has_no_await_after_materialization():
+    """Freshness rebuild must not yield after materializing a new envelope.
+
+    The freshness-rebuild body lives on
+    :meth:`SessionTransport.refresh_request_for_current_auth` after move
+    #4c — ``Session._refresh_request_for_current_auth`` is now a one-line
+    forward to it, so the AST guard must inspect the collaborator method
+    that carries the actual body.
+    """
+    src = textwrap.dedent(inspect.getsource(SessionTransport.refresh_request_for_current_auth))
+    tree = ast.parse(src)
+    func = next(n for n in ast.walk(tree) if isinstance(n, ast.AsyncFunctionDef))
+
+    materialize_positions = [
+        (n.lineno, n.col_offset)
+        for n in ast.walk(func)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "materialize_rpc_request"
+    ]
+    assert materialize_positions, "Could not locate materialize_rpc_request in freshness check"
+    materialize_position = min(materialize_positions)
+    later_awaits = [
+        n
+        for n in ast.walk(func)
+        if isinstance(n, ast.Await) and (n.lineno, n.col_offset) > materialize_position
+    ]
+    assert later_awaits == [], (
+        "Session._refresh_request_for_current_auth must not await after "
+        "materialize_rpc_request; that would let auth/cookies move between "
+        "request rebuild and Kernel.post."
+    )
+
+
+def test_auth_refresh_rebuild_has_no_await_after_snapshot_capture():
+    """Auth-refresh retry rebuild pairs fresh snapshot and envelope atomically."""
+    src = textwrap.dedent(inspect.getsource(AuthRefreshMiddleware._rebuild_request_after_refresh))
+    tree = ast.parse(src)
+    func = next(n for n in ast.walk(tree) if isinstance(n, ast.AsyncFunctionDef))
+
+    snapshot_awaits = [
+        (n.lineno, n.col_offset)
+        for n in ast.walk(func)
+        if isinstance(n, ast.Await)
+        and isinstance(n.value, ast.Call)
+        and isinstance(n.value.func, ast.Attribute)
+        and n.value.func.attr == "_snapshot_provider"
+    ]
+    assert snapshot_awaits, "Could not locate await self._snapshot_provider()"
+    snapshot_position = min(snapshot_awaits)
+
+    materialize_positions = [
+        (n.lineno, n.col_offset)
+        for n in ast.walk(func)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "materialize_rpc_request"
+    ]
+    assert materialize_positions, "Could not locate materialize_rpc_request in refresh rebuild"
+    assert snapshot_position < min(materialize_positions), (
+        "AuthRefreshMiddleware._rebuild_request_after_refresh must capture "
+        "the fresh snapshot before rebuilding the retry envelope."
+    )
+
+    later_awaits = [
+        n
+        for n in ast.walk(func)
+        if isinstance(n, ast.Await) and (n.lineno, n.col_offset) > snapshot_position
+    ]
+    assert later_awaits == [], (
+        "AuthRefreshMiddleware._rebuild_request_after_refresh must not await "
+        "after capturing the fresh snapshot; context['auth_snapshot'] and the "
+        "rebuilt RpcRequest must stay paired until the terminal freshness check."
     )
 
 
@@ -398,13 +463,34 @@ async def test_concurrent_refresh_does_not_corrupt_inflight_rpc_request(rpc_firs
 
     transport = httpx.MockTransport(handler)
 
-    async with make_core(transport=transport) as core:
-        # NotebookLMClient.__new__ skips __init__ side effects — we only need a
-        # shell whose .auth property routes to our test core.
-        from notebooklm.client import NotebookLMClient
-
-        client = NotebookLMClient.__new__(NotebookLMClient)
-        client._session = core
+    # Build the same auth scaffold the unit conftest's ``make_core`` produces
+    # (CSRF_OLD / SID_OLD / old_sid_cookie) so the OLD/NEW marker assertions
+    # below stay valid. Routed through :func:`build_client_shell_for_tests` so the
+    # refresh client shell and one-wave Session forwarder share one composed
+    # runtime.
+    auth = AuthTokens(
+        csrf_token="CSRF_OLD",
+        session_id="SID_OLD",
+        cookies={"SID": "old_sid_cookie"},
+    )
+    client = build_client_shell_for_tests(auth=auth, refresh_retry_delay=0.0)
+    core = client
+    await core.__aenter__()
+    try:
+        # Swap the auto-built http client for one that uses the test
+        # transport so we can observe the real ``httpx.Request`` (cookie
+        # merge, headers, body, URL). Mirrors the ``make_core`` post-open
+        # transport-install dance verbatim.
+        prior_cookies = core._collaborators.kernel.get_http_client().cookies
+        await core._collaborators.kernel.get_http_client().aclose()
+        install_http_client_for_test(
+            core._collaborators.kernel,
+            httpx.AsyncClient(
+                cookies=prior_cookies,
+                transport=transport,
+                timeout=httpx.Timeout(connect=1.0, read=5.0, write=5.0, pool=1.0),
+            ),
+        )
 
         # try/finally ensures the mock-transport handlers are unblocked even
         # if a wait_for times out — otherwise pending tasks dangle in the
@@ -413,7 +499,9 @@ async def test_concurrent_refresh_does_not_corrupt_inflight_rpc_request(rpc_firs
         refresh_task: asyncio.Task | None = None
         try:
             if rpc_first:
-                rpc_task = asyncio.create_task(core.rpc_call(RPCMethod.LIST_NOTEBOOKS, []))
+                rpc_task = asyncio.create_task(
+                    core._rpc_executor.rpc_call(RPCMethod.LIST_NOTEBOOKS, [])
+                )
                 await asyncio.wait_for(rpc_send_entered.wait(), EVENT_TIMEOUT_S)
                 refresh_task = asyncio.create_task(client.refresh_auth())
                 await asyncio.wait_for(get_entered.wait(), EVENT_TIMEOUT_S)
@@ -424,7 +512,9 @@ async def test_concurrent_refresh_does_not_corrupt_inflight_rpc_request(rpc_firs
             else:
                 refresh_task = asyncio.create_task(client.refresh_auth())
                 await asyncio.wait_for(get_entered.wait(), EVENT_TIMEOUT_S)
-                rpc_task = asyncio.create_task(core.rpc_call(RPCMethod.LIST_NOTEBOOKS, []))
+                rpc_task = asyncio.create_task(
+                    core._rpc_executor.rpc_call(RPCMethod.LIST_NOTEBOOKS, [])
+                )
                 await asyncio.wait_for(rpc_send_entered.wait(), EVENT_TIMEOUT_S)
                 let_get_complete.set()
                 await asyncio.wait_for(refresh_task, EVENT_TIMEOUT_S)
@@ -439,15 +529,17 @@ async def test_concurrent_refresh_does_not_corrupt_inflight_rpc_request(rpc_firs
             for t in pending:
                 t.cancel()
             # Bounded join so cancelled tasks actually settle before the
-            # ``async with make_core(...)`` block exits. Narrow to
-            # ``(CancelledError, Exception)`` so KeyboardInterrupt / SystemExit
-            # during the test still propagate.
+            # outer ``core.close()`` runs. Narrow to ``(CancelledError,
+            # Exception)`` so KeyboardInterrupt / SystemExit during the
+            # test still propagate.
             if pending:
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await asyncio.wait_for(
                         asyncio.gather(*pending, return_exceptions=True),
                         EVENT_TIMEOUT_S,
                     )
+    finally:
+        await core.close()
 
     assert len(captured_post) == 1, (
         f"Expected exactly one POST on the wire, got {len(captured_post)}: {captured_post!r}"
@@ -479,6 +571,6 @@ async def test_concurrent_refresh_does_not_corrupt_inflight_rpc_request(rpc_firs
     assert cookie_is_new == csrf_is_new == sid_is_new, (
         f"Mixed-generation request observed (cookie_new={cookie_is_new}, "
         f"csrf_new={csrf_is_new}, sid_new={sid_is_new}). A yield point was "
-        f"introduced between auth read and post() in _rpc_call_impl — re-run "
+        f"introduced between auth read and post() in the RPC transport path — re-run "
         f"the AST guard above to find the offending await."
     )

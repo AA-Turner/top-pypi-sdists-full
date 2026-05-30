@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supervisely
-Version: 6.73.576
+Version: 6.73.578
 Summary: Supervisely Python SDK.
 Home-page: https://github.com/supervisely/supervisely
 Author: Supervisely
@@ -44,17 +44,17 @@ Requires-Dist: stringcase<2.0.0,>=1.2.0
 Requires-Dist: python-magic<1.0.0,>=0.4.25
 Requires-Dist: trimesh<=4.5.0,>=3.11.2
 Requires-Dist: uvicorn[standard]<1.0.0,>=0.18.2
-Requires-Dist: starlette<0.50.0,>=0.49.1; python_version >= "3.10"
+Requires-Dist: starlette==1.0.1; python_version >= "3.10"
 Requires-Dist: starlette<0.49.1; python_version < "3.10"
 Requires-Dist: pydantic<=2.12.3,>=1.7.4
-Requires-Dist: fastapi<1.0.0,>=0.129.0; python_version >= "3.10"
+Requires-Dist: fastapi==0.136.3; python_version >= "3.10"
 Requires-Dist: fastapi<0.129.0; python_version < "3.10"
 Requires-Dist: websockets<=13.1,>=10.3
 Requires-Dist: jinja2<4.0.0,>=3.1.6
 Requires-Dist: psutil<=7.2.0,>=5.9.0
 Requires-Dist: jsonpatch<2.0,>=1.32
 Requires-Dist: MarkupSafe<3.0.0,>=2.1.1
-Requires-Dist: arel<1.0.0,>=0.2.0
+Requires-Dist: arel<1.0.0,>=0.2.0; python_version < "3.10"
 Requires-Dist: tqdm<5.0.0,>=4.66.3
 Requires-Dist: pandas<=2.3.3,>=1.1.3
 Requires-Dist: async_asgi_testclient
@@ -91,14 +91,14 @@ Requires-Dist: scipy<2.0.0,>=1.8.0; extra == "extras"
 Requires-Dist: ruamel.yaml==0.17.21; extra == "extras"
 Provides-Extra: apps
 Requires-Dist: uvicorn[standard]<1.0.0,>=0.18.2; extra == "apps"
-Requires-Dist: fastapi<1.0.0,>=0.129.0; python_version >= "3.10" and extra == "apps"
+Requires-Dist: fastapi==0.136.3; python_version >= "3.10" and extra == "apps"
 Requires-Dist: fastapi<0.129.0; python_version < "3.10" and extra == "apps"
 Requires-Dist: websockets<=13.1,>=10.3; extra == "apps"
 Requires-Dist: jinja2<4.0.0,>=3.1.6; extra == "apps"
 Requires-Dist: psutil<6.0.0,>=5.9.0; extra == "apps"
 Requires-Dist: jsonpatch<2.0,>=1.32; extra == "apps"
 Requires-Dist: MarkupSafe<3.0.0,>=2.1.1; extra == "apps"
-Requires-Dist: arel<1.0.0,>=0.2.0; extra == "apps"
+Requires-Dist: arel<1.0.0,>=0.2.0; python_version < "3.10" and extra == "apps"
 Requires-Dist: tqdm<5.0.0,>=4.66.3; extra == "apps"
 Requires-Dist: pandas<=2.3.3,>=1.1.3; extra == "apps"
 Provides-Extra: video-av

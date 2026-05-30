@@ -1,0 +1,36 @@
+from collections.abc import Sequence
+
+class Settings:
+    def __init__(
+        self,
+        *,
+        column_width: int,
+        indent: int,
+        table_format: str,
+        sub_table_spacing: str,
+        separate_root_table: str,
+        expand_tables: Sequence[str],
+        collapse_tables: Sequence[str],
+        skip_wrap_for_keys: Sequence[str],
+        pin_envs: Sequence[str],
+    ) -> None: ...
+    @property
+    def column_width(self) -> int: ...
+    @property
+    def indent(self) -> int: ...
+    @property
+    def table_format(self) -> str: ...
+    @property
+    def sub_table_spacing(self) -> str: ...
+    @property
+    def separate_root_table(self) -> str: ...
+    @property
+    def expand_tables(self) -> Sequence[str]: ...
+    @property
+    def collapse_tables(self) -> Sequence[str]: ...
+    @property
+    def skip_wrap_for_keys(self) -> Sequence[str]: ...
+    @property
+    def pin_envs(self) -> Sequence[str]: ...
+
+def format_toml(content: str, settings: Settings) -> str: ...

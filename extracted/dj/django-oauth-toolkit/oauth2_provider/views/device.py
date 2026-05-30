@@ -8,16 +8,20 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView, FormView, View
+from oauthlib.common import Request as OAuthlibRequest
+from oauthlib.common import urlencode
 from oauthlib.oauth2 import DeviceApplicationServer
 
 from oauth2_provider.compat import login_not_required
 from oauth2_provider.models import (
+    AbstractDeviceGrant,
     DeviceCodeResponse,
-    DeviceGrant,
     DeviceRequest,
     create_device_grant,
+    get_application_model,
     get_device_grant_model,
 )
+from oauth2_provider.scopes import get_scopes_backend
 from oauth2_provider.views.mixins import OAuthLibMixin
 
 
@@ -32,7 +36,31 @@ class DeviceAuthorizationView(OAuthLibMixin, View):
         if status != 200:
             return http.JsonResponse(data=json.loads(response), status=status, headers=headers)
 
-        device_request = DeviceRequest(client_id=request.POST["client_id"], scope=request.POST.get("scope"))
+        client_id = request.POST["client_id"]
+        requested_scope = request.POST.get("scope", "").strip()
+        if requested_scope:
+            scope = requested_scope
+        else:
+            Application = get_application_model()
+            try:
+                application = Application.objects.get(client_id=client_id)
+            except Application.DoesNotExist:
+                return http.JsonResponse(
+                    {"error": "invalid_client", "error_description": "No application found for client_id."},
+                    status=401,
+                    headers=headers,
+                )
+            core = self.get_oauthlib_core()
+            uri = request.build_absolute_uri()
+            http_method = request.method
+            body = urlencode(core.extract_body(request))
+            req_headers = core.extract_headers(request)
+            oauthlib_request = OAuthlibRequest(uri, http_method=http_method, body=body, headers=req_headers)
+            oauthlib_request.client_id = client_id
+            oauthlib_request.client = application
+            validator = core.server.request_validator
+            scope = " ".join(validator.get_default_scopes(client_id, oauthlib_request))
+        device_request = DeviceRequest(client_id=client_id, scope=scope)
         device_response = DeviceCodeResponse(**response)
         create_device_grant(device_request, device_response)
 
@@ -57,9 +85,10 @@ class DeviceGrantForm(forms.Form):
         """
         cleaned_data = super().clean()
         user_code: str = cleaned_data["user_code"]
+        device_grant_model = get_device_grant_model()
         try:
-            device_grant: DeviceGrant = get_device_grant_model().objects.get(user_code=user_code)
-        except DeviceGrant.DoesNotExist:
+            device_grant: AbstractDeviceGrant = device_grant_model.objects.get(user_code=user_code)
+        except device_grant_model.DoesNotExist:
             raise ValidationError("Incorrect user code", code="incorrect_user_code")
 
         if device_grant.is_expired():
@@ -99,6 +128,11 @@ class DeviceUserCodeView(LoginRequiredMixin, FormView):
             },
         )
 
+    def get_initial(self):
+        initial = super().get_initial()
+        initial["user_code"] = self.request.GET.get("user_code", "")
+        return initial
+
     def form_valid(self, form):
         """
         Sets the device_grant on the instance so that it can be accessed
@@ -106,7 +140,7 @@ class DeviceUserCodeView(LoginRequiredMixin, FormView):
         get_success_url, redirecting to the URL with the URL params pointing
         to the current device.
         """
-        device_grant: DeviceGrant = form.cleaned_data["device_grant"]
+        device_grant: AbstractDeviceGrant = form.cleaned_data["device_grant"]
 
         device_grant.user = self.request.user
         device_grant.save(update_fields=["user"])
@@ -136,14 +170,20 @@ class DeviceConfirmView(LoginRequiredMixin, FormView):
         """
         Returns the DeviceGrant object in the AUTHORIZATION_PENDING state identified
         by the slugs client_id and user_code. Raises Http404 if not found.
+
+        The result is cached on the instance to avoid redundant queries within the
+        same request (e.g. get() validates and get_context_data() reads scopes).
         """
-        client_id, user_code = self.kwargs.get("client_id"), self.kwargs.get("user_code")
-        return get_object_or_404(
-            DeviceGrant,
-            client_id=client_id,
-            user_code=user_code,
-            status=DeviceGrant.AUTHORIZATION_PENDING,
-        )
+        if not hasattr(self, "_device_grant"):
+            client_id, user_code = self.kwargs.get("client_id"), self.kwargs.get("user_code")
+            model = get_device_grant_model()
+            self._device_grant = get_object_or_404(
+                model,
+                client_id=client_id,
+                user_code=user_code,
+                status=model.AUTHORIZATION_PENDING,
+            )
+        return self._device_grant
 
     def get_success_url(self):
         return reverse(
@@ -182,15 +222,30 @@ class DeviceConfirmView(LoginRequiredMixin, FormView):
         else:
             return http.HttpResponseBadRequest()
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        client_id = self.kwargs.get("client_id")
+        context["application"] = get_object_or_404(get_application_model(), client_id=client_id)
+
+        device = self.get_object()
+        all_scopes = get_scopes_backend().get_all_scopes()
+        scopes = device.scope.split() if device.scope is not None else []
+        context["scopes"] = scopes
+        context["scopes_descriptions"] = [all_scopes.get(scope, scope) for scope in scopes]
+
+        return context
+
 
 class DeviceGrantStatusView(LoginRequiredMixin, DetailView):
     """
     The view to display the status of a DeviceGrant.
     """
 
-    model = DeviceGrant
     template_name = "oauth2_provider/device/device_grant_status.html"
+
+    def get_queryset(self):
+        return get_device_grant_model().objects.all()
 
     def get_object(self):
         client_id, user_code = self.kwargs.get("client_id"), self.kwargs.get("user_code")
-        return get_object_or_404(DeviceGrant, client_id=client_id, user_code=user_code)
+        return get_object_or_404(self.get_queryset(), client_id=client_id, user_code=user_code)

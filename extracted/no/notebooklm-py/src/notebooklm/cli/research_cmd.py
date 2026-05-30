@@ -16,8 +16,9 @@ import click
 
 from ..client import NotebookLMClient
 from .auth_runtime import with_client
-from .error_handler import exit_with_code
+from .error_handler import _output_error, exit_with_code
 from .options import notebook_option
+from .polling_ui import status_with_elapsed
 from .rendering import (
     console,
     display_report,
@@ -28,7 +29,6 @@ from .resolve import (
     require_notebook,
     resolve_notebook_id,
 )
-from .services.polling import status_with_elapsed
 from .services.research import (
     ResearchWaitPlan,
     ResearchWaitResult,
@@ -155,6 +155,19 @@ def research_wait(
       notebooklm research wait --json
     """
     if cited_only and not import_all:
+        # Per ADR-015 §2: under --json this flag-combination conflict must
+        # emit the typed JSON envelope and exit 1 (VALIDATION_ERROR), not
+        # ride Click's parse-time UsageError path (exit 2, usage text on
+        # stderr, no JSON on stdout). Under text mode we preserve the
+        # existing Click UX so interactive users still get the
+        # ``Usage: ... / Error: ...`` formatting.
+        if json_output:
+            _output_error(
+                "--cited-only requires --import-all",
+                "VALIDATION_ERROR",
+                json_output,
+                1,
+            )
         raise click.UsageError("--cited-only requires --import-all")
 
     nb_id = require_notebook(notebook_id)

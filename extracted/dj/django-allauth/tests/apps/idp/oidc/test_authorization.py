@@ -41,14 +41,42 @@ def test_cancel_authorization(auth_client, oidc_client):
 
 
 @pytest.mark.parametrize(
-    "access_token_format,scopes,has_secondary_email,choose_secondary_email",
+    "access_token_format,scopes,has_secondary_email,choose_secondary_email,resources",
     [
-        ("opaque", ("openid", "profile", "email"), False, False),
-        ("opaque", ("openid", "profile", "email"), True, False),
-        ("opaque", ("openid", "profile", "email"), True, True),
-        ("opaque", ("openid", "profile"), False, False),
-        ("opaque", ("openid",), False, False),
-        ("jwt", ("openid",), False, False),
+        ("opaque", ("openid", "profile", "email"), False, False, []),
+        (
+            "opaque",
+            ("openid", "profile", "email"),
+            False,
+            False,
+            ["https://api.example.com/a"],
+        ),
+        (
+            "opaque",
+            ("openid", "profile", "email"),
+            False,
+            False,
+            ["https://api.example.com/a", "https://api.example.com/b"],
+        ),
+        ("opaque", ("openid", "profile", "email"), True, False, []),
+        ("opaque", ("openid", "profile", "email"), True, True, []),
+        ("opaque", ("openid", "profile"), False, False, []),
+        ("opaque", ("openid",), False, False, []),
+        ("jwt", ("openid",), False, False, []),
+        (
+            "jwt",
+            ("openid",),
+            False,
+            False,
+            ["https://api.example.com/a"],
+        ),
+        (
+            "jwt",
+            ("openid",),
+            False,
+            False,
+            ["https://api.example.com/a", "https://api.example.com/b"],
+        ),
     ],
 )
 def test_authorization_code_flow(
@@ -63,6 +91,7 @@ def test_authorization_code_flow(
     email_factory,
     settings,
     access_token_format,
+    resources,
 ):
     settings.IDP_OIDC_ACCESS_TOKEN_FORMAT = access_token_format
     secondary_email = email_factory()
@@ -84,7 +113,9 @@ def test_authorization_code_flow(
                 "scope": " ".join(scopes),
                 "nonce": "some-nonce",
                 "state": "some-state",
-            }
+                "resource": resources,
+            },
+            doseq=True,
         )
     )
     assert resp.status_code == HTTPStatus.OK
@@ -103,7 +134,7 @@ def test_authorization_code_flow(
     )
     assert resp.status_code == HTTPStatus.FOUND
     redirected_uri = resp["location"]
-    assert redirected_uri.startswith(redirected_uri)
+    assert redirected_uri.startswith(redirect_uri)
     parts = urlparse(redirected_uri)
     params = parse_qs(parts.query)
     code = params["code"][0]
@@ -130,6 +161,7 @@ def test_authorization_code_flow(
     }
 
     access_token = Token.objects.lookup(Token.Type.ACCESS_TOKEN, data["access_token"])
+    assert set(access_token.get_resources()) == set(resources)
     assert bool(access_token.get_scope_email()) == bool(
         "email" in scopes and has_secondary_email and choose_secondary_email
     )
@@ -137,7 +169,7 @@ def test_authorization_code_flow(
     # Access token
     if access_token_format == "jwt":
         decoded = jwt.decode(data["access_token"], options={"verify_signature": False})
-        assert decoded == {
+        expected_decoded = {
             "client_id": oidc_client.id,
             "exp": ANY,
             "iat": ANY,
@@ -147,6 +179,9 @@ def test_authorization_code_flow(
             "sub": str(user.pk),
             "token_use": "access",
         }
+        if resources:
+            expected_decoded["aud"] = resources
+        assert decoded == expected_decoded
 
     # ID token
     id_token = data["id_token"]
@@ -353,7 +388,7 @@ def test_authorization_code_flow_with_pkce(
     )
     assert resp.status_code == HTTPStatus.FOUND
     redirected_uri = resp["location"]
-    assert redirected_uri.startswith(redirected_uri)
+    assert redirected_uri.startswith(redirect_uri)
     parts = urlparse(redirected_uri)
     params = parse_qs(parts.query)
     code = params["code"][0]
@@ -457,3 +492,122 @@ def test_prompt_none(
         assert resp["location"] == f"https://client/callback?error={error}"
     else:
         assert resp["location"].startswith("https://client/callback?code=")
+
+
+def test_authorization_code_invalid_with_resource(
+    auth_client,
+    user,
+    oidc_client,
+    oidc_client_secret,
+    enable_cache,
+):
+    redirect_uri = oidc_client.get_redirect_uris()[0]
+    resp = auth_client.get(
+        reverse("idp:oidc:authorization")
+        + "?"
+        + urlencode(
+            {
+                "client_id": oidc_client.id,
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "scope": " ".join(["openid"]),
+                "nonce": "some-nonce",
+                "state": "some-state",
+                "resource": ["https://api.example.com", "mailto:info@allauth.org"],
+            },
+            doseq=True,
+        )
+    )
+    assert resp.status_code == HTTPStatus.OK
+    assertTemplateUsed(resp, "idp/oidc/error.html")
+
+
+@pytest.mark.parametrize(
+    "granted_resources,requested_resources,success",
+    [
+        ([], ["https://api.example.com/a"], True),
+        (["https://api.example.com"], ["https://api.example.com/a"], True),
+        (["https://api.example.org"], ["https://api.example.com/a"], False),
+        (
+            ["https://api.example.org", "https://api.example.com"],
+            ["https://api.example.com/a"],
+            True,
+        ),
+        (["https://api.example.com/a"], ["https://api.example.com/b"], False),
+    ],
+)
+def test_authorization_code_requested_granted_resources(
+    auth_client,
+    user,
+    oidc_client,
+    oidc_client_secret,
+    enable_cache,
+    granted_resources,
+    requested_resources,
+    success,
+):
+    redirect_uri = oidc_client.get_redirect_uris()[0]
+    data = {
+        "client_id": oidc_client.id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid",
+        "nonce": "some-nonce",
+        "state": "some-state",
+    }
+    if granted_resources:
+        data["resource"] = granted_resources
+    resp = auth_client.get(
+        reverse("idp:oidc:authorization") + "?" + urlencode(data, doseq=True)
+    )
+    assert resp.status_code == HTTPStatus.OK
+    assertTemplateUsed(resp, "idp/oidc/authorization_form.html")
+    post_data = {
+        "scopes": "openid",
+        "action": "grant",
+        "request": resp.context["form"]["request"].value(),
+    }
+    resp = auth_client.post(
+        reverse("idp:oidc:authorization"),
+        post_data,
+    )
+    assert resp.status_code == HTTPStatus.FOUND
+    redirected_uri = resp["location"]
+    assert redirected_uri.startswith(redirect_uri)
+    parts = urlparse(redirected_uri)
+    params = parse_qs(parts.query)
+    code = params["code"][0]
+    assert params["state"][0] == "some-state"
+    data = {
+        "code": code,
+        "grant_type": "authorization_code",
+        "client_id": oidc_client.id,
+        "client_secret": oidc_client_secret,
+        "redirect_uri": redirect_uri,
+    }
+    if requested_resources:
+        data["resource"] = requested_resources
+    resp = auth_client.post(reverse("idp:oidc:token"), data)
+    if success:
+        assert resp.status_code == HTTPStatus.OK
+        data = resp.json()
+        assert set(data.keys()) == {
+            "access_token",
+            "expires_in",
+            "token_type",
+            "scope",
+            "refresh_token",
+            "id_token",
+        }
+
+        access_token = Token.objects.lookup(
+            Token.Type.ACCESS_TOKEN, data["access_token"]
+        )
+        assert set(access_token.get_resources()) == set(requested_resources)
+    else:
+        assert resp.status_code == HTTPStatus.BAD_REQUEST
+        data = resp.json()
+        assert data == {
+            "error": "invalid_target",
+            "error_description": "The requested resource is invalid, missing, unknown, or malformed.",
+        }

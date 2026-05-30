@@ -6,7 +6,6 @@ import ssl
 import urllib3
 
 from clipped.utils.json import orjson_dumps
-
 from polyaxon.exceptions import (
     ApiException,
     ApiValueError,
@@ -15,6 +14,7 @@ from polyaxon.exceptions import (
     ServiceException,
     UnauthorizedException,
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,14 @@ class RESTClientObject(object):
                 key_file=configuration.key_file,
                 **addition_pool_args,
             )
+
+    def close(self):
+        # urllib3.PoolManager has no close(); clear() empties the LRU cache of
+        # HTTPConnectionPool objects, each of which closes its TCP sockets via
+        # the container's dispose callback. Idempotent. Matches urllib3's own
+        # context-manager __exit__ behavior. Subsequent requests re-allocate
+        # pools on demand.
+        self.pool_manager.clear()
 
     def request(
         self,

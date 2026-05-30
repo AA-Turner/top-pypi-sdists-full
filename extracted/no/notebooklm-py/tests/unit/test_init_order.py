@@ -18,10 +18,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm._artifacts import ArtifactsAPI
 from notebooklm._notes import NotesAPI
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
+
+pytestmark = pytest.mark.repo_lint
 
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "notebooklm"
 
@@ -96,7 +99,7 @@ _FORBIDDEN_PRIVATE_SERVICE_RUNTIME_IMPORT_MODULES = {
     "notebooklm._notebooks",
     "notebooklm._notes",
     "notebooklm._research",
-    "notebooklm._session",
+    "notebooklm" + "." + "_session",
     "notebooklm._settings",
     "notebooklm._sharing",
     "notebooklm._sources",
@@ -320,15 +323,14 @@ def test_feature_apis_do_not_add_direct_core_private_state_access() -> None:
 #
 # Modeled on the core-private-access guard above. Pins the invariant that
 # artifact-service helper modules (``_artifact_downloads.py`` and
-# ``_artifact_generation.py``) depend only on the narrow
-# ``_ArtifactsServiceMethods`` Protocol declared in ``_artifacts.py``, not
-# on the full concrete ``ArtifactsAPI``. Each helper migration PR appends
-# the helper's module name to ``_REACH_IN_MIGRATED_MODULES`` below.
+# ``_artifact_generation.py``) do not retain or call back into the
+# ``ArtifactsAPI`` facade. Each helper migration PR appends the helper's
+# module name to ``_REACH_IN_MIGRATED_MODULES`` below.
 # ----------------------------------------------------------------------------
 
 
-# Modules already migrated to ``_ArtifactsServiceMethods`` constructor
-# injection — the guard below enforces no residual ``self._api`` reach-in.
+# Modules already migrated to constructor-injected collaborators — the guard
+# below enforces no residual ``self._api`` reach-in.
 # Bookkeeping (mirrors the ``_ALLOWED_CORE_PRIVATE_ACCESS_COUNTS`` pattern):
 #   * ``_artifact_downloads.py`` migrated (PR #896, T2 of the
 #     encapsulation-reach-in-remediation phase).
@@ -457,7 +459,7 @@ def test_artifact_services_have_no_facade_reach_in() -> None:
             violations[module_name] = visitor.violations
     assert not violations, (
         f"Encapsulation violations found: {violations}. "
-        "Helpers must depend on _ArtifactsServiceMethods Protocol, not on ArtifactsAPI."
+        "Helpers must depend on explicit collaborators, not on ArtifactsAPI."
     )
 
 
@@ -558,6 +560,126 @@ def test_legacy_capabilities_module_is_deleted() -> None:
 def test_lifted_core_modules_are_retired() -> None:
     """Session collaborators should not regress to the old ``_core_*`` layout."""
     assert sorted(path.name for path in SRC_ROOT.glob("_core_*.py")) == []
+
+
+# ---------------------------------------------------------------------------
+# Constructor-DI seams (``docs/improvement.md`` §4.1 + §4.2)
+#
+# These pin tests guard the post-refactor wiring shape so a future
+# refactor cannot silently re-introduce the retired module-level
+# late-binding wrappers (``_decode_response_late_bound``,
+# ``_sleep_late_bound``, ``_live_is_auth_error``) or the retired
+# ``Kernel.http_client`` setter.
+# ---------------------------------------------------------------------------
+
+
+def test_compose_client_internals_exposes_constructor_di_seams() -> None:
+    """``compose_client_internals`` MUST expose the four constructor-DI seams.
+
+    Stage B1 PR 2 of the post-refactoring plan moved the composition
+    root out of ``Session.__init__`` into
+    ``notebooklm._session_init.compose_client_internals``. The seams live
+    on the helper (and on the canonical test builder
+    ``build_client_shell_for_tests``), NOT on ``NotebookLMClient.__init__``
+    (which preserves the production surface).
+
+    The seams replace the retired module-level late-binding wrappers
+    (see ``docs/improvement.md`` §4.1) and the retired
+    ``Kernel.http_client`` setter (§4.2). Each must be keyword-only and
+    default to ``None`` so the helper can resolve the canonical seam via
+    a fresh module-attribute lookup at construction time (preserving
+    pre-construction monkeypatch propagation).
+    """
+    import inspect
+
+    from notebooklm._session_init import compose_client_internals
+
+    sig = inspect.signature(compose_client_internals)
+    for name in ("decode_response", "sleep", "is_auth_error", "async_client_factory"):
+        assert name in sig.parameters, (
+            f"compose_client_internals must expose constructor-DI kwarg {name!r}"
+        )
+        param = sig.parameters[name]
+        assert param.kind == inspect.Parameter.KEYWORD_ONLY, (
+            f"{name!r} must be keyword-only; got {param.kind!r}"
+        )
+        assert param.default is None, (
+            f"{name!r} must default to None (None-sentinel + fresh module "
+            f"lookup); got default {param.default!r}"
+        )
+
+
+def test_deleted_session_module_is_not_importable() -> None:
+    """The deleted concrete session module MUST stay absent."""
+    import importlib.util
+
+    deleted_module = "notebooklm" + "." + "_session"
+    assert importlib.util.find_spec(deleted_module) is None
+
+
+def test_session_wires_seam_attributes_for_executor_and_chain() -> None:
+    """Constructor-injected seams MUST reach the executor and chain builder.
+
+    The ``RpcExecutor`` resolves ``decode_response`` / ``is_auth_error`` /
+    ``sleep`` through closures over ``ClientSeams`` etc., so that
+    tests which rebind ``session._seams.decode_response = stub`` after
+    ``NotebookLMClient.__init__`` (which eagerly builds the executor via
+    the ``rpc_executor`` accessor wired into sub-APIs in Wave 7) still take
+    effect. This test pins both halves: constructor-injected callables
+    reach the executor, AND post-construction rebinds also take effect.
+    """
+    from notebooklm.auth import AuthTokens
+
+    auth = AuthTokens(
+        cookies={"SID": "x"},
+        csrf_token="csrf",
+        session_id="sid",
+    )
+
+    def custom_decode(*_a, **_kw):
+        return ["custom"]
+
+    async def custom_sleep(_seconds):
+        return None
+
+    def custom_is_auth_error(_exc):
+        return True
+
+    core = build_client_shell_for_tests(
+        auth,
+        decode_response=custom_decode,
+        sleep=custom_sleep,
+        is_auth_error=custom_is_auth_error,
+    )
+
+    assert core._seams.decode_response is custom_decode
+    assert core._seams.sleep is custom_sleep
+    assert core._seams.is_auth_error is custom_is_auth_error
+
+    executor = core._rpc_executor
+    # Constructor-injected callables propagate through the closure.
+    assert executor._decode_response() == ["custom"]
+    assert executor._is_auth_error(object()) is True
+
+    # Post-construction rebind takes effect (late-binding contract).
+    def rebound_decode(*_a, **_kw):
+        return ["rebound"]
+
+    core._seams.decode_response = rebound_decode
+    assert executor._decode_response() == ["rebound"]
+
+
+def test_kernel_http_client_is_read_only_property() -> None:
+    """``Kernel.http_client`` MUST have no setter (``docs/improvement.md`` §4.2)."""
+    from notebooklm._kernel import Kernel
+
+    descriptor = Kernel.__dict__["http_client"]
+    assert isinstance(descriptor, property)
+    assert descriptor.fset is None, (
+        "Kernel.http_client must remain read-only; the retired setter was a "
+        "test-injection seam that constructor-time async_client_factory "
+        "injection now replaces (see docs/improvement.md §4.2)."
+    )
 
 
 def _is_type_checking_guard(node: ast.AST) -> bool:
@@ -779,24 +901,49 @@ def test_phase8_source_listing_service_name_and_facade_wiring_are_current() -> N
     assert isinstance(api._lister, SourceLister)
 
 
-def test_phase7_artifact_mind_map_patch_seams_are_current() -> None:
-    """Final artifact services must still resolve mind-map seams via ``_artifacts``.
+def test_phase7_artifact_download_patch_seams_are_current() -> None:
+    """Artifact downloads must use canonical helpers and collaborators.
 
     Phase 5 (refactor-history.md Migration Plan steps 6-7) moves the mind-map
     create/list/extract paths off the ``_mind_map`` module-level seams
     and onto the injected ``NoteService`` + ``NoteBackedMindMapService``
-    instances. The ``_artifact_generation`` module no longer needs an
-    ``_artifact_seams()`` hop at all (only the JSON/cookie seams remain
-    in ``_artifact_downloads``), so we check the downloads-side seam
-    still resolves and the generation module exposes the ``NoteService``
-    attribute the new wiring depends on.
+    instances. Downloads should now import their canonical helpers directly
+    rather than resolving through ``notebooklm._artifacts`` at runtime or in
+    type-checking-only imports.
     """
     import notebooklm._artifact_downloads as artifact_downloads
+    import notebooklm._artifact_formatters as artifact_formatters
     import notebooklm._artifacts as artifacts
     import notebooklm._mind_map as mind_map
+    import notebooklm.auth as auth
 
+    tree = ast.parse((SRC_ROOT / "_artifact_downloads.py").read_text(encoding="utf-8"))
+    artifact_facade_imports: list[str] = []
+    artifact_facade_modules = {"_artifacts", "notebooklm._artifacts"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            artifact_facade_imports.extend(
+                alias.name for alias in node.names if alias.name in artifact_facade_modules
+            )
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module in artifact_facade_modules:
+                artifact_facade_imports.extend(f"{module}.{alias.name}" for alias in node.names)
+            elif module in {"", "notebooklm"}:
+                artifact_facade_imports.extend(
+                    alias.name for alias in node.names if alias.name == "_artifacts"
+                )
+
+    assert artifact_facade_imports == []
     assert artifacts._mind_map is mind_map
-    assert artifact_downloads._artifact_seams()._mind_map is mind_map
+    assert not hasattr(artifact_downloads, "_artifact_seams")
+    assert artifact_downloads.load_httpx_cookies is auth.load_httpx_cookies
+    assert artifact_downloads._extract_app_data is artifact_formatters._extract_app_data
+    assert (
+        artifact_downloads._format_interactive_content
+        is artifact_formatters._format_interactive_content
+    )
+    assert artifact_downloads._parse_data_table is artifact_formatters._parse_data_table
 
 
 def test_notebooks_api_has_no_hidden_sources_api_runtime_dependency() -> None:
@@ -974,7 +1121,7 @@ def test_core_private_access_guard_ignores_public_core_methods() -> None:
         """
 class Example:
     def method(self):
-        return self._core.rpc_call(method, params)
+        return self._core.update_auth_tokens(csrf, sid)
 """
     )
     visitor = _CorePrivateAccessVisitor("example.py")
@@ -1008,7 +1155,9 @@ def test_artifacts_constructible_without_notes_api(mock_auth: AuthTokens) -> Non
 
     core = MagicMock()
     api = ArtifactsAPI(
-        core,
+        rpc=core,
+        drain=core,
+        lifecycle=core,
         notebooks=MagicMock(),
         mind_maps=MagicMock(spec=NoteBackedMindMapService),
         note_service=MagicMock(spec=NoteService),
@@ -1058,7 +1207,9 @@ def test_artifacts_before_notes_construction_order(mock_auth: AuthTokens) -> Non
 
     def _make_artifacts() -> ArtifactsAPI:
         return ArtifactsAPI(
-            core,
+            rpc=core,
+            drain=core,
+            lifecycle=core,
             notebooks=MagicMock(),
             mind_maps=MagicMock(spec=NoteBackedMindMapService),
             note_service=MagicMock(spec=NoteService),
@@ -1126,23 +1277,34 @@ def _make_core_for_mind_map_flow() -> tuple[MagicMock, list[tuple[Any, Any]]]:
         return None
 
     core = MagicMock()
-    core.rpc_call = AsyncMock(side_effect=fake_rpc_call)
+    # The fake mirrors production: ``rpc_executor`` is the ``RpcCaller``
+    # collaborator. ``MagicMock`` auto-vivifies the other ArtifactsRuntime
+    # surfaces (``assert_bound_loop`` / ``operation_scope`` /
+    # ``register_drain_hook``) on ``core.rpc_executor`` so it satisfies
+    # the composite Protocol when threaded into ``ArtifactsAPI``.
+    core.rpc_executor.rpc_call = AsyncMock(side_effect=fake_rpc_call)
+    # MagicMock blocks ``assert``-prefixed attribute access — install the
+    # no-op ``assert_bound_loop`` stub on ``core`` explicitly since it is
+    # also passed as the ``drain`` / ``lifecycle`` collaborator.
+    core.assert_bound_loop = MagicMock()
     core.get_source_ids = AsyncMock(return_value=["src_1"])
     return core, calls
 
 
 def _build_artifacts_with_real_mind_map_service(core: MagicMock) -> ArtifactsAPI:
     """Build an ``ArtifactsAPI`` whose mind-map services are real
-    instances backed by ``core`` so the mind-map flow exercises the
-    live RPC callbacks against the canned ``core.rpc_call``.
+    instances backed by ``core.rpc_executor`` so the mind-map flow
+    exercises the live RPC callbacks against the canned executor.
     """
     from notebooklm._mind_map import NoteBackedMindMapService
     from notebooklm._note_service import NoteService
 
-    note_service = NoteService(core)
+    note_service = NoteService(core.rpc_executor)
     mind_maps = NoteBackedMindMapService(note_service)
     return ArtifactsAPI(
-        core,
+        rpc=core.rpc_executor,
+        drain=core,
+        lifecycle=core,
         notebooks=MagicMock(get_source_ids=AsyncMock(return_value=["src_1"])),
         mind_maps=mind_maps,
         note_service=note_service,

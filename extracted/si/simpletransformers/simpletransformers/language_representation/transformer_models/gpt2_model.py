@@ -11,7 +11,7 @@ class GPT2ForTextRepresentation(GPT2PreTrainedModel):
         super(GPT2ForTextRepresentation, self).__init__(config)
         self.gpt2 = GPT2Model(config)
         self.weight = weight
-        self.init_weights()
+        self.post_init()
 
     def resize_token_embeddings(self, new_len):
         return self.gpt2.resize_token_embeddings(new_len)

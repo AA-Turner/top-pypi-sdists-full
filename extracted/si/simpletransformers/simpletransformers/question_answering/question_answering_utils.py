@@ -14,6 +14,7 @@ from io import open
 from multiprocessing import Pool, cpu_count
 from pprint import pprint
 
+import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import (
@@ -31,17 +32,225 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 from transformers.data.processors.squad import (
-    squad_convert_example_to_features,
-    squad_convert_example_to_features_init,
-)
-from transformers.models.bert.tokenization_bert import (
-    BasicTokenizer,
     whitespace_tokenize,
+    _new_check_is_max_context,
+    _improve_answer_span,
+    MULTI_SEP_TOKENS_TOKENIZERS_SET,
+    SquadFeatures,
+    TruncationStrategy,
 )
+from transformers import BasicTokenizer
 from datasets import load_dataset
 from datasets import Dataset as HFDataset
 
 logger = logging.getLogger(__name__)
+
+# Module-level tokenizer used by the multiprocessing pool workers below.
+_squad_tokenizer = None
+
+
+def squad_convert_example_to_features_init(tokenizer_for_convert):
+    global _squad_tokenizer
+    _squad_tokenizer = tokenizer_for_convert
+
+
+def squad_convert_example_to_features(
+    example, max_seq_length, doc_stride, max_query_length, padding_strategy, is_training
+):
+    """Vendored from transformers 4.x with fixes for transformers 5.x tokenizer API."""
+    tokenizer = _squad_tokenizer
+    features = []
+    if is_training and not example.is_impossible:
+        start_position = example.start_position
+        end_position = example.end_position
+        actual_text = " ".join(example.doc_tokens[start_position : (end_position + 1)])
+        cleaned_answer_text = " ".join(whitespace_tokenize(example.answer_text))
+        if actual_text.find(cleaned_answer_text) == -1:
+            logger.warning(f"Could not find answer: '{actual_text}' vs. '{cleaned_answer_text}'")
+            return []
+
+    tok_to_orig_index = []
+    orig_to_tok_index = []
+    all_doc_tokens = []
+    for i, token in enumerate(example.doc_tokens):
+        orig_to_tok_index.append(len(all_doc_tokens))
+        if tokenizer.__class__.__name__ in [
+            "RobertaTokenizer",
+            "LongformerTokenizer",
+            "BartTokenizer",
+            "RobertaTokenizerFast",
+            "LongformerTokenizerFast",
+            "BartTokenizerFast",
+        ]:
+            sub_tokens = tokenizer.tokenize(token, add_prefix_space=True)
+        else:
+            sub_tokens = tokenizer.tokenize(token)
+        for sub_token in sub_tokens:
+            tok_to_orig_index.append(i)
+            all_doc_tokens.append(sub_token)
+
+    if is_training and not example.is_impossible:
+        tok_start_position = orig_to_tok_index[example.start_position]
+        if example.end_position < len(example.doc_tokens) - 1:
+            tok_end_position = orig_to_tok_index[example.end_position + 1] - 1
+        else:
+            tok_end_position = len(all_doc_tokens) - 1
+        (tok_start_position, tok_end_position) = _improve_answer_span(
+            all_doc_tokens, tok_start_position, tok_end_position, tokenizer, example.answer_text
+        )
+
+    spans = []
+
+    # Encode query as token strings (not IDs) so the tokenizer accepts them as pre-tokenized input.
+    truncated_query = tokenizer.convert_ids_to_tokens(
+        tokenizer.encode(
+            example.question_text, add_special_tokens=False, truncation=True, max_length=max_query_length
+        )
+    )
+
+    tokenizer_type = type(tokenizer).__name__.replace("Tokenizer", "").lower()
+    sequence_added_tokens = (
+        tokenizer.model_max_length - tokenizer.max_len_single_sentence + 1
+        if tokenizer_type in MULTI_SEP_TOKENS_TOKENIZERS_SET
+        else tokenizer.model_max_length - tokenizer.max_len_single_sentence
+    )
+    sequence_pair_added_tokens = tokenizer.model_max_length - tokenizer.max_len_sentences_pair
+    stride = max(0, max_seq_length - doc_stride - len(truncated_query) - sequence_pair_added_tokens)
+
+    # The fast tokenizer returns all spans as a batch when return_overflowing_tokens=True.
+    if tokenizer.padding_side == "right":
+        texts = truncated_query
+        pairs = all_doc_tokens
+        truncation = TruncationStrategy.ONLY_SECOND.value
+    else:
+        texts = all_doc_tokens
+        pairs = truncated_query
+        truncation = TruncationStrategy.ONLY_FIRST.value
+
+    all_encoded = tokenizer(
+        texts,
+        pairs,
+        is_split_into_words=True,
+        truncation=truncation,
+        padding=padding_strategy,
+        max_length=max_seq_length,
+        return_overflowing_tokens=True,
+        stride=stride,
+        return_token_type_ids=True,
+    )
+
+    for span_idx in range(len(all_encoded["input_ids"])):
+        span_input_ids = all_encoded["input_ids"][span_idx]
+        span_attention_mask = all_encoded["attention_mask"][span_idx]
+        span_token_type_ids = all_encoded["token_type_ids"][span_idx]
+
+        doc_start = span_idx * doc_stride
+
+        paragraph_len = min(
+            len(all_doc_tokens) - doc_start,
+            max_seq_length - len(truncated_query) - sequence_pair_added_tokens,
+        )
+
+        if tokenizer.pad_token_id in span_input_ids:
+            if tokenizer.padding_side == "right":
+                non_padded_ids = span_input_ids[: span_input_ids.index(tokenizer.pad_token_id)]
+            else:
+                last_padding_id_position = (
+                    len(span_input_ids) - 1 - span_input_ids[::-1].index(tokenizer.pad_token_id)
+                )
+                non_padded_ids = span_input_ids[last_padding_id_position + 1 :]
+        else:
+            non_padded_ids = span_input_ids
+
+        tokens = tokenizer.convert_ids_to_tokens(non_padded_ids)
+
+        token_to_orig_map = {}
+        for i in range(paragraph_len):
+            index = len(truncated_query) + sequence_added_tokens + i if tokenizer.padding_side == "right" else i
+            if doc_start + i < len(tok_to_orig_index):
+                token_to_orig_map[index] = tok_to_orig_index[doc_start + i]
+
+        encoded_dict = {
+            "input_ids": span_input_ids,
+            "attention_mask": span_attention_mask,
+            "token_type_ids": span_token_type_ids,
+            "paragraph_len": paragraph_len,
+            "tokens": tokens,
+            "token_to_orig_map": token_to_orig_map,
+            "truncated_query_with_special_tokens_length": len(truncated_query) + sequence_added_tokens,
+            "token_is_max_context": {},
+            "start": doc_start,
+            "length": paragraph_len,
+        }
+        spans.append(encoded_dict)
+
+    for doc_span_index in range(len(spans)):
+        for j in range(spans[doc_span_index]["paragraph_len"]):
+            is_max_context = _new_check_is_max_context(spans, doc_span_index, doc_span_index * doc_stride + j)
+            index = (
+                j
+                if tokenizer.padding_side == "left"
+                else spans[doc_span_index]["truncated_query_with_special_tokens_length"] + j
+            )
+            spans[doc_span_index]["token_is_max_context"][index] = is_max_context
+
+    for span in spans:
+        cls_index = span["input_ids"].index(tokenizer.cls_token_id)
+
+        p_mask = np.ones_like(span["token_type_ids"])
+        if tokenizer.padding_side == "right":
+            p_mask[len(truncated_query) + sequence_added_tokens :] = 0
+        else:
+            p_mask[-len(span["tokens"]) : -(len(truncated_query) + sequence_added_tokens)] = 0
+
+        pad_token_indices = np.where(np.atleast_1d(span["input_ids"] == tokenizer.pad_token_id))
+        special_token_indices = np.asarray(
+            tokenizer.get_special_tokens_mask(span["input_ids"], already_has_special_tokens=True)
+        ).nonzero()
+
+        p_mask[pad_token_indices] = 1
+        p_mask[special_token_indices] = 1
+        p_mask[cls_index] = 0
+
+        span_is_impossible = example.is_impossible
+        start_position = 0
+        end_position = 0
+        if is_training and not span_is_impossible:
+            doc_start = span["start"]
+            doc_end = span["start"] + span["length"] - 1
+
+            if not (tok_start_position >= doc_start and tok_end_position <= doc_end):
+                start_position = cls_index
+                end_position = cls_index
+                span_is_impossible = True
+            else:
+                if tokenizer.padding_side == "left":
+                    doc_offset = 0
+                else:
+                    doc_offset = len(truncated_query) + sequence_added_tokens
+                start_position = tok_start_position - doc_start + doc_offset
+                end_position = tok_end_position - doc_start + doc_offset
+
+        features.append(
+            SquadFeatures(
+                span["input_ids"],
+                span["attention_mask"],
+                span["token_type_ids"],
+                cls_index,
+                p_mask.tolist(),
+                example_index=0,
+                unique_id=0,
+                paragraph_len=span["paragraph_len"],
+                token_is_max_context=span["token_is_max_context"],
+                tokens=span["tokens"],
+                token_to_orig_map=span["token_to_orig_map"],
+                start_position=start_position,
+                end_position=end_position,
+                is_impossible=span_is_impossible,
+                qas_id=example.qas_id,
+            )
+        )
+    return features
 
 
 class InputExample(object):

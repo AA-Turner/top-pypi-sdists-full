@@ -11,6 +11,7 @@ mod dispatch;
 mod exchange;
 mod exchange_cache;
 mod intraday_timezone;
+mod request_plan;
 mod request_pool;
 pub mod state;
 mod subscription_pool;
@@ -33,7 +34,6 @@ use xbbg_core::session::Session;
 use xbbg_core::{apply_session_identity_options, AuthConfig, BlpError, SessionOptions};
 
 use crate::errors::BlpAsyncError;
-use crate::request_builder::RequestBuilder;
 use crate::services::{Operation, Service};
 use exchange_cache::ExchangeCache;
 
@@ -41,6 +41,7 @@ use exchange_cache::ExchangeCache;
 // Re-export here so existing `use xbbg_async::engine::ExtractorType` paths keep working.
 pub use crate::services::ExtractorType;
 
+pub(crate) use request_plan::{PlannedRequestShape, PreparedRequest, PreparedRequestBuilder};
 pub use request_pool::RequestWorkerPool;
 use state::SubscriptionMetrics;
 pub use state::{
@@ -48,7 +49,7 @@ pub use state::{
     RefDataState, SubscriptionState, SubscriptionUpdate,
 };
 pub use subscription_pool::{SessionClaim, SubscriptionCommandHandle, SubscriptionSessionPool};
-pub use worker::{UnifiedRequestState, WorkerCommand, WorkerHandle};
+pub use worker::{UnifiedRequestState, WorkerHandle};
 
 const SESSION_STARTUP_TIMEOUT_MS: u32 = 30_000;
 
@@ -489,10 +490,22 @@ impl SubscriptionStatusState {
 
     pub fn remove_topic(&mut self, topic: &str) -> Option<SlabKey> {
         let key = self.topic_to_key.remove(topic)?;
+        self.key_to_topic.remove(&key);
         self.topics.retain(|existing| existing != topic);
         self.keys.retain(|existing| *existing != key);
         self.metrics.remove(&key);
         Some(key)
+    }
+
+    /// Fully remove a topic at the user's request, including its status history.
+    ///
+    /// Unlike [`Self::remove_topic`] (which keeps the `topic_states` entry so the SDK
+    /// terminal path can report a final lifecycle state), this also drops the
+    /// `topic_states` entry so the topic disappears from [`Self::topic_statuses`].
+    pub fn drop_topic(&mut self, topic: &str) -> Option<SlabKey> {
+        let key = self.remove_topic(topic);
+        self.topic_states.remove(topic);
+        key
     }
 
     pub fn topic_for_key(&self, key: SlabKey) -> Option<&str> {
@@ -888,287 +901,149 @@ impl RequestParams {
 
     /// Apply default values derived from operation semantics.
     pub fn with_defaults(mut self) -> Self {
-        if !self.extractor_set && self.extractor == ExtractorType::default() {
-            let operation = parse_operation_lossless(self.effective_operation());
-            self.extractor = operation.default_extractor();
-        }
+        request_plan::normalize_request_params(&mut self);
+        request_plan::apply_request_defaults(&mut self);
         self
     }
 
     /// Validate request parameters for known Bloomberg operations.
     pub fn validate(&self) -> Result<(), BlpAsyncError> {
-        if self.service.is_empty() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "service is required".to_string(),
-            });
-        }
+        request_plan::validate_request_params(self).map(|_| ())
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct RequestParamsInput {
+    pub service: String,
+    pub operation: Option<String>,
+    pub request_operation: Option<String>,
+    pub request_id: Option<String>,
+    pub extractor: Option<String>,
+    pub securities: Option<Vec<String>>,
+    pub security: Option<String>,
+    pub fields: Option<Vec<String>>,
+    pub overrides: Option<Vec<(String, String)>>,
+    pub elements: Option<Vec<(String, String)>>,
+    pub kwargs: Option<HashMap<String, String>>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub start_datetime: Option<String>,
+    pub end_datetime: Option<String>,
+    pub request_tz: Option<String>,
+    pub output_tz: Option<String>,
+    pub event_type: Option<String>,
+    pub event_types: Option<Vec<String>>,
+    pub interval: Option<u32>,
+    pub options: Option<Vec<(String, String)>>,
+    pub field_types: Option<HashMap<String, String>>,
+    pub include_security_errors: Option<bool>,
+    pub validate_fields: Option<bool>,
+    pub search_spec: Option<String>,
+    pub field_ids: Option<Vec<String>>,
+    pub format: Option<String>,
+}
 
-        let operation = parse_operation_lossless(&self.operation);
-        if matches!(operation, Operation::RawRequest) {
-            if self
-                .request_operation
-                .as_ref()
-                .is_none_or(|operation| operation.is_empty())
+impl RequestParamsInput {
+    pub fn into_request_params(self) -> Result<RequestParams, RequestParamsInputError> {
+        let request_operation = normalize_input_string(self.request_operation);
+        let operation = match self.operation {
+            Some(operation) => operation,
+            None if request_operation.is_some() => Operation::RawRequest.to_string(),
+            None => {
+                return Err(RequestParamsInputError::new(
+                    "operation is required unless request_operation is used for RawRequest",
+                ))
+            }
+        };
+
+        let (extractor, extractor_set) = match normalize_input_string(self.extractor) {
+            Some(name) => {
+                let extractor = ExtractorType::parse(&name).ok_or_else(|| {
+                    RequestParamsInputError::new(format!("invalid extractor type: {name}"))
+                })?;
+                (extractor, true)
+            }
+            None => (ExtractorType::default(), false),
+        };
+
+        let mut service = self.service;
+        if service.is_empty() {
+            let default_operation = if parse_operation_lossless(&operation) == Operation::RawRequest
             {
-                return Err(BlpAsyncError::ConfigError {
-                    detail: "request_operation is required for RawRequest".to_string(),
-                });
+                request_operation.as_deref().unwrap_or_default()
+            } else {
+                operation.as_str()
+            };
+            if let Some(default_service) =
+                parse_operation_lossless(default_operation).default_service()
+            {
+                service = default_service.to_string();
             }
-        } else if self.operation.is_empty() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "operation is required".to_string(),
-            });
         }
 
-        match operation {
-            Operation::ReferenceData => self.validate_reference_data(),
-            Operation::HistoricalData => self.validate_historical_data(),
-            Operation::IntradayBar => self.validate_intraday_bar(),
-            Operation::IntradayTick => self.validate_intraday_tick(),
-            Operation::FieldInfo | Operation::FieldSearch => {
-                self.validate_field_request(&operation)
-            }
-            // Unknown/custom operations run in power-user mode.
-            Operation::Beqs
-            | Operation::PortfolioData
-            | Operation::InstrumentList
-            | Operation::CurveList
-            | Operation::GovtList
-            | Operation::BqlSendQuery
-            | Operation::ExcelGetGrid
-            | Operation::StudyRequest
-            | Operation::RawRequest
-            | Operation::Custom(_) => Ok(()),
-        }
-    }
-
-    fn validate_reference_data(&self) -> Result<(), BlpAsyncError> {
-        if !self.has_securities() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "securities is required for ReferenceDataRequest".to_string(),
-            });
-        }
-
-        if !self.has_fields() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "fields is required for ReferenceDataRequest".to_string(),
-            });
-        }
-
-        Ok(())
-    }
-
-    fn validate_historical_data(&self) -> Result<(), BlpAsyncError> {
-        if !self.has_securities() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "securities is required for HistoricalDataRequest".to_string(),
-            });
-        }
-
-        if !self.has_fields() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "fields is required for HistoricalDataRequest".to_string(),
-            });
-        }
-
-        if !self.has_start_date() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "start_date is required for HistoricalDataRequest".to_string(),
-            });
-        }
-
-        if !self.has_end_date() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "end_date is required for HistoricalDataRequest".to_string(),
-            });
-        }
-
-        Ok(())
-    }
-
-    fn validate_intraday_bar(&self) -> Result<(), BlpAsyncError> {
-        if !self.has_security() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "security is required for IntradayBarRequest".to_string(),
-            });
-        }
-
-        if !self.has_event_type() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "event_type is required for IntradayBarRequest".to_string(),
-            });
-        }
-
-        if self.interval.is_none() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "interval is required for IntradayBarRequest".to_string(),
-            });
-        }
-
-        if !self.has_start_datetime() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "start_datetime is required for IntradayBarRequest".to_string(),
-            });
-        }
-
-        if !self.has_end_datetime() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "end_datetime is required for IntradayBarRequest".to_string(),
-            });
-        }
-
-        Ok(())
-    }
-
-    fn validate_intraday_tick(&self) -> Result<(), BlpAsyncError> {
-        if !self.has_security() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "security is required for IntradayTickRequest".to_string(),
-            });
-        }
-
-        if !self.has_start_datetime() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "start_datetime is required for IntradayTickRequest".to_string(),
-            });
-        }
-
-        if !self.has_end_datetime() {
-            return Err(BlpAsyncError::ConfigError {
-                detail: "end_datetime is required for IntradayTickRequest".to_string(),
-            });
-        }
-
-        Ok(())
-    }
-
-    fn validate_field_request(&self, operation: &Operation) -> Result<(), BlpAsyncError> {
-        let has_fields = self.has_fields();
-
-        match operation {
-            Operation::FieldInfo => {
-                let has_field_ids = self.field_ids.as_ref().is_some_and(|ids| !ids.is_empty());
-                if !has_fields && !has_field_ids {
-                    return Err(BlpAsyncError::ConfigError {
-                        detail: "fields is required for field metadata requests".to_string(),
-                    });
-                }
-            }
-            Operation::FieldSearch => {
-                let has_search_spec = self.search_spec.as_ref().is_some_and(|s| !s.is_empty());
-                if !has_fields && !has_search_spec {
-                    return Err(BlpAsyncError::ConfigError {
-                        detail: "fields is required for field metadata requests".to_string(),
-                    });
-                }
-            }
-            _ => {}
-        }
-
-        Ok(())
-    }
-
-    fn has_securities(&self) -> bool {
-        self.securities
-            .as_ref()
-            .is_some_and(|values| !values.is_empty())
-    }
-
-    fn has_security(&self) -> bool {
-        self.security
-            .as_ref()
-            .is_some_and(|value| !value.is_empty())
-    }
-
-    fn has_fields(&self) -> bool {
-        self.fields
-            .as_ref()
-            .is_some_and(|values| !values.is_empty())
-    }
-
-    fn has_start_date(&self) -> bool {
-        self.start_date
-            .as_ref()
-            .is_some_and(|value| !value.is_empty())
-    }
-
-    fn has_end_date(&self) -> bool {
-        self.end_date
-            .as_ref()
-            .is_some_and(|value| !value.is_empty())
-    }
-
-    fn has_start_datetime(&self) -> bool {
-        self.start_datetime
-            .as_ref()
-            .is_some_and(|value| !value.is_empty())
-    }
-
-    fn has_end_datetime(&self) -> bool {
-        self.end_datetime
-            .as_ref()
-            .is_some_and(|value| !value.is_empty())
-    }
-
-    fn has_event_type(&self) -> bool {
-        self.event_type
-            .as_ref()
-            .is_some_and(|value| !value.is_empty())
+        let mut params = RequestParams {
+            service,
+            operation,
+            request_operation,
+            request_id: self.request_id,
+            extractor,
+            extractor_set,
+            securities: self.securities,
+            security: self.security,
+            fields: self.fields,
+            overrides: self.overrides,
+            elements: self.elements,
+            kwargs: self.kwargs,
+            start_date: self.start_date,
+            end_date: self.end_date,
+            start_datetime: self.start_datetime,
+            end_datetime: self.end_datetime,
+            request_tz: self.request_tz,
+            output_tz: self.output_tz,
+            event_type: self.event_type,
+            event_types: self.event_types,
+            interval: self.interval,
+            options: self.options,
+            field_types: self.field_types,
+            include_security_errors: self.include_security_errors.unwrap_or(false),
+            validate_fields: self.validate_fields,
+            search_spec: self.search_spec,
+            field_ids: self.field_ids,
+            format: self.format,
+        };
+        request_plan::normalize_request_params(&mut params);
+        request_plan::apply_request_defaults(&mut params);
+        Ok(params)
     }
 }
 
-fn normalize_excel_grid_params(params: &mut RequestParams, kwargs: HashMap<String, String>) {
-    let mut domain: Option<String> = None;
-    let mut grid_overrides: Vec<(String, String)> = Vec::new();
-
-    fn route_pair(
-        domain: &mut Option<String>,
-        grid_overrides: &mut Vec<(String, String)>,
-        key: String,
-        value: String,
-    ) {
-        if key.eq_ignore_ascii_case("Domain") {
-            *domain = Some(value);
-        } else if !key.is_empty() && !key.eq_ignore_ascii_case("Overrides") {
-            grid_overrides.push((key, value));
-        }
-    }
-
-    for (key, value) in params.elements.take().unwrap_or_default() {
-        route_pair(&mut domain, &mut grid_overrides, key, value);
-    }
-
-    for (key, value) in params.overrides.take().unwrap_or_default() {
-        route_pair(&mut domain, &mut grid_overrides, key, value);
-    }
-
-    let mut keys: Vec<String> = kwargs.keys().cloned().collect();
-    keys.sort();
-    for key in keys {
-        if let Some(value) = kwargs.get(&key) {
-            route_pair(&mut domain, &mut grid_overrides, key, value.clone());
-        }
-    }
-
-    params.elements = domain.map(|value| vec![("Domain".to_string(), value)]);
-    params.overrides = (!grid_overrides.is_empty()).then_some(grid_overrides);
+fn normalize_input_string(value: Option<String>) -> Option<String> {
+    value.filter(|value| !value.is_empty())
 }
 
-fn merge_raw_kwargs_into_elements(params: &mut RequestParams, kwargs: HashMap<String, String>) {
-    if kwargs.is_empty() {
-        return;
-    }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RequestParamsInputError {
+    detail: String,
+}
 
-    let mut keys: Vec<String> = kwargs.keys().cloned().collect();
-    keys.sort();
-
-    let elements = params.elements.get_or_insert_with(Vec::new);
-    for key in keys {
-        if let Some(value) = kwargs.get(&key) {
-            elements.push((key, value.clone()));
+impl RequestParamsInputError {
+    fn new(detail: impl Into<String>) -> Self {
+        Self {
+            detail: detail.into(),
         }
     }
+
+    pub fn detail(&self) -> &str {
+        &self.detail
+    }
 }
+
+impl std::fmt::Display for RequestParamsInputError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.detail)
+    }
+}
+
+impl std::error::Error for RequestParamsInputError {}
 
 /// Validation mode for request validation.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1422,17 +1297,19 @@ impl Engine {
         &self,
         params: RequestParams,
     ) -> Result<RecordBatch, BlpAsyncError> {
-        let params = self.prepare_request_params(params)?;
-        self.maybe_validate_request_fields(&params).await?;
-        self.request_pool.request(params).await
+        let prepared = self.prepare_request_builder(params)?.finalize()?;
+        self.maybe_validate_request_fields(&prepared).await?;
+        self.request_pool.request(prepared).await
     }
 
     pub async fn request(&self, params: RequestParams) -> Result<RecordBatch, BlpAsyncError> {
-        let mut params = self.prepare_request_params(params)?;
-        intraday_timezone::apply_intraday_request_timezone(self, &mut params).await?;
-        self.maybe_validate_request_fields(&params).await?;
-        let batch = self.request_pool.request(params.clone()).await?;
-        intraday_timezone::apply_intraday_output_timezone(self, batch, &params).await
+        let mut builder = self.prepare_request_builder(params)?;
+        self.apply_intraday_request_timezone(&mut builder).await?;
+        let prepared = builder.finalize()?;
+        self.maybe_validate_request_fields(&prepared).await?;
+        let output_params = prepared.params().clone();
+        let batch = self.request_pool.request(prepared).await?;
+        intraday_timezone::apply_intraday_output_timezone(self, batch, &output_params).await
     }
 
     /// Streaming generic request - dispatches to worker pool.
@@ -1440,80 +1317,41 @@ impl Engine {
         &self,
         params: RequestParams,
     ) -> Result<mpsc::Receiver<Result<RecordBatch, BlpError>>, BlpAsyncError> {
-        let mut params = self.prepare_request_params(params)?;
-        intraday_timezone::apply_intraday_request_timezone(self, &mut params).await?;
-        let out_iana = intraday_timezone::resolve_output_tz_iana(self, &params).await?;
-        self.maybe_validate_request_fields(&params).await?;
-        let rx = self.request_pool.request_stream(params).await?;
+        let mut builder = self.prepare_request_builder(params)?;
+        self.apply_intraday_request_timezone(&mut builder).await?;
+        let out_iana = intraday_timezone::resolve_output_tz_iana(self, builder.params()).await?;
+        let prepared = builder.finalize()?;
+        self.maybe_validate_request_fields(&prepared).await?;
+        let rx = self.request_pool.request_stream(prepared).await?;
         Ok(intraday_timezone::wrap_batch_stream_with_output_tz(
             rx, out_iana,
         ))
     }
 
-    /// Resolve defaults, validate, and schema-route kwargs before dispatch.
-    fn prepare_request_params(
+    /// Resolve defaults, validate, schema-route kwargs, and apply field-cache hints.
+    fn prepare_request_builder(
         &self,
         params: RequestParams,
-    ) -> Result<RequestParams, BlpAsyncError> {
-        let mut params = params.with_defaults();
-        params.validate()?;
-
-        let kwargs = params.kwargs.take().unwrap_or_default();
-        if params.is_excel_get_grid_request() {
-            normalize_excel_grid_params(&mut params, kwargs);
-            return Ok(params);
-        }
-
-        if params.is_raw_request() {
-            merge_raw_kwargs_into_elements(&mut params, kwargs);
-            return Ok(params);
-        }
-
-        let routed = RequestBuilder::route_kwargs(
-            &self.schema_cache,
-            &params.service,
-            &params.operation,
-            kwargs,
-            params.overrides.take(),
-        );
-
-        if !routed.elements.is_empty() {
-            params
-                .elements
-                .get_or_insert_with(Vec::new)
-                .extend(routed.elements);
-        }
-
-        params.overrides = if routed.overrides.is_empty() {
-            None
-        } else {
-            Some(routed.overrides)
-        };
-
-        for warning in routed.warnings {
-            xbbg_log::warn!(
-                service = %params.service,
-                operation = %params.operation,
-                warning = %warning,
-                "request parameter routing warning"
-            );
-        }
-
-        self.apply_cached_field_types(&mut params);
-
-        Ok(params)
+    ) -> Result<PreparedRequestBuilder, BlpAsyncError> {
+        let mut builder = PreparedRequestBuilder::prepare(params, &self.schema_cache)?;
+        self.apply_cached_field_types(&mut builder)?;
+        Ok(builder)
     }
 
-    fn apply_cached_field_types(&self, params: &mut RequestParams) {
+    fn apply_cached_field_types(
+        &self,
+        builder: &mut PreparedRequestBuilder,
+    ) -> Result<(), BlpAsyncError> {
         if !matches!(
-            params.extractor,
-            ExtractorType::RefData | ExtractorType::HistData
+            builder.shape()?,
+            PlannedRequestShape::RefData(_) | PlannedRequestShape::HistData(_)
         ) {
-            return;
+            return Ok(());
         }
 
+        let params = builder.params();
         let Some(fields) = params.fields.as_ref().filter(|fields| !fields.is_empty()) else {
-            return;
+            return Ok(());
         };
 
         let resolved = crate::field_cache::global_resolver()
@@ -1528,15 +1366,30 @@ impl Engine {
             if added > 0 {
                 xbbg_log::debug!(field_count = added, "using cached field type hints");
             }
-            params.field_types = Some(resolved);
+            builder.set_field_types(resolved);
         }
+        Ok(())
+    }
+
+    async fn apply_intraday_request_timezone(
+        &self,
+        builder: &mut PreparedRequestBuilder,
+    ) -> Result<(), BlpAsyncError> {
+        let Some((start_datetime, end_datetime)) =
+            intraday_timezone::resolve_intraday_request_datetimes(self, builder.params()).await?
+        else {
+            return Ok(());
+        };
+        builder.set_intraday_datetimes(start_datetime, end_datetime);
+        Ok(())
     }
 
     /// Validate request fields against Bloomberg field metadata when enabled.
     async fn maybe_validate_request_fields(
         &self,
-        params: &RequestParams,
+        prepared: &PreparedRequest,
     ) -> Result<(), BlpAsyncError> {
+        let params = prepared.params();
         let validation_mode = match params.validate_fields {
             Some(true) => ValidationMode::Strict,
             Some(false) => ValidationMode::Disabled,
@@ -1547,11 +1400,15 @@ impl Engine {
             return Ok(());
         }
 
+        if prepared.is_raw() {
+            return Ok(());
+        }
+
         if params.service != Service::RefData.to_string() {
             return Ok(());
         }
 
-        let operation = parse_operation_lossless(&params.operation);
+        let operation = prepared.operation();
         if !matches!(
             operation,
             Operation::ReferenceData | Operation::HistoricalData
@@ -1575,7 +1432,7 @@ impl Engine {
         if validation_mode == ValidationMode::Lenient {
             xbbg_log::warn!(
                 service = %params.service,
-                operation = %params.operation,
+                operation = %prepared.effective_operation(),
                 invalid_fields = ?invalid_fields,
                 "field validation warning"
             );
@@ -1808,7 +1665,7 @@ impl Engine {
             ..Default::default()
         };
 
-        let params = self.prepare_request_params(params)?;
+        let params = self.prepare_request_builder(params)?.finalize()?;
         let batch = self.request_pool.request(params).await?;
 
         // Get the field column from the response
@@ -2197,7 +2054,7 @@ impl SubscriptionStream {
         self.status.rcu(|current| {
             let mut next = (**current).clone();
             for topic in &topics_to_remove {
-                next.remove_topic(topic);
+                next.drop_topic(topic);
             }
             Arc::new(next)
         });
@@ -2390,65 +2247,6 @@ mod tests {
     }
 
     #[test]
-    fn merge_raw_kwargs_into_elements_preserves_existing_elements_and_sorts_kwargs() {
-        let mut params = RequestParams {
-            elements: Some(vec![("alpha".to_string(), "1".to_string())]),
-            ..Default::default()
-        };
-
-        merge_raw_kwargs_into_elements(
-            &mut params,
-            HashMap::from([
-                ("zeta".to_string(), "9".to_string()),
-                ("beta".to_string(), "2".to_string()),
-            ]),
-        );
-
-        assert_eq!(
-            params.elements,
-            Some(vec![
-                ("alpha".to_string(), "1".to_string()),
-                ("beta".to_string(), "2".to_string()),
-                ("zeta".to_string(), "9".to_string()),
-            ])
-        );
-    }
-
-    #[test]
-    fn normalize_excel_grid_params_routes_domain_and_grid_overrides() {
-        let mut params = RequestParams {
-            operation: Operation::ExcelGetGrid.to_string(),
-            elements: Some(vec![
-                ("Domain".to_string(), "FI:OLD".to_string()),
-                ("provider".to_string(), "wsi".to_string()),
-            ]),
-            overrides: Some(vec![
-                ("location".to_string(), "nwe".to_string()),
-                ("Domain".to_string(), "COMDTY:WEATHER".to_string()),
-            ]),
-            ..Default::default()
-        };
-
-        normalize_excel_grid_params(
-            &mut params,
-            HashMap::from([("model".to_string(), "ecmwf".to_string())]),
-        );
-
-        assert_eq!(
-            params.elements,
-            Some(vec![("Domain".to_string(), "COMDTY:WEATHER".to_string())])
-        );
-        assert_eq!(
-            params.overrides,
-            Some(vec![
-                ("provider".to_string(), "wsi".to_string()),
-                ("location".to_string(), "nwe".to_string()),
-                ("model".to_string(), "ecmwf".to_string()),
-            ])
-        );
-    }
-
-    #[test]
     fn excel_grid_detection_uses_raw_request_operation() {
         let params = RequestParams {
             operation: Operation::RawRequest.to_string(),
@@ -2469,6 +2267,54 @@ mod tests {
         .with_defaults();
 
         assert_eq!(params.extractor, ExtractorType::Bsrch);
+    }
+
+    #[test]
+    fn request_params_input_centralizes_extractor_and_raw_defaults() {
+        let params = RequestParamsInput {
+            service: String::new(),
+            operation: None,
+            request_operation: Some(Operation::ReferenceData.to_string()),
+            extractor: Some("bulk".to_string()),
+            securities: Some(vec!["INDU Index".to_string()]),
+            fields: Some(vec!["INDX_MEMBERS".to_string()]),
+            include_security_errors: None,
+            ..Default::default()
+        }
+        .into_request_params()
+        .unwrap();
+
+        assert_eq!(params.service, Service::RefData.to_string());
+        assert_eq!(params.operation, Operation::RawRequest.to_string());
+        assert_eq!(
+            params.request_operation.as_deref(),
+            Some(Operation::ReferenceData.as_str())
+        );
+        assert_eq!(params.extractor, ExtractorType::BulkData);
+        assert!(params.extractor_set);
+        assert!(!params.include_security_errors);
+    }
+
+    #[test]
+    fn request_params_input_normalizes_empty_optionals() {
+        let params = RequestParamsInput {
+            service: Service::RefData.to_string(),
+            operation: Some(Operation::ReferenceData.to_string()),
+            extractor: Some(String::new()),
+            securities: Some(Vec::new()),
+            fields: Some(vec!["PX_LAST".to_string()]),
+            kwargs: Some(HashMap::new()),
+            format: Some(String::new()),
+            ..Default::default()
+        }
+        .into_request_params()
+        .unwrap();
+
+        assert_eq!(params.extractor, ExtractorType::RefData);
+        assert!(!params.extractor_set);
+        assert!(params.securities.is_none());
+        assert!(params.kwargs.is_none());
+        assert!(params.format.is_none());
     }
 
     #[test]
@@ -2541,5 +2387,40 @@ mod tests {
                 .map(|event| event.message_type.as_str()),
             Some("DataLoss"),
         );
+    }
+
+    #[test]
+    fn subscription_status_drop_topic_removes_all_state_and_blocks_resurrection() {
+        let metric = Arc::new(SubscriptionMetrics {
+            messages_received: Arc::new(AtomicU64::new(0)),
+            dropped_batches: Arc::new(AtomicU64::new(0)),
+            batches_sent: Arc::new(AtomicU64::new(0)),
+            slow_consumer: Arc::new(AtomicBool::new(false)),
+            data_loss_events: Arc::new(AtomicU64::new(0)),
+            last_message_us: Arc::new(AtomicU64::new(0)),
+            last_data_loss_us: Arc::new(AtomicU64::new(0)),
+        });
+        let mut status = SubscriptionStatusState::from_active(
+            vec!["SPY US Equity".to_string(), "IBM US Equity".to_string()],
+            vec![10, 11],
+            HashMap::from([(10, metric.clone()), (11, metric)]),
+        );
+
+        let key = status.drop_topic("IBM US Equity");
+
+        assert_eq!(key, Some(11));
+        // topic_to_key invariant: gone from both directions.
+        assert!(!status.topic_to_key().contains_key("IBM US Equity"));
+        assert_eq!(status.topic_for_key(11), None);
+        // Active lists, metrics, and status history no longer reference the topic/key.
+        assert_eq!(status.topics(), &["SPY US Equity".to_string()]);
+        assert_eq!(status.keys(), &[10]);
+        assert!(!status.fields_metrics().contains_key(&11));
+        assert!(!status.topic_statuses().contains_key("IBM US Equity"));
+        // A late tick for the dropped key cannot resurrect the topic.
+        assert_eq!(status.mark_topic_streaming(11), None);
+        assert!(!status.topic_statuses().contains_key("IBM US Equity"));
+        // The surviving topic is untouched.
+        assert!(status.topic_statuses().contains_key("SPY US Equity"));
     }
 }

@@ -22,6 +22,7 @@ __all__ = [
     'MontySyntaxError',
     'MontyRuntimeError',
     'MontyTypingError',
+    'MontyFileHandle',
     'MountDir',
     'Frame',
     'load_snapshot',
@@ -840,11 +841,15 @@ class MontySyntaxError(MontyError):
     Inherits exception(), __str__() from MontyError.
     """
 
-    def display(self, format: Literal['type-msg', 'msg'] = 'msg') -> str:
+    def traceback(self) -> list[Frame]:
+        """Returns the Monty traceback as a list of Frame objects."""
+
+    def display(self, format: Literal['traceback', 'type-msg', 'msg'] = 'traceback') -> str:
         """Returns formatted exception string.
 
         Args:
-            format: 'type-msg' - 'ExceptionType: message' format
+            format: 'traceback' - full traceback with exception
+                  'type-msg' - 'ExceptionType: message' format
                   'msg' - just the message
         """
 
@@ -976,3 +981,59 @@ def load_repl_snapshot(
     Raises:
         ValueError: If deserialization fails.
     """
+
+@final
+class MontyFileHandle:
+    """Host-side handle to a file opened inside a Monty sandbox.
+
+    Plain data holder — Monty never gives the host a live OS file descriptor.
+    Exposed to callbacks (e.g. as the first argument of an `Open` result or
+    a `read`/`write` request) so they can route on `path` and branch on
+    `mode`/`binary`/`readable`/`writable` without re-parsing the mode string.
+
+    Construct one from a Python `Open` OS handler to return a handle back to
+    Monty: `MontyFileHandle('/data/foo.txt', 'r')`. The `mode` is canonicalized
+    at construction (`'rt'` → `'r'`, `'r+b'` → `'rb+'`).
+    """
+
+    def __new__(cls, path: str, mode: str, *, position: int = 0) -> MontyFileHandle:
+        """Construct a `MontyFileHandle` to return from an `Open` OS callback.
+
+        Arguments:
+            path: Virtual sandbox path of the opened file (POSIX-style).
+            mode: Python `open()` mode string. Parsed and canonicalized at
+                construction, so `'rt'` becomes `'r'` and `'r+b'` becomes
+                `'rb+'`. Raises `ValueError` for malformed or unsupported
+                modes (e.g. `'x'`).
+            position: Initial position for sized/line/seek operations (char
+                index in text mode, byte index in binary mode). Almost always
+                `0` for a freshly opened file.
+        """
+
+    @property
+    def path(self) -> str:
+        """Virtual sandbox path of the open file (always POSIX-style, never a host path)."""
+
+    @property
+    def mode(self) -> str:
+        """Canonical Python `open()` mode string for this file (e.g. `'r'`, `'rb+'`, `'w'`)."""
+
+    @property
+    def position(self) -> int:
+        """Current position for sized/line/seek operations.
+
+        Char index in text mode, byte index in binary mode. `0` for a freshly
+        opened file.
+        """
+
+    @property
+    def binary(self) -> bool:
+        """`True` if the mode opens the file in binary form (`'rb'`, `'wb'`, …)."""
+
+    @property
+    def readable(self) -> bool:
+        """`True` if the mode permits `read()` (`'r'`, `'r+'`, `'w+'`, `'a+'`, and binary variants)."""
+
+    @property
+    def writable(self) -> bool:
+        """`True` if the mode permits `write()` (`'w'`, `'a'`, `'r+'`, `'w+'`, `'a+'`, and binary variants)."""

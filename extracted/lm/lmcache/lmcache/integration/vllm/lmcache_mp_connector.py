@@ -122,8 +122,6 @@ def create_scheduler_adapter(
     server_url: str,
     zmq_context: zmq.Context,
     vllm_config: VllmConfig,
-    mq_timeout: float,
-    heartbeat_interval: float,
 ) -> LMCacheMPSchedulerAdapter:
     world_size, kv_rank = extract_world_size_and_kv_rank(
         vllm_config.parallel_config.world_size,
@@ -140,14 +138,14 @@ def create_scheduler_adapter(
         vllm_config.parallel_config.pipeline_parallel_size,
     )
 
+    extra_config = vllm_config.kv_transfer_config.kv_connector_extra_config
     return LMCacheMPSchedulerAdapter(
         server_url=server_url,
         context=zmq_context,
         model_name=vllm_config.model_config.model,
         vllm_block_size=vllm_config.cache_config.block_size,
         parallel_strategy=parallel_strategy,
-        mq_timeout=mq_timeout,
-        heartbeat_interval=heartbeat_interval,
+        extra_config=extra_config,
     )
 
 
@@ -155,8 +153,6 @@ def create_worker_adapter(
     server_url: str,
     zmq_context: zmq.Context,
     vllm_config: VllmConfig,
-    mq_timeout: float,
-    heartbeat_interval: float,
 ) -> LMCacheMPWorkerAdapter:
     world_size, kv_rank = extract_world_size_and_kv_rank(
         vllm_config.parallel_config.world_size,
@@ -173,14 +169,14 @@ def create_worker_adapter(
         vllm_config.parallel_config.pipeline_parallel_size,
     )
 
+    extra_config = vllm_config.kv_transfer_config.kv_connector_extra_config
     return LMCacheMPWorkerAdapter(
         server_url=server_url,
         context=zmq_context,
         model_name=vllm_config.model_config.model,
         vllm_block_size=vllm_config.cache_config.block_size,
         parallel_strategy=parallel_strategy,
-        mq_timeout=mq_timeout,
-        heartbeat_interval=heartbeat_interval,
+        extra_config=extra_config,
     )
 
 
@@ -499,16 +495,6 @@ class LMCacheMPConnector(KVConnectorBase_V1):
         server_port = vllm_config.kv_transfer_config.get_from_extra_config(
             "lmcache.mp.port", 5555
         )
-        mq_timeout = float(
-            vllm_config.kv_transfer_config.get_from_extra_config(
-                "lmcache.mp.mq_timeout", 300.0
-            )
-        )
-        heartbeat_interval = float(
-            vllm_config.kv_transfer_config.get_from_extra_config(
-                "lmcache.mp.heartbeat_interval", 10.0
-            )
-        )
 
         server_url = f"{server_host}:{server_port}"
         zmq_context = zmq.Context.instance()
@@ -517,8 +503,6 @@ class LMCacheMPConnector(KVConnectorBase_V1):
                 server_url,
                 zmq_context,
                 vllm_config,
-                mq_timeout,
-                heartbeat_interval,
             )
             self.request_trackers: dict[str, LMCacheMPRequestTracker] = {}
         elif self.role == KVConnectorRole.WORKER:
@@ -526,8 +510,6 @@ class LMCacheMPConnector(KVConnectorBase_V1):
                 server_url,
                 zmq_context,
                 vllm_config,
-                mq_timeout,
-                heartbeat_interval,
             )
         else:
             raise ValueError(f"Unknown KVConnectorRole: {self.role}")
@@ -949,17 +931,16 @@ class LMCacheMPConnector(KVConnectorBase_V1):
         if (
             params is not None
             and return_params is not None
-            and "num_lmcache_extra_cached_tokens" in params
+            and "cached_token_stats" in params
         ):
             request_tracker = self._get_request_tracker(request.request_id)
-            num_extra_cached_blocks = max(
-                0,
-                request_tracker.num_lmcache_hit_blocks
-                - request_tracker.num_vllm_hit_blocks,
-            )
-            return_params["num_lmcache_extra_cached_tokens"] = (
-                num_extra_cached_blocks * self.vllm_block_size
-            )
+            num_vllm = request_tracker.num_vllm_hit_blocks * self.vllm_block_size
+            num_lmcache = request_tracker.num_lmcache_hit_blocks * self.vllm_block_size
+            return_params["cached_token_stats"] = {
+                "num_vllm_cached_tokens": num_vllm,
+                "num_lmcache_cached_tokens": num_lmcache,
+                "num_lmcache_extra_cached_tokens": max(0, num_lmcache - num_vllm),
+            }
 
         # Clean up request tracker to prevent memory leak
         self._cleanup_request_tracker(request.request_id)

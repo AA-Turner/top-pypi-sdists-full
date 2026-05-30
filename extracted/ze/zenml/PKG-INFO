@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zenml
-Version: 0.94.4
+Version: 0.94.5
 Summary: ZenML: MLOps for Reliable AI: from Classical AI to Agents.
 Keywords: machine learning,production,pipeline,mlops,devops,ai,agents,agentic workflows
 Author: ZenML GmbH
@@ -34,6 +34,7 @@ Requires-Dist: python-dateutil>=2.8.1,<3.0.0
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: rich>=12.0.0
 Requires-Dist: setuptools>=70.0.0
+Requires-Dist: structlog>=25.5.0
 Requires-Dist: adlfs>=2021.10.0 ; extra == 'adlfs'
 Requires-Dist: azure-ai-ml==1.23.1 ; extra == 'azureml'
 Requires-Dist: boto3>=1.16.0 ; extra == 'connectors-aws'
@@ -111,6 +112,10 @@ Requires-Dist: sqlalchemy>=2.0.0,<3.0.0 ; extra == 'local'
 Requires-Dist: sqlalchemy-utils ; extra == 'local'
 Requires-Dist: sqlmodel==0.0.18 ; extra == 'local'
 Requires-Dist: jsonschema>=4.0.0 ; extra == 'local'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.38.0 ; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-fastapi>=0.59b0 ; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-requests>=0.59b0 ; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-sqlalchemy>=0.59b0 ; extra == 'otel'
 Requires-Dist: s3fs>=2022.11.0,!=2025.3.1 ; extra == 's3fs'
 Requires-Dist: sagemaker>=2.237.3,<3.0.0 ; extra == 'sagemaker'
 Requires-Dist: boto3>=1.16.0 ; extra == 'secrets-aws'
@@ -132,6 +137,7 @@ Requires-Dist: tldextract~=5.1.0 ; extra == 'server'
 Requires-Dist: itsdangerous~=2.2.0 ; extra == 'server'
 Requires-Dist: croniter>=6.0.0 ; extra == 'server'
 Requires-Dist: cachetools>=5.3.0,<8.0.0 ; extra == 'server'
+Requires-Dist: redis>=7.1.0,<8.0.0 ; extra == 'server-streaming'
 Requires-Dist: copier>=8.1.0 ; extra == 'templates'
 Requires-Dist: jinja2-time>=0.2.0,<0.3.0 ; extra == 'templates'
 Requires-Dist: ruff>=0.1.7 ; extra == 'templates'
@@ -156,6 +162,7 @@ Provides-Extra: dev
 Provides-Extra: gcsfs
 Provides-Extra: jupyter
 Provides-Extra: local
+Provides-Extra: otel
 Provides-Extra: s3fs
 Provides-Extra: sagemaker
 Provides-Extra: secrets-aws
@@ -163,6 +170,7 @@ Provides-Extra: secrets-azure
 Provides-Extra: secrets-gcp
 Provides-Extra: secrets-hashicorp
 Provides-Extra: server
+Provides-Extra: server-streaming
 Provides-Extra: templates
 Provides-Extra: terraform
 Provides-Extra: vertex

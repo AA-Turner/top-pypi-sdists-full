@@ -11,6 +11,9 @@ from typing import Any, AnyStr, Callable, Collection, ForwardRef, Literal, Mappi
 
 from typing_extensions import Annotated as te_Annotated
 
+from litestar import di
+from litestar.enums import RequestEncodingType
+
 try:
     from typing import Annotated  # pyright: ignore
 
@@ -48,7 +51,7 @@ try:
 except ImportError:
     TypeAliasTypes = (TeTypeAliasType,)  # type: ignore[assignment]
 
-from litestar.exceptions import ImproperlyConfiguredException, LitestarWarning
+from litestar.exceptions import ImproperlyConfiguredException, LitestarDeprecationWarning, LitestarWarning
 from litestar.params import BodyKwarg, DependencyKwarg, KwargDefinition, ParameterKwarg
 from litestar.types.builtin_types import NoneType, UnionTypes
 from litestar.utils.predicates import (
@@ -177,6 +180,18 @@ class FieldDefinition:
 
     def __hash__(self) -> int:
         return hash((self.name, self.raw, self.annotation, self.origin, self.inner_types))
+
+    def get_from_metadata(self, type_: type[T]) -> T | None:
+        """Return the next instance of ``type_`` in the field's metadata"""
+        return next((m for m in self.metadata if isinstance(m, type_)), None)
+
+    def has_metadata(self, type_: Any) -> bool:
+        """Whether the field has any ``type_`` in its metadata"""
+        return self.get_from_metadata(type_) is not None
+
+    @property
+    def is_di_field(self) -> bool:
+        return self.has_metadata(di.Dependency) or isinstance(self.kwarg_definition, DependencyKwarg)
 
     @property
     def has_default(self) -> bool:
@@ -431,7 +446,7 @@ class FieldDefinition:
         return get_type_hints(self.annotation, include_extras=include_extras)
 
     @classmethod
-    def from_annotation(cls, annotation: Any, **kwargs: Any) -> FieldDefinition:
+    def from_annotation(cls, annotation: Any, **kwargs: Any) -> FieldDefinition:  # noqa: C901
         """Initialize FieldDefinition.
 
         Args:
@@ -451,7 +466,27 @@ class FieldDefinition:
 
         if not kwargs.get("kwarg_definition"):
             if isinstance(kwargs.get("default"), (KwargDefinition, DependencyKwarg)):
-                kwargs["kwarg_definition"] = kwargs.pop("default")
+                kwarg_definition = kwargs["kwarg_definition"] = kwargs.pop("default")
+                if isinstance(kwarg_definition, BodyKwarg):
+                    can_use_marker = (
+                        not kwarg_definition.is_constrained and kwarg_definition.multipart_form_part_limit is None
+                    )
+                    if can_use_marker:
+                        alternative = {
+                            RequestEncodingType.JSON: "JSONBody[<type>]",
+                            RequestEncodingType.MESSAGEPACK: "MsgPackBody[<type>]",
+                            RequestEncodingType.MULTI_PART: "MultiPartBody[<type>]",
+                            RequestEncodingType.URL_ENCODED: "URLEncodedBBody[<type>]",
+                        }[RequestEncodingType(kwarg_definition.media_type)]
+                    else:
+                        alternative = "Annotated[<type>, Body(...)]"
+                    warnings.warn(
+                        "Deprecated use of 'Body()' as a default value. This will be removed"
+                        f"in Litestar 3.0. Use 'data: {alternative}' instead of "
+                        "'data: <type> = Body(...)'",
+                        stacklevel=2,
+                        category=LitestarDeprecationWarning,
+                    )
             elif kwarg_definition := next(
                 (v for v in metadata if isinstance(v, (KwargDefinition, DependencyKwarg))), None
             ):
@@ -496,7 +531,12 @@ class FieldDefinition:
                 )
             # if not, create a new KwargDefinition
             else:
-                model = BodyKwarg if kwargs.get("name") == "data" else ParameterKwarg
+                if (name := kwargs.get("name")) == "data":
+                    model: type[KwargDefinition] = BodyKwarg
+                elif name is None:
+                    model = KwargDefinition
+                else:
+                    model = ParameterKwarg
                 kwargs["kwarg_definition"] = model(**kwarg_definition_merge_args)
 
         kwargs.setdefault("annotation", unwrapped)

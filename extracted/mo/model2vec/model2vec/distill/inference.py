@@ -23,8 +23,7 @@ _DEFAULT_BATCH_SIZE = 256
 
 
 class PoolingMode(str, Enum):
-    """
-    Pooling modes for embedding creation.
+    """Pooling modes for embedding creation.
 
     - MEAN: masked mean over all tokens.
     - LAST: last non-padding token (often EOS, common in decoder-style models).
@@ -48,8 +47,7 @@ def create_embeddings(
     pad_token_id: int,
     pooling: PoolingMode | str = PoolingMode.MEAN,
 ) -> np.ndarray:
-    """
-    Create output embeddings for a bunch of tokens using a pretrained model.
+    """Create output embeddings for a bunch of tokens using a pretrained model.
 
     It does a forward pass for all tokens passed in `tokens`.
 
@@ -121,8 +119,7 @@ def create_embeddings(
 def _encode_with_model(
     model: PreTrainedModel, encodings: dict[str, torch.Tensor]
 ) -> tuple[torch.Tensor, torch.Tensor | None, dict[str, torch.Tensor]]:
-    """
-    Move inputs to the model device, run a forward pass, and standardize dtypes.
+    """Move inputs to the model device, run a forward pass, and standardize dtypes.
 
     :param model: The model to use.
     :param encodings: The encoded tokens to turn into features.
@@ -137,18 +134,16 @@ def _encode_with_model(
     # NOTE: If the dtype is bfloat 16, we convert to float32,
     # because numpy does not suport bfloat16
     # See here: https://github.com/numpy/numpy/issues/19808
-    if hidden.dtype == torch.bfloat16:
-        hidden = hidden.float()
+    hidden = hidden.float()
     pooler = getattr(outputs, "pooler_output", None)
-    if pooler is not None and pooler.dtype == torch.bfloat16:
+    if pooler is not None:
         pooler = pooler.float()
     return hidden, pooler, encodings_on_device
 
 
 @torch.inference_mode()
 def _encode_mean_with_model(model: PreTrainedModel, encodings: dict[str, torch.Tensor]) -> torch.Tensor:
-    """
-    Encode a batch of tokens using mean pooling.
+    """Encode a batch of tokens using mean pooling.
 
     :param model: The model to use.
     :param encodings: The encoded tokens to turn into features.
@@ -164,8 +159,7 @@ def _encode_mean_with_model(model: PreTrainedModel, encodings: dict[str, torch.T
 
 @torch.inference_mode()
 def _encode_last_with_model(model: PreTrainedModel, encodings: dict[str, torch.Tensor]) -> torch.Tensor:
-    """
-    Encode a batch of tokens using last token pooling.
+    """Encode a batch of tokens using last token pooling.
 
     :param model: The model to use.
     :param encodings: The encoded tokens to turn into features.
@@ -180,8 +174,7 @@ def _encode_last_with_model(model: PreTrainedModel, encodings: dict[str, torch.T
 
 @torch.inference_mode()
 def _encode_first_with_model(model: PreTrainedModel, encodings: dict[str, torch.Tensor]) -> torch.Tensor:
-    """
-    Encode a batch of tokens using first token (CLS) pooling.
+    """Encode a batch of tokens using first token (CLS) pooling.
 
     :param model: The model to use.
     :param encodings: The encoded tokens to turn into features.
@@ -193,8 +186,7 @@ def _encode_first_with_model(model: PreTrainedModel, encodings: dict[str, torch.
 
 @torch.inference_mode()
 def _encode_pooler_with_model(model: PreTrainedModel, encodings: dict[str, torch.Tensor]) -> torch.Tensor:
-    """
-    Encode a batch of tokens using pooler output.
+    """Encode a batch of tokens using pooler output.
 
     :param model: The model to use.
     :param encodings: The encoded tokens to turn into features.
@@ -207,10 +199,20 @@ def _encode_pooler_with_model(model: PreTrainedModel, encodings: dict[str, torch
     return pooler.cpu()
 
 
-def post_process_embeddings(
-    embeddings: np.ndarray, pca_dims: PCADimType, sif_coefficient: float | None = 1e-4
-) -> tuple[np.ndarray, np.ndarray]:
-    """Post process embeddings by applying PCA and SIF weighting by estimating the frequencies through Zipf's law."""
+def compute_weights(n_embeddings: int, sif_coefficient: float | None) -> np.ndarray:
+    """Compute the weights based on Zipf's law and a SIF coefficient."""
+    if sif_coefficient is None:
+        return np.ones(n_embeddings)
+    logger.info("Estimating word frequencies using Zipf's law, and then applying SIF.")
+    inv_rank = 1 / (np.arange(2, n_embeddings + 2))
+    proba = inv_rank / np.sum(inv_rank)
+    weight = sif_coefficient / (sif_coefficient + proba)
+
+    return weight
+
+
+def apply_pca(embeddings: np.ndarray, pca_dims: PCADimType) -> np.ndarray:
+    """Apply PCA to the embeddings."""
     if pca_dims is not None:
         if pca_dims == "auto":
             pca_dims = embeddings.shape[1]
@@ -242,12 +244,4 @@ def post_process_embeddings(
                 logger.info(f"Explained variance ratio: {explained_variance_ratio:.3f}.")
                 logger.info(f"Explained variance: {explained_variance:.3f}.")
 
-    if sif_coefficient is not None:
-        logger.info("Estimating word frequencies using Zipf's law, and then applying SIF.")
-        inv_rank = 1 / (np.arange(2, embeddings.shape[0] + 2))
-        proba = inv_rank / np.sum(inv_rank)
-        weight = sif_coefficient / (sif_coefficient + proba)
-    else:
-        weight = np.ones(embeddings.shape[0])
-
-    return embeddings, weight
+    return embeddings

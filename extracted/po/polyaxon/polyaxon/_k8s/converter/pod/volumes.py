@@ -1,7 +1,6 @@
 from typing import Dict, Iterable, List, Optional
 
 from clipped.utils.lists import to_list
-
 from polyaxon._connections import V1Connection, V1ConnectionResource
 from polyaxon._flow import V1Init, V1Plugins
 from polyaxon._k8s import k8s_schemas
@@ -11,6 +10,8 @@ from polyaxon._k8s.converter.common.volumes import (
     get_connections_context_volume,
     get_docker_context_volume,
     get_shm_context_volume,
+    get_tools_bin_context_volume,
+    get_tools_etc_context_volume,
     get_volume_from_config_map,
     get_volume_from_connection,
     get_volume_from_secret,
@@ -113,4 +114,8 @@ def get_pod_volumes(
         volumes.append(get_configs_context_volume())
     if plugins and plugins.docker:
         volumes.append(get_docker_context_volume())
+    if plugins and (plugins.tmux or plugins.sandbox or plugins.ssh):
+        volumes.append(get_tools_bin_context_volume())
+    if plugins and plugins.ssh:
+        volumes.append(get_tools_etc_context_volume())
     return volumes

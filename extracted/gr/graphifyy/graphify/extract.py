@@ -1696,10 +1696,24 @@ def _js_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: str,
         # CJS require imports — emit edges, do not block other lexical_declaration handling
         require_found = _require_imports_js(node, source, file_nid, stem, edges, str_path)
 
+        # Scope guard (#1077): only emit nodes for module-level declarations.
+        # Without this, `const x = ...` inside an arrow callback (e.g. inside
+        # `describe(() => { const set = new Set(...) })`) emits a bare-named
+        # node, and the same name collides across unrelated files producing
+        # phantom god-nodes. Bodies of arrow functions are walked separately
+        # via function_bodies, so we never need to emit nodes for locals here.
+        parent = node.parent
+        is_module_level = parent is not None and (
+            parent.type == "program"
+            or (parent.type == "export_statement"
+                and parent.parent is not None
+                and parent.parent.type == "program")
+        )
+
         # Arrow function declarations and module-level const literals (lexical_declaration only)
         arrow_found = False
         const_found = False
-        if node.type == "lexical_declaration":
+        if node.type == "lexical_declaration" and is_module_level:
             for child in node.children:
                 if child.type == "variable_declarator":
                     value = child.child_by_field_name("value")
@@ -1977,25 +1991,65 @@ _PHP_CONFIG = LanguageConfig(
 )
 
 
+def _resolve_lua_import_target(raw_module: str, str_path: str) -> str:
+    """Resolve a Lua require() module name to a node id.
+
+    Lua module names use dots as path separators: `require("pkg.b")` looks for
+    `pkg/b.lua` (or `pkg/b/init.lua`) relative to a package root. We probe the
+    importing file's directory and walk upward looking for a matching file on
+    disk; if found, the returned id matches the file node id `_extract_generic`
+    assigns to that file (`_make_id(str(path))`), so the edge lands on a real
+    node. When nothing matches, fall back to `_make_id` of the full dotted
+    module name so cross-file resolution can still complete via the symbol
+    resolution pass instead of dropping the edge entirely (#1075).
+    """
+    if not raw_module:
+        return ""
+    rel = raw_module.replace(".", "/")
+    try:
+        start_dir = Path(str_path).parent
+    except Exception:
+        start_dir = None
+    if start_dir is not None:
+        probe = start_dir
+        # Walk up a few levels so requires from nested files still resolve when
+        # the package root is above the importing file.
+        for _ in range(6):
+            for suffix in (".lua", ".luau"):
+                cand = probe / f"{rel}{suffix}"
+                if cand.is_file():
+                    return _make_id(str(cand))
+            for suffix in (".lua", ".luau"):
+                cand = probe / rel / f"init{suffix}"
+                if cand.is_file():
+                    return _make_id(str(cand))
+            if probe.parent == probe:
+                break
+            probe = probe.parent
+    return _make_id(raw_module)
+
+
 def _import_lua(node, source: bytes, file_nid: str, stem: str, edges: list, str_path: str) -> None:
     """Extract require('module') from Lua variable_declaration nodes."""
     text = _read_text(node, source)
     import re
     m = re.search(r"""require\s*[\('"]\s*['"]?([^'")\s]+)""", text)
     if m:
-        module_name = m.group(1).split(".")[-1]
-        if module_name:
-            edges.append({
-                "source": file_nid,
-                "target": module_name,
-                "relation": "imports",
-                "context": "import",
-                "confidence": "EXTRACTED",
-                "confidence_score": 1.0,
-                "source_file": str_path,
-                "source_location": str(node.start_point[0] + 1),
-                "weight": 1.0,
-            })
+        raw_module = m.group(1)
+        if raw_module:
+            tgt_nid = _resolve_lua_import_target(raw_module, str_path)
+            if tgt_nid:
+                edges.append({
+                    "source": file_nid,
+                    "target": tgt_nid,
+                    "relation": "imports",
+                    "context": "import",
+                    "confidence": "EXTRACTED",
+                    "confidence_score": 1.0,
+                    "source_file": str_path,
+                    "source_location": str(node.start_point[0] + 1),
+                    "weight": 1.0,
+                })
 
 
 _LUA_CONFIG = LanguageConfig(
@@ -7779,13 +7833,16 @@ def extract_markdown(path: Path) -> dict:
     Produces nodes for:
     - The file itself
     - Each heading (# / ## / ### etc.)
-    - Each fenced code block (``` ... ```)
 
     Produces edges for:
     - file --contains--> heading
     - parent heading --contains--> child heading (nesting by level)
-    - heading --contains--> code block
     - heading --references--> other node (when backtick `Name` matches a known pattern)
+
+    Fenced code blocks (``` ... ```) are skipped during parsing so their
+    contents don't get treated as headings, but no node is emitted for
+    them — they were always orphans (only a single contains edge to the
+    parent doc) and inflated the disconnected-component count (#1077).
 
     No tree-sitter dependency — pure line-by-line parsing.
     """
@@ -7818,44 +7875,19 @@ def extract_markdown(path: Path) -> dict:
     # Track heading stack for nesting: [(level, nid), ...]
     heading_stack: list[tuple[int, str]] = []
     in_code_block = False
-    code_block_lang: str | None = None
-    code_block_start: int = 0
-    code_block_lines: list[str] = []
-    code_block_count = 0
 
     lines = source.splitlines()
     for line_num_0, line_text in enumerate(lines):
         line_num = line_num_0 + 1
 
-        # Toggle fenced code blocks
+        # Skip over fenced code blocks so their contents are not parsed as
+        # headings, but do not emit nodes/edges for them (#1077).
         stripped = line_text.strip()
         if stripped.startswith("```"):
-            if not in_code_block:
-                in_code_block = True
-                code_block_lang = stripped[3:].strip().split()[0] if len(stripped) > 3 else None
-                code_block_start = line_num
-                code_block_lines = []
-                continue
-            else:
-                # End of code block — create a node
-                in_code_block = False
-                code_block_count += 1
-                snippet = "\n".join(code_block_lines[:3])  # first 3 lines as preview
-                label = f"code:{code_block_lang}" if code_block_lang else f"code:block{code_block_count}"
-                if snippet:
-                    # Use first meaningful line as label hint
-                    first_line = code_block_lines[0].strip()[:60] if code_block_lines else ""
-                    if first_line:
-                        label = f"{label} ({first_line})"
-                cb_nid = _make_id(stem, f"codeblock_{code_block_count}")
-                add_node(cb_nid, label, code_block_start)
-                # Attach to nearest heading or file
-                parent = heading_stack[-1][1] if heading_stack else file_nid
-                add_edge(parent, cb_nid, "contains", code_block_start)
-                continue
+            in_code_block = not in_code_block
+            continue
 
         if in_code_block:
-            code_block_lines.append(line_text)
             continue
 
         # Detect headings: # Heading, ## Heading, etc.

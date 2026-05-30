@@ -26,6 +26,7 @@ from abstra_internals.controllers.execution.drain import (
     drain_until_response,
     normalize_response,
 )
+from abstra_internals.controllers.linter_events import LinterEventController
 from abstra_internals.credentials import (
     delete_credentials,
     get_credentials,
@@ -177,6 +178,7 @@ class MainController:
         DeployMessages.checking_linters()
 
         issues = self.linter_repository.get_blocking_checks_for_deploy()
+        LinterEventController.broadcast(self.linter_repository.checks)
 
         if len(issues) > 0:
             raise Exception(
@@ -2201,6 +2203,23 @@ class MainController:
         """
         self.execution_repository.stop_execution(execution_id)
 
+    def stop_all_executions(self):
+        """
+        Stop every running execution and discard queued ones.
+
+        Order matters: queued messages are dropped first so workers cannot
+        pick up a new execution between the moment we stop the current one
+        and the moment we finish clearing the backlog. Then each running
+        execution receives the same stop signal that the single-execution
+        endpoint sends.
+        """
+        try:
+            self.producer_repository.clear_queue()
+        except Exception:
+            pass
+
+        self.execution_repository.stop_all_running()
+
     def get_execution_logs(self, id: str):
         """
         Retrieve execution logs for a specific execution by its ID.
@@ -2312,15 +2331,21 @@ class MainController:
         return {"public_url": None}
 
     def fail_execution(self, execution_id: str, reason: str):
-        err_log = LogEntry(
-            execution_id=execution_id,
-            stage_id=self.execution_repository.get(execution_id).stage_id,
-            created_at=datetime.datetime.now(),
-            payload={"text": "[ABSTRA] Execution aborted. " + reason},
-            sequence=999999,
-            event="stderr",
-        )
-        self.execution_logs_repository.save(err_log)
+        try:
+            err_log = LogEntry(
+                execution_id=execution_id,
+                stage_id=self.execution_repository.get(execution_id).stage_id,
+                created_at=datetime.datetime.now(),
+                payload={"text": "[ABSTRA] Execution aborted. " + reason},
+                sequence=999999,
+                event="stderr",
+            )
+            self.execution_logs_repository.save(err_log)
+        except Exception as log_error:
+            AbstraLogger.error(
+                f"[MainController] Failed to write abort log for execution {execution_id}: {log_error}"
+            )
+            AbstraLogger.capture_exception(log_error)
 
         self.execution_repository.set_failure_by_id(execution_id=execution_id)
         self.tasks_repository.set_locked_tasks_to_pending(execution_id)

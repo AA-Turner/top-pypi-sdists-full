@@ -2,7 +2,7 @@
 ReconTools.py
 
 Unified reconstruction tools for AOT-BioMaps.
-All operations (projection, backprojection, vector ops, potentials) implemented as standalone functions.
+All operations (forward_projection, backward_projection, vector ops, potentials) implemented as standalone functions.
 Works with any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
 
 For GPU: Uses CUDA kernels from AOT_biomaps_kernels.cu when available.
@@ -29,6 +29,8 @@ except ModuleNotFoundError:
     SMatrix_CSR = None
     SMatrix_SELL = None
     SMatrix_DENSE = None
+
+from AOT_biomaps.AOT_Recon.ReconEnums import PreconditionerType
 
 
 def _get_array_module(device):
@@ -208,14 +210,14 @@ def apply_normalization(SMatrix, x, norm_factor):
 # These use the CUDA kernels from SMatrix classes
 # =============================================================================
 
-def projection(SMatrix, theta):
-    """Forward projection: q = A * theta. Uses SMatrix._data.projection() which calls CUDA kernels."""
-    return SMatrix._data.projection(theta)
+def forward_projection(SMatrix, theta):
+    """Forward projection: q = A * theta. Uses SMatrix._data.forward_projection() which calls CUDA kernels."""
+    return SMatrix._data.forward_projection(theta)
 
 
-def backprojection(SMatrix, e):
+def backward_projection(SMatrix, e):
     """Backprojection: c = A^T * e. Uses SMatrix._data.backprojection() which calls CUDA kernels."""
-    return SMatrix._data.backprojection(e)
+    return SMatrix._data.backward_projection(e)
 
 
 # =============================================================================
@@ -257,11 +259,46 @@ def build_adjacency_indices(SMatrix):
 def quadratic_potential(SMatrix, U, alpha):
     """
     Quadratic potential: 0.5 * alpha * ||x||^2
-    Returns (grad_U, hess_U, U_value)
+    
+    Returns:
+        tuple: (grad_U, hess_U, U_value)
+        - grad_U: Gradient of the potential (same shape as U)
+        - hess_U: Hessian diagonal of the potential (same shape as U)
+        - U_value: Total potential energy (scalar)
+    
+    Compatible with: All SMatrix types (DENSE, CSR, SELL) and all devices (CPU, GPU)
     """
     device = SMatrix.device
     xp = _get_array_module(device)
+    N = U.size if hasattr(U, 'size') else len(U)
     
+    # Try GPU with CUDA kernel
+    if device == 'gpu' and CUPY_AVAILABLE and hasattr(SMatrix, 'sparse_mod') and SMatrix.sparse_mod is not None:
+        try:
+            # Allocate output arrays on GPU
+            grad_U_gpu = cp.zeros_like(U)
+            hess_U_gpu = cp.zeros_like(U)
+            U_value_gpu = cp.zeros(1, dtype=cp.float32)
+            
+            # Get kernel
+            kernel = SMatrix.sparse_mod.get_function('quadratic_potential_kernel')
+            
+            # Launch kernel
+            threads = 256
+            blocks = (N + threads - 1) // threads
+            kernel(
+                grid=(blocks, 1, 1), block=(threads, 1, 1),
+                args=[grad_U_gpu.data.ptr, hess_U_gpu.data.ptr, U_value_gpu.data.ptr,
+                      U.data.ptr if hasattr(U, 'data') else U, cp.float32(alpha), cp.int32(N)]
+            )
+            cp.cuda.Stream.null.synchronize()
+            
+            return grad_U_gpu, hess_U_gpu, U_value_gpu[0]
+        except Exception:
+            # Fall back to CPU implementation
+            pass
+    
+    # CPU or fallback implementation
     grad_U = alpha * U
     hess_U = alpha * xp.ones_like(U)
     U_value = 0.5 * alpha * xp.sum(U**2)
@@ -272,11 +309,57 @@ def quadratic_potential(SMatrix, U, alpha):
 def huber_potential(SMatrix, U, alpha, delta=0.01):
     """
     Huber potential for robust regularization.
-    Returns (grad_U, hess_U, U_value)
+    
+    p(u, delta) = 
+        - 0.5 * u^2, if |u| <= delta
+        - delta * |u| - 0.5 * delta^2, otherwise
+    
+    Returns:
+        tuple: (grad_U, hess_U, U_value)
+        - grad_U: Gradient of the potential (same shape as U)
+        - hess_U: Hessian diagonal of the potential (same shape as U)
+        - U_value: Total potential energy (scalar)
+    
+    Compatible with: All SMatrix types (DENSE, CSR, SELL) and all devices (CPU, GPU)
     """
     device = SMatrix.device
     xp = _get_array_module(device)
+    N = U.size if hasattr(U, 'size') else len(U)
     
+    # Try GPU with CUDA kernel
+    if device == 'gpu' and CUPY_AVAILABLE and hasattr(SMatrix, 'sparse_mod') and SMatrix.sparse_mod is not None:
+        try:
+            # Allocate output arrays on GPU
+            grad_U_gpu = cp.zeros_like(U)
+            hess_U_gpu = cp.zeros_like(U)
+            
+            # Get kernels
+            grad_kernel = SMatrix.sparse_mod.get_function('huber_potential_kernel')
+            energy_kernel = SMatrix.sparse_mod.get_function('huber_potential_energy_kernel')
+            
+            # Launch gradient kernel
+            threads = 256
+            blocks = (N + threads - 1) // threads
+            grad_kernel(
+                grid=(blocks, 1, 1), block=(threads, 1, 1),
+                args=[grad_U_gpu.data.ptr, hess_U_gpu.data.ptr, cp.zeros(1, dtype=cp.float32).data.ptr,
+                      U.data.ptr if hasattr(U, 'data') else U, cp.float32(alpha), cp.float32(delta), cp.int32(N)]
+            )
+            
+            # Compute energy on CPU (simpler for now)
+            abs_U = xp.abs(U)
+            mask_small = abs_U <= delta
+            mask_large = ~mask_small
+            U_value = 0.5 * alpha * xp.sum(U[mask_small]**2) + alpha * delta * xp.sum(abs_U[mask_large] - 0.5 * delta)
+            
+            cp.cuda.Stream.null.synchronize()
+            
+            return grad_U_gpu, hess_U_gpu, U_value
+        except Exception:
+            # Fall back to CPU implementation
+            pass
+    
+    # CPU or fallback implementation
     abs_U = xp.abs(U)
     
     # Huber function and derivatives
@@ -301,14 +384,60 @@ def huber_potential(SMatrix, U, alpha, delta=0.01):
 def relative_difference_potential(SMatrix, U, alpha, beta=1.0):
     """
     Relative difference potential for edge-preserving regularization.
+    
+    p(u, v, beta) = alpha * (u - v)^2 / (u + v + beta * |u - v|)
+    
     Uses adjacency from build_adjacency_indices.
-    Returns (grad_U, hess_U, U_value)
+    
+    Returns:
+        tuple: (grad_U, hess_U, U_value)
+        - grad_U: Gradient of the potential (same shape as U)
+        - hess_U: Hessian diagonal of the potential (same shape as U)
+        - U_value: Total potential energy (scalar)
+    
+    Compatible with: All SMatrix types (DENSE, CSR, SELL) and all devices (CPU, GPU)
     """
     device = SMatrix.device
     xp = _get_array_module(device)
+    Z = SMatrix.Z
+    X = SMatrix.X
+    N = Z * X
     
+    # Build adjacency indices
     adj_indices = build_adjacency_indices(SMatrix)
+    num_edges = len(adj_indices)
     
+    # Try GPU with CUDA kernel
+    if device == 'gpu' and CUPY_AVAILABLE and hasattr(SMatrix, 'sparse_mod') and SMatrix.sparse_mod is not None:
+        try:
+            # Allocate output arrays on GPU
+            grad_U_gpu = cp.zeros_like(U)
+            hess_U_gpu = cp.zeros_like(U)
+            U_value_gpu = cp.zeros(1, dtype=cp.float32)
+            
+            # Convert adjacency indices to GPU array
+            adj_indices_gpu = cp.array(adj_indices, dtype=cp.int32)
+            
+            # Get kernel
+            kernel = SMatrix.sparse_mod.get_function('relative_difference_potential_kernel')
+            
+            # Launch kernel
+            threads = 256
+            blocks = (max(N, num_edges) + threads - 1) // threads
+            kernel(
+                grid=(blocks, 1, 1), block=(threads, 1, 1),
+                args=[grad_U_gpu.data.ptr, hess_U_gpu.data.ptr, U_value_gpu.data.ptr,
+                      U.data.ptr if hasattr(U, 'data') else U, adj_indices_gpu.data.ptr,
+                      cp.float32(alpha), cp.float32(beta), cp.int32(N), cp.int32(num_edges)]
+            )
+            cp.cuda.Stream.null.synchronize()
+            
+            return grad_U_gpu, hess_U_gpu, U_value_gpu[0]
+        except Exception:
+            # Fall back to CPU implementation
+            pass
+    
+    # CPU or fallback implementation
     grad_U = xp.zeros_like(U)
     U_value = xp.zeros((), dtype=xp.float32)
     
@@ -334,15 +463,58 @@ def relative_difference_potential(SMatrix, U, alpha, beta=1.0):
 
 def tv_potential(SMatrix, U, alpha):
     """
-    Total Variation potential (non-differentiable).
-    Returns (subgradient, 0, U_value) - hess_U=0 because TV is non-differentiable.
+    Total Variation potential (anisotropic, non-differentiable).
+    
+    TV(u) = alpha * sum(|u_i - u_j|) for all adjacent pairs (i, j)
+    
+    Returns:
+        tuple: (subgradient, hess_U, U_value)
+        - subgradient: Subgradient of TV (same shape as U) - hess_U=0 because TV is non-differentiable
+        - hess_U: Always zeros (TV is non-differentiable)
+        - U_value: Total TV energy (scalar)
+    
+    Compatible with: All SMatrix types (DENSE, CSR, SELL) and all devices (CPU, GPU)
+    
+    Note: This potential is non-differentiable at zero and returns a subgradient.
+    It is only compatible with primal-dual methods like PDHG.
     """
     device = SMatrix.device
     xp = _get_array_module(device)
     
     Z = SMatrix.Z
     X = SMatrix.X
+    N = Z * X
     
+    # Try GPU with CUDA kernel
+    if device == 'gpu' and CUPY_AVAILABLE and hasattr(SMatrix, 'sparse_mod') and SMatrix.sparse_mod is not None:
+        try:
+            # Allocate output arrays on GPU
+            grad_U_gpu = cp.zeros_like(U)
+            U_value_gpu = cp.zeros(1, dtype=cp.float32)
+            
+            # Get kernel
+            kernel = SMatrix.sparse_mod.get_function('tv_potential_kernel')
+            
+            # Launch kernel
+            threads = 256
+            blocks = (N + threads - 1) // threads
+            kernel(
+                grid=(blocks, 1, 1), block=(threads, 1, 1),
+                args=[grad_U_gpu.data.ptr, U_value_gpu.data.ptr,
+                      U.data.ptr if hasattr(U, 'data') else U, cp.float32(alpha),
+                      cp.int32(Z), cp.int32(X)]
+            )
+            cp.cuda.Stream.null.synchronize()
+            
+            # TV is non-differentiable, hessian is 0
+            hess_U_gpu = cp.zeros_like(U)
+            
+            return grad_U_gpu, hess_U_gpu, U_value_gpu[0]
+        except Exception:
+            # Fall back to CPU implementation
+            pass
+    
+    # CPU or fallback implementation
     grad_U = xp.zeros_like(U)
     U_value = xp.zeros((), dtype=xp.float32)
     
@@ -673,3 +845,109 @@ def filter_radon(f, N, filter_type, Fc):
     FILTER = FILTER * np.exp(-2 * (np.abs(f) / Fc)**10)
 
     return FILTER
+
+
+# =============================================================================
+# PRECONDITIONERS
+# =============================================================================
+
+def compute_diagonal_preconditioner(SMatrix):
+    """
+    Compute diagonal preconditioner: M = diag(A^T * 1)
+    
+    The diagonal preconditioner is computed as the sum of absolute values of each column
+    of the system matrix A, which equals A^T * 1.
+    
+    This is commonly used in iterative reconstruction to normalize the sensitivity.
+    
+    Args:
+        SMatrix: SMatrix instance (DENSE, CSR, or SELL) - must be allocated
+        
+    Returns:
+        tuple: (preconditioner, preconditioner_inv) on the same device as SMatrix
+        - preconditioner: Diagonal vector (Z*X,) with A^T * 1 values
+        - preconditioner_inv: Inverse of preconditioner (safe division, clamped to avoid zeros)
+        
+    Compatible with: All SMatrix types (DENSE, CSR, SELL) and all devices (CPU, GPU)
+    """
+    device = SMatrix.device
+    xp = _get_array_module(device)
+    
+    Z = SMatrix.Z
+    X = SMatrix.X
+    ZX = Z * X
+    
+    # Compute A^T * 1 (column sums)
+    ones = xp.ones(SMatrix.N * SMatrix.T, dtype=xp.float32)
+    
+    if device == 'gpu' and CUPY_AVAILABLE:
+        # Use GPU backprojection
+        if hasattr(SMatrix, 'backward_projection'):
+            preconditioner = SMatrix.backward_projection(ones)
+        else:
+            # Fallback: use CPU and convert
+            preconditioner_cpu = SMatrix.backward_projection(cp.asnumpy(ones))
+            preconditioner = cp.asarray(preconditioner_cpu)
+    else:
+        # Use CPU backprojection
+        preconditioner = SMatrix.backward_projection(ones)
+    
+    # Ensure preconditioner is on correct device
+    if device == 'gpu' and CUPY_AVAILABLE:
+        preconditioner = cp.asarray(preconditioner)
+    else:
+        preconditioner = np.asarray(preconditioner)
+    
+    # Clamp to avoid division by zero
+    preconditioner = xp.maximum(preconditioner, 1e-10)
+    
+    # Compute inverse
+    preconditioner_inv = 1.0 / preconditioner
+    
+    return preconditioner, preconditioner_inv
+
+
+def apply_diagonal_preconditioner(U, preconditioner_inv, SMatrix):
+    """
+    Apply diagonal preconditioner to a vector: U -> M^-1 * U
+    
+    Args:
+        U: Vector to precondition (Z*X,)
+        preconditioner_inv: Inverse diagonal preconditioner (Z*X,)
+        SMatrix: SMatrix instance (for device information)
+        
+    Returns:
+        Preconditioned vector on the same device as input
+        
+    Compatible with: All SMatrix types and all devices (CPU, GPU)
+    """
+    device = SMatrix.device
+    xp = _get_array_module(device)
+    
+    # Ensure arrays are on the same device
+    U = xp.asarray(U)
+    preconditioner_inv = xp.asarray(preconditioner_inv)
+    
+    # Apply diagonal preconditioning: element-wise multiplication
+    return U * preconditioner_inv
+
+
+def build_preconditioner(SMatrix, preconditioner_type):
+    """
+    Build preconditioner based on type.
+    
+    Args:
+        SMatrix: SMatrix instance (must be allocated)
+        preconditioner_type: PreconditionerType enum value
+        
+    Returns:
+        tuple: (preconditioner, preconditioner_inv) or (None, None) if NONE
+        
+    Compatible with: All SMatrix types and all devices (CPU, GPU)
+    """    
+    if preconditioner_type == PreconditionerType.NONE:
+        return None, None
+    elif preconditioner_type == PreconditionerType.DIAGONAL:
+        return compute_diagonal_preconditioner(SMatrix)
+    else:
+        raise ValueError(f"Unknown preconditioner type: {preconditioner_type}")

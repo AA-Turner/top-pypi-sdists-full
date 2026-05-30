@@ -8,6 +8,7 @@ import urllib3
 
 from polyaxon import pkg
 
+
 JSON_SCHEMA_VALIDATION_KEYWORDS = {
     "multipleOf",
     "maximum",
@@ -164,6 +165,9 @@ class Configuration(object):
         """
         self.assert_hostname = None
         """Set this to True/False to enable/disable SSL hostname verification.
+        """
+        self.tls_server_name = None
+        """SNI TLS server name.
         """
 
         self.connection_pool_maxsize = multiprocessing.cpu_count() * 5

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2a-sdk
-Version: 1.0.3
+Version: 1.1.0
 Summary: A2A Python SDK
 Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
@@ -34,6 +34,7 @@ Requires-Dist: pydantic>=2.11.3
 Provides-Extra: all
 Requires-Dist: alembic>=1.14.0; extra == 'all'
 Requires-Dist: cryptography>=43.0.0; extra == 'all'
+Requires-Dist: fastapi>=0.115.2; extra == 'all'
 Requires-Dist: grpcio-reflection>=1.7.0; extra == 'all'
 Requires-Dist: grpcio-status>=1.60; extra == 'all'
 Requires-Dist: grpcio-tools>=1.60; extra == 'all'
@@ -50,6 +51,10 @@ Provides-Extra: db-cli
 Requires-Dist: alembic>=1.14.0; extra == 'db-cli'
 Provides-Extra: encryption
 Requires-Dist: cryptography>=43.0.0; extra == 'encryption'
+Provides-Extra: fastapi
+Requires-Dist: fastapi>=0.115.2; extra == 'fastapi'
+Requires-Dist: sse-starlette; extra == 'fastapi'
+Requires-Dist: starlette; extra == 'fastapi'
 Provides-Extra: grpc
 Requires-Dist: grpcio-reflection>=1.7.0; extra == 'grpc'
 Requires-Dist: grpcio-status>=1.60; extra == 'grpc'
@@ -146,6 +151,7 @@ Install the core SDK and any desired extras using your preferred package manager
 | **Core SDK**             | `uv add a2a-sdk`                           | `pip install a2a-sdk`                        |
 | **All Extras**           | `uv add "a2a-sdk[all]"`                    | `pip install "a2a-sdk[all]"`                 |
 | **HTTP Server**          | `uv add "a2a-sdk[http-server]"`            | `pip install "a2a-sdk[http-server]"`         |
+| **FastAPI Integration**  | `uv add "a2a-sdk[fastapi]"`                | `pip install "a2a-sdk[fastapi]"`             |
 | **gRPC Support**         | `uv add "a2a-sdk[grpc]"`                   | `pip install "a2a-sdk[grpc]"`                |
 | **OpenTelemetry Tracing**| `uv add "a2a-sdk[telemetry]"`              | `pip install "a2a-sdk[telemetry]"`           |
 | **Encryption**           | `uv add "a2a-sdk[encryption]"`             | `pip install "a2a-sdk[encryption]"`          |

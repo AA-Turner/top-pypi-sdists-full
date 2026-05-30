@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vit-pytorch
-Version: 1.21.1
+Version: 1.21.5
 Summary: Vision Transformer (ViT) - Pytorch
 Author-email: Phil Wang <lucidrains@gmail.com>
 License: MIT License
@@ -2378,6 +2378,18 @@ Coming from computer vision and new to transformers? Here are some resources tha
     author  = {Manjin Kim and Heeseung Kwon and Karteek Alahari and Minsu Cho},
     year    = {2026},
     url     = {https://openreview.net/forum?id=Co6SCyBIjo}
+}
+```
+
+```bibtex
+@misc{akbar2026weaksigregcovarianceregularizationstable,
+    title   = {Weak-SIGReg: Covariance Regularization for Stable Deep Learning},
+    author  = {Habibullah Akbar},
+    year    = {2026},
+    eprint  = {2603.05924},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2603.05924},
 }
 ```
 

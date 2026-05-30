@@ -2,13 +2,13 @@
 
 These assertions pin down the new contract:
 
-- ``ask`` uses ``core.next_reqid()`` for the URL ``_reqid`` param (the
+- ``ask`` uses ``self._reqid.next_reqid()`` for the URL ``_reqid`` param (the
   ``_reqid_counter`` property + deprecation gesture were retired in the
   session-shrink arc; this test now guards against any new
   ``DeprecationWarning`` escaping ``_chat.py``).
 - ``authuser=`` is present on the chat URL when ``account_email`` is set on
-  the auth tokens, mirroring the batchexecute path in ``_core._build_url``.
-  Previously omitted entirely on the chat endpoint.
+  the auth tokens, mirroring the batchexecute path in
+  ``RpcExecutor.build_url``. Previously omitted entirely on the chat endpoint.
 - Concurrent ``asyncio.gather(ask*3)`` produces three distinct reqid values.
 - 401 mid-chat triggers a refresh, and the post-refresh attempt's body
   carries the refreshed CSRF token (snapshot-per-attempt invariant).
@@ -22,18 +22,21 @@ import asyncio
 import json
 import re
 import warnings
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, unquote, urlparse
 
 import httpx
 import pytest
 
+from _helpers.client_factory import build_client_shell_for_tests
 from conftest import install_post_as_stream
 from notebooklm import NotebookLMClient
-from notebooklm._authed_transport import AuthSnapshot
 from notebooklm._chat import ChatAPI
-from notebooklm._session import Session
+from notebooklm._request_types import AuthSnapshot
 from notebooklm.auth import AuthTokens
+from notebooklm.exceptions import ChatError
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -164,7 +167,7 @@ class TestChatAuthuserParam:
 
 
 class TestChatReqid:
-    """``ChatAPI.ask`` must call ``core.next_reqid()`` — not poke
+    """``ChatAPI.ask`` must call ``self._reqid.next_reqid()`` — not poke
     ``_reqid_counter`` directly, which would emit ``DeprecationWarning``."""
 
     @pytest.mark.asyncio
@@ -208,7 +211,7 @@ class TestChatReqid:
     ):
         """``asyncio.gather(ask*3)`` → three distinct ``_reqid`` URL values.
 
-        Previously, the body did ``self._core._reqid_counter += 100000`` under
+        Previously, the body did ``self._core._collaborators.reqid_counter += 100000`` under
         a read-modify-write race (``self._core`` was the pre-Phase-2 attribute
         name, now ``self._runtime``); under concurrent gather() this collapsed
         to a single reqid value. ``runtime.next_reqid()`` serializes the
@@ -273,8 +276,10 @@ class TestChatRefreshRetry:
             auth.session_id = "NEW_SID"
             return auth
 
-        core = Session(auth=auth, refresh_callback=refresh, refresh_retry_delay=0.0)
-        await core.open()
+        core = build_client_shell_for_tests(
+            auth=auth, refresh_callback=refresh, refresh_retry_delay=0.0
+        )
+        await core.__aenter__()
         try:
             observed_bodies: list[str] = []
             call_count = {"n": 0}
@@ -312,10 +317,25 @@ class TestChatRefreshRetry:
                     content=_make_answer_response_body(),
                 )
 
-            assert core._kernel.http_client is not None
-            install_post_as_stream(monkeypatch, core._kernel.get_http_client(), fake_post)
+            assert core._collaborators.kernel.http_client is not None
+            install_post_as_stream(
+                monkeypatch, core._collaborators.kernel.get_http_client(), fake_post
+            )
 
-            api = ChatAPI(core)
+            # Wave 8 of session-decoupling (ADR-014 Rule 2 Corollary):
+            # ``ChatAPI`` takes its four direct collaborators by keyword
+            # arg. Wired here from the real ``Session`` under test so the
+            # refresh path exercises the production transport/rpc/reqid
+            # collaborators end-to-end.
+            # Stage B1 PR 2 deleted the Stage A accessors
+            # (``Session.session_transport`` / ``Session.collaborators``);
+            # read the private slots directly instead.
+            api = ChatAPI(
+                rpc=core._rpc_executor,
+                transport=core._composed.transport,
+                reqid=core._collaborators.reqid,
+                loop_guard=core._collaborators.lifecycle,
+            )
             result = await api.ask("nb_x", "Q?", source_ids=["s1"])
 
             assert call_count["n"] == 2
@@ -413,6 +433,85 @@ class TestChatBlOverride:
 # ---------------------------------------------------------------------------
 
 
+class TestChatNewConversationLocks:
+    """Notebook-scoped locks use the same per-key cache style as conversation locks."""
+
+    def _factory(self) -> ChatAPI:
+        from unittest.mock import MagicMock
+
+        loop_guard = MagicMock()
+        loop_guard.assert_bound_loop = MagicMock()
+        return ChatAPI(
+            rpc=MagicMock(),
+            transport=MagicMock(),
+            reqid=MagicMock(),
+            loop_guard=loop_guard,
+        )
+
+    def test_same_notebook_reuses_new_conversation_lock(self):
+        chat = self._factory()
+
+        lock_a = chat._get_new_conversation_lock("nb-1")
+        lock_b = chat._get_new_conversation_lock("nb-1")
+
+        assert lock_a is lock_b
+
+    def test_different_notebooks_get_distinct_new_conversation_locks(self):
+        chat = self._factory()
+
+        lock_a = chat._get_new_conversation_lock("nb-1")
+        lock_b = chat._get_new_conversation_lock("nb-2")
+
+        assert lock_a is not lock_b
+
+    @pytest.mark.asyncio
+    async def test_failed_post_ask_hptbtc_lookup_releases_new_conversation_lock(self):
+        class HptbtcFailureChatAPI(ChatAPI):
+            def __init__(self, *, lookup_results: list[str | ChatError], **kwargs: Any) -> None:
+                super().__init__(**kwargs)
+                self._lookup_results = iter(lookup_results)
+                self.lookup_count = 0
+
+            async def get_conversation_id(self, notebook_id: str) -> str | None:
+                self.lookup_count += 1
+                result = next(self._lookup_results)
+                if isinstance(result, ChatError):
+                    raise result
+                return result
+
+        async def fake_perform_authed_post(*args: Any, **kwargs: Any) -> httpx.Response:
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", "https://notebooklm.google.com/_/LabsTailwindUi"),
+                content=_make_answer_response_body(),
+            )
+
+        chat = HptbtcFailureChatAPI(
+            rpc=SimpleNamespace(),
+            transport=SimpleNamespace(
+                perform_authed_post=AsyncMock(side_effect=fake_perform_authed_post)
+            ),
+            reqid=SimpleNamespace(next_reqid=AsyncMock(side_effect=[100000, 200000])),
+            loop_guard=SimpleNamespace(assert_bound_loop=lambda: None),
+            lookup_results=[ChatError("hPTbtc lookup failed"), "conv-after-failure"],
+        )
+        new_conversation_lock = chat._get_new_conversation_lock("nb-1")
+
+        with pytest.raises(ChatError, match="hPTbtc lookup failed"):
+            await chat.ask("nb-1", "first ask", source_ids=["s1"])
+
+        assert not new_conversation_lock.locked()
+
+        result = await asyncio.wait_for(
+            chat.ask("nb-1", "second ask", source_ids=["s1"]),
+            timeout=1.0,
+        )
+
+        assert result.conversation_id == "conv-after-failure"
+        assert result.answer == "Refactor answer is long enough."
+        assert chat.lookup_count == 2
+
+
 class TestBuildChatRequestFactory:
     """Direct unit tests for the new ``ChatAPI._build_chat_request`` factory.
 
@@ -421,10 +520,18 @@ class TestBuildChatRequestFactory:
     """
 
     def _factory(self) -> ChatAPI:
+        # Wave 8 of session-decoupling (ADR-014 Rule 2 Corollary):
+        # ``ChatAPI`` takes direct collaborators by keyword arg. Pure
+        # ``_build_chat_request`` exercise — none of these collaborators
+        # are touched, so they are bare ``MagicMock()`` placeholders.
         from unittest.mock import MagicMock
 
-        core = MagicMock(spec=Session)
-        return ChatAPI(core)
+        return ChatAPI(
+            rpc=MagicMock(),
+            transport=MagicMock(),
+            reqid=MagicMock(),
+            loop_guard=MagicMock(),
+        )
 
     def test_build_request_omits_authuser_for_default_profile(self):
         chat = self._factory()

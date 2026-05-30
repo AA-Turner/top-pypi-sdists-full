@@ -181,6 +181,7 @@ from .type_defs import (
     PutEmailIdentityFeedbackAttributesRequestTypeDef,
     PutEmailIdentityMailFromAttributesRequestTypeDef,
     PutSuppressedDestinationRequestTypeDef,
+    PutTenantSuppressionAttributesRequestTypeDef,
     SendBulkEmailRequestTypeDef,
     SendBulkEmailResponseTypeDef,
     SendCustomVerificationEmailRequestTypeDef,
@@ -530,7 +531,8 @@ class SESV2Client(BaseClient):
         self, **kwargs: Unpack[DeleteSuppressedDestinationRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Removes an email address from the suppression list for your account.
+        Removes an email address from the suppression list for your account or for a
+        specific tenant.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/delete_suppressed_destination.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#delete_suppressed_destination)
@@ -805,7 +807,7 @@ class SESV2Client(BaseClient):
     ) -> GetSuppressedDestinationResponseTypeDef:
         """
         Retrieves information about a specific email address that's on the suppression
-        list for your account.
+        list for your account or for a specific tenant.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_suppressed_destination.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#get_suppressed_destination)
@@ -814,7 +816,7 @@ class SESV2Client(BaseClient):
     def get_tenant(self, **kwargs: Unpack[GetTenantRequestTypeDef]) -> GetTenantResponseTypeDef:
         """
         Get information about a specific tenant, including the tenant's name, ID, ARN,
-        creation timestamp, tags, and sending status.
+        creation timestamp, tags, sending status, and suppression attributes.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_tenant.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#get_tenant)
@@ -984,7 +986,7 @@ class SESV2Client(BaseClient):
     ) -> ListSuppressedDestinationsResponseTypeDef:
         """
         Retrieves a list of email addresses that are on the suppression list for your
-        account.
+        account or for a specific tenant.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/list_suppressed_destinations.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#list_suppressed_destinations)
@@ -1118,7 +1120,7 @@ class SESV2Client(BaseClient):
         self, **kwargs: Unpack[PutConfigurationSetSuppressionOptionsRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Specify the account suppression list preferences for a configuration set.
+        Specify the suppression list preferences for a configuration set.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/put_configuration_set_suppression_options.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#put_configuration_set_suppression_options)
@@ -1241,10 +1243,21 @@ class SESV2Client(BaseClient):
         self, **kwargs: Unpack[PutSuppressedDestinationRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Adds an email address to the suppression list for your account.
+        Adds an email address to the suppression list for your account or for a
+        specific tenant.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/put_suppressed_destination.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#put_suppressed_destination)
+        """
+
+    def put_tenant_suppression_attributes(
+        self, **kwargs: Unpack[PutTenantSuppressionAttributesRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Configure the suppression list preferences for a tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/put_tenant_suppression_attributes.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/client/#put_tenant_suppression_attributes)
         """
 
     def send_bulk_email(

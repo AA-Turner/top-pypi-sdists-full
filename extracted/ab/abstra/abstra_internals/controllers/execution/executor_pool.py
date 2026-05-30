@@ -27,6 +27,10 @@ from abstra_internals.repositories.project.project import StageType, StageWithFi
 from abstra_internals.utils.multiprocessing import safe_multiprocessing_queue
 
 
+class ExecutorDiedError(RuntimeError):
+    pass
+
+
 def _executor_target(*args, **kwargs):
     from abstra_internals.controllers.execution.executor_process import executor_main
 
@@ -90,6 +94,15 @@ class ExecutorHandle:
                     self.process.join(timeout=1.0)
             except Exception as e:
                 AbstraLogger.error(f"[ExecutorPool] Error killing executor: {e}")
+        self.mark_dead()
+
+    def force_kill(self) -> None:
+        if self.is_alive():
+            try:
+                self.process.kill()
+                self.process.join(timeout=1.0)
+            except Exception as e:
+                AbstraLogger.error(f"[ExecutorPool] Error force-killing executor: {e}")
         self.mark_dead()
 
 
@@ -236,7 +249,7 @@ class ExecutorPool:
                 )
                 executor.mark_dead()
                 self.metrics.record_executor_died(executor.executor_id)
-                raise RuntimeError(
+                raise ExecutorDiedError(
                     f"Executor {executor.executor_id} died before execution"
                 )
 
@@ -261,7 +274,7 @@ class ExecutorPool:
 
                 executor.mark_dead()
                 self.metrics.record_executor_died(executor.executor_id)
-                raise RuntimeError(
+                raise ExecutorDiedError(
                     f"Failed to send work to executor {executor.executor_id}: {e}"
                 )
 
@@ -278,7 +291,7 @@ class ExecutorPool:
                     )
                     executor.mark_dead()
                     self.metrics.record_executor_died(executor.executor_id)
-                    raise RuntimeError(
+                    raise ExecutorDiedError(
                         f"Executor {executor.executor_id} died unexpectedly during execution"
                     )
 
@@ -413,6 +426,29 @@ class ExecutorPool:
                 return False
 
         self._kill_and_replace_executor(executor, reason="killed")
+
+        return True
+
+    def force_kill_execution(self, execution_id: str) -> bool:
+        with self.lock:
+            executor_id = self.execution_to_executor.get(execution_id)
+            if executor_id is None:
+                AbstraLogger.warning(
+                    f"[ExecutorPool] Cannot force-kill execution {execution_id}: "
+                    "not found in active executions"
+                )
+                return False
+
+            executor = self.executors.get(executor_id)
+            if executor is None or not executor.is_alive():
+                AbstraLogger.warning(
+                    f"[ExecutorPool] Cannot force-kill execution {execution_id}: "
+                    "executor is dead"
+                )
+                self.execution_to_executor.pop(execution_id, None)
+                return False
+
+        self._kill_and_replace_executor(executor, reason="force_killed", force=True)
 
         return True
 
@@ -564,7 +600,10 @@ class ExecutorPool:
             return executor
 
     def _kill_and_replace_executor(
-        self, executor: ExecutorHandle, reason: str = "stuck"
+        self,
+        executor: ExecutorHandle,
+        reason: str = "stuck",
+        force: bool = False,
     ) -> None:
         with self.lock:
             self.executors.pop(executor.executor_id, None)
@@ -573,7 +612,10 @@ class ExecutorPool:
                     self.execution_to_executor.pop(exec_id, None)
 
         executor.mark_dead()
-        executor.kill()
+        if force:
+            executor.force_kill()
+        else:
+            executor.kill()
         self.metrics.record_executor_died(executor.executor_id)
 
         replacement = self._spawn_executor(is_form_reserved=executor.is_form_reserved)

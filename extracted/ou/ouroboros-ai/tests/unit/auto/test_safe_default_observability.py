@@ -70,14 +70,19 @@ def _ledger_all_filled_except(
 
 
 @pytest.mark.asyncio
-async def test_safe_default_logs_no_gaps_to_default(tmp_path) -> None:
-    """Ledger already seed-ready but backend keeps asking → mutual-agreement deadlock path.
+async def test_ledger_only_closes_in_loop_when_backend_never_converges(tmp_path) -> None:
+    """Ledger already seed-ready but backend keeps asking → in-loop ledger-only closure.
 
-    The driver enters the safe-default fallback block after max_rounds with
-    backend_done=False and ledger_done=True.  ``finalize_safe_defaultable_gaps``
-    returns an empty defaulted_sections (no gaps to fill), so the driver emits
-    ``no_gaps_to_default``.  Because ledger_done=True at the final blocker path
-    the driver also emits ``mutual_agreement_deadlock_at_max_rounds``.
+    PR-β / SSOT #1157 "Closure Policy" (2026-05-27): the driver's in-loop
+    closure check is now ledger-primary. When ``ledger.is_seed_ready()`` returns
+    True the loop exits immediately as ``ledger_only`` regardless of backend
+    state — the safe-default fallback path is no longer needed in this case.
+
+    Replaces the older max_rounds-only ``ledger_only`` fallback assertion: the
+    safe-default block (``safe_default.entered``, ``no_gaps_to_default``) is
+    bypassed because closure happens before max_rounds, but the observability
+    contract is preserved via the ``auto.interview.ledger_only_closure`` event
+    emitted from the new in-loop path.
     """
     # Ledger is fully filled — is_seed_ready() returns True from round 0.
     ledger = _ledger_all_filled_except()
@@ -104,13 +109,16 @@ async def test_safe_default_logs_no_gaps_to_default(tmp_path) -> None:
         result = await driver.run(state, ledger)
 
     events = [e["event"] for e in captured]
-    assert "auto.interview.safe_default.entered" in events
-    assert "auto.interview.safe_default.no_gaps_to_default" in events
-    assert "auto.interview.mutual_agreement_deadlock_at_max_rounds" in events
+    # In-loop ledger-primary closure means the safe-default block is bypassed.
+    assert "auto.interview.safe_default.entered" not in events
+    assert "auto.interview.safe_default.no_gaps_to_default" not in events
+    # Observability contract preserved: ledger_only_closure event still fires
+    # from the in-loop closure path.
+    assert "auto.interview.ledger_only_closure" in events
 
-    # Behaviour unchanged: blocked because backend never agreed.
-    assert result.status == "blocked"
-    assert "without closure" in (result.blocker or "")
+    # PR-β: ledger-primary closure on the first round, no max_rounds wait.
+    assert result.status == "seed_ready"
+    assert state.interview_closure_mode == "ledger_only"
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +173,45 @@ async def test_safe_default_logs_closed_path(tmp_path) -> None:
 
     # Behaviour unchanged: seed ready after safe-default closure.
     assert result.status == "seed_ready"
+
+
+@pytest.mark.asyncio
+async def test_safe_default_logs_synthesis_nonclosure(tmp_path) -> None:
+    """Backend response that accepts synthesis but keeps interviewing is structured-log visible."""
+    ledger = SeedDraftLedger.from_goal("Build a tiny local CLI")
+
+    async def start(goal: str, cwd: str) -> InterviewTurn:  # noqa: ARG001
+        return InterviewTurn("What else should we know?", "interview_nonclosure")
+
+    async def answer(
+        session_id: str, text: str, *, last_question: str | None = None
+    ) -> InterviewTurn:  # noqa: ARG001
+        if "[safe-default-synthesis]" in text:
+            return InterviewTurn("Still need more", session_id, seed_ready=False, completed=False)
+        return InterviewTurn("What else should we know?", session_id, seed_ready=False)
+
+    state = AutoPipelineState(goal="Build a tiny local CLI", cwd=str(tmp_path))
+    driver = AutoInterviewDriver(
+        FunctionInterviewBackend(start, answer),
+        store=AutoStore(tmp_path),
+        max_rounds=1,
+        timeout_seconds=1,
+    )
+
+    with capture_logs() as captured:
+        result = await driver.run(state, ledger)
+
+    events = [e["event"] for e in captured]
+    assert "auto.interview.safe_default_synthesis_nonclosure" in events
+    nonclosure = [
+        e for e in captured if e["event"] == "auto.interview.safe_default_synthesis_nonclosure"
+    ][0]
+    assert nonclosure["synthesis_pushed"] is True
+    assert nonclosure["backend_seed_ready"] is False
+    assert nonclosure["backend_completed"] is False
+    assert nonclosure["defaulted_sections"]
+    assert result.status == "blocked"
+    assert "did not close" in (result.blocker or "")
 
 
 # ---------------------------------------------------------------------------

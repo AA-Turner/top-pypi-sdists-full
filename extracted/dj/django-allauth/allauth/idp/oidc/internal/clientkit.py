@@ -42,7 +42,7 @@ def _validate_uri_wildcard_format(uri: str, allow_uri_wildcards: bool) -> None:
             )
 
 
-def _wildcard_to_regex(wildcard: str) -> Pattern:
+def _wildcard_to_regex(wildcard: str) -> Pattern[str]:
     pattern = re.escape(wildcard).replace(r"\*", r"[^.]+")
     return re.compile(f"^{pattern}$")
 
@@ -60,7 +60,9 @@ def _is_scheme_hostname_allowed(
     ):
         allowed_hostname_pattern = _wildcard_to_regex(parsed_allowed_uri.hostname)
 
-        if not allowed_hostname_pattern.match(parsed_uri.hostname):
+        if not parsed_uri.hostname or not allowed_hostname_pattern.match(
+            parsed_uri.hostname
+        ):
             return False
     else:
         if parsed_allowed_uri.hostname != parsed_uri.hostname:

@@ -4,6 +4,7 @@ import json
 import pathlib
 import pkgutil
 import re
+import textwrap
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Literal, Optional, Type, TypedDict, Union
 
@@ -19,6 +20,24 @@ DEPRECATED_PATHS = [
     "abstra_internals/interface/sdk/forms/deprecated",
     "abstra_internals/interface/sdk/forms/generated",
 ]
+
+# Google-style section headers other than Args/Attributes. Args/Attributes are
+# pulled out into structured `params`; these stay inside `description` but get
+# rewritten as `**Label:**` + dedented body so Docusaurus renders them as
+# proper Markdown (especially fenced code blocks under `Example:`).
+_DOC_SECTION_LABELS = (
+    "Returns",
+    "Raises",
+    "Example",
+    "Examples",
+    "Yields",
+    "Note",
+    "Warning",
+)
+_DOC_SECTION_HEADER_RE = re.compile(
+    r"^(?P<label>" + "|".join(_DOC_SECTION_LABELS) + r"):[ \t]*$",
+    re.MULTILINE,
+)
 
 
 class Example(TypedDict):
@@ -497,6 +516,66 @@ class SDKContractParser:
         "_ParsedDocstring", {"params": Dict[str, BaseParameter], "description": str}
     )
 
+    @staticmethod
+    def _normalize_section_body(body: str) -> str:
+        # `textwrap.dedent` only removes the longest *common* leading
+        # whitespace. When a body has a top-level prose line followed by more
+        # deeply indented sub-bullets (a common Google-style return-value
+        # pattern), the bullets stay indented and Markdown renders them as a
+        # code block instead of a list. Pull bullet lines to column 0 outside
+        # fenced code blocks so they render correctly.
+        lines = body.split("\n")
+        out: List[str] = []
+        in_fence = False
+        for line in lines:
+            stripped = line.lstrip()
+            if stripped.startswith("```"):
+                in_fence = not in_fence
+                out.append(line)
+                continue
+            if not in_fence and (
+                stripped.startswith("- ") or stripped.startswith("* ")
+            ):
+                out.append(stripped)
+            else:
+                out.append(line)
+        return "\n".join(out)
+
+    # Sections that are dropped from the rendered description because the docs
+    # site renders them elsewhere from structured data. `Returns:` is covered
+    # by the `## Return Value` section the JS generator emits from the return
+    # type annotation, so duplicating it as `**Returns:**` in the prose is
+    # redundant. Still recognized as a section *boundary* below so the params
+    # parser stops at it.
+    _DOC_SECTIONS_DROPPED_FROM_DESCRIPTION = frozenset({"Returns"})
+
+    @staticmethod
+    def _rewrite_doc_sections(text: str) -> str:
+        # Promote Google-style section headers (Raises:, Example:, Yields:,
+        # Note:, Warning:) to `**Label:**` and dedent their bodies so the
+        # result is valid Markdown. Without dedenting, the 4-space-indented
+        # body under a header is interpreted as an indented code block, which
+        # escapes the inner ```python fence in Example: sections.
+        matches = list(_DOC_SECTION_HEADER_RE.finditer(text))
+        if not matches:
+            return text.strip()
+
+        blocks: List[str] = []
+        cursor = 0
+        for i, m in enumerate(matches):
+            prelude = text[cursor : m.start()].strip()
+            if prelude:
+                blocks.append(prelude)
+            body_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+            label = m.group("label")
+            if label not in SDKContractParser._DOC_SECTIONS_DROPPED_FROM_DESCRIPTION:
+                body = textwrap.dedent(text[m.end() : body_end].lstrip("\n")).rstrip()
+                body = SDKContractParser._normalize_section_body(body)
+                blocks.append(f"**{label}:**\n\n{body}" if body else f"**{label}:**")
+            cursor = body_end
+
+        return "\n\n".join(blocks)
+
     def _parse_docstring(self, docstring: str) -> _ParsedDocstring:
         docstring = docstring.strip()
 
@@ -510,12 +589,22 @@ class SDKContractParser:
             header = split_parts[1]
             header_index = docstring.find(header)
             params_part = docstring[header_index + len(header) :].strip()
+            # If Args:/Attributes: is followed by Returns:/Raises:/Example:/etc.,
+            # cut params_part at that header and put the tail back into
+            # description_part so it gets rewritten as Markdown. Otherwise the
+            # line-by-line params parser would absorb the indented section body
+            # into the last param's description.
+            tail = _DOC_SECTION_HEADER_RE.search(params_part)
+            if tail:
+                description_part = (
+                    description_part + "\n\n" + params_part[tail.start() :]
+                ).strip()
+                params_part = params_part[: tail.start()].rstrip()
         else:
             description_part = docstring
             params_part = ""
 
-        # Clean up the description (join multiple lines)
-        description = " ".join(description_part.split())
+        description = self._rewrite_doc_sections(description_part)
 
         params = {}
         if params_part:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import json
+import logging
 import mimetypes
 import os
 import re
@@ -11,7 +11,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from pathlib import Path
 from time import monotonic
-from typing import IO, Any, Protocol, cast
+from typing import IO, TYPE_CHECKING, Any, Protocol, cast
+from urllib.parse import SplitResult, parse_qsl, urlsplit
 
 import httpx
 
@@ -25,9 +26,14 @@ from ._session_config import (
 from ._session_contracts import (
     AuthMetadata,
     Kernel,
-    LoopGuard,
-    OperationScopeProvider,
     RpcCaller,
+)
+from ._source_listing import SourceLister
+from ._source_polling import SourcePoller
+from ._source_upload_payloads import (
+    build_register_file_source_params,
+    build_rename_source_params,
+    build_resumable_upload_start_request,
 )
 from .auth import authuser_query, format_authuser_value
 from .exceptions import (
@@ -41,9 +47,19 @@ from .rpc import RPCError, RPCMethod, get_upload_url
 from .rpc.types import SourceStatus
 from .types import Source, SourceAddError
 
+if TYPE_CHECKING:
+    from ._session_lifecycle import ClientLifecycle
+    from ._transport_drain import TransportDrainTracker
+
 _SOURCE_ID_UUID_PATTERN = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
+_SOURCE_ID_FIELD_NAMES = frozenset({"SOURCE_ID", "source_id", "sourceId"})
+_CONTEXTUAL_SOURCE_ID_FIELD_NAMES = frozenset({"id"})
+_SOURCE_NAME_FIELD_NAMES = frozenset(
+    {"SOURCE_NAME", "source_name", "sourceName", "filename", "fileName", "name", "title"}
+)
+_SOURCE_ID_ENVELOPE_MAX_DEPTH = 8
 
 
 class RpcCallback(Protocol):
@@ -74,25 +90,81 @@ class RpcCallback(Protocol):
 GetSourceLimit = Callable[[], Awaitable[int | None]]
 
 
-class UploadRuntime(RpcCaller, OperationScopeProvider, LoopGuard, Protocol):
-    """Runtime capabilities required by source upload.
-
-    Combines :class:`RpcCaller` (``rpc_call`` method),
-    :class:`OperationScopeProvider` (``operation_scope`` async-context
-    manager), and :class:`LoopGuard` (``assert_bound_loop`` method) — the
-    only ``Session`` surfaces the pipeline needs at runtime. A concrete
-    :class:`Session` structurally satisfies this Protocol.
-
-    Audit C1: ``LoopGuard`` is included so :meth:`SourceUploadPipeline.add_file`
-    can short-circuit cross-loop misuse *before* entering
-    ``operation_scope`` or lazily allocating the per-loop upload semaphore.
-    Mirrors the ``ChatRuntime`` / ``ArtifactsRuntime`` pattern.
-    """
-
-
 _INVALID_ARGUMENT_RPC_CODE = 3
 _SOURCE_LIMIT_HINT_FLOOR = 50
 _TIER_SOURCE_LIMITS_SUMMARY = "50/100/300/600"
+# Preserve the historical ``notebooklm._sources`` log channel after moving
+# upload choreography into this module.
+module_logger = logging.getLogger("notebooklm").getChild("_sources")
+
+
+def _normalize_upload_path(path: str) -> str:
+    return (path or "/").rstrip("/") + "/"
+
+
+def _default_port_for_scheme(scheme: str) -> int | None:
+    if scheme == "https":
+        return 443
+    if scheme == "http":
+        return 80
+    return None
+
+
+def _redacted_upload_authority(parsed: SplitResult) -> str | None:
+    host = parsed.hostname
+    if host is None:
+        return None
+
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+
+    port = parsed.port
+    port_suffix = f":{port}" if port is not None else ""
+    return f"{host}{port_suffix}"
+
+
+def _redact_upload_url(upload_url: str) -> str:
+    """Return a log-safe representation of a resumable upload URL."""
+    try:
+        parsed = urlsplit(upload_url)
+        authority = _redacted_upload_authority(parsed)
+    except ValueError:
+        return "[REDACTED_UPLOAD_URL]"
+    if not parsed.scheme or authority is None:
+        return "[REDACTED_UPLOAD_URL]"
+    suffix = "?..." if parsed.query else ""
+    return f"{parsed.scheme}://{authority}{parsed.path}{suffix}"
+
+
+def _validate_resumable_upload_url(upload_url: str) -> str:
+    """Validate that a resumable upload URL targets the configured upload endpoint."""
+    try:
+        parsed = urlsplit(upload_url)
+        actual_port = parsed.port or _default_port_for_scheme(parsed.scheme)
+        expected = urlsplit(get_upload_url())
+        expected_port = expected.port or _default_port_for_scheme(expected.scheme)
+    except ValueError as exc:
+        raise ValidationError("Upload URL is not valid") from exc
+
+    if parsed.scheme != "https":
+        raise ValidationError("Upload URL must use https")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValidationError("Upload URL must not contain credentials")
+    if parsed.hostname is None:
+        raise ValidationError("Upload URL must include a host")
+    if parsed.hostname != expected.hostname or actual_port != expected_port:
+        raise ValidationError("Upload URL host is not trusted")
+    if _normalize_upload_path(parsed.path) != _normalize_upload_path(expected.path):
+        raise ValidationError("Upload URL path is not trusted")
+    upload_ids = [
+        value
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if key.lower() == "upload_id"
+    ]
+    if len(upload_ids) != 1 or not upload_ids[0]:
+        raise ValidationError("Upload URL must include exactly one non-empty upload_id")
+
+    return upload_url
 
 
 async def _build_invalid_argument_source_limit_hint(
@@ -147,58 +219,6 @@ async def _build_invalid_argument_source_limit_hint(
     return ""
 
 
-class RegisterFileSource(Protocol):
-    """Late-bound facade hook for file-source registration."""
-
-    async def __call__(self, notebook_id: str, filename: str) -> str: ...
-
-
-class StartResumableUpload(Protocol):
-    """Late-bound facade hook for upload-session start."""
-
-    async def __call__(
-        self,
-        notebook_id: str,
-        filename: str,
-        file_size: int,
-        source_id: str,
-        content_type: str,
-    ) -> str: ...
-
-
-class UploadFileStreaming(Protocol):
-    """Late-bound facade hook for streaming upload finalize."""
-
-    async def __call__(
-        self,
-        upload_url: str,
-        file_obj: IO[bytes] | Path,
-        *,
-        filename: str | None = None,
-        on_progress: Callable[[int, int], object] | None = None,
-        total_bytes: int | None = None,
-    ) -> None: ...
-
-
-class WaitForSource(Protocol):
-    """Wait helper used after upload registration."""
-
-    async def __call__(
-        self,
-        notebook_id: str,
-        source_id: str,
-        timeout: float = 120.0,
-        *,
-        transient_error_types: tuple[int | None, ...] | None = None,
-    ) -> Source: ...
-
-
-class RenameSource(Protocol):
-    """Source rename callback shape."""
-
-    async def __call__(self, notebook_id: str, source_id: str, new_title: str) -> Source: ...
-
-
 class AsyncClientFactory(Protocol):
     """Factory for creating an ``httpx.AsyncClient``-compatible instance."""
 
@@ -223,6 +243,8 @@ _MEDIA_APPLICATION_CONTENT_TYPES = frozenset(
 )
 _MEDIA_TRANSIENT_ERROR_TYPES: tuple[int | None, ...] = (10, 0, None)
 _STRICT_TRANSIENT_ERROR_TYPES: tuple[int | None, ...] = ()
+_HTML_UPLOAD_SUFFIXES = frozenset({".html", ".htm", ".xhtml", ".xht"})
+_HTML_UPLOAD_CONTENT_TYPES = frozenset({"text/html", "application/xhtml+xml"})
 
 
 # Audit CC6: single-loop-per-client invariant per ADR-004; not safe for multi-loop fan-out.
@@ -237,41 +259,159 @@ def _retain_background_cancel_task(task: asyncio.Task[None]) -> None:
 def _extract_register_file_source_id(result: Any, filename: str) -> str | None:
     """Locate the SOURCE_ID string in an ADD_SOURCE_FILE response.
 
-    The historical shape was a strictly position-0 walk: ``[[[[id]]]]``. Issue
-    #474 surfaced cases where that walk lands on ``None`` or on the echoed
-    filename and silently fails. Walk the whole structure instead, prefer a
-    UUID-shaped leaf, and fall back to any other id-shaped string that is
-    plausibly not a status label.
+    Only trusted ADD_SOURCE_FILE shapes are accepted: explicit source-id fields
+    and the legacy singleton list envelope (``[[id]]`` / ``[[[[id]]]]``).
+    Arbitrary nested ids are intentionally ignored so ambiguous responses fall
+    through to the post-register source-list probe.
     """
-    uuid_match: str | None = None
-    fallback: str | None = None
-    # Depth guard for malformed/adversarial payloads. Google's real responses
-    # are shallow, so 50 is generous without risking RecursionError.
-    max_depth = 50
+    field_candidates = _extract_source_id_field_candidates(result, filename)
+    if len(field_candidates) == 1:
+        return field_candidates[0]
+    if len(field_candidates) > 1:
+        return None
+
+    row_candidates = _extract_contextual_source_id_row_candidates(result, filename)
+    if len(row_candidates) == 1:
+        return row_candidates[0]
+    if len(row_candidates) > 1:
+        return None
+
+    prefixed_candidate = _extract_prefixed_singleton_source_id_envelope(result, filename)
+    if prefixed_candidate is not None:
+        return prefixed_candidate
+
+    return _extract_singleton_source_id_envelope(result, filename)
+
+
+def _extract_source_id_field_candidates(result: Any, filename: str) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def add_candidate(value: Any) -> None:
+        candidate = _coerce_source_id_candidate(value, filename)
+        if candidate is not None and candidate not in seen:
+            candidates.append(candidate)
+            seen.add(candidate)
 
     def walk(node: Any, depth: int) -> None:
-        nonlocal uuid_match, fallback
-        if uuid_match is not None or depth > max_depth:
+        if depth > _SOURCE_ID_ENVELOPE_MAX_DEPTH:
             return
-        if isinstance(node, str):
-            if len(node) > 1000:
-                return
-            candidate = node.strip()
-            if not candidate or candidate == filename:
-                return
-            if _SOURCE_ID_UUID_PATTERN.match(candidate):
-                uuid_match = candidate
-                return
-            if fallback is None and _looks_like_id_string(candidate):
-                fallback = candidate
+        if isinstance(node, dict):
+            names = _source_context_names(node)
+            matched_context = bool(names) and any(
+                _coerce_filename_candidate(name) == filename for name in names
+            )
+            mismatched_context = bool(names) and not matched_context
+            for key, value in node.items():
+                if not isinstance(key, str):
+                    continue
+                if (
+                    key in _SOURCE_ID_FIELD_NAMES
+                    and not mismatched_context
+                    and (depth == 0 or matched_context)
+                ) or (key in _CONTEXTUAL_SOURCE_ID_FIELD_NAMES and matched_context):
+                    add_candidate(value)
+            for value in node.values():
+                walk(value, depth + 1)
         elif isinstance(node, list):
             for child in node:
-                if uuid_match is not None:
-                    return
                 walk(child, depth + 1)
 
     walk(result, 0)
-    return uuid_match or fallback
+    return candidates
+
+
+def _extract_singleton_source_id_envelope(result: Any, filename: str) -> str | None:
+    node, depth = _unwrap_singleton_envelope(result)
+    if depth == 0:
+        return None
+
+    return _coerce_source_id_candidate(node, filename)
+
+
+def _extract_prefixed_singleton_source_id_envelope(result: Any, filename: str) -> str | None:
+    if not isinstance(result, list) or len(result) != 2 or result[0] is not None:
+        return None
+
+    return _extract_singleton_source_id_envelope(result[1], filename)
+
+
+def _extract_contextual_source_id_row_candidates(result: Any, filename: str) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def add_candidate(value: Any) -> None:
+        candidate = _coerce_source_id_candidate(value, filename)
+        if candidate is not None and candidate not in seen:
+            candidates.append(candidate)
+            seen.add(candidate)
+
+    def walk(node: Any, depth: int) -> None:
+        if depth > _SOURCE_ID_ENVELOPE_MAX_DEPTH:
+            return
+        if isinstance(node, list):
+            if len(node) >= 2:
+                if _coerce_filename_candidate(node[1]) == filename:
+                    add_candidate(node[0])
+                if _coerce_filename_candidate(node[0]) == filename:
+                    add_candidate(node[1])
+            for child in node:
+                walk(child, depth + 1)
+        elif isinstance(node, dict):
+            for value in node.values():
+                walk(value, depth + 1)
+
+    walk(result, 0)
+    return candidates
+
+
+def _coerce_filename_candidate(value: Any) -> str | None:
+    value, _depth = _unwrap_singleton_envelope(value)
+    if not isinstance(value, str):
+        return None
+    return value.strip()
+
+
+def _coerce_source_id_candidate(value: Any, filename: str) -> str | None:
+    value, _depth = _unwrap_singleton_envelope(value)
+    if not isinstance(value, str):
+        return None
+    if len(value) > 1000:
+        return None
+    candidate = value.strip()
+    if not candidate or candidate == filename:
+        return None
+    if _SOURCE_ID_UUID_PATTERN.match(candidate) or _looks_like_id_string(candidate):
+        return candidate
+    return None
+
+
+def _source_context_names(node: dict[Any, Any]) -> list[Any]:
+    return [
+        value
+        for key, value in node.items()
+        if isinstance(key, str) and key in _SOURCE_NAME_FIELD_NAMES
+    ]
+
+
+def _unwrap_singleton_envelope(value: Any) -> tuple[Any, int]:
+    depth = 0
+    while isinstance(value, list) and len(value) == 1 and depth < _SOURCE_ID_ENVELOPE_MAX_DEPTH:
+        value = value[0]
+        depth += 1
+    return value, depth
+
+
+def _register_response_shape_label(result: Any) -> str:
+    if isinstance(result, dict):
+        return "object"
+    if isinstance(result, list):
+        return "array"
+    if isinstance(result, str):
+        return "string"
+    if result is None:
+        return "null"
+    return type(result).__name__
 
 
 def _looks_like_id_string(candidate: str) -> bool:
@@ -295,9 +435,13 @@ def _resolve_upload_content_type(file_path: Path, mime_type: str | None) -> str:
     return guessed or "application/octet-stream"
 
 
+def _normalize_content_type(content_type: str) -> str:
+    return content_type.split(";", 1)[0].strip().lower()
+
+
 def _transient_error_types_for_upload(content_type: str) -> tuple[int | None, ...]:
     """Return source status=ERROR transient policy for this upload."""
-    normalized = content_type.split(";", 1)[0].strip().lower()
+    normalized = _normalize_content_type(content_type)
     if (
         normalized.startswith(_MEDIA_CONTENT_TYPE_PREFIXES)
         or normalized in _MEDIA_APPLICATION_CONTENT_TYPES
@@ -306,21 +450,39 @@ def _transient_error_types_for_upload(content_type: str) -> tuple[int | None, ..
     return _STRICT_TRANSIENT_ERROR_TYPES
 
 
+def _validate_upload_file_supported(file_path: Path, content_type: str) -> None:
+    """Reject local file types known to fail NotebookLM's upload endpoint."""
+    normalized = _normalize_content_type(content_type)
+    if (
+        file_path.suffix.lower() in _HTML_UPLOAD_SUFFIXES
+        or normalized in _HTML_UPLOAD_CONTENT_TYPES
+    ):
+        raise ValidationError(
+            "HTML file uploads are not supported by NotebookLM's upload endpoint: "
+            f"{file_path.name}. Convert the page to .txt, .md, or .pdf first, then retry."
+        )
+
+
 class SourceUploadPipeline:
     """Own file registration and resumable upload orchestration."""
 
     def __init__(
         self,
-        runtime: UploadRuntime,
+        *,
+        rpc: RpcCaller,
+        drain: TransportDrainTracker,
+        lifecycle: ClientLifecycle,
         kernel: Kernel,
         auth: AuthMetadata,
         upload_timeout: httpx.Timeout | None = None,
         max_concurrent_uploads: int | None = DEFAULT_MAX_CONCURRENT_UPLOADS,
-        *,
         record_upload_queue_wait: QueueWaitRecorder | None = None,
         async_client_factory: AsyncClientFactory | None = None,
+        get_source_limit: GetSourceLimit | None = None,
     ):
-        self._runtime = runtime
+        self._rpc = rpc
+        self._drain = drain
+        self._lifecycle = lifecycle
         self._kernel = kernel
         self._auth = auth
         self._upload_timeout = upload_timeout
@@ -328,6 +490,13 @@ class SourceUploadPipeline:
         self._async_client_factory = async_client_factory
         self._max_concurrent_uploads = normalize_max_concurrent_uploads(max_concurrent_uploads)
         self._upload_semaphore: asyncio.Semaphore | None = None
+        self._lister = SourceLister(self._rpc)
+        self._poller = SourcePoller()
+        self._get_source_limit = get_source_limit
+
+    def configure_source_limit_lookup(self, get_source_limit: GetSourceLimit | None) -> None:
+        """Set the optional source-limit lookup used in registration hints."""
+        self._get_source_limit = get_source_limit
 
     def _resolve_upload_timeout(self, default: httpx.Timeout) -> httpx.Timeout:
         """Return the configured upload timeout, or ``default`` if unset."""
@@ -377,22 +546,19 @@ class SourceUploadPipeline:
         title: str | None = None,
         on_progress: Callable[[int, int], object] | None = None,
         upload_index: int = 0,
-        register_file_source: RegisterFileSource,
-        start_resumable_upload: StartResumableUpload,
-        upload_file_streaming: UploadFileStreaming,
-        wait_until_ready: WaitForSource,
-        wait_until_registered: WaitForSource,
-        rename: RenameSource,
-        logger: Any,
     ) -> Source:
-        """Add a file source to a notebook using resumable upload."""
+        """Add a file source to a notebook using resumable upload.
+
+        Raises ``ValidationError`` for HTML-family uploads because
+        NotebookLM's upload endpoint rejects those file extensions.
+        """
         # Audit C1: catch cross-loop add_file *before* touching
         # ``operation_scope`` or lazily allocating the upload semaphore.
         # Both are loop-bound on first use, so a cross-loop call would
         # otherwise attach a primitive to the wrong loop before the
         # documented ``RuntimeError`` guard fires (ADR-004).
-        self._runtime.assert_bound_loop()
-        logger.debug("Adding file source to notebook %s: %s", notebook_id, file_path)
+        self._lifecycle.assert_bound_loop()
+        module_logger.debug("Adding file source to notebook %s: %s", notebook_id, file_path)
         if title is not None:
             title = title.strip()
             if not title:
@@ -415,8 +581,9 @@ class SourceUploadPipeline:
 
         filename = file_path.name
         content_type = _resolve_upload_content_type(file_path, mime_type)
+        _validate_upload_file_supported(file_path, content_type)
         transient_error_types = _transient_error_types_for_upload(content_type)
-        async with self._runtime.operation_scope(f"upload:{upload_index}"):
+        async with self._drain.operation_scope(f"upload:{upload_index}"):
             upload_sem = self.get_upload_semaphore()
             upload_wait_start = monotonic()
             async with upload_sem:
@@ -443,8 +610,8 @@ class SourceUploadPipeline:
                 file_obj, file_size = await asyncio.to_thread(_open_and_stat, file_path)
                 handed_off = False
                 try:
-                    source_id = await register_file_source(notebook_id, filename)
-                    upload_url = await start_resumable_upload(
+                    source_id = await self.register_file_source(notebook_id, filename)
+                    upload_url = await self.start_resumable_upload(
                         notebook_id,
                         filename,
                         file_size,
@@ -452,7 +619,7 @@ class SourceUploadPipeline:
                         content_type,
                     )
                     handed_off = True
-                    await upload_file_streaming(
+                    await self.upload_file_streaming(
                         upload_url,
                         file_obj,
                         filename=filename,
@@ -465,14 +632,14 @@ class SourceUploadPipeline:
 
         needs_title_rename = title is not None and title != filename
         if wait:
-            source = await wait_until_ready(
+            source = await self.wait_until_ready(
                 notebook_id,
                 source_id,
                 timeout=wait_timeout,
                 transient_error_types=transient_error_types,
             )
         elif needs_title_rename:
-            source = await wait_until_registered(
+            source = await self.wait_until_registered(
                 notebook_id,
                 source_id,
                 timeout=wait_timeout,
@@ -489,10 +656,10 @@ class SourceUploadPipeline:
         if needs_title_rename:
             try:
                 assert title is not None
-                renamed = await rename(notebook_id, source_id, title)
+                renamed = await self.rename(notebook_id, source_id, title)
                 source = replace(source, title=renamed.title or title)
             except (RPCError, NetworkError):
-                logger.warning(
+                module_logger.warning(
                     "Source %s uploaded but rename to %r failed",
                     source_id,
                     title,
@@ -506,8 +673,8 @@ class SourceUploadPipeline:
         notebook_id: str,
         filename: str,
         *,
-        list_sources: ListSources,
-        logger: Any,
+        list_sources: ListSources | None = None,
+        logger: Any | None = None,
         get_source_limit: GetSourceLimit | None = None,
         rpc_call: RpcCallback | None = None,
     ) -> str:
@@ -530,13 +697,15 @@ class SourceUploadPipeline:
         concurrent uploader added one) raises ``SourceAddError`` rather
         than guessing.
         """
-        params = [
-            [[filename]],
-            notebook_id,
-            [2],
-            [1, None, None, None, None, None, None, None, None, None, [1]],
-        ]
-        rpc_call = rpc_call or self._runtime.rpc_call
+        params = build_register_file_source_params(filename, notebook_id)
+        if rpc_call is None:
+            rpc_call = self._rpc.rpc_call
+        if list_sources is None:
+            list_sources = self.list_sources
+        if logger is None:
+            logger = module_logger
+        if get_source_limit is None:
+            get_source_limit = self._get_source_limit
 
         # Capture baseline source IDs before the first create attempt so the
         # probe can distinguish "this upload landed" from "a same-named source
@@ -639,15 +808,38 @@ class SourceUploadPipeline:
 
             source_id = _extract_register_file_source_id(result, filename)
             if source_id:
-                return source_id
+                if baseline_ids is None or source_id not in baseline_ids:
+                    return source_id
+                logger.info(
+                    "register_file_source[%s]: response SOURCE_ID matched a "
+                    "pre-existing source; probing for the newly registered source",
+                    filename,
+                )
 
             # The RPC returned successfully but the response shape did not
-            # contain a parseable SOURCE_ID. Before raising, run the probe
-            # to see if the source landed server-side anyway — the
-            # extraction can fail for schema-drift reasons (#474) while the
-            # create has actually committed. This converts a recoverable
-            # success into the same probe-recovery path that 5xx uses.
-            probed_source_id = await _probe()
+            # contain a trustworthy SOURCE_ID. Before raising, run the
+            # source-list probe to see if the source landed server-side
+            # anyway. This converts recoverable schema drift into the same
+            # probe-recovery path that transport failures use without binding
+            # unrelated ids from the response.
+            try:
+                probed_source_id = await _probe()
+            except SourceAddError:
+                raise
+            except (AuthError, RateLimitError, ServerError, NetworkError) as exc:
+                # The create RPC already returned successfully, so do not
+                # let idempotent_create treat probe failure here as a
+                # retryable create failure and re-POST the file source.
+                raise SourceAddError(
+                    filename,
+                    cause=exc,
+                    message=(
+                        f"Cannot confirm registered file source for {filename!r}: "
+                        "the register response did not provide a trustworthy "
+                        f"SOURCE_ID and the source-list probe failed ({type(exc).__name__}). "
+                        "Check the notebook source list before retrying."
+                    ),
+                ) from exc
             if probed_source_id is not None:
                 logger.info(
                     "register_file_source[%s]: response missing SOURCE_ID but "
@@ -656,18 +848,13 @@ class SourceUploadPipeline:
                 )
                 return probed_source_id
 
-            if isinstance(result, str):
-                preview = repr(result[:200])
-                if len(result) > 200:
-                    preview += "..."
-            else:
-                preview = repr(result)
-                if len(preview) > 200:
-                    preview = preview[:200] + "..."
             raise SourceAddError(
                 filename,
                 message=(
-                    f"Failed to get SOURCE_ID from registration response. Response shape: {preview}"
+                    "Failed to get SOURCE_ID: no trustworthy SOURCE_ID found in "
+                    f"{_register_response_shape_label(result)} registration response, "
+                    "and the source-list probe found no "
+                    "unambiguous new source. Check the notebook source list before retrying."
                 ),
             )
 
@@ -676,6 +863,80 @@ class SourceUploadPipeline:
             _probe,
             label=f"sources.register_file_source[{filename}]",
         )
+
+    async def list_sources(self, notebook_id: str) -> list[Source]:
+        """List notebook sources for upload idempotency and polling."""
+        return await self._lister.list(notebook_id)
+
+    async def get_source(self, notebook_id: str, source_id: str) -> Source | None:
+        """Get a source row by ID using the upload pipeline's lister."""
+        return await self._lister.get(
+            notebook_id,
+            source_id,
+            list_sources=self.list_sources,
+        )
+
+    async def wait_until_ready(
+        self,
+        notebook_id: str,
+        source_id: str,
+        timeout: float = 120.0,
+        initial_interval: float = 1.0,
+        max_interval: float = 10.0,
+        backoff_factor: float = 1.5,
+        transient_error_types: tuple[int | None, ...] | None = None,
+    ) -> Source:
+        """Wait for a source to become ready after upload."""
+        return await self._poller.wait_until_ready(
+            notebook_id,
+            source_id,
+            timeout=timeout,
+            initial_interval=initial_interval,
+            max_interval=max_interval,
+            backoff_factor=backoff_factor,
+            transient_error_types=transient_error_types,
+            get_source=self.get_source,
+            sleep=asyncio.sleep,
+            monotonic=monotonic,
+            logger=module_logger,
+        )
+
+    async def wait_until_registered(
+        self,
+        notebook_id: str,
+        source_id: str,
+        timeout: float = 30.0,
+        initial_interval: float = 0.5,
+        max_interval: float = 5.0,
+        backoff_factor: float = 1.5,
+        transient_error_types: tuple[int | None, ...] | None = None,
+    ) -> Source:
+        """Wait until an uploaded source is registered server-side."""
+        return await self._poller.wait_until_registered(
+            notebook_id,
+            source_id,
+            timeout=timeout,
+            initial_interval=initial_interval,
+            max_interval=max_interval,
+            backoff_factor=backoff_factor,
+            transient_error_types=transient_error_types,
+            get_source=self.get_source,
+            sleep=asyncio.sleep,
+            monotonic=monotonic,
+            logger=module_logger,
+        )
+
+    async def rename(self, notebook_id: str, source_id: str, new_title: str) -> Source:
+        """Rename an uploaded source."""
+        module_logger.debug("Renaming source %s to: %s", source_id, new_title)
+        params = build_rename_source_params(source_id, new_title)
+        result = await self._rpc.rpc_call(
+            RPCMethod.UPDATE_SOURCE,
+            params,
+            source_path=f"/notebook/{notebook_id}",
+            allow_null=True,
+        )
+        return Source.from_api_response(result) if result else Source(id=source_id, title=new_title)
 
     async def start_resumable_upload(
         self,
@@ -686,35 +947,27 @@ class SourceUploadPipeline:
         content_type: str,
     ) -> str:
         """Start a resumable upload session and get the upload URL."""
-        auth_route = self._authuser_header()
-        base_url = get_base_url()
-        url = f"{get_upload_url()}?{self._authuser_query()}"
-
-        headers = {
-            "Accept": "*/*",
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-            "Origin": base_url,
-            "Referer": f"{base_url}/",
-            "x-goog-authuser": auth_route,
-            "x-goog-upload-command": "start",
-            "x-goog-upload-header-content-length": str(file_size),
-            "x-goog-upload-header-content-type": content_type,
-            "x-goog-upload-protocol": "resumable",
-        }
-
-        body = json.dumps(
-            {
-                "PROJECT_ID": notebook_id,
-                "SOURCE_NAME": filename,
-                "SOURCE_ID": source_id,
-            }
+        request = build_resumable_upload_start_request(
+            notebook_id=notebook_id,
+            filename=filename,
+            file_size=file_size,
+            source_id=source_id,
+            content_type=content_type,
+            base_url=get_base_url(),
+            upload_url=get_upload_url(),
+            authuser_query=self._authuser_query(),
+            authuser_header=self._authuser_header(),
         )
 
         async with self._client_factory()(
             timeout=self._resolve_upload_timeout(httpx.Timeout(10.0, read=60.0)),
             cookies=self._live_cookies(),
         ) as client:
-            response = await client.post(url, headers=headers, content=body)
+            response = await client.post(
+                request.url,
+                headers=request.headers,
+                content=request.body,
+            )
             response.raise_for_status()
 
             upload_url = response.headers.get("x-goog-upload-url")
@@ -723,7 +976,14 @@ class SourceUploadPipeline:
                     filename, message="Failed to get upload URL from response headers"
                 )
 
-            return upload_url
+            try:
+                return _validate_resumable_upload_url(upload_url)
+            except ValidationError as exc:
+                raise SourceAddError(
+                    filename,
+                    cause=exc,
+                    message=f"Received invalid resumable upload URL from NotebookLM: {exc}",
+                ) from exc
 
     async def upload_file_streaming(
         self,
@@ -733,12 +993,15 @@ class SourceUploadPipeline:
         filename: str | None = None,
         on_progress: Callable[[int, int], object] | None = None,
         total_bytes: int | None = None,
-        logger: Any,
+        logger: Any | None = None,
     ) -> None:
         """Stream upload file content to the resumable upload URL."""
+        if logger is None:
+            logger = module_logger
         path_fallback: Path | None = file_obj if isinstance(file_obj, Path) else None
         close_wired = False
         try:
+            upload_url = _validate_resumable_upload_url(upload_url)
             base_url = get_base_url()
             auth_route = self._authuser_header()
             headers = {
@@ -751,7 +1014,7 @@ class SourceUploadPipeline:
                 "x-goog-upload-offset": "0",
             }
             diag_name = filename or (path_fallback.name if path_fallback is not None else "<file>")
-            logger.debug("Streaming upload to %s for %s", upload_url, diag_name)
+            logger.debug("Streaming upload to %s for %s", _redact_upload_url(upload_url), diag_name)
             if total_bytes is None and path_fallback is not None:
                 total_bytes = path_fallback.stat().st_size
             progress_total = total_bytes if total_bytes is not None else 0
@@ -854,19 +1117,23 @@ class SourceUploadPipeline:
             "x-goog-upload-command": "cancel",
         }
         try:
+            upload_url = _validate_resumable_upload_url(upload_url)
             async with self._client_factory()(
                 timeout=httpx.Timeout(10.0, read=10.0),
                 cookies=self._live_cookies(),
             ) as client:
                 await client.post(upload_url, headers=headers)
         except Exception as exc:  # noqa: BLE001
-            logger.debug("Best-effort Scotty cancel for %s failed: %r", upload_url, exc)
+            logger.debug(
+                "Best-effort Scotty cancel for %s failed: %r",
+                _redact_upload_url(upload_url),
+                exc,
+            )
 
 
 __all__ = [
     "RpcCallback",
     "SourceUploadPipeline",
-    "UploadRuntime",
     "_SOURCE_ID_UUID_PATTERN",
     "_extract_register_file_source_id",
     "_looks_like_id_string",

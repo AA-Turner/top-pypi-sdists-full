@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.27.1
+Version: 1.27.2
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt

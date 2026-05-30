@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-oauth-toolkit
-Version: 3.2.0
+Version: 3.3.0
 Summary: OAuth2 Provider for Django
 Author: Federico Frenguelli, Massimiliano Pippi
 Author-email: synasius@gmail.com
@@ -41,19 +41,18 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
@@ -109,8 +108,8 @@ Please report any security issues to the Django OAuth security team at <django-o
 Requirements
 ------------
 
-* Python 3.8, 3.9, 3.10, 3.11, 3.12, 3.13 or 3.14
-* Django 4.2, 5.0, 5.1 or 5.2
+* Python 3.10, 3.11, 3.12, 3.13 or 3.14
+* Django 4.2, 5.0, 5.1, 5.2 or 6.0
 * oauthlib 3.2.2+
 
 Installation

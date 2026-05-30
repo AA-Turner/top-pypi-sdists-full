@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents-evals
-Version: 0.2.0
+Version: 0.2.1
 Summary: Evaluation framework for Strands
 Author-email: AWS <opensource@amazon.com>
 License: Apache-2.0

@@ -6,7 +6,8 @@ from collections.abc import Callable, Mapping
 
 import httpx
 
-from ._authed_transport import PostBody, stream_post_with_size_cap
+from ._request_types import PostBody
+from ._streaming_post import stream_post_with_size_cap
 from .auth import AuthTokens, build_cookie_jar
 from .types import ConnectionLimits
 
@@ -29,13 +30,20 @@ class Kernel:
 
     @property
     def http_client(self) -> httpx.AsyncClient | None:
-        """Return the live HTTP client, or ``None`` when closed."""
-        return self._http_client
+        """Return the live HTTP client, or ``None`` when closed.
 
-    @http_client.setter
-    def http_client(self, value: httpx.AsyncClient | None) -> None:
-        # Test-injection seam for fixtures that swap the live transport.
-        self._http_client = value
+        The property is read-only by design. Production code mutates the
+        underlying client only through :meth:`open` (which constructs the
+        live client via the injected ``async_client_factory``) and
+        :meth:`aclose` (which nulls it on teardown). Tests that need to
+        substitute the live transport at construction time should inject
+        an ``async_client_factory`` into the client composition helper
+        (the factory is forwarded into this kernel's ``__init__``); tests
+        that need to swap the live client AFTER ``open()`` should use the
+        dedicated test helper at
+        ``tests/_fixtures/kernel_test_helpers.py``.
+        """
+        return self._http_client
 
     @property
     def cookies(self) -> httpx.Cookies:
@@ -90,7 +98,15 @@ class Kernel:
             follow_redirects=True,
             limits=limits.to_httpx_limits(),
         )
-        capture_cookie_snapshot(self._http_client.cookies)
+        # If the snapshot raises, __aenter__ has effectively failed, so Python
+        # never calls __aexit__ and the freshly built client would leak its
+        # connection pool. Close it and reset state before re-raising so a
+        # partial open cannot orphan a live client.
+        try:
+            capture_cookie_snapshot(self._http_client.cookies)
+        except BaseException:
+            await self.aclose()
+            raise
 
     async def post(
         self,

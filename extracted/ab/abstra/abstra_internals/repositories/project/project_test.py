@@ -24,6 +24,28 @@ class ProjectTests(TestCase):
     def tearDown(self) -> None:
         clear_dir(self.root)
 
+    def test_save_and_atomic_fire_abstra_json_notifier(self):
+        # The editor relies on this signal to broadcast + re-lint abstra.json
+        # in the cloud (no file watcher). Both write paths must fire it —
+        # create_stage/update_stage/etc. go through atomic(), not save().
+        from abstra_internals.services.notifiers import AbstraJsonChangeNotifier
+
+        calls = []
+
+        def listener():
+            calls.append(1)
+
+        AbstraJsonChangeNotifier.register(listener)
+        try:
+            self.project_repository.save(self.project_repository.load())
+            self.assertEqual(len(calls), 1, "save() should notify")
+
+            with self.project_repository.atomic():
+                pass
+            self.assertEqual(len(calls), 2, "atomic() should notify")
+        finally:
+            AbstraJsonChangeNotifier.unregister(listener)
+
     def test_delete_file_if_remove_file_true(self):
         project = self.project_repository.load()
         file = self.root / "script.py"

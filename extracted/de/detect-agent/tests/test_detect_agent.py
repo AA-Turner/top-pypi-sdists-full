@@ -15,6 +15,7 @@ from detect_agent import (
 _AGENT_ENV_VARS = (
     "AI_AGENT",
     "PI_CODING_AGENT",
+    "CURSOR_TRACE_ID",
     "CURSOR_AGENT",
     "CURSOR_EXTENSION_HOST_ROLE",
     "GEMINI_CLI",
@@ -90,11 +91,20 @@ class TestGitHubCopilotDetection:
         assert result == {"is_agent": True, "agent": {"name": KNOWN_AGENTS["GITHUB_COPILOT"]}}
 
 
+class TestV0Detection:
+    """v0 detection."""
+
+    def test_from_ai_agent_v0(self, monkeypatch):
+        monkeypatch.setenv("AI_AGENT", "v0")
+        result = determine_agent()
+        assert result == {"is_agent": True, "agent": {"name": KNOWN_AGENTS["V0"]}}
+
+
 class TestCursorDetection:
     """Cursor detection."""
 
-    def test_cursor_agent_set_detects_cursor(self, monkeypatch):
-        monkeypatch.setenv("CURSOR_AGENT", "1")
+    def test_cursor_trace_id_set_detects_cursor(self, monkeypatch):
+        monkeypatch.setenv("CURSOR_TRACE_ID", "some-uuid")
         result = determine_agent()
         assert result == {"is_agent": True, "agent": {"name": KNOWN_AGENTS["CURSOR"]}}
 
@@ -109,7 +119,7 @@ class TestCursorCliDetection:
     def test_cursor_agent_set_detects_cursor_cli(self, monkeypatch):
         monkeypatch.setenv("CURSOR_AGENT", "1")
         result = determine_agent()
-        assert result == {"is_agent": True, "agent": {"name": KNOWN_AGENTS["CURSOR"]}}
+        assert result == {"is_agent": True, "agent": {"name": KNOWN_AGENTS["CURSOR_CLI"]}}
 
     def test_cursor_extension_host_role_agent_exec_detects_cursor_cli(self, monkeypatch):
         monkeypatch.setenv("CURSOR_EXTENSION_HOST_ROLE", "agent-exec")
@@ -275,6 +285,8 @@ class TestPriorityOrderDetection:
 
     def test_ai_agent_takes_highest_priority(self, monkeypatch):
         monkeypatch.setenv("AI_AGENT", "custom-priority")
+        monkeypatch.setenv("PI_CODING_AGENT", "1")
+        monkeypatch.setenv("CURSOR_TRACE_ID", "some-uuid")
         monkeypatch.setenv("CURSOR_AGENT", "1")
         monkeypatch.setenv("GEMINI_CLI", "1")
         monkeypatch.setenv("CODEX_SANDBOX", "seatbelt")
@@ -291,7 +303,8 @@ class TestPriorityOrderDetection:
             result = determine_agent()
         assert result == {"is_agent": True, "agent": {"name": "custom-priority"}}
 
-    def test_cursor_agent_takes_priority_over_remaining_agents(self, monkeypatch):
+    def test_cursor_trace_id_takes_priority_over_remaining_agents(self, monkeypatch):
+        monkeypatch.setenv("CURSOR_TRACE_ID", "some-uuid")
         monkeypatch.setenv("CURSOR_AGENT", "1")
         monkeypatch.setenv("GEMINI_CLI", "1")
         monkeypatch.setenv("CODEX_SANDBOX", "seatbelt")
@@ -308,12 +321,30 @@ class TestPriorityOrderDetection:
             result = determine_agent()
         assert result == {"is_agent": True, "agent": {"name": KNOWN_AGENTS["CURSOR"]}}
 
+    def test_cursor_agent_takes_priority_over_remaining_agents(self, monkeypatch):
+        monkeypatch.setenv("CURSOR_AGENT", "1")
+        monkeypatch.setenv("GEMINI_CLI", "1")
+        monkeypatch.setenv("CODEX_SANDBOX", "seatbelt")
+        monkeypatch.setenv("ANTIGRAVITY_AGENT", "1")
+        monkeypatch.setenv("AUGMENT_AGENT", "1")
+        monkeypatch.setenv("OPENCODE_CLIENT", "opencode")
+        monkeypatch.setenv("CLAUDE_CODE", "1")
+        monkeypatch.setenv("REPL_ID", "1")
+        monkeypatch.setenv("COPILOT_MODEL", "gpt-5")
+        monkeypatch.setenv("COPILOT_ALLOW_ALL", "true")
+        monkeypatch.setenv("COPILOT_GITHUB_TOKEN", "ghp_xxx")
+        with patch.object(Path, "exists") as mock_exists:
+            mock_exists.side_effect = lambda self: str(self) == DEVIN_LOCAL_PATH
+            result = determine_agent()
+        assert result == {"is_agent": True, "agent": {"name": KNOWN_AGENTS["CURSOR_CLI"]}}
+
 
 class TestEdgeCases:
     """Edge cases."""
 
     def test_empty_string_env_vars(self, monkeypatch):
         monkeypatch.setenv("AI_AGENT", "")
+        monkeypatch.setenv("CURSOR_TRACE_ID", "")
         result = determine_agent()
         assert result == {"is_agent": False, "agent": None}
 
@@ -347,7 +378,7 @@ class TestConvenienceMethods:
         assert result["is_agent"] is True
 
     def test_agent_details_when_detected(self, monkeypatch):
-        monkeypatch.setenv("CURSOR_AGENT", "1")
+        monkeypatch.setenv("CURSOR_TRACE_ID", "some-id")
         result = determine_agent()
         assert result["is_agent"] is True
         assert result.get("agent") is not None

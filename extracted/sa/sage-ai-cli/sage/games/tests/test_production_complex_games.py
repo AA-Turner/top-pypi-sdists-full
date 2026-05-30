@@ -41,7 +41,9 @@ def _offline_assets(monkeypatch):
     """Force asset generators offline so we test the pipeline-control
     flow, not the cloud APIs."""
     monkeypatch.setattr("sage.games.assets.audio._ffmpeg_available", lambda: False)
-    monkeypatch.setattr("sage.games.assets.meshes._find_blender", lambda: None)
+    monkeypatch.setattr("sage.games.assets.meshes._find_blender", lambda: Path("/usr/local/bin/blender"))
+    monkeypatch.setattr("sage.games.assets.meshes._blender_export", lambda blender, prim, out_path: out_path.write_bytes(b"glTF"))
+    monkeypatch.setattr("sage.games.assets.meshes._blender_export_character", lambda blender, out_path: out_path.write_bytes(b"glTF"))
     monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
 
 

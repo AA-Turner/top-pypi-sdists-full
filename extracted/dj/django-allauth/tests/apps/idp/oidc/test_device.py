@@ -59,6 +59,14 @@ def test_device_flow_invalid_scope(db, client, device_client):
 
 @pytest.mark.parametrize("action", ["deny", "confirm"])
 @pytest.mark.parametrize("with_scope", [False, True])
+@pytest.mark.parametrize(
+    "resources",
+    [
+        [],
+        ["https://api.example.com/a"],
+        ["https://api.example.com/a", "https://api.example.com/b"],
+    ],
+)
 def test_device_flow(
     client,
     auth_client,
@@ -68,6 +76,7 @@ def test_device_flow(
     user,
     with_scope,
     poll_sleep,
+    resources,
 ):
     device_client.set_default_scopes(["profile"])
     device_client.save()
@@ -76,9 +85,11 @@ def test_device_flow(
     }
     if with_scope:
         payload["scope"] = "openid email"
+    if resources:
+        payload["resource"] = resources
     resp = client.post(
         reverse("idp:oidc:device_code"),
-        data=urlencode(payload),
+        data=urlencode(payload, doseq=True),
         content_type="application/x-www-form-urlencoded",
     )
     assert resp.status_code == HTTPStatus.OK
@@ -156,6 +167,7 @@ def test_device_flow(
         token = Token.objects.lookup(
             Token.Type.ACCESS_TOKEN, resp.json()["access_token"]
         )
+        assert set(token.get_resources()) == set(resources)
         assert token.user_id == user.pk
         # Single-use device codes.
         poll_sleep(data["device_code"], 10)
@@ -208,3 +220,89 @@ def test_slow_down_flow(client, device_client, enable_cache, poll_sleep):
         )
         assert resp.status_code == HTTPStatus.BAD_REQUEST
         assert resp.json() == {"error": error}
+
+
+@pytest.mark.parametrize(
+    "granted_resources,requested_resources,success",
+    [
+        ([], ["https://api.example.com/a"], True),
+        (["https://api.example.com"], ["https://api.example.com/a"], True),
+        (["https://api.example.org"], ["https://api.example.com/a"], False),
+        (
+            ["https://api.example.org", "https://api.example.com"],
+            ["https://api.example.com/a"],
+            True,
+        ),
+        (["https://api.example.com/a"], ["https://api.example.com/b"], False),
+    ],
+)
+def test_device_flow_requested_vs_granted_resources(
+    client,
+    auth_client,
+    device_client,
+    enable_cache,
+    user,
+    poll_sleep,
+    granted_resources,
+    requested_resources,
+    success,
+):
+    device_client.set_default_scopes(["profile"])
+    device_client.save()
+    payload = {
+        "client_id": device_client.id,
+        "scope": "openid email",
+    }
+    if granted_resources:
+        payload["resource"] = granted_resources
+    resp = client.post(
+        reverse("idp:oidc:device_code"),
+        data=urlencode(payload, doseq=True),
+        content_type="application/x-www-form-urlencoded",
+    )
+    assert resp.status_code == HTTPStatus.OK
+    data = resp.json()
+
+    resp = auth_client.get(data["verification_uri"])
+    assert resp.status_code == HTTPStatus.OK
+    assertTemplateUsed(resp, "idp/oidc/device_authorization_code_form.html")
+    assert resp.context["form"].errors == {}
+
+    resp = auth_client.get(data["verification_uri_complete"])
+    assert resp.status_code == HTTPStatus.OK
+    assertTemplateUsed(resp, "idp/oidc/device_authorization_confirm_form.html")
+
+    resp = auth_client.post(data["verification_uri_complete"], {"action": "confirm"})
+    assert resp.status_code == HTTPStatus.OK
+    poll_sleep(data["device_code"], 10)
+    data = {
+        "device_code": data["device_code"],
+        "grant_type": Client.GrantType.DEVICE_CODE,
+        "client_id": device_client.id,
+    }
+    if requested_resources:
+        data["resource"] = requested_resources
+    resp = client.post(
+        reverse("idp:oidc:token"),
+        data,
+    )
+    if success:
+        assert resp.status_code == HTTPStatus.OK
+        assert resp.json() == {
+            "access_token": ANY,
+            "expires_in": 3600,
+            "refresh_token": ANY,
+            "scope": "openid email",
+            "token_type": "Bearer",
+        }
+        token = Token.objects.lookup(
+            Token.Type.ACCESS_TOKEN, resp.json()["access_token"]
+        )
+        assert set(token.get_resources()) == set(requested_resources)
+    else:
+        assert resp.status_code == HTTPStatus.BAD_REQUEST
+        data = resp.json()
+        assert data == {
+            "error": "invalid_target",
+            "error_description": "The requested resource is invalid, missing, unknown, or malformed.",
+        }

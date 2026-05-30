@@ -31,16 +31,15 @@ const SERVICE_OPEN_CID_TAG: i64 = 1_i64 << 62;
 /// Max wall time we'll wait for an async open_service reply.
 const SERVICE_OPEN_TIMEOUT_MS: u64 = 10_000;
 
-const EXCEL_GET_GRID_OPERATION: &str = "ExcelGetGridRequest";
-
 use super::dispatch::DispatchKey;
 use super::state::{
     BqlState, BsrchState, BulkDataState, FieldInfoState, GenericState, HistDataState,
     HistDataStreamState, IntradayBarState, IntradayBarStreamState, IntradayTickState,
-    IntradayTickStreamState, LongMode, OutputFormat, RefDataState,
+    IntradayTickStreamState, RefDataState,
 };
 use super::{
-    start_configured_session, EngineConfig, ExtractorType, RequestParams, SlabKey, WorkerHealth,
+    start_configured_session, EngineConfig, PlannedRequestShape, PreparedRequest, RequestParams,
+    SlabKey, WorkerHealth,
 };
 
 fn iter_named_request_parameters(
@@ -111,16 +110,14 @@ fn apply_excel_grid_request_parameters(
 }
 
 /// Commands sent to a request worker.
-pub enum WorkerCommand {
-    /// Execute a request and send result via oneshot channel.
-    Request {
-        params: RequestParams,
+pub(crate) enum WorkerCommand {
+    PreparedRequest {
+        request: PreparedRequest,
         reply: oneshot::Sender<Result<RecordBatch, BlpError>>,
         cancelled: Arc<AtomicBool>,
     },
-    /// Execute a streaming request and send batches via mpsc channel.
-    RequestStream {
-        params: RequestParams,
+    PreparedRequestStream {
+        request: PreparedRequest,
         stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
     },
     /// Introspect a service's schema.
@@ -338,17 +335,17 @@ impl RequestWorker {
                         xbbg_log::info!(worker_id = self.id, "RequestWorker shutting down");
                         return Ok(());
                     }
-                    Ok(WorkerCommand::Request {
-                        params,
+                    Ok(WorkerCommand::PreparedRequest {
+                        request,
                         reply,
                         cancelled,
                     }) => {
-                        if let Err(e) = self.send_request(params, reply, cancelled) {
+                        if let Err(e) = self.send_request(request, reply, cancelled) {
                             xbbg_log::error!(worker_id = self.id, error = %e, "request error");
                         }
                     }
-                    Ok(WorkerCommand::RequestStream { params, stream }) => {
-                        if let Err(e) = self.send_request_stream(params, stream) {
+                    Ok(WorkerCommand::PreparedRequestStream { request, stream }) => {
+                        if let Err(e) = self.send_request_stream(request, stream) {
                             xbbg_log::error!(worker_id = self.id, error = %e, "stream request error");
                         }
                     }
@@ -558,13 +555,14 @@ impl RequestWorker {
         Ok(schema)
     }
 
-    /// Unified request handler - routes to correct state based on extractor type.
+    /// Unified request handler - routes to correct state based on the prepared request kind.
     fn send_request(
         &mut self,
-        params: RequestParams,
+        request: PreparedRequest,
         reply: oneshot::Sender<Result<RecordBatch, BlpError>>,
         cancelled: Arc<AtomicBool>,
     ) -> Result<(), BlpError> {
+        let params = request.params();
         let t0 = std::time::Instant::now();
         if let Err(error) = self.ensure_service(&params.service) {
             let _ = reply.send(Err(error));
@@ -576,14 +574,13 @@ impl RequestWorker {
             "ensure_service"
         );
 
-        // Create state based on extractor type
         xbbg_log::debug!(
             worker_id = self.id,
-            extractor = ?params.extractor,
+            shape = ?request.shape(),
             fields = ?params.fields,
             "creating request state"
         );
-        let state = self.create_request_state(&params, reply);
+        let state = self.create_request_state(&request, reply);
         xbbg_log::debug!(worker_id = self.id, "request state created");
 
         let key = self.requests.insert(state);
@@ -591,24 +588,25 @@ impl RequestWorker {
         let cid = dispatch_key.to_correlation_id();
 
         let result = (|| -> Result<(), BlpError> {
+            let params = request.params();
             // Build request from params using a short-lived service view borrowed
             // from this worker's session. Do not cache the SDK service handle;
             // Bloomberg owns it through the session.
             let service = self.session.get_service(&params.service)?;
             xbbg_log::debug!(
                 worker_id = self.id,
-                operation = %params.effective_operation(),
+                operation = %request.effective_operation(),
                 securities = ?params.securities,
                 start_date = ?params.start_date,
                 end_date = ?params.end_date,
                 "building request"
             );
-            let request = self.build_request_from_params(&service, &params)?;
+            let blp_request = self.build_request_from_params(&service, &request)?;
             xbbg_log::debug!(worker_id = self.id, "request built");
 
             let t_send = std::time::Instant::now();
             let actual_cid = self.session.send_request_with_label(
-                &request,
+                &blp_request,
                 None,
                 Some(&cid),
                 params.request_id.as_deref(),
@@ -638,7 +636,7 @@ impl RequestWorker {
                 worker_id = self.id,
                 key = key,
                 service = %params.service,
-                operation = %params.effective_operation(),
+                operation = %request.effective_operation(),
                 "request sent"
             );
             Ok(())
@@ -655,69 +653,47 @@ impl RequestWorker {
         Ok(())
     }
 
-    /// Create the appropriate request state based on extractor type.
+    /// Create the appropriate request state based on the prepared request kind.
     fn create_request_state(
         &self,
-        params: &RequestParams,
+        request: &PreparedRequest,
         reply: oneshot::Sender<Result<RecordBatch, BlpError>>,
     ) -> UnifiedRequestState {
+        let params = request.params();
         let fields = params.fields.clone().unwrap_or_default();
         let field_types = params.field_types.clone();
 
-        let state = match params.extractor {
-            ExtractorType::RefData => {
-                let (output_format, long_mode) = params
-                    .format
-                    .as_deref()
-                    .map(|s| match s {
-                        "semi_long" | "wide" => (OutputFormat::Wide, LongMode::String),
-                        "long_typed" | "typed" => (OutputFormat::Long, LongMode::Typed),
-                        "long_metadata" | "metadata" | "with_metadata" => {
-                            (OutputFormat::Long, LongMode::WithMetadata)
-                        }
-                        _ => (OutputFormat::Long, LongMode::String),
-                    })
-                    .unwrap_or((OutputFormat::Long, LongMode::String));
+        match request.shape() {
+            PlannedRequestShape::RefData(output) => {
                 UnifiedRequestState::RefData(RefDataState::with_format(
                     fields,
-                    output_format,
-                    long_mode,
+                    output.format,
+                    output.long_mode,
                     field_types,
                     params.include_security_errors,
                     reply,
                 ))
             }
-            ExtractorType::HistData => {
-                // Parse format parameter for long/wide mode
-                let (output_format, long_mode) = params
-                    .format
-                    .as_deref()
-                    .map(|s| match s {
-                        "semi_long" | "wide" => (OutputFormat::Wide, LongMode::String),
-                        "long_typed" | "typed" => (OutputFormat::Long, LongMode::Typed),
-                        "long_metadata" | "metadata" | "with_metadata" => {
-                            (OutputFormat::Long, LongMode::WithMetadata)
-                        }
-                        _ => (OutputFormat::Long, LongMode::String),
-                    })
-                    .unwrap_or((OutputFormat::Long, LongMode::String));
+            PlannedRequestShape::HistData(output) => {
                 UnifiedRequestState::HistData(HistDataState::with_format(
                     fields,
-                    output_format,
-                    long_mode,
+                    output.format,
+                    output.long_mode,
                     field_types,
                     reply,
                 ))
             }
-            ExtractorType::BulkData => {
+            PlannedRequestShape::BulkData => {
                 let field = fields.first().cloned().unwrap_or_default();
                 UnifiedRequestState::BulkData(BulkDataState::new(field, reply))
             }
-            ExtractorType::Generic => UnifiedRequestState::Generic(GenericState::new(reply)),
-            ExtractorType::Bql => UnifiedRequestState::Bql(BqlState::new(reply)),
-            ExtractorType::Bsrch => UnifiedRequestState::Bsrch(BsrchState::new(reply)),
-            ExtractorType::FieldInfo => UnifiedRequestState::FieldInfo(FieldInfoState::new(reply)),
-            ExtractorType::IntradayBar => {
+            PlannedRequestShape::Generic => UnifiedRequestState::Generic(GenericState::new(reply)),
+            PlannedRequestShape::Bql => UnifiedRequestState::Bql(BqlState::new(reply)),
+            PlannedRequestShape::Bsrch => UnifiedRequestState::Bsrch(BsrchState::new(reply)),
+            PlannedRequestShape::FieldInfo => {
+                UnifiedRequestState::FieldInfo(FieldInfoState::new(reply))
+            }
+            PlannedRequestShape::IntradayBar => {
                 // IntradayBarRequest has no column-adding elements (maxDataPoints,
                 // gapFillInitialBar, adjustment*, etc. are behavior-only). The response
                 // shape is always `barData.barTickData[]` with the same fields.
@@ -731,32 +707,31 @@ impl RequestWorker {
                     ticker, event_type, interval, reply,
                 ))
             }
-            ExtractorType::IntradayTick => {
+            PlannedRequestShape::IntradayTick => {
                 let ticker = params.security.clone().unwrap_or_default();
                 UnifiedRequestState::IntradayTick(IntradayTickState::new(ticker, reply))
             }
-        };
-
-        state
+        }
     }
 
     /// Unified streaming request handler.
     fn send_request_stream(
         &mut self,
-        params: RequestParams,
+        request: PreparedRequest,
         stream: mpsc::Sender<Result<RecordBatch, BlpError>>,
     ) -> Result<(), BlpError> {
+        let params = request.params();
         let fields = params.fields.clone().unwrap_or_default();
         let ticker = params.security.clone().unwrap_or_default();
 
-        let state = match params.extractor {
-            ExtractorType::HistData => {
+        let state = match request.shape() {
+            PlannedRequestShape::HistData(_) => {
                 UnifiedRequestState::HistDataStream(HistDataStreamState::new(fields, stream))
             }
-            ExtractorType::IntradayBar => {
+            PlannedRequestShape::IntradayBar => {
                 UnifiedRequestState::IntradayBarStream(IntradayBarStreamState::new(ticker, stream))
             }
-            ExtractorType::IntradayTick => UnifiedRequestState::IntradayTickStream(
+            PlannedRequestShape::IntradayTick => UnifiedRequestState::IntradayTickStream(
                 IntradayTickStreamState::new(ticker, stream),
             ),
             _ => {
@@ -783,10 +758,11 @@ impl RequestWorker {
         let cid = dispatch_key.to_correlation_id();
 
         let result = (|| -> Result<(), BlpError> {
+            let params = request.params();
             let service = self.session.get_service(&params.service)?;
-            let request = self.build_request_from_params(&service, &params)?;
+            let blp_request = self.build_request_from_params(&service, &request)?;
 
-            let actual_cid = self.session.send_request(&request, None, Some(&cid))?;
+            let actual_cid = self.session.send_request(&blp_request, None, Some(&cid))?;
             let actual_dispatch_key =
                 DispatchKey::from_correlation_id(&actual_cid).ok_or_else(|| {
                     BlpError::Internal {
@@ -809,7 +785,7 @@ impl RequestWorker {
                 worker_id = self.id,
                 key = key,
                 service = %params.service,
-                operation = %params.effective_operation(),
+                operation = %request.effective_operation(),
                 "stream request sent"
             );
             Ok(())
@@ -826,18 +802,19 @@ impl RequestWorker {
         Ok(())
     }
 
-    /// Build a Bloomberg request from generic RequestParams.
+    /// Build a Bloomberg request from a prepared request.
     fn build_request_from_params(
         &self,
         service: &xbbg_core::Service<'_>,
-        params: &RequestParams,
+        prepared: &PreparedRequest,
     ) -> Result<xbbg_core::Request, BlpError> {
-        let operation = params.effective_operation();
+        let params = prepared.params();
+        let operation = prepared.effective_operation();
         xbbg_log::trace!(operation = %operation, "creating request");
         let mut request = service.create_request(operation)?;
         xbbg_log::trace!("request created");
 
-        if params.effective_operation() == EXCEL_GET_GRID_OPERATION {
+        if prepared.is_excel_get_grid_request() {
             apply_excel_grid_request_parameters(&mut request, params)?;
             return Ok(request);
         }
@@ -850,12 +827,9 @@ impl RequestWorker {
             }
         }
         if let Some(ref security) = params.security {
-            // For intraday requests, "security" is a scalar element (use set_str)
-            // For other requests, add to "securities" array (use append_str)
-            if matches!(
-                params.extractor,
-                ExtractorType::IntradayBar | ExtractorType::IntradayTick
-            ) {
+            // Bloomberg intraday operations use a scalar "security" element; other
+            // operations treat the singular convenience input as one "securities" entry.
+            if prepared.uses_intraday_security_element() {
                 xbbg_log::trace!(element = "security", value = %security, "setting scalar");
                 request.set_str("security", security)?;
             } else {
@@ -1204,7 +1178,7 @@ pub struct WorkerHandle {
     /// Worker ID.
     pub id: usize,
     /// Command channel to send requests.
-    pub cmd_tx: mpsc::Sender<WorkerCommand>,
+    pub(crate) cmd_tx: mpsc::Sender<WorkerCommand>,
     /// Thread handle (for shutdown).
     thread: Option<JoinHandle<()>>,
     health: Arc<AtomicU8>,

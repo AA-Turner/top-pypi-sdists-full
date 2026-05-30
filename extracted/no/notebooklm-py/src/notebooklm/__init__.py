@@ -57,9 +57,13 @@ from .exceptions import (
     # Domain: Artifacts
     ArtifactDownloadError,
     ArtifactError,
+    ArtifactFeatureUnavailableError,
+    ArtifactInProgressTimeoutError,
     ArtifactNotFoundError,
     ArtifactNotReadyError,
     ArtifactParseError,
+    ArtifactPendingTimeoutError,
+    ArtifactTimeoutError,
     # RPC Protocol
     AuthError,
     AuthExtractionError,
@@ -80,6 +84,8 @@ from .exceptions import (
     # Base
     NotebookLMError,
     NotebookNotFoundError,
+    # Cross-domain umbrellas
+    NotFoundError,
     RateLimitError,
     # Domain: Research
     ResearchTaskMismatchError,
@@ -193,6 +199,8 @@ __all__ = [
     "NotebookLMError",
     "ValidationError",
     "ConfigurationError",
+    # Cross-domain umbrellas
+    "NotFoundError",
     # RPC/Network Exceptions
     "RPCError",
     "DecodingError",
@@ -222,10 +230,14 @@ __all__ = [
     "SourceNotFoundError",
     # Domain Exceptions: Artifacts
     "ArtifactError",
+    "ArtifactFeatureUnavailableError",
     "ArtifactNotFoundError",
     "ArtifactNotReadyError",
     "ArtifactParseError",
     "ArtifactDownloadError",
+    "ArtifactTimeoutError",
+    "ArtifactPendingTimeoutError",
+    "ArtifactInProgressTimeoutError",
     # Domain Exceptions: Research
     "ResearchTaskMismatchError",
     # Warnings

@@ -408,28 +408,23 @@ class SageHostedProvider(ProviderBase):
         #
         # Old behavior: 20 retries × 60s = 20 min/file × parallel × stuck
         # files = sage blocked for hours doing nothing useful.
-        # Higher retry ceiling for overnight builds: a 5-retry cap was killing
-        # the principal builder mid-feature when qwen3-coder hit a transient
-        # 5xx during scale-up. 15 retries with capped 30s delays still fails
-        # fast on truly-broken backends (~5 min total) but survives multi-minute
-        # cold-start windows on a fresh GPU instance.
-        _MAX_RETRIES = 15
+        # Retries for overnight builds to survive transient outages / scale-ups.
+        _MAX_RETRIES = 8
         _last_exc: Exception | None = None
 
         for _attempt in range(_MAX_RETRIES):
             if _attempt > 0:
-                _delay = min(30, 3 * _attempt)  # 3,6,9,12,15,18,21,24,27,30...
-                import sys as _sys
-                _sys.stderr.write(
-                    f"  ↺ retry {_attempt}/{_MAX_RETRIES - 1} ({_delay}s)...\n"
+                _delay = min(30, 3 * _attempt)  # 3,6,9,12,15,18,21,24...
+                print(
+                    f"      [warn] cloud API call failed — retrying {_attempt}/{_MAX_RETRIES - 1} (sleeping {_delay}s)...",
+                    flush=True,
                 )
-                _sys.stderr.flush()
                 _time.sleep(_delay)
                 auth = self._auth_or_raise()
 
             try:
-                # Generous timeout: connect=120s for cold pods, read=300s for large responses
-                _gen_timeout = httpx.Timeout(connect=120.0, read=300.0, write=120.0, pool=10.0)
+                # connect=120s for cold pods, read=120s (was 300s) to fail fast on dead connection hangs
+                _gen_timeout = httpx.Timeout(connect=120.0, read=120.0, write=120.0, pool=10.0)
                 with httpx.Client(timeout=_gen_timeout) as client:
                     response = client.post(
                         f"{self._api_base}/chat",

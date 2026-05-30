@@ -22,15 +22,14 @@ Forbidden patterns
 
        monkeypatch.setattr(notebooklm._core, "asyncio", fake_asyncio)
 
-3. **Direct attribute assignment of ``AsyncMock`` to the core's RPC/
+3. **Direct attribute assignment of ``AsyncMock`` to the RPC/
    transport surface** — mutates an instance instead of injecting at
    construction. Caught with a negative-lookbehind so chained forms like
-   ``self._client._core.rpc_call = AsyncMock(...)`` are also reported.
+   ``self._client._target.rpc_call = AsyncMock(...)`` are also reported.
 
    .. code-block:: python
 
-       core.rpc_call = AsyncMock(return_value=None)
-       client._core._perform_authed_post = AsyncMock()
+       target.rpc_call = AsyncMock(return_value=None)
 
 Allowlist
 ---------
@@ -100,15 +99,31 @@ _PATTERN_OBJECT_ATTR = re.compile(r"monkeypatch\.setattr\(\s*notebooklm\.")
 #
 # The negative-lookbehind ``(?<![\w.])`` ensures the matched chain *starts*
 # at a word boundary, so we match the full chain regardless of how deep
-# the dotted prefix goes (``core.rpc_call`` and
-# ``self._client._core.rpc_call`` both fire). Without the lookbehind,
+# the dotted prefix goes (``target.rpc_call`` and
+# ``self._client._target.rpc_call`` both fire). Without the lookbehind,
 # regex backtracking could shorten the prefix and create overlapping
 # matches; with it, each occurrence is reported once with the natural
 # start position.
 _PATTERN_ASYNCMOCK_ASSIGN = re.compile(
-    r"(?<![\w.])[\w.]+\."
-    r"(rpc_call|_perform_authed_post|_begin_transport_post|_begin_transport_task|_finish_transport_post)"
-    r"\s*=\s*(?:[\w]+\.)*AsyncMock"
+    # Method-name enumeration kept INTENTIONALLY broad — not narrowed to
+    # only the methods that still exist on ``Session`` (per gemini-code-
+    # assist's review on PR #1078 / Wave 11c). The lint exists precisely
+    # to catch dynamic attribute assignment of ``AsyncMock`` onto a fake
+    # or duck-typed collaborator — those targets are bag-of-attributes
+    # fakes (``MagicMock``, ``FakeSession``) that happily accept *any*
+    # attribute name regardless of whether the production class still
+    # defines it. Removing a deleted method name from this enumeration
+    # would create a silent escape hatch: a test that re-introduces the
+    # forbidden ``<chain>.transport_post = AsyncMock(...)`` pattern
+    # against a ``MagicMock(spec=...)`` would no longer surface, even
+    # though that is exactly the ADR-007 violation the lint is supposed
+    # to catch. ``rpc_call`` is the canonical core-RPC seam; the
+    # transport-side names retained here
+    # (``transport_post`` / ``_perform_authed_post`` / ``next_reqid`` /
+    # ``save_cookies``) were deleted from ``Session`` in Waves 11a-11c
+    # but remain in this enumeration so the lint keeps catching dynamic
+    # re-assignment of them on a fake.
+    r"(?<![\w.])[\w.]+\.(?:rpc_call|transport_post|_perform_authed_post|next_reqid|save_cookies)\s*=\s*(?:[\w]+\.)*AsyncMock"
 )
 
 _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -125,93 +140,77 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 _ALLOWLIST: frozenset[str] = frozenset(
     {
+        # CLI VCR test patches `notebooklm.cli.services.login.refresh.*` and
+        # `notebooklm.auth.account.*` module-level seams (browser-cookie
+        # extraction, account profile loaders) — these are CLI-side seams above
+        # the `NotebookLMClient` core that `make_fake_core(...)` covers.
+        # reason: CLI-side module seam — out of scope for `make_fake_core` (core-injection only)
         "tests/integration/cli_vcr/test_login_browser_cookies.py",
+        # reason: loop-affinity violation test — raw patch required
         "tests/integration/concurrency/test_aexit_exception_masking.py",
+        # reason: loop-affinity violation test — raw patch required
         "tests/integration/concurrency/test_download_blocks_loop.py",
+        # reason: loop-affinity violation test — raw patch required
         "tests/integration/concurrency/test_idempotency_create.py",
+        # reason: loop-affinity violation test — raw patch required
         "tests/integration/concurrency/test_upload_blocks_loop.py",
+        # reason: loop-affinity violation test — raw patch required
         "tests/integration/concurrency/test_upload_cancel_dangling_session.py",
-        "tests/integration/test_artifacts_drift.py",
-        "tests/integration/test_artifacts_integration.py",
-        "tests/integration/test_get_summary_drift.py",
+        # reason: integration test patches transport-side
+        # `notebooklm.<module>.*` stdlib seams (httpx-level overrides for
+        # side-effects/idempotency cassettes); these patches sit below the
+        # core-injection seam that `make_fake_core` covers.
         "tests/integration/test_side_effects_idempotency.py",
+        # reason: integration test patches transport-side `notebooklm.<module>.*`
+        # stdlib seams (httpx-level overrides for sources idempotency cassettes);
+        # below the core-injection seam covered by `make_fake_core`.
         "tests/integration/test_sources_idempotency.py",
+        # reason: CLI conftest patches `notebooklm.cli.*` module-level seams
+        # (resolvers, click context shims) above the `NotebookLMClient` core
+        # that `make_fake_core(...)` covers.
         "tests/unit/cli/conftest.py",
+        # reason: download-collision concurrency test exercises raw Session-attribute
+        # mutation to provoke download-id collision races; not a candidate for
+        # constructor injection since the test is *about* attribute-level races.
         "tests/unit/concurrency/test_download_collision.py",
+        # reason: public API coverage smoke-test imports `notebooklm.<feature>`
+        # facades to assert re-export shapes; the string-target patches verify
+        # the facade itself, not the core surface.
         "tests/unit/test_api_coverage.py",
-        "tests/unit/test_artifact_downloads.py",
-        "tests/unit/test_artifacts_coverage.py",
+        # reason: cookie save-race test patches module-level
+        # `_try_claim_rotation`, `_file_lock_try_exclusive`,
+        # `save_cookies_to_storage` rotation/lock helpers — outside the
+        # core-injection surface.
         "tests/unit/test_auth_cookie_save_race.py",
-        # PSIDTS inline recovery (issue #865) — patches module-level
-        # seams (``_try_claim_rotation``, ``_file_lock_try_exclusive``,
-        # ``save_cookies_to_storage``, ``_load_storage_state``, and
-        # ``get_storage_path``) that are NOT part of the core-injection
-        # surface ``tests/_fixtures/make_fake_core(...)`` covers. Same
-        # rationale as the neighboring ``test_auth_cookie_save_race.py``
-        # and ``test_auth_session.py`` entries; revisit when ADR-007's
-        # seam-substitution pattern is extended to cover module-level
-        # rotation/lock helpers.
+        # reason: PSIDTS inline recovery (issue #865) patches module-level
+        # rotation/lock seams (`_try_claim_rotation`, `_file_lock_try_exclusive`,
+        # `save_cookies_to_storage`, `_load_storage_state`, `get_storage_path`)
+        # — outside the core-injection surface `make_fake_core` covers.
         "tests/unit/test_auth_psidts_recovery.py",
-        "tests/unit/test_backoff.py",
-        "tests/unit/test_chat_delete_conversation.py",
-        # Phase 2 PR 5 migrated this file's ``asyncio.to_thread`` patch
-        # off the legacy ``notebooklm._core.asyncio.to_thread`` shim onto
-        # its canonical importing module
-        # (``notebooklm._session_lifecycle.asyncio.to_thread``, where
-        # ``ClientLifecycle.save_cookies`` sources it). The new patch
-        # target is still a string-target into the ``notebooklm.*``
-        # namespace, so the file lands on the allowlist with the rest of
-        # the stdlib-seam patchers (``test_authed_transport.py``,
-        # ``test_rpc_executor.py``, ``test_side_effects_idempotency.py``,
-        # …) until ADR-007's pattern is extended to stdlib seams.
-        "tests/unit/test_cookie_persistence.py",
-        # ``tests/unit/test_session_lifecycle.py`` removed from allowlist in
-        # Phase 4 (v0.5.0): the file's monkeypatch.setattr sites that targeted
-        # ``notebooklm._core.*`` were retargeted to the canonical seams
-        # (_auth.storage / _auth.keepalive / _error_injection) when the
-        # ``_core`` compatibility shim was deleted.
+        # reason: RPC executor unit test stub-patches `notebooklm._rpc_executor`
+        # module-level stdlib seams (asyncio.sleep, time providers) on the
+        # executor module itself — below the core-injection seam.
         "tests/unit/test_rpc_executor.py",
-        "tests/unit/test_authed_transport.py",
-        "tests/unit/test_download_url.py",
+        # reason: authed-post pipeline test patches `notebooklm._streaming_post`
+        # and `notebooklm._transport_errors` module-level stdlib seams (httpx
+        # response builders, time/retry helpers) — transport-layer seams below
+        # the core-injection surface.
+        "tests/unit/test_authed_post_pipeline.py",
+        # reason: Firefox container detection test patches module-level
+        # `notebooklm.cli.services.login.firefox_accounts.*` filesystem and
+        # database-discovery helpers — CLI-side seam outside `make_fake_core`.
         "tests/unit/test_firefox_containers.py",
-        # P3.T1 generate-extraction service tests stub the CLI resolver
-        # functions (``notebooklm.cli.resolve.resolve_notebook_id`` and
-        # ``resolve_source_ids``) via ``monkeypatch.setattr`` string targets.
-        # Those resolvers are module-level CLI seams above the
-        # ``NotebookLMClient`` core that ``make_fake_core(...)`` covers, so
-        # the same string-target pattern that ``test_public_shims.py`` /
-        # ``test_rpc_call_public_surface.py`` use for their non-core seams
-        # is required here. Revisit when ADR-007's seam-substitution pattern
-        # is extended to cover the CLI resolver surface.
-        "tests/unit/test_generate_service.py",
-        "tests/unit/test_idempotency_registry.py",
+        # reason: client __init__ ordering test patches construction helpers to
+        # assert wiring order — verifies construction sequencing, not a core method seam.
         "tests/unit/test_init_order.py",
-        "tests/unit/test_migration_lock.py",
-        "tests/unit/test_notebook_api.py",
-        "tests/unit/test_notes_unit.py",
+        # reason: public-API shim test asserts forwarding of `notebooklm.<x>`
+        # facades; the string-target patches *are* the test subject (shim
+        # routing) rather than an incidental implementation detail.
         "tests/unit/test_public_shims.py",
-        # Public ``NotebookLMClient.rpc_call`` deprecation-warning tests
-        # (Phase 1 PR-2). The fixture-injection path
-        # (``make_fake_core(...)``) targets sub-clients constructed with
-        # an externally-supplied core (``NotebooksAPI(fake)``); the
-        # *public* ``NotebookLMClient`` constructs its own ``_core`` via
-        # ``Session(...)`` inside ``__init__`` and exposes no DI seam,
-        # so the same ``client._core.rpc_call = AsyncMock(...)`` pattern
-        # already on the allowlist for the neighboring
-        # ``test_public_shims.py::test_client_rpc_call_delegates_keyword_for_keyword``
-        # is required here. Revisit when ADR-007's seam-substitution
-        # pattern is extended to cover the public-client surface.
-        "tests/unit/test_rpc_call_public_surface.py",
-        "tests/unit/test_quota_failure_detection.py",
+        # reason: RPC overrides test patches `notebooklm.rpc.types.RPC_METHOD_OVERRIDES`
+        # module-level mapping used during request encoding — module-level data
+        # seam, not a core attribute.
         "tests/unit/test_rpc_overrides.py",
-        "tests/unit/test_select_artifact.py",
-        "tests/unit/test_sharing_manager.py",
-        "tests/unit/test_sharing_types.py",
-        "tests/unit/test_source_selection.py",
-        "tests/unit/test_source_symlink.py",
-        "tests/unit/test_sources_upload.py",
-        "tests/unit/test_swallow_observability.py",
-        "tests/unit/test_user_settings_api.py",
     }
 )
 

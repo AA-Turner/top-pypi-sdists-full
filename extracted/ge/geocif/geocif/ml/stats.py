@@ -169,7 +169,7 @@ def get_yld_prd(df, name_crop, cntr, region, calendar_year, region_column="ADM1_
     return val
 
 
-def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=None, country=None):
+def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=None, country=None, label=""):
     """
 
     Args:
@@ -182,6 +182,19 @@ def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=None, 
     Returns:
 
     """
+    # Empty-df guard: callers (e.g. geocif.threshold_optimizer.join_yield)
+    # may hand a 0-row df when upstream produced nothing. The
+    # `df.loc[:, stat] = np.nan` assignment below raises ValueError
+    # ("cannot set a frame with no defined index and a scalar") on an
+    # empty df, AND the `df["Crop"|"Season"].unique()[0]` lines below
+    # would IndexError. Return the df untouched — no stats can be added
+    # when there are no rows anyway.
+    if df.empty:
+        for stat in stats:
+            if stat not in df.columns:
+                df[stat] = pd.Series(dtype=float)
+        return df
+
     # Create empty columns for all the ag statistics
     for stat in stats:
         df.loc[:, stat] = np.nan
@@ -212,7 +225,11 @@ def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=None, 
 
         # Loop over each Country, Region, harvest year combination and add the area
         grp = df.groupby(["Region", "Harvest Year"], dropna=False)
-        for key, group in _pbar(grp, desc=f"Adding {stat} {method}", leave=False):
+        pbar_desc = (
+            f"Adding {stat} {method} ({label})" if label
+            else f"Adding {stat} {method}"
+        )
+        for key, group in _pbar(grp, desc=pbar_desc, leave=False):
             region, year = key
 
             df_adm0 = pd.DataFrame()
@@ -272,7 +289,7 @@ def add_statistics(
     """
     # HACK: Bangladesh rice uses GEOGLAM format
     if country == "Bangladesh" and crop == "Rice":
-        df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=crop, country=country)
+        df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=crop, country=country, label=label)
         # Add columns for obj.stats_cols
         for col in ["Area"]:
             df.loc[:, col] = np.nan
@@ -310,7 +327,7 @@ def add_statistics(
         df_fewsnet = df_fewsnet[df_fewsnet["qc_flag"] == 0]
 
     if mask.sum() == 0:
-        df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=crop, country=country)
+        df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=crop, country=country, label=label)
     else:
         from geocif.utils import PRIMARY_SEASON_NAMES, SECONDARY_SEASON_NAMES
 

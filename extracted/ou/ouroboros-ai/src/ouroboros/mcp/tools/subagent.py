@@ -55,6 +55,12 @@ _INTERVIEW_SUBAGENT_MAX_TRANSCRIPT_QUESTION_CHARS = 900
 _INTERVIEW_SUBAGENT_MAX_TRANSCRIPT_ANSWER_CHARS = 220
 _INTERVIEW_SUBAGENT_MAX_ANSWER_CHARS = 300
 
+
+def _canonical_response_json(body: dict[str, Any]) -> str:
+    """Render structured MCP dispatch content with deterministic key order."""
+    return json.dumps(body, sort_keys=True, separators=(",", ":"))
+
+
 # ---------------------------------------------------------------------------
 # SubagentPayload dataclass
 # ---------------------------------------------------------------------------
@@ -194,10 +200,10 @@ def build_subagent_result(
 ) -> Result:
     """Wrap a SubagentPayload into an MCPToolResult for MCP transport.
 
-    The payload is serialized as JSON text in the content field because the
-    FastMCP adapter only passes ``text_content`` through to the wire — the
-    ``meta`` dict is lost. The bridge plugin parses JSON from the text to
-    detect the ``_subagent`` key.
+    The payload is serialized as JSON text in the content field so bridge
+    clients can parse the ``_subagent`` key directly. ``meta`` is preserved
+    by the FastMCP adapter for structured clients, but content JSON remains
+    the compatibility surface for plugin bridge dispatch.
 
     Public-contract preservation (#442): when ``response_shape`` is provided,
     the natural tool response fields (e.g. ``session_id``, ``job_id``,
@@ -224,7 +230,7 @@ def build_subagent_result(
 
     return Result.ok(
         MCPToolResult(
-            content=(MCPContentItem(type=ContentType.TEXT, text=json.dumps(body)),),
+            content=(MCPContentItem(type=ContentType.TEXT, text=_canonical_response_json(body)),),
             is_error=False,
             meta=dict(body),
         )
@@ -658,8 +664,15 @@ def build_generate_seed_subagent(
     ambiguity_score: float | None = None,
     transcript: str = "",
     client_gates: tuple[str, ...] = (),
+    force: bool = False,
 ) -> SubagentPayload:
-    """Build subagent payload for seed generation from interview."""
+    """Build subagent payload for seed generation from interview.
+
+    When ``force=True``, the prompt explicitly tells the subagent that the
+    ambiguity-score gate has been bypassed by deliberate caller opt-in (mirrors
+    the CLI ``init`` "Generate Seed anyway" path) so the subagent does not
+    re-impose the threshold check on its end.
+    """
     from ouroboros.agents.loader import load_agent_prompt
 
     system_prompt = load_agent_prompt("seed-architect")
@@ -671,6 +684,16 @@ def build_generate_seed_subagent(
     transcript_section = ""
     if transcript:
         transcript_section = f"\n## Interview Transcript\n{transcript}\n"
+
+    force_note = ""
+    if force:
+        force_note = (
+            "\n## Ambiguity Gate Bypassed\n"
+            "The caller has explicitly bypassed the ambiguity-score threshold. "
+            "Generate the seed even if the score exceeds 0.2; the real score "
+            "is still recorded in seed metadata for provenance. Do not refuse "
+            "on ambiguity grounds.\n"
+        )
 
     prompt = f"""{system_prompt}
 
@@ -684,7 +707,7 @@ criteria, ontology schema, evaluation principles, and exit conditions.
 
 ## Session ID
 {session_id}
-{ambiguity_note}{transcript_section}
+{ambiguity_note}{transcript_section}{force_note}
 Extract all requirements from the interview conversation and produce a
 complete YAML seed specification. The seed should be precise enough for
 autonomous execution."""
@@ -693,6 +716,7 @@ autonomous execution."""
         "session_id": session_id,
         "ambiguity_score": ambiguity_score,
         "client_gates": client_gates,
+        "force": force,
     }
 
     return build_subagent_payload(
@@ -1005,7 +1029,7 @@ def build_multi_subagent_result(
 
     return Result.ok(
         MCPToolResult(
-            content=(MCPContentItem(type=ContentType.TEXT, text=json.dumps(body)),),
+            content=(MCPContentItem(type=ContentType.TEXT, text=_canonical_response_json(body)),),
             is_error=False,
             meta=dict(body),
         )
@@ -1232,6 +1256,11 @@ def build_ralph_subagent(
     max_total_seconds: float | None = None,
     oscillation_window: int | None = None,
     grade_regression_window: int | None = None,
+    commit_policy: str | None = None,
+    auto_session_id: str | None = None,
+    execution_id: str | None = None,
+    checkpoint_commits: tuple[dict[str, Any], ...] = (),
+    checkpoint_attempted_ac_ids: tuple[str, ...] = (),
     delegation_depth: int = 1,
     allow_nested_ouroboros_ralph: bool = False,
 ) -> SubagentPayload:
@@ -1372,6 +1401,22 @@ def build_ralph_subagent(
             "`stop_reason=wall_clock_exhausted`.\n"
         )
 
+    checkpoint_note = ""
+    if commit_policy and commit_policy != "none" and auto_session_id:
+        checkpoint_note = (
+            "\n## Checkpoint Commits\n"
+            f"commit_policy: {commit_policy}\n"
+            f"auto_session_id: {auto_session_id}\n"
+            f"execution_id: {execution_id or 'none'}\n"
+            "When you run each `evolve_step`, forward `commit_policy`, "
+            "`auto_session_id`, `execution_id`, `checkpoint_commits`, and "
+            "`checkpoint_attempted_ac_ids` so verified acceptance criteria are "
+            "checkpoint-committed in the execution worktree. Carry the updated "
+            "`checkpoint_commits` / `checkpoint_attempted_ac_ids` returned by one "
+            "`evolve_step` into the next so commits stay idempotent across "
+            "iterations.\n"
+        )
+
     prompt = f"""## Your Task
 
 Run a Ralph loop for the given lineage inside this OpenCode child session.
@@ -1403,7 +1448,7 @@ Repeat one evolutionary generation at a time until one stop condition is met:
 - allow_nested_ouroboros_ralph: {str(allow_nested_ouroboros_ralph).lower()}
 - Do not call ouroboros_ralph from this child session. Run the loop directly
   by executing/evaluating one generation at a time.
-{seed_note}{mode_note}{parallel_note}{project_dir_note}{qa_note}{total_timeout_note}{timeout_note}{progress_note}{budget_note}
+{seed_note}{mode_note}{parallel_note}{project_dir_note}{qa_note}{total_timeout_note}{timeout_note}{progress_note}{budget_note}{checkpoint_note}
 For generation 1, use the seed content when present. For later generations,
 reconstruct state from the lineage and continue without resending seed_content.
 
@@ -1431,6 +1476,17 @@ do not enqueue another background Ralph job."""
         context["oscillation_window"] = oscillation_window
     if grade_regression_window is not None:
         context["grade_regression_window"] = grade_regression_window
+    # Forward the checkpoint contract so plugin-mode Ralph reaches the same AC
+    # checkpoint behavior as the in-process RalphLoopRunner. Only attach the
+    # fields when a committing policy is actually configured, so legacy callers
+    # that never set commit_policy keep the prior context shape.
+    if commit_policy and commit_policy != "none" and auto_session_id:
+        context["commit_policy"] = commit_policy
+        context["auto_session_id"] = auto_session_id
+        if execution_id:
+            context["execution_id"] = execution_id
+        context["checkpoint_commits"] = [dict(item) for item in checkpoint_commits]
+        context["checkpoint_attempted_ac_ids"] = list(checkpoint_attempted_ac_ids)
 
     return build_subagent_payload(
         tool_name="ouroboros_ralph",

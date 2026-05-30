@@ -1,16 +1,15 @@
 import os
-
 from typing import Optional
 
 from clipped.config.contexts import get_project_path, get_temp_path
 from clipped.utils.enums import get_enum_value
-
 from polyaxon._env_vars.keys import (
     ENV_KEYS_ARCHIVES_ROOT,
     ENV_KEYS_ARTIFACTS_ROOT,
     ENV_KEYS_CONTEXT_ROOT,
     ENV_KEYS_OFFLINE_ROOT,
 )
+
 
 CONTEXT_RELATED_RUNS = "_related_runs"
 
@@ -42,6 +41,8 @@ CONTEXT_MOUNT_RUN_SYSTEM_RESOURCES_EVENTS_FORMAT = "{}/resources".format(
     CONTEXT_MOUNT_ARTIFACTS_FORMAT
 )
 CONTEXT_MOUNT_SHM = "/dev/shm"
+CONTEXT_MOUNT_TOOLS_BIN = "/opt/polyaxon/bin"
+CONTEXT_MOUNT_TOOLS_ETC = "/opt/polyaxon/etc"
 CONTEXT_MOUNT_DOCKER = "/var/run/docker.sock"
 
 CONTEXT_TMP_POLYAXON_PATH = get_temp_path(".polyaxon")

@@ -1,4 +1,4 @@
-__version__ = "6.7.9"
+__version__ = "6.8.0"
 
 from bleak_retry_connector import Allocations
 
@@ -17,6 +17,7 @@ from .const import (
 )
 from .manager import BluetoothManager
 from .models import (
+    BluetoothReachabilityIntent,
     BluetoothServiceInfo,
     BluetoothServiceInfoBleak,
     HaBluetoothConnector,
@@ -51,6 +52,7 @@ __all__ = [
     "BaseHaRemoteScanner",
     "BaseHaScanner",
     "BluetoothManager",
+    "BluetoothReachabilityIntent",
     "BluetoothScannerDevice",
     "BluetoothScanningMode",
     "BluetoothServiceInfo",

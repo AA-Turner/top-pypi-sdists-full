@@ -1,6 +1,8 @@
 """Unit tests for ouroboros.persistence.event_store module."""
 
 import asyncio
+from datetime import UTC, datetime, timedelta
+import logging
 
 import pytest
 
@@ -490,6 +492,54 @@ class TestEventStoreGetEventsAfter:
         assert all(e.data["batch"] == 2 for e in new_events)
         assert new_row_id > last_row_id
 
+    async def test_get_events_after_limit_does_not_skip_out_of_order_timestamps(
+        self, event_store: EventStore
+    ) -> None:
+        """A limited page must page by rowid, not timestamp, to stay skip-safe.
+
+        Regression: if a row is appended with an earlier timestamp than an
+        existing row, a limited page ordered by timestamp would return the
+        higher rowid first and advance the cursor past the lower-rowid row,
+        skipping it forever. Paging by rowid keeps every row reachable.
+        """
+        from datetime import UTC, datetime
+
+        # rowid 1 carries the LATER timestamp; rowid 2 the earlier one.
+        await event_store.append(
+            BaseEvent(
+                type="test.event.created",
+                aggregate_type="execution",
+                aggregate_id="exec-ooo",
+                timestamp=datetime(2026, 4, 22, 0, 0, 10, tzinfo=UTC),
+                data={"label": "rowid1-late-ts"},
+            )
+        )
+        await event_store.append(
+            BaseEvent(
+                type="test.event.created",
+                aggregate_type="execution",
+                aggregate_id="exec-ooo",
+                timestamp=datetime(2026, 4, 22, 0, 0, 0, tzinfo=UTC),
+                data={"label": "rowid2-early-ts"},
+            )
+        )
+
+        seen: list[str] = []
+        cursor = 0
+        for _ in range(4):  # bounded; must converge in 2 real pages + 1 empty
+            page, next_cursor = await event_store.get_events_after(
+                "execution", "exec-ooo", cursor, limit=1
+            )
+            if not page:
+                break
+            assert len(page) == 1
+            assert next_cursor > cursor  # cursor strictly advances, no stall
+            cursor = next_cursor
+            seen.append(page[0].data["label"])
+
+        # Both rows delivered exactly once, lowest rowid first, none skipped.
+        assert seen == ["rowid1-late-ts", "rowid2-early-ts"]
+
     async def test_get_events_after_returns_empty_when_no_new_events(
         self, event_store: EventStore
     ) -> None:
@@ -784,6 +834,53 @@ class TestSessionRelatedEvents:
         assert f"{execution_scope}_child_0" in aggregate_ids
         assert "other_evolve_ac_0" not in aggregate_ids
 
+    async def test_session_related_events_are_bounded_by_session_start(
+        self,
+        event_store: EventStore,
+    ) -> None:
+        """Historical payload matches should not force full-history session scans."""
+        session_id = "sess-bounded-related"
+        execution_id = "exec-bounded-related"
+        session_started_at = datetime.now(UTC)
+        await event_store.append(
+            BaseEvent(
+                type="execution.ac.heartbeat",
+                timestamp=session_started_at - timedelta(days=1),
+                aggregate_type="execution",
+                aggregate_id="old-runtime-scope",
+                data={"session_id": session_id, "message_count": 1},
+            )
+        )
+        await event_store.append(
+            BaseEvent(
+                type="orchestrator.session.started",
+                timestamp=session_started_at,
+                aggregate_type="session",
+                aggregate_id=session_id,
+                data={"execution_id": execution_id, "seed_id": "seed-bounded-related"},
+            )
+        )
+        await event_store.append(
+            BaseEvent(
+                type="execution.ac.heartbeat",
+                timestamp=session_started_at + timedelta(seconds=1),
+                aggregate_type="execution",
+                aggregate_id="new-runtime-scope",
+                data={"session_id": session_id, "message_count": 1},
+            )
+        )
+
+        result = await event_store.query_session_related_events(
+            session_id,
+            execution_id=execution_id,
+            limit=None,
+        )
+        aggregate_ids = {event.aggregate_id for event in result}
+
+        assert "new-runtime-scope" in aggregate_ids
+        assert session_id in aggregate_ids
+        assert "old-runtime-scope" not in aggregate_ids
+
     async def test_execution_related_events_include_child_scopes(
         self,
         event_store: EventStore,
@@ -912,6 +1009,51 @@ class TestSessionRelatedEvents:
 
         assert [event.type for event in second_batch] == ["execution.ac.heartbeat"]
         assert next_cursor > cursor
+
+    async def test_session_related_events_after_are_bounded_by_session_start(
+        self,
+        event_store: EventStore,
+    ) -> None:
+        """Incremental session polling must ignore stale pre-start payload matches."""
+        session_id = "sess-bounded-related-after"
+        execution_id = "exec-bounded-related-after"
+        session_started_at = datetime.now(UTC)
+        await event_store.append(
+            BaseEvent(
+                type="execution.ac.heartbeat",
+                timestamp=session_started_at - timedelta(days=1),
+                aggregate_type="execution",
+                aggregate_id="old-runtime-scope",
+                data={"session_id": session_id, "message_count": 1},
+            )
+        )
+        await event_store.append(
+            BaseEvent(
+                type="orchestrator.session.started",
+                timestamp=session_started_at,
+                aggregate_type="session",
+                aggregate_id=session_id,
+                data={"execution_id": execution_id, "seed_id": "seed-bounded-related-after"},
+            )
+        )
+        await event_store.append(
+            BaseEvent(
+                type="execution.ac.heartbeat",
+                timestamp=session_started_at + timedelta(seconds=1),
+                aggregate_type="execution",
+                aggregate_id="new-runtime-scope",
+                data={"session_id": session_id, "message_count": 1},
+            )
+        )
+
+        events, cursor = await event_store.query_session_related_events_after(
+            session_id,
+            execution_id=execution_id,
+            last_row_id=0,
+        )
+
+        assert [event.aggregate_id for event in events] == [session_id, "new-runtime-scope"]
+        assert cursor > 0
 
     async def test_session_related_events_after_includes_exact_parent_execution_children(
         self,
@@ -1057,3 +1199,154 @@ class TestEventStoreTransactions:
         events = await event_store.replay("test", "tx-test")
         assert len(events) == 1
         assert events[0].data["committed"] is True
+
+
+class TestWorkflowIRAppendGuard:
+    """Test the workflow_ir aggregate-type guard on EventStore.append()."""
+
+    async def test_append_rejects_raw_workflow_ir_event(self, event_store: EventStore) -> None:
+        """append() must refuse raw BaseEvents on the workflow_ir aggregate.
+
+        ``WorkflowLifecycleEvent`` enforces a replay-unsafe key blocklist at
+        its Pydantic boundary. A caller that constructs a raw ``BaseEvent``
+        with ``aggregate_type="workflow_ir"`` must not be able to bypass
+        that guard via :meth:`EventStore.append`.
+        """
+        bypass = BaseEvent(
+            type="workflow.run.created",
+            aggregate_type="workflow_ir",
+            aggregate_id="wfspec_bypass",
+            data={"workflow_id": "wfspec_bypass", "secret": "leak"},
+        )
+        with pytest.raises(PersistenceError) as exc_info:
+            await event_store.append(bypass)
+        assert "append_workflow_lifecycle_event" in str(exc_info.value)
+
+        # The guarded row must not be persisted.
+        from ouroboros.orchestrator.workflow_lifecycle import (
+            WORKFLOW_LIFECYCLE_AGGREGATE_TYPE,
+        )
+
+        rows = await event_store.replay(WORKFLOW_LIFECYCLE_AGGREGATE_TYPE, "wfspec_bypass")
+        assert rows == []
+
+    async def test_append_workflow_lifecycle_event_still_persists(
+        self, event_store: EventStore
+    ) -> None:
+        """The dedicated lifecycle helper must keep working end-to-end."""
+        from ouroboros.orchestrator.workflow_lifecycle import (
+            WorkflowLifecycleEvent,
+            WorkflowLifecycleEventType,
+        )
+
+        event = WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.RUN_CREATED,
+            workflow_id="wfspec_guarded",
+        )
+        await event_store.append_workflow_lifecycle_event(event)
+
+        replayed = await event_store.replay_workflow_lifecycle("wfspec_guarded")
+        assert replayed == [event]
+
+    async def test_append_batch_rejects_workflow_ir_event(self, event_store: EventStore) -> None:
+        """append_batch() must refuse raw workflow_ir BaseEvents.
+
+        Without the batch-side guard, a caller could bypass the
+        ``WorkflowLifecycleEvent`` redaction blocklist by wrapping a raw
+        ``BaseEvent`` with ``aggregate_type="workflow_ir"`` inside a list
+        and calling :meth:`EventStore.append_batch`. The batch guard must
+        run BEFORE any DB insert so a single bad row refuses the whole
+        transaction and the surrounding benign events are also dropped.
+        """
+        from ouroboros.orchestrator.workflow_lifecycle import (
+            WORKFLOW_LIFECYCLE_AGGREGATE_TYPE,
+        )
+
+        benign = BaseEvent(
+            type="test.event",
+            aggregate_type="test",
+            aggregate_id="batch-benign",
+            data={"ok": True},
+        )
+        bypass = BaseEvent(
+            type="workflow.run.created",
+            aggregate_type=WORKFLOW_LIFECYCLE_AGGREGATE_TYPE,
+            aggregate_id="wfspec_batch_bypass",
+            data={"workflow_id": "wfspec_batch_bypass", "secret": "leak"},
+        )
+
+        with pytest.raises(PersistenceError) as exc_info:
+            await event_store.append_batch([benign, bypass])
+        message = str(exc_info.value)
+        assert "append_workflow_lifecycle_event" in message
+        assert "cannot be batched" in message
+
+        # Neither the guarded workflow_ir row nor the surrounding benign
+        # row may be persisted: the guard must run before the DB insert.
+        guarded_rows = await event_store.replay(
+            WORKFLOW_LIFECYCLE_AGGREGATE_TYPE, "wfspec_batch_bypass"
+        )
+        assert guarded_rows == []
+        benign_rows = await event_store.replay("test", "batch-benign")
+        assert benign_rows == []
+
+
+class TestReplayWorkflowLifecycleResilience:
+    """Test that replay_workflow_lifecycle() tolerates malformed rows."""
+
+    async def test_replay_skips_malformed_rows_without_logging_payload_values(
+        self, event_store: EventStore, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Malformed replay rows are skipped without logging poisoned payload values."""
+        from ouroboros.orchestrator.workflow_lifecycle import (
+            WORKFLOW_LIFECYCLE_AGGREGATE_TYPE,
+            WorkflowLifecycleEvent,
+            WorkflowLifecycleEventType,
+        )
+        from ouroboros.persistence.schema import events_table
+
+        sentinel_secret = "sentinel-secret-replay-leak"
+        workflow_id = "wfspec_resilient"
+        # Insert one valid lifecycle event via the supported helper.
+        valid_event = WorkflowLifecycleEvent(
+            event_type=WorkflowLifecycleEventType.RUN_CREATED,
+            workflow_id=workflow_id,
+        )
+        await event_store.append_workflow_lifecycle_event(valid_event)
+
+        # Insert one malformed row directly, bypassing append()'s new guard.
+        # This simulates a row written before the guard was in place or by an
+        # out-of-band recovery tool. A non-string ``reason_code`` raises a
+        # Pydantic ``ValidationError`` during rehydration; its string form can
+        # include the raw input value, so the replay warning must not log it.
+        malformed = BaseEvent(
+            type="workflow.run.failed",
+            aggregate_type=WORKFLOW_LIFECYCLE_AGGREGATE_TYPE,
+            aggregate_id=workflow_id,
+            data={"workflow_id": workflow_id, "reason_code": {"value": sentinel_secret}},
+        )
+        assert event_store._engine is not None  # type: ignore[attr-defined]
+        async with event_store._engine.begin() as conn:  # type: ignore[attr-defined]
+            await conn.execute(events_table.insert().values(**malformed.to_db_dict()))
+
+        # Replay must return only the valid event without raising.
+        caplog.set_level(logging.WARNING, logger="ouroboros.persistence.event_store")
+        replayed = await event_store.replay_workflow_lifecycle(workflow_id)
+        assert replayed == [valid_event]
+
+        skip_records = [
+            record
+            for record in caplog.records
+            if record.getMessage() == "event_store.replay_workflow_lifecycle.skip_malformed"
+        ]
+        assert len(skip_records) == 1
+        record = skip_records[0]
+        assert record.event_type == "workflow.run.failed"
+        assert record.aggregate_id == workflow_id
+        assert record.error == "ValidationError"
+        assert not hasattr(record, "error_summary")
+
+        captured_log_text = "\n".join(
+            [record.getMessage(), *(str(value) for value in vars(record).values())]
+        )
+        assert sentinel_secret not in captured_log_text

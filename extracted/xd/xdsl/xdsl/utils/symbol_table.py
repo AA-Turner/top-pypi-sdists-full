@@ -47,6 +47,14 @@ class SymbolUse(NamedTuple):
     """The symbol reference that this use represents."""
 
 
+def get_name_if_symbol(op: Operation) -> None | str:
+    """Returns the symbol name if this operation has one"""
+    if (sym_interface := op.get_trait(traits.SymbolOpInterface)) is not None and (
+        name_attr := sym_interface.get_sym_attr_name(op)
+    ) is not None:
+        return name_attr.data
+
+
 class SymbolTable:
     """
     This class allows for representing and managing the symbol table used by operations
@@ -66,9 +74,17 @@ class SymbolTable:
     """
 
     def __init__(self, symbol_table_op: Operation):
+        assert symbol_table_op.get_trait(traits.SymbolTable) is not None, (
+            "Expected operation to have SymbolTable trait"
+        )
         self._symbol_table_op = symbol_table_op
         self._symbol_table = {}
         self._uniquing_counter = 0
+
+        block = self._symbol_table_op.regions[0].blocks[0]
+        for op in block.ops:
+            if (name := get_name_if_symbol(op)) is not None:
+                self._symbol_table[name] = op
 
     def lookup(self, name: str | StringAttr) -> Operation | None:
         """
@@ -76,15 +92,24 @@ class SymbolTable:
         exists.
         Names never include the `@` on them.
         """
-        raise NotImplementedError
+        name = name.data if isinstance(name, StringAttr) else name
+        return self._symbol_table.get(name)
 
     def remove(self, op: Operation) -> None:
         """Remove the given symbol from the table, without deleting it."""
-        raise NotImplementedError
+        if (name := get_name_if_symbol(op)) is None:
+            raise ValueError("Expected valid 'name' attribute")
+
+        if self._symbol_table.pop(name, None) is None:
+            raise ValueError(
+                "Expected this operation to be inside of the operation with this SymbolTable"
+            )
 
     def erase(self, op: Operation) -> None:
         """Erase the given symbol from the table and delete the operation."""
-        raise NotImplementedError
+        self.remove(op)
+        op.detach()
+        op.erase()
 
     def insert(self, symbol: Operation, insertion_point: InsertPoint) -> StringAttr:
         """

@@ -10,6 +10,7 @@ from montecarlodata.agents.fields import (
     AZURE,
     AZURE_BLOB,
     AZURE_FUNCTION_APP_KEY,
+    AZURE_FUNCTION_SERVICE_PRINCIPAL,
     AZURE_STORAGE_ACCOUNT_KEYS,
     AZURE_STORAGE_SERVICE_PRINCIPAL,
     DATA_STORE_AGENT,
@@ -532,9 +533,18 @@ def register_gcp_agent(ctx, url, **kwargs):
 @agents.command(help="Register a Remote Azure Agent.")
 @click.pass_obj
 @click.option(
+    "--auth-type",
+    "authentication",
+    help="Authentication type.",
+    required=False,
+    type=click.Choice(["app-key", "service-principal"], case_sensitive=False),
+    default="app-key",
+    show_default=True,
+)
+@click.option(
     "--app-key",
-    help=f"App key from the Azure Function to use for authentication. {PASSWORD_VERBIAGE}",
-    required=True,
+    help=f"[app-key auth] App key from the Azure Function. {PASSWORD_VERBIAGE}",
+    required=False,
     cls=AdvancedOptions,
     prompt_if_requested=True,
 )
@@ -543,11 +553,46 @@ def register_gcp_agent(ctx, url, **kwargs):
     help="URL for accessing agent.",
     required=True,
 )
+@click.option(
+    "--sp-tenant-id",
+    help="[service-principal auth] Azure Active Directory tenant ID.",
+    required=False,
+)
+@click.option(
+    "--sp-client-id",
+    help="[service-principal auth] Application (client) ID of the service principal.",
+    required=False,
+)
+@click.option(
+    "--sp-client-secret",
+    help=f"[service-principal auth] Client secret for the service principal. {PASSWORD_VERBIAGE}",
+    required=False,
+    cls=AdvancedOptions,
+    prompt_if_requested=True,
+)
+@click.option(
+    "--sp-audience",
+    help="[service-principal auth] Application ID URI (audience) of the Azure Function.",
+    required=False,
+)
 @add_common_options(DRY_RUN_OPTIONS)
 @add_common_options(AGENT_REGISTER_DC_ID_OPTION)
 @add_common_options(MUTUAL_TLS_OPTIONS)
 @add_common_options(UPDATE_AGENT_OPTIONS)
-def register_azure_agent(ctx, url, **kwargs):
+def register_azure_agent(ctx, url, authentication, **kwargs):
+    if authentication == "service-principal":
+        auth_type = AZURE_FUNCTION_SERVICE_PRINCIPAL
+        for field in ("sp_tenant_id", "sp_client_id", "sp_client_secret", "sp_audience"):
+            if not kwargs.get(field):
+                raise click.BadParameter(
+                    f"--{field.replace('_', '-')} is required when using "
+                    f"service principal authentication."
+                )
+    else:
+        auth_type = AZURE_FUNCTION_APP_KEY
+        if not kwargs.get("app_key"):
+            raise click.BadParameter("--app-key is required when using app-key authentication.")
+
     AgentService(
         config=ctx["config"],
         mc_client=create_mc_client(ctx),
@@ -556,7 +601,7 @@ def register_azure_agent(ctx, url, **kwargs):
         agent_type=REMOTE_AGENT,
         platform=AZURE,
         storage=AZURE_BLOB,
-        auth_type=AZURE_FUNCTION_APP_KEY,
+        auth_type=auth_type,
         endpoint=url,
         **kwargs,
     )

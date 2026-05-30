@@ -43,6 +43,10 @@ class StopExecutionMessage(ControlMessage):
         )
 
 
+class StopAllExecutionsMessage(ControlMessage):
+    type: str = "stop_all"
+
+
 class RunSnippetMessage(ControlMessage):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -65,6 +69,7 @@ class PingMessage(ControlMessage):
 class QueueMessage:
     preexecution: PreExecution
     delivery_tag: int
+    redelivered: bool = False
     connection: Optional[Connection] = None  # For local execution only
 
 

@@ -116,7 +116,6 @@ from transformers import (
     XLNetForTokenClassification,
     XLNetTokenizerFast,
 )
-from transformers.convert_graph_to_onnx import convert, quantize
 from torch.optim import AdamW
 from transformers.optimization import Adafactor
 from transformers.optimization import (
@@ -351,6 +350,7 @@ class NERModel:
         )
 
         if self.args.onnx:
+            from transformers.convert_graph_to_onnx import convert, quantize
             from onnxruntime import InferenceSession, SessionOptions
 
             if not onnx_execution_provider:

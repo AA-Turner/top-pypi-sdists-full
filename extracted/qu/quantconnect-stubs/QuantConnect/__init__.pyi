@@ -10875,6 +10875,24 @@ class Messages(System.Object):
             """Returns a message for an unsupported order type in Wolverine Brokerage Model"""
             ...
 
+    class WebullBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.WebullBrokerageModel class and its consumers or related classes"""
+
+        @staticmethod
+        def invalid_time_in_force_for_option_sell_order(order: QuantConnect.Orders.Order) -> str:
+            """Returns a message explaining that Options and IndexOptions sell orders only support Day time in force."""
+            ...
+
+        @staticmethod
+        def market_orders_not_supported_outside_regular_trading_hours() -> str:
+            """Returns a message explaining that Market orders are not supported outside regular trading hours."""
+            ...
+
+        @staticmethod
+        def outside_regular_trading_hours_not_supported_for_security_type(security: QuantConnect.Securities.Security) -> str:
+            """Returns a message explaining that OutsideRegularTradingHours is only supported for Equity orders."""
+            ...
+
     class RBIBrokerageModel(System.Object):
         """Provides user-facing messages for the Brokerages.RBIBrokerageModel class and its consumers or related classes"""
 

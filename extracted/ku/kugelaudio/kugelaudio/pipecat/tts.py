@@ -266,6 +266,19 @@ class KugelAudioTTSService(TTSService):
         # its un-drained tail can't bleed into the next turn.
         self._session_context_id: Optional[str] = None
         self._session_context_needs_reset = False
+        # Pipecat 1.x (AudioContext API) calls run_tts(text, context_id) with a
+        # FRESH context_id per turn and owns its identity. Unlike the wrapper-
+        # owned 0.x path above, we must close each of those server-side contexts
+        # when its turn ends — otherwise every turn leaks a /ws/tts/multi context
+        # against the per-session cap and the call drops mid-conversation
+        # (KUG-1087). We track the caller-supplied ids here and close them from
+        # the Pipecat turn/audio completion hooks below.
+        self._caller_contexts: set[str] = set()
+        # Server-side contexts already create_context'd before run_tts(). Pipecat
+        # 1.x mints the turn id on LLMFullResponseStartFrame — we provision
+        # during on_turn_context_created so the ~30-45ms WS round-trip overlaps
+        # LLM time-to-first-token instead of sitting on the TTFA critical path.
+        self._provisioned_contexts: set[str] = set()
         self._closed = False
 
     def _create_multi_session(self) -> MultiContextSession:
@@ -306,6 +319,10 @@ class KugelAudioTTSService(TTSService):
         # no server-side contexts, so forget our id and mint a new one lazily.
         self._session_context_id = None
         self._session_context_needs_reset = False
+        # Closing the WS frees every server-side context with it, so just drop
+        # our caller-context bookkeeping rather than closing them one by one.
+        self._caller_contexts.clear()
+        self._provisioned_contexts.clear()
         if session is not None:
             await session.close()
 
@@ -341,6 +358,84 @@ class KugelAudioTTSService(TTSService):
         if self._session_context_id is None:
             self._session_context_id = f"kugelaudio-{uuid.uuid4()}"
         return self._session_context_id
+
+    async def _close_caller_context(self, context_id: Optional[str]) -> None:
+        """Close a single caller-supplied (Pipecat 1.x) server-side context.
+
+        Idempotent and best-effort: the SDK's ``close_context`` is a no-op for
+        an unknown/already-closed id, and a dead WS is handled by the existing
+        reconnect path on the next ``run_tts``.
+        """
+        if not context_id:
+            return
+        async with self._multi_session_lock:
+            self._caller_contexts.discard(context_id)
+            self._provisioned_contexts.discard(context_id)
+            session = self._multi_session
+            if session is None:
+                return
+            try:
+                # immediate=True: the turn is over, free the slot now and don't
+                # drain-then-discard a tail (the audio already played).
+                async for _ in session.close_context(context_id, immediate=True):
+                    pass
+            except Exception:
+                # KEEP-JUSTIFIED: best-effort server-side context release on turn
+                # end. If the WS is already gone the next run_tts surfaces it via
+                # the reconnect path, and the server's inactivity reaper is the
+                # backstop. No correctness value in propagating a cleanup failure.
+                logger.debug(
+                    "Failed to close caller context %s", context_id, exc_info=True
+                )
+
+    async def _provision_caller_context(self, context_id: str) -> None:
+        """Eagerly create a Pipecat 1.x turn context on the multi WS session.
+
+        Called from ``on_turn_context_created`` (fires on LLMFullResponseStartFrame,
+        before the first ``run_tts`` chunk) so the create_context round-trip
+        overlaps LLM latency instead of adding to measured TTFA.
+        """
+        if not context_id or context_id in self._provisioned_contexts:
+            return
+        try:
+            async with self._multi_session_lock:
+                session = await self._get_multi_session()
+                await session.create_context(context_id)
+            self._provisioned_contexts.add(context_id)
+            logger.debug("Pre-provisioned KugelAudio context %s", context_id)
+        except Exception:
+            # KEEP-JUSTIFIED: best-effort prefetch — run_tts still creates the
+            # context lazily on send() if this fails.
+            logger.warning(
+                "Failed to pre-provision context %s; will retry on send",
+                context_id,
+                exc_info=True,
+            )
+
+    async def on_turn_context_created(self, context_id: str) -> None:
+        """Pipecat 1.x: a new turn opened a new context_id.
+
+        A new turn means every *previous* turn's context is finished, so close
+        any still-open caller contexts (covers Pipecat builds that don't emit
+        ``on_audio_context_completed``), then track this turn's id.
+        """
+        parent = getattr(super(), "on_turn_context_created", None)
+        if parent is not None:
+            await parent(context_id)
+        for stale in list(self._caller_contexts):
+            if stale != context_id:
+                await self._close_caller_context(stale)
+        if context_id:
+            self._caller_contexts.add(context_id)
+        await self._provision_caller_context(context_id)
+
+    async def on_audio_context_completed(self, context_id: str) -> None:
+        """Pipecat 1.x: a turn's audio finished playing — close its server-side
+        context so it stops counting against the per-session cap."""
+        parent = getattr(super(), "on_audio_context_completed", None)
+        if parent is not None:
+            await parent(context_id)
+        await self._close_caller_context(context_id)
 
     async def _close_multi_session_locked(self) -> None:
         async with self._multi_session_lock:
@@ -448,6 +543,12 @@ class KugelAudioTTSService(TTSService):
             Frame: TTSStartedFrame, TTSAudioRawFrame chunks, and TTSStoppedFrame.
         """
         logger.debug(f"Generating TTS [{text}]")
+        # Pipecat 1.x supplies a per-turn context_id; record it so the turn/audio
+        # completion hooks can close the server-side context (KUG-1087). The 0.x
+        # path (context_id is None) is handled by the wrapper-owned stable
+        # context and must not be tracked here.
+        if context_id is not None:
+            self._caller_contexts.add(context_id)
         error_frame: Optional[ErrorFrame] = None
         completed_cleanly = False
 
@@ -461,7 +562,6 @@ class KugelAudioTTSService(TTSService):
             # user's think-time between turns, and we'd rather give the
             # conversation one transparent reconnect than a hard error frame.
             for attempt in (1, 2):
-                t0 = time.perf_counter()
                 first_chunk = True
                 yielded_audio = False
                 try:
@@ -470,6 +570,7 @@ class KugelAudioTTSService(TTSService):
                         effective_context_id = await self._resolve_turn_context_id(
                             session, context_id
                         )
+                        t0 = time.perf_counter()
                         async for item in session.send(
                             effective_context_id,
                             text,

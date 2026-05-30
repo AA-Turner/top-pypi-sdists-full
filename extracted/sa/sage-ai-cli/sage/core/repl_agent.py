@@ -624,6 +624,34 @@ class SAGEAgent:
                 phase_name=phase_name,
             )
 
+        def _retry_failed_file_writes(failed: dict[str, str]) -> tuple[list[str], str] | None:
+            if tool_depth >= 3:
+                return None
+            from sage.main import _get_current_task_prompt
+            current_task_prompt = _get_current_task_prompt()
+            if not current_task_prompt:
+                return None
+
+            bullets = "\n".join(f"  • File `{fp}`: {err}" for fp, err in failed.items())
+            retry_prompt = (
+                f"Your previous response attempted to write file(s), but they were REJECTED for these specific defects:\n"
+                f"{bullets}\n\n"
+                "Please regenerate the corrected file(s) with complete implementations, fixing all defects.\n"
+                "Output the COMPLETE file contents using the `FILE: <path>` block format. Do not use placeholders or write incomplete code."
+            )
+            if send is self.send_to_model:
+                retry_response = self.send_single_turn_to_model(retry_prompt)
+            else:
+                retry_response = send(retry_prompt)
+            if not retry_response:
+                return None
+            return self.process_response(
+                retry_response,
+                tool_depth + 1,
+                send_fn=send,
+                phase_name=phase_name,
+            )
+
         # ── Step 0: Informational Task Enforcement (P3-71) ──
         # Re-fetch classification to avoid scope/closure issues in nested calls
         _current_class = _get_current_classification()
@@ -773,10 +801,11 @@ class SAGEAgent:
         # first will still work correctly because the files are now on disk before
         # we process them.
         _pre_tool_written: list[str] = []
-        if "FILE:" in response:
+        failed_writes = {}
+        if "FILE:" in response or "```" in response:
             self.renderer.set_bottom_dock_status("Writing files to disk...")
             _pre_tool_written = _extract_and_write_files(
-                response, self.cwd, protected_files=self._protected, files_read=self.files_read
+                response, self.cwd, protected_files=self._protected, files_read=self.files_read, failed_writes=failed_writes
             )
             if _pre_tool_written:
                 self.last_written = _pre_tool_written
@@ -786,6 +815,12 @@ class SAGEAgent:
                 _add_to_conversation_memory(
                     self.cwd, "assistant", files_summary, files_written=_pre_tool_written
                 )
+
+            if failed_writes:
+                recovered = _retry_failed_file_writes(failed_writes)
+                if recovered is not None:
+                    retry_written, final_resp = recovered
+                    return list(set(_pre_tool_written + retry_written)), final_resp
 
         # ── Step 1b: Execute tool commands ──
         from sage.core.tools import ToolType
@@ -1915,8 +1950,15 @@ class SAGEAgent:
                             ):
                                 written.append(str(p.relative_to(out_path)))
                 install_ok = report.get("install_ok", True)
+                build_ok = report.get("build_ok", True)
+                runs_ok = report.get("runs_ok", True)
                 tests_ok = report.get("tests_ok", True)
-                task_ok = (install_ok is not False) and (tests_ok is not False)
+                task_ok = (
+                    (install_ok is not False)
+                    and (build_ok is not False)
+                    and (runs_ok is not False)
+                    and (tests_ok is not False)
+                )
                 return written, task_ok
 
         # 1.5 Activate bottom dock EARLY (before planning) to show progress
@@ -2132,6 +2174,7 @@ class SAGEAgent:
 
             _MAX_EXEC_BATCHES = int(os.environ.get("SAGE_BATCH_LIMIT", "250"))
             _empty_rounds = 0  # consecutive batches with no new files
+            _model_declared_done_prematurely = False
             for _batch_num in range(1, _MAX_EXEC_BATCHES + 1):
                 # Trim context between batches to prevent token overflow while preserving API memory
                 if len(self.engine._messages) > 24:
@@ -2176,7 +2219,16 @@ class SAGEAgent:
                         + "\n".join(f"  {f}" for f in _subsystem_files[:15])
                     )
 
+                _warning_prefix = ""
+                if _model_declared_done_prematurely and _missing:
+                    _warning_prefix = (
+                        f"⚠️ WARNING: In the previous batch, you output SCAFFOLD_COMPLETE, but "
+                        f"there are still {len(_missing)} files missing from your manifest. "
+                        f"Do NOT output SCAFFOLD_COMPLETE until ALL remaining files are fully written and complete.\n\n"
+                    )
+
                 _batch_prompt = (
+                    f"{_warning_prefix}"
                     f"Continue implementing the project for the task: \"{task_prompt}\" (batch {_batch_num}).\n\n"
                     f"Already written ({len(all_written)} files):\n{_written_lines}\n\n"
                     f"Write the files for {_next_subsystem}\n\n"
@@ -2265,12 +2317,15 @@ class SAGEAgent:
                             "Model declared SCAFFOLD_COMPLETE but no manifest to validate — "
                             "continuing to write more files..."
                         )
+                        _model_declared_done_prematurely = False
                     else:
                         self.renderer.warning(
                             f"Model declared done but {len(_still_missing)} manifest files "
                             "still missing — continuing..."
                         )
-                    continue
+                        _model_declared_done_prematurely = True
+                else:
+                    _model_declared_done_prematurely = False
 
                 if not _new:
                     _empty_rounds += 1

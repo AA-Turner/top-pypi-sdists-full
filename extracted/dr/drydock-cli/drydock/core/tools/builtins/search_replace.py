@@ -743,36 +743,24 @@ class SearchReplace(
                 try:
                     line_count = original_content.count("\n")
                     count = entry["count"]
-                    if count >= 3:
-                        # Show full file (up to 4000 chars) and prohibit retry.
-                        body = original_content[:4000]
-                        tail = (
-                            f"\n...[truncated, {line_count} lines total]"
-                            if len(original_content) > 4000 else ""
-                        )
-                        error_message += (
-                            f"\n\n[HARD-STOP: this is the #{count} consecutive "
-                            f"search_replace failure on {file_path.name}. "
-                            f"Your search text was NOT found in the file. "
-                            f"DO NOT retry search_replace with the same or similar text. "
-                            f"REQUIRED action: call write_file with overwrite=True "
-                            f"and provide the complete new file content. "
-                            f"Full file content below — use this as the basis "
-                            f"for your write_file call:\n"
-                            f"-----FILE START-----\n{body}{tail}\n-----FILE END-----]"
-                        )
-                    else:
-                        head = original_content[:2000]
-                        error_message += (
-                            f"\n\n[LOOP-BREAKER: this is the #{count} "
-                            f"consecutive search_replace failure on "
-                            f"{file_path.name}. Stop retrying the same search. "
-                            f"Actual file content (first 2000 chars of "
-                            f"{line_count} lines):\n"
-                            f"-----FILE START-----\n{head}\n-----FILE END-----\n"
-                            f"Use THIS exact text as your search target, OR "
-                            f"abandon this edit and try write_file.]"
-                        )
+                    # HARD-STOP at count=2 (was count=3) so agent_loop's
+                    # FORCE_STOP muting fires one retry cycle earlier.
+                    body = original_content[:4000]
+                    tail = (
+                        f"\n...[truncated, {line_count} lines total]"
+                        if len(original_content) > 4000 else ""
+                    )
+                    error_message += (
+                        f"\n\n[HARD-STOP: this is the #{count} consecutive "
+                        f"search_replace failure on {file_path.name}. "
+                        f"Your search text was NOT found in the file. "
+                        f"DO NOT retry search_replace with the same or similar text. "
+                        f"REQUIRED action: call write_file with overwrite=True "
+                        f"and provide the complete new file content. "
+                        f"Full file content below — use this as the basis "
+                        f"for your write_file call:\n"
+                        f"-----FILE START-----\n{body}{tail}\n-----FILE END-----]"
+                    )
                 except Exception:
                     pass
 
@@ -1002,6 +990,27 @@ class SearchReplace(
                                 )
                         except Exception:
                             pass
+                        # Loop-breaker: track consecutive SyntaxError
+                        # rejections per file. On 2nd+ consecutive failure
+                        # escalate to HARD-STOP so the model doesn't retry
+                        # the same broken indentation indefinitely.
+                        _syn_state = self.state.__dict__.setdefault(
+                            "_sr_syntax_history", {}
+                        )
+                        _syn_count = _syn_state.get(str(file_path), 0) + 1
+                        _syn_state[str(file_path)] = _syn_count
+                        _hard_stop_msg = ""
+                        if _syn_count >= 2:
+                            _hard_stop_msg = (
+                                f"\n\n[HARD-STOP: #{_syn_count} consecutive "
+                                f"SyntaxError rejection on {file_path.name}. "
+                                f"DO NOT retry search_replace on this file "
+                                f"with a similar REPLACE block. Instead: "
+                                f"(a) use write_file with the COMPLETE "
+                                f"corrected file contents, or (b) re-read "
+                                f"the file with read_file and start over "
+                                f"from the actual current state.]"
+                            )
                         yield SearchReplaceResult(
                             file=str(file_path),
                             blocks_applied=0,
@@ -1016,6 +1025,7 @@ class SearchReplace(
                                 f"File NOT modified.\n\nContext around the "
                                 f"broken line:\n{snippet}"
                                 f"{indent_hint}{truncation_hint}"
+                                f"{_hard_stop_msg}"
                             ],
                             content=(
                                 f"{file_path.name}: edit REJECTED "
@@ -1025,6 +1035,7 @@ class SearchReplace(
                                    else indent_hint.strip() if indent_hint
                                    else "Re-read the file, fix the REPLACE "
                                    "block's indentation/syntax, and retry.")
+                                + (_hard_stop_msg if _hard_stop_msg else "")
                             ),
                         )
                         return
@@ -1036,6 +1047,11 @@ class SearchReplace(
                 pass
 
             await self._write_file(file_path, modified_content)
+
+            # Reset SyntaxError retry counter on successful write
+            self.state.__dict__.setdefault(
+                "_sr_syntax_history", {}
+            ).pop(str(file_path), None)
 
             # Update read_file_state so chained edits don't trip Read-
             # before-Edit. We just wrote — we know disk state.

@@ -55,6 +55,20 @@ class VerifyReport:
         return None
 
     @property
+    def build_ok(self) -> bool | None:
+        for s in self.steps:
+            if any(term in s.name.lower() for term in {"build", "compile"}):
+                return s.ok
+        return None
+
+    @property
+    def runs_ok(self) -> bool | None:
+        for s in self.steps:
+            if any(term in s.name.lower() for term in {"run check", "start check", "import check"}):
+                return s.ok
+        return None
+
+    @property
     def tests_ok(self) -> bool | None:
         for s in self.steps:
             if s.name.lower() in {"pytest", "npm test", "go test", "cargo test"}:

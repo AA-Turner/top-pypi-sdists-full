@@ -39,14 +39,13 @@ def preprocess_batch_for_hf_dataset(dataset, tokenizer, args, tokenize_targets=T
             truncation=True,
         )
         if tokenize_targets:
-            with tokenizer.as_target_tokenizer():
-                labels = tokenizer(
-                    text=dataset["target_text"],
-                    max_length=args.max_seq_length,
-                    padding="max_length",
-                    return_tensors="np",
-                    truncation=True,
-                )
+            labels = tokenizer(
+                text_target=dataset["target_text"],
+                max_length=args.max_seq_length,
+                padding="max_length",
+                return_tensors="np",
+                truncation=True,
+            )
             model_inputs["labels"] = labels["input_ids"]
 
         return model_inputs
@@ -64,14 +63,13 @@ def preprocess_batch_for_hf_dataset(dataset, tokenizer, args, tokenize_targets=T
             truncation=True,
         )
         if tokenize_targets:
-            with tokenizer.as_target_tokenizer():
-                labels = tokenizer(
-                    text=dataset["target_text"],
-                    max_length=args.max_seq_length,
-                    padding="max_length",
-                    return_tensors="np",
-                    truncation=True,
-                )
+            labels = tokenizer(
+                text_target=dataset["target_text"],
+                max_length=args.max_seq_length,
+                padding="max_length",
+                return_tensors="np",
+                truncation=True,
+            )
             model_inputs["labels"] = labels["input_ids"]
 
         return model_inputs
@@ -201,14 +199,13 @@ def preprocess_data(data):
             return_tensors="np",
             truncation=True,
         )
-        with tokenizer.as_target_tokenizer():
-            labels = tokenizer(
-                text=[target_text],
-                max_length=args.max_seq_length,
-                padding="max_length",
-                return_tensors="np",
-                truncation=True,
-            )
+        labels = tokenizer(
+            text_target=[target_text],
+            max_length=args.max_seq_length,
+            padding="max_length",
+            return_tensors="np",
+            truncation=True,
+        )
         batch["labels"] = labels["input_ids"]
     else:
         batch = tokenizer(
@@ -218,14 +215,13 @@ def preprocess_data(data):
             return_tensors="np",
             truncation=True,
         )
-        with tokenizer.as_target_tokenizer():
-            labels = tokenizer(
-                text=[target_text],
-                max_length=args.max_seq_length,
-                padding="max_length",
-                return_tensors="np",
-                truncation=True,
-            )
+        labels = tokenizer(
+            text_target=[target_text],
+            max_length=args.max_seq_length,
+            padding="max_length",
+            return_tensors="np",
+            truncation=True,
+        )
         batch["labels"] = labels["input_ids"]
     input_ids = batch["input_ids"][0]
     attention_mask = batch["attention_mask"][0]

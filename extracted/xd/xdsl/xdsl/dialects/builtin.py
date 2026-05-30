@@ -19,7 +19,7 @@ from typing import (
 )
 
 from immutabledict import immutabledict
-from typing_extensions import Self, TypeVar, deprecated, override
+from typing_extensions import Self, TypeForm, TypeVar, deprecated, override
 
 from xdsl.dialect_interfaces.op_asm import OpAsmDialectInterface
 from xdsl.ir import (
@@ -55,6 +55,7 @@ from xdsl.irdl import (
     ConstraintContext,
     ConstraintConvertible,
     EqAttrConstraint,
+    EqIntConstraint,
     GenericData,
     IntConstraint,
     IntTypeVarConstraint,
@@ -66,6 +67,7 @@ from xdsl.irdl import (
     RangeConstraint,
     RangeOf,
     TypeVarConstraint,
+    get_int_constraint,
     irdl_attr_definition,
     irdl_op_definition,
     irdl_to_attr_constraint,
@@ -125,11 +127,24 @@ class ShapedType(Attribute, ABC):
         return all(dim != DYNAMIC_INDEX for dim in self.get_shape())
 
     @staticmethod
-    def strides_for_shape(shape: Sequence[int], factor: int = 1) -> tuple[int, ...]:
-        import operator
-        from itertools import accumulate
-
-        return tuple(accumulate(reversed(shape), operator.mul, initial=factor))[-2::-1]
+    def strides_for_shape(
+        shape: Sequence[int], factor: int = 1
+    ) -> tuple[int | None, ...]:
+        """
+        Returns a tuple of strides for a given shape, with row-major layout.
+        Strides that depend on a dynamic index are returned as `None`.
+        The optional `factor` parameter specifies the stride for the innermost
+        dimension, defaulting to 1.
+        """
+        rev_strides: list[int | None] = []
+        stride: int | None = factor
+        for dim in reversed(shape):
+            rev_strides.append(stride)
+            if stride is None or dim == DYNAMIC_INDEX:
+                stride = None
+            else:
+                stride *= dim
+        return tuple(reversed(rev_strides))
 
 
 _ContainerElementTypeT = TypeVar(
@@ -387,8 +402,10 @@ class IntAttr(GenericData[IntCovT], Generic[IntCovT]):
 
     @staticmethod
     @override
-    def constr(constr: IntConstraint | None = None) -> AttrConstraint[IntAttr]:
-        return IntAttrConstraint(
+    def constr(
+        constr: IntConstraint | int | TypeForm[int] | None = None,
+    ) -> AttrConstraint[IntAttr]:
+        return IntAttrConstraint.get(
             IntTypeVarConstraint(IntCovT, AnyInt()) if constr is None else constr
         )
 
@@ -398,6 +415,20 @@ class IntAttrConstraint(AttrConstraint[IntAttr]):
     """
     Constrains the value of an IntAttr.
     """
+
+    @staticmethod
+    def get(
+        int_constraint: IntConstraint | int | TypeForm[int] | None = None,
+    ) -> AttrConstraint[IntAttr]:
+        if int_constraint is None:
+            return BaseAttr(IntAttr)
+        if not isinstance(int_constraint, IntConstraint):
+            int_constraint = get_int_constraint(int_constraint)
+        if int_constraint == AnyInt():
+            return BaseAttr(IntAttr)
+        if isinstance(int_constraint, EqIntConstraint):
+            return EqAttrConstraint(IntAttr(int_constraint.value))
+        return IntAttrConstraint(int_constraint)
 
     int_constraint: IntConstraint
 
@@ -421,7 +452,7 @@ class IntAttrConstraint(AttrConstraint[IntAttr]):
     def mapping_type_vars(
         self, type_var_mapping: Mapping[TypeVar, AttrConstraint | IntConstraint]
     ):
-        return IntAttrConstraint(
+        return IntAttrConstraint.get(
             self.int_constraint.mapping_type_vars(type_var_mapping)
         )
 
@@ -753,11 +784,13 @@ class IntegerType(
         return f[format_index]
 
 
+I128: TypeAlias = IntegerType[Literal[128], Literal[Signedness.SIGNLESS]]
 I64: TypeAlias = IntegerType[Literal[64], Literal[Signedness.SIGNLESS]]
 I32: TypeAlias = IntegerType[Literal[32], Literal[Signedness.SIGNLESS]]
 I16: TypeAlias = IntegerType[Literal[16], Literal[Signedness.SIGNLESS]]
 I8: TypeAlias = IntegerType[Literal[8], Literal[Signedness.SIGNLESS]]
 I1: TypeAlias = IntegerType[Literal[1], Literal[Signedness.SIGNLESS]]
+i128: I128 = IntegerType(128)
 i64: I64 = IntegerType(64)
 i32: I32 = IntegerType(32)
 i16: I16 = IntegerType(16)
@@ -1069,7 +1102,7 @@ class IntegerAttr(
         value: AttrConstraint | IntConstraint | None = None,
     ) -> AttrConstraint[IntegerAttr[_IntegerAttrType]]:
         if isinstance(value, IntConstraint):
-            value = IntAttrConstraint(value)
+            value = IntAttrConstraint.get(value)
         return cast(
             AttrConstraint[IntegerAttr[_IntegerAttrType]],
             ParamAttrConstraint.get(IntegerAttr, value, type),
@@ -2039,6 +2072,15 @@ class MemRefLayoutAttr(Attribute, ABC):
         """
         return None
 
+    def get_offset(self) -> int | None:
+        """
+        (optional) Return the static offset of this memref layout, if available.
+
+        Returns `None` when the offset is dynamic or when this layout does not
+        expose a strided offset.
+        """
+        return None
+
 
 @irdl_attr_definition
 class StridedLayoutAttr(MemRefLayoutAttr, BuiltinAttribute, ParametrizedAttribute):
@@ -2614,6 +2656,19 @@ class MemRefType(
                 return ShapedType.strides_for_shape(self.get_shape())
             case _:
                 return self.layout.get_strides()
+
+    def get_offset(self) -> int | None:
+        """
+        Return the static offset of the memref layout.
+
+        Returns `0` for the default layout, and `None` when the offset is dynamic or
+        when the layout does not expose a strided offset.
+        """
+        match self.layout:
+            case NoneAttr():
+                return 0
+            case _:
+                return self.layout.get_offset()
 
     @staticmethod
     def constr(

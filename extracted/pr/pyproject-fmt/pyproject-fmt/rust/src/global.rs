@@ -1,7 +1,7 @@
 use common::table::Tables;
 use tombi_syntax::SyntaxNode;
 
-pub fn reorder_tables(root_ast: &SyntaxNode, tables: &Tables) {
+pub fn reorder_tables(root_ast: &SyntaxNode, tables: &Tables, root_table_spacing: &str, sub_table_spacing: &str) {
     tables.reorder(
         root_ast,
         &[
@@ -32,6 +32,8 @@ pub fn reorder_tables(root_ast: &SyntaxNode, tables: &Tables) {
             // Formatters and linters
             "tool.autopep8",
             "tool.black",
+            "tool.yapf",
+            "tool.djlint",
             "tool.ruff",
             "tool.isort",
             "tool.flake8",
@@ -42,11 +44,13 @@ pub fn reorder_tables(root_ast: &SyntaxNode, tables: &Tables) {
             "tool.codespell",
             "tool.docformatter",
             "tool.pydoclint",
+            "tool.interrogate",
             "tool.tomlsort",
             "tool.check-manifest",
             "tool.check-sdist",
             "tool.check-wheel-contents",
             "tool.deptry",
+            "tool.vulture",
             "tool.pyproject-fmt",
             "tool.typos",
             "tool.bandit",
@@ -67,11 +71,15 @@ pub fn reorder_tables(root_ast: &SyntaxNode, tables: &Tables) {
             "tool.tox",
             // Releasers/bumpers
             "tool.bumpversion",
+            "tool.commitizen",
             "tool.jupyter-releaser",
+            "tool.semantic_release",
             "tool.tbump",
             "tool.towncrier",
             "tool.vendoring",
         ],
         &["tool"], // Treat tool.* as distinct base keys (e.g., tool.black != tool.ruff)
+        root_table_spacing,
+        sub_table_spacing,
     );
 }

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: polyaxon
-Version: 2.15.1
+Version: 2.16.1
 Summary: Command Line Interface (CLI) and client to interact with Polyaxon API.
 Home-page: https://github.com/polyaxon/polyaxon
-Author: Polyaxon, Inc.
+Author: Polyaxon authors
 Author-email: contact@polyaxon.com
-Maintainer: Polyaxon, Inc.
+Maintainer: Polyaxon authors
 Maintainer-email: contact@polyaxon.com
 License: Apache 2.0
 Keywords: polyaxon,aws,s3,microsoft,azure,google cloud storage,gcs,deep-learning,machine-learning,data-science,neural-networks,artificial-intelligence,ai,reinforcement-learning,kubernetes,aws,microsoft,azure,google cloud,tensorFlow,pytorch
@@ -32,6 +32,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+Requires-Dist: aiofiles<=25.1.0
+Requires-Dist: aiohttp>=3.0.0
 Requires-Dist: click<9.0.0,>=7.1.1
 Requires-Dist: clipped==0.11.*
 Requires-Dist: parsimonious>=0.10.0
@@ -70,19 +72,16 @@ Provides-Extra: numpy
 Requires-Dist: numpy; extra == "numpy"
 Provides-Extra: k8s-async
 Requires-Dist: kubernetes_asyncio>=28.2.1; extra == "k8s-async"
-Requires-Dist: aiohttp>=3.0.0; extra == "k8s-async"
 Requires-Dist: anyio; extra == "k8s-async"
 Provides-Extra: fs
-Requires-Dist: adlfs<=2026.2.0,>=2025.8.0; extra == "fs"
-Requires-Dist: fsspec<=2026.2.0,>=2025.10.0; extra == "fs"
-Requires-Dist: gcsfs<=2026.2.0,>=2025.10.0; extra == "fs"
-Requires-Dist: s3fs<=2026.2.0,>=2025.10.0; extra == "fs"
+Requires-Dist: adlfs<=2026.6.0,>=2025.8.0; extra == "fs"
+Requires-Dist: fsspec<=2026.6.0,>=2025.10.0; extra == "fs"
+Requires-Dist: gcsfs<=2026.6.0,>=2025.10.0; extra == "fs"
+Requires-Dist: s3fs<=2026.6.0,>=2025.10.0; extra == "fs"
 Provides-Extra: init
 Requires-Dist: docker; extra == "init"
 Requires-Dist: GitPython<3.2.0; extra == "init"
-Requires-Dist: aiofiles<=25.1.0; extra == "init"
 Provides-Extra: sidecar
-Requires-Dist: aiofiles<=25.1.0; extra == "sidecar"
 Requires-Dist: pandas; extra == "sidecar"
 Requires-Dist: anyio; extra == "sidecar"
 Provides-Extra: sandbox
@@ -108,7 +107,7 @@ Dynamic: summary
 [![Slack](https://img.shields.io/badge/Slack-1.5k%20members-blue.svg?style=flat&logo=slack&longCache=true)](https://polyaxon.com/slack/)
 
 [![Docs](https://img.shields.io/badge/docs-stable-brightgreen.svg?style=flat&longCache=true)](https://polyaxon.com/docs/)
-[![Release](https://img.shields.io/badge/release-v2.15.1-brightgreen.svg?longCache=true)](https://polyaxon.com/docs/releases/2-15/)
+[![Release](https://img.shields.io/badge/release-v2.16.1-brightgreen.svg?longCache=true)](https://polyaxon.com/docs/releases/2-15/)
 [![GitHub](https://img.shields.io/badge/issue_tracker-github-blue?style=flat&logo=github&longCache=true)](https://github.com/polyaxon/polyaxon/issues)
 [![GitHub](https://img.shields.io/badge/roadmap-github-blue?style=flat&logo=github&longCache=true)](https://github.com/orgs/polyaxon/projects/5)
 

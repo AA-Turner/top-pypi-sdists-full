@@ -7,13 +7,8 @@ Manual implementation without scipy.minimize dependency.
 Single unified function that works with any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
 """
 
-from AOT_biomaps.AOT_Recon.ReconTools import (
-    projection, backprojection, clamp_positive, calculate_memory_requirement, 
-    check_gpu_memory, zeros, ones, axpby, minus_axpy, dot_product, fill_array,
-    quadratic_potential, huber_potential, relative_difference_potential, build_adjacency_indices
-)
-from AOT_biomaps.AOT_Recon.ReconEnums import PotentialType
-from AOT_biomaps.Config import config
+from AOT_biomaps.AOT_Recon.ReconTools import forward_projection, backward_projection, clamp_positive, axpby, minus_axpy, dot_product, quadratic_potential, huber_potential, relative_difference_potential, build_preconditioner, apply_diagonal_preconditioner
+from AOT_biomaps.AOT_Recon.ReconEnums import PotentialType, PreconditionerType
 
 import numpy as np
 from tqdm import trange
@@ -27,7 +22,7 @@ except ImportError:
     CUPY_AVAILABLE = False
 
 # Non-differentiable potentials that LBFGS cannot handle
-_NON_DIFFERENTIABLE_POTENTIALS = {PotentialType.TV}
+_NON_DIFFERENTIABLE_POTENTIALS = {PotentialType.TOTAL_VARIATION}
 
 
 def LBFGS(
@@ -45,6 +40,7 @@ def LBFGS(
     withTumor=True,
     max_saves=5000,
     show_logs=True,
+    preconditioner_type=PreconditionerType.NONE,
 ):
     """
     L-BFGS optimization algorithm with regularization support.
@@ -53,11 +49,15 @@ def LBFGS(
     Uses ReconTools functions for all matrix operations, so it works with
     any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
     
+    Supports preconditioning:
+    - NONE: No preconditioning
+    - DIAGONAL: Diagonal preconditioning using A^T * 1
+    
     Args:
         SMatrix: SMatrix instance (already allocated)
         y: Measurement data
         numIterations: Number of iterations
-        potential_type: Type of potential function (QUADRATIC, HUBER_PIECEWISE, NUYTS_RELATIVE)
+        potential_type: Type of potential function (QUADRATIC, HUBER, RELATIVE_DIFFERENCE)
         alpha: Regularization weight
         beta: Additional parameter for potential functions
         delta: Parameter for Huber potential
@@ -68,6 +68,7 @@ def LBFGS(
         withTumor: Boolean for description only
         max_saves: Maximum number of intermediate saves
         show_logs: If True, shows progress bar
+        preconditioner_type: Type of preconditioner to use (default: NONE)
         
     Returns:
         tuple: (reconstructed_image, saved_indices, cost_history)
@@ -104,13 +105,18 @@ def LBFGS(
         theta_flat = np.full(ZX, 0.1, dtype=np.float32)
         array_module = np
     
+    # Compute preconditioner if requested
+    preconditioner, preconditioner_inv = None, None
+    if preconditioner_type != PreconditionerType.NONE:
+        preconditioner, preconditioner_inv = build_preconditioner(SMatrix, preconditioner_type)
+    
     # Select potential function
     def get_potential(U):
         if potential_type == PotentialType.QUADRATIC:
             return quadratic_potential(SMatrix, U, alpha)
-        elif potential_type == PotentialType.HUBER_PIECEWISE:
+        elif potential_type == PotentialType.HUBER:
             return huber_potential(SMatrix, U, alpha, delta)
-        elif potential_type == PotentialType.NUYTS_RELATIVE:
+        elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
             return relative_difference_potential(SMatrix, U, alpha, beta)
         else:
             raise ValueError(f"Unsupported potential type: {potential_type}")
@@ -141,8 +147,8 @@ def LBFGS(
     
     for it in iterator:
         # Compute gradient: grad = A^T * (A * theta - y) + grad_U
-        q_flat = projection(SMatrix, theta_flat)
-        grad_f = backprojection(SMatrix, q_flat - y_flat)  # Gradient of data fidelity (LS)
+        q_flat = forward_projection(SMatrix, theta_flat)
+        grad_f = backward_projection(SMatrix, q_flat - y_flat)  # Gradient of data fidelity (LS)
         grad_U, _, U_value = get_potential(theta_flat)  # Gradient of regularization
         grad_flat = grad_f + grad_U
         
@@ -188,7 +194,7 @@ def LBFGS(
         
         # Line search (simple backtracking)
         def compute_cost(theta):
-            q = projection(SMatrix, theta)
+            q = forward_projection(SMatrix, theta)
             cost = 0.5 * float(dot_product(SMatrix, q - y_flat, q - y_flat))
             _, _, U_val = get_potential(theta)
             cost += float(U_val)
@@ -215,8 +221,8 @@ def LBFGS(
         
         # Update s and y for LBFGS
         s_k = theta_new - theta_flat
-        grad_new_q = projection(SMatrix, theta_new)
-        grad_new_f = backprojection(SMatrix, grad_new_q - y_flat)
+        grad_new_q = forward_projection(SMatrix, theta_new)
+        grad_new_f = backward_projection(SMatrix, grad_new_q - y_flat)
         grad_new_U, _, _ = get_potential(theta_new)
         grad_new_flat = grad_new_f + grad_new_U
         y_k = grad_new_flat - grad_flat
@@ -233,6 +239,10 @@ def LBFGS(
         
         # Update theta
         theta_flat = theta_new
+        
+        # Apply diagonal preconditioning if enabled
+        if preconditioner_inv is not None:
+            theta_flat = apply_diagonal_preconditioner(theta_flat, preconditioner_inv, SMatrix)
         
         if isSavingEachIteration and it in save_indices:
             if device == 'gpu' and CUPY_AVAILABLE:

@@ -43,7 +43,14 @@ from transformers import (
     BertModel,
     BertTokenizer,
 )
-from transformers.models.deprecated.mmbt.configuration_mmbt import MMBTConfig
+try:
+    from transformers.models.deprecated.mmbt.configuration_mmbt import MMBTConfig
+    from simpletransformers.classification.transformer_models.mmbt_model import (
+        MMBTForClassification,
+    )
+    _mmbt_available = True
+except ImportError:
+    _mmbt_available = False
 
 from simpletransformers.classification.classification_utils import (
     ImageEncoder,
@@ -52,9 +59,6 @@ from simpletransformers.classification.classification_utils import (
     collate_fn,
     convert_examples_to_features,
     get_image_transforms,
-)
-from simpletransformers.classification.transformer_models.mmbt_model import (
-    MMBTForClassification,
 )
 from simpletransformers.config.global_args import global_args
 from simpletransformers.config.model_args import MultiModalClassificationArgs
@@ -100,6 +104,12 @@ class MultiModalClassificationModel:
             cuda_device (optional): Specific GPU that should be used. Will use the first available GPU by default.
             **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
         """  # noqa: ignore flake8"
+
+        if not _mmbt_available:
+            raise ImportError(
+                "MultiModalClassificationModel requires transformers < 5.0.0. "
+                "Please install a compatible version: pip install 'transformers<5.0.0'"
+            )
 
         MODEL_CLASSES = {
             "bert": (BertConfig, BertModel, BertTokenizer),

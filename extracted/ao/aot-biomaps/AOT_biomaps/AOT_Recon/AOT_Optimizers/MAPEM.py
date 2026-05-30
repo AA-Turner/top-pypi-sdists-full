@@ -6,12 +6,8 @@ Uses unified SMatrix interface and ReconTools functions.
 Single unified function that works with any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
 """
 
-from AOT_biomaps.AOT_Recon.ReconEnums import PotentialType
-from AOT_biomaps.AOT_Recon.ReconTools import (
-    projection, backprojection, quadratic_potential, huber_potential, 
-    relative_difference_potential, build_adjacency_indices,
-    clamp_positive, calculate_memory_requirement, check_gpu_memory
-)
+from AOT_biomaps.AOT_Recon.ReconEnums import PotentialType, PreconditionerType
+from AOT_biomaps.AOT_Recon.ReconTools import forward_projection, backward_projection, quadratic_potential, huber_potential, relative_difference_potential, build_preconditioner, apply_diagonal_preconditioner, clamp_positive
 from AOT_biomaps.Config import config
 
 import numpy as np
@@ -33,6 +29,7 @@ def MAPEM(
     alpha=1.0,
     beta=1.0,
     delta=0.01,
+    preconditioner_type=PreconditionerType.NONE,
     isSavingEachIteration=True,
     isCostFunction=False,
     withTumor=True,
@@ -45,14 +42,19 @@ def MAPEM(
     Uses ReconTools functions for all matrix operations, so it works with
     any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
     
+    Supports preconditioning:
+    - NONE: No preconditioning
+    - DIAGONAL: Diagonal preconditioning using A^T * 1
+    
     Args:
         SMatrix: SMatrix instance (already allocated)
         y: Measurement data
         numIterations: Number of iterations
-        potential_type: Type of potential function (QUADRATIC, HUBER_PIECEWISE, NUYTS_RELATIVE, TV)
+        potential_type: Type of potential function (QUADRATIC, HUBER, RELATIVE_DIFFERENCE, TOTAL_VARIATION)
         alpha: Regularization weight
         beta: Additional parameter for potential functions
         delta: Parameter for Huber potential
+        preconditioner_type: Type of preconditioner to use (default: NONE)
         isSavingEachIteration: If True, saves intermediate results
         isCostFunction: If True, computes and saves cost function history
         withTumor: Boolean for description only
@@ -91,12 +93,17 @@ def MAPEM(
     def get_potential(U):
         if potential_type == PotentialType.QUADRATIC:
             return quadratic_potential(SMatrix, U, alpha)
-        elif potential_type == PotentialType.HUBER_PIECEWISE:
+        elif potential_type == PotentialType.HUBER:
             return huber_potential(SMatrix, U, alpha, delta)
-        elif potential_type == PotentialType.NUYTS_RELATIVE:
+        elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
             return relative_difference_potential(SMatrix, U, alpha, beta)
         else:
             raise ValueError(f"Unsupported potential type: {potential_type}")
+    
+    # Compute preconditioner if requested
+    preconditioner, preconditioner_inv = None, None
+    if preconditioner_type != PreconditionerType.NONE:
+        preconditioner, preconditioner_inv = build_preconditioner(SMatrix, preconditioner_type)
     
     # Setup save indices
     if numIterations <= max_saves:
@@ -116,13 +123,13 @@ def MAPEM(
     
     for it in iterator:
         # Forward projection
-        q_flat = projection(SMatrix, theta_flat)
+        q_flat = forward_projection(SMatrix, theta_flat)
         
         # Compute update factor
         ratio = y_flat / (q_flat + 1e-10)
         
-        # Backprojection
-        c_flat = backprojection(SMatrix, ratio)
+        # Backward projection
+        c_flat = backward_projection(SMatrix, ratio)
         
         # Compute potential gradient and Hessian
         grad_U, hess_U, U_value = get_potential(theta_flat)
@@ -130,12 +137,16 @@ def MAPEM(
         # MAP-EM update
         theta_flat = theta_flat * c_flat / (1 + hess_U)
         
+        # Apply diagonal preconditioning if enabled
+        if preconditioner_inv is not None:
+            theta_flat = apply_diagonal_preconditioner(theta_flat, preconditioner_inv, SMatrix)
+        
         # Clamp to non-negative
         theta_flat = clamp_positive(SMatrix, theta_flat)
         
         # Compute cost function if requested
         if isCostFunction:
-            q_flat = projection(SMatrix, theta_flat)
+            q_flat = forward_projection(SMatrix, theta_flat)
             # Poisson log-likelihood + regularization
             likelihood = array_module.sum(y_flat * array_module.log(q_flat + 1e-10) - q_flat)
             _, _, U_val = get_potential(theta_flat)

@@ -10,6 +10,8 @@ from pathlib import Path
 import shutil
 from typing import Annotated, Any
 
+from rich.table import Table
+from rich.text import Text
 import typer
 import yaml
 
@@ -55,6 +57,20 @@ def _format_auto_status(state) -> str:
     }
     lines.append(f"Terminal: {is_terminal}")
     lines.append(f"Last progress: {state.last_progress_message}")
+    if state.pending_question:
+        lines.append("Pending question:")
+        for line in str(state.pending_question).strip().splitlines() or [""]:
+            lines.append(f"  {line}")
+    if state.auto_answer_log:
+        recent = state.auto_answer_log[-3:]
+        lines.append(f"Recent auto answers (last {len(recent)}):")
+        for entry in recent:
+            round_value = entry.get("round", "?")
+            source = entry.get("source", "?")
+            question = str(entry.get("question", "")).strip()
+            answer = str(entry.get("answer", "")).strip()
+            lines.append(f"  round {round_value} [{source}] Q: {question}")
+            lines.append(f"    A: {answer}")
 
     is_gap_window = (
         state.phase is AutoPhase.RALPH_HANDOFF
@@ -205,6 +221,9 @@ def run_projection(
     if seed_id is not None:
         arguments["seed_id"] = seed_id
     if limit is not None:
+        if limit <= 0:
+            print_error("Run projection failed: limit must be a positive integer")
+            raise typer.Exit(_STATUS_RUN_EXIT_MALFORMED_INPUT)
         arguments["limit"] = limit
 
     result = asyncio.run(ProjectionQueryHandler().handle(arguments))
@@ -300,8 +319,45 @@ _CLI_PATH_ENV_BY_BACKEND = {
 
 
 def _health_row(name: str, status: str, detail: str | None = None) -> dict[str, str]:
-    label = name if not detail else f"{name} — {detail}"
-    return {"name": label, "status": status}
+    return {"name": name, "status": status, "detail": detail or ""}
+
+
+def _health_status_text(status: str) -> Text:
+    style_by_status = {
+        "ok": "success",
+        "warning": "warning",
+        "error": "error",
+    }
+    return Text(status, style=style_by_status.get(status, ""))
+
+
+def _health_table(checks: list[dict[str, str]]) -> Table:
+    table = Table(title="System Health", border_style="blue", header_style="bold cyan")
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Status", justify="center", no_wrap=True)
+    table.add_column("Detail", overflow="fold")
+
+    for check in checks:
+        table.add_row(
+            check["name"],
+            _health_status_text(check["status"]),
+            check.get("detail", ""),
+        )
+
+    return table
+
+
+def _print_health_details(checks: list[dict[str, str]]) -> None:
+    """Emit copyable health details after the Rich table.
+
+    The table is for scanning, but long CLI paths and config-file paths can be
+    truncated by terminal width. These plain lines are the diagnostic source a
+    user can copy into an issue or use to fix their local setup.
+    """
+    for check in checks:
+        detail = check.get("detail", "")
+        if detail:
+            typer.echo(f"{check['name']}: {check['status']} - {detail}")
 
 
 def _database_file_path(data: dict, config_path: Path) -> Path:
@@ -526,8 +582,8 @@ def health() -> None:
         checks.append(_check_runtime_backend(data))
         checks.append(_check_credentials(data, config_path))
 
-    table = create_status_table(checks, "System Health")
-    print_table(table)
+    print_table(_health_table(checks))
+    _print_health_details(checks)
     if any(check["status"] == "error" for check in checks):
         raise typer.Exit(1)
 

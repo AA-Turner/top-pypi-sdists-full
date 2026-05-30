@@ -91,6 +91,7 @@ from .literals import (
     ResourceTypeType,
     RestApiMethodType,
     SchemaTypeType,
+    SecretSourceTypeType,
     ServerProtocolType,
     StatusType,
     TargetProtocolTypeType,
@@ -733,6 +734,7 @@ __all__ = (
     "SamplingConfigTypeDef",
     "SchemaDefinitionOutputTypeDef",
     "SchemaDefinitionTypeDef",
+    "SecretReferenceTypeDef",
     "SecretTypeDef",
     "SecretsManagerLocationTypeDef",
     "SelfManagedConfigurationInputTypeDef",
@@ -981,9 +983,9 @@ class S3ConfigurationTypeDef(TypedDict):
 class ApprovalConfigurationTypeDef(TypedDict):
     autoApproval: NotRequired[bool]
 
-class AtlassianOauth2ProviderConfigInputTypeDef(TypedDict):
-    clientId: str
-    clientSecret: str
+class SecretReferenceTypeDef(TypedDict):
+    secretId: str
+    jsonKey: str
 
 class OAuth2AuthorizationDataTypeDef(TypedDict):
     authorizationUrl: str
@@ -1085,11 +1087,6 @@ class S3LocationTypeDef(TypedDict):
     prefix: str
     versionId: NotRequired[str]
 
-class CoinbaseCdpConfigurationInputTypeDef(TypedDict):
-    apiKeyId: str
-    apiKeySecret: str
-    walletSecret: str
-
 class SecretTypeDef(TypedDict):
     secretArn: str
 
@@ -1145,11 +1142,6 @@ class ProtocolConfigurationTypeDef(TypedDict):
 
 class WorkloadIdentityDetailsTypeDef(TypedDict):
     workloadIdentityArn: str
-
-class CreateApiKeyCredentialProviderRequestTypeDef(TypedDict):
-    name: str
-    apiKey: str
-    tags: NotRequired[Mapping[str, str]]
 
 class CreateBrowserProfileRequestTypeDef(TypedDict):
     name: str
@@ -1578,14 +1570,6 @@ class KmsConfigurationTypeDef(TypedDict):
 class GetWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
 
-class GithubOauth2ProviderConfigInputTypeDef(TypedDict):
-    clientId: str
-    clientSecret: str
-
-class GoogleOauth2ProviderConfigInputTypeDef(TypedDict):
-    clientId: str
-    clientSecret: str
-
 class HarnessAgentCoreBrowserConfigTypeDef(TypedDict):
     browserArn: NotRequired[str]
 
@@ -1708,13 +1692,6 @@ IamPrincipalTypeDef = TypedDict(
     },
 )
 
-class IncludedOauth2ProviderConfigInputTypeDef(TypedDict):
-    clientId: str
-    clientSecret: str
-    issuer: NotRequired[str]
-    authorizationEndpoint: NotRequired[str]
-    tokenEndpoint: NotRequired[str]
-
 class LambdaInterceptorConfigurationTypeDef(TypedDict):
     arn: str
 
@@ -1725,10 +1702,6 @@ class InvocationConfigurationInputTypeDef(TypedDict):
 class InvocationConfigurationTypeDef(TypedDict):
     topicArn: str
     payloadDeliveryBucketName: str
-
-class LinkedinOauth2ProviderConfigInputTypeDef(TypedDict):
-    clientId: str
-    clientSecret: str
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -2070,11 +2043,6 @@ class MetadataConfigurationTypeDef(TypedDict):
     allowedQueryParameters: NotRequired[Sequence[str]]
     allowedResponseHeaders: NotRequired[Sequence[str]]
 
-class MicrosoftOauth2ProviderConfigInputTypeDef(TypedDict):
-    clientId: str
-    clientSecret: str
-    tenantId: NotRequired[str]
-
 class ModifyInvocationConfigurationInputTypeDef(TypedDict):
     topicArn: NotRequired[str]
     payloadDeliveryBucketName: NotRequired[str]
@@ -2109,23 +2077,9 @@ class Oauth2AuthorizationServerMetadataTypeDef(TypedDict):
     responseTypes: NotRequired[Sequence[str]]
     tokenEndpointAuthMethods: NotRequired[Sequence[str]]
 
-class SalesforceOauth2ProviderConfigInputTypeDef(TypedDict):
-    clientId: str
-    clientSecret: str
-
-class SlackOauth2ProviderConfigInputTypeDef(TypedDict):
-    clientId: str
-    clientSecret: str
-
 class TokenExchangeGrantTypeConfigTypeOutputTypeDef(TypedDict):
     actorTokenContent: ActorTokenContentTypeType
     actorTokenScopes: NotRequired[list[str]]
-
-class StripePrivyConfigurationInputTypeDef(TypedDict):
-    appId: str
-    appSecret: str
-    authorizationPrivateKey: str
-    authorizationId: str
 
 class PolicyGenerationDetailsTypeDef(TypedDict):
     policyGenerationId: str
@@ -2254,10 +2208,6 @@ class UpdateAgentRuntimeEndpointRequestTypeDef(TypedDict):
     agentRuntimeVersion: NotRequired[str]
     description: NotRequired[str]
     clientToken: NotRequired[str]
-
-class UpdateApiKeyCredentialProviderRequestTypeDef(TypedDict):
-    name: str
-    apiKey: str
 
 class UpdateDatasetExamplesRequestTypeDef(TypedDict):
     datasetId: str
@@ -2743,6 +2693,90 @@ class McpToolSchemaConfigurationTypeDef(TypedDict):
 class UpdatedApprovalConfigurationTypeDef(TypedDict):
     optionalValue: NotRequired[ApprovalConfigurationTypeDef]
 
+class AtlassianOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: NotRequired[str]
+    clientSecretConfig: NotRequired[SecretReferenceTypeDef]
+    clientSecretSource: NotRequired[SecretSourceTypeType]
+
+class CoinbaseCdpConfigurationInputTypeDef(TypedDict):
+    apiKeyId: str
+    apiKeySecret: NotRequired[str]
+    apiKeySecretSource: NotRequired[SecretSourceTypeType]
+    apiKeySecretConfig: NotRequired[SecretReferenceTypeDef]
+    walletSecret: NotRequired[str]
+    walletSecretSource: NotRequired[SecretSourceTypeType]
+    walletSecretConfig: NotRequired[SecretReferenceTypeDef]
+
+class CreateApiKeyCredentialProviderRequestTypeDef(TypedDict):
+    name: str
+    apiKey: NotRequired[str]
+    apiKeySecretConfig: NotRequired[SecretReferenceTypeDef]
+    apiKeySecretSource: NotRequired[SecretSourceTypeType]
+    tags: NotRequired[Mapping[str, str]]
+
+class GithubOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: NotRequired[str]
+    clientSecretConfig: NotRequired[SecretReferenceTypeDef]
+    clientSecretSource: NotRequired[SecretSourceTypeType]
+
+class GoogleOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: NotRequired[str]
+    clientSecretConfig: NotRequired[SecretReferenceTypeDef]
+    clientSecretSource: NotRequired[SecretSourceTypeType]
+
+class IncludedOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: NotRequired[str]
+    clientSecretConfig: NotRequired[SecretReferenceTypeDef]
+    clientSecretSource: NotRequired[SecretSourceTypeType]
+    issuer: NotRequired[str]
+    authorizationEndpoint: NotRequired[str]
+    tokenEndpoint: NotRequired[str]
+
+class LinkedinOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: NotRequired[str]
+    clientSecretConfig: NotRequired[SecretReferenceTypeDef]
+    clientSecretSource: NotRequired[SecretSourceTypeType]
+
+class MicrosoftOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: NotRequired[str]
+    clientSecretConfig: NotRequired[SecretReferenceTypeDef]
+    clientSecretSource: NotRequired[SecretSourceTypeType]
+    tenantId: NotRequired[str]
+
+class SalesforceOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: NotRequired[str]
+    clientSecretConfig: NotRequired[SecretReferenceTypeDef]
+    clientSecretSource: NotRequired[SecretSourceTypeType]
+
+class SlackOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: NotRequired[str]
+    clientSecretConfig: NotRequired[SecretReferenceTypeDef]
+    clientSecretSource: NotRequired[SecretSourceTypeType]
+
+class StripePrivyConfigurationInputTypeDef(TypedDict):
+    appId: str
+    authorizationId: str
+    appSecret: NotRequired[str]
+    appSecretSource: NotRequired[SecretSourceTypeType]
+    appSecretConfig: NotRequired[SecretReferenceTypeDef]
+    authorizationPrivateKey: NotRequired[str]
+    authorizationPrivateKeySource: NotRequired[SecretSourceTypeType]
+    authorizationPrivateKeyConfig: NotRequired[SecretReferenceTypeDef]
+
+class UpdateApiKeyCredentialProviderRequestTypeDef(TypedDict):
+    name: str
+    apiKey: NotRequired[str]
+    apiKeySecretConfig: NotRequired[SecretReferenceTypeDef]
+    apiKeySecretSource: NotRequired[SecretSourceTypeType]
+
 class AuthorizationDataTypeDef(TypedDict):
     oauth2: NotRequired[OAuth2AuthorizationDataTypeDef]
 
@@ -2830,15 +2864,23 @@ class CoinbaseCdpConfigurationOutputTypeDef(TypedDict):
     apiKeyId: str
     apiKeySecretArn: SecretTypeDef
     walletSecretArn: SecretTypeDef
+    apiKeySecretJsonKey: NotRequired[str]
+    apiKeySecretSource: NotRequired[SecretSourceTypeType]
+    walletSecretJsonKey: NotRequired[str]
+    walletSecretSource: NotRequired[SecretSourceTypeType]
 
 class CreateApiKeyCredentialProviderResponseTypeDef(TypedDict):
     apiKeySecretArn: SecretTypeDef
+    apiKeySecretJsonKey: str
+    apiKeySecretSource: SecretSourceTypeType
     name: str
     credentialProviderArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetApiKeyCredentialProviderResponseTypeDef(TypedDict):
     apiKeySecretArn: SecretTypeDef
+    apiKeySecretJsonKey: str
+    apiKeySecretSource: SecretSourceTypeType
     name: str
     credentialProviderArn: str
     createdTime: datetime
@@ -2850,9 +2892,15 @@ class StripePrivyConfigurationOutputTypeDef(TypedDict):
     appSecretArn: SecretTypeDef
     authorizationPrivateKeyArn: SecretTypeDef
     authorizationId: str
+    appSecretJsonKey: NotRequired[str]
+    appSecretSource: NotRequired[SecretSourceTypeType]
+    authorizationPrivateKeyJsonKey: NotRequired[str]
+    authorizationPrivateKeySource: NotRequired[SecretSourceTypeType]
 
 class UpdateApiKeyCredentialProviderResponseTypeDef(TypedDict):
     apiKeySecretArn: SecretTypeDef
+    apiKeySecretJsonKey: str
+    apiKeySecretSource: SecretSourceTypeType
     name: str
     credentialProviderArn: str
     createdTime: datetime
@@ -3459,10 +3507,6 @@ class OnBehalfOfTokenExchangeConfigTypeOutputTypeDef(TypedDict):
     grantType: OnBehalfOfTokenExchangeGrantTypeTypeType
     tokenExchangeGrantTypeConfig: NotRequired[TokenExchangeGrantTypeConfigTypeOutputTypeDef]
 
-class PaymentProviderConfigurationInputTypeDef(TypedDict):
-    coinbaseCdpConfiguration: NotRequired[CoinbaseCdpConfigurationInputTypeDef]
-    stripePrivyConfiguration: NotRequired[StripePrivyConfigurationInputTypeDef]
-
 class PolicyDefinitionTypeDef(TypedDict):
     cedar: NotRequired[CedarPolicyTypeDef]
     policyGeneration: NotRequired[PolicyGenerationDetailsTypeDef]
@@ -3555,6 +3599,10 @@ class McpServerTargetConfigurationTypeDef(TypedDict):
     mcpToolSchema: NotRequired[McpToolSchemaConfigurationTypeDef]
     listingMode: NotRequired[ListingModeType]
     resourcePriority: NotRequired[int]
+
+class PaymentProviderConfigurationInputTypeDef(TypedDict):
+    coinbaseCdpConfiguration: NotRequired[CoinbaseCdpConfigurationInputTypeDef]
+    stripePrivyConfiguration: NotRequired[StripePrivyConfigurationInputTypeDef]
 
 class CustomClaimValidationTypeOutputTypeDef(TypedDict):
     inboundTokenClaimName: str
@@ -3910,17 +3958,6 @@ class Oauth2DiscoveryTypeDef(TypedDict):
     discoveryUrl: NotRequired[str]
     authorizationServerMetadata: NotRequired[Oauth2AuthorizationServerMetadataUnionTypeDef]
 
-class CreatePaymentCredentialProviderRequestTypeDef(TypedDict):
-    name: str
-    credentialProviderVendor: PaymentCredentialProviderVendorTypeType
-    providerConfigurationInput: PaymentProviderConfigurationInputTypeDef
-    tags: NotRequired[Mapping[str, str]]
-
-class UpdatePaymentCredentialProviderRequestTypeDef(TypedDict):
-    name: str
-    credentialProviderVendor: PaymentCredentialProviderVendorTypeType
-    providerConfigurationInput: PaymentProviderConfigurationInputTypeDef
-
 class CreatePolicyRequestTypeDef(TypedDict):
     name: str
     definition: PolicyDefinitionTypeDef
@@ -4064,6 +4101,17 @@ class OnBehalfOfTokenExchangeConfigTypeTypeDef(TypedDict):
 
 class UpdatedAgentSkillsDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedAgentSkillsDescriptorFieldsTypeDef]
+
+class CreatePaymentCredentialProviderRequestTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: PaymentCredentialProviderVendorTypeType
+    providerConfigurationInput: PaymentProviderConfigurationInputTypeDef
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdatePaymentCredentialProviderRequestTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: PaymentCredentialProviderVendorTypeType
+    providerConfigurationInput: PaymentProviderConfigurationInputTypeDef
 
 class LlmAsAJudgeEvaluatorConfigOutputTypeDef(TypedDict):
     instructions: str
@@ -4706,6 +4754,8 @@ class UpdateRegistryResponseTypeDef(TypedDict):
 
 class CreateOauth2CredentialProviderResponseTypeDef(TypedDict):
     clientSecretArn: SecretTypeDef
+    clientSecretJsonKey: str
+    clientSecretSource: SecretSourceTypeType
     name: str
     credentialProviderArn: str
     callbackUrl: str
@@ -4715,6 +4765,8 @@ class CreateOauth2CredentialProviderResponseTypeDef(TypedDict):
 
 class GetOauth2CredentialProviderResponseTypeDef(TypedDict):
     clientSecretArn: SecretTypeDef
+    clientSecretJsonKey: str
+    clientSecretSource: SecretSourceTypeType
     name: str
     credentialProviderArn: str
     credentialProviderVendor: CredentialProviderVendorTypeType
@@ -4728,6 +4780,8 @@ class GetOauth2CredentialProviderResponseTypeDef(TypedDict):
 
 class UpdateOauth2CredentialProviderResponseTypeDef(TypedDict):
     clientSecretArn: SecretTypeDef
+    clientSecretJsonKey: str
+    clientSecretSource: SecretSourceTypeType
     name: str
     credentialProviderVendor: CredentialProviderVendorTypeType
     credentialProviderArn: str
@@ -4834,10 +4888,12 @@ class CustomOauth2ProviderConfigInputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryUnionTypeDef
     clientId: NotRequired[str]
     clientSecret: NotRequired[str]
-    privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
-    privateEndpointOverrides: NotRequired[Sequence[PrivateEndpointOverrideUnionTypeDef]]
+    clientSecretConfig: NotRequired[SecretReferenceTypeDef]
+    clientSecretSource: NotRequired[SecretSourceTypeType]
     onBehalfOfTokenExchangeConfig: NotRequired[OnBehalfOfTokenExchangeConfigTypeUnionTypeDef]
     clientAuthenticationMethod: NotRequired[ClientAuthenticationMethodTypeType]
+    privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
+    privateEndpointOverrides: NotRequired[Sequence[PrivateEndpointOverrideUnionTypeDef]]
 
 class HarnessToolConfigurationTypeDef(TypedDict):
     remoteMcp: NotRequired[HarnessRemoteMcpConfigUnionTypeDef]

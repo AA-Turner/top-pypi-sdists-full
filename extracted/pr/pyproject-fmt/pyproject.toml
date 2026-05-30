@@ -1,8 +1,9 @@
 [build-system]
-build-backend = "maturin"
+build-backend = "build_backend"
 requires = [
-  "maturin>=1.13.1",
+  "maturin>=1.13.3",
 ]
+backend-path = [ "." ]
 
 [project]
 name = "pyproject-fmt"
@@ -55,8 +56,8 @@ test = [
   "pytest-mock>=3.15.1",
 ]
 type = [
-  "mypy==1.20.2",
-  "types-cachetools>=6.2.0.20260408",
+  "mypy==2.1",
+  "types-cachetools>=7.0.0.20260518",
   "types-chardet>=5.0.4.6",
   { include-group = "test" },
 ]
@@ -64,8 +65,9 @@ docs = [
   "furo>=2025.12.19; python_version>='3.14'",
   "sphinx>=9.1; python_version>='3.14'",
   "sphinx-argparse-cli>=1.21.3; python_version>='3.14'",
-  "sphinx-autodoc-typehints>=3.10.2; python_version>='3.14'",
+  "sphinx-autodoc-typehints>=3.10.3; python_version>='3.14'",
   "sphinx-copybutton>=0.5.2; python_version>='3.14'",
+  "sphinx-design>=0.6.1; python_version>='3.14'",
   "sphinx-inline-tabs>=2025.12.21.14; python_version>='3.14'",
 ]
 fix = [
@@ -74,7 +76,7 @@ fix = [
 pkg-meta = [
   "check-wheel-contents>=0.6.3",
   "twine>=6.2",
-  "uv>=0.11.8",
+  "uv>=0.11.17",
 ]
 
 [tool.maturin]
@@ -82,6 +84,8 @@ bindings = "pyo3"
 module-name = "pyproject_fmt._lib"
 strip = true
 include = [
+  # ship the in-tree PEP 517 backend in the sdist so wheels can be built from the sdist
+  { path = "build_backend.py", format = "sdist" },
   { path = "rust-toolchain.toml", format = "sdist" },
   { path = "docs/", format = "sdist" },
   { path = "CHANGELOG.md", format = "sdist" },
@@ -103,6 +107,9 @@ show_error_codes = true
 strict = true
 
 [tool.coverage]
+run.omit = [
+  "*/_vendor/*", # vendored toml_fmt_common is covered by its own test suite
+]
 run.parallel = true
 run.plugins = [
   "covdefaults",

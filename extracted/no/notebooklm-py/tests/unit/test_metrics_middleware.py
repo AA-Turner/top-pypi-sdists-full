@@ -19,9 +19,9 @@ Pins the contract documented in
   :class:`Exception`; the middleware lets it propagate without any
   metrics side-effects.
 
-The tests use the canonical chain fixtures (``FakeAuthedPost`` +
-``make_request`` + ``build_chain``) from ``tests/_fixtures/chain.py`` so
-the substrate matches every other middleware test in the Tier-12 set.
+The tests use the canonical chain fixtures (``make_request`` + ``build_chain``)
+from ``tests/_fixtures/chain.py`` so the substrate matches every other
+middleware test in the Tier-12 set.
 """
 
 from __future__ import annotations
@@ -50,11 +50,11 @@ from notebooklm._types.common import RpcTelemetryEvent
 def _make_terminal_returning(response: httpx.Response) -> NextCall:
     """Build a terminal-shaped callable that returns ``RpcResponse(response)``.
 
-    The chain leaf normally wraps the ``httpx.Response`` from
-    ``AuthedTransport.perform_authed_post``; this helper short-circuits
-    that step so tests can drive the chain without booting a real
-    transport. ``request.context`` is propagated to the response so any
-    middleware above the leaf observes the same context object.
+    The chain leaf normally returns the ``httpx.Response`` from
+    ``Kernel.post``; this helper short-circuits that step so tests can
+    drive the chain without booting a real transport. ``request.context``
+    is propagated to the response so any middleware above the leaf
+    observes the same context object.
     """
 
     async def terminal(request: RpcRequest) -> RpcResponse:
@@ -275,7 +275,7 @@ async def test_event_carries_current_request_id(
 ) -> None:
     """Event ``request_id`` reflects the active ``contextvar`` at emit time.
 
-    ``RpcExecutor.execute_with_telemetry`` mints (or inherits) a request
+    ``RpcExecutor.rpc_call`` mints (or inherits) a request
     id via ``set_request_id()`` BEFORE invoking the chain, and the
     middleware's call to ``get_request_id()`` reads that contextvar. Pin
     the propagation by setting the id explicitly in test scope and

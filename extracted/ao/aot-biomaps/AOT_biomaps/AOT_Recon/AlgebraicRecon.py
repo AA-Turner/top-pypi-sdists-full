@@ -3,11 +3,12 @@ import warnings
 from AOT_biomaps.Config import config
 
 from ._mainRecon import Recon
-from .ReconEnums import ReconType, OptimizerType, ProcessType, SMatrixType, PotentialType, NoiseType
-from .AOT_Optimizers import MLEM, LS, MAPEM, DEPIERRO, PDHG
+from .ReconEnums import ReconType, OptimizerType, ProcessType, SMatrixType, PotentialType, NoiseType, PreconditionerType
+from .AOT_Optimizers import MLEM, LS, MAPEM, DEPIERRO, PDHG, LBFGS
 from .AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
 from .AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
 from .AOT_SMatrix.SMatrix_DENSE import SMatrix_DENSE
+from .ReconTools import build_preconditioner, apply_diagonal_preconditioner
 
 import os
 import subprocess
@@ -61,7 +62,7 @@ ALGORITHM_FORMULAS = {
         },
         "notes": "H_U is the Hessian diagonal of the potential function"
     },
-    OptimizerType.DEPIERRO95: {
+    OptimizerType.DEPIERRO: {
         "formula": r"theta^(k+1) = theta^(k) * (A^T * (y / (A*theta^(k) + epsilon))) / (A^T * 1 + sigma * beta * I)",
         "description": "De Pierro's quadratic regularization for EM",
         "reference": "De Pierro, IEEE TMI, 1995",
@@ -114,6 +115,21 @@ ALGORITHM_FORMULAS = {
         },
         "notes": "tau and sigma are step sizes; prox is the proximal operator for TV"
     },
+    OptimizerType.LBFGS: {
+        "formula": r"theta^(k+1) = theta^(k) + alpha_k * d^(k)",
+        "description": "Limited-memory BFGS quasi-Newton optimization",
+        "reference": "Liu and Nocedal, Mathematical Programming, 1989",
+        "required_params": ["alpha", "beta"],
+        "constraints": {
+            "alpha": "> 0",
+            "beta": ">= 0",
+            "delta": ">= 0",
+            "gamma": ">= 0",
+            "sigma": ">= 0",
+            "numIterations": "> 0",
+        },
+        "notes": "Manual implementation without scipy dependency. Supports differentiable potentials (QUADRATIC, HUBER, RELATIVE_DIFFERENCE)"
+    },
 }
 
 
@@ -122,7 +138,7 @@ class AlgebraicRecon(Recon):
     Algebraic reconstruction class for AOT_biomaps.
     
     This class provides a unified interface for all iterative reconstruction algorithms,
-    including MLEM, LS, MAPEM, DEPIERRO95, PPGMLEM, PGC, and PDHG.
+    including MLEM, LS, MAPEM, DEPIERRO, PPGMLEM, PGC, and PDHG.
     
     Features:
     - Support for multiple optimizer types
@@ -145,7 +161,7 @@ class AlgebraicRecon(Recon):
             optimizer=OptimizerType.MAPEM,
             numIterations=500,
             alpha=1.0, beta=0.1,
-            potentialFunction=PotentialType.HUBER_PIECEWISE
+            potentialFunction=PotentialType.HUBER
         )
         recon.generate_SMatrix()
         recon.run(processType=ProcessType.PYTHON, withTumor=True)
@@ -174,6 +190,8 @@ class AlgebraicRecon(Recon):
         sparseThreshold: float = 0.1,
         isComplexeRecon: bool = False,
         device: Optional[str] = None,
+        # Preconditioning
+        preconditionerType: PreconditionerType = PreconditionerType.NONE,
         # Regularization parameters
         alpha: Optional[float] = None,
         beta: Optional[float] = None,
@@ -210,6 +228,7 @@ class AlgebraicRecon(Recon):
             sparseThreshold: Threshold for sparse matrix construction (default: 0.1)
             isComplexeRecon: Whether to perform complex reconstruction (default: False)
             device: Device to use ('cpu' or 'gpu') (default: auto-detected)
+            preconditionerType: Type of preconditioner (PreconditionerType.NONE or DIAGONAL, default: NONE)
             alpha: Regularization weight for MAPEM, DEPIERRO, PPGMLEM, PGC (default: None)
             beta: Regularization parameter for MAPEM, DEPIERRO, PPGMLEM, PGC, PDHG (default: None)
             gamma: Preconditioning parameter for PPGMLEM (default: None)
@@ -242,8 +261,8 @@ class AlgebraicRecon(Recon):
             self.potentialFunction = potentialFunction
         else:
             # Default potential function based on optimizer
-            if optimizer in (OptimizerType.PPGMLEM, OptimizerType.PGC, OptimizerType.DEPIERRO95):
-                self.potentialFunction = PotentialType.HUBER_PIECEWISE
+            if optimizer in (OptimizerType.PPGMLEM, OptimizerType.PGC, OptimizerType.DEPIERRO):
+                self.potentialFunction = PotentialType.HUBER
             else:
                 self.potentialFunction = None
         
@@ -258,6 +277,7 @@ class AlgebraicRecon(Recon):
         self.SMatrix = None
         self.smatrixType = smatrixType
         self.sparseThreshold = sparseThreshold
+        self.preconditionerType = preconditionerType
         
         # Store regularization parameters
         self.alpha = alpha
@@ -302,6 +322,67 @@ class AlgebraicRecon(Recon):
                 raise ValueError("No AO signal available for demodulation. Please provide at least one signal, with or without tumor.")
             self.experiment.AcousticFields_demodulated = self.experiment.demodulate_acoustic_fields()
     
+    def _validate_potential_compatibility(self, errors: list):
+        """
+        Validate that the selected potential function is compatible with the optimizer.
+        
+        Args:
+            errors: List to append error messages to
+        """
+        # Define compatibility matrix: which potential functions work with which optimizers
+        # Note: MLEM and LS are non-regularized algorithms and should NOT use any potential function
+        # PDHG is primal-dual and can handle all potential functions (including non-differentiable ones)
+        POTENTIAL_COMPATIBILITY = {
+            PotentialType.QUADRATIC: [
+                OptimizerType.MAPEM, OptimizerType.DEPIERRO, OptimizerType.PPGMLEM,
+                OptimizerType.PGC, OptimizerType.PDHG
+            ],
+            PotentialType.HUBER: [
+                OptimizerType.MAPEM, OptimizerType.PPGMLEM, OptimizerType.PGC,
+                OptimizerType.PDHG, OptimizerType.LBFGS
+            ],
+            PotentialType.RELATIVE_DIFFERENCE: [
+                OptimizerType.MAPEM, OptimizerType.PPGMLEM, OptimizerType.PGC,
+                OptimizerType.PDHG, OptimizerType.LBFGS
+            ],
+            PotentialType.TOTAL_VARIATION: [
+                OptimizerType.PDHG
+            ],
+        }
+        
+        # Check if potential function is in compatibility matrix
+        if self.potentialFunction not in POTENTIAL_COMPATIBILITY:
+            errors.append(f"Unknown potential function: {self.potentialFunction}")
+            return
+        
+        # Check if optimizer is compatible with this potential function
+        compatible_optimizers = POTENTIAL_COMPATIBILITY[self.potentialFunction]
+        if self.optimizer not in compatible_optimizers:
+            compatible_names = [opt.value for opt in compatible_optimizers]
+            errors.append(
+                f"Potential function {self.potentialFunction.value} is not compatible with "
+                f"optimizer {self.optimizer.value}. "
+                f"Compatible optimizers: {', '.join(compatible_names)}"
+            )
+        
+        # Additional specific validations
+        if self.potentialFunction == PotentialType.TOTAL_VARIATION:
+            # TOTAL_VARIATION requires PDHG-specific parameters
+            if self.alpha is None:
+                errors.append("TOTAL_VARIATION potential requires alpha parameter to be set")
+            if self.beta is None:
+                errors.append("TOTAL_VARIATION potential requires beta parameter to be set")
+        
+        if self.potentialFunction == PotentialType.HUBER:
+            # Huber requires delta parameter
+            if self.delta is None:
+                errors.append("HUBER potential requires delta parameter to be set")
+        
+        if self.potentialFunction == PotentialType.RELATIVE_DIFFERENCE:
+            # Relative difference requires beta parameter
+            if self.beta is None:
+                errors.append("RELATIVE_DIFFERENCE potential requires beta parameter to be set")
+
     def _validate_hyperparameters(self):
         """
         Validate all hyperparameters for the selected optimizer.
@@ -368,6 +449,10 @@ class AlgebraicRecon(Recon):
             if not (0 < self.k_security <= 1):
                 errors.append(f"k_security must be in (0, 1], got {self.k_security}")
         
+        # Validate potential function compatibility with optimizer
+        if self.potentialFunction is not None:
+            self._validate_potential_compatibility(errors)
+        
         # If there are errors, raise ValueError with detailed message
         if errors:
             error_msg = f"\n{'='*80}\n"
@@ -393,12 +478,23 @@ class AlgebraicRecon(Recon):
             error_msg += f"\n{'='*80}\n"
             raise ValueError(error_msg)
 
-        
-
     # PUBLIC METHODS
     def generate_SMatrix(self, isShowLogs=True):
-        print("Generating system matrix (processing acoustic fields)...")
-        self.SMatrix = self._fillSMatrix(isShowLogs=True)
+        if self.smatrixType == SMatrixType.DENSE:
+            return self._fill_SMatrix_DENSE(isShowLogs=isShowLogs)
+        elif self.smatrixType == SMatrixType.CSR:
+            return self._fill_SMatrix_CSR(isShowLogs=isShowLogs)
+        elif self.smatrixType == SMatrixType.COO:
+            raise NotImplementedError("COO sparse matrix not implemented yet.")
+        elif self.smatrixType == SMatrixType.SELL:
+            return self._fill_SMatrix_SELL(isShowLogs=isShowLogs)
+        else:
+            raise ValueError(f"Unsupported SMatrix type: {self.smatrixType}")
+    
+    def flip_angle(self):
+        if self.smatrixType == SMatrixType.CSR:
+            self.SMatrix.flip_angle()
+    
 
     def run(self, processType: ProcessType = ProcessType.PYTHON, withTumor: bool = True, show_logs: bool = True):
         """
@@ -454,7 +550,7 @@ class AlgebraicRecon(Recon):
             self._run_LS(y=y, withTumor=withTumor, show_logs=show_logs)
         elif self.optimizer == OptimizerType.MAPEM:
             self._run_MAPEM(y=y, withTumor=withTumor, show_logs=show_logs)
-        elif self.optimizer == OptimizerType.DEPIERRO95:
+        elif self.optimizer == OptimizerType.DEPIERRO:
             self._run_DEPIERRO(y=y, withTumor=withTumor, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PPGMLEM:
             self._run_PPGMLEM(y=y, withTumor=withTumor, show_logs=show_logs)
@@ -462,6 +558,8 @@ class AlgebraicRecon(Recon):
             self._run_PGC(y=y, withTumor=withTumor, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PDHG:
             self._run_PDHG(y=y, withTumor=withTumor, show_logs=show_logs)
+        elif self.optimizer == OptimizerType.LBFGS:
+            self._run_LBFGS(y=y, withTumor=withTumor, show_logs=show_logs)
         else:
             raise ValueError(f"Unsupported optimizer type: {self.optimizer}")
 
@@ -543,7 +641,7 @@ class AlgebraicRecon(Recon):
                 cmd.extend(["-alpha", str(self.alpha)])
             if self.beta is not None:
                 cmd.extend(["-beta", str(self.beta)])
-        elif self.optimizer == OptimizerType.DEPIERRO95:
+        elif self.optimizer == OptimizerType.DEPIERRO:
             if self.beta is not None:
                 cmd.extend(["-beta", str(self.beta)])
             if self.sigma is not None:
@@ -619,6 +717,7 @@ class AlgebraicRecon(Recon):
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
                 smatrixType=self.smatrixType,
+                preconditioner_type=self.preconditionerType,
             )
         else:
             self.reconLaser, self.indices, _ = MLEM(
@@ -632,6 +731,7 @@ class AlgebraicRecon(Recon):
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
                 smatrixType=self.smatrixType,
+                preconditioner_type=self.preconditionerType,
             )
 
     def _run_LS(self, y, withTumor: bool = True, show_logs: bool = True):
@@ -648,6 +748,7 @@ class AlgebraicRecon(Recon):
                 show_logs=show_logs,
                 smatrixType=self.smatrixType,
                 alpha=self.alpha,
+                preconditioner_type=self.preconditionerType,
             )
         else:
             self.reconLaser, self.indices, _ = LS(
@@ -661,6 +762,48 @@ class AlgebraicRecon(Recon):
                 show_logs=show_logs,
                 smatrixType=self.smatrixType,
                 alpha=self.alpha,
+                preconditioner_type=self.preconditionerType,
+            )
+
+    def _run_LBFGS(self, y, withTumor: bool = True, show_logs: bool = True):
+        """Run LBFGS reconstruction."""
+        if withTumor:
+            self.reconPhantom, self.indices, _ = LBFGS(
+                SMatrix=self.SMatrix,
+                y=y,
+                potential_type=self.potentialFunction,
+                alpha=self.alpha if self.alpha is not None else 1.0,
+                beta=self.beta if self.beta is not None else 1.0,
+                delta=self.delta if self.delta is not None else 0.01,
+                gamma=self.gamma if self.gamma is not None else 0.01,
+                sigma=self.sigma if self.sigma is not None else 0.01,
+                numIterations=self.numIterations,
+                isSavingEachIteration=self.isSavingEachIteration,
+                withTumor=withTumor,
+                max_saves=self.maxSaves,
+                show_logs=show_logs,
+                device=self.device,
+                smatrixType=self.smatrixType,
+                preconditioner_type=self.preconditionerType,
+            )
+        else:
+            self.reconLaser, self.indices, _ = LBFGS(
+                SMatrix=self.SMatrix,
+                y=y,
+                potential_type=self.potentialFunction,
+                alpha=self.alpha if self.alpha is not None else 1.0,
+                beta=self.beta if self.beta is not None else 1.0,
+                delta=self.delta if self.delta is not None else 0.01,
+                gamma=self.gamma if self.gamma is not None else 0.01,
+                sigma=self.sigma if self.sigma is not None else 0.01,
+                numIterations=self.numIterations,
+                isSavingEachIteration=self.isSavingEachIteration,
+                withTumor=withTumor,
+                max_saves=self.maxSaves,
+                show_logs=show_logs,
+                device=self.device,
+                smatrixType=self.smatrixType,
+                preconditioner_type=self.preconditionerType,
             )
 
     def _run_MAPEM(self, y, withTumor: bool = True, show_logs: bool = True):
@@ -670,6 +813,7 @@ class AlgebraicRecon(Recon):
                 SMatrix=self.SMatrix,
                 y=y,
                 potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 alpha=self.alpha if self.alpha is not None else 1.0,
                 beta=self.beta if self.beta is not None else 1.0,
                 delta=self.delta if self.delta is not None else 0.01,
@@ -686,6 +830,7 @@ class AlgebraicRecon(Recon):
                 SMatrix=self.SMatrix,
                 y=y,
                 potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 alpha=self.alpha if self.alpha is not None else 1.0,
                 beta=self.beta if self.beta is not None else 1.0,
                 delta=self.delta if self.delta is not None else 0.01,
@@ -699,7 +844,7 @@ class AlgebraicRecon(Recon):
             )
 
     def _run_DEPIERRO(self, y, withTumor: bool = True, show_logs: bool = True):
-        """Run DEPIERRO95 reconstruction."""
+        """Run DEPIERRO reconstruction."""
         if withTumor:
             self.reconPhantom, self.indices = DEPIERRO(
                 SMatrix=self.SMatrix,
@@ -720,6 +865,9 @@ class AlgebraicRecon(Recon):
                 y=y,
                 beta=self.beta if self.beta is not None else 1.0,
                 sigma=self.sigma if self.sigma is not None else 1.0,
+                delta=self.delta if self.delta is not None else 0.01,
+                potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 numIterations=self.numIterations,
                 isSavingEachIteration=self.isSavingEachIteration,
                 withTumor=withTumor,
@@ -736,6 +884,7 @@ class AlgebraicRecon(Recon):
                 SMatrix=self.SMatrix,
                 y=y,
                 potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 alpha=self.alpha if self.alpha is not None else 1.0,
                 beta=self.beta if self.beta is not None else 1.0,
                 delta=self.delta if self.delta is not None else 0.01,
@@ -753,6 +902,7 @@ class AlgebraicRecon(Recon):
                 SMatrix=self.SMatrix,
                 y=y,
                 potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 alpha=self.alpha if self.alpha is not None else 1.0,
                 beta=self.beta if self.beta is not None else 1.0,
                 delta=self.delta if self.delta is not None else 0.01,
@@ -773,6 +923,7 @@ class AlgebraicRecon(Recon):
                 SMatrix=self.SMatrix,
                 y=y,
                 potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 alpha=self.alpha if self.alpha is not None else 1.0,
                 beta=self.beta if self.beta is not None else 1.0,
                 numIterations=self.numIterations,
@@ -788,6 +939,7 @@ class AlgebraicRecon(Recon):
                 SMatrix=self.SMatrix,
                 y=y,
                 potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 alpha=self.alpha if self.alpha is not None else 1.0,
                 beta=self.beta if self.beta is not None else 1.0,
                 numIterations=self.numIterations,
@@ -807,11 +959,14 @@ class AlgebraicRecon(Recon):
                 y=y,
                 alpha=self.alpha,
                 beta=self.beta,
+                delta=self.delta,
                 theta=self.theta,
                 numIterations=self.numIterations,
                 isSavingEachIteration=self.isSavingEachIteration,
                 L=self.L,
                 withTumor=withTumor,
+                potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 device=self.device,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
@@ -830,11 +985,14 @@ class AlgebraicRecon(Recon):
                 y=y,
                 alpha=self.alpha,
                 beta=self.beta,
+                delta=self.delta,
                 theta=self.theta,
                 numIterations=self.numIterations,
                 isSavingEachIteration=self.isSavingEachIteration,
                 L=self.L,
                 withTumor=withTumor,
+                potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 device=self.device,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
@@ -1469,7 +1627,7 @@ class AlgebraicRecon(Recon):
                 gamma_str = f'_Gamma_{self.gamma}'
                 sigma_str = f'_Sigma_{self.sigma}'
                 dir_pattern += f'{beta_str}{delta_str}{gamma_str}{sigma_str}'
-            elif optimizer in (OptimizerType.PGC, OptimizerType.DEPIERRO95):
+            elif optimizer in (OptimizerType.PGC, OptimizerType.DEPIERRO):
                 beta_str = f'_Beta_{self.beta}'
                 sigma_str = f'_Sigma_{self.sigma}'
                 dir_pattern += f'{beta_str}{sigma_str}'
@@ -1520,20 +1678,8 @@ class AlgebraicRecon(Recon):
         self.SMatrix = self.SMatrix / (float(self.experiment.params.acoustic['emission']['voltage'])*float(self.experiment.params.acoustic['emission']['sensitivity']))  
 
     # PRIVATE METHODS
-         
-    def _fillSMatrix(self, isShowLogs=True):
-        if self.smatrixType == SMatrixType.DENSE:
-            return self._fillSMatrix_DENSE(isShowLogs=isShowLogs)
-        elif self.smatrixType == SMatrixType.CSR:
-            return self._fillSMatrix_CSR(isShowLogs=isShowLogs)
-        elif self.smatrixType == SMatrixType.COO:
-            raise NotImplementedError("COO sparse matrix not implemented yet.")
-        elif self.smatrixType == SMatrixType.SELL:
-            return self._fillSMatrix_SELL(isShowLogs=isShowLogs)
-        else:
-            raise ValueError(f"Unsupported SMatrix type: {self.smatrixType}")
-    
-    def _fillSMatrix_DENSE(self, isShowLogs=True):
+             
+    def _fill_SMatrix_DENSE(self, isShowLogs=True):
         """
         Build a dense matrix using SMatrix_DENSE class.
         Frees all temporary memory at each step.
@@ -1544,7 +1690,7 @@ class AlgebraicRecon(Recon):
             print(f" Dense matrix size: {dense_matrix.getMatrixSize()} GB")
         return dense_matrix
     
-    def _fillSMatrix_CSR(self, isShowLogs=True):
+    def _fill_SMatrix_CSR(self, isShowLogs=True):
         """
         Built a sparse CSR matrix in chunks without intermediate concatenation.
         Frees all temporary memory at each step.
@@ -1556,7 +1702,7 @@ class AlgebraicRecon(Recon):
             print(f"Sparse matrix density: {sparse_matrix.compute_density()}")
         return sparse_matrix
     
-    def _fillSMatrix_SELL(self, isShowLogs=True):
+    def _fill_SMatrix_SELL(self, isShowLogs=True):
         """
         Built a sparse SELL matrix in chunks without intermediate concatenation.
         Frees all temporary memory at each step.
@@ -1568,12 +1714,6 @@ class AlgebraicRecon(Recon):
             print(f"Sparse matrix density: {sparse_matrix.compute_density()}")
         return sparse_matrix
         
-
-    
-    def flip_angle(self):
-        if self.smatrixType == SMatrixType.CSR:
-            self.SMatrix.flip_angle()
-    
     # STATIC METHODS
     @staticmethod
     def plot_mse_comparison(recon_list, figSize=(4.5, 3.5), labels=None):

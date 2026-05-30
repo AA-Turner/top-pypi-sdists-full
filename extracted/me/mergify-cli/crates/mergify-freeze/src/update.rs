@@ -10,11 +10,9 @@
 use std::io::Write;
 
 use chrono::NaiveDateTime;
-use mergify_core::ApiFlavor;
 use mergify_core::CliError;
-use mergify_core::HttpClient;
+use mergify_core::CommandContext;
 use mergify_core::Output;
-use mergify_core::auth;
 use serde::Serialize;
 
 use crate::common::NaiveDateTimeWire;
@@ -60,9 +58,7 @@ struct UpdatePayload<'a> {
 
 /// Run the `freeze update` command.
 pub async fn run(opts: UpdateOptions<'_>, output: &mut dyn Output) -> Result<(), CliError> {
-    let repository = auth::resolve_repository(opts.repository)?;
-    let token = auth::resolve_token(opts.token)?;
-    let api_url = auth::resolve_api_url(opts.api_url)?;
+    let ctx = CommandContext::resolve(opts.repository, opts.token, opts.api_url)?;
 
     let payload = UpdatePayload {
         reason: opts.reason,
@@ -74,13 +70,15 @@ pub async fn run(opts: UpdateOptions<'_>, output: &mut dyn Output) -> Result<(),
     };
 
     output.status(&format!(
-        "Updating scheduled freeze {id} on {repository}…",
+        "Updating scheduled freeze {id} on {repo}…",
         id = opts.freeze_id,
+        repo = ctx.repository,
     ))?;
 
-    let client = HttpClient::new(api_url, token, ApiFlavor::Mergify)?;
+    let client = ctx.mergify_client()?;
     let path = format!(
-        "/v1/repos/{repository}/scheduled_freeze/{id}",
+        "/v1/repos/{repo}/scheduled_freeze/{id}",
+        repo = ctx.repository,
         id = opts.freeze_id,
     );
     let freeze: ScheduledFreeze = client.patch(&path, &payload).await?;
@@ -94,8 +92,7 @@ pub async fn run(opts: UpdateOptions<'_>, output: &mut dyn Output) -> Result<(),
 
 #[cfg(test)]
 mod tests {
-    use mergify_core::OutputMode;
-    use mergify_core::StdioOutput;
+    use mergify_test_support::Captured;
     use serde_json::json;
     use wiremock::Mock;
     use wiremock::MockServer;
@@ -105,35 +102,6 @@ mod tests {
     use wiremock::matchers::path;
 
     use super::*;
-
-    type SharedBytes = std::sync::Arc<std::sync::Mutex<Vec<u8>>>;
-
-    struct Captured {
-        output: StdioOutput,
-        stdout: SharedBytes,
-    }
-
-    fn make_output() -> Captured {
-        let stdout: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let stderr: SharedBytes = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let output = StdioOutput::with_sinks(
-            OutputMode::Human,
-            SharedWriter(std::sync::Arc::clone(&stdout)),
-            SharedWriter(std::sync::Arc::clone(&stderr)),
-        );
-        Captured { output, stdout }
-    }
-
-    struct SharedWriter(SharedBytes);
-    impl Write for SharedWriter {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
 
     #[tokio::test]
     async fn run_patches_only_user_supplied_fields() {
@@ -161,7 +129,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         let api_url = server.uri();
         run(
             UpdateOptions {
@@ -204,7 +172,7 @@ mod tests {
             );
         }
 
-        let stdout = String::from_utf8(cap.stdout.lock().unwrap().clone()).unwrap();
+        let stdout = cap.stdout();
         assert!(
             stdout.contains("Freeze updated successfully"),
             "got: {stdout}"
@@ -236,7 +204,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let mut cap = make_output();
+        let mut cap = Captured::human();
         let api_url = server.uri();
         let empty: [String; 0] = [];
         run(

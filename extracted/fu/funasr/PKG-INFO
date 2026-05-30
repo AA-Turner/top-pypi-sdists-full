@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: funasr
-Version: 1.3.7
+Version: 1.3.9
 Summary: Industrial-grade speech recognition: 170x realtime, 50+ languages, speaker diarization, emotion detection.
 Home-page: https://github.com/modelscope/FunASR
 Author: Speech Lab of Alibaba Group

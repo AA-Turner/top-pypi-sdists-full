@@ -10,6 +10,7 @@ import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import sentry_protos.billing.v1.date_pb2
+import sentry_protos.billing.v1.services.engagement.v1.grant_source_pb2
 import sys
 import typing
 
@@ -70,7 +71,16 @@ global___GrantStatus = GrantStatus
 
 @typing.final
 class Grant(google.protobuf.message.Message):
-    """A quota allowance granted to an organization for a time window."""
+    """A non-billable quota allowance for an organization within a time window.
+
+    Grants can be offset by counter-grants: separate Grant rows with a negative
+    amount. The effective amount is the original amount plus the sum of all
+    counter-grant amounts, netted server-side and returned via
+    GetEffectiveGrants.
+
+    UNITS grants have exactly one entry in line_item_uids. CENTS grants may
+    have several.
+    """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -82,11 +92,14 @@ class Grant(google.protobuf.message.Message):
     START_DATE_FIELD_NUMBER: builtins.int
     END_DATE_FIELD_NUMBER: builtins.int
     STATUS_FIELD_NUMBER: builtins.int
+    SOURCE_FIELD_NUMBER: builtins.int
     id: builtins.int
     organization_id: builtins.int
     type: global___GrantType.ValueType
     amount: builtins.int
+    """The original amount. May be negative for counter-grants."""
     status: global___GrantStatus.ValueType
+    source: sentry_protos.billing.v1.services.engagement.v1.grant_source_pb2.GrantSource.ValueType
     @property
     def line_item_uids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """The line items this grant applies to."""
@@ -106,8 +119,9 @@ class Grant(google.protobuf.message.Message):
         start_date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
         end_date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
         status: global___GrantStatus.ValueType = ...,
+        source: sentry_protos.billing.v1.services.engagement.v1.grant_source_pb2.GrantSource.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["end_date", b"end_date", "start_date", b"start_date"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["amount", b"amount", "end_date", b"end_date", "id", b"id", "line_item_uids", b"line_item_uids", "organization_id", b"organization_id", "start_date", b"start_date", "status", b"status", "type", b"type"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["amount", b"amount", "end_date", b"end_date", "id", b"id", "line_item_uids", b"line_item_uids", "organization_id", b"organization_id", "source", b"source", "start_date", b"start_date", "status", b"status", "type", b"type"]) -> None: ...
 
 global___Grant = Grant

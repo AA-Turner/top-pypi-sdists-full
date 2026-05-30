@@ -9,21 +9,35 @@ lingering coroutine that pytest's
 "coroutine was never awaited" detector flagged at GC time.
 
 The fix is a small block in :meth:`ClientLifecycle.close` between
-keepalive teardown and ``save_cookies``:
+keepalive teardown and ``save_cookies``. The original inlined block
+(pre-Wave-1 of plan ``host-protocol-removal``) was::
 
     if host._auth_coord._refresh_task and not host._auth_coord._refresh_task.done():
         host._auth_coord._refresh_task.cancel()
         await asyncio.gather(host._auth_coord._refresh_task, return_exceptions=True)
 
-That block:
+Wave 1 of plan ``host-protocol-removal`` encapsulated that block behind
+:meth:`AuthRefreshCoordinator.cancel_inflight_refresh` so the lifecycle
+never reaches into the private ``_refresh_task`` slot. The close path
+now reads as::
+
+    await host._auth_coord.cancel_inflight_refresh()
+
+The encapsulating method preserves every aspect of the original block:
+
 1. Cancels the in-flight refresh task so the shared single-flight refresh
    wave unwinds cleanly.
 2. Awaits the cancellation via ``gather(..., return_exceptions=True)`` so
    ``CancelledError`` does not propagate out of ``close()``.
 3. Sits BEFORE the cookie save / shielded aclose so the refresh callback
    never observes a half-closed transport.
+4. PRESERVES ``self._refresh_task`` after the cancel — sibling waiters
+   joined to the same single-flight refresh still observe the shared task.
 
-These tests exercise both the cancel and the no-cancel-needed paths.
+These tests exercise both the cancel and the no-cancel-needed paths from
+the lifecycle entry point; the focused unit tests of
+:meth:`AuthRefreshCoordinator.cancel_inflight_refresh` itself live in
+``tests/unit/test_session_auth.py``.
 """
 
 from __future__ import annotations
@@ -35,6 +49,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
+from _fixtures.kernel_test_helpers import install_http_client_for_test
 from notebooklm._client_metrics import ClientMetrics
 from notebooklm._session_auth import AuthRefreshCoordinator
 from notebooklm._session_lifecycle import ClientLifecycle
@@ -52,11 +67,21 @@ def _make_auth() -> AuthTokens:
 
 
 class _StubHost:
-    """Minimal :class:`_LifecycleHost` stand-in for the close path.
+    """Collaborator bundle for the close-path race tests.
 
-    Tests assign ``_auth_coord._refresh_task`` directly when they need to
-    exercise the in-flight-refresh branch; the default of ``None`` matches
-    the post-``__init__``-real-host shape (no refresh has fired yet).
+    Wave 2 of plan ``host-protocol-removal`` narrowed
+    :meth:`ClientLifecycle.close` to take explicit keyword-only
+    collaborators (``auth_coord`` / ``drain_tracker`` /
+    ``cookie_persistence``); this stub remains as a convenience
+    aggregate that each test passes through the module-level
+    :func:`_close` adapter, so the assignment-then-cancel choreography
+    around ``_auth_coord._refresh_task`` stays a single readable
+    statement instead of five-line kwarg unpacking at every call site.
+
+    Tests assign ``_auth_coord._refresh_task`` directly when they need
+    to exercise the in-flight-refresh branch; the default of ``None``
+    matches the post-``__init__``-real-host shape (no refresh has fired
+    yet).
     """
 
     def __init__(self) -> None:
@@ -67,9 +92,25 @@ class _StubHost:
         self.cookie_persistence = MagicMock()
         self.cookie_persistence.save = AsyncMock()
         self.cookie_persistence.capture_open_snapshot = MagicMock()
-        self._drain_hooks = {}
-        self._authed_transport = None
+        # Wave 2 of session-decoupling: drain hooks live on
+        # ``TransportDrainTracker``; the host no longer carries ``_drain_hooks``.
+        # The real tracker constructed above already has its own ``_drain_hooks``.
         self._rpc_executor = None
+
+
+async def _close(lifecycle: ClientLifecycle, host: _StubHost) -> None:
+    """Adapter that forwards a :class:`_StubHost` bundle into the new
+    explicit-kwargs :meth:`ClientLifecycle.close` signature.
+
+    Wave 2 of plan ``host-protocol-removal`` narrowed the close method;
+    this helper keeps the per-test call sites a single line while still
+    exercising the new signature.
+    """
+    await lifecycle.close(
+        auth_coord=host._auth_coord,
+        drain_tracker=host._drain_tracker,
+        cookie_persistence=host.cookie_persistence,
+    )
 
 
 def _make_lifecycle() -> ClientLifecycle:
@@ -111,7 +152,7 @@ async def test_close_cancels_in_flight_refresh_task() -> None:
     # real AsyncClient so close()'s aclose runs. Easiest: build it inline
     # since ClientLifecycle.open expects to read an httpx client mode from
     # _core which we can't easily stub here.
-    lifecycle._http_client = httpx.AsyncClient(transport=transport)
+    install_http_client_for_test(lifecycle._kernel, httpx.AsyncClient(transport=transport))
     lifecycle._bound_loop = asyncio.get_running_loop()
 
     # Park a long-sleeping task on the auth coordinator — models a refresh
@@ -131,7 +172,7 @@ async def test_close_cancels_in_flight_refresh_task() -> None:
     assert not slow_task.done(), "test setup: refresh task should be in-flight"
 
     # Drive close. Must NOT raise.
-    await lifecycle.close(host)
+    await _close(lifecycle, host)
 
     # Yield to let the cancellation propagate. ``gather`` inside ``close``
     # already awaited, so the task should be done by now.
@@ -157,13 +198,13 @@ async def test_close_with_no_refresh_task_is_a_noop_on_that_path() -> None:
     lifecycle = _make_lifecycle()
     host = _StubHost()
     transport = httpx.MockTransport(lambda req: httpx.Response(200))
-    lifecycle._http_client = httpx.AsyncClient(transport=transport)
+    install_http_client_for_test(lifecycle._kernel, httpx.AsyncClient(transport=transport))
     lifecycle._bound_loop = asyncio.get_running_loop()
 
     assert host._auth_coord._refresh_task is None
 
     # Must not raise.
-    await lifecycle.close(host)
+    await _close(lifecycle, host)
     assert lifecycle._http_client is None
 
 
@@ -178,7 +219,7 @@ async def test_close_with_completed_refresh_task_does_not_recancel() -> None:
     lifecycle = _make_lifecycle()
     host = _StubHost()
     transport = httpx.MockTransport(lambda req: httpx.Response(200))
-    lifecycle._http_client = httpx.AsyncClient(transport=transport)
+    install_http_client_for_test(lifecycle._kernel, httpx.AsyncClient(transport=transport))
     lifecycle._bound_loop = asyncio.get_running_loop()
 
     async def _quick_refresh() -> str:
@@ -194,7 +235,7 @@ async def test_close_with_completed_refresh_task_does_not_recancel() -> None:
     host._auth_coord._refresh_task = done_task  # type: ignore[assignment]
 
     # Close must not re-cancel a done task.
-    await lifecycle.close(host)
+    await _close(lifecycle, host)
 
     assert not done_task.cancelled()
     assert done_task.done()

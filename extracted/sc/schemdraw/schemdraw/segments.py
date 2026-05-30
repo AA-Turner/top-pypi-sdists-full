@@ -221,7 +221,7 @@ class Segment:
             elif self.arrow.startswith('o'):
                 fig.circle(path[0], self.arrowwidth/2, color=color, fill=color, lw=lw,
                            clip=self.clip, zorder=zorder)
-            elif self.arrow.startswith('|'):
+            if self.arrow.startswith('|'):
                 theta = math.atan2(path[0].y-path[1].y, path[0].x-path[1].x) + math.pi/2
                 tailx = (path[0].x + self.arrowwidth/2 * math.cos(theta),
                          path[0].x - self.arrowwidth/2 * math.cos(theta))
@@ -237,7 +237,7 @@ class Segment:
             elif self.arrow.endswith('o'):
                 fig.circle(path[-1], self.arrowwidth/2, color=color, fill=color, lw=lw,
                            clip=self.clip, zorder=zorder)
-            elif self.arrow.endswith('|'):
+            if self.arrow.endswith('|'):
                 theta = math.atan2(path[-1].y-path[-2].y, path[-1].x-path[-2].x) + math.pi/2
                 tailx = (path[-1].x + self.arrowwidth/2 * math.cos(theta),
                          path[-1].x - self.arrowwidth/2 * math.cos(theta))
@@ -260,6 +260,7 @@ class SegmentText:
             rotation_mode: See Matplotlib documentation. 'anchor' or 'default'.
             rotation_global: Lock rotation to world rather than component. Defaults to True
             color: Color for this segment
+            bgcolor: Background color under the text
             fontsize: Font size
             font: Font name/family
             mathfont: Math font name/family
@@ -273,6 +274,7 @@ class SegmentText:
                  rotation_mode: Optional[RotationMode] = None,
                  rotation_global: bool = True,
                  color: Optional[str | tuple[float, float, float]] = None,
+                 bgcolor: Optional[str | tuple[float, float, float]] = None,
                  fontsize: float = 14,
                  font: Optional[str] = None,
                  mathfont: Optional[str] = None,
@@ -288,6 +290,7 @@ class SegmentText:
         self.mathfont = mathfont
         self.fontsize = fontsize
         self.color = color
+        self.bgcolor = bgcolor
         self.rotation = rotation
         self.rotation_mode = rotation_mode
         self.rotation_global = rotation_global
@@ -326,6 +329,7 @@ class SegmentText:
             'mathfont': self.mathfont if self.mathfont else style.get('mathfont', None),
             'fontsize': self.fontsize if self.fontsize else style.get('fontsize', style.get('size', None)),
             'color': self.color if self.color else style.get('color', None),
+            'bgcolor': self.bgcolor if self.bgcolor else None,
             'rotation': self.rotation if self.rotation else style.get('rotation', None),
             'rotation_mode': self.rotation_mode if self.rotation_mode else style.get('rotation_mode', None),
             'rotation_global': self.rotation_global,
@@ -393,6 +397,7 @@ class SegmentText:
             return
         xy = transform.transform(self.xy)
         color = self.color if self.color else style.get('color', 'black')
+        bgcolor = self.bgcolor if self.bgcolor != 'bg' else style.get('bgcolor', 'white')
         fontsize = self.fontsize if self.fontsize else style.get('fontsize', style.get('size', 14))
         font = self.font if self.font else style.get('font', 'sans-serif')
         mathfont = self.mathfont if self.mathfont else style.get('mathfont', None)
@@ -408,7 +413,8 @@ class SegmentText:
                 rotation = rotation + transform.theta % 360
 
         fig.text(self.text, xy[0], xy[1],
-                 color=color, fontsize=fontsize, fontfamily=font, mathfont=mathfont,
+                 color=color, bgcolor=bgcolor,
+                 fontsize=fontsize, fontfamily=font, mathfont=mathfont,
                  rotation=rotation, rotation_mode=rotmode,
                  halign=align[0], valign=align[1], clip=self.clip, zorder=zorder,
                  href=self.href, decoration=self.decoration)
@@ -613,7 +619,6 @@ class SegmentCircle:
             # It stays a circle
             return SegmentCircle(transform.transform(self.center),
                                  self.radius*transform.zoom[0], **params)
-        
         # Asymmetric zoom makes circle into ellipse
         params.pop('ref', None)  # Not implemented in SegmentArc
         return SegmentArc(self.center,
@@ -942,7 +947,7 @@ class SegmentPath:
         M, L, C, Q, Z, etc....
     '''
     def __init__(self,
-                 path: Sequence[XY | str], 
+                 path: Sequence[XY | str],
                  color: Optional[str | tuple[float, float, float]] = None,
                  lw: Optional[float] = None,
                  ls: Optional[Linestyle] = None,
@@ -967,6 +972,13 @@ class SegmentPath:
         self.visible = visible
 
     def xform(self, transform, **style) -> 'SegmentPath':
+        ''' Return a new SegmentPath that has been transformed
+            to its global position
+
+            Args:
+                transform: Transformation to apply
+                style: Style parameters from Element to apply as default
+        '''
         params: dict[str, Any] = {
             'zorder': self.zorder if self.zorder is not None else style.get('zorder', None),
             'color': self.color if self.color else style.get('color', None),
@@ -1001,7 +1013,7 @@ class SegmentPath:
     def doreverse(self, centerx: float) -> None:
         ''' Reverse the path (flip horizontal about the center of the path) '''
         #self.path = [util.mirrorx(p, centerx) for p in self.path[::-1]]
-        
+
     def doflip(self) -> None:
         ''' Vertically flip the element '''
         #self.path = [util.flip(p) for p in self.path]
@@ -1088,7 +1100,7 @@ class SegmentImage:
         '''
         params: dict[str, Any] = {
             'zorder': self.zorder if self.zorder is not None else style.get('zorder', None)}
-        
+
         style = {k: v for k, v in style.items() if params.get(k) is None and k in params.keys()}
         params.update(style)
         return SegmentImage(self.image, transform.transform(self.xy),
@@ -1128,4 +1140,6 @@ class SegmentImage:
                   zorder=zorder)
 
 
-SegmentType = Union[Segment, SegmentText, SegmentPoly, SegmentArc, SegmentCircle, SegmentBezier, SegmentPath, SegmentImage]
+SegmentType = Union[Segment, SegmentText, SegmentPoly,
+                    SegmentArc, SegmentCircle, SegmentBezier,
+                    SegmentPath, SegmentImage]

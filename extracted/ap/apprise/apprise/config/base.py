@@ -38,6 +38,7 @@ from ..asset import AppriseAsset
 from ..logger import logging
 from ..manager_config import ConfigurationManager
 from ..manager_plugins import NotificationManager
+from ..tag import AppriseTag
 from ..url import URLBase
 from ..utils.cwe312 import cwe312_url
 from ..utils.parse import GET_SCHEMA_RE, parse_bool, parse_list, parse_urls
@@ -518,10 +519,12 @@ class ConfigBase(URLBase):
         #     definitions (accepting commas) followed by an equal sign we know
         #     we're dealing with a TEXT format.
 
-        # Define what a valid line should look like
+        # Define what a valid line should look like.
+        # The tag group allows an optional "N:" priority prefix so that
+        # "2:endpoint=ntfy://..." is recognised as TEXT format.
         valid_line_re = re.compile(
             r"^\s*(?P<line>([;#]+(?P<comment>.*))|"
-            r"(?P<text>((?P<tag>[ \t,a-z0-9_-]+)=)?[a-z0-9]+://.*)|"
+            r"(?P<text>((?P<tag>[ \t,a-z0-9_:-]+)=)?[a-z0-9]+://.*)|"
             r"((?P<yaml>[a-z0-9]+):.*))?$",
             re.I,
         )
@@ -666,10 +669,12 @@ class ConfigBase(URLBase):
         # Prepare our Asset Object
         asset = asset if isinstance(asset, AppriseAsset) else AppriseAsset()
 
-        # Define what a valid line should look like
+        # Define what a valid line should look like.
+        # The tags group allows an optional leading "N:" priority prefix so
+        # that entries like "2:endpoint=ntfy://..." are parsed correctly.
         valid_line_re = re.compile(
             r"^\s*(?P<line>([;#]+(?P<comment>.*))|"
-            r"(\s*(?P<tags>[a-z0-9, \t_-]+)\s*=|=)?\s*"
+            r"(\s*(?P<tags>[a-z0-9, \t_:-]+)\s*=|=)?\s*"
             r"((?P<url>[a-z0-9]{1,32}://.*)|(?P<assign>[a-z0-9, \t_-]+))|"
             r"include\s+(?P<config>.+))?\s*$",
             re.I,
@@ -770,6 +775,18 @@ class ConfigBase(URLBase):
             # Build a list of tags to associate with the newly added
             # notifications if any were set
             results["tag"] = set(parse_list(result.group("tags"), cast=str))
+
+            # A retry count on a service tag (e.g. "alerts:3=slack://...") is
+            # not valid here: per-service retry belongs on the URL (?retry=N)
+            # and call-time retry overrides belong on the notify() filter.
+            if any(
+                AppriseTag.parse(t).retry is not None for t in results["tag"]
+            ):
+                ConfigBase.logger.warning(
+                    "You can not specify a retry count as part of a service"
+                    f" tag on line {line}; use ?retry=N in the URL instead."
+                )
+                continue
 
             # Set our Asset Object
             results["asset"] = asset
@@ -1263,6 +1280,22 @@ class ConfigBase(URLBase):
                 else:
                     # Just use the global settings
                     results_["tag"] = global_tags
+
+                # A retry count on a service tag is not valid here: per-service
+                # retry belongs on the URL (retry: key) and call-time retry
+                # overrides belong on the notify() filter.
+                _retry_tags = [
+                    t
+                    for t in results_["tag"]
+                    if AppriseTag.parse(t).retry is not None
+                ]
+                if _retry_tags:
+                    ConfigBase.logger.warning(
+                        "You can not specify a retry count as part of a"
+                        " service tag (YAML entry #{}, item #{}); use the"
+                        " 'retry:' key instead.".format(no + 1, entry)
+                    )
+                    continue
 
                 for key in list(results_.keys()):
                     # Strip out any tokens we know that we can't accept and

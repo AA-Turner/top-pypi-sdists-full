@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sleipnirgroup-jormungandr
-Version: 0.6.0
+Version: 0.6.1
 Summary: Reverse mode autodiff library and NLP solver DSL
 License-Expression: BSD-3-Clause
 License-File: LICENSE.txt

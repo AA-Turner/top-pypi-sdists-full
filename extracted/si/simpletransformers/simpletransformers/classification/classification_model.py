@@ -119,7 +119,6 @@ from transformers import (
     XLNetTokenizerFast,
     XLNetForSequenceClassification,
 )
-from transformers.convert_graph_to_onnx import convert, quantize
 
 from simpletransformers.classification.classification_utils import (
     InputExample,
@@ -404,6 +403,7 @@ class ClassificationModel:
         )
 
         if self.args.onnx:
+            from transformers.convert_graph_to_onnx import convert, quantize
             from onnxruntime import InferenceSession, SessionOptions
 
             if not onnx_execution_provider:

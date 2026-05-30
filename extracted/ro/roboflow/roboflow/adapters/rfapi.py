@@ -2,7 +2,8 @@ import json
 import mimetypes
 import os
 import urllib
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+from urllib.parse import quote
 
 import requests
 from requests.exceptions import RequestException
@@ -12,23 +13,32 @@ from roboflow.config import API_URL, DEFAULT_BATCH_NAME, DEFAULT_JOB_NAME
 
 
 class RoboflowError(Exception):
-    pass
+    """Generic API error.
+
+    Optional `status_code` is the HTTP status from the upstream response
+    when available — set by helpers like `_raise_for_trash_response` so
+    callers can branch on auth (401) vs not-found (404) without string
+    matching the message. Existing call sites that pass only a message
+    still work; the attribute defaults to `None`.
+    """
+
+    def __init__(self, message, status_code=None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class ImageUploadError(RoboflowError):
     def __init__(self, message, status_code=None):
         self.message = message
-        self.status_code = status_code
         self.retries = 0
-        super().__init__(self.message)
+        super().__init__(self.message, status_code=status_code)
 
 
 class AnnotationSaveError(RoboflowError):
     def __init__(self, message, status_code=None):
         self.message = message
-        self.status_code = status_code
         self.retries = 0
-        super().__init__(self.message)
+        super().__init__(self.message, status_code=status_code)
 
 
 def get_workspace(api_key, workspace_url):
@@ -47,6 +57,17 @@ def get_project(api_key, workspace_url, project_url):
         raise RoboflowError(response.text)
     result = response.json()
     return result
+
+
+def get_project_health(api_key, workspace_url, project_url, regenerate=False):
+    """GET /{workspace}/{project}/health — dataset health check statistics."""
+    url = f"{API_URL}/{workspace_url}/{project_url}/health?api_key={api_key}"
+    if regenerate:
+        url += "&regenerate=true"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise RoboflowError(response.text)
+    return response.json()
 
 
 def start_version_training(
@@ -82,6 +103,99 @@ def start_version_training(
     if not response.ok:
         raise RoboflowError(response.text)
     return True
+
+
+def cancel_version_training(
+    api_key: str,
+    workspace_url: str,
+    project_url: str,
+    version: str,
+    *,
+    continue_if_no_refund: bool = False,
+):
+    """Cancel an in-flight training run.
+
+    Backend handler is canonical for both vanilla and NAS trainings — it
+    accepts ``mining`` status, so this works for NAS sweeps too.
+    """
+    url = f"{API_URL}/{workspace_url}/{project_url}/{version}/train/cancel?api_key={api_key}"
+    body: Dict[str, Union[str, int, bool]] = {}
+    if continue_if_no_refund:
+        body["continueIfNoRefund"] = True
+    response = requests.post(url, json=body)
+    if not response.ok:
+        raise RoboflowError(response.text)
+    return response.json() if response.content else {"success": True}
+
+
+def stop_version_training(api_key: str, workspace_url: str, project_url: str, version: str):
+    """Request an early stop on an in-flight training run.
+
+    The backend flips ``train.requestedStop``; the run finishes the current
+    phase gracefully (mining or training).
+    """
+    url = f"{API_URL}/{workspace_url}/{project_url}/{version}/train/stop?api_key={api_key}"
+    response = requests.post(url, json={})
+    if not response.ok:
+        raise RoboflowError(response.text)
+    return response.json() if response.content else {"success": True}
+
+
+def get_training_results(api_key: str, workspace_url: str, project_url: str, version: str):
+    """Run-level training results bundle.
+
+    For NAS runs returns ``{ trainingId, status, modelGroup, modelCount,
+    recommendedByHardware, mining?, models: [...] }``. For non-NAS runs
+    returns a minimal bundle with the produced model(s).
+    """
+    url = f"{API_URL}/{workspace_url}/{project_url}/{version}/training/results?api_key={api_key}"
+    response = requests.get(url)
+    if not response.ok:
+        raise RoboflowError(response.text)
+    return response.json()
+
+
+def list_project_models(
+    api_key: str,
+    workspace_url: str,
+    project_url: str,
+    *,
+    group: Optional[str] = None,
+):
+    """List models for a project; pass ``group`` to scope to one NAS run."""
+    url = f"{API_URL}/{workspace_url}/{project_url}/models?api_key={api_key}"
+    if group:
+        url += f"&group={urllib.parse.quote(group, safe='')}"
+    response = requests.get(url)
+    if not response.ok:
+        raise RoboflowError(response.text)
+    return response.json()
+
+
+def get_model_by_url(api_key: str, workspace_url: str, model_url: str):
+    """Fetch a single model by its URL slug."""
+    encoded = urllib.parse.quote(model_url, safe="/")
+    url = f"{API_URL}/models/{workspace_url}/{encoded}?api_key={api_key}"
+    response = requests.get(url)
+    if not response.ok:
+        raise RoboflowError(response.text)
+    return response.json()
+
+
+def favorite_nas_model(api_key: str, workspace_url: str, model_id: str, *, starred: bool = True):
+    """Star or unstar a NAS-trained model.
+
+    ``model_id`` is the opaque public model id (e.g. ``my-project-3-nas-gpu-b``),
+    the same value the public API returns as ``models[].modelId`` on
+    ``GET /:workspace/:project/:version/training/results``. NAS-only on the
+    server side.
+    """
+    encoded = urllib.parse.quote(model_id, safe="")
+    url = f"{API_URL}/{workspace_url}/models/{encoded}/favorite?api_key={api_key}"
+    response = requests.post(url, json={"starred": bool(starred)})
+    if not response.ok:
+        raise RoboflowError(response.text)
+    return response.json()
 
 
 def get_version(api_key: str, workspace_url: str, project_url: str, version: str, nocache: bool = False):
@@ -260,6 +374,76 @@ def workspace_delete_images(
     url = f"{API_URL}/{workspace_url}/images?api_key={api_key}"
     response = requests.delete(url, json={"images": image_ids})
     if response.status_code != 200:
+        raise RoboflowError(response.text)
+    return response.json()
+
+
+def update_image_metadata(
+    api_key: str,
+    workspace_url: str,
+    image_id: str,
+    *,
+    metadata: Optional[Dict] = None,
+    remove_metadata: Optional[List[str]] = None,
+    add_tags: Optional[List[str]] = None,
+    remove_tags: Optional[List[str]] = None,
+) -> dict:
+    """Update metadata and tags on a single image (synchronous).
+
+    Args:
+        api_key: Roboflow API key.
+        workspace_url: Workspace slug/url.
+        image_id: Image/source ID.
+        metadata: Key-value pairs to set on the image.
+        remove_metadata: Metadata keys to delete.
+        add_tags: Tags to append.
+        remove_tags: Tags to remove.
+
+    Returns:
+        Parsed JSON response (``{"success": true}``).
+
+    Raises:
+        RoboflowError: On non-200 response.
+    """
+    url = f"{API_URL}/{workspace_url}/images/{quote(image_id, safe='')}/metadata"
+    body: Dict[str, Any] = {}
+    if metadata is not None:
+        body["metadata"] = metadata
+    if remove_metadata is not None:
+        body["removeMetadata"] = remove_metadata
+    if add_tags is not None:
+        body["addTags"] = add_tags
+    if remove_tags is not None:
+        body["removeTags"] = remove_tags
+
+    response = requests.post(url, params={"api_key": api_key}, json=body)
+    if response.status_code != 200:
+        raise RoboflowError(response.text)
+    return response.json()
+
+
+def batch_update_image_metadata(
+    api_key: str,
+    workspace_url: str,
+    updates: List[Dict],
+) -> dict:
+    """Batch-update metadata and tags on multiple images (asynchronous).
+
+    Args:
+        api_key: Roboflow API key.
+        workspace_url: Workspace slug/url.
+        updates: List of update dicts, each containing ``imageId`` and optionally
+            ``metadata``, ``removeMetadata``, ``addTags``, ``removeTags``.
+
+    Returns:
+        Parsed JSON with ``taskId`` and ``url`` for polling.
+
+    Raises:
+        RoboflowError: On non-202 response.
+    """
+    url = f"{API_URL}/{workspace_url}/images/metadata"
+    response = requests.post(url, params={"api_key": api_key}, json={"updates": updates})
+    if response.status_code != 202:
         raise RoboflowError(response.text)
     return response.json()
 
@@ -649,6 +833,28 @@ def delete_folder(api_key, workspace_url, group_id):
     return response.json()
 
 
+def add_projects_to_folder(api_key, workspace_url, group_id, project_ids):
+    """PATCH /{ws}/groups/{id}/projects — add projects to a folder."""
+    response = requests.patch(
+        f"{API_URL}/{workspace_url}/groups/{group_id}/projects",
+        params={"api_key": api_key},
+        json={"projects": project_ids},
+    )
+    if response.status_code not in (200, 204):
+        raise RoboflowError(response.text)
+
+
+def remove_projects_from_folder(api_key, workspace_url, group_id, project_ids):
+    """DELETE /{ws}/groups/{id}/projects — remove projects from a folder."""
+    response = requests.delete(
+        f"{API_URL}/{workspace_url}/groups/{group_id}/projects",
+        params={"api_key": api_key},
+        json={"projects": project_ids},
+    )
+    if response.status_code not in (200, 204):
+        raise RoboflowError(response.text)
+
+
 # ---------------------------------------------------------------------------
 # Phase 2: Workflow endpoints
 # ---------------------------------------------------------------------------
@@ -802,6 +1008,71 @@ def list_workflow_versions(api_key, workspace_url, workflow_url):
     return response.json()
 
 
+def fork_project(
+    api_key,
+    dest_workspace,
+    *,
+    url=None,
+    source_project_slug=None,
+):
+    """POST /{ws}/projects/fork — enqueue an async fork of a public Universe project.
+
+    Pass ``url`` (a Universe URL) or an explicit ``source_project_slug``. The
+    API owns parsing/validation. Returns the server's response, e.g.
+    ``{"taskId": "...", "url": "<polling url>"}``.
+    """
+    payload: Dict[str, str] = {}
+    if url:
+        payload["url"] = url
+    if source_project_slug:
+        payload["source_project"] = source_project_slug
+    response = requests.post(
+        f"{API_URL}/{dest_workspace}/projects/fork",
+        params={"api_key": api_key},
+        json=payload,
+    )
+    if not response.ok:
+        raise RoboflowError(response.text)
+    return response.json()
+
+
+def get_async_task(api_key, workspace_url, task_id):
+    """GET /{ws}/asynctasks/{id} — fetch the current status of an async task.
+
+    Returns the server's status payload, e.g.
+    ``{"taskId": "...", "status": "running", "progress": {...}}`` or
+    ``{"taskId": "...", "status": "completed", "result": {...}}`` once
+    terminal. Raises ``RoboflowError`` for any non-2xx response (including
+    404 for unknown ids or cross-workspace probes).
+    """
+    # ``task_id`` comes from arbitrary external input; encode so a stray
+    # ``/``, ``?`` or ``#`` cannot mutate the request path (and still send
+    # the api_key with it).
+    encoded_task_id = quote(task_id, safe="")
+    response = requests.get(
+        f"{API_URL}/{workspace_url}/asynctasks/{encoded_task_id}",
+        params={"api_key": api_key},
+    )
+    if response.status_code != 200:
+        raise RoboflowError(response.text)
+    return response.json()
+
+
+def get_async_task_at(api_key, polling_url):
+    """GET an async-task polling URL returned verbatim by the server.
+
+    Enqueue endpoints (e.g. ``/{ws}/projects/fork``) return a fully-qualified
+    ``url`` alongside ``taskId``. The host may differ from ``API_URL`` (e.g.
+    local dev against ``localapi.roboflow.one``), so hit it directly and
+    only attach the api_key. Falls back to ``get_async_task`` callers when
+    no server-supplied URL is available.
+    """
+    response = requests.get(polling_url, params={"api_key": api_key})
+    if response.status_code != 200:
+        raise RoboflowError(response.text)
+    return response.json()
+
+
 def fork_workflow(api_key, workspace_url, *, source_workspace, source_workflow, name=None, url=None):
     """POST /{ws}/forkWorkflow — fork a workflow into this workspace.
 
@@ -911,8 +1182,11 @@ def _raise_for_trash_response(response):
     error messages are agent-friendly. Falls back to the raw text if the
     body isn't JSON or doesn't contain an `error` field.
 
-    The single `raise` at the end means we can't accidentally swallow the
-    intended error if a future refactor widens the except clause.
+    Carries the HTTP status code on the raised exception so callers (e.g.
+    the CLI) can map auth failures (401) to the right exit code without
+    string-matching. The single `raise` at the end means we can't
+    accidentally swallow the intended error if a future refactor widens
+    the except clause.
     """
     msg = None
     try:
@@ -922,7 +1196,7 @@ def _raise_for_trash_response(response):
     except ValueError:
         # Body wasn't JSON — fall through to response.text.
         pass
-    raise RoboflowError(msg or response.text)
+    raise RoboflowError(msg or response.text, status_code=response.status_code)
 
 
 def delete_project(api_key, workspace_url, project_url):
@@ -995,3 +1269,184 @@ def restore_trash_item(api_key, workspace_url, item_type, item_id, parent_id=Non
 # Note: permanent-delete from Trash (deleteImmediately / empty) is
 # intentionally not exposed on the public API — those actions destroy data
 # irrecoverably and are only available through the web UI's Trash view.
+
+
+# ---------------------------------------------------------------------------
+# Model evaluations
+# ---------------------------------------------------------------------------
+
+
+class ModelEvalNotFoundError(RoboflowError):
+    """Raised when an eval id (or workspace) does not exist (HTTP 404)."""
+
+
+class ModelEvalNotDoneError(RoboflowError):
+    """Raised when reading panel data for an eval whose status is not ``done`` (HTTP 409)."""
+
+
+class InvalidSplitError(RoboflowError):
+    """Raised when ``split`` is not one of the accepted values (HTTP 400)."""
+
+
+class InvalidConfidenceError(RoboflowError):
+    """Raised when ``confidence`` is non-integer or out of range 0-100 (HTTP 400)."""
+
+
+def _model_eval_error_for(response):
+    """Translate a model-eval error response into the right RoboflowError subclass.
+
+    The model-eval REST surface returns errors as a flat envelope::
+
+        {"error": "<code>", "message": "<human readable>"}
+
+    Falls back to plain :class:`RoboflowError` when the body isn't JSON or
+    the code is unrecognised, so new error codes don't crash older SDK
+    callers. Status-code fallbacks for 404/409 keep typed exceptions
+    available even if the server omits the ``error`` field.
+    """
+    code = None
+    message = response.text
+    try:
+        body = response.json()
+        if isinstance(body, dict):
+            code = body.get("error")
+            if not isinstance(code, str):
+                code = None
+            message = body.get("message") or code or message
+    except (ValueError, TypeError):
+        pass
+
+    cls_by_code = {
+        "model_eval_not_found": ModelEvalNotFoundError,
+        "model_eval_not_done": ModelEvalNotDoneError,
+        "invalid_split": InvalidSplitError,
+        "invalid_confidence": InvalidConfidenceError,
+    }
+    cls = cls_by_code.get(code or "")
+    if cls is not None:
+        return cls(message)
+    if response.status_code == 404:
+        return ModelEvalNotFoundError(message)
+    if response.status_code == 409:
+        return ModelEvalNotDoneError(message)
+    return RoboflowError(message)
+
+
+def _eval_get(api_key, workspace_url, path, params=None):
+    """GET helper for model-eval endpoints with typed error mapping."""
+    query: Dict[str, Union[str, int]] = {"api_key": api_key}
+    if params:
+        for key, value in params.items():
+            if value is not None:
+                query[key] = value
+    url = f"{API_URL}/{workspace_url}/model-evals{path}"
+    response = requests.get(url, params=query)
+    if response.status_code != 200:
+        raise _model_eval_error_for(response)
+    return response.json()
+
+
+def list_model_evals(
+    api_key: str,
+    workspace_url: str,
+    *,
+    project: Optional[str] = None,
+    version: Optional[Union[str, int]] = None,
+    model: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> dict:
+    """GET /{workspace}/model-evals — list evals in the workspace."""
+    return _eval_get(
+        api_key,
+        workspace_url,
+        "",
+        params={"project": project, "version": version, "model": model, "status": status, "limit": limit},
+    )
+
+
+def get_model_eval(api_key: str, workspace_url: str, eval_id: str) -> dict:
+    """GET /{workspace}/model-evals/{evalId} — fetch a single eval (with summary if done)."""
+    return _eval_get(api_key, workspace_url, f"/{eval_id}")
+
+
+def get_model_eval_map_results(api_key: str, workspace_url: str, eval_id: str) -> dict:
+    """GET /{workspace}/model-evals/{evalId}/map-results — per-split mAP breakdown."""
+    return _eval_get(api_key, workspace_url, f"/{eval_id}/map-results")
+
+
+def get_model_eval_confidence_sweep(api_key: str, workspace_url: str, eval_id: str) -> dict:
+    """GET /{workspace}/model-evals/{evalId}/confidence-sweep — F1/precision/recall sweep."""
+    return _eval_get(api_key, workspace_url, f"/{eval_id}/confidence-sweep")
+
+
+def get_model_eval_performance_by_class(
+    api_key: str,
+    workspace_url: str,
+    eval_id: str,
+    *,
+    split: Optional[str] = None,
+) -> dict:
+    """GET /{workspace}/model-evals/{evalId}/performance-by-class — per-class metrics.
+
+    Server rejects ``split=all`` for this panel; pass one of train/valid/test
+    or omit to use the server default (test).
+    """
+    return _eval_get(api_key, workspace_url, f"/{eval_id}/performance-by-class", params={"split": split})
+
+
+def get_model_eval_confusion_matrix(
+    api_key: str,
+    workspace_url: str,
+    eval_id: str,
+    *,
+    split: Optional[str] = None,
+    confidence: Optional[int] = None,
+) -> dict:
+    """GET /{workspace}/model-evals/{evalId}/confusion-matrix — confusion matrix for split."""
+    return _eval_get(
+        api_key,
+        workspace_url,
+        f"/{eval_id}/confusion-matrix",
+        params={"split": split, "confidence": confidence},
+    )
+
+
+def get_model_eval_vector_analysis(
+    api_key: str,
+    workspace_url: str,
+    eval_id: str,
+    *,
+    confidence: Optional[int] = None,
+) -> dict:
+    """GET /{workspace}/model-evals/{evalId}/vector-analysis — embedding clusters & metrics."""
+    return _eval_get(
+        api_key,
+        workspace_url,
+        f"/{eval_id}/vector-analysis",
+        params={"confidence": confidence},
+    )
+
+
+def get_model_eval_image_predictions(
+    api_key: str,
+    workspace_url: str,
+    eval_id: str,
+    *,
+    split: Optional[str] = None,
+    confidence: Optional[int] = None,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+) -> dict:
+    """GET /{workspace}/model-evals/{evalId}/image-predictions — paginated per-image stats."""
+    return _eval_get(
+        api_key,
+        workspace_url,
+        f"/{eval_id}/image-predictions",
+        params={"split": split, "confidence": confidence, "limit": limit, "offset": offset},
+    )
+
+
+def get_model_eval_recommendations(api_key: str, workspace_url: str, eval_id: str) -> dict:
+    """GET /{workspace}/model-evals/{evalId}/recommendations — improvement suggestions."""
+    return _eval_get(api_key, workspace_url, f"/{eval_id}/recommendations")

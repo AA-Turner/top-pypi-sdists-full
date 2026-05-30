@@ -12,24 +12,24 @@ Homepage:
     http://construct.wikispaces.com (including online tutorial)
 
 Typical usage:
-    >>> from construct import *
+    >>> from ..construct import *
 
 Hands-on example:
-    >>> from construct import *
+    >>> from ..construct import *
     >>> s = Struct("foo",
     ...     UBInt8("a"),
     ...     UBInt16("b"),
     ... )
-    >>> s.parse("\\x01\\x02\\x03")
-    Container(a = 1, b = 515)
-    >>> print s.parse("\\x01\\x02\\x03")
-    Container:
-        a = 1
-        b = 515
-    >>> s.build(Container(a = 1, b = 0x0203))
-    "\\x01\\x02\\x03"
+    >>> s.parse(b"\\x01\\x02\\x03")
+    Container({'a': 1, 'b': 515})
+    >>> print(s.parse(b"\\x01\\x02\\x03"))
+    Container({'a': 1, 'b': 515})
+    >>> s.build(Container(a=1, b=0x0203))
+    b'\\x01\\x02\\x03'
 """
+from __future__ import annotations
 
+from .lib.container import *
 from .core import *
 from .adapters import *
 from .macros import *
@@ -39,9 +39,9 @@ from .debug import Probe, Debugger
 #===============================================================================
 # Metadata
 #===============================================================================
-__author__ = "tomer filiba (tomerfiliba [at] gmail.com)"
-__maintainer__ = "Corbin Simpson <MostAwesomeDude@gmail.com>"
-__version__ = "2.06"
+__author__: str = "tomer filiba (tomerfiliba [at] gmail.com)"
+__maintainer__: str = "Corbin Simpson <MostAwesomeDude@gmail.com>"
+__version__: str = "2.06"
 
 #===============================================================================
 # Shorthand expressions
@@ -57,11 +57,24 @@ Embed = Embedded
 # Deprecated names
 # Next scheduled name cleanout: 2.1
 #===============================================================================
-import functools, warnings
+import functools
+import warnings
+from types import FunctionType
+from typing import TYPE_CHECKING, TypeVar
 
-def deprecated(f):
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from typing_extensions import ParamSpec
+
+    _P = ParamSpec('_P')
+    _T = TypeVar('_T')
+
+
+def deprecated(f: Callable[_P, _T]) -> Callable[_P, _T]:
+    assert isinstance(f, (FunctionType, type))
     @functools.wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
         warnings.warn(
             "This name is deprecated, use %s instead" % f.__name__,
             DeprecationWarning, stacklevel=2)

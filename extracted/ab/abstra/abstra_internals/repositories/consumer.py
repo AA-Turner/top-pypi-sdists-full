@@ -25,6 +25,7 @@ from abstra_internals.repositories.models import (
     QueueMessage,
     RunSnippetMessage,
     RunSnippetPayload,
+    StopAllExecutionsMessage,
     StopExecutionMessage,
     StopExecutionPayload,
 )
@@ -36,6 +37,7 @@ __all__ = [
     "PingMessage",
     "RunSnippetMessage",
     "RunSnippetPayload",
+    "StopAllExecutionsMessage",
     "StopExecutionMessage",
     "StopExecutionPayload",
 ]
@@ -46,6 +48,8 @@ def _parse_control_message(data: dict) -> ControlMessage:
     msg_type = data.get("type")
     if msg_type == "stop":
         return StopExecutionMessage.model_validate(data)
+    elif msg_type == "stop_all":
+        return StopAllExecutionsMessage.model_validate(data)
     elif msg_type == "run_snippet":
         return RunSnippetMessage.model_validate(data)
     elif msg_type == "ping":
@@ -59,7 +63,11 @@ class Consumer(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def threadsafe_nack(self, msg: Union[QueueMessage, ControlQueueMessage]):
+    def threadsafe_nack(
+        self,
+        msg: Union[QueueMessage, ControlQueueMessage],
+        requeue: bool = False,
+    ):
         raise NotImplementedError
 
     @abstractmethod
@@ -236,7 +244,11 @@ class RabbitMQConsumer(Consumer):
 
         self.connection.add_callback_threadsafe(callback)
 
-    def threadsafe_nack(self, msg: Union[QueueMessage, ControlQueueMessage]):
+    def threadsafe_nack(
+        self,
+        msg: Union[QueueMessage, ControlQueueMessage],
+        requeue: bool = False,
+    ):
         if not self.connection:
             AbstraLogger.warning(
                 f"[{self.logger_prefix}] Connection not established, cannot nack message [{msg.delivery_tag}]"
@@ -244,7 +256,7 @@ class RabbitMQConsumer(Consumer):
             return
 
         AbstraLogger.debug(
-            f"[{self.logger_prefix}] Adding nack callback for [{msg.delivery_tag}]"
+            f"[{self.logger_prefix}] Adding nack callback for [{msg.delivery_tag}] (requeue={requeue})"
         )
 
         with self._pending_callbacks_lock:
@@ -252,12 +264,12 @@ class RabbitMQConsumer(Consumer):
 
         def callback():
             AbstraLogger.debug(
-                f"[{self.logger_prefix}] Not acknowledging message [{msg.delivery_tag}]"
+                f"[{self.logger_prefix}] Not acknowledging message [{msg.delivery_tag}] (requeue={requeue})"
             )
             try:
                 if self.channel.is_open:
                     self.channel.basic_nack(
-                        delivery_tag=msg.delivery_tag, requeue=False
+                        delivery_tag=msg.delivery_tag, requeue=requeue
                     )
                 else:
                     AbstraLogger.warning(
@@ -313,6 +325,10 @@ class RabbitMQConsumer(Consumer):
                     try:
                         queue_message = self._deserialize(body)
                         queue_message.delivery_tag = method.delivery_tag
+                        if isinstance(queue_message, QueueMessage):
+                            queue_message.redelivered = bool(
+                                getattr(method, "redelivered", False)
+                            )
                         # ACK é responsabilidade do caller via threadsafe_ack()
                         yield queue_message
                     except Exception as e:
@@ -423,7 +439,11 @@ class EditorConsumer(Consumer):
         self.stop_evt = Event()
         self.queue = queue
 
-    def threadsafe_nack(self, msg: Union[QueueMessage, ControlQueueMessage]):
+    def threadsafe_nack(
+        self,
+        msg: Union[QueueMessage, ControlQueueMessage],
+        requeue: bool = False,
+    ):
         pass
 
     def threadsafe_ack(self, msg: Union[QueueMessage, ControlQueueMessage]):
@@ -627,7 +647,11 @@ class RabbitMQFanoutConsumer(Consumer):
 
         self.connection.add_callback_threadsafe(callback)
 
-    def threadsafe_nack(self, msg: Union[QueueMessage, ControlQueueMessage]):
+    def threadsafe_nack(
+        self,
+        msg: Union[QueueMessage, ControlQueueMessage],
+        requeue: bool = False,
+    ):
         if not self.connection:
             AbstraLogger.warning(
                 f"[{self.logger_prefix}] Connection not established, cannot nack message [{msg.delivery_tag}]"
@@ -638,7 +662,7 @@ class RabbitMQFanoutConsumer(Consumer):
             try:
                 if self.channel.is_open:
                     self.channel.basic_nack(
-                        delivery_tag=msg.delivery_tag, requeue=False
+                        delivery_tag=msg.delivery_tag, requeue=requeue
                     )
             except Exception as e:
                 AbstraLogger.error(

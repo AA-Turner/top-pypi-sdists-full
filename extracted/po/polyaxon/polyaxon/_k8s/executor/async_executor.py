@@ -1,7 +1,6 @@
 from typing import Any, Dict, Optional
 
 from clipped.utils.coroutine import run_sync
-
 from polyaxon._k8s.executor.base import BaseExecutor
 from polyaxon._k8s.manager.async_manager import AsyncK8sManager
 
@@ -19,6 +18,17 @@ class AsyncExecutor(BaseExecutor):
         manager = super().refresh()
         await manager.setup()
         return manager
+
+    async def list_ops(self, namespace: str = None):
+        ops = []
+        for mixin in self._get_operation_resource_mixins():
+            ops += await self.manager.list_custom_objects(
+                group=mixin.GROUP,
+                version=mixin.API_VERSION,
+                plural=mixin.PLURAL,
+                namespace=namespace,
+            )
+        return ops
 
     @classmethod
     async def convert(

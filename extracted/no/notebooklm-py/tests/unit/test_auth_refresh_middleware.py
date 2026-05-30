@@ -9,10 +9,15 @@ and ADR-009 §"Chain ordering":
 - **Pass-through when no refresh callback configured.** The
   ``refresh_callback_enabled`` gate matches the legacy
   ``host._refresh_callback is not None`` check.
+- **Pass-through when ``disable_internal_retries`` is set.** A
+  non-idempotent / probe-then-create method (effective disable bool set
+  on the context) is NOT replayed after an auth error — the write may
+  have already committed before the 401/403 surfaced (issue #1157).
 - **Refresh-and-retry on auth error.** First ``next_call`` raises
   ``httpx.HTTPStatusError`` recognized by ``is_auth_error`` → refresh
   callable runs (coalesced single-flight) → optional post-refresh sleep
-  → metric increment → exactly one retry via ``next_call(request)``.
+  → metric increment → rebuilt request envelope when a snapshot provider is
+  wired → exactly one retry via ``next_call(retry_request)``.
 - **Refresh failure** → wrap original ``HTTPStatusError`` in
   ``TransportAuthExpired`` and propagate.
 - **Exactly one retry.** Per ADR-009 §"Retry semantics", a second auth
@@ -22,7 +27,7 @@ and ADR-009 §"Chain ordering":
   on the host still takes effect (matches the RetryMiddleware idiom).
 - **Log shape preservation** — "auth error detected, attempting token
   refresh" / "Token refresh failed: X" / "Token refresh successful,
-  retrying Y" match the legacy ``AuthedTransport`` messages bit-for-bit
+  retrying Y" match the legacy transport messages bit-for-bit
   so log-grep alerts keep matching.
 - **Metrics increment** — ``rpc_auth_retries`` incremented exactly once
   per successful refresh.
@@ -42,15 +47,16 @@ import pytest
 # pytest puts ``tests/`` on ``sys.path``; ``_fixtures.chain`` is the canonical
 # import path documented in ``tests/_fixtures/__init__.py``.
 from _fixtures.chain import make_request
-from notebooklm._authed_transport import (
+from notebooklm._client_metrics import ClientMetrics
+from notebooklm._middleware import NextCall, RpcRequest, RpcResponse, build_chain
+from notebooklm._middleware_auth_refresh import AuthRefreshMiddleware
+from notebooklm._request_types import AuthSnapshot
+from notebooklm._session_helpers import is_auth_error
+from notebooklm._transport_errors import (
     TransportAuthExpired,
     TransportRateLimited,
     TransportServerError,
 )
-from notebooklm._client_metrics import ClientMetrics
-from notebooklm._middleware import NextCall, RpcRequest, RpcResponse, build_chain
-from notebooklm._middleware_auth_refresh import AuthRefreshMiddleware
-from notebooklm._session_helpers import is_auth_error
 
 
 def _recording_sleep() -> tuple[Callable[[float], Awaitable[None]], list[float]]:
@@ -91,6 +97,7 @@ def _make_middleware(
     refresh_retry_delay: float = 0.0,
     sleep: Callable[[float], Awaitable[object]] | None = None,
     metrics: ClientMetrics | None = None,
+    snapshot_provider: Callable[[], Awaitable[AuthSnapshot]] | None = None,
     auth_error_predicate: Callable[[Exception], bool] = is_auth_error,
 ) -> AuthRefreshMiddleware:
     """Build an ``AuthRefreshMiddleware`` with sensible defaults for tests."""
@@ -103,6 +110,7 @@ def _make_middleware(
         is_auth_error=auth_error_predicate,
         refresh_callback_enabled=lambda: refresh_enabled,
         refresh_retry_delay=lambda: refresh_retry_delay,
+        snapshot_provider=snapshot_provider,
         sleep=sleep,
         metrics=metrics,
     )
@@ -212,6 +220,73 @@ async def test_passes_through_on_non_auth_http_error() -> None:
     assert refresh_calls == []
 
 
+@pytest.mark.asyncio
+async def test_passes_through_when_disable_internal_retries_set() -> None:
+    """``disable_internal_retries`` on the context suppresses the auth replay.
+
+    Regression for issue #1157: a non-idempotent / probe-then-create method
+    arrives with the post-resolution effective disable bool set on its
+    context. A 401/403 can land *after* the server committed the write, so
+    re-POSTing would duplicate the resource / invite / generation. The
+    middleware must propagate the original auth error instead of refreshing
+    and retrying.
+    """
+    boom = _auth_error(status=401)
+    terminal, calls = _scripted_terminal([boom])
+    refresh_calls: list[None] = []
+
+    async def refresh() -> None:
+        refresh_calls.append(None)
+
+    middleware = _make_middleware(refresh_callable=refresh)
+    chain = build_chain([middleware], terminal)
+
+    with pytest.raises(httpx.HTTPStatusError) as excinfo:
+        await chain(
+            make_request(
+                context={
+                    "log_label": "RPC CREATE_NOTEBOOK",
+                    "disable_internal_retries": True,
+                }
+            )
+        )
+
+    assert excinfo.value is boom
+    assert len(calls) == 1  # initial attempt only — no replay
+    assert refresh_calls == []  # refresh NOT triggered
+
+
+@pytest.mark.asyncio
+async def test_refreshes_when_disable_internal_retries_falsy() -> None:
+    """An explicit falsy ``disable_internal_retries`` still allows the replay.
+
+    Guards the gate against over-triggering: a retry-safe method whose
+    effective disable flag is False must keep the refresh-and-retry path.
+    """
+    boom = _auth_error(status=401)
+    terminal, calls = _scripted_terminal([boom, httpx.Response(200, content=b"retry-ok")])
+    refresh_calls: list[None] = []
+
+    async def refresh() -> None:
+        refresh_calls.append(None)
+
+    middleware = _make_middleware(refresh_callable=refresh)
+    chain = build_chain([middleware], terminal)
+
+    response = await chain(
+        make_request(
+            context={
+                "log_label": "RPC LIST_NOTEBOOKS",
+                "disable_internal_retries": False,
+            }
+        )
+    )
+
+    assert refresh_calls == [None]
+    assert len(calls) == 2
+    assert response.response.status_code == 200
+
+
 # ---------------------------------------------------------------------------
 # Refresh-and-retry path
 # ---------------------------------------------------------------------------
@@ -236,6 +311,54 @@ async def test_refreshes_and_retries_on_auth_error() -> None:
     assert len(calls) == 2  # initial + retry
     assert response.response.status_code == 200
     assert response.response.content == b"retry-ok"
+
+
+@pytest.mark.asyncio
+async def test_refresh_rebuilds_request_envelope_from_fresh_snapshot() -> None:
+    """Post-refresh retry replaces URL, headers, and body before terminal send."""
+    boom = _auth_error(status=401)
+    terminal, calls = _scripted_terminal([boom, httpx.Response(200, content=b"retry-ok")])
+    fresh_snapshot = AuthSnapshot(
+        csrf_token="CSRF_NEW",
+        session_id="SID_NEW",
+        authuser=1,
+        account_email=None,
+    )
+    build_snapshots: list[AuthSnapshot] = []
+
+    async def snapshot_provider() -> AuthSnapshot:
+        return fresh_snapshot
+
+    def build_request(snapshot: AuthSnapshot) -> tuple[str, str, dict[str, str]]:
+        build_snapshots.append(snapshot)
+        return (
+            f"https://example.test/x?sid={snapshot.session_id}",
+            f"body-{snapshot.csrf_token}",
+            {"X-Goog-AuthUser": str(snapshot.authuser)},
+        )
+
+    middleware = _make_middleware(snapshot_provider=snapshot_provider)
+    chain = build_chain([middleware], terminal)
+    request = make_request(
+        url="https://example.test/x?sid=SID_OLD",
+        headers={"X-Goog-AuthUser": "0"},
+        body=b"body-CSRF_OLD",
+        context={"log_label": "RPC LIST_NOTEBOOKS", "build_request": build_request},
+    )
+
+    response = await chain(request)
+
+    assert response.response.status_code == 200
+    assert len(calls) == 2
+    assert calls[0] is request
+    retry_request = calls[1]
+    assert retry_request is not request
+    assert retry_request.url == "https://example.test/x?sid=SID_NEW"
+    assert retry_request.headers == {"X-Goog-AuthUser": "1"}
+    assert retry_request.body == b"body-CSRF_NEW"
+    assert retry_request.context is request.context
+    assert request.context["auth_snapshot"] == fresh_snapshot
+    assert build_snapshots == [fresh_snapshot]
 
 
 @pytest.mark.parametrize("status", [400, 401, 403])
@@ -454,7 +577,7 @@ async def test_metrics_not_incremented_on_refresh_failure() -> None:
 
 @pytest.mark.asyncio
 async def test_log_shape_on_successful_refresh(caplog: pytest.LogCaptureFixture) -> None:
-    """Log messages match the legacy ``AuthedTransport`` shape verbatim."""
+    """Log messages match the legacy transport shape verbatim."""
     boom = _auth_error()
     terminal, _calls = _scripted_terminal([boom, httpx.Response(200, content=b"ok")])
 

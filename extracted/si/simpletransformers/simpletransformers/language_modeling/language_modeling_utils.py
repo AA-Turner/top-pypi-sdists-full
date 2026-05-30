@@ -323,8 +323,9 @@ class SimpleDataset(Dataset):
                 self.examples = [token for tokens in self.examples for token in tokens]
                 if len(self.examples) > block_size:
                     self.examples = [
-                        tokenizer.build_inputs_with_special_tokens(
-                            self.examples[i : i + block_size]
+                        tokenizer.encode(
+                            tokenizer.decode(self.examples[i : i + block_size], skip_special_tokens=True),
+                            add_special_tokens=True,
                         )
                         for i in tqdm(
                             range(0, len(self.examples) - block_size + 1, block_size)
@@ -332,7 +333,10 @@ class SimpleDataset(Dataset):
                     ]
                 else:
                     self.examples = [
-                        tokenizer.build_inputs_with_special_tokens(self.examples)
+                        tokenizer.encode(
+                            tokenizer.decode(self.examples, skip_special_tokens=True),
+                            add_special_tokens=True,
+                        )
                     ]
 
             logger.info(" Saving features into cached file %s", cached_features_file)

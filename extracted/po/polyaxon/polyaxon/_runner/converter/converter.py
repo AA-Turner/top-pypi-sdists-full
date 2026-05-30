@@ -1,13 +1,13 @@
 import os
-
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from clipped.utils.http import clean_host
 from clipped.utils.lists import to_list
-from vents.connections.connection_schema import patch_git
-
 from polyaxon import settings
-from polyaxon._auxiliaries import V1PolyaxonInitContainer, V1PolyaxonSidecarContainer
+from polyaxon._auxiliaries import (
+    V1PolyaxonInitContainer,
+    V1PolyaxonSidecarContainer,
+)
 from polyaxon._connections import (
     CONNECTION_CONFIG,
     V1Connection,
@@ -51,6 +51,7 @@ from polyaxon._services.values import PolyaxonServices
 from polyaxon._utils.fqn_utils import get_resource_name, get_run_instance
 from polyaxon._utils.host_utils import get_api_host
 from polyaxon.exceptions import PolyaxonConverterError, PolyaxonSchemaError
+from vents.connections.connection_schema import patch_git
 
 
 class BaseConverter:
@@ -472,6 +473,10 @@ class BaseConverter:
     def _get_shm_context_mount() -> VolumeMount:
         raise NotImplementedError
 
+    @staticmethod
+    def _get_tools_bin_context_mount(read_only: bool = True) -> VolumeMount:
+        raise NotImplementedError
+
     @classmethod
     def _get_mount_from_store(cls, store: V1Connection) -> Optional[VolumeMount]:
         raise NotImplementedError
@@ -493,6 +498,8 @@ class BaseConverter:
         use_docker_context: bool,
         use_shm_context: bool,
         use_artifacts_context: bool,
+        use_tmux_context: bool = False,
+        use_sandbox_context: bool = False,
         run_path: Optional[str] = None,
     ) -> List[VolumeMount]:
         raise NotImplementedError
@@ -666,6 +673,16 @@ class BaseConverter:
         container: Optional[Container] = None,
         env: List[EnvVar] = None,
         mount_path: Optional[str] = None,
+    ) -> Container:
+        raise NotImplementedError
+
+    @classmethod
+    def _get_tools_init_container(
+        cls,
+        polyaxon_init: "V1PolyaxonInitContainer",
+        use_tmux: bool = False,
+        use_sandbox: bool = False,
+        use_ssh: bool = False,
     ) -> Container:
         raise NotImplementedError
 
@@ -925,6 +942,17 @@ class BaseConverter:
                     env=self._get_auth_service_env_vars(
                         external_host=plugins.external_host
                     ),
+                )
+            )
+
+        # Add tool binaries
+        if plugins and (plugins.tmux or plugins.sandbox or plugins.ssh):
+            containers.append(
+                self._get_tools_init_container(
+                    polyaxon_init=polyaxon_init,
+                    use_tmux=plugins.tmux,
+                    use_sandbox=plugins.sandbox or plugins.ssh,
+                    use_ssh=plugins.ssh,
                 )
             )
 

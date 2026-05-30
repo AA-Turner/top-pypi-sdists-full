@@ -11,6 +11,8 @@ from montecarlodata.agents.fields import (
     AWS_ASSUMABLE_ROLE,
     AZURE,
     AZURE_BLOB,
+    AZURE_FUNCTION_APP_KEY,
+    AZURE_FUNCTION_SERVICE_PRINCIPAL,
     AZURE_STORAGE_ACCOUNT_KEYS,
     AZURE_STORAGE_SERVICE_PRINCIPAL,
     DATA_STORE_AGENT,
@@ -407,3 +409,75 @@ class AgentServiceTest(TestCase):
         self.assertEqual(captured_creds["client_id"], "client-def")
         self.assertEqual(captured_creds["client_secret"], "secret-ghi")
         self.assertEqual(captured_creds["account_url"], "mystorageaccount")
+
+    def test_create_azure_agent_app_key(self):
+        response = Mock()
+        response.create_or_update_agent.agent_id = "azure-ak-123"
+        response.create_or_update_agent.validation_result.success = True
+        response.create_or_update_agent.validation_result.errors = None
+        response.create_or_update_agent.validation_result.warnings = None
+        self._mc_client.return_value = response
+
+        out = capture_function(
+            self._service.create_agent,
+            {
+                "agent_type": REMOTE_AGENT,
+                "platform": AZURE,
+                "storage": AZURE_BLOB,
+                "auth_type": AZURE_FUNCTION_APP_KEY,
+                "endpoint": "https://my-func.azurewebsites.net/api/agent",
+                "app_key": "my-app-key",
+            },
+        )
+
+        self.assertIsNone(out.exception)
+        self.assertEqual(1, self._mc_client.call_count)
+        captured = out.std_out.getvalue()
+        self.assertIn("Agent successfully registered", captured)
+        self.assertIn("azure-ak-123", captured)
+
+        call_args = str(self._mc_client.call_args_list[0])
+        self.assertIn("app_key", call_args)
+
+    def test_create_azure_agent_service_principal(self):
+        response = Mock()
+        response.create_or_update_agent.agent_id = "azure-sp-456"
+        response.create_or_update_agent.validation_result.success = True
+        response.create_or_update_agent.validation_result.errors = None
+        response.create_or_update_agent.validation_result.warnings = None
+        self._mc_client.return_value = response
+
+        captured_creds = {}
+        original_dumps = json.dumps
+
+        def intercept_dumps(obj, **kwargs):
+            if isinstance(obj, dict) and "audience" in obj:
+                captured_creds.update(obj)
+            return original_dumps(obj, **kwargs)
+
+        with patch("montecarlodata.agents.agent.json.dumps", side_effect=intercept_dumps):
+            out = capture_function(
+                self._service.create_agent,
+                {
+                    "agent_type": REMOTE_AGENT,
+                    "platform": AZURE,
+                    "storage": AZURE_BLOB,
+                    "auth_type": AZURE_FUNCTION_SERVICE_PRINCIPAL,
+                    "endpoint": "https://my-func.azurewebsites.net/api/agent",
+                    "sp_tenant_id": "tenant-abc",
+                    "sp_client_id": "client-def",
+                    "sp_client_secret": "secret-ghi",
+                    "sp_audience": "api://my-func-audience",
+                },
+            )
+
+        self.assertIsNone(out.exception)
+        self.assertEqual(1, self._mc_client.call_count)
+        captured = out.std_out.getvalue()
+        self.assertIn("Agent successfully registered", captured)
+        self.assertIn("azure-sp-456", captured)
+
+        self.assertEqual(captured_creds["tenant_id"], "tenant-abc")
+        self.assertEqual(captured_creds["client_id"], "client-def")
+        self.assertEqual(captured_creds["client_secret"], "secret-ghi")
+        self.assertEqual(captured_creds["audience"], "api://my-func-audience")

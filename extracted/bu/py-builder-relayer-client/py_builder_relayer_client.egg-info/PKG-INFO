@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: py_builder_relayer_client
-Version: 0.0.1
-Summary: Python builder signing sdk
+Version: 0.0.2
+Summary: Python client library for interacting with the Polymarket Relayer infrastructure
 Home-page: https://github.com/Polymarket/py-builder-relayer-client
 Author: Polymarket Engineering
 Author-email: engineering@polymarket.com
@@ -13,6 +13,10 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+Requires-Dist: eth-account>=0.13.0
+Requires-Dist: eth-abi>=5.0.0
+Requires-Dist: eth-utils>=4.0.0
+Requires-Dist: hexbytes>=1.2.0
 Requires-Dist: python-dotenv
 Requires-Dist: requests
 Requires-Dist: py-builder-signing-sdk

@@ -4,6 +4,10 @@ MLEM.py
 Maximum Likelihood Expectation Maximization (MLEM) reconstruction algorithm.
 Uses ReconTools functions for all matrix operations.
 Single unified function that works with any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
+
+Supports preconditioning:
+- NONE: No preconditioning
+- DIAGONAL: Diagonal preconditioning using A^T * 1 (normalized sensitivity)
 """
 
 import numpy as np
@@ -17,6 +21,8 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
 
+from AOT_biomaps.AOT_Recon.ReconTools import  forward_projection, backward_projection, vector_divide, build_preconditioner, apply_diagonal_preconditioner
+from AOT_biomaps.AOT_Recon.ReconEnums import PreconditionerType
 
 def MLEM(
     SMatrix,
@@ -28,6 +34,7 @@ def MLEM(
     denominator_threshold: float = 1e-6,
     max_saves: int = 5000,
     show_logs: bool = True,
+    preconditioner_type = PreconditionerType.NONE,
 ) -> Tuple[Union[np.ndarray, list], Optional[list], Optional[list]]:
     """
     MLEM reconstruction algorithm.
@@ -52,9 +59,7 @@ def MLEM(
         - saved_indices: List of saved iteration indices (None if not saving)
         - cost_history: List of cost function values (None if not requested)
     """
-    from AOT_biomaps.AOT_Recon.ReconTools import (
-        projection, backprojection, vector_divide, apply_normalization
-    )
+
     
     tumor_str = "WITH" if withTumor else "WITHOUT"
     
@@ -77,6 +82,11 @@ def MLEM(
         theta_flat = np.full(ZX, 0.1, dtype=np.float32)
         array_module = np
     
+    # Compute preconditioner if requested
+    preconditioner, preconditioner_inv = None, None
+    if preconditioner_type != PreconditionerType.NONE:
+        preconditioner, preconditioner_inv = build_preconditioner(SMatrix, preconditioner_type)
+    
     # Setup save indices
     if numIterations <= max_saves:
         save_indices = list(range(numIterations))
@@ -95,26 +105,30 @@ def MLEM(
     
     for it in iterator:
         # Forward projection
-        q_flat = projection(SMatrix, theta_flat)
+        q_flat = forward_projection(SMatrix, theta_flat)
         
         # MLEM update: theta_new = theta * (A^T * (y / (A*theta + eps))) / (A^T * 1)
         # Compute denominator with threshold
         denominator = q_flat + denominator_threshold
         ratio = vector_divide(SMatrix, y_flat, denominator, epsilon=denominator_threshold)
         
-        # Backprojection of ratio
-        numerator = backprojection(SMatrix, ratio)
+        # Backward projection of ratio
+        numerator = backward_projection(SMatrix, ratio)
         
-        # Backprojection of ones (sensitivity)
-        sensitivity = backprojection(SMatrix, array_module.ones_like(q_flat))
+        # Backward projection of ones (sensitivity)
+        sensitivity = backward_projection(SMatrix, array_module.ones_like(q_flat))
         
         # MLEM update
         theta_flat = theta_flat * numerator / (sensitivity + denominator_threshold)
         
+        # Apply diagonal preconditioning if enabled
+        if preconditioner_inv is not None:
+            theta_flat = apply_diagonal_preconditioner(theta_flat, preconditioner_inv, SMatrix)
+        
         # Compute cost function if requested (Poisson log-likelihood)
         if isCostFunction:
             # Cost = sum(y * log(q + eps) - q) where q = A*theta
-            q_flat = projection(SMatrix, theta_flat)
+            q_flat = forward_projection(SMatrix, theta_flat)
             cost = float(array_module.sum(y_flat * array_module.log(q_flat + 1e-10) - q_flat))
             cost_history.append(-cost)  # Negative log-likelihood
         

@@ -96,7 +96,7 @@ def _assert_offloaded_to_worker_thread(
 
 @pytest.fixture
 def mock_artifacts_api(tmp_path: Path) -> tuple[ArtifactsAPI, MagicMock]:
-    """``ArtifactsAPI`` wired to a mock ``Session``.
+    """``ArtifactsAPI`` wired to a mock RPC executor and lifecycle core.
 
     Same shape as the unit-test fixture in ``tests/unit/test_artifact_downloads.py``
     so future readers can cross-reference the protocol shaping. We keep
@@ -108,12 +108,14 @@ def mock_artifacts_api(tmp_path: Path) -> tuple[ArtifactsAPI, MagicMock]:
     from notebooklm._note_service import NoteService
 
     mock_core = MagicMock()
-    mock_core.rpc_call = AsyncMock()
+    mock_core.rpc_executor.rpc_call = AsyncMock()
     mock_core.get_source_ids = AsyncMock(return_value=[])
-    note_service = NoteService(mock_core)
+    note_service = NoteService(mock_core.rpc_executor)
     mind_maps = NoteBackedMindMapService(note_service)
     api = ArtifactsAPI(
-        mock_core,
+        rpc=mock_core.rpc_executor,
+        drain=mock_core,
+        lifecycle=mock_core,
         notebooks=MagicMock(),
         mind_maps=mind_maps,
         note_service=note_service,
@@ -165,7 +167,7 @@ async def test_download_report_runs_write_off_loop_thread(
         return original_write_text(self, *args, **kwargs)  # type: ignore[arg-type]
 
     with (
-        patch.object(api, "_list_raw", new_callable=AsyncMock) as mock_list,
+        patch.object(api._downloads, "_list_raw", new_callable=AsyncMock) as mock_list,
         patch.object(Path, "write_text", recording_write_text),
     ):
         mock_list.return_value = report_artifact_list
@@ -201,7 +203,7 @@ async def test_download_mind_map_runs_write_off_loop_thread(
     ``Path.write_text`` would silently miss the production ``json.dump``
     path.
     """
-    import notebooklm._artifacts as artifacts_module
+    import notebooklm._artifact_downloads as artifact_downloads
 
     api, _ = mock_artifacts_api
     output_path = tmp_path / "mindmap.json"
@@ -239,9 +241,9 @@ async def test_download_mind_map_runs_write_off_loop_thread(
             "list_mind_maps",
             new=AsyncMock(return_value=mind_map_rows),
         ),
-        # Patch the `json` module as imported by `_artifacts` so the
+        # Patch the `json` module as imported by `_artifact_downloads` so the
         # closure inside `download_mind_map` resolves to the stub.
-        patch.object(artifacts_module.json, "dump", recording_json_dump),
+        patch.object(artifact_downloads.json, "dump", recording_json_dump),
         # Cover the legacy ``Path.write_text``-based path too so a
         # rewrite either direction is caught by this test.
         patch.object(Path, "write_text", recording_write_text),
@@ -278,7 +280,7 @@ async def test_concurrent_downloads_both_offload_writes(
     thread. A regression on either path leaves its capture matching the
     loop thread and fails the assertion.
     """
-    import notebooklm._artifacts as artifacts_module
+    import notebooklm._artifact_downloads as artifact_downloads
 
     api, _ = mock_artifacts_api
     report_path = tmp_path / "report.md"
@@ -321,14 +323,14 @@ async def test_concurrent_downloads_both_offload_writes(
         return original_json_dump(*args, **kwargs)  # type: ignore[arg-type]
 
     with (
-        patch.object(api, "_list_raw", new_callable=AsyncMock) as mock_list,
+        patch.object(api._downloads, "_list_raw", new_callable=AsyncMock) as mock_list,
         patch.object(
             api._mind_maps,
             "list_mind_maps",
             new=AsyncMock(return_value=mind_map_rows),
         ),
         patch.object(Path, "write_text", recording_write_text),
-        patch.object(artifacts_module.json, "dump", recording_json_dump),
+        patch.object(artifact_downloads.json, "dump", recording_json_dump),
     ):
         mock_list.return_value = report_artifact_list
         report_result, mindmap_result = await asyncio.gather(
@@ -377,7 +379,7 @@ async def test_download_urls_batch_cookie_load_runs_off_loop_thread(
         return {}
 
     with patch(
-        "notebooklm._artifacts.load_httpx_cookies",
+        "notebooklm._artifact_downloads.load_httpx_cookies",
         new=recording_load_httpx_cookies,
     ):
         result = await api._download_urls_batch([])
@@ -431,7 +433,7 @@ async def test_download_url_cookie_load_runs_off_loop_thread(
 
     with (
         patch(
-            "notebooklm._artifacts.load_httpx_cookies",
+            "notebooklm._artifact_downloads.load_httpx_cookies",
             new=recording_load_httpx_cookies,
         ),
         pytest.raises(ArtifactDownloadError),
@@ -569,7 +571,7 @@ async def test_download_url_uses_single_writer_thread_for_all_chunks(
 
     with (
         patch.object(real_httpx, "AsyncClient", return_value=mock_client),
-        patch("notebooklm._artifacts.load_httpx_cookies", return_value=MagicMock()),
+        patch("notebooklm._artifact_downloads.load_httpx_cookies", return_value=MagicMock()),
         patch("notebooklm._artifact_downloads.threading.Thread", new=_RecordingThread),
         patch.object(builtins, "open", new=_patched_open),
     ):
@@ -717,7 +719,7 @@ async def test_download_url_writer_failure_does_not_deadlock_producer(
 
     with (
         patch.object(real_httpx, "AsyncClient", return_value=mock_client),
-        patch("notebooklm._artifacts.load_httpx_cookies", return_value=MagicMock()),
+        patch("notebooklm._artifact_downloads.load_httpx_cookies", return_value=MagicMock()),
         patch.object(builtins, "open", new=_patched_open),
     ):
         download_coro = api._download_url(

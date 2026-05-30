@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Resiliparse
-Version: 1.0.2
+Version: 1.0.3
 Summary: A collection of robust and fast processing tools for parsing and analyzing (not only) web archive data.
 Author: Janek Bevendorff
 License-Expression: Apache-2.0
@@ -9,7 +9,7 @@ Project-URL: homepage, https://resiliparse.chatnoir.eu
 Project-URL: documentation, https://resiliparse.chatnoir.eu
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: fastwarc==1.0.2
+Requires-Dist: fastwarc==1.0.3
 Provides-Extra: all
 Requires-Dist: resiliparse[beam,cli]; extra == "all"
 Provides-Extra: beam

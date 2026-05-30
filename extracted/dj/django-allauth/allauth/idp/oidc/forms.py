@@ -175,3 +175,94 @@ class RPInitiatedLogoutForm(forms.Form):
         )
         cleaned_data["client"] = client
         return cleaned_data
+
+
+class ClientRegistrationForm(forms.Form):
+    client_name = Client._meta.get_field("name").formfield(required=False)
+    redirect_uris = forms.JSONField(required=True)
+    grant_types = forms.JSONField(required=False)
+    response_types = forms.JSONField(required=False)
+    token_endpoint_auth_method = forms.CharField(required=False)
+    scope = forms.CharField(required=False)
+
+    def clean_client_name(self) -> str:
+        value = self.cleaned_data.get("client_name") or ""
+        if "<" in value or ">" in value:
+            raise forms.ValidationError("Client name must not contain '<' or '>'.")
+        return value.strip()
+
+    def _clean_string_list(self, field_name: str) -> list[str]:
+        value = self.cleaned_data.get(field_name)
+        if value is None:
+            return []
+        if not isinstance(value, list) or not all(
+            isinstance(item, str) for item in value
+        ):
+            raise forms.ValidationError(f"{field_name} must be an array of strings.")
+        return value
+
+    def clean_redirect_uris(self) -> list[str]:
+        uris = self._clean_string_list("redirect_uris")
+        if not uris:
+            raise forms.ValidationError(
+                "redirect_uris is required and must be a non-empty array."
+            )
+        return uris
+
+    def clean_grant_types(self) -> list[str]:
+        grant_types = self._clean_string_list("grant_types") or ["authorization_code"]
+        valid = {gt.value for gt in Client.GrantType}
+        invalid = set(grant_types) - valid
+        if invalid:
+            raise forms.ValidationError(
+                f"Unsupported grant type(s): {', '.join(sorted(invalid))}"
+            )
+        return grant_types
+
+    def clean_response_types(self) -> list[str]:
+        response_types = self._clean_string_list("response_types") or ["code"]
+        valid = {rt.value for rt in Client.ResponseType}
+        invalid = set(response_types) - valid
+        if invalid:
+            raise forms.ValidationError(
+                f"Unsupported response type(s): {', '.join(sorted(invalid))}"
+            )
+        return response_types
+
+    def clean_scope(self) -> list[str]:
+        value = self.cleaned_data.get("scope", "")
+        if isinstance(value, str):
+            scopes = value.split()
+        elif isinstance(value, (list, tuple)):
+            scopes = [str(s).strip() for s in value]
+        else:
+            scopes = []
+        return scopes or ["openid"]
+
+    def clean_token_endpoint_auth_method(self) -> str:
+        # If unspecified or omitted, the default is "client_secret_basic",
+        # denoting the HTTP Basic authentication scheme as specified in Section
+        # 2.3.1 of OAuth 2.0
+        value = (
+            self.cleaned_data.get("token_endpoint_auth_method") or "client_secret_basic"
+        )
+        return value
+
+    def save(self, commit: bool = True) -> Client:
+        data = self.cleaned_data
+        kwargs = {
+            "name": data["client_name"],
+            "type": (
+                Client.Type.PUBLIC
+                if data["token_endpoint_auth_method"] == "none"
+                else Client.Type.CONFIDENTIAL
+            ),
+        }
+        client = Client(**kwargs)
+        client.set_grant_types(data["grant_types"])
+        client.set_response_types(data["response_types"])
+        client.set_scopes(data["scope"])
+        client.set_redirect_uris(data["redirect_uris"])
+        if commit:
+            client.save()
+        return client

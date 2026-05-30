@@ -654,7 +654,7 @@ class EveAllianceTestCase(TestCase):
         result = my_alliance.populate_alliance()
         corp.refresh_from_db()
 
-        self.assertIsNone(result)
+        self.assertEqual(result, my_alliance)
         self.assertEqual(corp.alliance, my_alliance)
 
     @patch('allianceauth.eveonline.models.open_api_provider.get_alliance')

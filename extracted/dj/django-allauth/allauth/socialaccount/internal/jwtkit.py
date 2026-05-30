@@ -46,7 +46,7 @@ def lookup_kid_jwk(keys_data, kid):
     algorithms = jwt.algorithms.get_default_algorithms()
     for d in keys_data["keys"]:
         if d["kid"] == kid:
-            alg = d["alg"]
+            alg = d.get("alg", "RS256")
             algorithm = algorithms.get(alg)
             if not algorithm:
                 raise OAuth2Error(f"Unsupported signing algorithm: {d['alg']}")

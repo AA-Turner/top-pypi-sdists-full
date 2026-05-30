@@ -16,10 +16,16 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Literal
 
 from ._env import DEFAULT_BASE_URL, get_base_url
 from ._logging import scrub_secrets
+
+if TYPE_CHECKING:
+    from ._types.artifacts import GenerationStatus
+
+ArtifactStalledPhase = Literal["pending", "in_progress"]
 
 
 def _truncate_response_preview(raw: str | None) -> str | None:
@@ -41,6 +47,8 @@ def _truncate_response_preview(raw: str | None) -> str | None:
 __all__ = [
     # Base
     "NotebookLMError",
+    # Cross-domain umbrellas
+    "NotFoundError",
     # Validation/Config
     "ValidationError",
     "ConfigurationError",
@@ -79,6 +87,10 @@ __all__ = [
     "ArtifactNotReadyError",
     "ArtifactParseError",
     "ArtifactDownloadError",
+    "ArtifactFeatureUnavailableError",
+    "ArtifactTimeoutError",
+    "ArtifactPendingTimeoutError",
+    "ArtifactInProgressTimeoutError",
     # Domain: Research
     "ResearchTaskMismatchError",
 ]
@@ -97,6 +109,49 @@ class NotebookLMError(Exception):
             await client.notebooks.list()
         except NotebookLMError as e:
             handle_error(e)
+    """
+
+
+# =============================================================================
+# Cross-domain umbrellas
+# =============================================================================
+
+
+class NotFoundError(NotebookLMError):
+    """Common base for resource-not-found exceptions.
+
+    Catch this to handle any not-found case across notebooks, sources,
+    and artifacts in one ``except`` clause::
+
+        try:
+            notebook = await client.notebooks.get(nb_id)
+            source = await client.sources.wait_until_ready(nb_id, src_id)
+            await client.artifacts.download_audio(nb_id, dest, audio_id)
+        except NotFoundError as e:
+            # Catches NotebookNotFoundError, SourceNotFoundError,
+            # and ArtifactNotFoundError uniformly.
+            handle_missing_resource(e)
+
+    The example uses methods that *raise* a ``*NotFoundError`` on missing
+    IDs (:meth:`NotebooksAPI.get`, :meth:`SourcesAPI.wait_until_ready`,
+    the artifact download / content paths). :meth:`SourcesAPI.get` and
+    :meth:`ArtifactsAPI.get` instead return ``None`` for missing IDs — use
+    them when you want a lookup that does not trigger the umbrella.
+
+    Subclasses retain their existing type-specific bases — for example,
+    :class:`SourceNotFoundError` is still a :class:`SourceError`, and
+    :class:`NotebookNotFoundError` is still an :class:`RPCError` and a
+    :class:`NotebookError`. This umbrella is additive and does not
+    change existing catch semantics.
+
+    .. note::
+
+        As of v0.6.0, all three concrete subclasses also mix in
+        :class:`RPCError`, so ``except RPCError`` catches each of them
+        uniformly. See the v0.6.0 BREAKING-CHANGE entry in CHANGELOG.md
+        for migration guidance (the broad ``except RPCError`` clause now
+        intercepts a missing source / artifact that previously fell
+        through to the specific ``*NotFoundError`` handler).
     """
 
 
@@ -149,14 +204,24 @@ class RPCError(NotebookLMError):
     """Base for RPC-specific failures after connection established.
 
     Note:
-        A small number of domain-level exceptions also inherit from
-        :class:`RPCError` so that ``except RPCError`` keeps catching them at
-        transport-level call sites. Currently :class:`NotebookNotFoundError`
-        is one such case — the underlying RPC call succeeded but returned a
-        degenerate payload, and historic callers relied on ``except RPCError``
-        to handle it. When writing new ``except RPCError`` clauses, be aware
-        these domain errors may also flow through; catch the specific domain
-        type first if you want to handle it differently.
+        Domain-level "not found" exceptions — :class:`NotebookNotFoundError`,
+        :class:`SourceNotFoundError`, :class:`ArtifactNotFoundError` — inherit
+        from :class:`RPCError` so that ``except RPCError`` keeps catching them
+        at transport-level call sites. The underlying RPC call succeeded but
+        returned a degenerate / empty payload identifying the resource as
+        missing. When writing ``except RPCError`` clauses, be aware these
+        domain errors may also flow through; catch the specific domain type
+        BEFORE the broad ``except RPCError`` clause if you want to handle them
+        differently.
+
+        **v0.6.0 BREAKING CHANGE:** before v0.6.0, only
+        :class:`NotebookNotFoundError` mixed in :class:`RPCError`;
+        :class:`SourceNotFoundError` and :class:`ArtifactNotFoundError` did
+        not. v0.6.0 restores symmetry by adding :class:`RPCError` to both.
+        Code that catches ``RPCError`` *before* the specific
+        ``except SourceNotFoundError`` / ``except ArtifactNotFoundError``
+        clauses will now intercept what previously fell through. Reorder your
+        ``except`` clauses to put the more specific exceptions first.
 
     Attributes:
         method_id: The RPC method ID (e.g., "abc123") for debugging.
@@ -553,15 +618,18 @@ class NotebookError(NotebookLMError):
     """Base for notebook operations."""
 
 
-class NotebookNotFoundError(RPCError, NotebookError):
+class NotebookNotFoundError(NotFoundError, RPCError, NotebookError):
     """Notebook not found.
 
-    Inherits from both :class:`RPCError` and :class:`NotebookError` so callers
-    can catch either base. The RPC base is what ``client.notebooks.get`` raises
-    when the server returns an empty / degenerate payload for a missing ID, so
-    ``except RPCError`` keeps working at call sites that handle transport-level
-    failures. ``except NotebookError`` continues to work at domain-level call
-    sites that don't care about the RPC layer.
+    Inherits from :class:`NotFoundError`, :class:`RPCError`, and
+    :class:`NotebookError` so callers can catch any of them. The
+    :class:`NotFoundError` umbrella catches this alongside
+    :class:`SourceNotFoundError` and :class:`ArtifactNotFoundError`. The RPC
+    base is what ``client.notebooks.get`` raises when the server returns an
+    empty / degenerate payload for a missing ID, so ``except RPCError`` keeps
+    working at call sites that handle transport-level failures.
+    ``except NotebookError`` continues to work at domain-level call sites that
+    don't care about the RPC layer.
 
     Attributes:
         notebook_id: The ID that was not found.
@@ -707,16 +775,54 @@ class SourceAddError(SourceError):
         super().__init__(msg)
 
 
-class SourceNotFoundError(SourceError):
+class SourceNotFoundError(NotFoundError, RPCError, SourceError):
     """Source not found in notebook.
+
+    Inherits from :class:`NotFoundError` (cross-domain umbrella),
+    :class:`RPCError` (transport-level catchability), and :class:`SourceError`
+    (domain base). The RPC base is what ``client.sources.get_fulltext`` raises
+    (and what ``client.sources.wait_until_ready`` raises during polling when
+    the source disappears) when the server returns an empty / degenerate
+    payload for a missing source ID, so ``except RPCError`` keeps working at
+    call sites that handle transport-level failures. ``except SourceError``
+    continues to work at domain-level call sites that don't care about the
+    RPC layer. ``except NotFoundError`` catches it alongside
+    :class:`NotebookNotFoundError` and :class:`ArtifactNotFoundError`.
+
+    Note that ``client.sources.get`` returns ``None`` for a missing source
+    rather than raising — only the workflows that need a concrete source to
+    proceed (e.g. ``get_fulltext``, ``wait_until_ready``) surface the missing
+    source as an exception.
+
+    .. note::
+       **v0.6.0 BREAKING CHANGE:** prior to v0.6.0, :class:`SourceNotFoundError`
+       did NOT inherit from :class:`RPCError`. Code that catches ``RPCError``
+       *before* a more specific ``except SourceNotFoundError`` clause may now
+       intercept what previously fell through to the specific handler. Reorder
+       your ``except`` clauses to put the more specific exceptions first. This
+       restores symmetry with :class:`NotebookNotFoundError`, which has
+       inherited from :class:`RPCError` since the 0.5.x series.
 
     Attributes:
         source_id: The ID that was not found.
+        method_id: The RPC method ID (inherited from :class:`RPCError`).
+        raw_response: First 80 chars of the raw response, if any
+            (``NOTEBOOKLM_DEBUG=1`` preserves the full body).
     """
 
-    def __init__(self, source_id: str):
+    def __init__(
+        self,
+        source_id: str,
+        *,
+        method_id: str | None = None,
+        raw_response: str | None = None,
+    ):
         self.source_id = source_id
-        super().__init__(f"Source not found: {source_id}")
+        super().__init__(
+            f"Source not found: {source_id}",
+            method_id=method_id,
+            raw_response=raw_response,
+        )
 
 
 class SourceProcessingError(SourceError):
@@ -765,19 +871,56 @@ class ArtifactError(NotebookLMError):
     """Base for artifact operations."""
 
 
-class ArtifactNotFoundError(ArtifactError):
+class ArtifactNotFoundError(NotFoundError, RPCError, ArtifactError):
     """Artifact not found.
+
+    Inherits from :class:`NotFoundError` (cross-domain umbrella),
+    :class:`RPCError` (transport-level catchability), and :class:`ArtifactError`
+    (domain base). The RPC base is what artifact-download paths raise when the
+    listed artifacts do not include the requested ID, so ``except RPCError``
+    keeps working at call sites that handle transport-level failures.
+    ``except ArtifactError`` continues to work at domain-level call sites that
+    don't care about the RPC layer. ``except NotFoundError`` catches it
+    alongside :class:`NotebookNotFoundError` and :class:`SourceNotFoundError`.
+
+    .. note::
+       **v0.6.0 BREAKING CHANGE:** prior to v0.6.0, :class:`ArtifactNotFoundError`
+       did NOT inherit from :class:`RPCError`. Code that catches ``RPCError``
+       *before* a more specific ``except ArtifactNotFoundError`` clause may now
+       intercept what previously fell through to the specific handler. Reorder
+       your ``except`` clauses to put the more specific exceptions first. This
+       restores symmetry with :class:`NotebookNotFoundError`, which has
+       inherited from :class:`RPCError` since the 0.5.x series.
 
     Attributes:
         artifact_id: The ID that was not found.
         artifact_type: The type of artifact (e.g., "audio", "video").
+        method_id: The RPC method ID (inherited from :class:`RPCError`).
+        raw_response: First 80 chars of the raw response, if any
+            (``NOTEBOOKLM_DEBUG=1`` preserves the full body).
     """
 
-    def __init__(self, artifact_id: str, artifact_type: str | None = None):
+    def __init__(
+        self,
+        artifact_id: str,
+        artifact_type: str | None = None,
+        *,
+        method_id: str | None = None,
+        raw_response: str | None = None,
+    ):
         self.artifact_id = artifact_id
         self.artifact_type = artifact_type
-        type_info = f" {artifact_type}" if artifact_type else ""
-        super().__init__(f"{type_info.capitalize()} artifact {artifact_id} not found")
+        # ``str.capitalize()`` on a string with a leading space returns the
+        # string unchanged (the first character has no uppercase equivalent),
+        # so capitalize ``artifact_type`` first and then build the label —
+        # this matches the ``ArtifactNotReadyError`` pattern on this file and
+        # the ``SourceNotFoundError`` / ``NotebookNotFoundError`` messages.
+        type_label = f"{artifact_type.capitalize()} artifact" if artifact_type else "Artifact"
+        super().__init__(
+            f"{type_label} not found: {artifact_id}",
+            method_id=method_id,
+            raw_response=raw_response,
+        )
 
 
 class ArtifactNotReadyError(ArtifactError):
@@ -869,6 +1012,140 @@ class ArtifactDownloadError(ArtifactError):
         if details:
             msg += f": {details}"
         super().__init__(msg)
+
+
+class ArtifactFeatureUnavailableError(RPCError, ArtifactError):
+    """Artifact generation feature is unavailable for this request.
+
+    NotebookLM can accept a ``CREATE_ARTIFACT`` request but return a null
+    result when a specific artifact feature is disabled, gated, or rejected
+    before a generation task is created. This is not schema drift: the RPC
+    decoded successfully, but no task row exists to parse.
+
+    Attributes:
+        artifact_type: The artifact type being generated.
+        method_id: The RPC method ID (inherited from :class:`RPCError`).
+        raw_response: First 80 chars of the raw response, if any
+            (``NOTEBOOKLM_DEBUG=1`` preserves the full body).
+    """
+
+    def __init__(
+        self,
+        artifact_type: str,
+        *,
+        method_id: str | None = None,
+        raw_response: str | None = None,
+    ):
+        self.artifact_type = artifact_type
+        super().__init__(
+            f"{artifact_type.replace('_', ' ').capitalize()} generation is unavailable",
+            method_id=method_id,
+            raw_response=raw_response,
+        )
+
+
+class ArtifactTimeoutError(ArtifactError, TimeoutError):
+    """Artifact generation did not reach a terminal state before timeout.
+
+    The exception remains catchable as built-in :class:`TimeoutError` for
+    backward compatibility, while exposing structured fields for callers that
+    need to distinguish queued tasks from tasks that started but did not
+    complete.
+
+    Attributes:
+        notebook_id: Notebook containing the artifact task.
+        task_id: Artifact generation task ID.
+        timeout: Wait budget in seconds.
+        timeout_seconds: Alias for ``timeout``.
+        last_status: Last observed status before timeout.
+        status_history: Ordered status strings emitted by the poll loop when
+            the status changed.
+        status_transitions: Ordered status snapshots emitted by the poll loop
+            when the status changed.
+        stalled_phase: Coarse phase where the timeout occurred.
+    """
+
+    def __init__(
+        self,
+        notebook_id: str,
+        task_id: str,
+        timeout: float,
+        *,
+        last_status: str | None = None,
+        status_history: Sequence[str] | None = None,
+        status_transitions: Sequence[GenerationStatus] | None = None,
+        stalled_phase: ArtifactStalledPhase | None = None,
+    ):
+        self.notebook_id = notebook_id
+        self.task_id = task_id
+        self.timeout = timeout
+        self.timeout_seconds = timeout
+        self.last_status = last_status
+        self.status_transitions: tuple[GenerationStatus, ...] = tuple(status_transitions or ())
+        if status_history is None:
+            status_history = tuple(
+                status.status
+                for status in self.status_transitions
+                if isinstance(getattr(status, "status", None), str)
+            )
+        self.status_history = tuple(status_history)
+        self.stalled_phase: ArtifactStalledPhase | None = stalled_phase
+
+        history = " -> ".join(self.status_history)
+        history_info = f"; status history: {history}" if history else ""
+        status_info = f"last status: {last_status}" if last_status is not None else "no status"
+        super().__init__(
+            f"Task {task_id} in notebook {notebook_id} timed out after "
+            f"{timeout}s ({status_info}{history_info})"
+        )
+
+
+class ArtifactPendingTimeoutError(ArtifactTimeoutError):
+    """Artifact generation timed out before reaching ``in_progress``."""
+
+    def __init__(
+        self,
+        notebook_id: str,
+        task_id: str,
+        timeout: float,
+        *,
+        last_status: str | None = None,
+        status_history: Sequence[str] | None = None,
+        status_transitions: Sequence[GenerationStatus] | None = None,
+    ):
+        super().__init__(
+            notebook_id,
+            task_id,
+            timeout,
+            last_status=last_status,
+            status_history=status_history,
+            status_transitions=status_transitions,
+            stalled_phase="pending",
+        )
+
+
+class ArtifactInProgressTimeoutError(ArtifactTimeoutError):
+    """Artifact generation timed out after reaching ``in_progress``."""
+
+    def __init__(
+        self,
+        notebook_id: str,
+        task_id: str,
+        timeout: float,
+        *,
+        last_status: str | None = None,
+        status_history: Sequence[str] | None = None,
+        status_transitions: Sequence[GenerationStatus] | None = None,
+    ):
+        super().__init__(
+            notebook_id,
+            task_id,
+            timeout,
+            last_status=last_status,
+            status_history=status_history,
+            status_transitions=status_transitions,
+            stalled_phase="in_progress",
+        )
 
 
 # =============================================================================

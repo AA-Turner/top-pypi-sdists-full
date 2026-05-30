@@ -16,6 +16,8 @@ import os
 
 from eval_protocol.models import EvaluationRow, InputMetadata, ExecutionMetadata, Message
 from .base import BaseAdapter
+from .lp_deserializer import decompress_and_parse_lp
+from .r3_deserializer import decompress_and_parse_r3
 from .utils import extract_messages_from_data
 from ..common_utils import get_user_agent
 
@@ -100,13 +102,53 @@ def convert_trace_dict_to_evaluation_row(
                 ):
                     break  # Break early if we've found all the metadata we need
 
+        # Extract router replay payloads when present
+        payloads = trace.get("payloads")
+        if isinstance(payloads, dict):
+            router_replay = payloads.get("router_replay")
+            if isinstance(router_replay, dict) and router_replay.get("data"):
+                try:
+                    matrices, r3_meta = decompress_and_parse_r3(router_replay["data"])
+                    if execution_metadata.extra is None:
+                        execution_metadata.extra = {}
+                    execution_metadata.extra["routing_matrices"] = matrices
+                    execution_metadata.extra["routing_metadata"] = r3_meta
+                except Exception as e:
+                    logger.warning("Failed to decompress R3 payload for trace %s: %s", trace.get("id"), e)
+
+            logprobs_payload = payloads.get("logprobs")
+            if isinstance(logprobs_payload, dict) and logprobs_payload.get("data"):
+                try:
+                    logprobs, token_ids, lp_meta = decompress_and_parse_lp(logprobs_payload["data"])
+                    if execution_metadata.extra is None:
+                        execution_metadata.extra = {}
+                    execution_metadata.extra["completion_logprobs"] = logprobs
+                    if token_ids is not None:
+                        execution_metadata.extra["completion_token_ids"] = token_ids
+                    execution_metadata.extra["logprobs_metadata"] = lp_meta
+
+                    for i in range(len(messages) - 1, -1, -1):
+                        if messages[i].role == "assistant":
+                            content_entries = [{"logprob": lp} for lp in logprobs]
+                            if token_ids is not None:
+                                for entry, tid in zip(content_entries, token_ids):
+                                    entry["token_id"] = tid
+                            messages[i].logprobs = {"content": content_entries}
+                            break
+                except Exception as e:
+                    logger.warning(
+                        "Failed to decompress logprobs payload for trace %s: %s",
+                        trace.get("id"),
+                        e,
+                    )
+
         return EvaluationRow(
             messages=messages,
             tools=tools,
             input_metadata=InputMetadata(
                 row_id=row_id,
                 session_data={
-                    "langfuse_trace_id": trace.get("id"),  # Store the trace ID here
+                    "langfuse_trace_id": trace.get("id"),
                 },
             ),
             execution_metadata=execution_metadata,
@@ -375,6 +417,37 @@ class FireworksTracingAdapter(BaseAdapter):
             )
         return results
 
+    async def async_get_status(self, session: aiohttp.ClientSession, rollout_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch rollout status from the lightweight /status endpoint.
+
+        Returns the parsed JSON response or None if the status is not yet available.
+        Response shape: {"rollout_id": "...", "status": {"code": ...} | null, "extras": {...} | null}
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_api_key()}",
+            "User-Agent": get_user_agent(),
+        }
+        params: Dict[str, Any] = {"rollout_id": rollout_id}
+        timeout = aiohttp.ClientTimeout(total=self.timeout)
+
+        urls_to_try = [f"{self.base_url}/v1/status", f"{self.base_url}/status"]
+        last_error: Optional[str] = None
+        for url in urls_to_try:
+            try:
+                async with session.get(url, params=params, headers=headers, timeout=timeout) as resp:
+                    if resp.status == 404:
+                        last_error = f"404 for {url}"
+                        continue
+                    resp.raise_for_status()
+                    return (await resp.json(content_type=None)) or {}
+            except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError) as e:
+                last_error = str(e)
+                continue
+
+        if last_error:
+            logger.error("Failed to fetch status from Fireworks (tried %s): %s", urls_to_try, last_error)
+        return None
+
     def get_evaluation_rows(
         self,
         tags: List[str],
@@ -395,6 +468,7 @@ class FireworksTracingAdapter(BaseAdapter):
         max_retries: int = 3,
         span_name: Optional[str] = None,
         converter: Optional[TraceDictConverter] = None,
+        include_payloads: bool = False,
     ) -> List[EvaluationRow]:
         """Pull traces from Langfuse via proxy and convert to EvaluationRow format.
 
@@ -418,6 +492,8 @@ class FireworksTracingAdapter(BaseAdapter):
             max_retries: Max retry attempts used by proxy (default: 3)
             converter: Optional custom converter implementing TraceDictConverter protocol.
                 If provided, this will be used instead of the default conversion logic.
+            include_payloads: If True, request payload data (e.g., router replay)
+                from the gateway and decompress it into the returned EvaluationRows.
 
         Returns:
             List[EvaluationRow]: Converted evaluation rows
@@ -448,6 +524,7 @@ class FireworksTracingAdapter(BaseAdapter):
             "to_timestamp": to_timestamp.isoformat() if to_timestamp else None,
             "sleep_between_gets": sleep_between_gets,
             "max_retries": max_retries,
+            "include_payloads": include_payloads if include_payloads else None,
         }
 
         # Remove None values

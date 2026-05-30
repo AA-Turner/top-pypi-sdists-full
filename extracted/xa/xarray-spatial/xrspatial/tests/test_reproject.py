@@ -5,6 +5,8 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from xrspatial.utils import has_cuda_and_cupy
+
 try:
     import pyproj
     HAS_PYPROJ = True
@@ -19,9 +21,13 @@ except ImportError:
 
 try:
     import cupy as cp
-    HAS_CUPY = True
 except ImportError:
-    HAS_CUPY = False
+    cp = None
+
+# Gate GPU tests on a real CUDA runtime probe, not just that ``cupy`` imports.
+# An import-only check leaves tests erroring with ``cudaErrorInsufficientDriver``
+# on hosts where ``cupy`` is installed but the driver is missing or too old.
+HAS_CUPY = has_cuda_and_cupy()
 
 pytestmark = pytest.mark.skipif(
     not HAS_PYPROJ, reason="pyproj required for reproject tests"
@@ -59,6 +65,28 @@ def _gradient_raster(h=64, w=64, crs='EPSG:4326',
     xx, yy = np.meshgrid(x, y)
     data = (xx + yy).astype(np.float64)
     return _make_raster(data, crs=crs, x_range=x_range, y_range=y_range)
+
+
+def _pyproj_geoid_probe_is_usable(probe, zero_tol=1.0):
+    """Return True if a pyproj vertical-transform probe value indicates the
+    geoid grid is actually installed and usable for a cross-check.
+
+    pyproj has two failure modes when the EGM96 grid is missing and PROJ
+    network access is disabled:
+
+    - it silently returns the input ellipsoidal height unchanged (so the
+      probe comes back as ~0.0 at a well-known sample point where the
+      true geoid undulation is tens of metres), or
+    - it returns a non-finite sentinel (``-inf``, ``+inf``, ``nan``).
+
+    Treat both as "grid unavailable" so the caller skips the cross-check
+    instead of asserting against the local lookup.
+    """
+    if not np.isfinite(probe):
+        return False
+    if abs(probe) < zero_tol:
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +137,123 @@ class TestCrsUtils:
         raster = _make_raster(np.zeros((4, 4)), nodata=-1)
         val = _detect_nodata(raster)
         assert val == -1.0
+
+
+class TestDetectNodataDtypeRange:
+    """Regression coverage for #2572.
+
+    Explicit out-of-range nodata used to silently wrap during the
+    worker's cast-back step (e.g. ``-9999`` in a ``uint8`` array landed
+    at ``0``) while ``attrs['nodata']`` kept advertising the original
+    value. ``_detect_nodata`` must reject the explicit case and warn
+    on the attrs-derived case.
+    """
+
+    def test_explicit_negative_nodata_for_uint8_raises(self):
+        from xrspatial.reproject._crs_utils import _detect_nodata
+        raster = _make_raster(np.zeros((4, 4), dtype=np.uint8))
+        with pytest.raises(ValueError, match="uint8"):
+            _detect_nodata(raster, nodata=-9999, dtype=np.uint8)
+
+    def test_explicit_too_large_nodata_for_uint16_raises(self):
+        from xrspatial.reproject._crs_utils import _detect_nodata
+        raster = _make_raster(np.zeros((4, 4), dtype=np.uint16))
+        with pytest.raises(ValueError, match="uint16"):
+            _detect_nodata(raster, nodata=70000, dtype=np.uint16)
+
+    def test_explicit_in_range_nodata_passes(self):
+        """Boundary case: dtype.max stays untouched."""
+        from xrspatial.reproject._crs_utils import _detect_nodata
+        raster = _make_raster(np.zeros((4, 4), dtype=np.uint8))
+        assert _detect_nodata(raster, nodata=255, dtype=np.uint8) == 255.0
+
+    def test_explicit_in_range_signed_min(self):
+        from xrspatial.reproject._crs_utils import _detect_nodata
+        raster = _make_raster(np.zeros((4, 4), dtype=np.int16))
+        assert _detect_nodata(raster, nodata=-32768, dtype=np.int16) == -32768.0
+
+    def test_attrs_out_of_range_warns_and_falls_back(self):
+        """Legacy files (uint16 + nodata=-9999) should warn, not crash."""
+        from xrspatial.reproject._crs_utils import _detect_nodata
+        # nodata in attrs is out of range for uint16
+        raster = _make_raster(np.zeros((4, 4), dtype=np.uint16), nodata=-9999)
+        with pytest.warns(UserWarning, match="uint16"):
+            val = _detect_nodata(raster, dtype=np.uint16)
+        # Falls back to dtype.max for unsigned
+        assert val == float(np.iinfo(np.uint16).max)
+
+
+class TestReprojectIntegerNodataDtypeRange:
+    """End-to-end regression coverage for #2572 through ``reproject()``."""
+
+    def test_reproject_uint8_negative_nodata_raises(self):
+        from xrspatial.reproject import reproject
+        arr = (np.ones((4, 4), dtype=np.uint8) * 10)
+        da_obj = xr.DataArray(
+            arr, dims=['y', 'x'],
+            coords={'y': np.linspace(40, 30, 4),
+                    'x': np.linspace(-5, 5, 4)},
+            attrs={'crs': 'EPSG:4326'},
+        )
+        with pytest.raises(ValueError, match="uint8"):
+            reproject(da_obj, 'EPSG:4326', nodata=-9999)
+
+    def test_reproject_uint16_too_large_nodata_raises(self):
+        from xrspatial.reproject import reproject
+        arr = (np.ones((4, 4), dtype=np.uint16) * 10)
+        da_obj = xr.DataArray(
+            arr, dims=['y', 'x'],
+            coords={'y': np.linspace(40, 30, 4),
+                    'x': np.linspace(-5, 5, 4)},
+            attrs={'crs': 'EPSG:4326'},
+        )
+        with pytest.raises(ValueError, match="uint16"):
+            reproject(da_obj, 'EPSG:4326', nodata=70000)
+
+    def test_reproject_uint8_in_range_nodata_writes_correct_pixels(self):
+        """Happy path: representable nodata produces non-corrupted output
+        where unfilled pixels carry the declared sentinel.
+        """
+        from xrspatial.reproject import reproject
+        arr = (np.ones((4, 4), dtype=np.uint8) * 10)
+        da_obj = xr.DataArray(
+            arr, dims=['y', 'x'],
+            coords={'y': np.linspace(40, 30, 4),
+                    'x': np.linspace(-5, 5, 4)},
+            attrs={'crs': 'EPSG:4326'},
+        )
+        # Expand bounds so the output has nodata around the edges.
+        out = reproject(
+            da_obj, 'EPSG:4326', nodata=255,
+            bounds=(-20, 20, 20, 50),
+        )
+        assert out.dtype == np.uint8
+        assert out.attrs['nodata'] == 255.0
+        # The sentinel actually appears in the array (no silent wrap).
+        n_nodata = int((out.values == 255).sum())
+        assert n_nodata > 0
+        # The entire top row sits above the source extent (y=40 is the
+        # source max), so it must be all nodata, not a mix of 0 and 255.
+        assert (out.values[0, :] == 255).all(), (
+            f"top row should be all nodata=255, got {out.values[0, :]}"
+        )
+
+    def test_reproject_int16_negative_nodata_works(self):
+        from xrspatial.reproject import reproject
+        arr = (np.ones((4, 4), dtype=np.int16) * 10)
+        da_obj = xr.DataArray(
+            arr, dims=['y', 'x'],
+            coords={'y': np.linspace(40, 30, 4),
+                    'x': np.linspace(-5, 5, 4)},
+            attrs={'crs': 'EPSG:4326'},
+        )
+        out = reproject(
+            da_obj, 'EPSG:4326', nodata=-32768,
+            bounds=(-20, 20, 20, 50),
+        )
+        assert out.dtype == np.int16
+        assert out.attrs['nodata'] == -32768.0
+        assert (out.values == -32768).any()
 
 
 # ---------------------------------------------------------------------------
@@ -2994,6 +3139,191 @@ class TestVerticalShift:
         )
 
 
+class TestVerticalShiftIntegerDtype:
+    """Vertical shift must work on integer DEMs by promoting to float (#2565).
+
+    Real-world DEM products (SRTM, ASTER GDEM, Copernicus DEM) ship as
+    int16, so the vertical-shift path used to crash with
+    ``UFuncTypeError`` when callers asked for a geoid -> ellipsoidal
+    transform. The fix promotes the array to a float dtype before the
+    shift and rewrites the integer nodata sentinel to NaN.
+    """
+
+    def _ny_raster_int(self, dtype, value, nodata, h=8, w=8):
+        # Same NY footprint as TestVerticalShift._ny_raster so the
+        # reference geoid undulation is known to be ~-33 m there.
+        y = np.linspace(41.1, 40.3, h)
+        x = np.linspace(-74.4, -73.6, w)
+        data = np.full((h, w), value, dtype=dtype)
+        return xr.DataArray(
+            data, dims=['y', 'x'],
+            coords={'y': y, 'x': x},
+            attrs={'crs': 'EPSG:4326', 'nodata': nodata},
+        )
+
+    def test_int16_promotes_to_float32(self):
+        """int16 DEM with EGM96 -> ellipsoidal shift returns float32."""
+        from xrspatial.reproject import reproject, geoid_height
+        raster = self._ny_raster_int(np.int16, 100, -32768)
+        result = reproject(
+            raster, 'EPSG:4326',
+            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+        )
+        assert result.dtype == np.float32, (
+            f"expected float32 output for int16 input, got {result.dtype}"
+        )
+        # Nodata sentinel should follow the dtype promotion.
+        assert np.isnan(result.attrs['nodata']), (
+            f"expected NaN nodata after promotion, got {result.attrs['nodata']!r}"
+        )
+        # Numerical check against the known reference undulation.
+        cy = float(result.coords['y'].values[result.shape[0] // 2])
+        cx = float(result.coords['x'].values[result.shape[1] // 2])
+        N = geoid_height(cx, cy, model='EGM96')
+        cval = float(result.values[result.shape[0] // 2, result.shape[1] // 2])
+        # Allow loose tolerance for float32 plus interpolation noise.
+        assert abs(cval - (100.0 + N)) < 1.0, (
+            f"shifted value {cval} not within 1 m of expected {100.0 + N}"
+        )
+
+    def test_uint8_promotes_to_float32(self):
+        """uint8 raster also promotes to float32 (covers small unsigned ints)."""
+        from xrspatial.reproject import reproject
+        raster = self._ny_raster_int(np.uint8, 100, 0)
+        result = reproject(
+            raster, 'EPSG:4326',
+            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+        )
+        assert result.dtype == np.float32
+        assert np.isnan(result.attrs['nodata'])
+        # Geoid undulation in NY is ~-33 m, so 100 + N is ~67. Sanity
+        # check that the shift actually happened and stays in a sane band.
+        finite = result.values[np.isfinite(result.values)]
+        assert finite.size > 0
+        assert np.all(finite < 100.0)  # ellipsoidal height < orthometric here
+        assert np.all(finite > 50.0)
+
+    def test_float32_no_vertical_promotion(self):
+        """float32 input is not further promoted by the vertical shift.
+
+        ``reproject()`` itself upcasts float32 to float64 in its resample
+        path; the vertical-shift code must not stack a second promotion
+        on top of that. Compare the dtype of the shifted output to the
+        dtype of a plain reproject of the same raster.
+        """
+        from xrspatial.reproject import reproject
+        y = np.linspace(41.1, 40.3, 8)
+        x = np.linspace(-74.4, -73.6, 8)
+        data = np.full((8, 8), 100.0, dtype=np.float32)
+        raster = xr.DataArray(
+            data, dims=['y', 'x'], coords={'y': y, 'x': x},
+            attrs={'crs': 'EPSG:4326', 'nodata': np.float32('nan')},
+        )
+        baseline = reproject(raster, 'EPSG:4326')
+        result = reproject(
+            raster, 'EPSG:4326',
+            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+        )
+        assert result.dtype == baseline.dtype, (
+            f"vertical shift changed dtype from {baseline.dtype} to {result.dtype}"
+        )
+
+    def test_float64_stays_float64(self):
+        """float64 input keeps its precision through the shift."""
+        from xrspatial.reproject import reproject
+        y = np.linspace(41.1, 40.3, 8)
+        x = np.linspace(-74.4, -73.6, 8)
+        data = np.full((8, 8), 100.0, dtype=np.float64)
+        raster = xr.DataArray(
+            data, dims=['y', 'x'], coords={'y': y, 'x': x},
+            attrs={'crs': 'EPSG:4326', 'nodata': np.nan},
+        )
+        result = reproject(
+            raster, 'EPSG:4326',
+            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+        )
+        assert result.dtype == np.float64
+
+    def test_int16_nodata_becomes_nan(self):
+        """Integer nodata pixels must map to NaN in the promoted output."""
+        from xrspatial.reproject import reproject
+        # Put a nodata pixel right in the middle of an otherwise valid raster.
+        y = np.linspace(41.1, 40.3, 8)
+        x = np.linspace(-74.4, -73.6, 8)
+        data = np.full((8, 8), 100, dtype=np.int16)
+        data[4, 4] = -32768  # mark one cell as nodata
+        raster = xr.DataArray(
+            data, dims=['y', 'x'], coords={'y': y, 'x': x},
+            attrs={'crs': 'EPSG:4326', 'nodata': -32768},
+        )
+        result = reproject(
+            raster, 'EPSG:4326',
+            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+        )
+        assert result.dtype == np.float32
+        # The nodata cell must have propagated as NaN, not as -32768 + N.
+        assert np.isnan(result.values[4, 4]), (
+            f"expected NaN at nodata cell, got {result.values[4, 4]}"
+        )
+        # Surrounding cells should still carry a finite shifted value.
+        finite = np.isfinite(result.values)
+        assert finite.sum() >= 50  # most cells finite
+
+    def test_int16_fillvalue_attr_promoted(self):
+        """attrs['_FillValue'] and attrs['nodatavals'] follow the dtype.
+
+        ``reproject()`` carries both keys forward when the source had
+        them. After dtype promotion the values used to keep the original
+        integer sentinel, which contradicts the now-float array contents.
+        """
+        from xrspatial.reproject import reproject
+        y = np.linspace(41.1, 40.3, 8)
+        x = np.linspace(-74.4, -73.6, 8)
+        data = np.full((8, 8), 100, dtype=np.int16)
+        raster = xr.DataArray(
+            data, dims=['y', 'x'], coords={'y': y, 'x': x},
+            attrs={
+                'crs': 'EPSG:4326',
+                'nodata': -32768,
+                '_FillValue': -32768,
+                'nodatavals': (-32768,),
+            },
+        )
+        result = reproject(
+            raster, 'EPSG:4326',
+            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+        )
+        assert np.isnan(result.attrs['_FillValue'])
+        assert np.isnan(result.attrs['nodatavals'][0])
+
+    def test_int16_dask_promotes_to_float32(self):
+        """Dask-backed int16 input must also promote correctly."""
+        import dask.array as da
+        from xrspatial.reproject import reproject
+        host = np.full((48, 48), 100, dtype=np.int16)
+        y = np.linspace(41.1, 40.3, 48)
+        x = np.linspace(-74.4, -73.6, 48)
+        raster = xr.DataArray(
+            da.from_array(host, chunks=(16, 16)), dims=['y', 'x'],
+            coords={'y': y, 'x': x},
+            attrs={'crs': 'EPSG:4326', 'nodata': -32768},
+        )
+        result = reproject(
+            raster, 'EPSG:4326',
+            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+        )
+        # The dask graph must advertise float32 so downstream consumers
+        # don't get a dtype lie.
+        assert result.dtype == np.float32
+        assert np.isnan(result.attrs['nodata'])
+        vals = result.values
+        finite = vals[np.isfinite(vals)]
+        assert finite.size > 0
+        # NY undulation is ~-33 m, so 100 + N should sit around 67 m.
+        assert np.all(finite < 100.0)
+        assert np.all(finite > 50.0)
+
+
 class TestMetadataPreservation:
     """reproject() and merge() must carry input attrs forward."""
 
@@ -3450,6 +3780,96 @@ class TestDaskDtypeParity:
         result = reproject(raster, 'EPSG:4326', resolution=1.0)
         assert result.data.dtype == np.float64
         assert result.compute().dtype == np.float64
+
+
+@pytest.mark.skipif(not (HAS_DASK and HAS_CUPY),
+                    reason="dask + cupy required")
+class TestDaskCupyDtypeParity:
+    """Dask+CuPy reproject should preserve source integer dtype (#2505).
+
+    Mirrors :class:`TestDaskDtypeParity`. The previous behaviour of the
+    eager fast path in ``_reproject_dask_cupy`` silently promoted
+    integer inputs to float64 while the other three backends (numpy,
+    cupy, dask+numpy) and the chunked dask+cupy fallback preserved the
+    source dtype.
+    """
+
+    def _make_dask_cupy_raster(self, data, nodata):
+        coords = {
+            'y': np.linspace(5, -5, data.shape[0]),
+            'x': np.linspace(-5, 5, data.shape[1]),
+        }
+        attrs = {'crs': 'EPSG:4326', 'nodata': nodata}
+        chunks = (max(1, data.shape[0] // 2), max(1, data.shape[1] // 2))
+        return xr.DataArray(
+            da.from_array(cp.asarray(data), chunks=chunks),
+            dims=['y', 'x'], coords=coords, attrs=attrs,
+        )
+
+    def test_dask_cupy_reproject_int8_preserves_dtype(self):
+        from xrspatial.reproject import reproject
+        data = np.arange(64, dtype=np.int8).reshape(8, 8)
+        raster = self._make_dask_cupy_raster(data, nodata=-1)
+        result = reproject(raster, 'EPSG:4326', resolution=1.0)
+        # The fast path returns an eager cupy array, not a dask array,
+        # so result.dtype and result.data.dtype are the same object.
+        # Assert both for full symmetry with TestDaskDtypeParity.
+        assert result.dtype == np.int8
+        assert result.data.dtype == np.int8
+
+    def test_dask_cupy_reproject_int16_preserves_dtype(self):
+        from xrspatial.reproject import reproject
+        data = np.arange(64, dtype=np.int16).reshape(8, 8)
+        raster = self._make_dask_cupy_raster(data, nodata=-32768)
+        result = reproject(raster, 'EPSG:4326', resolution=1.0)
+        assert result.dtype == np.int16
+        assert result.data.dtype == np.int16
+
+    def test_dask_cupy_reproject_uint16_preserves_dtype(self):
+        from xrspatial.reproject import reproject
+        data = (np.arange(64, dtype=np.uint16) * 100).reshape(8, 8)
+        raster = self._make_dask_cupy_raster(data, nodata=0)
+        result = reproject(raster, 'EPSG:4326', resolution=1.0)
+        assert result.dtype == np.uint16
+        assert result.data.dtype == np.uint16
+
+    def test_dask_cupy_reproject_uint8_preserves_dtype(self):
+        from xrspatial.reproject import reproject
+        data = np.arange(64, dtype=np.uint8).reshape(8, 8)
+        raster = self._make_dask_cupy_raster(data, nodata=255)
+        result = reproject(raster, 'EPSG:4326', resolution=1.0)
+        assert result.dtype == np.uint8
+        assert result.data.dtype == np.uint8
+
+    def test_dask_cupy_reproject_float32_stays_float64(self):
+        """Float input still upcasts to float64 -- matches the numpy /
+        dask+numpy paths so the four-backend grid is consistent."""
+        from xrspatial.reproject import reproject
+        data = np.random.RandomState(0).rand(8, 8).astype(np.float32)
+        raster = self._make_dask_cupy_raster(data, nodata=np.nan)
+        result = reproject(raster, 'EPSG:4326', resolution=1.0)
+        assert result.dtype == np.float64
+        assert result.data.dtype == np.float64
+
+    def test_dask_cupy_reproject_int16_matches_dask_numpy_dtype(self):
+        """Cross-backend parity: dask+cupy and dask+numpy must agree on
+        output dtype for the same integer input. This is the exact case
+        that regressed before #2505 was fixed."""
+        from xrspatial.reproject import reproject
+        data = np.arange(64, dtype=np.int16).reshape(8, 8)
+        coords = {'y': np.linspace(5, -5, 8), 'x': np.linspace(-5, 5, 8)}
+        attrs = {'crs': 'EPSG:4326', 'nodata': -32768}
+        dask_np = xr.DataArray(
+            da.from_array(data, chunks=(4, 4)),
+            dims=['y', 'x'], coords=coords, attrs=attrs,
+        )
+        dask_cp = xr.DataArray(
+            da.from_array(cp.asarray(data), chunks=(4, 4)),
+            dims=['y', 'x'], coords=coords, attrs=attrs,
+        )
+        r_np = reproject(dask_np, 'EPSG:4326', resolution=1.0)
+        r_cp = reproject(dask_cp, 'EPSG:4326', resolution=1.0)
+        assert r_np.dtype == r_cp.dtype == np.int16
 
 
 @pytest.mark.skipif(not HAS_DASK, reason="dask required")
@@ -4161,6 +4581,161 @@ class TestGeoidHeightBehaviour:
         out = geoid_height_raster(raster)
         assert out.dims == ('lat', 'lon')
         assert np.isfinite(out.values).all()
+
+
+class TestPyprojGeoidProbeUsable:
+    """Coverage for ``_pyproj_geoid_probe_is_usable`` (#2567).
+
+    The helper guards pyproj-based geoid cross-checks against runners
+    where the EGM96 grid is not installed. Both the no-op fallback (~0)
+    and the non-finite fallback (-inf / +inf / nan) must be classified
+    as "grid unavailable" so the test skips instead of asserting.
+    """
+
+    def test_typical_finite_probe_is_usable(self):
+        # ~-32.8 m at New York when the grid is actually installed.
+        assert _pyproj_geoid_probe_is_usable(-32.8)
+
+    def test_near_zero_probe_is_not_usable(self):
+        # No-op fallback at a point with real undulation.
+        assert not _pyproj_geoid_probe_is_usable(0.0)
+        assert not _pyproj_geoid_probe_is_usable(0.5)
+        assert not _pyproj_geoid_probe_is_usable(-0.5)
+
+    def test_negative_inf_probe_is_not_usable(self):
+        # Regression for the original bug: -inf used to slip past the
+        # near-zero guard and fire the assert in the pyproj cross-check.
+        assert not _pyproj_geoid_probe_is_usable(float('-inf'))
+
+    def test_positive_inf_probe_is_not_usable(self):
+        assert not _pyproj_geoid_probe_is_usable(float('inf'))
+
+    def test_nan_probe_is_not_usable(self):
+        assert not _pyproj_geoid_probe_is_usable(float('nan'))
+
+    def test_zero_tol_is_configurable(self):
+        # A real lookup that happens to be 0.5 m should still count as
+        # usable when the caller picks a tighter tolerance.
+        assert _pyproj_geoid_probe_is_usable(0.5, zero_tol=0.1)
+
+
+class TestGeoidPixelCenterIndexing:
+    """Regression coverage for the half-pixel offset bug (#2508).
+
+    The EGM96 GeoTIFF is pixel-center anchored: ``data[r, c]`` is the
+    value at ``(left + (c + 0.5) * res_x, top - (r + 0.5) * res_y)``.
+    Before #2508 the bilinear lookup indexed in pixel-edge space, which
+    produced up to ~2 m error at pixel centers and an 8-9 cm error at
+    representative locations like New York vs pyproj's geoid lookup.
+    """
+
+    def test_geoid_at_pixel_center_returns_stored_value(self):
+        """A query at the exact pixel center must return the stored cell
+        value (modulo float round-off), not a blend with the neighbour.
+        """
+        from xrspatial.reproject._vertical import (
+            _interp_geoid_point, _load_geoid,
+        )
+
+        data, left, top, res_x, res_y, h, w = _load_geoid('EGM96')
+
+        for (i, j) in [(0, 0), (10, 100), (h // 2, w // 2),
+                       (h - 1, w - 1)]:
+            lon_c = left + (j + 0.5) * res_x
+            lat_c = top - (i + 0.5) * res_y
+            N = _interp_geoid_point(
+                lon_c, lat_c, data, left, top, res_x, res_y, h, w,
+            )
+            assert abs(N - data[i, j]) < 1e-9, (
+                f"pixel ({i},{j}) center query expected "
+                f"data[{i},{j}]={data[i, j]!r}, got {N!r}; "
+                f"half-pixel offset bug from #2508?"
+            )
+
+    def test_geoid_height_matches_pyproj_within_cm(self):
+        """``geoid_height`` must agree with pyproj's EGM96 lookup to the
+        centimetre at well-sampled locations. The old half-pixel bias was
+        ~9 cm at New York; this test would fail by ~9 cm if reintroduced.
+        """
+        pyproj = pytest.importorskip('pyproj')
+        from xrspatial.reproject import geoid_height
+
+        src_crs = pyproj.CRS('EPSG:4979')
+        tgt_crs = pyproj.CRS('EPSG:5773')
+        transformer = pyproj.Transformer.from_crs(
+            src_crs, tgt_crs, always_xy=True,
+        )
+
+        # pyproj falls back when the EGM96 grid is not installed locally
+        # and PROJ network access is disabled (typical CI). The fallback
+        # is either a no-op transform (~0 at New York, where the real
+        # geoid undulation is tens of metres) or a non-finite sentinel
+        # (-inf / +inf / nan). Probe at New York and skip in either case
+        # -- there's nothing to cross-check against.
+        _, _, h_probe = transformer.transform(-74.0, 40.7, 0.0)
+        if not _pyproj_geoid_probe_is_usable(h_probe):
+            pytest.skip(
+                "pyproj EGM96 grid unavailable on this runner "
+                f"(probe at New York returned {h_probe!r}); "
+                "cannot cross-check"
+            )
+
+        sample_points = [
+            (-74.0, 40.7),
+            (0.0, 0.0),
+            (139.7, 35.7),
+            (-150.0, 60.0),
+            (-180.0, 90.0),  # data[0,0]: the offset bug was largest here
+        ]
+        for lon, lat in sample_points:
+            _, _, h_ortho = transformer.transform(lon, lat, 0.0)
+            N_expected = -h_ortho  # h_ellip(=0) - h_ortho = -h_ortho
+            N_actual = geoid_height(lon, lat)
+            assert abs(N_actual - N_expected) < 1e-2, (
+                f"N({lon},{lat}) = {N_actual}, pyproj says "
+                f"{N_expected}; diff {N_actual - N_expected:.4f} m"
+            )
+
+    def test_grid_interp_point_pixel_center_returns_stored_value(self):
+        """``_grid_interp_point`` (datum shift grids) has the same
+        pixel-center anchoring as the geoid grid and was fixed in #2508.
+        Verify with a synthetic grid so the test doesn't depend on a
+        downloaded NADCON file.
+        """
+        from xrspatial.reproject._datum_grids import _grid_interp_point
+
+        # 4x5 synthetic grid with distinctive values; pixel-center anchored.
+        dlat_grid = np.array([
+            [10.0, 20.0, 30.0, 40.0, 50.0],
+            [11.0, 22.0, 33.0, 44.0, 55.0],
+            [12.0, 24.0, 36.0, 48.0, 60.0],
+            [13.0, 26.0, 39.0, 52.0, 65.0],
+        ], dtype=np.float64)
+        dlon_grid = dlat_grid * 2.0
+        grid_h, grid_w = dlat_grid.shape
+
+        grid_left = -110.0
+        grid_top = 45.0
+        grid_res_x = 1.0
+        grid_res_y = 1.0
+
+        for i in range(grid_h - 1):
+            for j in range(grid_w - 1):
+                lon_c = grid_left + (j + 0.5) * grid_res_x
+                lat_c = grid_top - (i + 0.5) * grid_res_y
+                dlat, dlon = _grid_interp_point(
+                    lon_c, lat_c, dlat_grid, dlon_grid,
+                    grid_left, grid_top, grid_res_x, grid_res_y,
+                    grid_h, grid_w,
+                )
+                assert abs(dlat - dlat_grid[i, j]) < 1e-12, (
+                    f"pixel ({i},{j}) center: expected dlat "
+                    f"{dlat_grid[i, j]}, got {dlat}"
+                )
+                assert abs(dlon - dlon_grid[i, j]) < 1e-12, (
+                    f"pixel ({i},{j}) center: expected dlon "
+                    f"{dlon_grid[i, j]}, got {dlon}"
+                )
 
 
 class TestVerticalHelperConversions:
@@ -4992,6 +5567,131 @@ class TestBoundsPolicy:
             f"expected one merge summary warning, got "
             f"{[str(m.message) for m in matched]}"
         )
+
+    # -- Issue #2582: unit-aware blow-up heuristic --------------------
+
+    def test_auto_does_not_crop_benign_geographic_to_mercator(self):
+        """Regression for #2582.
+
+        Reprojecting a small EPSG:4326 bbox to EPSG:3857 under
+        bounds_policy='auto' must match bounds_policy='raw' to a
+        small tolerance. The old span-ratio heuristic compared
+        degrees to metres and always tripped on geographic-to-
+        projected pairs, silently trimming tens of km per side.
+        """
+        from xrspatial.reproject import reproject
+
+        data = np.random.RandomState(0).rand(64, 64).astype(np.float32)
+        r = xr.DataArray(
+            data, dims=['y', 'x'],
+            coords={'y': np.linspace(10, -10, 64),
+                    'x': np.linspace(-10, 10, 64)},
+            attrs={'crs': 'EPSG:4326'},
+        )
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', UserWarning)
+            auto_r = reproject(r, 'EPSG:3857', bounds_policy='auto')
+            raw_r = reproject(r, 'EPSG:3857', bounds_policy='raw')
+
+        # Spans should match within one output pixel of res.
+        ax = auto_r.coords['x'].values
+        rx = raw_r.coords['x'].values
+        ay = auto_r.coords['y'].values
+        ry = raw_r.coords['y'].values
+
+        res_x = (rx.max() - rx.min()) / max(1, len(rx) - 1)
+        res_y = (ry.max() - ry.min()) / max(1, len(ry) - 1)
+
+        # No more than one pixel of crop on each side (was ~106 km / ~70 km).
+        assert abs((ax.max() - ax.min()) - (rx.max() - rx.min())) < 2 * res_x
+        assert abs((ay.max() - ay.min()) - (ry.max() - ry.min())) < 2 * res_y
+
+    def test_auto_silent_on_benign_geographic_to_mercator(self):
+        """No bounds_policy warning fires for a benign 4326->3857 case (#2582)."""
+        from xrspatial.reproject import reproject
+
+        data = np.random.RandomState(0).rand(32, 32).astype(np.float32)
+        r = xr.DataArray(
+            data, dims=['y', 'x'],
+            coords={'y': np.linspace(10, -10, 32),
+                    'x': np.linspace(-10, 10, 32)},
+            attrs={'crs': 'EPSG:4326'},
+        )
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            reproject(r, 'EPSG:3857', bounds_policy='auto')
+        matched = [
+            wi for wi in w
+            if issubclass(wi.category, UserWarning)
+            and 'bounds_policy' in str(wi.message)
+        ]
+        assert not matched, (
+            f"unexpected bounds_policy warning(s) on benign 4326->3857 "
+            f"input: {[str(m.message) for m in matched]}"
+        )
+
+    def test_auto_still_trips_polar_stereographic_blowup(self):
+        """Pathological 4326->polar-stereo case must still trip auto (#2582).
+
+        A global EPSG:4326 raster projected to EPSG:3413 (NSIDC north
+        polar stereographic) produces finite-but-astronomical
+        coordinates near the south pole. The new unit-agnostic
+        heuristic must still catch this and apply the percentile
+        fallback.
+        """
+        from xrspatial.reproject._grid import _compute_output_grid
+        from xrspatial.reproject._crs_utils import _resolve_crs
+
+        src_crs = _resolve_crs('EPSG:4326')
+        tgt_crs = _resolve_crs('EPSG:3413')
+
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            grid = _compute_output_grid(
+                (-180.0, -90.0, 180.0, 90.0), (100, 200),
+                src_crs, tgt_crs, bounds_policy='auto',
+            )
+        # The auto bounds should be reasonable Earth-scale (well under
+        # 1e10 m), not the 1e23-scale raw projection.
+        left, bottom, right, top = grid['bounds']
+        assert abs(left) < 1e10 and abs(right) < 1e10
+        assert abs(bottom) < 1e10 and abs(top) < 1e10
+        # And the warning must fire.
+        matched = [
+            wi for wi in w
+            if issubclass(wi.category, UserWarning)
+            and 'bounds_policy' in str(wi.message)
+            and ('blow-up' in str(wi.message) or 'percentile' in str(wi.message))
+        ]
+        assert matched, (
+            "expected a blow-up/percentile warning under auto for "
+            "global 4326 -> polar stereographic"
+        )
+
+    @pytest.mark.skipif(not HAS_DASK, reason="dask required")
+    def test_auto_does_not_crop_benign_geographic_dask(self):
+        """Dask-backed input also gets the unit-aware fix (#2582)."""
+        from xrspatial.reproject import reproject
+
+        data = np.random.RandomState(0).rand(64, 64).astype(np.float32)
+        r = xr.DataArray(
+            data, dims=['y', 'x'],
+            coords={'y': np.linspace(10, -10, 64),
+                    'x': np.linspace(-10, 10, 64)},
+            attrs={'crs': 'EPSG:4326'},
+        ).chunk({'y': 32, 'x': 32})
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', UserWarning)
+            auto_r = reproject(r, 'EPSG:3857', bounds_policy='auto')
+            raw_r = reproject(r, 'EPSG:3857', bounds_policy='raw')
+        ax = auto_r.coords['x'].values
+        rx = raw_r.coords['x'].values
+        res_x = (rx.max() - rx.min()) / max(1, len(rx) - 1)
+        assert abs((ax.max() - ax.min()) - (rx.max() - rx.min())) < 2 * res_x
 
 
 # ---------------------------------------------------------------------------

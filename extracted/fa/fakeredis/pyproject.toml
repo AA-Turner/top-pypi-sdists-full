@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fakeredis"
-version = "2.35.1"
+version = "2.36.0"
 description = "Python implementation of redis API, can be used for testing purposes."
 authors = [
     { name = "Daniel Moran", email = "daniel@moransoftware.ca" },
@@ -38,12 +38,13 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
     "redis>=4 ; python_version < '3.8'",
-    "redis>=4.3; python_version > '3.8'",
     "redis<7.2 ; python_version < '3.10'",
+    "redis>=4.3; python_version > '3.8'",
     "sortedcontainers>=2",
     "typing-extensions>=4.7 ; python_version < '3.11'",
 ]
@@ -59,7 +60,7 @@ valkey = [
 ]
 vectorset = [
     "numpy>=2.4.0 ; python_version >= '3.11'",
-    "jsonpath_ng>=1.6 ; python_version >= '3.11'",
+    "jsonpath-ng>=1.6 ; python_version >= '3.11'",
 ]
 
 [project.urls]
@@ -123,14 +124,12 @@ markers = [
     "fake: run tests only with fake redis",
     "real: run tests with a locally running real Redis server",
     "disconnected",
-    "min_server",
-    "max_server",
+    "supported_server_versions",
     "decode_responses",
     "unsupported_server_types",
     "resp2_only: run tests only with RESP2",
     "resp3_only: run tests only with RESP3",
     "load_lua_modules: run tests that load Lua modules",
-    "valkey_client_test: test using valkey-py client instead of redis-py",
     "tcp_server: run tests against a TCP server",
 ]
 asyncio_mode = "strict"

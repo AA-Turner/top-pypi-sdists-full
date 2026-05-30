@@ -26,9 +26,34 @@ For each (country, crop, season) declared in config, this runner:
    metric-vs-threshold PNG with companion plot-data CSV under
    ``${PATHS:dir_output}/{project_name}/ml/analysis/{today}/threshold_sweep_summary/``.
 
-The pooled-best (direction, threshold) per country is the actionable
-output — what to set as ``[<country>] floor`` / ``ceil`` in
-geoextract.txt for production extraction.
+Floor vs ceiling — different semantics, different production fates
+--------------------------------------------------------------------
+As of geoprepare 0.6.253, the two sweep directions have asymmetric
+meanings AND different production-knob applicability:
+
+  * ``floor``  T = keep cells with crop fraction > T% (absolute lower
+                 bound, per-cell). Matches production geoextract's
+                 ``[<country>] floor`` knob exactly (see
+                 ``geoprepare/base.py:127-130``: ``limit_type = "floor"
+                 if self.threshold else "ceil"``, masking always
+                 evaluates ``afi_data >= limit*100``). The pooled-best
+                 floor threshold is the actionable answer — paste it
+                 verbatim as ``[<country>] floor = T``.
+
+  * ``ceiling`` T = keep the top-T% of in-region cropland cells ranked
+                 by crop fraction (rank-based / per-region quantile).
+                 There is **no production geoextract knob with this
+                 semantics** — ``[<country>] ceil`` in production is
+                 still an absolute lower bound, not a rank percentile.
+                 The ceiling-direction pooled-best is **analysis-only**:
+                 useful for understanding how marginal-cropland inclusion
+                 affects NDVI↔yield correlation, but NOT directly
+                 transferable to a production-config setting.
+
+Practical reading: scan the pooled CSV / log line for the floor row
+with the highest |Pearson r|; that's your production threshold. Ceiling
+rows are informative for understanding the signal-noise envelope but
+do not have a one-to-one production mapping.
 """
 import ast
 import logging
@@ -113,15 +138,19 @@ class ThresholdOptimizer(base.BaseGeo):
     # ----------------------------------------------------------------------
 
     def sweep_csv_path(self, country: str, crop: str, season: int) -> Path:
-        """Per the briefing: sweep lives at ``${dir_output}/threshold_sweep/
-        {country}/{crop}/{country}_{crop}_s{season}_sweep.csv``."""
-        # self.dir_output is already project-suffixed by BaseGeo, but the
-        # sweep is written by geoprepare which uses the un-suffixed
-        # dir_output. Strip the project_name segment to land on the
-        # geoprepare-side root.
-        base_dir = self.dir_output.parent if self.dir_output.name == self.project_name else self.dir_output
+        """Sweep CSV lives at ``${dir_output}/threshold_sweep/{country}/
+        {crop}/{country}_{crop}_s{season}_sweep.csv`` — same project-
+        suffixed dir geoprepare.extract_sweep writes to (BaseGeo's
+        parse_config sets ``dir_output = ${PATHS:dir_output} /
+        {project_name}`` on BOTH sides, so the paths line up directly).
+
+        An earlier version of this method stripped the project_name
+        segment based on the wrong assumption that extract_sweep wrote
+        to an un-suffixed root — verified false against Z: layout
+        (Z:\\cmongp1\\GEO\\outputs\\geocif\\threshold_sweep\\...).
+        """
         return (
-            base_dir / "threshold_sweep" / country / crop
+            self.dir_output / "threshold_sweep" / country / crop
             / f"{country}_{crop}_s{season}_sweep.csv"
         )
 
@@ -259,6 +288,18 @@ class ThresholdOptimizer(base.BaseGeo):
         file-reading (see DRY-violation note at the call sites in
         ``fdw_export.py`` and ``geocif_runner.py`` — we don't follow those).
         """
+        # Empty-input guard: aggregate_seasonal can return 0 rows if the
+        # sweep CSV was empty / malformed for this (country, crop, season).
+        # Passing an empty df to add_statistics → add_GEOGLAM_statistics
+        # crashes on `df.loc[:, stat] = np.nan` ("cannot set a frame with
+        # no defined index and a scalar"). Short-circuit here.
+        if df_agg.empty:
+            self.logger.warning(
+                f"  yield join: skipping ({country}, {crop}, s{season}) — "
+                f"aggregated DF is empty (sweep CSV may have produced no rows)."
+            )
+            return df_agg.assign(**{"Yield (tn per ha)": np.nan})
+
         # Prep the working DF columns add_statistics expects.
         df_in = df_agg.assign(
             Region=df_agg["region"],
@@ -276,7 +317,17 @@ class ThresholdOptimizer(base.BaseGeo):
             stats=["Yield (tn per ha)"],
             method="",
             parser=self.parser,
+            label=f"{country}/{crop}/s{season}",
         )
+        # Defensive: add_statistics' hvstat-path process_group only adds
+        # the Yield column to groups that find a matching FEWSNET row.
+        # If NO group matched (e.g. Sudan winter_wheat — country/crop is
+        # in HvStat but no rows pass the qc/PS filter for that admin),
+        # the column never gets added and downstream code KeyErrors.
+        # Backfill as all-NaN so the schema is stable.
+        if "Yield (tn per ha)" not in df_joined.columns:
+            df_joined = df_joined.assign(**{"Yield (tn per ha)": np.nan})
+
         # Visibility on match success — silent join failures are the most
         # common failure mode for this kind of merge.
         n_matched = df_joined["Yield (tn per ha)"].notna().sum()
@@ -348,6 +399,22 @@ class ThresholdOptimizer(base.BaseGeo):
         Output columns: region, direction, threshold, n_years,
         n_fallback_years, metric_name, metric_value.
         """
+        # Column contract — always present in the returned DataFrame
+        # even when df_joined has zero rows (groupby below produces no
+        # groups, `pd.DataFrame([])` would otherwise return a 0×0 frame
+        # and break rank_and_filter's `df["n_years"]` access).
+        _METRIC_COLS = [
+            "region", "direction", "threshold",
+            "n_years", "n_fallback_years",
+            "metric_name", "metric_value",
+        ]
+        # Empty / schema-incomplete guard — covers both
+        # "no rows produced upstream" AND "yield column missing because
+        # add_statistics' hvstat path matched nothing". Either way
+        # there's no metric to compute.
+        if df_joined.empty or "Yield (tn per ha)" not in df_joined.columns:
+            return pd.DataFrame(columns=_METRIC_COLS)
+
         rows = []
         groups = df_joined.groupby(["region", "direction", "threshold"],
                                    as_index=False, dropna=False)
@@ -369,7 +436,7 @@ class ThresholdOptimizer(base.BaseGeo):
                 "metric_name": self.metric_name,
                 "metric_value": metric_value,
             })
-        return pd.DataFrame(rows)
+        return pd.DataFrame(rows, columns=_METRIC_COLS)
 
     # ----------------------------------------------------------------------
     # Trustworthiness + ranking
@@ -384,6 +451,14 @@ class ThresholdOptimizer(base.BaseGeo):
         (descending); LOOCV RMSE → smaller is better (ascending).
         """
         df = df_metric.copy()
+        # Empty-input guard — when df_metric has the column contract but
+        # zero rows (e.g. yield join produced no matched years), short-
+        # circuit to a 0-row frame with the downstream columns added so
+        # compute_pooled / write_summary / plot don't KeyError.
+        if df.empty:
+            df["trustworthy"] = pd.Series(dtype=bool)
+            df["rank_within_region"] = pd.Series(dtype=float)
+            return df
         df["fb_share"] = np.where(
             df["n_years"] > 0,
             df["n_fallback_years"] / df["n_years"],
@@ -451,16 +526,47 @@ class ThresholdOptimizer(base.BaseGeo):
         self.logger.info(f"  wrote {pooled_path}")
         if not df_pooled.empty:
             best = df_pooled.iloc[0]
+            best_t = int(best['threshold'])
+            # Direction-specific interpretation — geoprepare 0.6.253+
+            # made floor and ceiling semantically asymmetric. floor =
+            # absolute lower bound (matches production geoextract.txt
+            # [<country>] floor); ceiling = rank-based quantile, no
+            # equivalent production knob.
+            if best['direction'] == 'floor':
+                interp = (
+                    f"(absolute: keep cells with crop fraction > {best_t}%; "
+                    f"paste as [<country>] floor = {best_t})"
+                )
+            else:
+                interp = (
+                    f"(rank-based: keep top {best_t}% of in-region cropland "
+                    f"cells; ANALYSIS-ONLY — no production knob with this "
+                    f"semantics)"
+                )
             self.logger.info(
                 f"  POOLED BEST for ({country}, {crop}, s{season}): "
-                f"direction={best['direction']} threshold={int(best['threshold'])} "
+                f"direction={best['direction']} threshold={best_t} "
                 f"pooled {best['metric_name']}={best['pooled_metric']:.4f} "
-                f"(n_regions_trusted={int(best['n_regions_trusted'])})"
+                f"(n_regions_trusted={int(best['n_regions_trusted'])}) {interp}"
             )
         return out_dir
 
     def plot(self, df_ranked: pd.DataFrame, df_pooled: pd.DataFrame,
              country: str, crop: str, season: int, out_dir: Path) -> None:
+        """Two-panel metric-vs-threshold plot.
+
+        Floor and ceiling get separate panels because, as of geoprepare
+        0.6.253, their x-axis units are NOT comparable:
+          * floor   T = crop-fraction lower bound (absolute %).
+          * ceiling T = top-T% of in-region cropland cells (rank quantile).
+        Sharing a single x-axis (the pre-0.6.253 layout) silently fused
+        two different unit systems on the same number line.
+
+        Each panel keeps the original thin-per-region + bold-pooled
+        pattern. The red best-threshold marker is drawn ONLY on the
+        panel matching the pooled-best direction, so the visual cue
+        and the actionable answer agree.
+        """
         if not self.do_plot:
             return
         try:
@@ -472,44 +578,78 @@ class ThresholdOptimizer(base.BaseGeo):
             return
 
         stem = f"{country}_{crop}_s{season}"
-        fig, ax = plt.subplots(figsize=(8, 5))
-
-        # Per-region thin lines, one per region × direction.
-        for (region, direction), grp in df_ranked.groupby(["region", "direction"]):
-            grp_sorted = grp.sort_values("threshold")
-            linestyle = "-" if direction == "floor" else "--"
-            ax.plot(
-                grp_sorted["threshold"], grp_sorted["metric_value"],
-                linestyle=linestyle, alpha=0.35, linewidth=0.9,
-                label="_nolegend_",
-            )
-
-        # Pooled — bold, separate line per direction.
-        if not df_pooled.empty:
-            for direction, grp in df_pooled.groupby("direction"):
-                grp_sorted = grp.sort_values("threshold")
-                linestyle = "-" if direction == "floor" else "--"
-                ax.plot(
-                    grp_sorted["threshold"], grp_sorted["pooled_metric"],
-                    linestyle=linestyle, color="black", linewidth=2.2,
-                    label=f"pooled ({direction})",
-                )
-            best = df_pooled.iloc[0]
-            ax.axvline(
-                int(best["threshold"]), color="red", linestyle=":",
-                linewidth=1, alpha=0.7,
-                label=(f"best: {best['direction']} {int(best['threshold'])}"),
-            )
-
         metric_label = (
             "|Pearson r|" if self.metric_name == "pearson" else "LOOCV RMSE"
         )
-        ax.set_xlabel("Crop-mask threshold (%)")
-        ax.set_ylabel(metric_label)
-        ax.set_title(f"{country} {crop} s{season} — {metric_label} vs threshold")
-        ax.legend(loc="best", fontsize=8)
-        ax.grid(True, alpha=0.3)
-        fig.tight_layout()
+        fig, (ax_floor, ax_ceil) = plt.subplots(1, 2, figsize=(14, 5), sharey=True)
+
+        # Pooled-best info (for the panel-specific axvline).
+        best_direction = None
+        best_threshold = None
+        if not df_pooled.empty:
+            best = df_pooled.iloc[0]
+            best_direction = best["direction"]
+            best_threshold = int(best["threshold"])
+
+        # Per-direction sub-plot rendering — same per-region thin +
+        # bold pooled pattern as before, just split across two axes.
+        panels = {
+            "floor": (
+                ax_floor,
+                "Floor threshold (%) — keep cells with crop fraction > T%",
+                "absolute lower bound, matches production [<country>] floor",
+            ),
+            "ceiling": (
+                ax_ceil,
+                "Ceiling threshold (%) — keep top T% of in-region cells by rank",
+                "rank-based quantile — ANALYSIS ONLY (no production knob)",
+            ),
+        }
+        for direction, (ax, xlabel, subtitle) in panels.items():
+            # Thin per-region lines for this direction.
+            sub_ranked = df_ranked[df_ranked["direction"] == direction]
+            for region, grp in sub_ranked.groupby("region"):
+                grp_sorted = grp.sort_values("threshold")
+                ax.plot(
+                    grp_sorted["threshold"], grp_sorted["metric_value"],
+                    linestyle="-", alpha=0.35, linewidth=0.9,
+                    label="_nolegend_",
+                )
+
+            # Bold pooled line for this direction.
+            sub_pooled = df_pooled[df_pooled["direction"] == direction] if not df_pooled.empty else pd.DataFrame()
+            if not sub_pooled.empty:
+                sub_pooled_sorted = sub_pooled.sort_values("threshold")
+                ax.plot(
+                    sub_pooled_sorted["threshold"],
+                    sub_pooled_sorted["pooled_metric"],
+                    linestyle="-", color="black", linewidth=2.2,
+                    label="pooled",
+                )
+
+            # Best-threshold marker — only on the matching panel.
+            if best_direction == direction and best_threshold is not None:
+                ax.axvline(
+                    best_threshold, color="red", linestyle=":",
+                    linewidth=1.4, alpha=0.8,
+                    label=f"best: {best_threshold}",
+                )
+
+            ax.set_xlabel(xlabel)
+            ax.set_title(f"{direction}\n({subtitle})", fontsize=10)
+            ax.grid(True, alpha=0.3)
+            # Only draw the legend if any artist has a real label.
+            _, labels = ax.get_legend_handles_labels()
+            if labels:
+                ax.legend(loc="best", fontsize=8)
+
+        ax_floor.set_ylabel(metric_label)
+        fig.suptitle(
+            f"{country} {crop} s{season} — {metric_label} vs threshold "
+            f"(geoprepare 0.6.253+ semantics)",
+            fontsize=12,
+        )
+        fig.tight_layout(rect=[0, 0, 1, 0.96])
 
         png_path = out_dir / f"{stem}.png"
         fig.savefig(png_path, dpi=120)
@@ -532,6 +672,403 @@ class ThresholdOptimizer(base.BaseGeo):
 
         self.logger.info(f"  wrote {png_path}")
         self.logger.info(f"  wrote {plot_csv}")
+
+    # ----------------------------------------------------------------------
+    # Cross-country cumulative plot
+    # ----------------------------------------------------------------------
+
+    def cumulative_root(self) -> Path:
+        """Top-level dir holding ALL per-country threshold_sweep_summary
+        subdirs for this run. The cumulative plot lands here (one level
+        above the per-country dirs since it spans them).
+        """
+        return (
+            self.dir_output / "ml" / "analysis" / self.today_tag
+            / "threshold_sweep_summary"
+        )
+
+    def _read_all_pooled_csvs(self):
+        """Read every per-country ``*_pooled.csv`` under the cumulative
+        root and concatenate into one long-form frame with country/crop/
+        season columns derived from the path. Returns ``None`` when
+        nothing is found (caller logs + bails)."""
+        cum_root = self.cumulative_root()
+        pooled_csvs = sorted(cum_root.glob("*/*/*_pooled.csv"))
+        if not pooled_csvs:
+            self.logger.warning(
+                f"  cumulative outputs: no per-country pooled CSVs found under "
+                f"{cum_root}; skipping."
+            )
+            return None
+
+        frames = []
+        for csv_path in pooled_csvs:
+            try:
+                df = pd.read_csv(csv_path)
+            except Exception as exc:  # noqa: BLE001
+                self.logger.warning(
+                    f"  cumulative outputs: skipping unreadable {csv_path}: {exc}"
+                )
+                continue
+            if df.empty:
+                continue
+            # Filename: {country}_{crop}_s{season}_pooled.csv. The
+            # country/crop have underscores in some cases (e.g.
+            # winter_wheat, united_states_of_america) so parse from the
+            # path's parent dirs which are guaranteed clean.
+            country_part = csv_path.parent.parent.name
+            crop_part = csv_path.parent.name
+            # Season: parse the s{N} from the stem.
+            stem = csv_path.stem  # "<country>_<crop>_s<N>_pooled"
+            try:
+                season_token = stem.split("_s")[-1].split("_")[0]
+                season_int = int(season_token)
+            except (ValueError, IndexError):
+                season_int = 1
+            df = df.assign(
+                country=country_part,
+                crop=crop_part,
+                season=season_int,
+            )
+            frames.append(df)
+        if not frames:
+            self.logger.warning(
+                "  cumulative outputs: every pooled CSV was empty/unreadable; skipping."
+            )
+            return None
+
+        return pd.concat(frames, ignore_index=True)
+
+    def _write_one_cumulative_plot(self, df_combo, crop, season, plt) -> Path:
+        """Two-panel cross-country plot for one (crop, season) combo.
+        Returns the PNG path. ``plt`` is the already-imported matplotlib
+        module (caller imports once and passes in so we don't reimport
+        per combo).
+        """
+        cum_root = self.cumulative_root()
+        ascending = self.metric_name == "loocv_rmse"
+        metric_label = (
+            "|Pearson r|" if self.metric_name == "pearson" else "LOOCV RMSE"
+        )
+
+        # Per-country best within this combo.
+        best_per_country_dir = (
+            df_combo.sort_values(
+                ["country", "direction", "pooled_metric"],
+                ascending=[True, True, ascending],
+            )
+            .groupby(["country", "direction"], as_index=False)
+            .first()
+        )
+
+        countries_list = sorted(df_combo["country"].unique())
+        cmap = plt.get_cmap("tab20")
+        country_colour = {
+            c: cmap(i % cmap.N) for i, c in enumerate(countries_list)
+        }
+
+        fig, (ax_floor, ax_ceil) = plt.subplots(
+            1, 2, figsize=(16, 6), sharey=True,
+        )
+        panels = {
+            "floor": (
+                ax_floor,
+                "Floor threshold (%) — keep cells with crop fraction > T%",
+                "absolute lower bound, matches production [<country>] floor",
+            ),
+            "ceiling": (
+                ax_ceil,
+                "Ceiling threshold (%) — keep top T% of in-region cells by rank",
+                "rank-based quantile — ANALYSIS ONLY (no production knob)",
+            ),
+        }
+        for direction, (ax, xlabel, subtitle) in panels.items():
+            sub = df_combo[df_combo["direction"] == direction]
+            if sub.empty:
+                ax.text(
+                    0.5, 0.5, f"(no {direction} data)",
+                    ha="center", va="center", transform=ax.transAxes,
+                    fontsize=11, alpha=0.6,
+                )
+                ax.set_xlabel(xlabel)
+                ax.set_title(f"{direction}\n({subtitle})", fontsize=10)
+                continue
+
+            for country, grp in sub.groupby("country"):
+                grp_sorted = grp.sort_values("threshold")
+                ax.plot(
+                    grp_sorted["threshold"], grp_sorted["pooled_metric"],
+                    color=country_colour[country],
+                    linewidth=1.2, alpha=0.75, label="_nolegend_",
+                )
+
+            best_sub = best_per_country_dir[best_per_country_dir["direction"] == direction]
+            for _, row in best_sub.iterrows():
+                ax.scatter(
+                    row["threshold"], row["pooled_metric"],
+                    color=country_colour[row["country"]],
+                    s=40, zorder=5, edgecolor="black", linewidths=0.4,
+                )
+            # Annotate top-5 countries in this panel — by pooled_metric
+            # at their own best (Pearson: max; LOOCV: min).
+            top5 = (
+                best_sub.sort_values("pooled_metric", ascending=ascending)
+                        .head(5)
+            )
+            for _, row in top5.iterrows():
+                ax.annotate(
+                    row["country"],
+                    xy=(row["threshold"], row["pooled_metric"]),
+                    xytext=(4, 4), textcoords="offset points",
+                    fontsize=8, alpha=0.9,
+                )
+
+            ax.set_xlabel(xlabel)
+            ax.set_title(f"{direction}\n({subtitle})", fontsize=10)
+            ax.grid(True, alpha=0.3)
+
+        ax_floor.set_ylabel(metric_label)
+        fig.suptitle(
+            f"Cross-country cumulative — {crop} season {season} — {metric_label} "
+            f"(n={len(countries_list)} countries; top-5 per panel annotated)",
+            fontsize=11,
+        )
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+
+        png_path = cum_root / f"cumulative_{crop}_s{season}.png"
+        fig.savefig(png_path, dpi=130)
+        plt.close(fig)
+        return png_path
+
+    def _write_one_cumulative_table(self, df_combo, crop, season, plt):
+        """Matplotlib-rendered table image for one (crop, season).
+        Returns (png_path, csv_path). Columns:
+        Country | Floor T | Floor metric | Ceiling T | Ceiling metric |
+        Pick | Apply.
+
+        Sorted by max(floor, ceiling) descending for Pearson, ascending
+        for LOOCV RMSE — best countries at the top.
+        """
+        cum_root = self.cumulative_root()
+        ascending = self.metric_name == "loocv_rmse"
+        metric_label = (
+            "|r|" if self.metric_name == "pearson" else "RMSE"
+        )
+
+        # Per-country best per direction within this combo.
+        best = (
+            df_combo.sort_values(
+                ["country", "direction", "pooled_metric"],
+                ascending=[True, True, ascending],
+            )
+            .groupby(["country", "direction"], as_index=False)
+            .first()
+        )
+        # Pivot to one row per country, with floor / ceiling side-by-side.
+        floor = best[best["direction"] == "floor"][
+            ["country", "threshold", "pooled_metric"]
+        ].rename(columns={"threshold": "floor_T", "pooled_metric": "floor_metric"})
+        ceil = best[best["direction"] == "ceiling"][
+            ["country", "threshold", "pooled_metric"]
+        ].rename(columns={"threshold": "ceil_T", "pooled_metric": "ceil_metric"})
+        table_df = floor.merge(ceil, on="country", how="outer")
+
+        # Pick = direction with the better metric (or whichever exists
+        # if only one side has data).
+        def _pick(row):
+            f_ok = pd.notna(row["floor_metric"])
+            c_ok = pd.notna(row["ceil_metric"])
+            if f_ok and c_ok:
+                if ascending:
+                    return "floor" if row["floor_metric"] <= row["ceil_metric"] else "ceiling"
+                return "floor" if row["floor_metric"] >= row["ceil_metric"] else "ceiling"
+            if f_ok:
+                return "floor"
+            if c_ok:
+                return "ceiling"
+            return "—"
+        table_df["pick"] = table_df.apply(_pick, axis=1)
+
+        def _apply(row):
+            if row["pick"] == "floor" and pd.notna(row.get("floor_T")):
+                return f"floor = {int(row['floor_T'])}"
+            if row["pick"] == "ceiling":
+                return "ANALYSIS-ONLY"
+            return "—"
+        table_df["apply"] = table_df.apply(_apply, axis=1)
+
+        # Sort by the better-of-the-two metric so the best countries
+        # are at the top of the table.
+        if ascending:
+            table_df["sort_key"] = table_df[["floor_metric", "ceil_metric"]].min(axis=1)
+            table_df = table_df.sort_values("sort_key", ascending=True, na_position="last")
+        else:
+            table_df["sort_key"] = table_df[["floor_metric", "ceil_metric"]].max(axis=1)
+            table_df = table_df.sort_values("sort_key", ascending=False, na_position="last")
+        table_df = table_df.drop(columns="sort_key").reset_index(drop=True)
+
+        # Render matplotlib table.
+        n_rows = len(table_df)
+        fig_height = max(2.5, 0.32 * n_rows + 1.2)
+        fig, ax = plt.subplots(figsize=(11, fig_height))
+        ax.axis("off")
+        ax.set_title(
+            f"Cross-country best thresholds — {crop} season {season} "
+            f"(metric: {metric_label})",
+            fontsize=12, pad=12,
+        )
+
+        col_labels = [
+            "Country", f"Floor T", f"Floor {metric_label}",
+            f"Ceiling T", f"Ceiling {metric_label}",
+            "Pick", "Apply (production geoextract.txt)",
+        ]
+        cell_text = []
+        for _, row in table_df.iterrows():
+            cell_text.append([
+                str(row["country"]),
+                "—" if pd.isna(row["floor_T"]) else str(int(row["floor_T"])),
+                "—" if pd.isna(row["floor_metric"]) else f"{row['floor_metric']:.3f}",
+                "—" if pd.isna(row["ceil_T"]) else str(int(row["ceil_T"])),
+                "—" if pd.isna(row["ceil_metric"]) else f"{row['ceil_metric']:.3f}",
+                row["pick"],
+                row["apply"],
+            ])
+        if not cell_text:
+            cell_text = [["(no data)" for _ in col_labels]]
+        tbl = ax.table(
+            cellText=cell_text, colLabels=col_labels,
+            cellLoc="center", loc="center",
+        )
+        tbl.auto_set_font_size(False)
+        tbl.set_fontsize(9)
+        tbl.scale(1.0, 1.2)
+        # Highlight header.
+        for j in range(len(col_labels)):
+            cell = tbl[(0, j)]
+            cell.set_facecolor("#2b6cb0")
+            cell.set_text_props(color="white", weight="bold")
+        # Light-highlight rows where pick=floor (actionable) vs ceiling.
+        for i, row in table_df.iterrows():
+            colour = "#e6fffa" if row["pick"] == "floor" else "#fff5f5"
+            for j in range(len(col_labels)):
+                tbl[(i + 1, j)].set_facecolor(colour)
+
+        fig.tight_layout()
+        png_path = cum_root / f"cumulative_{crop}_s{season}_table.png"
+        fig.savefig(png_path, dpi=140, bbox_inches="tight")
+        plt.close(fig)
+
+        # Companion CSV — the same data behind the image.
+        csv_path = cum_root / f"cumulative_{crop}_s{season}_table.csv"
+        table_df.to_csv(csv_path, index=False)
+        return png_path, csv_path
+
+    def write_cumulative_outputs(self) -> None:
+        """Cross-country cumulative outputs — one plot + one table image
+        + their companion CSVs PER (crop, season) combo.
+
+        Each combo's plot has one line per country (national-scale,
+        pooled-across-regions). Each combo's table shows per-country
+        floor & ceiling best, the pick, and a paste-ready production
+        knob string. A top-level ``lookup_cumulative.csv`` maps every
+        plot/table to its companion CSV per the plot-CSV-pairs rule.
+
+        Crop × season is preserved as the splitting axis — NDVI-wheat
+        and NDVI-rice tell different stories and shouldn't share a
+        chart.
+        """
+        if not self.do_plot:
+            return
+
+        all_pooled = self._read_all_pooled_csvs()
+        if all_pooled is None or all_pooled.empty:
+            return
+
+        # Companion long-form table — full series identification per
+        # plot-CSV-pairs. Mirrors the schema of the previous
+        # cumulative_all_countries_plot_data.csv but split per combo
+        # via the lookup CSV below.
+        ascending = self.metric_name == "loocv_rmse"
+        best_per_country_dir = (
+            all_pooled.sort_values(
+                ["country", "crop", "season", "direction", "pooled_metric"],
+                ascending=[True, True, True, True, ascending],
+            )
+            .groupby(["country", "crop", "season", "direction"], as_index=False)
+            .first()
+        )
+
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(
+                f"  cumulative outputs: matplotlib unavailable: {exc}"
+            )
+            return
+
+        cum_root = self.cumulative_root()
+        combos = sorted(set(zip(all_pooled["crop"], all_pooled["season"])))
+        lookup_rows = []
+        for crop, season in combos:
+            df_combo = all_pooled[
+                (all_pooled["crop"] == crop) & (all_pooled["season"] == season)
+            ].copy()
+            if df_combo.empty:
+                continue
+
+            # Plot
+            png_plot = self._write_one_cumulative_plot(df_combo, crop, season, plt)
+            # Plot's companion CSV
+            best_keys = set(zip(
+                best_per_country_dir["country"], best_per_country_dir["crop"],
+                best_per_country_dir["season"], best_per_country_dir["direction"],
+                best_per_country_dir["threshold"].astype(int),
+            ))
+            plot_data = df_combo[[
+                "country", "crop", "season", "direction", "threshold",
+                "pooled_metric", "n_regions_trusted", "metric_name",
+            ]].copy()
+            plot_data["is_best"] = [
+                (c, cr, int(s), d, int(t)) in best_keys
+                for c, cr, s, d, t in zip(
+                    plot_data["country"], plot_data["crop"], plot_data["season"],
+                    plot_data["direction"], plot_data["threshold"],
+                )
+            ]
+            csv_plot = cum_root / f"cumulative_{crop}_s{season}_plot_data.csv"
+            plot_data.to_csv(csv_plot, index=False)
+
+            # Table image + its companion CSV
+            png_table, csv_table = self._write_one_cumulative_table(
+                df_combo, crop, season, plt,
+            )
+
+            lookup_rows.extend([
+                {"crop": crop, "season": int(season), "kind": "plot",
+                 "image": png_plot.name, "data_csv": csv_plot.name},
+                {"crop": crop, "season": int(season), "kind": "table",
+                 "image": png_table.name, "data_csv": csv_table.name},
+            ])
+            self.logger.info(
+                f"  wrote {png_plot.name} + {csv_plot.name} "
+                f"+ {png_table.name} + {csv_table.name}"
+            )
+
+        # Lookup CSV — maps every plot/table to its data csv at one
+        # glance, per the plot-CSV-pairs convention's "lookup table"
+        # requirement (see memory: feedback_plot_csv_pairs.md).
+        if lookup_rows:
+            lookup_path = cum_root / "lookup_cumulative.csv"
+            pd.DataFrame(lookup_rows).to_csv(lookup_path, index=False)
+            self.logger.info(f"  wrote {lookup_path}")
+
+        self.logger.info(
+            f"  cumulative outputs: {len(combos)} (crop, season) combos × "
+            f"{all_pooled['country'].nunique()} countries"
+        )
 
     # ----------------------------------------------------------------------
     # Per-combo + main loop
@@ -559,17 +1096,42 @@ class ThresholdOptimizer(base.BaseGeo):
         self.plot(df_ranked, df_pooled, country, crop, season, out_dir)
 
     def main(self):
+        import traceback
         for combo in self.create_run_combinations():
             try:
                 self.process_one(*combo)
-            except Exception:
-                self.logger.exception(
-                    f"  threshold-optimizer FAILED for {combo}; continuing to next"
+            except Exception as exc:  # noqa: BLE001
+                # geocif's custom Logger doesn't expose `.exception()`;
+                # use `.error()` + a manually formatted traceback so the
+                # loop survives and the user can see which combo failed.
+                self.logger.error(
+                    f"  threshold-optimizer FAILED for {combo}: "
+                    f"{type(exc).__name__}: {exc}\n"
+                    + traceback.format_exc()
                 )
+        # Cross-country cumulative outputs — runs once after all
+        # per-combo work; reads back the per-country pooled CSVs and
+        # emits one plot + one table image (+ companion CSVs) PER
+        # (crop, season) combo at the top of threshold_sweep_summary/,
+        # plus a lookup CSV mapping plots/tables to data CSVs.
+        try:
+            self.write_cumulative_outputs()
+        except Exception as exc:  # noqa: BLE001
+            self.logger.error(
+                f"  cumulative outputs FAILED: {type(exc).__name__}: {exc}\n"
+                + traceback.format_exc()
+            )
 
 
 def run(path_config_files=None):
-    """Entry point — mirrors ``geocif.geocif_runner.run`` / ``geoagmet.run``."""
+    """Entry point — mirrors ``geocif.geocif_runner.run`` / ``geoagmet.run``.
+
+    Parses the config first so the startup banner can surface the
+    actual countries / crops / paths / key knobs being used. Each square
+    bracket in a Rich Table cell is escaped with ``\\[`` because Rich
+    treats ``[...]`` as inline-style markup otherwise (this was the bug
+    that made the old "cfg" row render empty).
+    """
     from rich.console import Console
     from rich.panel import Panel
     from rich.table import Table
@@ -577,12 +1139,49 @@ def run(path_config_files=None):
     if path_config_files is None:
         path_config_files = []
 
+    # Parse first so the banner can show the real config values.
+    obj = ThresholdOptimizer(path_config_files)
+
+    from geocif import __version__ as _geocif_version
+
+    # Crops: per-country lists from the config, deduped + sorted.
+    all_crops = set()
+    for country in obj.countries:
+        if obj.parser.has_option(country, "crops"):
+            try:
+                all_crops.update(ast.literal_eval(obj.parser.get(country, "crops")))
+            except (ValueError, SyntaxError):
+                pass
+    crops_str = ", ".join(sorted(all_crops)) if all_crops else "(none configured)"
+
+    # Paths the user cares about.
+    sweep_input_root = obj.dir_output / "threshold_sweep"
+    summary_output_root = (
+        obj.dir_output / "ml" / "analysis" / obj.today_tag
+        / "threshold_sweep_summary"
+    )
+
+    def _esc(s):
+        # Escape opening brackets so Rich doesn't eat them as markup.
+        return str(s).replace("[", r"\[")
+
     console = Console()
     table = Table(show_header=False, box=None, padding=(0, 1))
     table.add_column(style="bold cyan", no_wrap=True)
     table.add_column()
-    table.add_row("Usage", "from geocif import threshold_optimizer; threshold_optimizer.run(cfg)")
-    table.add_row("cfg", "[geobase.txt, countries.txt, crops.txt, geocif.txt]")
+    table.add_row("Version", f"geocif {_geocif_version}")
+    table.add_row(
+        "Usage",
+        r"from geocif import threshold_optimizer; threshold_optimizer.run(cfg)",
+    )
+    table.add_row("Countries", _esc(", ".join(obj.countries) or "(none)"))
+    table.add_row("Crops", _esc(crops_str))
+    table.add_row("agg_method", obj.agg_method)
+    table.add_row("metric", obj.metric_name)
+    table.add_row("max_fallback_share", str(obj.max_fallback_share))
+    table.add_row("plot", str(obj.do_plot))
+    table.add_row("Sweep input root", _esc(sweep_input_root))
+    table.add_row("Summary output", _esc(summary_output_root))
     console.print(Panel(
         table,
         title="[bold bright_white]GeoCIF Threshold-Sweep Optimizer[/]",
@@ -590,5 +1189,4 @@ def run(path_config_files=None):
         padding=(1, 2),
     ))
 
-    obj = ThresholdOptimizer(path_config_files)
     obj.main()

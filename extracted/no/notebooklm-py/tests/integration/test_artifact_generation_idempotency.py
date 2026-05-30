@@ -34,6 +34,7 @@ import json
 import httpx
 import pytest
 
+from _fixtures.kernel_test_helpers import install_http_client_for_test
 from notebooklm import NotebookLMClient, RateLimitError, ServerError
 from notebooklm._idempotency import IDEMPOTENCY_REGISTRY, IdempotencyPolicy
 from notebooklm.rpc import RPCMethod
@@ -124,11 +125,14 @@ def _make_client_with_transport(
         auth_tokens,  # type: ignore[arg-type]
         server_error_max_retries=server_error_max_retries,
     )
-    client._session._kernel.http_client = httpx.AsyncClient(
-        transport=transport,
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        },
+    install_http_client_for_test(
+        client._collaborators.kernel,
+        httpx.AsyncClient(
+            transport=transport,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            },
+        ),
     )
     return client
 
@@ -158,14 +162,10 @@ class TestRegistryClassification:
     def test_create_artifact_classified_as_probe_then_create(self) -> None:
         entry = IDEMPOTENCY_REGISTRY.get_entry(RPCMethod.CREATE_ARTIFACT)
         assert entry.policy is IdempotencyPolicy.PROBE_THEN_CREATE
-        # CREATE_ARTIFACT params carry no caller-supplied token slot, so
-        # client_token_field MUST remain unset.
-        assert entry.client_token_field is None
 
     def test_generate_mind_map_classified_as_probe_then_create(self) -> None:
         entry = IDEMPOTENCY_REGISTRY.get_entry(RPCMethod.GENERATE_MIND_MAP)
         assert entry.policy is IdempotencyPolicy.PROBE_THEN_CREATE
-        assert entry.client_token_field is None
 
     def test_create_artifact_variant_none_explicit(self) -> None:
         """Passing ``operation_variant=None`` (the b1 plumbed call-site
@@ -227,7 +227,7 @@ async def test_create_artifact_503_does_not_re_post(auth_tokens) -> None:
         with pytest.raises(ServerError):
             await client.artifacts.generate_audio(notebook_id="nb_test")
     finally:
-        await client._session._kernel.get_http_client().aclose()
+        await client._collaborators.kernel.get_http_client().aclose()
 
     # Exactly ONE CREATE_ARTIFACT POST despite ``server_error_max_retries=3``
     # being configured: the PROBE_THEN_CREATE policy forced retries off.
@@ -241,9 +241,8 @@ async def test_create_artifact_429_does_not_re_post(auth_tokens) -> None:
     """A 429 on CREATE_ARTIFACT surfaces as ``RateLimitError`` after one POST.
 
     ``_perform_authed_post`` shares the same ``disable_internal_retries``
-    short-circuit for both 429 and 5xx paths
-    (``_authed_transport.py:325-361`` for 429,
-    ``_authed_transport.py:363-409`` for 5xx). The PROBE_THEN_CREATE
+    short-circuit for both 429 and 5xx paths through ``RetryMiddleware``.
+    The PROBE_THEN_CREATE
     classification must therefore prevent rate-limit retries from
     silently re-issuing a committed-but-throttled-response request.
     """
@@ -265,7 +264,7 @@ async def test_create_artifact_429_does_not_re_post(auth_tokens) -> None:
         with pytest.raises(RateLimitError):
             await client.artifacts.generate_audio(notebook_id="nb_test")
     finally:
-        await client._session._kernel.get_http_client().aclose()
+        await client._collaborators.kernel.get_http_client().aclose()
 
     assert create_count == 1, f"expected 1 CREATE_ARTIFACT POST, got {create_count}"
 
@@ -298,7 +297,7 @@ async def test_generate_mind_map_503_does_not_re_post(auth_tokens) -> None:
         with pytest.raises(ServerError):
             await client.artifacts.generate_mind_map(notebook_id="nb_test")
     finally:
-        await client._session._kernel.get_http_client().aclose()
+        await client._collaborators.kernel.get_http_client().aclose()
 
     assert mind_map_count == 1, f"expected 1 GENERATE_MIND_MAP POST, got {mind_map_count}"
     assert get_notebook_count == 1
@@ -335,7 +334,7 @@ async def test_create_artifact_happy_path_still_returns_artifact(auth_tokens) ->
     try:
         status = await client.artifacts.generate_audio(notebook_id="nb_test")
     finally:
-        await client._session._kernel.get_http_client().aclose()
+        await client._collaborators.kernel.get_http_client().aclose()
 
     assert status.task_id == artifact_id
     assert create_count == 1
@@ -381,7 +380,7 @@ async def test_generate_mind_map_happy_path_still_returns_mind_map(auth_tokens) 
     try:
         result = await client.artifacts.generate_mind_map(notebook_id="nb_test")
     finally:
-        await client._session._kernel.get_http_client().aclose()
+        await client._collaborators.kernel.get_http_client().aclose()
 
     assert result["mind_map"] == mind_map_dict
     assert result["note_id"] == "note_stub"

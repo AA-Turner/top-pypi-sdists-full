@@ -1,8 +1,7 @@
 """TracingMiddleware — innermost middleware in the Tier-12 chain.
 
 Per ADR-009 §"Chain ordering" and master plan §2, ``TracingMiddleware`` is
-the **innermost** wrapper around the transport leaf (``Kernel.post`` after
-PR 13.2, ``AuthedTransport.perform_authed_post`` until then). It logs one
+the **innermost** wrapper around the ``Kernel.post`` transport leaf. It logs one
 "starting" record before invoking ``next_call`` and one "completed"
 (success) or "failed" (exception) record after, capturing per-attempt
 HTTP-level visibility — including retry attempts, which is why it sits
@@ -17,13 +16,13 @@ sees exactly what the leaf returned.
 Trace record fields (emitted via ``logger.<level>(..., extra={...})`` so
 structured-logging consumers see them as ``LogRecord`` attributes):
 
-- ``rpc_method`` — value of ``request.context.get("rpc_method")``. Populated
+- ``rpc_method`` — value of ``RPC_CONTEXT_RPC_METHOD``. Populated
   as of PR 12.4 (via ``Session._perform_authed_post``'s ``rpc_method``
-  kwarg, passed by ``RpcExecutor.execute``). ``None`` only for the chat
+  kwarg, passed by ``RpcExecutor._execute_once``). ``None`` only for the chat
   streaming path (``_chat_transport.send_authed_post`` — chat-side
   requests are not classified RPCs) and for ``__new__``-built fixtures
   driving the chain directly.
-- ``log_label`` — value of ``request.context.get("log_label")``. The
+- ``log_label`` — value of ``RPC_CONTEXT_LOG_LABEL``. The
   empty middleware chain wired in PR 12.2 always populates this key (it
   is one of the three transport-call kwargs). May be ``None`` only for a
   ``__new__``-built fixture exercising a malformed request.
@@ -56,6 +55,7 @@ import logging
 import time
 
 from ._middleware import NextCall, RpcRequest, RpcResponse
+from ._middleware_context import RPC_CONTEXT_LOG_LABEL, RPC_CONTEXT_RPC_METHOD
 
 logger = logging.getLogger("notebooklm.middleware.tracing")
 
@@ -91,8 +91,8 @@ class TracingMiddleware:
         ``None`` for the chat streaming path.
         """
         context = request.context
-        rpc_method = context.get("rpc_method")
-        log_label = context.get("log_label")
+        rpc_method = context.get(RPC_CONTEXT_RPC_METHOD)
+        log_label = context.get(RPC_CONTEXT_LOG_LABEL)
         # ``base_extra`` is the per-attempt structured-logging keyset shared
         # across the three records this middleware emits. Each terminal
         # record (completed / failed) augments it with record-specific

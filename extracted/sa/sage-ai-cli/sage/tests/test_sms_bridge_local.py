@@ -108,3 +108,47 @@ def test_send_macos_sms(monkeypatch):
     args = sub.calls[0]
     assert args[0] == "osascript"
     assert "SMS" in args[2]
+
+
+def test_international_phone_normalization():
+    from sage.core.sms_bridge import _normalize_e164_globally
+    # US/Canada numbers
+    assert _normalize_e164_globally("4085073140") == "+14085073140"
+    assert _normalize_e164_globally("+14085073140") == "+14085073140"
+    assert _normalize_e164_globally("14085073140") == "+14085073140"
+    
+    # International numbers
+    assert _normalize_e164_globally("+447123456789") == "+447123456789"
+    assert _normalize_e164_globally("447123456789") == "+447123456789"
+    assert _normalize_e164_globally("+491701234567") == "+491701234567"
+    assert _normalize_e164_globally("491701234567") == "+491701234567"
+    
+    # Non-phone/empty
+    assert _normalize_e164_globally("abc") == ""
+    assert _normalize_e164_globally("") == ""
+
+
+def test_find_kdeconnect_cli_and_daemon_candidates(monkeypatch):
+    from sage.core.sms_bridge import _find_kdeconnect_cli
+    from sage.core.kdeconnect_listener import _find_kdeconnectd
+    
+    checked_paths = []
+    def mock_exists(path):
+        checked_paths.append(str(path))
+        return False
+        
+    monkeypatch.setattr("os.path.exists", mock_exists)
+    monkeypatch.setattr("shutil.which", lambda *a, **k: None)
+    
+    # Check CLI lookup candidates
+    _find_kdeconnect_cli()
+    cli_paths_str = " ".join(checked_paths)
+    assert "opt/homebrew" in cli_paths_str or "homebrew" in cli_paths_str
+    assert "KDE Connect" in cli_paths_str
+    
+    checked_paths.clear()
+    # Check Daemon lookup candidates
+    _find_kdeconnectd()
+    daemon_paths_str = " ".join(checked_paths)
+    assert "opt/homebrew" in daemon_paths_str or "homebrew" in daemon_paths_str
+    assert "KDE Connect" in daemon_paths_str

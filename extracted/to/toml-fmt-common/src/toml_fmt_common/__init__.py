@@ -246,7 +246,12 @@ def build_cli(of: TOMLFormatter[T]) -> tuple[ArgumentParser, Mapping[str, Callab
         metavar="path",
     )
 
-    format_group = parser.add_argument_group("formatting behavior")
+    # conflict_handler="resolve": released consumers (pyproject-fmt <=2.21.2) re-register
+    # these same flags in their add_format_flags, since 1.3.2 didn't define them here.
+    # Resolving lets the consumer's identical definition override ours instead of raising
+    # ArgumentError, so a fresh resolve of toml-fmt-common doesn't break them
+    # (tox-dev/toml-fmt#355).
+    format_group = parser.add_argument_group("formatting behavior", conflict_handler="resolve")
     format_group.add_argument(
         "--column-width",
         type=int,
@@ -399,10 +404,16 @@ def _color_diff(diff: Iterable[str]) -> Iterable[str]:
             yield line
 
 
+# Backwards-compatibility alias: build_cli was named _build_cli through 1.3.2 and every
+# released pyproject-fmt/tox-toml-fmt imports that name. Keep it so a fresh resolve of
+# this package does not break already-published consumers (tox-dev/toml-fmt#355).
+_build_cli = build_cli
+
 __all__ = [
     "ArgumentGroup",
     "FmtNamespace",
     "TOMLFormatter",
+    "_build_cli",
     "build_cli",
     "list_argument",
     "run",

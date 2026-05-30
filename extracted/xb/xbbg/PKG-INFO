@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbbg
-Version: 1.2.4
+Version: 1.2.5
 Summary: Independent client for Bloomberg-connected data workflows
 Author-email: Alpha x1 <alpha.xone@outlook.com>
 License-Expression: Apache-2.0
@@ -56,6 +56,7 @@ Dynamic: license-file
 
 [![PyPI version](https://img.shields.io/pypi/v/xbbg.svg)](https://pypi.org/project/xbbg/)
 [![Python versions](https://img.shields.io/pypi/pyversions/xbbg.svg)](https://pypi.org/project/xbbg/)
+[![Conda version](https://anaconda.org/conda-forge/xbbg/badges/version.svg)](https://anaconda.org/conda-forge/xbbg)
 [![Downloads](https://pepy.tech/badge/xbbg)](https://pepy.tech/project/xbbg)
 [![CI](https://github.com/alpha-xone/xbbg/actions/workflows/ci-rust.yml/badge.svg)](https://github.com/alpha-xone/xbbg/actions/workflows/ci-rust.yml)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/P34uMwgCjC)
@@ -67,7 +68,7 @@ Dynamic: license-file
 ---
 
 <!-- xbbg:latest-release-start -->
-Latest release: xbbg==1.2.4 (release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v1.2.4))
+Latest release: xbbg==1.2.5 (release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v1.2.5))
 <!-- xbbg:latest-release-end -->
 
 > This `main` branch is the Rust-powered v1 release. For the legacy pure-Python line, use [`release/0.x`](https://github.com/alpha-xone/xbbg/tree/release/0.x).
@@ -132,6 +133,12 @@ That makes xbbg the best fit in this comparison for teams that want one Bloomber
 
 ```cmd
 pip install xbbg
+```
+
+Conda users can install the conda-forge build:
+
+```cmd
+conda install -c conda-forge xbbg
 ```
 
 Most users should also install Bloomberg's official Python package so xbbg can locate the Bloomberg SDK/runtime:
@@ -227,6 +234,20 @@ const ref = await xbbg.blp.abdp(['AAPL US Equity'], ['PX_LAST', 'SECURITY_NAME']
 ```
 
 See [`js-xbbg/README.md`](js-xbbg/README.md) for platform packaging, runtime prerequisites, and the current alpha API surface.
+
+For LangChain and LangGraph agents, use [`@xbbg/langgraph`](js-xbbg-langgraph/README.md). It exposes reusable server-side Bloomberg tools backed by `@xbbg/core` without making MCP, a chat app, or a browser integration the core path:
+
+```bash
+npm install @xbbg/langgraph @xbbg/core @langchain/core
+```
+
+```ts
+import { createAllBloombergTools, BLOOMBERG_TOOL_INSTRUCTIONS } from '@xbbg/langgraph';
+
+const tools = createAllBloombergTools({ maxSecurities: 10, maxFields: 10 });
+```
+
+Use the existing [`apps/xbbg-mcp`](apps/xbbg-mcp/README.md) package only when you specifically need MCP.
 
 ## Configuration and engines
 
@@ -473,6 +494,7 @@ Publishing is handled through GitHub Actions and PyPI Trusted Publishing.
 
 - Documentation: [xbbg.org](https://xbbg.org/)
 - JavaScript/Node bindings: [js-xbbg/README.md](js-xbbg/README.md)
+- LangChain/LangGraph tools: [js-xbbg-langgraph/README.md](js-xbbg-langgraph/README.md)
 - PyPI: [pypi.org/project/xbbg](https://pypi.org/project/xbbg/)
 - Source: [github.com/alpha-xone/xbbg](https://github.com/alpha-xone/xbbg)
 - Issues: [GitHub Issues](https://github.com/alpha-xone/xbbg/issues)

@@ -1,0 +1,20 @@
+# L0 canonical acceptance scenario — cli-todo
+#
+# This scenario exercises the simplest end-to-end shape: a single-binary
+# CLI tool with deterministic stdout. The expected metadata below pins
+# what the auto pipeline must derive (`domain_class`) and how the
+# acceptance gate verifies the artifact (`completion_mode`,
+# `runtime_probe_kinds`).
+#
+# These values are validated against the L1 `TaskClassProfile` catalog
+# by `tests/canonical/test_canonical.py`.
+
+domain_class: cli
+completion_mode: product_complete
+
+runtime_probe_kinds:
+  - headless_run
+  - stdout_golden
+
+# 30-minute soft budget honored by the opt-in live canonical runner.
+wall_clock_budget_seconds: 1800

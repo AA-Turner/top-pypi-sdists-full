@@ -2,9 +2,11 @@ from typing import Any, Dict, Iterable, Optional
 
 from clipped.utils.enums import get_enum_value
 from clipped.utils.paths import delete_path
-
 from polyaxon import settings
-from polyaxon._auxiliaries import V1PolyaxonInitContainer, V1PolyaxonSidecarContainer
+from polyaxon._auxiliaries import (
+    V1PolyaxonInitContainer,
+    V1PolyaxonSidecarContainer,
+)
 from polyaxon._compiler import resolver
 from polyaxon._compiler.resolver import AgentResolver
 from polyaxon._connections import V1Connection, V1ConnectionResource

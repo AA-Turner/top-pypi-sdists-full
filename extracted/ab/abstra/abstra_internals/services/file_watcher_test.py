@@ -127,10 +127,49 @@ class TestFileWatcherShouldIgnorePath(unittest.TestCase):
         self.assertFalse(self.watcher.should_ignore_path(Path("/project/README.md")))
         self.assertFalse(self.watcher.should_ignore_path(Path("/project/config.json")))
 
-    def test_do_not_ignore_git_config_without_lock(self):
-        """Test that .git/config (without .lock) is not ignored."""
-        self.assertFalse(self.watcher.should_ignore_path(Path("/project/.git/config")))
-        self.assertFalse(self.watcher.should_ignore_path(Path("/project/.git/HEAD")))
+    def test_do_not_ignore_persistent_files(self):
+        """Test that .abstra/persistent is user data and not ignored."""
+        self.assertFalse(
+            self.watcher.should_ignore_path(Path("/project/.abstra/persistent"))
+        )
+        self.assertFalse(
+            self.watcher.should_ignore_path(
+                Path("/project/.abstra/persistent/file.txt")
+            )
+        )
+        self.assertFalse(
+            self.watcher.should_ignore_path(
+                Path("/project/.abstra/persistent/sub/dir/data.csv")
+            )
+        )
+        win_path = PureWindowsPath(r"C:\project\.abstra\persistent\data.bin")
+        self.assertFalse(self.watcher.should_ignore_path(win_path))
+
+    def test_still_ignore_other_abstra_subdirs(self):
+        """Test that non-persistent .abstra/ subdirs remain ignored."""
+        self.assertTrue(
+            self.watcher.should_ignore_path(Path("/project/.abstra/cache/foo"))
+        )
+        self.assertTrue(
+            self.watcher.should_ignore_path(Path("/project/.abstra/executions/log.txt"))
+        )
+        self.assertTrue(
+            self.watcher.should_ignore_path(
+                Path("/project/.abstra/persistent-other/foo")
+            )
+        )
+
+    def test_ignore_all_git_internals(self):
+        """The whole .git/ dir is ignored: no consumer reacts to .git/* events
+        and they cause a refetch loop (get_status rewrites .git/config). Git
+        state reaches the UI via GitController's explicit ".git" broadcast."""
+        self.assertTrue(self.watcher.should_ignore_path(Path("/project/.git/config")))
+        self.assertTrue(self.watcher.should_ignore_path(Path("/project/.git/HEAD")))
+        self.assertTrue(self.watcher.should_ignore_path(Path("/project/.git/index")))
+        # ".git" lookalikes outside the .git dir must NOT be ignored
+        self.assertFalse(
+            self.watcher.should_ignore_path(Path("/project/.github/workflows/ci.yml"))
+        )
 
     def test_windows_paths_with_backslashes(self):
         """Test that Windows paths with backslashes are handled correctly."""

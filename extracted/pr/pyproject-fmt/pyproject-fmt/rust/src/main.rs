@@ -13,13 +13,43 @@ mod build_system;
 mod dependency_groups;
 mod project;
 
+mod autopep8;
+mod bandit;
+mod black;
+mod bumpversion;
+mod check_manifest;
+mod cibuildwheel;
+mod codespell;
+mod commitizen;
 mod coverage;
+mod deptry;
+mod djlint;
+mod docformatter;
 mod global;
+mod hatch;
+mod interrogate;
+mod isort;
+mod maturin;
+mod mypy;
+mod pdm;
 mod pixi;
+mod poetry;
+mod pylint;
+mod pyrefly;
+mod pyright;
+mod pytest;
 mod ruff;
+mod scikit_build;
+mod semantic_release;
+mod setuptools;
 #[cfg(test)]
 mod tests;
+mod towncrier;
+mod tox;
+mod ty;
 mod uv;
+mod vulture;
+mod yapf;
 
 #[pyclass(frozen, get_all)]
 pub struct Settings {
@@ -30,6 +60,8 @@ pub struct Settings {
     min_supported_python: (u8, u8),
     generate_python_version_classifiers: bool,
     table_format: String,
+    sub_table_spacing: String,
+    separate_root_table: String,
     expand_tables: Vec<String>,
     collapse_tables: Vec<String>,
     skip_wrap_for_keys: Vec<String>,
@@ -39,7 +71,7 @@ pub struct Settings {
 impl Settings {
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (*, column_width, indent, keep_full_version, max_supported_python, min_supported_python, generate_python_version_classifiers, table_format, expand_tables, collapse_tables, skip_wrap_for_keys))]
+    #[pyo3(signature = (*, column_width, indent, keep_full_version, max_supported_python, min_supported_python, generate_python_version_classifiers, table_format, sub_table_spacing, separate_root_table, expand_tables, collapse_tables, skip_wrap_for_keys))]
     fn new(
         column_width: usize,
         indent: usize,
@@ -48,6 +80,8 @@ impl Settings {
         min_supported_python: (u8, u8),
         generate_python_version_classifiers: bool,
         table_format: String,
+        sub_table_spacing: String,
+        separate_root_table: String,
         expand_tables: Vec<String>,
         collapse_tables: Vec<String>,
         skip_wrap_for_keys: Vec<String>,
@@ -60,6 +94,8 @@ impl Settings {
             min_supported_python,
             generate_python_version_classifiers,
             table_format,
+            sub_table_spacing,
+            separate_root_table,
             expand_tables,
             collapse_tables,
             skip_wrap_for_keys,
@@ -157,8 +193,47 @@ pub fn format_toml(content: &str, opt: &Settings) -> String {
     ruff::fix(&mut tables);
     uv::fix(&mut tables);
     pixi::fix(&mut tables);
+    commitizen::fix(&mut tables);
+    poetry::fix(&mut tables);
+    mypy::fix(&mut tables);
+    setuptools::fix(&mut tables);
+    pytest::fix(&mut tables);
+    black::fix(&mut tables);
+    hatch::fix(&mut tables);
+    isort::fix(&mut tables);
+    pyright::fix(&mut tables);
+    pdm::fix(&mut tables);
+    cibuildwheel::fix(&mut tables);
+    tox::fix(&mut tables);
+    bandit::fix(&mut tables);
+    maturin::fix(&mut tables);
+    codespell::fix(&mut tables);
+    towncrier::fix(&mut tables);
+    pylint::fix(&mut tables);
+    djlint::fix(&mut tables);
+    yapf::fix(&mut tables);
+    check_manifest::fix(&mut tables);
+    pyrefly::fix(&mut tables);
+    semantic_release::fix(&mut tables);
+    scikit_build::fix(&mut tables);
+    bumpversion::fix(&mut tables);
+    interrogate::fix(&mut tables);
+    docformatter::fix(&mut tables);
+    vulture::fix(&mut tables);
+    autopep8::fix(&mut tables);
+    deptry::fix(&mut tables);
+    ty::fix(&mut tables);
     coverage::fix(&mut tables);
-    reorder_tables(&root_ast, &tables);
+    reorder_tables(&root_ast, &tables, &opt.separate_root_table, &opt.sub_table_spacing);
+    // Inline-table reordering runs AFTER reorder_tables so that AoT entries collapsed
+    // to inline arrays of inline tables (e.g. [[tool.poetry.source]] → source = [{...}])
+    // are visible in root_ast as INLINE_TABLE descendants.
+    poetry::reorder_inline_tables(&root_ast);
+    // mypy needs to walk the AST after AoT entries (`[[tool.mypy.overrides]]`) collapse
+    // into inline-array form via reorder_tables.
+    mypy::reorder_inline_tables(&root_ast);
+    setuptools::reorder_inline_tables(&root_ast);
+    tox::reorder_inline_tables(&root_ast);
     ensure_all_arrays_multiline(&root_ast, opt.column_width);
     common::string::wrap_all_long_strings(&root_ast, opt.column_width, &indent_string, &opt.skip_wrap_for_keys);
 
@@ -174,9 +249,7 @@ pub fn format_toml(content: &str, opt: &Settings) -> String {
     common::array::align_array_comments(&formatted_ast);
     let formatted = formatted_ast.to_string();
 
-    // Remove blank lines that tombi adds between tables in the same group
-    // but only when table_format is "long" (compact formatting)
-    let result = if opt.table_format == "long" {
+    let result = if opt.table_format == "long" && opt.sub_table_spacing.is_empty() {
         remove_blank_lines_between_same_group_tables(&formatted, &prefix_refs)
     } else {
         formatted

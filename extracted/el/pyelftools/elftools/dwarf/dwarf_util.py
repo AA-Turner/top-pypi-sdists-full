@@ -6,23 +6,41 @@
 # Eli Bendersky (eliben@gmail.com)
 # This code is in the public domain
 #-------------------------------------------------------------------------------
+from __future__ import annotations
 
-import os, binascii
-from ..construct.macros import UBInt32, UBInt64, ULInt32, ULInt64, Array
+import os
+import binascii
+from typing import IO, TYPE_CHECKING, Any
+
+from ..construct.macros import Array
 from ..common.exceptions import DWARFError
 from ..common.utils import preserve_stream_pos, struct_parse
 
-def _get_base_offset(cu, base_attribute_name):
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from ..construct import Struct
+    from .compileunit import CompileUnit
+    from .structs import DWARFStructs
+    from .typeunit import TypeUnit
+
+
+def _get_base_offset(cu: CompileUnit | TypeUnit, base_attribute_name: str) -> int:
     """Retrieves a required, base offset-type atribute
     from the top DIE in the CU. Applies to several indirectly
     encoded objects - range lists, location lists, strings, addresses.
     """
     cu_top_die = cu.get_top_DIE()
-    if not base_attribute_name in cu_top_die.attributes:
+    if base_attribute_name not in cu_top_die.attributes:
         raise DWARFError("The CU at offset 0x%x needs %s" % (cu.cu_offset, base_attribute_name))
     return cu_top_die.attributes[base_attribute_name].value
 
-def _resolve_via_offset_table(stream, cu, index, base_attribute_name):
+def _resolve_via_offset_table(
+    stream: IO[bytes],
+    cu: CompileUnit | TypeUnit,
+    index: int,
+    base_attribute_name: str,
+) -> int:
     """Given an index in the offset table and directions where to find it,
     retrieves an offset. Works for loclists, rnglists.
 
@@ -40,7 +58,11 @@ def _resolve_via_offset_table(stream, cu, index, base_attribute_name):
     with preserve_stream_pos(stream):
         return base_offset + struct_parse(cu.structs.the_Dwarf_offset, stream, base_offset + index*offset_size)
 
-def _iter_CUs_in_section(stream, structs, parser):
+def _iter_CUs_in_section(
+    stream: IO[bytes],
+    structs: DWARFStructs,
+    parser: Struct,
+) -> Iterator[Any]:
     """Iterates through the list of CU sections in loclists or rangelists. Almost identical structures there.
 
     get_parser is a lambda that takes structs, returns the parser
@@ -58,16 +80,16 @@ def _iter_CUs_in_section(stream, structs, parser):
         else:
             header['offsets'] = False
         yield header
-        offset = header.offset_after_length + header.unit_length   
+        offset = header.offset_after_length + header.unit_length
 
-def _file_crc32(file):
+def _file_crc32(file: IO[bytes]) -> int:
     """ Provided a readable binary stream, reads the stream to the end
         and computes the CRC32 checksum of its contents,
         with the initial value of 0.
     """
     d = file.read(4096)
     checksum = 0
-    while len(d):
+    while d:
         checksum = binascii.crc32(d, checksum)
         d = file.read(4096)
     return checksum

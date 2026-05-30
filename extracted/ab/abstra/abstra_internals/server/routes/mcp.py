@@ -33,7 +33,7 @@ def get_editor_bp(main_controller: MainController):
             main_controller.find_files_by_pattern,
             main_controller.grep_codebase,
             main_controller.search_file_with_context,
-            language_server_controller.analyze_python_syntax,
+            language_server_controller.analyze_python_syntax_file,
             main_controller.list_linter_issues,
             main_controller.read_file_with_pagination,
             main_controller.read_document,

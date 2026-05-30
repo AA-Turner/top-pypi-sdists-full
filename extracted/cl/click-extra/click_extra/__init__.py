@@ -52,6 +52,7 @@ Style = _styling_module.Style  # type: ignore[misc]
 del _styling_module
 
 from . import context
+from .accessibility import AccessibleOption
 from .colorize import (
     ColorOption,
     HelpExtraFormatter,
@@ -75,12 +76,15 @@ from .config import (
     NoConfigOption,
     ValidateConfigOption,
     ValidationError,
+    ValidationReport,
     flatten_config_keys,
     get_tool_config,
     normalize_config_keys,
+    run_config_validation,
 )
 from .context import ExtraContext
 from .decorators import (  # type: ignore[no-redef]
+    accessible_option,
     argument,
     color_option,
     command,
@@ -89,6 +93,7 @@ from .decorators import (  # type: ignore[no-redef]
     help_option,
     jobs_option,
     lazy_group,
+    man_option,
     no_config_option,
     option,
     show_params_option,
@@ -100,8 +105,15 @@ from .decorators import (  # type: ignore[no-redef]
     verbose_option,
     verbosity_option,
     version_option,
+    zero_exit_option,
 )
-from .jobs import CPU_COUNT, DEFAULT_JOBS, JobsOption
+from .execution import (
+    CPU_COUNT,
+    DEFAULT_JOBS,
+    JobsOption,
+    TimerOption,
+    ZeroExitOption,
+)
 from .logging import (
     ExtraFormatter,
     ExtraStreamHandler,
@@ -110,6 +122,13 @@ from .logging import (
     VerbosityOption,
     extraBasicConfig,
     new_extra_logger,
+)
+from .man_page import (
+    ManOption,
+    ManPage,
+    render_manpage,
+    render_manpages,
+    write_manpages,
 )
 from .parameters import (
     Argument,
@@ -143,7 +162,6 @@ from .theme import (
     set_default_theme,
     theme_registry,
 )
-from .timer import TimerOption
 from .version import ExtraVersionOption
 
 __all__ = [
@@ -163,6 +181,7 @@ __all__ = [
     "UUID",
     "VCS",
     "Abort",
+    "AccessibleOption",
     "Argument",
     "BadArgumentUsage",
     "BadOptionUsage",
@@ -204,6 +223,8 @@ __all__ = [
     "JobsOption",
     "LazyGroup",
     "LogLevel",
+    "ManOption",
+    "ManPage",
     "MissingParameter",
     "NoConfigOption",
     "NoSuchCommand",
@@ -230,9 +251,12 @@ __all__ = [
     "UsageError",
     "ValidateConfigOption",
     "ValidationError",
+    "ValidationReport",
     "VerboseOption",
     "VerbosityOption",
     "VersionOption",
+    "ZeroExitOption",
+    "accessible_option",
     "annotations",
     "argument",
     "clear",
@@ -269,6 +293,7 @@ __all__ = [
     "launch",
     "lazy_group",
     "make_pass_decorator",
+    "man_option",
     "new_extra_logger",
     "no_config_option",
     "normalize_config_keys",
@@ -286,7 +311,10 @@ __all__ = [
     "progressbar",
     "prompt",
     "register_theme",
+    "render_manpage",
+    "render_manpages",
     "render_table",
+    "run_config_validation",
     "search_params",
     "secho",
     "serialize_data",
@@ -305,6 +333,8 @@ __all__ = [
     "version_option",
     "warnings",
     "wrap_text",
+    "write_manpages",
+    "zero_exit_option",
 ]
 """Expose all of Click, Cloup and Click Extra.
 
@@ -314,13 +344,13 @@ __all__ = [
 """
 
 
-__version__ = "7.17.2"
+__version__ = "7.18.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "56c0259750c906056531517c9ec67aedece6ba43"
+__git_tag_sha__ = "2f3fa4f683df89d2b0abba5e84fb69164f00c98f"
 
 
 def __getattr__(name: str) -> object:

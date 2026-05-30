@@ -14,13 +14,25 @@ import pytest
 from notebooklm._source_upload import (
     SourceUploadPipeline,
     _extract_register_file_source_id,
+    _redact_upload_url,
     _transient_error_types_for_upload,
+    _validate_resumable_upload_url,
 )
+from notebooklm.exceptions import NetworkError, ValidationError
 from notebooklm.rpc import RPCError, RPCMethod
 from notebooklm.types import Source, SourceAddError
 
 
 class UploadRuntime:
+    """Test stub bundling ``rpc_call`` + ``operation_scope`` +
+    ``assert_bound_loop`` on a single object so one instance can be
+    passed as all three of :class:`SourceUploadPipeline`'s ``rpc`` /
+    ``drain`` / ``lifecycle`` collaborator slots. (The production
+    composite Protocol of the same name was retired together with its
+    adapter dataclass; this stub kept the historical name to minimise
+    churn across the test file.)
+    """
+
     def __init__(self) -> None:
         self.queue_waits: list[float] = []
         self.labels: list[str] = []
@@ -122,20 +134,134 @@ def make_pipeline(
     session = session or UploadRuntime()
     kernel = kernel or HttpRuntime()
     auth = auth or kernel
+    # The ``UploadRuntime`` test stub bundles ``rpc_call``,
+    # ``operation_scope``, and ``assert_bound_loop`` so a single instance
+    # structurally satisfies all three of the constructor's
+    # ``rpc`` / ``drain`` / ``lifecycle`` collaborator slots.
     return SourceUploadPipeline(
-        session,
-        kernel,
-        auth,  # type: ignore[arg-type]
+        rpc=session,  # type: ignore[arg-type]
+        drain=session,  # type: ignore[arg-type]
+        lifecycle=session,  # type: ignore[arg-type]
+        kernel=kernel,
+        auth=auth,  # type: ignore[arg-type]
         max_concurrent_uploads=max_concurrent_uploads,
         record_upload_queue_wait=session.record_upload_queue_wait,
         async_client_factory=async_client_factory,
     )
 
 
+def test_extract_register_file_source_id_accepts_known_response_shapes() -> None:
+    assert _extract_register_file_source_id([["src_123"]], "report.pdf") == "src_123"
+    assert _extract_register_file_source_id([[[["src_123"]]]], "report.pdf") == "src_123"
+    assert _extract_register_file_source_id({"SOURCE_ID": "src_123"}, "report.pdf") == "src_123"
+    assert (
+        _extract_register_file_source_id(
+            {"source": {"SOURCE_ID": "src_123", "SOURCE_NAME": "report.pdf"}},
+            "report.pdf",
+        )
+        == "src_123"
+    )
+    assert (
+        _extract_register_file_source_id([[[["src_123"], "report.pdf", [None]]]], "report.pdf")
+        == "src_123"
+    )
+    assert (
+        _extract_register_file_source_id([[[["report.pdf", ["src_456"], [None]]]]], "report.pdf")
+        == "src_456"
+    )
+    assert _extract_register_file_source_id([None, [[["src_789"]]]], "report.pdf") == "src_789"
+    assert (
+        _extract_register_file_source_id({"id": "src_123", "title": "report.pdf"}, "report.pdf")
+        == "src_123"
+    )
+
+
 def test_extract_register_file_source_id_skips_large_string_candidates() -> None:
     long_payload = " " + ("x" * 2000) + " "
 
-    assert _extract_register_file_source_id([long_payload, "src_123"], "report.pdf") == "src_123"
+    assert (
+        _extract_register_file_source_id(
+            {
+                "debug": {"SOURCE_ID": long_payload},
+                "source": {"SOURCE_ID": "src_123", "SOURCE_NAME": "report.pdf"},
+            },
+            "report.pdf",
+        )
+        == "src_123"
+    )
+
+
+def test_extract_register_file_source_id_rejects_ambiguous_nested_ids() -> None:
+    unrelated_uuid = "11111111-2222-3333-4444-555555555555"
+
+    assert (
+        _extract_register_file_source_id(
+            {"debug": [["trace", unrelated_uuid]], "status": "ok"},
+            "report.pdf",
+        )
+        is None
+    )
+    assert (
+        _extract_register_file_source_id(
+            {"debug": {"SOURCE_ID": unrelated_uuid}},
+            "report.pdf",
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://notebooklm.google.com/upload/_/?upload_id=session",
+        "https://notebooklm.google.com:443/upload/_/?upload_id=session",
+        "https://notebooklm.google.com/upload/_//?upload_id=session",
+    ],
+)
+def test_validate_resumable_upload_url_accepts_configured_upload_endpoint(url: str) -> None:
+    assert _validate_resumable_upload_url(url) == url
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        (
+            "https://user:pass@notebooklm.google.com/upload/_/?upload_id=SECRET_UPLOAD_ID",
+            "https://notebooklm.google.com/upload/_/?...",
+        ),
+        (
+            "https://user:pass@[2001:db8::1]:443/upload/_/?upload_id=SECRET_UPLOAD_ID",
+            "https://[2001:db8::1]:443/upload/_/?...",
+        ),
+        ("https://notebooklm.google.com:bad/upload/_/?upload_id=SECRET", "[REDACTED_UPLOAD_URL]"),
+    ],
+)
+def test_redact_upload_url_omits_userinfo_and_query_secrets(url: str, expected: str) -> None:
+    redacted = _redact_upload_url(url)
+
+    assert redacted == expected
+    assert "user" not in redacted
+    assert "pass" not in redacted
+    assert "SECRET" not in redacted
+
+
+@pytest.mark.parametrize(
+    ("url", "match"),
+    [
+        ("http://notebooklm.google.com/upload/_/?upload_id=session", "must use https"),
+        ("https://evil.example/upload/_/?upload_id=session", "host is not trusted"),
+        ("https://notebooklm.google.com/other/_/?upload_id=session", "path is not trusted"),
+        ("https://notebooklm.google.com/upload/_/", "exactly one non-empty upload_id"),
+        ("https://notebooklm.google.com/upload/_/?upload_id=", "exactly one non-empty upload_id"),
+        (
+            "https://notebooklm.google.com/upload/_/?upload_id=one&upload_id=two",
+            "exactly one non-empty upload_id",
+        ),
+    ],
+)
+def test_validate_resumable_upload_url_rejects_untrusted_shapes(url: str, match: str) -> None:
+    with pytest.raises(ValidationError, match=match):
+        _validate_resumable_upload_url(url)
 
 
 @pytest.mark.parametrize(
@@ -166,7 +292,8 @@ async def test_upload_semaphore_is_owned_per_pipeline() -> None:
 
 
 @pytest.mark.asyncio
-async def test_add_file_uses_late_bound_hooks_and_finishes_transport(
+async def test_add_file_uses_pipeline_steps_and_finishes_transport(
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
     file_path = tmp_path / "report.pdf"
@@ -175,25 +302,27 @@ async def test_add_file_uses_late_bound_hooks_and_finishes_transport(
     service = make_pipeline(runtime)
 
     register_file_source = AsyncMock(return_value="src_123")
-    start_resumable_upload = AsyncMock(return_value="https://upload.example.com/session")
+    start_resumable_upload = AsyncMock(
+        return_value="https://notebooklm.google.com/upload/_/?upload_id=session"
+    )
 
     async def upload_file_streaming(upload_url, file_obj, **kwargs):
-        assert upload_url == "https://upload.example.com/session"
+        assert upload_url == "https://notebooklm.google.com/upload/_/?upload_id=session"
         assert file_obj.read() == b"hello"
         assert kwargs["filename"] == "report.pdf"
         assert kwargs["total_bytes"] == 5
         file_obj.close()
 
+    monkeypatch.setattr(service, "register_file_source", register_file_source)
+    monkeypatch.setattr(service, "start_resumable_upload", start_resumable_upload)
+    monkeypatch.setattr(service, "upload_file_streaming", upload_file_streaming)
+    monkeypatch.setattr(service, "wait_until_ready", AsyncMock())
+    monkeypatch.setattr(service, "wait_until_registered", AsyncMock())
+    monkeypatch.setattr(service, "rename", AsyncMock())
+
     source = await service.add_file(
         "nb_123",
         file_path,
-        register_file_source=register_file_source,
-        start_resumable_upload=start_resumable_upload,
-        upload_file_streaming=upload_file_streaming,
-        wait_until_ready=AsyncMock(),
-        wait_until_registered=AsyncMock(),
-        rename=AsyncMock(),
-        logger=MagicMock(),
     )
 
     assert source.id == "src_123"
@@ -208,8 +337,47 @@ async def test_add_file_uses_late_bound_hooks_and_finishes_transport(
     )
 
 
+@pytest.mark.parametrize(
+    ("filename", "mime_type"),
+    [
+        ("article.html", None),
+        ("ARTICLE.HTML", None),
+        ("article.htm", None),
+        ("article.xhtml", None),
+        ("article.xht", None),
+        ("article.txt", "text/html"),
+        ("article.txt", "Text/HTML; charset=utf-8"),
+        ("article.xhtml", "application/xhtml+xml"),
+    ],
+)
 @pytest.mark.asyncio
-async def test_add_file_operation_scope_wraps_sources_semaphore_wait(tmp_path) -> None:
+async def test_add_file_rejects_html_before_registering_source(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    filename: str,
+    mime_type: str | None,
+) -> None:
+    file_path = tmp_path / filename
+    file_path.write_text("<html><body><h1>Article</h1></body></html>", encoding="utf-8")
+    service = make_pipeline()
+    register_file_source = AsyncMock(return_value="src_123")
+    start_resumable_upload = AsyncMock()
+
+    monkeypatch.setattr(service, "register_file_source", register_file_source)
+    monkeypatch.setattr(service, "start_resumable_upload", start_resumable_upload)
+    monkeypatch.setattr(service, "upload_file_streaming", AsyncMock())
+
+    with pytest.raises(ValidationError, match="HTML file uploads are not supported"):
+        await service.add_file("nb_123", file_path, mime_type=mime_type)
+
+    register_file_source.assert_not_awaited()
+    start_resumable_upload.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_add_file_operation_scope_wraps_sources_semaphore_wait(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
     first_file = tmp_path / "first.pdf"
     second_file = tmp_path / "second.pdf"
     first_file.write_bytes(b"first")
@@ -225,17 +393,24 @@ async def test_add_file_operation_scope_wraps_sources_semaphore_wait(tmp_path) -
             await release_first_streaming.wait()
         file_obj.close()
 
+    register_file_source = AsyncMock(
+        side_effect=lambda _notebook_id, filename: f"src_{filename.removesuffix('.pdf')}"
+    )
+    monkeypatch.setattr(service, "register_file_source", register_file_source)
+    monkeypatch.setattr(
+        service,
+        "start_resumable_upload",
+        AsyncMock(return_value="https://notebooklm.google.com/upload/_/?upload_id=session"),
+    )
+    monkeypatch.setattr(service, "upload_file_streaming", upload_file_streaming)
+    monkeypatch.setattr(service, "wait_until_ready", AsyncMock())
+    monkeypatch.setattr(service, "wait_until_registered", AsyncMock())
+    monkeypatch.setattr(service, "rename", AsyncMock())
+
     async def add(path):
         return await service.add_file(
             "nb_123",
             path,
-            register_file_source=AsyncMock(return_value=f"src_{path.stem}"),
-            start_resumable_upload=AsyncMock(return_value="https://upload.example.com/session"),
-            upload_file_streaming=upload_file_streaming,
-            wait_until_ready=AsyncMock(),
-            wait_until_registered=AsyncMock(),
-            rename=AsyncMock(),
-            logger=MagicMock(),
         )
 
     first_task = asyncio.create_task(add(first_file))
@@ -257,6 +432,7 @@ async def test_add_file_operation_scope_wraps_sources_semaphore_wait(tmp_path) -
 
 @pytest.mark.asyncio
 async def test_add_file_custom_title_waits_for_registration_before_rename(
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
     file_path = tmp_path / "report.pdf"
@@ -271,18 +447,22 @@ async def test_add_file_custom_title_waits_for_registration_before_rename(
     async def upload_file_streaming(_upload_url, file_obj, **_kwargs):
         file_obj.close()
 
+    monkeypatch.setattr(service, "register_file_source", AsyncMock(return_value="src_123"))
+    monkeypatch.setattr(
+        service,
+        "start_resumable_upload",
+        AsyncMock(return_value="https://notebooklm.google.com/upload/_/?upload_id=session"),
+    )
+    monkeypatch.setattr(service, "upload_file_streaming", upload_file_streaming)
+    monkeypatch.setattr(service, "wait_until_ready", AsyncMock())
+    monkeypatch.setattr(service, "wait_until_registered", wait_until_registered)
+    monkeypatch.setattr(service, "rename", rename)
+
     source = await service.add_file(
         "nb_123",
         file_path,
         title="  Custom  ",
         wait_timeout=45.0,
-        register_file_source=AsyncMock(return_value="src_123"),
-        start_resumable_upload=AsyncMock(return_value="https://upload.example.com/session"),
-        upload_file_streaming=upload_file_streaming,
-        wait_until_ready=AsyncMock(),
-        wait_until_registered=wait_until_registered,
-        rename=rename,
-        logger=MagicMock(),
     )
 
     assert source == Source(id="src_123", title="Custom", _type_code=7, url="https://source")
@@ -364,10 +544,121 @@ async def test_register_file_source_status3_includes_source_limit_context(
 
 
 @pytest.mark.asyncio
-async def test_register_file_source_truncates_large_string_response_preview(
+async def test_register_file_source_uses_configured_source_limit_lookup(
+    service: SourceUploadPipeline,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rpc_error = RPCError(
+        "RPC o4cbdc returned null result with status code 3 (Invalid argument).",
+        method_id="o4cbdc",
+        rpc_code=3,
+    )
+    rpc = RecordingRpc(rpc_error)
+    existing_sources = [
+        Source(id=f"source_{index}", title=f"Source {index}") for index in range(56)
+    ]
+    list_sources = AsyncMock(return_value=existing_sources)
+    get_source_limit = AsyncMock(return_value=50)
+    monkeypatch.setattr(service, "list_sources", list_sources)
+    service.configure_source_limit_lookup(get_source_limit)
+
+    with pytest.raises(SourceAddError) as exc_info:
+        await service.register_file_source(
+            "nb_123",
+            "report.pdf",
+            rpc_call=rpc,
+        )
+
+    assert "56/50 sources" in str(exc_info.value)
+    list_sources.assert_awaited_once_with("nb_123")
+    get_source_limit.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_register_file_source_ambiguous_response_falls_back_to_probe(
     service: SourceUploadPipeline,
 ) -> None:
-    rpc = RecordingRpc("x" * 5000)
+    unrelated_uuid = "11111111-2222-3333-4444-555555555555"
+    rpc = RecordingRpc({"debug": [["trace", unrelated_uuid]], "status": "ok"})
+    list_sources = AsyncMock(
+        side_effect=[
+            [],
+            [Source(id="src_probe", title="report.pdf")],
+        ]
+    )
+
+    source_id = await service.register_file_source(
+        "nb_123",
+        "report.pdf",
+        rpc_call=rpc,
+        list_sources=list_sources,
+        logger=MagicMock(),
+    )
+
+    assert source_id == "src_probe"
+    assert [call.args for call in list_sources.await_args_list] == [
+        ("nb_123",),
+        ("nb_123",),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_register_file_source_pre_existing_response_id_falls_back_to_probe(
+    service: SourceUploadPipeline,
+) -> None:
+    rpc = RecordingRpc([["src_existing"]])
+    list_sources = AsyncMock(
+        side_effect=[
+            [Source(id="src_existing", title="old.pdf")],
+            [
+                Source(id="src_existing", title="old.pdf"),
+                Source(id="src_new", title="report.pdf"),
+            ],
+        ]
+    )
+
+    source_id = await service.register_file_source(
+        "nb_123",
+        "report.pdf",
+        rpc_call=rpc,
+        list_sources=list_sources,
+        logger=MagicMock(),
+    )
+
+    assert source_id == "src_new"
+
+
+@pytest.mark.asyncio
+async def test_register_file_source_probe_failure_is_typed_and_sanitized(
+    service: SourceUploadPipeline,
+) -> None:
+    unrelated_uuid = "11111111-2222-3333-4444-555555555555"
+    secret = "SECRET_UPLOAD_ID"
+    rpc = RecordingRpc({"debug": [["trace", unrelated_uuid]], "upload": secret})
+    list_sources = AsyncMock(side_effect=[[], NetworkError(f"network leaked {secret}")])
+
+    with pytest.raises(SourceAddError) as exc_info:
+        await service.register_file_source(
+            "nb_123",
+            "report.pdf",
+            rpc_call=rpc,
+            list_sources=list_sources,
+            logger=MagicMock(),
+        )
+
+    message = str(exc_info.value)
+    assert exc_info.value.cause is not None
+    assert "source-list probe failed (NetworkError)" in message
+    assert unrelated_uuid not in message
+    assert secret not in message
+
+
+@pytest.mark.asyncio
+async def test_register_file_source_sanitizes_untrusted_response_error(
+    service: SourceUploadPipeline,
+) -> None:
+    secret = "SECRET_UPLOAD_ID"
+    rpc = RecordingRpc(f"{secret}{'x' * 5000}")
 
     with pytest.raises(SourceAddError) as exc_info:
         await service.register_file_source(
@@ -379,7 +670,8 @@ async def test_register_file_source_truncates_large_string_response_preview(
         )
 
     message = str(exc_info.value)
-    assert "..." in message
+    assert "string registration response" in message
+    assert secret not in message
     assert "x" * 300 not in message
     assert len(message) < 320
 
@@ -387,7 +679,9 @@ async def test_register_file_source_truncates_large_string_response_preview(
 @pytest.mark.asyncio
 async def test_start_resumable_upload_uses_injected_http_client() -> None:
     response = MagicMock()
-    response.headers = {"x-goog-upload-url": "https://upload.example.com/session"}
+    response.headers = {
+        "x-goog-upload-url": "https://notebooklm.google.com/upload/_/?upload_id=session"
+    }
     response.raise_for_status = MagicMock()
     client = AsyncMock()
     client.post = AsyncMock(return_value=response)
@@ -405,9 +699,101 @@ async def test_start_resumable_upload_uses_injected_http_client() -> None:
         "application/pdf",
     )
 
-    assert upload_url == "https://upload.example.com/session"
+    assert upload_url == "https://notebooklm.google.com/upload/_/?upload_id=session"
     assert client_factory.call_args.kwargs["cookies"] is runtime.cookies
     request = client.post.await_args
     assert request.kwargs["headers"]["x-goog-upload-command"] == "start"
     assert request.kwargs["headers"]["x-goog-upload-header-content-type"] == "application/pdf"
     assert '"SOURCE_ID": "src_123"' in request.kwargs["content"]
+
+
+@pytest.mark.asyncio
+async def test_start_resumable_upload_rejects_untrusted_upload_header_url() -> None:
+    response = MagicMock()
+    response.headers = {"x-goog-upload-url": "https://evil.example/upload/_/?upload_id=secret"}
+    response.raise_for_status = MagicMock()
+    client = AsyncMock()
+    client.post = AsyncMock(return_value=response)
+    client_cm = AsyncMock()
+    client_cm.__aenter__.return_value = client
+    client_factory = MagicMock(return_value=client_cm)
+    runtime = HttpRuntime()
+    service = make_pipeline(kernel=runtime, auth=runtime, async_client_factory=client_factory)
+
+    with pytest.raises(SourceAddError, match="invalid resumable upload URL"):
+        await service.start_resumable_upload(
+            "nb_123",
+            "report.pdf",
+            12,
+            "src_123",
+            "application/pdf",
+        )
+
+
+@pytest.mark.asyncio
+async def test_upload_file_streaming_rejects_untrusted_url_before_post(tmp_path) -> None:
+    file_path = tmp_path / "report.pdf"
+    file_path.write_bytes(b"content")
+    client_factory = MagicMock()
+    runtime = HttpRuntime()
+    service = make_pipeline(kernel=runtime, auth=runtime, async_client_factory=client_factory)
+
+    with pytest.raises(ValidationError, match="host is not trusted"):
+        await service.upload_file_streaming(
+            "https://evil.example/upload/_/?upload_id=secret",
+            file_path,
+        )
+
+    client_factory.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_upload_file_streaming_redacts_upload_url_in_debug_logs(tmp_path) -> None:
+    file_path = tmp_path / "report.pdf"
+    file_path.write_bytes(b"content")
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    client = AsyncMock()
+    client.post = AsyncMock(return_value=response)
+    client_cm = AsyncMock()
+    client_cm.__aenter__.return_value = client
+    client_factory = MagicMock(return_value=client_cm)
+    runtime = HttpRuntime()
+    service = make_pipeline(kernel=runtime, auth=runtime, async_client_factory=client_factory)
+    logger = MagicMock()
+
+    await service.upload_file_streaming(
+        "https://notebooklm.google.com/upload/_/?upload_id=SECRET_UPLOAD_ID",
+        file_path,
+        logger=logger,
+    )
+
+    debug_messages = [str(call) for call in logger.debug.call_args_list]
+    assert all("SECRET_UPLOAD_ID" not in message for message in debug_messages)
+    assert any(
+        "https://notebooklm.google.com/upload/_/?..." in message for message in debug_messages
+    )
+
+
+@pytest.mark.asyncio
+async def test_cancel_upload_session_redacts_credentials_on_validation_failure() -> None:
+    client_factory = MagicMock()
+    runtime = HttpRuntime()
+    service = make_pipeline(kernel=runtime, auth=runtime, async_client_factory=client_factory)
+    logger = MagicMock()
+
+    await service.cancel_upload_session(
+        "https://alice:s3cr3t@notebooklm.google.com/upload/_/?upload_id=SECRET_UPLOAD_ID",
+        "https://notebooklm.google.com",
+        "0",
+        logger=logger,
+    )
+
+    client_factory.assert_not_called()
+    debug_messages = [str(call) for call in logger.debug.call_args_list]
+    assert any(
+        "https://notebooklm.google.com/upload/_/?..." in message for message in debug_messages
+    )
+    assert all("alice" not in message for message in debug_messages)
+    assert all("s3cr3t" not in message for message in debug_messages)
+    assert all("SECRET_UPLOAD_ID" not in message for message in debug_messages)

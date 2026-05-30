@@ -12,7 +12,7 @@ use tokio::sync::{mpsc, oneshot};
 use xbbg_core::BlpError;
 
 use super::worker::{WorkerCommand, WorkerHandle};
-use super::{BlpAsyncError, EngineConfig, RequestParams, WorkerHealth};
+use super::{BlpAsyncError, EngineConfig, PreparedRequest, WorkerHealth};
 
 struct RequestCancelGuard {
     cancelled: Arc<AtomicBool>,
@@ -41,6 +41,11 @@ impl Drop for RequestCancelGuard {
 }
 
 /// Pool of request workers with round-robin dispatch.
+///
+/// The public surface is limited to construction, health/introspection, and
+/// shutdown. Request dispatch is intentionally crate-private because correct
+/// preparation depends on [`super::Engine`]-owned schema, field-cache, and
+/// intraday-timezone state.
 pub struct RequestWorkerPool {
     /// Worker handles.
     workers: Vec<WorkerHandle>,
@@ -127,8 +132,12 @@ impl RequestWorkerPool {
         }
     }
 
-    /// Dispatch a request to an available worker and wait for the result.
-    pub async fn request(&self, params: RequestParams) -> Result<RecordBatch, BlpAsyncError> {
+    /// Dispatch a prepared request to an available worker and wait for the result.
+    pub(crate) async fn request(
+        &self,
+        request: PreparedRequest,
+    ) -> Result<RecordBatch, BlpAsyncError> {
+        let params = request.params();
         let max_attempts = 1 + self.config.retry_policy.max_retries as usize;
         let mut last_error = None;
 
@@ -157,11 +166,12 @@ impl RequestWorkerPool {
                 attempt = attempt,
                 "dispatching request"
             );
+            let worker_request = request.clone();
 
             if worker
                 .cmd_tx
-                .send(WorkerCommand::Request {
-                    params: params.clone(),
+                .send(WorkerCommand::PreparedRequest {
+                    request: worker_request,
                     reply: reply_tx,
                     cancelled: cancelled.clone(),
                 })
@@ -197,13 +207,14 @@ impl RequestWorkerPool {
         Err(last_error.unwrap_or(BlpAsyncError::ChannelClosed))
     }
 
-    /// Dispatch a streaming request to an available worker.
+    /// Dispatch a prepared streaming request to an available worker.
     ///
     /// Returns a receiver that will receive batches as they arrive.
-    pub async fn request_stream(
+    pub(crate) async fn request_stream(
         &self,
-        params: RequestParams,
+        request: PreparedRequest,
     ) -> Result<mpsc::Receiver<Result<RecordBatch, BlpError>>, BlpAsyncError> {
+        let params = request.params();
         let (stream_tx, stream_rx) = mpsc::channel(self.config.subscription_stream_capacity);
 
         let worker = self.next_healthy_worker()?;
@@ -215,8 +226,8 @@ impl RequestWorkerPool {
         );
         worker
             .cmd_tx
-            .send(WorkerCommand::RequestStream {
-                params,
+            .send(WorkerCommand::PreparedRequestStream {
+                request,
                 stream: stream_tx,
             })
             .await

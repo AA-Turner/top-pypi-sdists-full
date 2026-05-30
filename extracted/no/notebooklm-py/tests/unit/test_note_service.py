@@ -22,6 +22,7 @@ import pytest
 
 from _fixtures.fake_core import FakeSession, make_fake_core
 from notebooklm._note_service import NoteRowKind, NoteService
+from notebooklm.exceptions import RPCError
 from notebooklm.rpc import RPCMethod
 from notebooklm.types import Note
 
@@ -46,20 +47,26 @@ class TestFetchNoteRows:
     async def test_fetch_note_rows_filters_invalid_rows(
         self, service: NoteService, mock_session: FakeSession
     ) -> None:
-        mock_session.rpc_call.return_value = [
+        mock_session.rpc_executor.rpc_call.return_value = [
             [
                 ["note_1", "Content"],
+                [None, ["note_3", "Nested body", None, None, "Nested Title"]],
                 [],
                 "not-a-row",
                 [123, "Non-string ID"],
+                [None, "Non-nested note payload"],
                 ["note_2", "Content"],
             ]
         ]
 
         rows = await service.fetch_note_rows("nb_123")
 
-        assert rows == [["note_1", "Content"], ["note_2", "Content"]]
-        mock_session.rpc_call.assert_awaited_once_with(
+        assert rows == [
+            ["note_1", "Content"],
+            ["note_3", ["note_3", "Nested body", None, None, "Nested Title"]],
+            ["note_2", "Content"],
+        ]
+        mock_session.rpc_executor.rpc_call.assert_awaited_once_with(
             RPCMethod.GET_NOTES_AND_MIND_MAPS,
             ["nb_123"],
             source_path="/notebook/nb_123",
@@ -71,8 +78,22 @@ class TestFetchNoteRows:
     async def test_fetch_note_rows_returns_empty_for_malformed_payload(
         self, service: NoteService, mock_session: FakeSession, payload: object
     ) -> None:
-        mock_session.rpc_call.return_value = payload
+        mock_session.rpc_executor.rpc_call.return_value = payload
         assert await service.fetch_note_rows("nb_123") == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_note_rows_accepts_flat_row_container(
+        self, service: NoteService, mock_session: FakeSession
+    ) -> None:
+        mock_session.rpc_executor.rpc_call.return_value = [
+            ["note_1", "Content"],
+            ["deleted_note", None, 2],
+        ]
+
+        assert await service.fetch_note_rows("nb_123") == [
+            ["note_1", "Content"],
+            ["deleted_note", None, 2],
+        ]
 
 
 class TestClassifyRow:
@@ -143,7 +164,7 @@ class TestCrud:
     async def test_create_note_does_create_then_update(
         self, service: NoteService, mock_session: FakeSession
     ) -> None:
-        mock_session.rpc_call.side_effect = [[["note_123"]], None]
+        mock_session.rpc_executor.rpc_call.side_effect = [[["note_123"]], None]
 
         note = await service.create_note(
             "nb_123",
@@ -157,11 +178,12 @@ class TestCrud:
             title="Mind Map",
             content='{"children":[]}',
         )
-        assert mock_session.rpc_call.await_args_list == [
+        assert mock_session.rpc_executor.rpc_call.await_args_list == [
             call(
                 RPCMethod.CREATE_NOTE,
                 ["nb_123", "", [1], None, "Mind Map"],
                 source_path="/notebook/nb_123",
+                operation_variant="plain",
             ),
             call(
                 RPCMethod.UPDATE_NOTE,
@@ -172,17 +194,35 @@ class TestCrud:
         ]
 
     @pytest.mark.asyncio
-    async def test_create_note_returns_empty_id_when_server_omits_id(
+    async def test_create_note_raises_when_server_omits_id(
         self, service: NoteService, mock_session: FakeSession
     ) -> None:
-        mock_session.rpc_call.return_value = None
+        mock_session.rpc_executor.rpc_call.return_value = None
 
-        note = await service.create_note("nb_123", title="T", content="body")
+        # An unparseable CREATE_NOTE payload must surface as an error
+        # rather than a success-shaped ``Note(id="")`` (issue #1162).
+        with pytest.raises(RPCError, match="no usable note id"):
+            await service.create_note("nb_123", title="T", content="body")
 
-        assert note.id == ""
-        # Only CREATE_NOTE should fire; the UPDATE_NOTE skip avoids
+        # Only CREATE_NOTE should fire; bailing before UPDATE_NOTE avoids
         # poisoning a non-existent row.
-        assert mock_session.rpc_call.await_count == 1
+        assert mock_session.rpc_executor.rpc_call.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_create_note_accepts_operation_variant_kwarg(
+        self, service: NoteService, mock_session: FakeSession
+    ) -> None:
+        mock_session.rpc_executor.rpc_call.side_effect = [[["note_123"]], None]
+
+        await service.create_note(
+            "nb_123",
+            title="T",
+            content="body",
+            operation_variant="plain",
+        )
+
+        create_call = mock_session.rpc_executor.rpc_call.await_args_list[0]
+        assert create_call.kwargs["operation_variant"] == "plain"
 
     @pytest.mark.asyncio
     async def test_update_note_sends_existing_payload(
@@ -190,7 +230,7 @@ class TestCrud:
     ) -> None:
         await service.update_note("nb_123", "note_123", "Body", "Title")
 
-        mock_session.rpc_call.assert_awaited_once_with(
+        mock_session.rpc_executor.rpc_call.assert_awaited_once_with(
             RPCMethod.UPDATE_NOTE,
             ["nb_123", "note_123", [[["Body", "Title", [], 0]]]],
             source_path="/notebook/nb_123",
@@ -203,7 +243,7 @@ class TestCrud:
     ) -> None:
         assert await service.delete_note("nb_123", "note_123") is True
 
-        mock_session.rpc_call.assert_awaited_once_with(
+        mock_session.rpc_executor.rpc_call.assert_awaited_once_with(
             RPCMethod.DELETE_NOTE,
             ["nb_123", None, ["note_123"]],
             source_path="/notebook/nb_123",
@@ -227,7 +267,7 @@ class TestCreateNoteCancellation:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         service = NoteService(mock_session)
-        mock_session.rpc_call.return_value = [["note_123"]]
+        mock_session.rpc_executor.rpc_call.return_value = [["note_123"]]
         update_started = asyncio.Event()
         update_can_finish = asyncio.Event()
         update_finished = asyncio.Event()
@@ -307,7 +347,7 @@ class TestCreateNoteCancellation:
         the shield was supposed to protect against.
         """
         service = NoteService(mock_session)
-        mock_session.rpc_call.return_value = [["note_456"]]
+        mock_session.rpc_executor.rpc_call.return_value = [["note_456"]]
         update_started = asyncio.Event()
         update_can_finish = asyncio.Event()
         cleanup_started = asyncio.Event()

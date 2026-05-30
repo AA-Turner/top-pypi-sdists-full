@@ -107,6 +107,8 @@ class BuildReport:
     verify_reports: list[dict] = field(default_factory=list)
     stuck_features: list[str] = field(default_factory=list)
     install_ok: bool | None = None
+    build_ok: bool | None = None
+    runs_ok: bool | None = None
     tests_ok: bool | None = None
 
     def as_dict(self) -> dict:
@@ -310,6 +312,92 @@ def _missing_modules_from_log(log_text: str, project_root: Path) -> list[str]:
     return missing
 
 
+def _parse_fixes_from_llm(
+    raw: str,
+    relevant_files: list[Path],
+    missing_paths: list[str],
+    project_root: Path,
+) -> dict[str, str] | None:
+    """Tolerantly extract file updates from the LLM's raw response.
+
+    Handles JSON formatting with literal control characters, markdown code fence
+    block extractions with filepath comment markers, and single-file fallback.
+    """
+    raw_clean = _strip_reasoning_blocks(raw).strip()
+
+    # Safe relative paths helper
+    def _safe_relative(p: Path) -> str:
+        try:
+            return str(p.relative_to(project_root))
+        except ValueError:
+            try:
+                return str(p.relative_to(project_root.parent))
+            except ValueError:
+                return p.name
+
+    all_targets = [_safe_relative(p) for p in relevant_files] + missing_paths
+
+    # 1. Try to parse as JSON first (with strict=False to allow literal newlines/tabs)
+    start = raw_clean.find("{")
+    end = raw_clean.rfind("}")
+    if start != -1 and end != -1:
+        try:
+            fixes = json.loads(raw_clean[start : end + 1], strict=False)
+            if isinstance(fixes, dict) and fixes:
+                # Ensure at least one key matches a target file (exact, relative, or basename)
+                any_match = False
+                for k in fixes.keys():
+                    k_clean = str(k).lower()
+                    k_base = Path(k_clean).name
+                    for target in all_targets:
+                        t_lower = target.lower()
+                        t_base = Path(t_lower).name
+                        if k_clean == t_lower or k_base == t_base or t_lower in k_clean:
+                            any_match = True
+                            break
+                    if any_match:
+                        break
+                if any_match:
+                    return {str(k): str(v) for k, v in fixes.items()}
+        except Exception:
+            pass
+
+    # 2. Fallback 1: Extract code blocks from Markdown fences (supporting multiline indent)
+    blocks = re.findall(r"^[ \t]*```[a-zA-Z0-9+_-]*\n(.*?)\n^[ \t]*```", raw_clean, re.DOTALL | re.MULTILINE)
+    fixes: dict[str, str] = {}
+
+    def _find_target_in_block(block_content: str) -> str | None:
+        lines = block_content.splitlines()[:5]
+        for line in lines:
+            line_clean = line.strip().lower()
+            if not line_clean.startswith("#") and not line_clean.startswith("//") and not line_clean.startswith("/*"):
+                continue
+            for target in all_targets:
+                t_lower = target.lower()
+                t_base = Path(target).name.lower()
+                # Check if full path or file basename is explicitly mentioned in the comment line
+                if t_lower in line_clean or t_base in line_clean:
+                    return target
+        return None
+
+    for block in blocks:
+        target = _find_target_in_block(block)
+        if target:
+            fixes[target] = block
+
+    if fixes:
+        return fixes
+
+    # 3. Fallback 2: If there is exactly one target file and the output is a single block, return it
+    if len(all_targets) == 1:
+        target = all_targets[0]
+        clean_content = strip_code_fences(raw_clean)
+        if len(clean_content) > 10:
+            return {target: clean_content}
+
+    return None
+
+
 def _attempt_repair(
     project: DiscoveredProject,
     step: StepResult,
@@ -317,7 +405,7 @@ def _attempt_repair(
     generate: GenerateFn,
     log: ProgressFn,
 ) -> None:
-    """Ask the LLM to rewrite/create files using the failure log."""
+    """Ask the LLM to rewrite/create files using the failure log, retrying on validation failures."""
     relevant_files = _likely_files_for_step(project, step)
 
     # Include missing-module paths as files-to-create (they don't exist yet)
@@ -350,7 +438,7 @@ def _attempt_repair(
 
     # Shorter prompt = faster model response = faster overall build
     # Keep the error tail tight (1500 chars) and rely on context for file details
-    prompt = (
+    initial_prompt = (
         f"Fix a '{step.name}' failure in a {project.kind} project.\n\n"
         f"Error:\n```\n{step.log[-1500:]}\n```\n\n"
         f"Files:\n{context}\n"
@@ -360,71 +448,68 @@ def _attempt_repair(
         'Example: {"backend/app/main.py": "from fastapi import FastAPI\\napp=FastAPI()"}'
     )
 
-    try:
-        raw = generate(prompt)
-    except Exception as exc:  # noqa: BLE001 — verification loop must not crash
-        log(f"[repair] generate() raised: {exc}")
-        return
-
-    # Sanitize reasoning tags BEFORE we look for the JSON block. Without
-    # this, a model that emits `<thinking>...{...}...</thinking>` would
-    # confuse the JSON-extractor heuristic.
-    raw = _strip_reasoning_blocks(raw)
-
-    try:
-        # Extract JSON tolerantly
-        start = raw.find("{")
-        end = raw.rfind("}")
-        if start == -1 or end == -1:
-            return
-        fixes = json.loads(raw[start : end + 1])
-    except (json.JSONDecodeError, ValueError):
-        log(f"[repair] could not parse fix JSON for {step.name}")
-        return
-
-    if not isinstance(fixes, dict):
-        return
-
     from sage.core.pre_write_validator import validate_generated_file
 
-    for rel_path, new_content in fixes.items():
-        if not isinstance(new_content, str) or len(new_content) < 10:
-            continue
+    prompt = initial_prompt
+    for attempt in range(1, 4):
+        try:
+            raw = generate(prompt)
+        except Exception as exc:  # noqa: BLE001 — verification loop must not crash
+            log(f"[repair] generate() raised: {exc}")
+            return
 
-        # Protect template-owned files: sage controls these, the LLM
-        # has no business rewriting them. Without this guard the repair
-        # loop overwrote our pinned tsconfig.json with a broken one
-        # that referenced @types/jest and @types/zustand the project
-        # didn't have.
-        if rel_path in _PROTECTED_TEMPLATE_PATHS:
-            log(f"[repair] SKIP {rel_path} (protected template)")
-            continue
-
-        # ALWAYS sanitize each fix value — the model may have embedded
-        # a reasoning block inside the JSON string.
-        new_content = strip_code_fences(new_content)
-
-        # Pre-write validate the proposed fix. If it has obvious defects
-        # (truncation, syntax error, framework collision), skip — keep
-        # the existing file rather than overwrite it with something worse.
-        is_rn = "frontend/" in rel_path and project.kind == "node"
-        vresult = validate_generated_file(
-            new_content, rel_path, is_rn_frontend=is_rn
-        )
-        if not vresult.ok:
-            log(
-                f"[repair] SKIP {rel_path} — proposed fix failed validation: "
-                f"{vresult.errors[0][:80] if vresult.errors else 'unknown'}"
+        fixes = _parse_fixes_from_llm(raw, relevant_files, missing_paths, project.root)
+        if not fixes:
+            log(f"[repair] could not parse fix JSON/output for {step.name} (attempt {attempt}/3)")
+            prompt = (
+                initial_prompt
+                + "\n\n## Formatting feedback\n"
+                "Your previous response could not be parsed as a JSON object or raw code block. "
+                "Output ONLY a valid JSON object mapping filenames to their complete new contents as shown in the example."
             )
             continue
 
-        # Resolve relative to project root, NOT out_dir
-        target = project.root / rel_path
-        if not target.parent.exists():
-            target = project.root.parent / rel_path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(new_content, encoding="utf-8")
-        log(f"[repair] wrote {rel_path}")
+        all_ok = True
+        validation_errors = []
+        for rel_path, new_content in fixes.items():
+            if not isinstance(new_content, str) or len(new_content) < 10:
+                continue
+            if rel_path in _PROTECTED_TEMPLATE_PATHS:
+                continue
+            is_rn = "frontend/" in rel_path and project.kind == "node"
+            vresult = validate_generated_file(new_content, rel_path, is_rn_frontend=is_rn)
+            if not vresult.ok:
+                all_ok = False
+                for err in vresult.errors:
+                    validation_errors.append(f"- File `{rel_path}`: {err}")
+
+        if all_ok:
+            for rel_path, new_content in fixes.items():
+                if not isinstance(new_content, str) or len(new_content) < 10:
+                    continue
+                if rel_path in _PROTECTED_TEMPLATE_PATHS:
+                    log(f"[repair] SKIP {rel_path} (protected template)")
+                    continue
+
+                new_content = strip_code_fences(new_content)
+                target = project.root / rel_path
+                if not target.parent.exists():
+                    target = project.root.parent / rel_path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(new_content, encoding="utf-8")
+                log(f"[repair] wrote {rel_path}")
+            return
+        else:
+            log(f"[repair] attempt {attempt}/3 failed validation for {step.name}")
+            err_msg = "\n".join(validation_errors)
+            prompt = (
+                initial_prompt
+                + "\n\n## Your previous attempt failed validation with the following defects:\n"
+                + f"{err_msg}\n\n"
+                + "Please output the corrected files, fixing ALL of these defects."
+            )
+
+    log(f"[repair] exhausted all 3 attempts for {step.name}")
 
 
 def _likely_files_for_step(
@@ -672,10 +757,12 @@ def build_project_dynamic(
     )
 
     install_ok = all(r.install_ok in (True, None) for r in verify_reports)
+    build_ok = all(r.build_ok in (True, None) for r in verify_reports)
+    runs_ok = all(r.runs_ok in (True, None) for r in verify_reports)
     tests_ok = all(r.tests_ok in (True, None) for r in verify_reports)
 
     stuck = [r.feature for r in feature_results if r.stuck]
-    log(f"[6/6] complete. install_ok={install_ok} tests_ok={tests_ok} stuck={stuck}")
+    log(f"[6/6] complete. install_ok={install_ok} build_ok={build_ok} runs_ok={runs_ok} tests_ok={tests_ok} stuck={stuck}")
 
     report = BuildReport(
         title=plan.title,
@@ -693,12 +780,16 @@ def build_project_dynamic(
                     for s in r.steps
                 ],
                 "install_ok": r.install_ok,
+                "build_ok": r.build_ok,
+                "runs_ok": r.runs_ok,
                 "tests_ok": r.tests_ok,
             }
             for r in verify_reports
         ],
         stuck_features=stuck,
         install_ok=install_ok,
+        build_ok=build_ok,
+        runs_ok=runs_ok,
         tests_ok=tests_ok,
     )
 

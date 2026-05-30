@@ -10,6 +10,7 @@ from collections.abc import Iterator
 
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.core.cache import cache
+from django.http import HttpRequest
 
 from allauth.core import context
 from allauth.mfa import app_settings
@@ -32,6 +33,10 @@ def get_totp_secret(regenerate: bool = False) -> str:
     if not secret:
         secret = context.request.session[SECRET_SESSION_KEY] = generate_totp_secret()
     return secret
+
+
+def clear_totp_secret(request: HttpRequest) -> None:
+    request.session.pop(SECRET_SESSION_KEY, None)
 
 
 def yield_hotp_counters_from_time() -> Iterator[int]:

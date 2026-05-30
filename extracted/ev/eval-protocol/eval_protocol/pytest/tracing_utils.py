@@ -22,9 +22,61 @@ def default_fireworks_output_data_loader(config: DataLoaderConfig) -> DynamicDat
         # Use EP_REMOTE_API_KEY for fetching remote traces, falling back to FIREWORKS_API_KEY
         api_key = os.environ.get("EP_REMOTE_API_KEY") or os.environ.get("FIREWORKS_API_KEY")
         adapter = FireworksTracingAdapter(base_url=base_url, api_key=api_key)
-        return adapter.get_evaluation_rows(tags=[f"rollout_id:{config.rollout_id}"], max_retries=5)
+        return adapter.get_evaluation_rows(
+            tags=[f"rollout_id:{config.rollout_id}"],
+            max_retries=5,
+            include_payloads=config.include_payloads,
+        )
 
-    return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=filter_longest_conversation)
+    def preprocess_traces(rows: List[EvaluationRow]) -> List[EvaluationRow]:
+        filtered_rows = filter_longest_conversation(rows)
+        if config.include_payloads and filtered_rows:
+            _merge_payloads_into_longest_row(filtered_rows[0], rows)
+        return filtered_rows
+
+    return DynamicDataLoader(generators=[fetch_traces], preprocess_fn=preprocess_traces)
+
+
+def _merge_payloads_into_longest_row(longest_row: EvaluationRow, rows: List[EvaluationRow]) -> None:
+    """
+    Preserve per-turn payload-derived metadata after selecting the longest trace row.
+
+    Each trace row carries payloads for its final assistant turn. The longest row
+    keeps the full conversation, while its top-level execution metadata remains
+    the payload metadata for the final completion for backward compatibility.
+    """
+    target_assistants = longest_row.get_assistant_messages()
+    assistant_turn_payloads = []
+
+    for row in sorted(rows, key=lambda item: len(item.messages)):
+        source = row.last_assistant_message()
+        source_turn_index = len(row.get_assistant_messages()) - 1
+        if source_turn_index < 0 or source_turn_index >= len(target_assistants):
+            continue
+
+        if source and source.logprobs and not target_assistants[source_turn_index].logprobs:
+            target_assistants[source_turn_index].logprobs = source.logprobs
+
+        extra = row.execution_metadata.extra or {}
+        turn_payload = {
+            key: extra[key]
+            for key in (
+                "completion_logprobs",
+                "completion_token_ids",
+                "logprobs_metadata",
+                "routing_matrices",
+                "routing_metadata",
+            )
+            if key in extra
+        }
+        if turn_payload:
+            turn_payload["assistant_turn_index"] = source_turn_index
+            assistant_turn_payloads.append(turn_payload)
+
+    if assistant_turn_payloads:
+        if longest_row.execution_metadata.extra is None:
+            longest_row.execution_metadata.extra = {}
+        longest_row.execution_metadata.extra["assistant_turn_payloads"] = assistant_turn_payloads
 
 
 def build_fireworks_tracing_url(
@@ -99,7 +151,7 @@ def build_init_request(
     if not completion_params_dict.get("model"):
         raise ValueError("Model must be provided in completion_params")
 
-    # Extract base_url from completion_params
+    # Extract base_url from completion_params for tracing-gateway URL encoding
     completion_params_base_url: Optional[str] = completion_params_dict.get("base_url")
 
     # Strip non-OpenAI fields from messages
@@ -129,7 +181,7 @@ def build_init_request(
 
     # Build final model base URL with tracing metadata
     final_model_base_url = model_base_url
-    if model_base_url and ("tracing.fireworks.ai" in model_base_url or model_base_url.startswith("http://localhost")):
+    if model_base_url and ("tracing.fireworks.ai" in model_base_url or model_base_url.startswith("http://localhost") or "litellm-gateway" in model_base_url):
         final_model_base_url = build_fireworks_tracing_url(model_base_url, meta, completion_params_base_url)
 
     # Extract API key from environment or completion_params
@@ -148,13 +200,20 @@ def build_init_request(
 
 
 def update_row_with_remote_trace(
-    row: EvaluationRow, output_data_loader: Callable[[DataLoaderConfig], DynamicDataLoader], model_base_url: str
+    row: EvaluationRow,
+    output_data_loader: Callable[[DataLoaderConfig], DynamicDataLoader],
+    model_base_url: str,
+    include_payloads: bool = False,
 ) -> None:
     """Update row with remote trace data using output_data_loader (shared logic)."""
     if not row.execution_metadata.rollout_id:
         return None
 
-    loader_config = DataLoaderConfig(rollout_id=row.execution_metadata.rollout_id, model_base_url=model_base_url)
+    loader_config = DataLoaderConfig(
+        rollout_id=row.execution_metadata.rollout_id,
+        model_base_url=model_base_url,
+        include_payloads=include_payloads,
+    )
     data_loader = output_data_loader(loader_config)
     results = data_loader.load()
     output_rows: List[EvaluationRow] = [r for result in results for r in result.rows]

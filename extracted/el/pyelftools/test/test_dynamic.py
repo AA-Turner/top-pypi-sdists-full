@@ -19,7 +19,7 @@ class TestDynamicTag(unittest.TestCase):
 
     def test_requires_stringtable(self):
         with self.assertRaises(ELFError):
-            dt = DynamicTag('', None)
+            DynamicTag('', None)
 
     def test_tag_priority(self):
         for tag in _low_priority_D_TAG:
@@ -39,17 +39,16 @@ class TestDynamic(unittest.TestCase):
     def test_missing_sections(self):
         """Verify we can get dynamic strings w/out section headers"""
 
-        libs = []
         with open(os.path.join('test', 'testfiles_for_unittests',
                                'aarch64_super_stripped.elf'), 'rb') as f:
             elf = ELFFile(f)
-            for segment in elf.iter_segments():
-                if segment.header.p_type != 'PT_DYNAMIC':
-                    continue
-
-                for t in segment.iter_tags():
-                    if t.entry.d_tag == 'DT_NEEDED':
-                        libs.append(t.needed)
+            libs = [
+                t.needed
+                for segment in elf.iter_segments()
+                if segment.header.p_type == 'PT_DYNAMIC'
+                for t in segment.iter_tags()
+                if t.entry.d_tag == 'DT_NEEDED'
+            ]
 
         exp = ['libc.so.6']
         self.assertEqual(libs, exp)
@@ -79,7 +78,7 @@ class TestDynamic(unittest.TestCase):
         """ Verify we can read symbol table without SymbolTableSection but with
             a GNU symbol hash table"""
         with open(os.path.join('test', 'testfiles_for_unittests',
-                               'android_dyntags.elf'), 'rb') as f:
+                               'android_dyntags.so.elf'), 'rb') as f:
             elf = ELFFile(f)
             for segment in elf.iter_segments():
                 if segment.header.p_type != 'PT_DYNAMIC':
@@ -115,7 +114,7 @@ class TestDynamic(unittest.TestCase):
         f1 = extract_sunw(os.path.join('test', 'testfiles_for_unittests',
             'exe_solaris32_cc.sparc.elf'))
         f2 = extract_sunw(os.path.join('test', 'testfiles_for_unittests',
-            'android_dyntags.elf'))
+            'android_dyntags.so.elf'))
         self.assertEqual(f1, {'DT_SUNW_STRPAD', 'DT_SUNW_LDMACH'})
         self.assertEqual(f2, set())
 

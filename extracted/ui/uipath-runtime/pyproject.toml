@@ -1,11 +1,11 @@
 [project]
 name = "uipath-runtime"
-version = "0.10.3"
+version = "0.11.0"
 description = "Runtime abstractions and interfaces for building agents and automation scripts in the UiPath ecosystem"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
 dependencies = [
-  "uipath-core>=0.5.14, <0.6.0"
+  "uipath-core>=0.5.17, <0.6.0"
 ]
 classifiers = [
   "Intended Audience :: Developers",
@@ -95,11 +95,32 @@ addopts = "-ra -q --cov=src/uipath --cov-report=term-missing"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 
+[tool.coverage.run]
+source = ["src/uipath"]
+relative_files = true
+omit = [
+  "*/tests/*",
+  "*/__pycache__/*",
+  "*/site-packages/*",
+  "*/conftest.py",
+]
+
 [tool.coverage.report]
 show_missing = true
+precision = 2
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+  "@(abc\\.)?abstractmethod",
+]
 
-[tool.coverage.run]
-source = ["src"]
+[tool.uv]
+exclude-newer = "2 days"
+
+[tool.uv.exclude-newer-package]
+uipath-core = false
 
 [[tool.uv.index]]
 name = "testpypi"

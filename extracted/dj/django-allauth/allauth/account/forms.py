@@ -597,7 +597,9 @@ class ChangePasswordForm(PasswordVerificationMixin, UserForm):
         label=_("Current Password"), autocomplete="current-password"
     )
     password1 = SetPasswordField(label=_("New Password"))
-    password2 = PasswordField(label=_("New Password (again)"))
+    password2 = PasswordField(
+        label=_("New Password (again)"), autocomplete="new-password"
+    )
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -617,7 +619,7 @@ class ChangePasswordForm(PasswordVerificationMixin, UserForm):
 
 class SetPasswordForm(PasswordVerificationMixin, UserForm):
     password1 = SetPasswordField(label=_("Password"))
-    password2 = PasswordField(label=_("Password (again)"))
+    password2 = PasswordField(label=_("Password (again)"), autocomplete="new-password")
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -658,7 +660,9 @@ class ResetPasswordForm(forms.Form):
 
 class ResetPasswordKeyForm(PasswordVerificationMixin, forms.Form):
     password1 = SetPasswordField(label=_("New Password"))
-    password2 = PasswordField(label=_("New Password (again)"))
+    password2 = PasswordField(
+        label=_("New Password (again)"), autocomplete="new-password"
+    )
 
     def __init__(self, *args, **kwargs) -> None:
         self.user = kwargs.pop("user", None)

@@ -17,6 +17,7 @@ Usage::
         ListFirewallDomainsPaginator,
         ListFirewallRuleGroupAssociationsPaginator,
         ListFirewallRuleGroupsPaginator,
+        ListFirewallRuleTypesPaginator,
         ListFirewallRulesPaginator,
         ListOutpostResolversPaginator,
         ListResolverConfigsPaginator,
@@ -38,6 +39,7 @@ Usage::
     list_firewall_domains_paginator: ListFirewallDomainsPaginator = client.get_paginator("list_firewall_domains")
     list_firewall_rule_group_associations_paginator: ListFirewallRuleGroupAssociationsPaginator = client.get_paginator("list_firewall_rule_group_associations")
     list_firewall_rule_groups_paginator: ListFirewallRuleGroupsPaginator = client.get_paginator("list_firewall_rule_groups")
+    list_firewall_rule_types_paginator: ListFirewallRuleTypesPaginator = client.get_paginator("list_firewall_rule_types")
     list_firewall_rules_paginator: ListFirewallRulesPaginator = client.get_paginator("list_firewall_rules")
     list_outpost_resolvers_paginator: ListOutpostResolversPaginator = client.get_paginator("list_outpost_resolvers")
     list_resolver_configs_paginator: ListResolverConfigsPaginator = client.get_paginator("list_resolver_configs")
@@ -72,6 +74,8 @@ from .type_defs import (
     ListFirewallRuleGroupsResponseTypeDef,
     ListFirewallRulesRequestPaginateTypeDef,
     ListFirewallRulesResponseTypeDef,
+    ListFirewallRuleTypesRequestPaginateTypeDef,
+    ListFirewallRuleTypesResponseTypeDef,
     ListOutpostResolversRequestPaginateTypeDef,
     ListOutpostResolversResponseTypeDef,
     ListResolverConfigsRequestPaginateTypeDef,
@@ -106,6 +110,7 @@ __all__ = (
     "ListFirewallDomainsPaginator",
     "ListFirewallRuleGroupAssociationsPaginator",
     "ListFirewallRuleGroupsPaginator",
+    "ListFirewallRuleTypesPaginator",
     "ListFirewallRulesPaginator",
     "ListOutpostResolversPaginator",
     "ListResolverConfigsPaginator",
@@ -224,6 +229,27 @@ class ListFirewallRuleGroupsPaginator(_ListFirewallRuleGroupsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/paginator/ListFirewallRuleGroups.html#Route53Resolver.Paginator.ListFirewallRuleGroups.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53resolver/paginators/#listfirewallrulegroupspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListFirewallRuleTypesPaginatorBase = Paginator[ListFirewallRuleTypesResponseTypeDef]
+else:
+    _ListFirewallRuleTypesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListFirewallRuleTypesPaginator(_ListFirewallRuleTypesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/paginator/ListFirewallRuleTypes.html#Route53Resolver.Paginator.ListFirewallRuleTypes)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53resolver/paginators/#listfirewallruletypespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListFirewallRuleTypesRequestPaginateTypeDef]
+    ) -> PageIterator[ListFirewallRuleTypesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/paginator/ListFirewallRuleTypes.html#Route53Resolver.Paginator.ListFirewallRuleTypes.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53resolver/paginators/#listfirewallruletypespaginator)
         """
 
 

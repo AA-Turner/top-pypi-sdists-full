@@ -35,7 +35,7 @@ from ouroboros.auto.state import (
     AutoStore,
 )
 from ouroboros.events.base import BaseEvent
-from ouroboros.mcp.job_manager import JobLinks, JobManager, JobStatus
+from ouroboros.mcp.job_manager import JobLinks, JobManager, JobSnapshot, JobStatus
 from ouroboros.mcp.tools.query_handlers import SessionStatusHandler
 from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
 from ouroboros.persistence.event_store import EventStore
@@ -145,6 +145,42 @@ def test_happy_path_qa_passed_completes_auto(tmp_path) -> None:
     assert ralph["stop_reason"] == "qa passed"
     assert ralph["current_generation"] == 4
     assert ralph["lineage_id"] == state.ralph_lineage_id
+
+
+def test_mcp_auto_status_surfaces_pending_question_and_recent_answers(tmp_path) -> None:
+    """MCP session status mirrors CLI interview progress context."""
+    state = _state_at_run(tmp_path)
+    state.pending_question = "Which runtime should handle this?\nAny credentials?"
+    state.auto_answer_log = [
+        {
+            "round": 1,
+            "source": "user",
+            "question": "What is the goal?",
+            "answer": "Build the CLI.",
+        },
+        {
+            "round": 2,
+            "source": "auto",
+            "question": "Which runtime should handle this?",
+            "answer": "Codex runtime.",
+        },
+    ]
+    AutoStore(tmp_path).save(state)
+
+    handler = SessionStatusHandler(auto_store=AutoStore(tmp_path))
+    result = asyncio.run(handler.handle({"session_id": state.auto_session_id}))
+
+    assert result.is_ok
+    meta = result.value.meta
+    assert meta["pending_question"] == "Which runtime should handle this?\nAny credentials?"
+    assert meta["auto_answer_log"] == state.auto_answer_log
+    text = result.value.content[0].text
+    assert "Pending question:" in text
+    assert "  Which runtime should handle this?" in text
+    assert "  Any credentials?" in text
+    assert "Recent auto answers (last 2):" in text
+    assert "  round 2 [auto] Q: Which runtime should handle this?" in text
+    assert "    A: Codex runtime." in text
 
 
 def test_listener_prefers_terminal_generations_over_iterations(tmp_path) -> None:
@@ -414,6 +450,96 @@ def test_terminal_lineage_without_job_id_is_not_gap_window(tmp_path, phase: Auto
     assert "pending" not in meta
     assert "ralph" not in meta
     assert "Pending: starting ralph" not in result.value.content[0].text
+
+
+def test_mcp_auto_status_does_not_complete_from_execution_job_during_ralph_handoff(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Execution job completion is not complete-product proof during Ralph."""
+    state = _state_at_ralph_handoff(tmp_path, with_job_id=True)
+    state.job_id = "job_execution_done"
+    state.execution_id = "exec_done"
+    state.run_session_id = "orch_done"
+    state.mark_blocked("iteration_timeout", tool_name="ralph_starter")
+    state.ralph_job_status = "failed"
+    state.ralph_stop_reason = "iteration_timeout"
+    AutoStore(tmp_path).save(state)
+
+    class FakeJobManager:
+        async def get_snapshot(self, job_id: str) -> JobSnapshot:
+            assert job_id == state.job_id
+            now = datetime.now(UTC)
+            return JobSnapshot(
+                job_id=job_id,
+                job_type="execute_seed",
+                status=JobStatus.COMPLETED,
+                message="Execution complete: 15/15 ACs completed",
+                created_at=now,
+                updated_at=now,
+                links=JobLinks(session_id=state.run_session_id, execution_id=state.execution_id),
+            )
+
+    monkeypatch.setattr(
+        "ouroboros.mcp.tools.query_handlers.JobManager",
+        lambda: FakeJobManager(),
+    )
+
+    handler = SessionStatusHandler(auto_store=AutoStore(tmp_path))
+    result = asyncio.run(handler.handle({"session_id": state.auto_session_id}))
+
+    assert result.is_ok
+    assert result.value.meta["phase"] == "blocked"
+    assert result.value.meta["is_terminal"] is True
+    assert result.value.meta["blocker"] == "iteration_timeout"
+    assert result.value.meta["ralph"]["status"] == "failed"
+    assert result.value.meta["ralph"]["stop_reason"] == "iteration_timeout"
+    text = result.value.text_content
+    assert "Phase: blocked" in text
+    assert "Blocker: iteration_timeout" in text
+
+
+def test_mcp_auto_status_reconciles_completed_execution_without_ralph_handoff(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Legacy run-only auto sessions may complete from the linked run job."""
+    state = _state_at_run(tmp_path)
+    state.job_id = "job_execution_done"
+    state.execution_id = "exec_done"
+    state.run_session_id = "orch_done"
+    AutoStore(tmp_path).save(state)
+
+    class FakeJobManager:
+        async def get_snapshot(self, job_id: str) -> JobSnapshot:
+            assert job_id == state.job_id
+            now = datetime.now(UTC)
+            return JobSnapshot(
+                job_id=job_id,
+                job_type="execute_seed",
+                status=JobStatus.COMPLETED,
+                message="Execution complete: 15/15 ACs completed",
+                created_at=now,
+                updated_at=now,
+                links=JobLinks(session_id=state.run_session_id, execution_id=state.execution_id),
+            )
+
+    monkeypatch.setattr(
+        "ouroboros.mcp.tools.query_handlers.JobManager",
+        lambda: FakeJobManager(),
+    )
+
+    handler = SessionStatusHandler(auto_store=AutoStore(tmp_path))
+    result = asyncio.run(handler.handle({"session_id": state.auto_session_id}))
+
+    assert result.is_ok
+    assert result.value.meta["phase"] == "complete"
+    assert result.value.meta["is_terminal"] is True
+    assert "blocker" not in result.value.meta
+    text = result.value.text_content
+    assert "Phase: complete" in text
+    assert "Blocker:" not in text
+    assert "iteration_timeout" not in text
 
 
 @pytest.mark.parametrize("phase", (AutoPhase.BLOCKED, AutoPhase.FAILED))

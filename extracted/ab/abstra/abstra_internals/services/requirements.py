@@ -10,7 +10,6 @@ from pathlib import Path
 from shutil import move
 from tempfile import mkdtemp
 from typing import (
-    Callable,
     Dict,
     Iterator,
     List,
@@ -25,54 +24,15 @@ from importlib_metadata import packages_distributions
 from packaging.requirements import Requirement
 from pip._internal.cli.main import main as pip_main
 
-from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.project.project import LocalProjectRepository
 from abstra_internals.services.fs import FileSystemService
+from abstra_internals.services.notifiers import RequirementsChangeNotifier
 from abstra_internals.services.pypi_cache import PyPIVerificationCache
 from abstra_internals.settings import Settings
 from abstra_internals.utils.ast_cache import ASTCache
 from abstra_internals.utils.format import pip_name
 
 install_lock = threading.Lock()
-
-
-class RequirementsChangeNotifier:
-    """Pub/sub for requirements install/uninstall events.
-    Decouples this service from controllers/UI: listeners (e.g. UI
-    notification) subscribe at bootstrap instead of services importing them.
-    """
-
-    _listeners: List[Callable[[], None]] = []
-    _lock = threading.Lock()
-
-    @classmethod
-    def register(cls, listener: Callable[[], None]) -> None:
-        with cls._lock:
-            cls._listeners.append(listener)
-
-    @classmethod
-    def unregister(cls, listener: Callable[[], None]) -> None:
-        with cls._lock:
-            try:
-                cls._listeners.remove(listener)
-            except ValueError:
-                pass
-
-    @classmethod
-    def clear(cls) -> None:
-        """Intended for tests."""
-        with cls._lock:
-            cls._listeners.clear()
-
-    @classmethod
-    def notify(cls) -> None:
-        with cls._lock:
-            listeners = list(cls._listeners)
-        for listener in listeners:
-            try:
-                listener()
-            except Exception as e:
-                AbstraLogger.error(f"requirements change callback failed: {e}")
 
 
 class _PackagesDistributionsCache:

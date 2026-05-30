@@ -167,7 +167,9 @@ AutomatedReasoningPolicyBuildWorkflowTypeType = Literal[
     "GENERATE_POLICY_SCENARIOS",
     "IMPORT_POLICY",
     "INGEST_CONTENT",
+    "ITERATIVELY_REFINE_POLICY",
     "REFINE_POLICY",
+    "RESOLVE_POLICY_AMBIGUITIES",
 ]
 AutomatedReasoningPolicyTestRunResultType = Literal["FAILED", "PASSED"]
 AutomatedReasoningPolicyTestRunStatusType = Literal[

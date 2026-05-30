@@ -52,6 +52,15 @@ from urllib.parse import parse_qs, unquote, urlparse
 import pytest
 import yaml
 
+pytestmark = pytest.mark.repo_lint
+
+# Prefer libyaml for the cassette-shape lint. The top-level cassette set is
+# large enough that pure-Python SafeLoader dominates unit-suite runtime.
+try:
+    from yaml import CSafeLoader as _YamlSafeLoader
+except ImportError:  # pragma: no cover - libyaml ships with PyYAML wheels
+    from yaml import SafeLoader as _YamlSafeLoader  # type: ignore[assignment]
+
 # ---------------------------------------------------------------------------
 # Cassette discovery
 # ---------------------------------------------------------------------------
@@ -350,7 +359,7 @@ def _load_cassette(path: Path) -> tuple[dict[str, Any], str]:
     # (cp1252 on Windows), which can't decode the 4-byte UTF-8 emoji
     # sequences.
     raw = path.read_text(encoding="utf-8")
-    data = yaml.safe_load(raw) or {}
+    data = yaml.load(raw, Loader=_YamlSafeLoader) or {}
     return data, raw
 
 
@@ -555,7 +564,7 @@ def test_audit_repair_list_entries_exist() -> None:
 # ``Content-Encoding`` from every recorded response. Pre-#751 that was fine
 # because the response went through ``client.post`` once and decoded
 # exactly once; #751 introduced the streaming rebuild path in
-# :func:`notebooklm._authed_transport.stream_post_with_size_cap`, and the
+# :func:`notebooklm._streaming_post.stream_post_with_size_cap`, and the
 # combination of an upstream gzip header re-applied to already-decoded
 # bytes is what bit #769 in production. The existing cassette suite
 # couldn't surface that regression because no cassette carried the
@@ -613,7 +622,7 @@ def test_at_least_one_cassette_advertises_content_encoding_gzip() -> None:
     assert matches, (
         "No cassette under tests/cassettes/ advertises Content-Encoding: gzip "
         "on any response. The streaming rebuild path in "
-        "notebooklm._authed_transport.stream_post_with_size_cap is invisible to "
+        "notebooklm._streaming_post.stream_post_with_size_cap is invisible to "
         "VCR replay without it (see #769/#771). Regenerate the gzip-coverage "
         "cassette(s) via:\n"
         "    uv run python tests/scripts/inject_gzip_into_cassette.py "

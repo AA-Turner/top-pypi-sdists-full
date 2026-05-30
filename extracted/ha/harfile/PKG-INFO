@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harfile
-Version: 0.4.0
+Version: 0.5.0
 Summary: Writer for HTTP Archive (HAR) files
 Project-URL: Changelog, https://github.com/schemathesis/harfile/blob/main/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/schemathesis/harfile
@@ -23,11 +23,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.8
 Provides-Extra: bench
-Requires-Dist: pytest-codspeed==2.2.1; extra == 'bench'
+Requires-Dist: pytest-codspeed==5.0.3; (python_version >= '3.9') and extra == 'bench'
 Provides-Extra: cov
 Requires-Dist: coverage-enable-subprocess; extra == 'cov'
 Requires-Dist: coverage[toml]>=7; extra == 'cov'
@@ -38,7 +39,7 @@ Requires-Dist: coverage[toml]>=7; extra == 'dev'
 Requires-Dist: hypothesis-jsonschema>=0.23.1; extra == 'dev'
 Requires-Dist: hypothesis>=6; extra == 'dev'
 Requires-Dist: jsonschema>=4.18.0; extra == 'dev'
-Requires-Dist: pytest-codspeed==2.2.1; extra == 'dev'
+Requires-Dist: pytest-codspeed==5.0.3; (python_version >= '3.9') and extra == 'dev'
 Requires-Dist: pytest<8,>=6.2.0; extra == 'dev'
 Provides-Extra: tests
 Requires-Dist: coverage>=7; extra == 'tests'

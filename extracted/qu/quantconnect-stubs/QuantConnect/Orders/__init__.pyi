@@ -3677,6 +3677,22 @@ class ComboLegLimitOrder(QuantConnect.Orders.ComboOrder):
         ...
 
 
+class WebullOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Represents the properties of an order in Webull."""
+
+    @property
+    def outside_regular_trading_hours(self) -> bool:
+        """
+        If set to true, allows the order to trigger or fill outside of regular trading hours
+        (pre-market and after-hours sessions).
+        """
+        ...
+
+    @outside_regular_trading_hours.setter
+    def outside_regular_trading_hours(self, value: bool) -> None:
+        ...
+
+
 class TerminalLinkOrderProperties(QuantConnect.Orders.OrderProperties):
     """The terminal link order properties"""
 
@@ -3836,6 +3852,32 @@ class TerminalLinkOrderProperties(QuantConnect.Orders.OrderProperties):
 
     @broker.setter
     def broker(self, value: str) -> None:
+        ...
+
+    @property
+    def locate_broker(self) -> str:
+        """
+        The EMSX locate broker code identifying the counterparty the shares are being borrowed
+        from for a short sale (EMSX_LOCATE_BROKER, e.g. "BMTB"). Maps to the LocBrkr field on
+        the EMSX trading ticket. Setting this (or locate_id) on a short equity sale
+        causes the brokerage to emit EMSX_LOCATE_REQ = "Y" alongside.
+        """
+        ...
+
+    @locate_broker.setter
+    def locate_broker(self, value: str) -> None:
+        ...
+
+    @property
+    def locate_id(self) -> str:
+        """
+        The EMSX locate confirmation/ticket id returned by the lending broker (EMSX_LOCATE_ID).
+        Maps to the LocId field on the EMSX trading ticket.
+        """
+        ...
+
+    @locate_id.setter
+    def locate_id(self, value: str) -> None:
         ...
 
     @property

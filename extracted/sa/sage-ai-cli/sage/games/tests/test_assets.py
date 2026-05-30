@@ -60,41 +60,17 @@ def _read_png_ihdr(path: Path) -> tuple[int, int, int, int]:
 # ───────────────────────── SpriteGenerator ────────────────────────────
 
 
-def test_sprite_generator_produces_valid_placeholder_png(tmp_path):
-    """No cloud creds in CI → placeholder path must produce a real PNG."""
+def test_sprite_generator_raises_missing_backend_error_when_no_creds(tmp_path):
+    """No cloud creds in CI → must raise SpriteMissingBackendError."""
+    from sage.games.assets.sprites import SpriteMissingBackendError
     gen = SpriteGenerator(tmp_path / "sprites", style="pixel")
-    result = gen.generate("player", "blue cube hero", size=(64, 48))
-
-    assert isinstance(result, SpriteResult)
-    assert result.role == "player"
-    assert result.backend == "placeholder"  # no creds in test env
-    assert result.path.is_file()
-    assert result.path.suffix == ".png"
-
-    width, height, bit_depth, color_type = _read_png_ihdr(result.path)
-    assert (width, height) == (64, 48)
-    assert bit_depth == 8 and color_type == 2  # 8-bit RGB
+    with pytest.raises(SpriteMissingBackendError):
+        gen.generate("player", "blue cube hero", size=(64, 48))
 
 
-def test_sprite_generator_uses_deterministic_color_per_role(tmp_path):
-    """Same role → same placeholder color. Different roles → different colors.
-
-    We don't pin the actual RGB tuple (hash() randomization makes that
-    flaky across processes), we just assert two roles produce two distinct
-    images and that re-generating one role produces an identical file."""
-    gen = SpriteGenerator(tmp_path / "sprites")
-    a1 = gen.generate("alpha", "any prompt", size=(8, 8))
-    a2 = gen.generate("alpha", "any prompt", size=(8, 8))
-    b1 = gen.generate("beta", "any prompt", size=(8, 8))
-
-    assert a1.path.read_bytes() == a2.path.read_bytes()
-    assert a1.path.read_bytes() != b1.path.read_bytes()
-
-
-def test_sprite_generator_falls_back_when_imagen_raises(tmp_path, monkeypatch):
-    """Force the Imagen path to look available, then make it raise. We must
-    fall through to the placeholder and NOT propagate the exception — a
-    single failing sprite shouldn't sink the whole build."""
+def test_sprite_generator_propagates_exception_when_imagen_raises(tmp_path, monkeypatch):
+    """Force the Imagen path to look available, then make it raise. The exception
+    must propagate from generate()."""
     from sage.games.assets import sprites as s
     monkeypatch.setattr(s, "_vertex_available", lambda: True)
 
@@ -103,10 +79,8 @@ def test_sprite_generator_falls_back_when_imagen_raises(tmp_path, monkeypatch):
     monkeypatch.setattr(s, "_imagen_generate", boom)
 
     gen = SpriteGenerator(tmp_path / "sprites")
-    result = gen.generate("hero", "any prompt", size=(16, 16))
-    assert result.backend == "placeholder"
-    width, height, *_ = _read_png_ihdr(result.path)
-    assert (width, height) == (16, 16)
+    with pytest.raises(RuntimeError, match="imagen quota exceeded"):
+        gen.generate("hero", "any prompt", size=(16, 16))
 
 
 def test_sprite_generator_uses_imagen_when_path_succeeds(tmp_path, monkeypatch):
@@ -132,11 +106,23 @@ def _one_pixel_red_png(size: tuple[int, int]) -> bytes:
     """Build a real RGB PNG of `size` filled with red. Used in tests where
     we need to mock Imagen with a valid file the rest of the pipeline can
     consume."""
-    from sage.games.assets.sprites import _write_placeholder_png  # type: ignore
-    import tempfile
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
-        _write_placeholder_png(Path(tf.name), size, (255, 0, 0))
-        return Path(tf.name).read_bytes()
+    import zlib
+    import struct
+    width, height = size
+    # PNG = signature + IHDR + IDAT + IEND.
+    def _chunk(kind: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(kind + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", crc)
+
+    sig = b"\x89PNG\r\n\x1a\n"
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)  # 8-bit RGB
+    raw = bytearray()
+    row = bytes([255, 0, 0]) * width
+    for _ in range(height):
+        raw.append(0)  # filter byte: None
+        raw.extend(row)
+    idat = zlib.compress(bytes(raw), level=9)
+    return sig + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", idat) + _chunk(b"IEND", b"")
 
 
 # ───────────────────────── MeshGenerator ──────────────────────────────
@@ -145,16 +131,12 @@ def _one_pixel_red_png(size: tuple[int, int]) -> bytes:
 _GLB_MAGIC = b"glTF"
 
 
-def test_mesh_generator_falls_back_to_placeholder_glb(tmp_path):
-    """No Blender on PATH → placeholder GLB. Must start with `glTF` magic
-    so a Godot/Unity glTF importer doesn't reject it outright."""
+def test_mesh_generator_raises_missing_backend_error_when_no_blender(tmp_path):
+    """No Blender on PATH → must raise MeshMissingBackendError."""
+    from sage.games.assets.meshes import MeshMissingBackendError
     gen = MeshGenerator(tmp_path / "meshes")
-    result = gen.generate("world", "open level")
-
-    assert isinstance(result, MeshResult)
-    assert result.backend == "placeholder"
-    assert result.path.is_file()
-    assert result.path.read_bytes().startswith(_GLB_MAGIC)
+    with pytest.raises(MeshMissingBackendError):
+        gen.generate("world", "open level")
 
 
 @pytest.mark.parametrize("prompt,expected_prim", [
@@ -173,10 +155,8 @@ def test_mesh_primitive_classifier(prompt, expected_prim):
     assert _pick_primitive(prompt) == expected_prim
 
 
-def test_mesh_generator_when_blender_fails_writes_placeholder(tmp_path, monkeypatch):
-    """If Blender is found but `_blender_export` raises mid-run, the
-    generator must still emit a placeholder so the manifest stays
-    consistent for the engine adapter that consumes it."""
+def test_mesh_generator_when_blender_fails_propagates_exception(tmp_path, monkeypatch):
+    """If Blender is found but the export function raises, the exception must propagate."""
     from sage.games.assets import meshes as m
     monkeypatch.setattr(m, "_find_blender", lambda: Path("/fake/blender"))
 
@@ -185,9 +165,9 @@ def test_mesh_generator_when_blender_fails_writes_placeholder(tmp_path, monkeypa
     monkeypatch.setattr(m, "_blender_export", boom)
 
     gen = MeshGenerator(tmp_path / "meshes")
-    result = gen.generate("enemy", "robot")
-    assert result.backend == "placeholder"
-    assert result.path.read_bytes().startswith(_GLB_MAGIC)
+    with pytest.raises(RuntimeError, match="blender crashed"):
+        # Use a non-character role "rock" so it uses _blender_export
+        gen.generate("rock", "a simple rock")
 
 
 # ───────────────────────── AudioGenerator ─────────────────────────────

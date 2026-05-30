@@ -40,7 +40,7 @@ def preprocess_batch_for_hf_dataset(
     dataset, encoder_tokenizer, decoder_tokenizer, args
 ):
     if args.model_type == "bart":
-        input_ids = encoder_tokenizer.batch_encode_plus(
+        input_ids = encoder_tokenizer(
             dataset["input_text"],
             max_length=args.max_seq_length,
             padding="max_length",
@@ -48,7 +48,7 @@ def preprocess_batch_for_hf_dataset(
             truncation=True,
         )
 
-        target_ids = encoder_tokenizer.batch_encode_plus(
+        target_ids = encoder_tokenizer(
             dataset["target_text"],
             max_length=args.max_length,
             padding="max_length",
@@ -62,14 +62,13 @@ def preprocess_batch_for_hf_dataset(
             "target_ids": target_ids["input_ids"].squeeze(),
         }
     elif args.model_type == "mbart":
-        tokenized_example = encoder_tokenizer.prepare_seq2seq_batch(
-            src_texts=dataset["input_text"],
-            tgt_texts=dataset["target_text"],
-            src_lang=args.src_lang,
-            tgt_lang=args.tgt_lang,
+        encoder_tokenizer.src_lang = args.src_lang
+        encoder_tokenizer.tgt_lang = args.tgt_lang
+        tokenized_example = encoder_tokenizer(
+            text=dataset["input_text"],
+            text_target=dataset["target_text"],
             max_length=args.max_seq_length,
-            max_target_length=args.max_length,
-            padding="max_length",  # pad_to_max_length=True won't work in this case
+            padding="max_length",
             return_tensors="np",
             truncation=True,
         )
@@ -318,7 +317,7 @@ class Seq2SeqDataset(Dataset):
 def preprocess_data_bart(data):
     input_text, target_text, tokenizer, args = data
 
-    input_ids = tokenizer.batch_encode_plus(
+    input_ids = tokenizer(
         [input_text],
         max_length=args.max_seq_length,
         padding="max_length",
@@ -326,7 +325,7 @@ def preprocess_data_bart(data):
         truncation=True,
     )
 
-    target_ids = tokenizer.batch_encode_plus(
+    target_ids = tokenizer(
         [target_text],
         max_length=args.max_seq_length,
         padding="max_length",
@@ -344,13 +343,13 @@ def preprocess_data_bart(data):
 def preprocess_data_mbart(data):
     input_text, target_text, tokenizer, args = data
 
-    tokenized_example = tokenizer.prepare_seq2seq_batch(
-        src_texts=[input_text],
-        tgt_texts=[target_text],
-        src_lang=args.src_lang,
-        tgt_lang=args.tgt_lang,
+    tokenizer.src_lang = args.src_lang
+    tokenizer.tgt_lang = args.tgt_lang
+    tokenized_example = tokenizer(
+        text=[input_text],
+        text_target=[target_text],
         max_length=args.max_seq_length,
-        padding="max_length",  # pad_to_max_length=True won't work in this case
+        padding="max_length",
         return_tensors="pt",
         truncation=True,
     )
